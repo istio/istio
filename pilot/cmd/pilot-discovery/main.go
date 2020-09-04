@@ -149,6 +149,7 @@ func init() {
 		"DNS domain suffix")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.ClusterID, "clusterID", features.ClusterName,
 		"The ID of the cluster that this Istiod instance resides")
+	// Deprecated - use mesh config
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.TrustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe")
 

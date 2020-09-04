@@ -25,12 +25,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
@@ -111,6 +112,7 @@ type Options struct {
 	XDSUpdater model.XDSUpdater
 
 	// TrustDomain used in SPIFFE identity
+	// Deprecated - MeshConfig should be used.
 	TrustDomain string
 
 	// NetworksWatcher observes changes to the mesh networks config.
@@ -188,7 +190,6 @@ type Controller struct {
 	clusterID       string
 
 	serviceHandlers  []func(*model.Service, model.Event)
-	instanceHandlers []func(*model.ServiceInstance, model.Event)
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
 	// This is only used for test
@@ -216,10 +217,7 @@ type Controller struct {
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
 
-	// initialSync becomes true only after the resources that exist at startup are processed
-	// to ensure correct ordering
-	syncMu      sync.Mutex
-	initialSync bool
+	once sync.Once
 }
 
 // NewController creates a new Kubernetes controller
@@ -284,6 +282,20 @@ func (c *Controller) Cluster() string {
 	return c.clusterID
 }
 
+func (c *Controller) Cleanup() error {
+	// TODO(landow) do we need to cleanup other things besides endpoint shards?
+	svcs, err := c.serviceLister.List(klabels.NewSelector())
+	if err != nil {
+		return fmt.Errorf("error listing services for deletion: %v", err)
+	}
+	for _, s := range svcs {
+		name := kube.ServiceHostname(s.Namespace, s.Namespace, c.domainSuffix)
+		c.xdsUpdater.SvcUpdate(c.clusterID, string(name), s.Namespace, model.EventDelete)
+		// TODO(landow) do we need to notify service handlers?
+	}
+	return nil
+}
+
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	svc, ok := curr.(*v1.Service)
 	if !ok {
@@ -328,6 +340,20 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
+	}
+
+	// Update endpoint shards when service added, in case endpoint added earlier than service
+	if event == model.EventAdd {
+		// Build IstioEndpoints
+		endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Name, svc.Namespace, svcConv.Hostname)
+		if features.EnableK8SServiceSelectWorkloadEntries {
+			fep := c.collectWorkloadInstanceEndpoints(svcConv)
+			endpoints = append(endpoints, fep...)
+		}
+
+		if len(endpoints) > 0 {
+			c.xdsUpdater.EDSCacheUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, endpoints)
+		}
 	}
 
 	c.xdsUpdater.SvcUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, event)
@@ -469,29 +495,30 @@ func (c *Controller) HasSynced() bool {
 	}
 
 	// after informer caches sync the first time, process resources in order
-	c.syncMu.Lock()
-	defer c.syncMu.Unlock()
-	if !c.initialSync {
+	c.once.Do(func() {
 		if err := c.SyncAll(); err != nil {
 			log.Errorf("one or more errors force-syncing resources: %v", err)
 		}
-		c.initialSync = true
-	}
+	})
 
 	return true
 }
 
+// SyncAll syncs all the objects node->service->pod->endpoint in order
+// TODO: sync same kind of objects in parallel
+// This can cause great performance cost in multi clusters scenario.
+// Maybe just sync the cache and trigger one push at last.
 func (c *Controller) SyncAll() error {
 	var err *multierror.Error
 
 	nodes := c.nodeInformer.GetStore().List()
-	log.Debugf("initialzing %d nodes", len(nodes))
+	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
 		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
 	}
 
 	services := c.serviceInformer.GetStore().List()
-	log.Debugf("initialzing %d services", len(services))
+	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
 	}
@@ -505,7 +532,7 @@ func (c *Controller) SyncAll() error {
 func (c *Controller) syncPods() error {
 	var err *multierror.Error
 	pods := c.pods.informer.GetStore().List()
-	log.Debugf("initialzing %d pods", len(pods))
+	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
 	}
@@ -515,7 +542,7 @@ func (c *Controller) syncPods() error {
 func (c *Controller) syncEndpoints() error {
 	var err *multierror.Error
 	endpoints := c.endpoints.getInformer().GetStore().List()
-	log.Debugf("initialzing%d endpoints", len(endpoints))
+	log.Debugf("initializing%d endpoints", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
 	}
@@ -645,15 +672,14 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
-	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
-	if len(outInstances) > 0 || err != nil {
-		return outInstances, err
+	if len(outInstances) > 0 {
+		return outInstances
 	}
 
 	// Fall back to external name service since we did not find any instances of normal services
@@ -667,9 +693,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 				inScopeInstances = append(inScopeInstances, i)
 			}
 		}
-		return inScopeInstances, nil
+		return inScopeInstances
 	}
-	return nil, nil
+	return nil
 }
 
 func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
@@ -783,8 +809,6 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-
-	out := make([]*model.ServiceInstance, 0)
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
@@ -792,29 +816,23 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 
 		pod := c.pods.getPodByIP(proxyIP)
 		if workload, f := c.workloadInstancesByIP[proxyIP]; f {
-			var err error
-			out, err = c.hydrateWorkloadInstance(workload)
-			if err != nil {
-				log.Warnf("hydrateWorkloadInstance for %v failed: %v", proxy.ID, err)
-			}
+			return c.hydrateWorkloadInstance(workload), nil
 		} else if pod != nil {
-			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
-			// which can happen when multi clusters using same pod cidr.
-			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
-			// if they are not same, ignore the pod, because the pod is in another cluster.
-			if proxy.Metadata.Network != c.endpointNetwork(proxyIP) {
-				return out, nil
+			if !c.isControllerForProxy(proxy) {
+				return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 			}
+
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
 			if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
+				out := make([]*model.ServiceInstance, 0)
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 				}
 				return out, nil
 			}
 			// 2. Headless service without selector
-			out = c.endpoints.GetProxyServiceInstances(c, proxy)
+			return c.endpoints.GetProxyServiceInstances(c, proxy), nil
 		} else {
 			var err error
 			// 3. The pod is not present when this is called
@@ -822,23 +840,22 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			// metadata already. Because of this, we can still get most of the information we need.
 			// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
 			// attempt to read the real pod.
-			out, err = c.getProxyServiceInstancesFromMetadata(proxy)
+			out, err := c.getProxyServiceInstancesFromMetadata(proxy)
 			if err != nil {
 				log.Warnf("getProxyServiceInstancesFromMetadata for %v failed: %v", proxy.ID, err)
 			}
+			return out, nil
 		}
 	}
-	if len(out) == 0 {
-		if c.metrics != nil {
-			c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
-		} else {
-			log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
-		}
+	if c.metrics != nil {
+		c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy.ID, "")
+	} else {
+		log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
 	}
-	return out, nil
+	return nil, nil
 }
 
-func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) ([]*model.ServiceInstance, error) {
+func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*model.ServiceInstance {
 	out := []*model.ServiceInstance{}
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
@@ -864,15 +881,12 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) ([]*mod
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
-				if err != nil {
-					return nil, err
-				}
+				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
 				out = append(out, instances...)
 			}
 		}
 	}
-	return out, nil
+	return out
 }
 
 // WorkloadInstanceHandler defines the handler for service instances generated by other registries
@@ -922,7 +936,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
+				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
 				if err != nil {
 					log.Debugf("Failed to get endpoints for service %s on port %d, in response to workload instance: %v",
 						service.Hostname, port.Port, err)
@@ -939,6 +953,12 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
+// isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
+// may not necessarily pass this check, but we still want to allow kube services to select workload instances.
+func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
+	return proxy.Metadata.ClusterID == c.clusterID
+}
+
 // getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
 // from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
 // If the proxy doesn't have enough metadata, an error is returned
@@ -947,7 +967,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
-	if proxy.Metadata.ClusterID != c.clusterID {
+	if !c.isControllerForProxy(proxy) {
 		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 	}
 
@@ -971,7 +991,6 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 
 	out := make([]*model.ServiceInstance, 0)
 	for _, svc := range services {
-		svcAccount := proxy.Metadata.ServiceAccount
 		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)
 		c.RLock()
 		modelService, f := c.servicesMap[hostname]
@@ -1002,6 +1021,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			}
 		}
 
+		epBuilder := NewEndpointBuilderFromMetadata(c, proxy)
 		for tp, svcPort := range tps {
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
@@ -1009,19 +1029,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 				out = append(out, &model.ServiceInstance{
 					Service:     modelService,
 					ServicePort: svcPort,
-					Endpoint: &model.IstioEndpoint{
-						Address:         ip,
-						EndpointPort:    uint32(tp.Port),
-						ServicePortName: svcPort.Name,
-						// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
-						Labels:         proxy.Metadata.Labels,
-						ServiceAccount: svcAccount,
-						Network:        c.endpointNetwork(ip),
-						Locality: model.Locality{
-							Label:     util.LocalityToString(proxy.Locality),
-							ClusterID: c.clusterID,
-						},
-					},
+					Endpoint:    epBuilder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name),
 				})
 			}
 		}
@@ -1108,11 +1116,5 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 // AppendWorkloadHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
 	c.workloadHandlers = append(c.workloadHandlers, f)
-	return nil
-}
-
-// AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
 }

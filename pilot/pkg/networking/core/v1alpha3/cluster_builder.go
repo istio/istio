@@ -27,9 +27,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -58,7 +58,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
 	opts := buildClusterOpts{
-		push:        cb.push,
+		mesh:        cb.push.Mesh,
 		cluster:     c,
 		policy:      destinationRule.TrafficPolicy,
 		port:        port,
@@ -86,7 +86,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
-		clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+		clusterMetadata = util.BuildConfigInfoMetadata(destRule.Meta)
 		c.Metadata = clusterMetadata
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
@@ -199,14 +199,13 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
-		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
 		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
-			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy,
+			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
 				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
 			return nil
 		}
@@ -219,7 +218,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
 	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
 	opts := buildClusterOpts{
-		push:            cb.push,
+		mesh:            cb.push.Mesh,
 		cluster:         c,
 		policy:          cb.defaultTrafficPolicy(discoveryType),
 		port:            port,
@@ -235,17 +234,45 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return c
 }
 
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.ServiceInstance, bind string) *cluster.Cluster {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
+		instance.Service.Hostname, instance.ServicePort.Port)
+	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
+	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
+		model.TrafficDirectionInbound, nil, false)
+	// If stat name is configured, build the alt statname.
+	if len(cb.push.Mesh.InboundClusterStatName) != 0 {
+		localCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
+			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
+	}
+	setUpstreamProtocol(cb.proxy, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
+
+	// When users specify circuit breakers, they need to be set on the receiver end
+	// (server side) as well as client side, so that the server has enough capacity
+	// (not the defaults) to handle the increased traffic volume
+	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
+	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
+	cfg := cb.push.DestinationRule(cb.proxy, instance.Service)
+	if cfg != nil {
+		destinationRule := cfg.Spec.(*networking.DestinationRule)
+		if destinationRule.TrafficPolicy != nil {
+			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
+			// only connection pool settings make sense on the inbound path.
+			// upstream TLS settings/outlier detection/load balancer don't apply here.
+			applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
+			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.Meta)
+		}
+	}
+	return localCluster
+}
+
 func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]bool, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
 
-	instances, err := cb.push.InstancesByPort(service, port, labels)
-	if err != nil {
-		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
-		return nil
-	}
+	instances := cb.push.InstancesByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
@@ -254,9 +281,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
-		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
-		// the default network assigned to endpoints that don't have an explicit network
-		if !proxyNetworkView[instance.Endpoint.Network] {
+		// The default network view assigned to the Proxy is nil, in that case match any network.
+		if proxyNetworkView != nil && !proxyNetworkView[instance.Endpoint.Network] {
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
@@ -359,7 +385,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
-	applyConnectionPool(cb.push, cluster, passthroughSettings)
+	applyConnectionPool(cb.push.Mesh, cluster, passthroughSettings)
 	return cluster
 }
 
@@ -388,7 +414,7 @@ func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_Dis
 
 // castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
 // Otherwise, return default (empty) DR.
-func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationRule {
+func castDestinationRuleOrDefault(config *config.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
 	}

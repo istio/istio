@@ -36,6 +36,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -45,12 +46,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
-)
-
-const (
-	// RequirementsURL specifies deployment requirements for pod and services
-	RequirementsURL = "https://istio.io/latest/docs/ops/deployment/requirements/"
 )
 
 var (
@@ -105,11 +102,11 @@ istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.2
 		"injectConfigMapName", "valuesFile")
 	addToMeshCmd.AddCommand(externalSvcMeshifyCmd)
 	addToMeshCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
-		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
+		"Mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	addToMeshCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
-		"injection configuration filename. Cannot be used with --injectConfigMapName")
+		"Injection configuration filename. Cannot be used with --injectConfigMapName")
 	addToMeshCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
-		"injection values configuration filename.")
+		"Injection values configuration filename.")
 
 	addToMeshCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
@@ -119,17 +116,18 @@ istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.2
 }
 
 func deploymentMeshifyCmd() *cobra.Command {
-	var revision string
+	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
-		Use:   "deployment <deployment>",
-		Short: "Add deployment to Istio service mesh",
+		Use:     "deployment <deployment>",
+		Aliases: []string{"deploy", "dep"},
+		Short:   "Add deployment to Istio service mesh",
 		// nolint: lll
 		Long: `'istioctl experimental add-to-mesh deployment' restarts pods with the Istio sidecar.  Use 'add-to-mesh'
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See ` + RequirementsURL + `
+See ` + url.DeploymentRequirements + `
 
 See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
 
@@ -161,30 +159,29 @@ istioctl experimental add-to-mesh deployment productpage-v1`,
 			deps := make([]appsv1.Deployment, 0)
 			deps = append(deps, *dep)
 			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
-				args[0], ns, revision, meshConfig, writer, func(warning string) {
+				args[0], ns, opts.Revision, meshConfig, writer, func(warning string) {
 					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				})
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision (experimental)")
-
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
 func svcMeshifyCmd() *cobra.Command {
-	var revision string
+	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
-		Use:   "service <service>",
-		Short: "Add Service to Istio service mesh",
+		Use:     "service <service>",
+		Aliases: []string{"svc"},
+		Short:   "Add Service to Istio service mesh",
 		// nolint: lll
 		Long: `istioctl experimental add-to-mesh service restarts pods with the Istio sidecar.  Use 'add-to-mesh'
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See ` + RequirementsURL + `
+See ` + url.DeploymentRequirements + `
 
 See also 'istioctl experimental remove-from-mesh service' which does the reverse.
 
@@ -218,15 +215,13 @@ istioctl experimental add-to-mesh service productpage`,
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
-				args[0], ns, revision, meshConfig, writer, func(warning string) {
+				args[0], ns, opts.Revision, meshConfig, writer, func(warning string) {
 					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				})
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision (experimental)")
-
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
@@ -340,9 +335,10 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 		}
 		d := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dep.Name,
-				Namespace: dep.Namespace,
-				UID:       dep.UID,
+				Name:            dep.Name,
+				Namespace:       dep.Namespace,
+				UID:             dep.UID,
+				OwnerReferences: dep.OwnerReferences,
 			},
 		}
 		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
@@ -352,13 +348,12 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 		}
 		_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
 			"Next Step: Add related labels to the deployment to align with Istio's requirement: %s\n",
-			dep.Name, dep.Namespace, RequirementsURL)
+			dep.Name, dep.Namespace, url.DeploymentRequirements)
 	}
 	return errs
 }
 
 func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]appsv1.Deployment, error) {
-	deps := make([]appsv1.Deployment, 0)
 	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -371,6 +366,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 	if err != nil {
 		return nil, err
 	}
+	deps := make([]appsv1.Deployment, 0, len(deployments.Items))
 	for _, dep := range deployments.Items {
 		depLabels := k8s_labels.Set(dep.Spec.Selector.MatchLabels)
 		if svcSelector.Matches(depLabels) {
@@ -423,8 +419,8 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	if err != nil {
 		return err
 	}
-	labels := convertToMap(l)
-	annotations := convertToMap(a)
+	labels := convertToStringMap(l)
+	annotations := convertToStringMap(a)
 	opts := &vmServiceOpts{
 		Name:           svcName,
 		Namespace:      ns,
@@ -484,7 +480,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 	if o == nil {
 		return fmt.Errorf("empty vm service options")
 	}
-	ports := make([]*v1alpha3.Port, 0)
+	ports := make([]*v1alpha3.Port, 0, len(o.PortList))
 	for _, p := range o.PortList {
 		ports = append(ports, &v1alpha3.Port{
 			Number:   uint32(p.Port),
@@ -492,7 +488,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Name:     p.Name,
 		})
 	}
-	eps := make([]*v1alpha3.WorkloadEntry, 0)
+	eps := make([]*v1alpha3.WorkloadEntry, 0, len(o.IP))
 	for _, ip := range o.IP {
 		eps = append(eps, &v1alpha3.WorkloadEntry{
 			Address: ip,
@@ -508,22 +504,29 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 		Location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
 	}
 
-	// Because we are placing into an Unstructured, place as a map instead
-	// of structured Istio types.  (The go-client can handle the structured data, but the
-	// fake go-client used for mocking cannot.)
-	b, err := yaml.Marshal(spec)
+	iSpec, err := unstructureIstioType(spec)
 	if err != nil {
 		return err
+	}
+	u.Object["spec"] = iSpec
+
+	return nil
+}
+
+// Because we are placing into an Unstructured, place as a map instead
+// of structured Istio types.  (The go-client can handle the structured data, but the
+// fake go-client used for mocking cannot.)
+func unstructureIstioType(spec interface{}) (map[string]interface{}, error) {
+	b, err := yaml.Marshal(spec)
+	if err != nil {
+		return nil, err
 	}
 	iSpec := map[string]interface{}{}
 	err = yaml.Unmarshal(b, &iSpec)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	u.Object["spec"] = iSpec
-
-	return nil
+	return iSpec, nil
 }
 
 func resourceName(hostShortName string) string {
@@ -531,7 +534,7 @@ func resourceName(hostShortName string) string {
 }
 
 func generateK8sService(s *corev1.Service, o *vmServiceOpts) {
-	ports := make([]corev1.ServicePort, 0)
+	ports := make([]corev1.ServicePort, 0, len(o.PortList))
 	for _, p := range o.PortList {
 		ports = append(ports, corev1.ServicePort{
 			Name: strings.ToLower(p.Name),
@@ -545,7 +548,19 @@ func generateK8sService(s *corev1.Service, o *vmServiceOpts) {
 	s.Spec = spec
 }
 
-func convertToMap(s []string) map[string]string {
+func convertToUnsignedInt32Map(s []string) map[string]uint32 {
+	out := make(map[string]uint32, len(s))
+	for _, l := range s {
+		k, v := splitEqual(l)
+		u64, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			log.Errorf("failed to convert to uint32: %v", err)
+		}
+		out[k] = uint32(u64)
+	}
+	return out
+}
+func convertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {
 		k, v := splitEqual(l)

@@ -16,8 +16,10 @@
 
 openssl req -new -newkey rsa:4096 -x509 -sha256 \
         -days 3650 -nodes -out cert.pem -keyout key.pem \
-        -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=localhost"
+        -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=localhost/SAN=localhost" \
+        -addext "subjectAltName = DNS:localhost"
 
 openssl req -new -newkey rsa:4096 -x509 -sha256 \
         -days 3650 -nodes -out cert2.pem -keyout key2.pem \
-        -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=anotherhost"
+        -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=anotherhost" \
+        -addext "subjectAltName = DNS:localhost"

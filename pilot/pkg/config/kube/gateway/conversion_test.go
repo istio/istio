@@ -17,20 +17,21 @@ package gateway
 import (
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestConvertResources(t *testing.T) {
-	cases := []string{"simple", "mismatch", "tls"}
+	cases := []string{"simple", "mismatch", "tls", "weighted"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
@@ -52,10 +53,10 @@ func TestConvertResources(t *testing.T) {
 	}
 }
 
-func splitOutput(configs []model.Config) IstioResources {
+func splitOutput(configs []config.Config) IstioResources {
 	out := IstioResources{
-		Gateway:        []model.Config{},
-		VirtualService: []model.Config{},
+		Gateway:        []config.Config{},
+		VirtualService: []config.Config{},
 	}
 	for _, c := range configs {
 		switch c.GroupVersionKind {
@@ -68,7 +69,7 @@ func splitOutput(configs []model.Config) IstioResources {
 	return out
 }
 
-func splitInput(configs []model.Config) *KubernetesResources {
+func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
 	for _, c := range configs {
 		switch c.GroupVersionKind {
@@ -80,21 +81,19 @@ func splitInput(configs []model.Config) *KubernetesResources {
 			out.HTTPRoute = append(out.HTTPRoute, c)
 		case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
 			out.TCPRoute = append(out.TCPRoute, c)
-		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind():
-			out.TrafficSplit = append(out.TrafficSplit, c)
 		}
 	}
 	return out
 }
 
-func readConfig(t *testing.T, filename string) []model.Config {
+func readConfig(t *testing.T, filename string) []config.Config {
 	t.Helper()
 
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
-	c, _, err := crd.ParseInputsWithoutValidation(string(data))
+	c, _, err := crd.ParseInputs(string(data))
 	if err != nil {
 		t.Fatalf("failed to parse CRD: %v", err)
 	}
@@ -102,7 +101,7 @@ func readConfig(t *testing.T, filename string) []model.Config {
 }
 
 // Print as YAML
-func marshalYaml(t *testing.T, cl []model.Config) []byte {
+func marshalYaml(t *testing.T, cl []config.Config) []byte {
 	t.Helper()
 	result := []byte{}
 	separator := []byte("---\n")
@@ -119,4 +118,31 @@ func marshalYaml(t *testing.T, cl []model.Config) []byte {
 		result = append(result, separator...)
 	}
 	return result
+}
+
+func TestStandardizeWeight(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  []int
+		output []int
+	}{
+		{"single", []int{1}, []int{100}},
+		{"double", []int{1, 1}, []int{50, 50}},
+		{"overflow", []int{1, 1, 1}, []int{34, 33, 33}},
+		{"skewed", []int{9, 1}, []int{90, 10}},
+		{"multiple overflow", []int{1, 1, 1, 1, 1, 1}, []int{17, 17, 17, 17, 16, 16}},
+		{"skewed overflow", []int{1, 1, 1, 3}, []int{17, 17, 16, 50}},
+		{"skewed overflow 2", []int{1, 1, 1, 1, 2}, []int{17, 17, 17, 16, 33}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := standardizeWeights(tt.input)
+			if !reflect.DeepEqual(tt.output, got) {
+				t.Errorf("standardizeWeights() = %v, want %v", got, tt.output)
+			}
+			if intSum(tt.output) != 100 {
+				t.Errorf("invalid weights, should sum to 100: %v", got)
+			}
+		})
+	}
 }

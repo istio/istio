@@ -17,7 +17,7 @@ package deprecation
 import (
 	"fmt"
 
-	k8sext_v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8sext_v1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -32,22 +32,22 @@ type FieldAnalyzer struct{}
 
 var (
 	// Tracks Istio CRDs removed from manifests/charts/base/crds/crd-all.gen.yaml
-	deprecatedCRDs = []k8sext_v1.CustomResourceDefinitionSpec{
+	deprecatedCRDs = []k8sext_v1beta1.CustomResourceDefinitionSpec{
 		{
 			Group: "rbac.istio.io",
-			Names: k8sext_v1.CustomResourceDefinitionNames{Kind: "ClusterRbacConfig"},
+			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ClusterRbacConfig"},
 		},
 		{
 			Group: "rbac.istio.io",
-			Names: k8sext_v1.CustomResourceDefinitionNames{Kind: "RbacConfig"},
+			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "RbacConfig"},
 		},
 		{
 			Group: "rbac.istio.io",
-			Names: k8sext_v1.CustomResourceDefinitionNames{Kind: "ServiceRole"},
+			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ServiceRole"},
 		},
 		{
 			Group: "rbac.istio.io",
-			Names: k8sext_v1.CustomResourceDefinitionNames{Kind: "ServiceRoleBinding"},
+			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ServiceRoleBinding"},
 		},
 	}
 )
@@ -61,7 +61,7 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 	deprecationInputs := collection.Names{
 		collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 		collections.IstioNetworkingV1Alpha3Sidecars.Name(),
-		collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+		collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(),
 	}
 
 	return analysis.Metadata{
@@ -82,7 +82,7 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeSidecar(r, ctx)
 		return true
 	})
-	ctx.ForEach(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(), func(r *resource.Instance) bool {
 		fa.analyzeCRD(r, ctx)
 		return true
 	})
@@ -96,10 +96,10 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
-	crd := r.Message.(*k8sext_v1.CustomResourceDefinitionSpec)
+	crd := r.Message.(*k8sext_v1beta1.CustomResourceDefinitionSpec)
 	for _, depCRD := range deprecatedCRDs {
 		if crd.Group == depCRD.Group && crd.Names.Kind == depCRD.Names.Kind {
-			ctx.Report(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+			ctx.Report(collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(),
 				msg.NewDeprecated(r, crRemovedMessage(depCRD.Group, depCRD.Names.Kind)))
 		}
 	}

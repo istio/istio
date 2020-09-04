@@ -32,11 +32,17 @@ var (
 	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
 
 	validationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", validationWebhookConfigNameTemplate,
-		"Name of validatingwegbhookconfiguration to patch, if istioctl is not used.")
+		"Name of validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.")
+
+	validationEnabled = env.RegisterBoolVar("VALIDATION_ENABLED", true, "Enable config validation handler.")
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
 	if s.kubeClient == nil {
+		return nil
+	}
+
+	if !validationEnabled.Get() {
 		return nil
 	}
 

@@ -131,7 +131,7 @@ func sliceServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, p
 						})
 						// If the endpoint isn't ready, report this
 						if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.metrics != nil {
-							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
 						}
 					}
 				}
@@ -186,28 +186,43 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 	return esc.endpointCache.Get(host)
 }
 
+func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: name}).AsSelectorPreValidated()
+	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
+	if err != nil || len(slices) == 0 {
+		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
+		return nil
+	}
+
+	endpoints := make([]*model.IstioEndpoint, 0)
+	for _, es := range slices {
+		endpoints = append(endpoints, esc.buildIstioEndpoints(es, host)...)
+	}
+
+	return endpoints
+}
+
 func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {
 	slice := es.(*discoveryv1alpha1.EndpointSlice)
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
 	return kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix), svcName, slice.Namespace
 }
 
-func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
-	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
 	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil, nil
+		return nil
 	}
 	if len(slices) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	// Locate all ports in the actual service
 	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
-		return nil, nil
+		return nil
 	}
 
 	var out []*model.ServiceInstance
@@ -246,7 +261,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 			}
 		}
 	}
-	return out, nil
+	return out
 }
 
 func (esc *endpointSliceController) newEndpointBuilder(pod *v1.Pod, endpoint discoveryv1alpha1.Endpoint) *EndpointBuilder {

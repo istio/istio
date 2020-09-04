@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -74,7 +75,7 @@ func TestConfigDescriptor(t *testing.T) {
 	if !aExists || !reflect.DeepEqual(aType, a) {
 		t.Errorf("descriptor.GetByType(a) => got %+v, want %+v", aType, a)
 	}
-	if _, exists := schemas.FindByGroupVersionKind(resource.GroupVersionKind{Kind: "missing"}); exists {
+	if _, exists := schemas.FindByGroupVersionKind(config.GroupVersionKind{Kind: "missing"}); exists {
 		t.Error("descriptor.GetByType(missing) => got true, want false")
 	}
 
@@ -199,7 +200,7 @@ func TestLabelsEquals(t *testing.T) {
 func TestConfigKey(t *testing.T) {
 	cfg := mock_config.Make("ns", 2)
 	want := "MockConfig/ns/mock-config2"
-	if key := cfg.ConfigMeta.Key(); key != want {
+	if key := cfg.Meta.Key(); key != want {
 		t.Fatalf("config.Key() => got %q, want %q", key, want)
 	}
 }
@@ -207,26 +208,26 @@ func TestConfigKey(t *testing.T) {
 func TestResolveShortnameToFQDN(t *testing.T) {
 	tests := []struct {
 		name string
-		meta model.ConfigMeta
+		meta config.Meta
 		out  host.Name
 	}{
 		{
-			"*", model.ConfigMeta{}, "*",
+			"*", config.Meta{}, "*",
 		},
 		{
-			"*", model.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "*",
+			"*", config.Meta{Namespace: "default", Domain: "cluster.local"}, "*",
 		},
 		{
-			"foo", model.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "foo.default.svc.cluster.local",
+			"foo", config.Meta{Namespace: "default", Domain: "cluster.local"}, "foo.default.svc.cluster.local",
 		},
 		{
-			"foo.bar", model.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "foo.bar",
+			"foo.bar", config.Meta{Namespace: "default", Domain: "cluster.local"}, "foo.bar",
 		},
 		{
-			"foo", model.ConfigMeta{Domain: "cluster.local"}, "foo.svc.cluster.local",
+			"foo", config.Meta{Domain: "cluster.local"}, "foo.svc.cluster.local",
 		},
 		{
-			"foo", model.ConfigMeta{Namespace: "default"}, "foo.default",
+			"foo", config.Meta{Namespace: "default"}, "foo.default",
 		},
 	}
 
@@ -308,11 +309,11 @@ func TestAuthorizationPolicies(t *testing.T) {
 
 type fakeStore struct {
 	model.ConfigStore
-	cfg map[resource.GroupVersionKind][]model.Config
+	cfg map[config.GroupVersionKind][]config.Config
 	err error
 }
 
-func (l *fakeStore) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+func (l *fakeStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	ret := l.cfg[typ]
 	return ret, l.err
 }
@@ -324,10 +325,10 @@ func (l *fakeStore) Schemas() collection.Schemas {
 func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
-		cfg: map[resource.GroupVersionKind][]model.Config{
+		cfg: map[config.GroupVersionKind][]config.Config{
 			gvk.ServiceEntry: {
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "request-count-1",
 						Namespace: ns,
 					},
@@ -356,24 +357,24 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 func TestIstioConfigStore_Gateway(t *testing.T) {
 	workloadLabels := labels.Collection{}
 	now := time.Now()
-	gw1 := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	gw1 := config.Config{
+		Meta: config.Meta{
 			Name:              "name1",
 			Namespace:         "zzz",
 			CreationTimestamp: now,
 		},
 		Spec: &networking.Gateway{},
 	}
-	gw2 := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	gw2 := config.Config{
+		Meta: config.Meta{
 			Name:              "name1",
 			Namespace:         "aaa",
 			CreationTimestamp: now,
 		},
 		Spec: &networking.Gateway{},
 	}
-	gw3 := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	gw3 := config.Config{
+		Meta: config.Meta{
 			Name:              "name1",
 			Namespace:         "ns2",
 			CreationTimestamp: now.Add(time.Second * -1),
@@ -382,14 +383,14 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 	}
 
 	l := &fakeStore{
-		cfg: map[resource.GroupVersionKind][]model.Config{
+		cfg: map[config.GroupVersionKind][]config.Config{
 			gvk.Gateway: {gw1, gw2, gw3},
 		},
 	}
 	ii := model.MakeIstioStore(l)
 
 	// Gateways should be returned in a stable order
-	expectedConfig := []model.Config{
+	expectedConfig := []config.Config{
 		gw3, // first config by timestamp
 		gw2, // timestamp match with gw1, but name comes first
 		gw1, // timestamp match with gw2, but name comes last
@@ -398,34 +399,5 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedConfig, cfgs) {
 		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
-	}
-}
-
-func TestDeepCopy(t *testing.T) {
-	cfg := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Name:              "name1",
-			Namespace:         "zzz",
-			CreationTimestamp: time.Now(),
-		},
-		Spec: &networking.Gateway{},
-	}
-
-	copied := cfg.DeepCopy()
-
-	if !(cfg.Spec.String() == copied.Spec.String() &&
-		cfg.Namespace == copied.Namespace &&
-		cfg.Name == copied.Name &&
-		cfg.CreationTimestamp == copied.CreationTimestamp) {
-		t.Fatalf("cloned config is not identical")
-	}
-
-	// change the copied gateway to see if the original config is not effected
-	copiedGateway := copied.Spec.(*networking.Gateway)
-	copiedGateway.Selector = map[string]string{"app": "test"}
-
-	gateway := cfg.Spec.(*networking.Gateway)
-	if gateway.Selector != nil {
-		t.Errorf("Original gateway is mutated")
 	}
 }

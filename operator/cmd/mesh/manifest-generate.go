@@ -46,6 +46,8 @@ type manifestGenerateArgs struct {
 	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// components is a list of strings specifying which component's manifests to be generated.
+	components []string
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
@@ -56,6 +58,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVar(&args.components, "component", nil, ComponentFlagHelpStr)
 }
 
 func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *log.Options) *cobra.Command {
@@ -67,8 +70,8 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 		Example: `  # Generate a default Istio installation
   istioctl manifest generate
 
-  # Enable grafana dashboard
-  istioctl manifest generate --set values.grafana.enabled=true
+  # Enable Tracing
+  istioctl install --set meshConfig.enableTracing=true
 
   # Generate the demo profile
   istioctl manifest generate --set profile=demo
@@ -97,6 +100,19 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
+	}
+
+	if len(mgArgs.components) != 0 {
+		filteredManifests := name.ManifestMap{}
+		for _, cArg := range mgArgs.components {
+			componentName := name.ComponentName(cArg)
+			if cManifests, ok := manifests[componentName]; ok {
+				filteredManifests[componentName] = cManifests
+			} else {
+				return fmt.Errorf("incorrect component name: %s. Valid options: %v", cArg, name.AllComponentNames)
+			}
+		}
+		manifests = filteredManifests
 	}
 
 	if mgArgs.outFilename == "" {
@@ -146,8 +162,8 @@ func orderedManifests(mm name.ManifestMap) ([]string, error) {
 
 // RenderToDir writes manifests to a local filesystem directory tree.
 func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool, l clog.Logger) error {
-	l.LogAndPrint("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
-	l.LogAndPrint("Rendering manifests to output dir %s", outputDir)
+	l.LogAndPrintf("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
+	l.LogAndPrintf("Rendering manifests to output dir %s", outputDir)
 	return renderRecursive(manifests, helmreconciler.InstallTree, outputDir, dryRun, l)
 }
 
@@ -156,7 +172,7 @@ func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.Comp
 		componentName := string(k)
 		// In cases (like gateways) where multiple instances can exist, concatenate the manifests and apply as one.
 		ym := strings.Join(manifests[k], helm.YAMLSeparator)
-		l.LogAndPrint("Rendering: %s", componentName)
+		l.LogAndPrintf("Rendering: %s", componentName)
 		dirName := filepath.Join(outputDir, componentName)
 		if !dryRun {
 			if err := os.MkdirAll(dirName, os.ModePerm); err != nil {
@@ -164,7 +180,7 @@ func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.Comp
 			}
 		}
 		fname := filepath.Join(dirName, componentName) + ".yaml"
-		l.LogAndPrint("Writing manifest to %s", fname)
+		l.LogAndPrintf("Writing manifest to %s", fname)
 		if !dryRun {
 			if err := ioutil.WriteFile(fname, []byte(ym), 0644); err != nil {
 				return fmt.Errorf("could not write manifest config; %s", err)

@@ -460,7 +460,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int, labels labels.Collection) ([]*ServiceInstance, error)
+	InstancesByPort(svc *Service, servicePort int, labels labels.Collection) []*ServiceInstance
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -574,12 +574,9 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 }
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
-func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
-	// todo reduce unnecessary locking
-	s.Mutex.RLock()
-	defer s.Mutex.RUnlock()
-	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
-		return s.ClusterVIPs[node.Metadata.ClusterID]
+func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) string {
+	if node.Metadata != nil && node.Metadata.ClusterID != "" && push.ClusterVIPs[s][node.Metadata.ClusterID] != "" {
+		return push.ClusterVIPs[s][node.Metadata.ClusterID]
 	}
 	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
 		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
@@ -609,11 +606,7 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	for _, port := range ports {
-		svcInstances, err := discovery.InstancesByPort(svc, port, labels.Collection{})
-		if err != nil {
-			log.Warnf("InstancesByPort(%s:%d) error: %v", svc.Hostname, port, err)
-			return nil
-		}
+		svcInstances := discovery.InstancesByPort(svc, port, labels.Collection{})
 		instances = append(instances, svcInstances...)
 	}
 

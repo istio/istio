@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +20,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -37,11 +39,10 @@ func TestMain(m *testing.M) {
 
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-
 	cfg.ControlPlaneValues = `
 values:
   global:
@@ -52,7 +53,7 @@ values:
 func TestMtlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.control-plane.k8s-certs", "security.ingress.mtls").
+		Features("security.ingress.mtls.gateway").
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiMtlsGateways(ctx, inst)
 		})
@@ -61,7 +62,7 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 func TestTlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.control-plane.k8s-certs", "security.ingress.tls").
+		Features("security.ingress.tls.gateway.K8sca").
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiTLSGateways(ctx, inst)
 		})

@@ -27,13 +27,13 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config"
 	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
 	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/pkg/log"
@@ -45,9 +45,9 @@ var (
 
 // Implemenation of authn.PolicyApplier with v1beta1 API.
 type v1beta1PolicyApplier struct {
-	jwtPolicies []*model.Config
+	jwtPolicies []*config.Config
 
-	peerPolices []*model.Config
+	peerPolices []*config.Config
 
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
 	processedJwtRules []*v1beta1.JWTRule
@@ -75,7 +75,7 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	return &authn_filter.FilterConfig{
 		Policy: &authn_alpha.Policy{},
 		// we can always set this field, it's no-op if mTLS is not used.
-		SkipValidateTrustDomain: features.SkipValidateTrustDomain.Get(),
+		SkipValidateTrustDomain: true,
 	}
 }
 
@@ -182,16 +182,16 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
-	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
+	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain {
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
-	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node, listenerProtocol)
+	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node, listenerProtocol, trustDomainAliases)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(rootNamespace string,
-	jwtPolicies []*model.Config,
-	peerPolicies []*model.Config) authn.PolicyApplier {
+	jwtPolicies []*config.Config,
+	peerPolicies []*config.Config) authn.PolicyApplier {
 	processedJwtRules := []*v1beta1.JWTRule{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
@@ -398,8 +398,8 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // - UNSET will be replaced with the setting from the parrent. I.e UNSET port-level config will be
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
-func composePeerAuthentication(rootNamespace string, configs []*model.Config) *v1beta1.PeerAuthentication {
-	var meshCfg, namespaceCfg, workloadCfg *model.Config
+func composePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
+	var meshCfg, namespaceCfg, workloadCfg *config.Config
 
 	for _, cfg := range configs {
 		spec := cfg.Spec.(*v1beta1.PeerAuthentication)

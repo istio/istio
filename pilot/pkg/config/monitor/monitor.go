@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
 )
 
@@ -32,8 +32,8 @@ type Monitor struct {
 	name            string
 	root            string
 	store           model.ConfigStore
-	configs         []*model.Config
-	getSnapshotFunc func() ([]*model.Config, error)
+	configs         []*config.Config
+	getSnapshotFunc func() ([]*config.Config, error)
 	// channel to trigger updates on
 	// generally set to a file watch, but used in tests as well
 	updateCh chan struct{}
@@ -42,7 +42,7 @@ type Monitor struct {
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
 // The controller holds a reference to the actual store.
 // Any func that returns a []*model.Config can be used with the Monitor
-func NewMonitor(name string, delegateStore model.ConfigStore, getSnapshotFunc func() ([]*model.Config, error), root string) *Monitor {
+func NewMonitor(name string, delegateStore model.ConfigStore, getSnapshotFunc func() ([]*config.Config, error), root string) *Monitor {
 	monitor := &Monitor{
 		name:            name,
 		root:            root,
@@ -123,10 +123,11 @@ func (m *Monitor) checkAndUpdate() {
 	}
 
 	// make a deep copy of newConfigs to prevent data race
-	copyConfigs := make([]*model.Config, 0)
+	copyConfigs := make([]*config.Config, 0)
 	for _, config := range newConfigs {
 		cpy := *config
-		cpy.Spec = proto.Clone(config.Spec)
+		// TODO do not merge howardjohn!!!
+		//cpy.Spec = proto.Clone(config.Spec)
 		copyConfigs = append(copyConfigs, &cpy)
 	}
 
@@ -145,7 +146,7 @@ func (m *Monitor) checkAndUpdate() {
 			newIndex++
 		} else {
 			// version may change without content changing
-			oldConfig.ConfigMeta.ResourceVersion = newConfig.ConfigMeta.ResourceVersion
+			oldConfig.Meta.ResourceVersion = newConfig.Meta.ResourceVersion
 			if !reflect.DeepEqual(oldConfig, newConfig) {
 				m.updateConfig(newConfig)
 			}
@@ -168,13 +169,13 @@ func (m *Monitor) checkAndUpdate() {
 	m.configs = copyConfigs
 }
 
-func (m *Monitor) createConfig(c *model.Config) {
+func (m *Monitor) createConfig(c *config.Config) {
 	if _, err := m.store.Create(*c); err != nil {
 		log.Warnf("Failed to create config %s %s/%s: %v (%+v)", c.GroupVersionKind, c.Namespace, c.Name, err, *c)
 	}
 }
 
-func (m *Monitor) updateConfig(c *model.Config) {
+func (m *Monitor) updateConfig(c *config.Config) {
 	// Set the resource version based on the existing config.
 	if prev := m.store.Get(c.GroupVersionKind, c.Name, c.Namespace); prev != nil {
 		c.ResourceVersion = prev.ResourceVersion
@@ -185,7 +186,7 @@ func (m *Monitor) updateConfig(c *model.Config) {
 	}
 }
 
-func (m *Monitor) deleteConfig(c *model.Config) {
+func (m *Monitor) deleteConfig(c *config.Config) {
 	if err := m.store.Delete(c.GroupVersionKind, c.Name, c.Namespace); err != nil {
 		log.Warnf("Failed to delete config (%+v): %v ", *c, err)
 	}
@@ -193,6 +194,6 @@ func (m *Monitor) deleteConfig(c *model.Config) {
 
 // compareIds compares the IDs (i.e. Namespace, GroupVersionKind, and Name) of the two configs and returns
 // 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting config arrays.
-func compareIds(a, b *model.Config) int {
+func compareIds(a, b *config.Config) int {
 	return strings.Compare(a.Key(), b.Key())
 }

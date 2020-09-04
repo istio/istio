@@ -26,81 +26,20 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/spiffe"
 )
-
-func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
-	testCases := []struct {
-		name           string
-		serviceAccount string
-		sdsUdsPath     string
-		expected       *auth.SdsSecretConfig
-	}{
-		{
-			name:           "CustomUds with serviceAccount and sdsUdsPath",
-			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:     "/tmp/sdsuds.sock",
-			expected: &auth.SdsSecretConfig{
-				Name: "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: &core.ConfigSource{
-					InitialFetchTimeout: features.InitialFetchTimeout,
-					ResourceApiVersion:  core.ApiVersion_V3,
-					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-						ApiConfigSource: &core.ApiConfigSource{
-							ApiType:             core.ApiConfigSource_GRPC,
-							TransportApiVersion: core.ApiVersion_V3,
-							GrpcServices: []*core.GrpcService{
-								{
-									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-										GoogleGrpc: &core.GrpcService_GoogleGrpc{
-											TargetUri:  "/tmp/sdsuds.sock",
-											StatPrefix: SDSStatPrefix,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:           "CustomUds without service account",
-			serviceAccount: "",
-			sdsUdsPath:     "/tmp/sdsuds.sock",
-			expected:       nil,
-		},
-		{
-			name:           "CustomUds without sdsUdsPath",
-			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:     "",
-			expected:       nil,
-		},
-	}
-
-	for _, c := range testCases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructSdsSecretConfigWithCustomUds(c.serviceAccount, c.sdsUdsPath); !cmp.Equal(got, c.expected, protocmp.Transform()) {
-				t.Errorf("ConstructSdsSecretConfigWithCustomUds: got(%#v), want(%#v)\n", got, c.expected)
-			}
-		})
-	}
-}
 
 func TestConstructSdsSecretConfig(t *testing.T) {
 	testCases := []struct {
-		name           string
-		serviceAccount string
-		sdsUdsPath     string
-		expected       *auth.SdsSecretConfig
+		name       string
+		secretName string
+		expected   *auth.SdsSecretConfig
 	}{
 		{
-			name:           "ConstructSdsSecretConfig",
-			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:     "/tmp/sdsuds.sock",
+			name:       "ConstructSdsSecretConfig",
+			secretName: "spiffe://cluster.local/ns/bar/sa/foo",
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
@@ -123,22 +62,15 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			},
 		},
 		{
-			name:           "ConstructSdsSecretConfig without serviceAccount",
-			serviceAccount: "",
-			sdsUdsPath:     "/tmp/sdsuds.sock",
-			expected:       nil,
-		},
-		{
-			name:           "ConstructSdsSecretConfig without serviceAccount",
-			serviceAccount: "",
-			sdsUdsPath:     "spiffe://cluster.local/ns/bar/sa/foo",
-			expected:       nil,
+			name:       "ConstructSdsSecretConfig without secretName",
+			secretName: "",
+			expected:   nil,
 		},
 	}
 
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructSdsSecretConfig(c.serviceAccount); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+			if got := ConstructSdsSecretConfig(c.secretName); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfig: got(%#v), want(%#v)\n", got, c.expected)
 			}
 		})
@@ -204,18 +136,17 @@ func TestConstructValidationContext(t *testing.T) {
 
 func TestApplyToCommonTLSContext(t *testing.T) {
 	testCases := []struct {
-		name       string
-		sdsUdsPath string
-		node       *model.Proxy
-		expected   *auth.CommonTlsContext
+		name               string
+		sdsUdsPath         string
+		node               *model.Proxy
+		trustDomainAliases []string
+		expected           *auth.CommonTlsContext
 	}{
 		{
 			name:       "MTLSStrict using SDS",
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{
-					SdsEnabled: true,
-				},
+				Metadata: &model.NodeMetadata{},
 			},
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
@@ -242,7 +173,68 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{})},
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "ROOTCA",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								ResourceApiVersion:  core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "MTLSStrict using SDS and SAN aliases",
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			trustDomainAliases: []string{"alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: "default",
+						SdsConfig: &core.ConfigSource{
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							ResourceApiVersion:  core.ApiVersion_V3,
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:             core.ApiConfigSource_GRPC,
+									TransportApiVersion: core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: []*matcher.StringMatcher{
+							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-1.domain" + "/"}},
+							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "some-other-alias-1.domain" + "/"}},
+							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-2.domain" + "/"}},
+						}},
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "ROOTCA",
 							SdsConfig: &core.ConfigSource{
@@ -272,7 +264,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
-					SdsEnabled:         true,
 					TLSServerCertChain: "serverCertChain",
 					TLSServerKey:       "serverKey",
 					TLSServerRootCert:  "servrRootCert",
@@ -283,8 +274,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					{
 						Name: "file-cert:serverCertChain~serverKey",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
-							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType:             core.ApiConfigSource_GRPC,
@@ -298,17 +287,16 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 									},
 								},
 							},
+							ResourceApiVersion: core.ApiVersion_V3,
 						},
 					},
 				},
 				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{})},
+						DefaultValidationContext: &auth.CertificateValidationContext{},
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "file-root:servrRootCert",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType:             core.ApiConfigSource_GRPC,
@@ -322,6 +310,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 										},
 									},
 								},
+								ResourceApiVersion: core.ApiVersion_V3,
 							},
 						},
 					},
@@ -335,25 +324,49 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				Metadata: &model.NodeMetadata{},
 			},
 			expected: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/cert-chain.pem",
+						Name: "default",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:             core.ApiConfigSource_GRPC,
+									TransportApiVersion: core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
 							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/key.pem",
-							},
+							ResourceApiVersion:  core.ApiVersion_V3,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 						},
 					},
 				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/root-cert.pem",
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "ROOTCA",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							},
 						},
 					},
@@ -361,7 +374,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata and SDS disabled",
+			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
@@ -371,169 +384,24 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 			},
 			expected: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom/path/to/cert-chain.pem",
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom-key.pem",
-							},
-						},
-					},
-				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom/path/to/root.pem",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{})
-
-			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
-				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
-			}
-		})
-	}
-}
-
-func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
-	testCases := []struct {
-		name       string
-		sdsUdsPath string
-		tlsOpts    *networking.ServerTLSSettings
-		expected   *auth.CommonTlsContext
-	}{
-		{
-			name:       "static certificate validation without SubjectAltNames",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			tlsOpts: &networking.ServerTLSSettings{
-				CredentialName: "spiffe://cluster.local/ns/bar/sa/foo",
-				Mode:           networking.ServerTLSSettings_SIMPLE,
-			},
-			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
-						Name: "spiffe://cluster.local/ns/bar/sa/foo",
+						Name: "file-cert:/custom/path/to/cert-chain.pem~/custom-key.pem",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
-							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType:             core.ApiConfigSource_GRPC,
 									TransportApiVersion: core.ApiVersion_V3,
 									GrpcServices: []*core.GrpcService{
 										{
-											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													TargetUri:  "/tmp/sdsuds.sock",
-													StatPrefix: SDSStatPrefix,
-												},
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
 											},
 										},
 									},
 								},
 							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:       "static certificate validation with SubjectAltNames ",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			tlsOpts: &networking.ServerTLSSettings{
-				CredentialName:  "spiffe://cluster.local/ns/bar/sa/foo",
-				Mode:            networking.ServerTLSSettings_PASSTHROUGH,
-				SubjectAltNames: []string{"SystemCACertificates.keychain", "SystemRootCertificates.keychain"},
-			},
-			expected: &auth.CommonTlsContext{
-				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-					{
-						Name: "spiffe://cluster.local/ns/bar/sa/foo",
-						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
-							ResourceApiVersion:  core.ApiVersion_V3,
-							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
-									GrpcServices: []*core.GrpcService{
-										{
-											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													TargetUri:  "/tmp/sdsuds.sock",
-													StatPrefix: SDSStatPrefix,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						MatchSubjectAltNames: []*matcher.StringMatcher{
-							{
-								MatchPattern: &matcher.StringMatcher_Exact{
-									Exact: "SystemCACertificates.keychain",
-								},
-							},
-							{
-								MatchPattern: &matcher.StringMatcher_Exact{
-									Exact: "SystemRootCertificates.keychain",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:       "ServerTLSSettings_MUTUAL mode without SubjectAltNames ",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			tlsOpts: &networking.ServerTLSSettings{
-				CredentialName: "spiffe://cluster.local/ns/bar/sa/foo",
-				Mode:           networking.ServerTLSSettings_MUTUAL,
-			},
-			expected: &auth.CommonTlsContext{
-				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-					{
-						Name: "spiffe://cluster.local/ns/bar/sa/foo",
-						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
-							ResourceApiVersion:  core.ApiVersion_V3,
-							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
-									GrpcServices: []*core.GrpcService{
-										{
-											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													TargetUri:  "/tmp/sdsuds.sock",
-													StatPrefix: "sdsstat",
-												},
-											},
-										},
-									},
-								},
-							},
+							ResourceApiVersion: core.ApiVersion_V3,
 						},
 					},
 				},
@@ -541,92 +409,22 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext: &auth.CertificateValidationContext{},
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-							Name: "spiffe://cluster.local/ns/bar/sa/foo-cacert",
+							Name: "file-root:/custom/path/to/root.pem",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType:             core.ApiConfigSource_GRPC,
 										TransportApiVersion: core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  "/tmp/sdsuds.sock",
-														StatPrefix: "sdsstat",
-													},
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
 												},
 											},
 										},
 									},
 								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:       "ServerTLSSettings_MUTUAL mode with SubjectAltNames ",
-			sdsUdsPath: "/tmp/sdsuds.sock",
-			tlsOpts: &networking.ServerTLSSettings{
-				CredentialName:  "spiffe://cluster.local/ns/bar/sa/foo",
-				Mode:            networking.ServerTLSSettings_MUTUAL,
-				SubjectAltNames: []string{"SystemCACertificates.keychain", "SystemRootCertificates.keychain"},
-			},
-			expected: &auth.CommonTlsContext{
-				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-					{
-						Name: "spiffe://cluster.local/ns/bar/sa/foo",
-						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
-							ResourceApiVersion:  core.ApiVersion_V3,
-							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-								ApiConfigSource: &core.ApiConfigSource{
-									ApiType:             core.ApiConfigSource_GRPC,
-									TransportApiVersion: core.ApiVersion_V3,
-									GrpcServices: []*core.GrpcService{
-										{
-											TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-												GoogleGrpc: &core.GrpcService_GoogleGrpc{
-													TargetUri:  "/tmp/sdsuds.sock",
-													StatPrefix: "sdsstat",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &auth.CertificateValidationContext{
-							MatchSubjectAltNames: util.StringToExactMatch([]string{"SystemCACertificates.keychain", "SystemRootCertificates.keychain"}),
-						},
-						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-							Name: "spiffe://cluster.local/ns/bar/sa/foo-cacert",
-							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  "/tmp/sdsuds.sock",
-														StatPrefix: "sdsstat",
-													},
-												},
-											},
-										},
-									},
-								},
+								ResourceApiVersion: core.ApiVersion_V3,
 							},
 						},
 					},
@@ -638,10 +436,10 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyCustomSDSToServerCommonTLSContext(tlsContext, test.tlsOpts, test.sdsUdsPath)
+			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{}, test.trustDomainAliases)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
-				t.Errorf("got\n%v\n want\n%v", spew.Sdump(tlsContext), spew.Sdump(test.expected))
+				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
 			}
 		})
 	}

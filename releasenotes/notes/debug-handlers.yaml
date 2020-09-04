@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+
+releaseNotes:
+  - |
+    **Updated** the debug handlers on HTTP are now conditionally added based environment variable ENABLE_DEBUG_ON_HTTP.
+    Setting "ENABLE_DEBUG_ON_HTTP" to false will not add debug handlers on HTTP ports and is recommended setting for
+    production. In future releases, they will be replaced with "XDS-over-TLS" instead of exposing them on HTTP interface.
+

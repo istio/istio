@@ -4,6 +4,17 @@
 package collections
 
 import (
+	"reflect"
+
+	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicorev1 "k8s.io/api/core/v1"
+	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	k8sioapiextensionsapiserverpkgapisapiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	sigsk8sioserviceapisapisv1alpha1 "sigs.k8s.io/service-apis/apis/v1alpha1"
+
+	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
+	istioioapinetworkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
@@ -23,6 +34,7 @@ var (
 			Plural:        "meshconfigs",
 			Version:       "v1alpha1",
 			Proto:         "istio.mesh.v1alpha1.MeshConfig",
+			ReflectType:   reflect.TypeOf(&istioioapimeshv1alpha1.MeshConfig{}).Elem(),
 			ProtoPackage:  "istio.io/api/mesh/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -41,6 +53,7 @@ var (
 			Plural:        "meshnetworks",
 			Version:       "v1alpha1",
 			Proto:         "istio.mesh.v1alpha1.MeshNetworks",
+			ReflectType:   reflect.TypeOf(&istioioapimeshv1alpha1.MeshNetworks{}).Elem(),
 			ProtoPackage:  "istio.io/api/mesh/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -59,6 +72,7 @@ var (
 			Plural:        "destinationrules",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.DestinationRule",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.DestinationRule{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateDestinationRule,
@@ -77,6 +91,7 @@ var (
 			Plural:        "envoyfilters",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.EnvoyFilter",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateEnvoyFilter,
@@ -95,6 +110,7 @@ var (
 			Plural:        "gateways",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.Gateway",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.Gateway{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateGateway,
@@ -113,6 +129,7 @@ var (
 			Plural:        "serviceentries",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.ServiceEntry",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceEntry{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceEntry,
@@ -131,6 +148,7 @@ var (
 			Plural:        "sidecars",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.Sidecar",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.Sidecar{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateSidecar,
@@ -149,6 +167,7 @@ var (
 			Plural:        "virtualservices",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.VirtualService",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.VirtualService{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateVirtualService,
@@ -167,9 +186,29 @@ var (
 			Plural:        "workloadentries",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.WorkloadEntry",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadEntry{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateWorkloadEntry,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// IstioNetworkingV1Alpha3Workloadgroups describes the collection
+	// istio/networking/v1alpha3/workloadgroups
+	IstioNetworkingV1Alpha3Workloadgroups = collection.Builder{
+		Name:         "istio/networking/v1alpha3/workloadgroups",
+		VariableName: "IstioNetworkingV1Alpha3Workloadgroups",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "WorkloadGroup",
+			Plural:        "workloadgroups",
+			Version:       "v1alpha3",
+			Proto:         "istio.networking.v1alpha3.WorkloadGroup",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(),
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -185,6 +224,7 @@ var (
 			Plural:        "authorizationpolicies",
 			Version:       "v1beta1",
 			Proto:         "istio.security.v1beta1.AuthorizationPolicy",
+			ReflectType:   reflect.TypeOf(&istioioapisecurityv1beta1.AuthorizationPolicy{}).Elem(),
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateAuthorizationPolicy,
@@ -203,6 +243,7 @@ var (
 			Plural:        "peerauthentications",
 			Version:       "v1beta1",
 			Proto:         "istio.security.v1beta1.PeerAuthentication",
+			ReflectType:   reflect.TypeOf(&istioioapisecurityv1beta1.PeerAuthentication{}).Elem(),
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidatePeerAuthentication,
@@ -221,25 +262,27 @@ var (
 			Plural:        "requestauthentications",
 			Version:       "v1beta1",
 			Proto:         "istio.security.v1beta1.RequestAuthentication",
+			ReflectType:   reflect.TypeOf(&istioioapisecurityv1beta1.RequestAuthentication{}).Elem(),
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRequestAuthentication,
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SApiextensionsK8SIoV1Customresourcedefinitions describes the
-	// collection k8s/apiextensions.k8s.io/v1/customresourcedefinitions
-	K8SApiextensionsK8SIoV1Customresourcedefinitions = collection.Builder{
-		Name:         "k8s/apiextensions.k8s.io/v1/customresourcedefinitions",
-		VariableName: "K8SApiextensionsK8SIoV1Customresourcedefinitions",
+	// K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions describes the
+	// collection k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions
+	K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions = collection.Builder{
+		Name:         "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions",
+		VariableName: "K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions",
 		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "apiextensions.k8s.io",
 			Kind:          "CustomResourceDefinition",
 			Plural:        "CustomResourceDefinitions",
-			Version:       "v1",
-			Proto:         "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinition",
-			ProtoPackage:  "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1",
+			Version:       "v1beta1",
+			Proto:         "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
+			ReflectType:   reflect.TypeOf(&k8sioapiextensionsapiserverpkgapisapiextensionsv1beta1.CustomResourceDefinition{}).Elem(),
+			ProtoPackage:  "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -256,6 +299,7 @@ var (
 			Plural:        "Deployments",
 			Version:       "v1",
 			Proto:         "k8s.io.api.apps.v1.Deployment",
+			ReflectType:   reflect.TypeOf(&k8sioapiappsv1.Deployment{}).Elem(),
 			ProtoPackage:  "k8s.io/api/apps/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -273,6 +317,7 @@ var (
 			Plural:        "configmaps",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.ConfigMap",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ConfigMap{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -290,6 +335,7 @@ var (
 			Plural:        "endpoints",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.Endpoints",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Endpoints{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -307,6 +353,7 @@ var (
 			Plural:        "namespaces",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.NamespaceSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.NamespaceSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
@@ -324,6 +371,7 @@ var (
 			Plural:        "nodes",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.NodeSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.NodeSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
@@ -341,6 +389,7 @@ var (
 			Plural:        "pods",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.Pod",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Pod{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -358,6 +407,7 @@ var (
 			Plural:        "secrets",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.Secret",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Secret{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -375,6 +425,7 @@ var (
 			Plural:        "services",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.ServiceSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -393,6 +444,7 @@ var (
 			Plural:        "ingresses",
 			Version:       "v1beta1",
 			Proto:         "k8s.io.api.extensions.v1beta1.IngressSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -411,6 +463,7 @@ var (
 			Plural:        "destinationrules",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.DestinationRule",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.DestinationRule{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateDestinationRule,
@@ -429,6 +482,7 @@ var (
 			Plural:        "envoyfilters",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.EnvoyFilter",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateEnvoyFilter,
@@ -447,6 +501,7 @@ var (
 			Plural:        "gateways",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.Gateway",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.Gateway{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateGateway,
@@ -465,6 +520,7 @@ var (
 			Plural:        "serviceentries",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.ServiceEntry",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceEntry{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceEntry,
@@ -483,6 +539,7 @@ var (
 			Plural:        "sidecars",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.Sidecar",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.Sidecar{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateSidecar,
@@ -501,6 +558,7 @@ var (
 			Plural:        "virtualservices",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.VirtualService",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.VirtualService{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateVirtualService,
@@ -519,9 +577,29 @@ var (
 			Plural:        "workloadentries",
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.WorkloadEntry",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadEntry{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateWorkloadEntry,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SNetworkingIstioIoV1Alpha3Workloadgroups describes the collection
+	// k8s/networking.istio.io/v1alpha3/workloadgroups
+	K8SNetworkingIstioIoV1Alpha3Workloadgroups = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1alpha3/workloadgroups",
+		VariableName: "K8SNetworkingIstioIoV1Alpha3Workloadgroups",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "WorkloadGroup",
+			Plural:        "workloadgroups",
+			Version:       "v1alpha3",
+			Proto:         "istio.networking.v1alpha3.WorkloadGroup",
+			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(),
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -537,6 +615,7 @@ var (
 			Plural:        "authorizationpolicies",
 			Version:       "v1beta1",
 			Proto:         "istio.security.v1beta1.AuthorizationPolicy",
+			ReflectType:   reflect.TypeOf(&istioioapisecurityv1beta1.AuthorizationPolicy{}).Elem(),
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateAuthorizationPolicy,
@@ -555,6 +634,7 @@ var (
 			Plural:        "peerauthentications",
 			Version:       "v1beta1",
 			Proto:         "istio.security.v1beta1.PeerAuthentication",
+			ReflectType:   reflect.TypeOf(&istioioapisecurityv1beta1.PeerAuthentication{}).Elem(),
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidatePeerAuthentication,
@@ -573,6 +653,7 @@ var (
 			Plural:        "requestauthentications",
 			Version:       "v1beta1",
 			Proto:         "istio.security.v1beta1.RequestAuthentication",
+			ReflectType:   reflect.TypeOf(&istioioapisecurityv1beta1.RequestAuthentication{}).Elem(),
 			ProtoPackage:  "istio.io/api/security/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRequestAuthentication,
@@ -591,6 +672,7 @@ var (
 			Plural:        "gatewayclasses",
 			Version:       "v1alpha1",
 			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec",
+			ReflectType:   reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.GatewayClassSpec{}).Elem(),
 			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
@@ -609,6 +691,7 @@ var (
 			Plural:        "gateways",
 			Version:       "v1alpha1",
 			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewaySpec",
+			ReflectType:   reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.GatewaySpec{}).Elem(),
 			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -627,6 +710,7 @@ var (
 			Plural:        "httproutes",
 			Version:       "v1alpha1",
 			Proto:         "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec",
+			ReflectType:   reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.HTTPRouteSpec{}).Elem(),
 			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -641,28 +725,11 @@ var (
 		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "networking.x-k8s.io",
-			Kind:          "TcpRoute",
+			Kind:          "TCPRoute",
 			Plural:        "tcproutes",
 			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SServiceApisV1Alpha1Trafficsplits describes the collection
-	// k8s/service_apis/v1alpha1/trafficsplits
-	K8SServiceApisV1Alpha1Trafficsplits = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/trafficsplits",
-		VariableName: "K8SServiceApisV1Alpha1Trafficsplits",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "networking.x-k8s.io",
-			Kind:          "TrafficSplit",
-			Plural:        "trafficsplits",
-			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.TCPRouteSpec",
+			ReflectType:   reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.TCPRouteSpec{}).Elem(),
 			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -680,10 +747,11 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
-		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
+		MustAdd(K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
@@ -700,6 +768,7 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
+		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
@@ -707,7 +776,6 @@ var (
 		MustAdd(K8SServiceApisV1Alpha1Gateways).
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 		Build()
 
 	// Istio contains only Istio collections.
@@ -721,6 +789,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -728,7 +797,7 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
-		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
+		MustAdd(K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
@@ -745,6 +814,7 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
+		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
@@ -752,7 +822,6 @@ var (
 		MustAdd(K8SServiceApisV1Alpha1Gateways).
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -764,6 +833,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -778,6 +848,7 @@ var (
 			MustAdd(IstioNetworkingV1Alpha3Sidecars).
 			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 			MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+			MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 			MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -785,7 +856,6 @@ var (
 			MustAdd(K8SServiceApisV1Alpha1Gateways).
 			MustAdd(K8SServiceApisV1Alpha1Httproutes).
 			MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 			Build()
 
 	// Deprecated contains only collections used by that will soon be used by nothing.

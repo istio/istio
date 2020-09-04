@@ -149,10 +149,28 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 `,
 		Example: `# Retrieve sync status for all Envoys in a mesh
-	istioctl proxy-status
+istioctl x proxy-status
 
 # Retrieve sync diff for a single Envoy and Istiod
-	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+istioctl x proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+
+# SECURITY OPTIONS
+
+# Retrieve proxy status information directly from the control plane, using token security
+# (This is the usual way to get the proxy-status with an out-of-cluster control plane.)
+istioctl x ps --xds-address istio.cloudprovider.example.com:15012
+
+# Retrieve proxy status information via Kubernetes config, using token security
+# (This is the usual way to get the proxy-status with an in-cluster control plane.)
+istioctl x proxy-status
+
+# Retrieve proxy status information directly from the control plane, using RSA certificate security
+# (Certificates must be obtained before this step.  The --cert-dir flag lets istioctl bypass the Kubernetes API server.)
+istioctl x ps --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
+
+# Retrieve proxy status information via XDS from specific control plane in multi-control plane in-cluster configuration
+# (Select a specific control plane in an in-cluster canary Istio configuration.)
+istioctl x ps --xds-label istio.io/rev=default
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {

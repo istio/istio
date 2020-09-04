@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config"
 )
 
 func NewIstioContext(stop <-chan struct{}) context.Context {
@@ -188,7 +189,7 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 
 // This function must be called every time a resource change is detected by pilot.  This allows us to lookup
 // only the resources we expect to be in flight, not the ones that have already distributed
-func (r *Reporter) AddInProgressResource(res model.Config) {
+func (r *Reporter) AddInProgressResource(res config.Config) {
 	myRes := ResourceFromModelConfig(res)
 	if myRes == nil {
 		scope.Errorf("Unable to locate schema for %v, will not update status.", res)
@@ -202,7 +203,7 @@ func (r *Reporter) AddInProgressResource(res model.Config) {
 	}
 }
 
-func (r *Reporter) DeleteInProgressResource(res model.Config) {
+func (r *Reporter) DeleteInProgressResource(res config.Config) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.inProgressResources, res.Key())

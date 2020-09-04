@@ -15,7 +15,6 @@
 package option
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -138,7 +137,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		// No TLS.
 		return nil
 	}
-	if len(sniName) > 0 {
+	if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 		tlsContext.Sni = sniName
 	}
 	return tlsContext
@@ -178,12 +177,6 @@ func addressConverter(addr string) convertFunc {
 func durationConverter(value *types.Duration) convertFunc {
 	return func(*instance) (interface{}, error) {
 		return value.String(), nil
-	}
-}
-
-func podIPConverter(value net.IP) convertFunc {
-	return func(*instance) (interface{}, error) {
-		return base64.StdEncoding.EncodeToString(value), nil
 	}
 }
 

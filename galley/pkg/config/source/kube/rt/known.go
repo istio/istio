@@ -23,7 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	v1beta12 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -336,10 +336,10 @@ func (p *Provider) initKnownAdapters() {
 		asTypesKey("apiextensions.k8s.io", "CustomResourceDefinition"): {
 			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
-				if obj, ok := o.(*apiextensionv1.CustomResourceDefinition); ok {
+				if obj, ok := o.(*v1beta12.CustomResourceDefinition); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1.CustomResourceDefinition: %T", o)
+				return nil, fmt.Errorf("unable to convert to v1beta1.Ingress: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				ext, err := p.interfaces.APIExtensionsClientset()
@@ -349,13 +349,13 @@ func (p *Provider) initKnownAdapters() {
 				inf := cache.NewSharedIndexInformer(
 					&cache.ListWatch{
 						ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-							return ext.ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), options)
+							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), options)
 						},
 						WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-							return ext.ApiextensionsV1().CustomResourceDefinitions().Watch(context.TODO(), options)
+							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().Watch(context.TODO(), options)
 						},
 					},
-					&apiextensionv1.CustomResourceDefinition{},
+					&v1beta12.CustomResourceDefinition{},
 					0,
 					cache.Indexers{})
 
@@ -363,7 +363,7 @@ func (p *Provider) initKnownAdapters() {
 
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
-				out := &apiextensionv1.CustomResourceDefinition{}
+				out := &v1beta12.CustomResourceDefinition{}
 				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
 					return nil, err
 				}

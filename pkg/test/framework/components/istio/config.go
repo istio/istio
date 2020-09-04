@@ -114,6 +114,12 @@ type Config struct {
 	// Default value will be ControlPlaneValues if no remote values provided
 	RemoteClusterValues string
 
+	// Override values specifically for the ICP crd
+	// This is mostly required for cases where --set cannot be used
+	// These values are only applied to config clusters
+	// Default value will be ControlPlaneValues if no remote values provided
+	ConfigClusterValues string
+
 	// Overrides for the Helm values file.
 	Values map[string]string
 
@@ -127,9 +133,6 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
-
-	// Expose istiod through ingress, for example for multicluster or VM setups
-	ExposeIstiod bool
 }
 
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
@@ -287,6 +290,5 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IOPFile:                        %s\n", c.IOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
-
 	return result
 }

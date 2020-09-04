@@ -22,6 +22,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -45,7 +46,7 @@ func convertPort(port *networking.Port) *model.Port {
 //
 // See convertServices() for the reverse conversion, used by Istio to handle ServiceEntry configs.
 // See kube.ConvertService for the conversion from K8S to internal Service.
-func ServiceToServiceEntry(svc *model.Service) *model.Config {
+func ServiceToServiceEntry(svc *model.Service) *config.Config {
 	gvk := gvk.ServiceEntry
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
@@ -109,8 +110,8 @@ func ServiceToServiceEntry(svc *model.Service) *model.Config {
 		})
 	}
 
-	cfg := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	cfg := &config.Config{
+		Meta: config.Meta{
 			GroupVersionKind:  gvk,
 			Name:              "synthetic-" + svc.Attributes.Name,
 			Namespace:         svc.Attributes.Namespace,
@@ -133,7 +134,7 @@ func ServiceToServiceEntry(svc *model.Service) *model.Config {
 }
 
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
-func convertServices(cfg model.Config) []*model.Service {
+func convertServices(cfg config.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp
 
@@ -278,7 +279,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 }
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
-// same as the ServiceEntry convertInstances.
+// same as the ServiceEntry convertServiceEntryToInstances.
 func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
@@ -289,7 +290,7 @@ func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, servi
 	return out
 }
 
-func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
+func convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if services == nil {
@@ -367,8 +368,16 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstance(namespace string,
-	we *networking.WorkloadEntry) *model.WorkloadInstance {
+func convertWorkloadEntryToWorkloadInstance(namespace string, cfg config.Config) *model.WorkloadInstance {
+	we := cfg.Spec.(*networking.WorkloadEntry)
+	// we will merge labels from metadata with spec, with precedence to the metadata
+	labels := map[string]string{}
+	for k, v := range we.Labels {
+		labels[k] = v
+	}
+	for k, v := range cfg.Labels {
+		labels[k] = v
+	}
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
@@ -392,7 +401,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string,
 				Label: we.Locality,
 			},
 			LbWeight:       we.Weight,
-			Labels:         we.Labels,
+			Labels:         labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},

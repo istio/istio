@@ -222,8 +222,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
+		CaClient: fakeCACli,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	defer func() {
@@ -288,8 +287,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		EvictionDuration: 0,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
+		CaClient: fakeCACli,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	defer func() {
@@ -646,9 +644,7 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 }
 
 func createSecretCache() *SecretCache {
-	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: false,
-	}
+	fetcher := &secretfetcher.SecretFetcher{}
 	fetcher.FallbackSecretName = "gateway-fallback"
 	if fallbackSecret := os.Getenv("INGRESS_GATEWAY_FALLBACK_SECRET"); fallbackSecret != "" {
 		fetcher.FallbackSecretName = fallbackSecret
@@ -666,9 +662,7 @@ func createSecretCache() *SecretCache {
 
 // Validate that file mounted certs do not wait for ingress secret.
 func TestShouldWaitForGatewaySecretForFileMountedCerts(t *testing.T) {
-	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: false,
-	}
+	fetcher := &secretfetcher.SecretFetcher{}
 	opt := &security.Options{
 		RotationInterval: 100 * time.Millisecond,
 		EvictionDuration: 0,
@@ -853,15 +847,16 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := &security.Options{
-		RotationInterval: 200 * time.Millisecond,
+		// Large rotation, to make sure the test is not
+		// affected - this is not a rotation test.
+		RotationInterval: 2 * time.Hour,
 		EvictionDuration: 0,
 		UseTokenForCSR:   true,
 		SkipParseToken:   false,
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
+		CaClient: fakeCACli,
 	}
 
 	var wgAddedWatch sync.WaitGroup
@@ -911,12 +906,11 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	ctx := context.Background()
 
 	wgAddedWatch.Add(1) // Watch should be added for cert file.
-	notifyEvent.Add(1)  // Nofify should be called once.
-
+	// notify is called only on rotation - it was accidentally called
+	// because rotation interval was set to a very small value.
 	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
 
 	wgAddedWatch.Wait()
-	notifyEvent.Wait()
 
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
@@ -932,12 +926,13 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	}
 
 	wgAddedWatch.Add(1) // Watch should be added for root file.
-	notifyEvent.Add(1)  // Notify should be called once.
 
+	// This test was passing because it overrides secret rotation to 100ms,
+	// and the callback happens to be called on rotation (by accident I think, since
+	// secret is not supposed to be rotated - probably a sideffect of the token?)
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
 
 	wgAddedWatch.Wait()
-	notifyEvent.Wait()
 
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
@@ -978,6 +973,8 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		Name: certChainPath,
 		Op:   fsnotify.Write,
 	})
+	// Test will timeout after a long time if rotation doesn't happen.
+	// A channel with timeout would work better.
 	notifyEvent.Wait()
 }
 

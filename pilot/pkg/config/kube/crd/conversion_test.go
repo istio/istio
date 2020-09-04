@@ -18,20 +18,17 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
+	config2 "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertConfig(model.Config{}); err == nil {
-		t.Errorf("expected error for converting empty config")
-	}
 	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
-	config := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	config := config2.Config{
+		Meta: config2.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "test",
 			Namespace:        "default",

@@ -547,18 +547,20 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 	}
 
 	for id, c := range cases {
-		certOptions := c.certOptions
-		certPem, privPem, err := GenCertKeyFromOptions(certOptions)
-		if err != nil {
-			t.Errorf("[%s] cert/key generation error: %v", id, err)
-		}
-
-		for _, host := range strings.Split(certOptions.Host, ",") {
-			c.verifyFields.Host = host
-			if err := VerifyCertificate(privPem, certPem, rsaCaCertPem, c.verifyFields); err != nil {
-				t.Errorf("[%s] cert verification error: %v", id, err)
+		t.Run(id, func(t *testing.T) {
+			certOptions := c.certOptions
+			certPem, privPem, err := GenCertKeyFromOptions(certOptions)
+			if err != nil {
+				t.Errorf("[%s] cert/key generation error: %v", id, err)
 			}
-		}
+
+			for _, host := range strings.Split(certOptions.Host, ",") {
+				c.verifyFields.Host = host
+				if err := VerifyCertificate(privPem, certPem, rsaCaCertPem, c.verifyFields); err != nil {
+					t.Errorf("[%s] cert verification error: %v", id, err)
+				}
+			}
+		})
 	}
 }
 

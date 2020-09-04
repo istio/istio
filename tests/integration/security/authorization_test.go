@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,7 +49,9 @@ func (i rootNS) Name() string {
 // TestAuthorization_mTLS tests v1beta1 authorization with mTLS.
 func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.mtls-local").
 		Run(func(ctx framework.TestContext) {
+			// Create namespaces
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-mtls-ns1",
 				Inject: true,
@@ -58,6 +61,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 				Inject: true,
 			})
 
+			// Create services
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
@@ -68,17 +72,18 @@ func TestAuthorization_mTLS(t *testing.T) {
 			newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
-						From: from,
+						From: from, // From service
 						Options: echo.CallOptions{
 							Target:   b,
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     path,
+							Path:     path, // Requested path
 						},
 					},
 					ExpectAllowed: expectAllowed,
 				}
 			}
+			// a and c send requests to b
 			cases := []rbacUtil.TestCase{
 				newTestCase(a, "/principal-a", true),
 				newTestCase(a, "/namespace-2", false),
@@ -103,6 +108,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 // TestAuthorization_JWT tests v1beta1 authorization with JWT token claims.
 func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.jwt-token").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-jwt",
@@ -182,6 +188,7 @@ func TestAuthorization_JWT(t *testing.T) {
 // TestAuthorization_WorkloadSelector tests the workload selector for the v1beta1 policy in two namespaces.
 func TestAuthorization_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.workload-selector").
 		Run(func(ctx framework.TestContext) {
 			ns1 := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-workload-1",
@@ -267,6 +274,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 // TestAuthorization_Deny tests the authorization policy with action "DENY".
 func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.deny-action").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-deny",
@@ -333,9 +341,10 @@ func TestAuthorization_Deny(t *testing.T) {
 		})
 }
 
-// TestAuthorization_Deny tests the authorization policy with negative match.
+// TestAuthorization_NegativeMatch tests the authorization policy with negative match.
 func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.negative-match").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-negative-match-1",
@@ -426,6 +435,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 // TestAuthorization_IngressGateway tests the authorization policy on ingress gateway.
 func TestAuthorization_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.ingress-gateway").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-ingress-gateway",
@@ -504,6 +514,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 // TestAuthorization_EgressGateway tests v1beta1 authorization on egress gateway.
 func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.egress-gateway").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-egress-gateway",
@@ -677,6 +688,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 // TestAuthorization_TCP tests the authorization policy on workloads using the raw TCP protocol.
 func TestAuthorization_TCP(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.tcp").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-tcp-1",
@@ -822,6 +834,7 @@ func TestAuthorization_TCP(t *testing.T) {
 // TestAuthorization_Conditions tests v1beta1 authorization with conditions.
 func TestAuthorization_Conditions(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.conditions").
 		Run(func(ctx framework.TestContext) {
 			nsA := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-conditions-a",
@@ -890,36 +903,50 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
 				newTestCase(a, "/request-headers", nil, false),
 				newTestCase(b, "/request-headers", nil, false),
+				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
 				newTestCase(a, "/source-ip-a", nil, true),
 				newTestCase(b, "/source-ip-a", nil, false),
 				newTestCase(a, "/source-ip-b", nil, false),
 				newTestCase(b, "/source-ip-b", nil, true),
+				newTestCase(a, "/source-ip-notValues-b", nil, true),
+				newTestCase(b, "/source-ip-notValues-b", nil, false),
 
 				newTestCase(a, "/source-namespace-a", nil, true),
 				newTestCase(b, "/source-namespace-a", nil, false),
 				newTestCase(a, "/source-namespace-b", nil, false),
 				newTestCase(b, "/source-namespace-b", nil, true),
+				newTestCase(a, "/source-namespace-notValues-b", nil, true),
+				newTestCase(b, "/source-namespace-notValues-b", nil, false),
 
 				newTestCase(a, "/source-principal-a", nil, true),
 				newTestCase(b, "/source-principal-a", nil, false),
 				newTestCase(a, "/source-principal-b", nil, false),
 				newTestCase(b, "/source-principal-b", nil, true),
+				newTestCase(a, "/source-principal-notValues-b", nil, true),
+				newTestCase(b, "/source-principal-notValues-b", nil, false),
 
 				newTestCase(a, "/destination-ip-good", nil, true),
 				newTestCase(b, "/destination-ip-good", nil, true),
 				newTestCase(a, "/destination-ip-bad", nil, false),
 				newTestCase(b, "/destination-ip-bad", nil, false),
+				newTestCase(a, "/destination-ip-notValues-a-or-b", nil, true),
+				newTestCase(a, "/destination-ip-notValues-a-or-b-or-c", nil, false),
 
 				newTestCase(a, "/destination-port-good", nil, true),
 				newTestCase(b, "/destination-port-good", nil, true),
 				newTestCase(a, "/destination-port-bad", nil, false),
 				newTestCase(b, "/destination-port-bad", nil, false),
+				newTestCase(a, "/destination-port-notValues-c", nil, false),
+				newTestCase(b, "/destination-port-notValues-c", nil, false),
 
 				newTestCase(a, "/connection-sni-good", nil, true),
 				newTestCase(b, "/connection-sni-good", nil, true),
 				newTestCase(a, "/connection-sni-bad", nil, false),
 				newTestCase(b, "/connection-sni-bad", nil, false),
+				newTestCase(a, "/connection-sni-notValues-a-or-b", nil, true),
+				newTestCase(a, "/connection-sni-notValues-a-or-b-or-c", nil, false),
 
 				newTestCase(a, "/other", nil, false),
 				newTestCase(b, "/other", nil, false),
@@ -932,6 +959,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 // TestAuthorization_GRPC tests v1beta1 authorization with gRPC protocol.
 func TestAuthorization_GRPC(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.grpc-protocol").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-grpc",
@@ -996,6 +1024,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 // with path "/a/../b" should be normalized to "/b" before using in authorization.
 func TestAuthorization_Path(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.path-normalization").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-path",
@@ -1062,6 +1091,64 @@ func TestAuthorization_Path(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestAuthorization_Audit tests that the AUDIT action does not impact allowing or denying a request
+func TestAuthorization_Audit(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-audit",
+				Inject: true,
+			})
+
+			var a, b, c, d echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
+				BuildOrFail(t)
+
+			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(b, "/allow", true),
+				newTestCase(b, "/audit", false),
+				newTestCase(c, "/audit", true),
+				newTestCase(c, "/deny", false),
+				newTestCase(d, "/audit", true),
+				newTestCase(d, "/other", true),
+			}
+
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
+			}
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				return policy
+			}
+
+			policy := applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})

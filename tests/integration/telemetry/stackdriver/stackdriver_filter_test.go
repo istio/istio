@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -118,13 +119,20 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
 	cfg.ControlPlaneValues = `
 meshConfig:
   enableTracing: true
+values:
+  telemetry:
+    v2:
+      stackdriver:
+        configOverride:
+          meshEdgesReportingDuration: "5s"
+          enable_mesh_edges_reporting: true
 `
 	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
@@ -132,7 +140,7 @@ meshConfig:
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
-	cfg.Values["telemetry.v2.stackdriver.configOverride"] = `{"enable_mesh_edges_reporting": true,"meshEdgesReportingDuration":"5s"}`
+	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {

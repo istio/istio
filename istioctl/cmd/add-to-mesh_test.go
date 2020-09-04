@@ -17,6 +17,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/url"
 )
 
 type testcase struct {
@@ -142,7 +144,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
-				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + RequirementsURL + "\n",
+				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + url.DeploymentRequirements + "\n",
 			namespace: "default",
 		},
 		{
@@ -153,7 +155,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
-				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + RequirementsURL + "\n",
+				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + url.DeploymentRequirements + "\n",
 			namespace: "default",
 		},
 		{
@@ -284,4 +286,49 @@ func mockDynamicClientGenerator(dynamicConfigs []runtime.Object) func(kubeconfig
 		return client, nil
 	}
 	return outFactory
+}
+
+func TestSplitEqual(t *testing.T) {
+	tests := []struct {
+		arg       string
+		wantKey   string
+		wantValue string
+	}{
+		{arg: "key=value", wantKey: "key", wantValue: "value"},
+		{arg: "key==value", wantKey: "key", wantValue: "=value"},
+		{arg: "key=", wantKey: "key", wantValue: ""},
+		{arg: "key", wantKey: "key", wantValue: ""},
+		{arg: "", wantKey: "", wantValue: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.arg, func(t *testing.T) {
+			gotKey, gotValue := splitEqual(tt.arg)
+			if gotKey != tt.wantKey {
+				t.Errorf("splitEqual(%v) got = %v, want %v", tt.arg, gotKey, tt.wantKey)
+			}
+			if gotValue != tt.wantValue {
+				t.Errorf("splitEqual(%v) got1 = %v, want %v", tt.arg, gotValue, tt.wantValue)
+			}
+		})
+	}
+}
+
+func TestConvertToMap(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []string
+		want map[string]string
+	}{
+		{name: "empty", arg: []string{""}, want: map[string]string{"": ""}},
+		{name: "one-valid", arg: []string{"key=value"}, want: map[string]string{"key": "value"}},
+		{name: "one-valid-double-equals", arg: []string{"key==value"}, want: map[string]string{"key": "=value"}},
+		{name: "one-key-only", arg: []string{"key"}, want: map[string]string{"key": ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := convertToStringMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("convertToStringMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

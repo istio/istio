@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -31,9 +32,9 @@ import (
 // 2. If the original rule did not have any top level traffic policy, traffic policies from the new rule will be
 // used.
 // 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
-func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfig Config, exportToMap map[visibility.Instance]bool) {
+func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
-	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.ConfigMeta)
+	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
 
 	if mdr, exists := p.destRule[resolvedHost]; exists {
 		// Deep copy destination rule, to prevent mutate it later when merge with a new one.
@@ -55,7 +56,7 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 				mergedRule.Subsets = append(mergedRule.Subsets, subset)
 			} else {
 				// duplicate subset
-				ps.AddMetric(DuplicatedSubsets, string(resolvedHost), nil,
+				ps.AddMetric(DuplicatedSubsets, string(resolvedHost), "",
 					fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
 						subset.Name, string(resolvedHost)))
 			}

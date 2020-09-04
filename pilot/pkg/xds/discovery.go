@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
@@ -87,10 +87,6 @@ type DiscoveryServer struct {
 
 	concurrentPushLimit chan struct{}
 
-	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
-	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
-	DebugConfigs bool
-
 	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
 	// shards.
 	mutex sync.RWMutex
@@ -126,6 +122,9 @@ type DiscoveryServer struct {
 	serverReady bool
 
 	debounceOptions debounceOptions
+
+	// Cache for XDS resources
+	Cache model.XdsCache
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -152,13 +151,11 @@ type EndpointShards struct {
 func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
-		ConfigGenerator:         core.NewConfigGenerator(plugins),
 		Generators:              map[string]model.XdsResourceGenerator{},
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
-		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*Connection{},
 		serverReady:             false,
@@ -167,17 +164,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
-	}
-
-	if features.XDSAuth {
-		// This is equivalent with the mTLS authentication for workload-to-workload.
-		// The GRPC server is configured in bootstrap.initSecureDiscoveryService, using the root
-		// certificate as 'ClientCAs'. To accept additional signers for client identities - add them
-		// there, will be used for CA signing as well.
-		out.Authenticators = append(out.Authenticators, &authenticate.ClientCertAuthenticator{})
-
-		// TODO: we may want to support JWT/OIDC auth as well - using the same list of auth as
-		// CA. Will require additional refactoring - probably best for 1.7.
+		Cache: model.DisabledCache{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -187,6 +174,12 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 
 	out.initGenerators()
 
+	if features.EnableXDSCaching {
+		out.Cache = model.NewXdsCache()
+	}
+
+	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.Cache)
+
 	return out
 }
 
@@ -194,11 +187,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// Register v3 server
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
-}
-
-func (s *DiscoveryServer) RegisterLegacyv2(rpcs *grpc.Server) {
-	// Register v2 server just for compatibility with gRPC. When gRPC v3 comes out, we can drop this
-	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
@@ -422,24 +410,24 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			semaphore <- struct{}{}
 
 			// Get the next proxy to push. This will block if there are no updates required.
-			client, info := queue.Dequeue()
-			recordPushTriggers(info.Reason...)
+			client, push, shuttingdown := queue.Dequeue()
+
+			if shuttingdown {
+				return
+			}
+			recordPushTriggers(push.Reason...)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)
 				<-semaphore
 			}
 
-			proxiesQueueTime.Record(time.Since(info.Start).Seconds())
+			proxiesQueueTime.Record(time.Since(push.Start).Seconds())
 
 			go func() {
 				pushEv := &Event{
-					full:           info.Full,
-					push:           info.Push,
-					done:           doneFunc,
-					start:          info.Start,
-					configsUpdated: info.ConfigsUpdated,
-					noncePrefix:    info.Push.Version,
+					pushRequest: push,
+					done:        doneFunc,
 				}
 
 				select {
@@ -481,8 +469,15 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 
 // initGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) initGenerators() {
+	edsGen := &EdsGenerator{Server: s}
+	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
+	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
+	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
+	s.Generators[v3.EndpointType] = edsGen
+	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
+
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &EdsGenerator{Server: s}
+	epGen := &EdsV2Generator{edsGen}
 	s.Generators["grpc/"+v2.EndpointType] = epGen
 	s.Generators["api"] = &apigen.APIGenerator{}
 	s.Generators["api/"+v2.EndpointType] = epGen
@@ -491,4 +486,9 @@ func (s *DiscoveryServer) initGenerators() {
 	}
 	s.Generators["api/"+TypeURLConnections] = s.InternalGen
 	s.Generators["event"] = s.InternalGen
+}
+
+// shutdown shutsdown DiscoveryServer components.
+func (s *DiscoveryServer) Shutdown() {
+	s.pushQueue.ShutDown()
 }

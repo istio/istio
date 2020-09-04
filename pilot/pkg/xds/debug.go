@@ -18,13 +18,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io"
 	"net/http"
 	"net/http/pprof"
 	"sort"
 	"strings"
+	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -37,9 +39,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/pkg/log"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -84,56 +87,16 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 </html>
 `))
 
-// InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, webhook *inject.Webhook) {
-	// For debugging and load testing v2 we add an memory registry.
-	s.MemRegistry = memory.NewServiceDiscovery(nil)
-	s.MemRegistry.EDSUpdater = s
-	s.MemRegistry.ClusterID = "v2-debug"
-
-	sctl.AddRegistry(serviceregistry.Simple{
-		ClusterID:        "v2-debug",
-		ProviderID:       serviceregistry.Mock,
-		ServiceDiscovery: s.MemRegistry,
-		Controller:       s.MemRegistry.Controller,
-	})
-
-	if enableProfiling {
-		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
-		s.addDebugHandler(mux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
-		s.addDebugHandler(mux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
-		s.addDebugHandler(mux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
-		s.addDebugHandler(mux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
-	}
-
-	mux.HandleFunc("/debug", s.Debug)
-
-	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
-	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
-	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
-	s.addDebugHandler(mux, "/debug/cdsz", "Status and debug interface for CDS", s.cdsz)
-
-	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
-	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
-
-	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
-	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
-	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
-	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
-	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
-	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
-
-	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
-	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
-	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
-
-	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
+// AdsClient defines the data that is displayed on "/adsz" endpoint.
+type AdsClient struct {
+	ConnectionID string    `json:"connectionId"`
+	ConnectedAt  time.Time `json:"connectedAt"`
+	PeerAddress  string    `json:"address"`
 }
 
-func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
-	handler func(http.ResponseWriter, *http.Request)) {
-	s.debugHandlers[path] = help
-	mux.HandleFunc(path, handler)
+// AdsClients is collection of AdsClient connected to this Istiod.
+type AdsClients struct {
+	Connected []AdsClient `json:"clients"`
 }
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
@@ -149,6 +112,75 @@ type SyncStatus struct {
 	RouteAcked    string `json:"route_acked,omitempty"`
 	EndpointSent  string `json:"endpoint_sent,omitempty"`
 	EndpointAcked string `json:"endpoint_acked,omitempty"`
+}
+
+// SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
+type SyncedVersions struct {
+	ProxyID         string `json:"proxy,omitempty"`
+	ClusterVersion  string `json:"cluster_acked,omitempty"`
+	ListenerVersion string `json:"listener_acked,omitempty"`
+	RouteVersion    string `json:"route_acked,omitempty"`
+}
+
+// InitDebug initializes the debug handlers and adds a debug in-memory registry.
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, webhook *inject.Webhook) {
+	// For debugging and load testing v2 we add an memory registry.
+	s.MemRegistry = memory.NewServiceDiscovery(nil)
+	s.MemRegistry.EDSUpdater = s
+	s.MemRegistry.ClusterID = "v2-debug"
+
+	sctl.AddRegistry(serviceregistry.Simple{
+		ClusterID:        "v2-debug",
+		ProviderID:       serviceregistry.Mock,
+		ServiceDiscovery: s.MemRegistry,
+		Controller:       s.MemRegistry.Controller,
+	})
+	s.AddDebugHandlers(mux, enableProfiling, webhook)
+}
+
+func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook *inject.Webhook) {
+	// Debug handlers on HTTP ports are added for backward compatibility.
+	// They will be exposed on XDS-over-TLS in future releases.
+	if !features.EnableDebugOnHTTP {
+		return
+	}
+
+	if enableProfiling {
+		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
+		s.addDebugHandler(mux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
+		s.addDebugHandler(mux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
+		s.addDebugHandler(mux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
+		s.addDebugHandler(mux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
+	}
+
+	mux.HandleFunc("/debug", s.Debug)
+
+	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
+	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
+	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
+
+	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
+	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
+
+	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
+	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
+	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
+	s.addDebugHandler(mux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
+	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
+	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
+	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
+
+	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
+	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
+	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+
+	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
+}
+
+func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
+	handler func(http.ResponseWriter, *http.Request)) {
+	s.debugHandlers[path] = help
+	mux.HandleFunc(path, handler)
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
@@ -217,6 +249,18 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 	_, _ = w.Write(out)
 }
 
+func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
+	keys := s.Cache.Keys()
+	sort.Strings(keys)
+	bytes, err := json.Marshal(keys)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
+		return
+	}
+	_, _ = w.Write(bytes)
+}
+
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
@@ -226,10 +270,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		svc, _ := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
-				if err != nil {
-					return
-				}
+				all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 				for _, svc := range all {
 					_, _ = fmt.Fprintf(w, "%s:%s %s:%d %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
@@ -244,10 +285,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_, _ = fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
-			if err != nil {
-				return
-			}
+			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 			_, _ = fmt.Fprintf(w, "\n{\"svc\": \"%s:%s\", \"ep\": [\n", ss.Hostname, p.Name)
 			for _, svc := range all {
 				b, err := json.MarshalIndent(svc, "  ", "  ")
@@ -261,14 +299,6 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	_, _ = fmt.Fprint(w, "\n{}]\n")
-}
-
-// SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
-type SyncedVersions struct {
-	ProxyID         string `json:"proxy,omitempty"`
-	ClusterVersion  string `json:"cluster_acked,omitempty"`
-	ListenerVersion string `json:"listener_acked,omitempty"`
-	RouteVersion    string `json:"route_acked,omitempty"`
 }
 
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
@@ -343,7 +373,7 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 }
 
 type kubernetesConfig struct {
-	model.Config
+	config.Config
 }
 
 func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
@@ -377,7 +407,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	schemas := []resource.GroupVersionKind{}
+	schemas := []config.GroupVersionKind{}
 	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
 		schemas = append(schemas, schema.Resource().GroupVersionKind())
 		return false
@@ -419,30 +449,21 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	s.adsClientsMutex.RLock()
-	defer s.adsClientsMutex.RUnlock()
+	clients := s.adsClients
+	s.adsClientsMutex.RUnlock()
 
-	// Dirty json generation - because standard json is dirty (struct madness)
-	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
-	// better ways, but this is mainly for debugging.
-	_, _ = fmt.Fprint(w, "[\n")
-	comma := false
-	for _, c := range s.adsClients {
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
+	adsClients := &AdsClients{}
+	for _, c := range clients {
+		adsClient := AdsClient{
+			ConnectionID: c.ConID,
+			ConnectedAt:  c.Connect,
+			PeerAddress:  c.PeerAddr,
 		}
-		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
-		printListeners(w, c)
-		_, _ = fmt.Fprint(w, "],\n")
-		_, _ = fmt.Fprintf(w, "\"RDSRoutes\":[\n")
-		printRoutes(w, c)
-		_, _ = fmt.Fprint(w, "],\n")
-		_, _ = fmt.Fprintf(w, "\"clusters\":[\n")
-		printClusters(w, c)
-		_, _ = fmt.Fprint(w, "]}\n")
+		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
-	_, _ = fmt.Fprint(w, "]\n")
+	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
@@ -532,10 +553,43 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		}
 	}
 
+	secretsDump := &adminapi.SecretsConfigDump{}
+	if s.Generators[v3.SecretType] != nil {
+		secrets := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil)
+		if len(secrets) > 0 {
+			for _, secretAny := range secrets {
+				secret := &tls.Secret{}
+				if err := ptypes.UnmarshalAny(secretAny, secret); err != nil {
+					log.Warnf("failed to unmarshal secret: %v", err)
+				}
+				if secret.GetTlsCertificate() != nil {
+					secret.GetTlsCertificate().PrivateKey = &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: []byte("[redacted]"),
+						},
+					}
+				}
+				secretsDump.DynamicActiveSecrets = append(secretsDump.DynamicActiveSecrets, &adminapi.SecretsConfigDump_DynamicSecret{
+					Name:   secret.Name,
+					Secret: util.MessageToAny(secret),
+				})
+			}
+		}
+	}
+
 	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
+	scopedRoutesAny := util.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	configDump := &adminapi.ConfigDump{
+		Configs: []*any.Any{
+			bootstrapAny,
+			clustersAny, listenersAny,
+			scopedRoutesAny,
+			routeConfigAny,
+			util.MessageToAny(secretsDump),
+		},
+	}
 	return configDump, nil
 }
 
@@ -640,91 +694,6 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	_, _ = fmt.Fprintln(w, "]")
-}
-
-// cdsz implements a status and debug interface for CDS.
-// It is mapped to /debug/cdsz
-func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-
-	s.adsClientsMutex.RLock()
-
-	_, _ = fmt.Fprint(w, "[\n")
-	comma := false
-	for _, c := range s.adsClients {
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
-		printClusters(w, c)
-		_, _ = fmt.Fprint(w, "]}\n")
-	}
-	_, _ = fmt.Fprint(w, "]\n")
-
-	s.adsClientsMutex.RUnlock()
-}
-
-func printListeners(w io.Writer, c *Connection) {
-	comma := false
-	for _, ls := range c.XdsListeners {
-		if ls == nil {
-			adsLog.Errorf("INVALID LISTENER NIL")
-			continue
-		}
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(ls)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
-	}
-}
-
-func printClusters(w io.Writer, c *Connection) {
-	comma := false
-	for _, cl := range c.XdsClusters {
-		if cl == nil {
-			adsLog.Errorf("INVALID Cluster NIL")
-			continue
-		}
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(cl)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
-	}
-}
-
-func printRoutes(w io.Writer, c *Connection) {
-	comma := false
-	for _, rt := range c.XdsRoutes {
-		if rt == nil {
-			adsLog.Errorf("INVALID ROUTE CONFIG NIL")
-			continue
-		}
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(rt)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
-	}
 }
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {

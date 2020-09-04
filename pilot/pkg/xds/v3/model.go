@@ -19,10 +19,12 @@ import (
 )
 
 const (
-	ClusterType  = resource.ClusterType
-	EndpointType = resource.EndpointType
-	ListenerType = resource.ListenerType
-	RouteType    = resource.RouteType
+	ClusterType   = resource.ClusterType
+	EndpointType  = resource.EndpointType
+	ListenerType  = resource.ListenerType
+	RouteType     = resource.RouteType
+	SecretType    = resource.SecretType
+	NameTableType = "type.googleapis.com/istio.networking.nds.v1.NameTable"
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
@@ -36,6 +38,26 @@ func GetShortType(typeURL string) string {
 		return "RDS"
 	case EndpointType:
 		return "EDS"
+	case SecretType:
+		return "SDS"
+	default:
+		return typeURL
+	}
+}
+
+// GetMetricType returns the form of a type reported for metrics
+func GetMetricType(typeURL string) string {
+	switch typeURL {
+	case ClusterType:
+		return "cds"
+	case ListenerType:
+		return "lds"
+	case RouteType:
+		return "rds"
+	case EndpointType:
+		return "eds"
+	case SecretType:
+		return "sds"
 	default:
 		return typeURL
 	}

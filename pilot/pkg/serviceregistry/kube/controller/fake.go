@@ -37,9 +37,15 @@ type FakeXdsUpdater struct {
 
 var _ model.XDSUpdater = &FakeXdsUpdater{}
 
-func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
+func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
+	var id string
+	if req != nil && len(req.ConfigsUpdated) > 0 {
+		for key := range req.ConfigsUpdated {
+			id = key.Name
+		}
+	}
 	select {
-	case fx.Events <- FakeXdsEvent{Type: "xds"}:
+	case fx.Events <- FakeXdsEvent{Type: "xds", ID: id}:
 	default:
 	}
 }
@@ -123,7 +129,6 @@ type FakeControllerOptions struct {
 	Objects           []runtime.Object
 	NetworksWatcher   mesh.NetworksWatcher
 	ServiceHandler    func(service *model.Service, event model.Event)
-	InstanceHandler   func(instance *model.ServiceInstance, event model.Event)
 	Mode              EndpointMode
 	ClusterID         string
 	WatchedNamespaces string
@@ -157,9 +162,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		ClusterID:         opts.ClusterID,
 	}
 	c := NewController(clients, options)
-	if opts.InstanceHandler != nil {
-		_ = c.AppendInstanceHandler(opts.InstanceHandler)
-	}
 	if opts.ServiceHandler != nil {
 		_ = c.AppendServiceHandler(opts.ServiceHandler)
 	}

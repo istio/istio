@@ -15,31 +15,30 @@
 # limitations under the License.
 
 #
-# Early version of a downloader/installer for Istio
-#
 # This file will be fetched as: curl -L https://git.io/getLatestIstio | sh -
 # so it should be pure bourne shell, not bash (and not reference other scripts)
 #
 # The script fetches the latest Istio release candidate and untars it.
-# It's derived from ../downloadIstio.sh which is for stable releases but lets
-# users do curl -L https://git.io/getLatestIstio | ISTIO_VERSION=0.3.6 sh -
-# for instance to change the version fetched.
+# You can pass variables on the command line to download a specific version
+# or to override the processor architecture. For example, to download
+# Istio 1.6.8 for the x86_64 architecture,
+# run curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.6.8 TARGET_ARCH=x86_64 sh -.
 
-# This is the latest release candidate (matches ../istio.VERSION after basic
-# sanity checks)
 
+# Determines the operating system.
 OS="$(uname)"
 if [ "x${OS}" = "xDarwin" ] ; then
   OSEXT="osx"
 else
-  # TODO we should check more/complain if not likely to work, etc...
   OSEXT="linux"
 fi
 
+# Determine the latest Istio version by version number ignoring alpha, beta, and rc versions.
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
-  ISTIO_VERSION=$(curl -L -s https://api.github.com/repos/istio/istio/releases | \
-                  grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/" | \
-		  grep -v -E "(alpha|beta|rc)\.[0-9]$" | sort -t"." -k 1,1 -k 2,2 -k 3,3 -k 4,4 | tail -n 1)
+  ISTIO_VERSION="$(curl -sL https://github.com/istio/istio/releases | \
+                  grep -o 'releases/[0-9]*.[0-9]*.[0-9]*/' | sort --version-sort | \
+                  tail -1 | awk -F'/' '{ print $2}')"
+  ISTIO_VERSION="${ISTIO_VERSION##*/}"
 fi
 
 LOCAL_ARCH=$(uname -m)
@@ -78,25 +77,41 @@ NAME="istio-$ISTIO_VERSION"
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
 
-printf "Downloading %s from %s ..." "$NAME" "$URL"
-if ! curl -fsLO "$URL"
-then
-  printf "Failed.\n\nTrying with TARGET_ARCH. Downloading %s from %s ...\n" "$NAME" "$ARCH_URL"
-  if ! curl -fsLO "$ARCH_URL"
-  then
-    printf "\n\n"
-    printf "Unable to download Istio %s at this moment!\n" "$ISTIO_VERSION"
-    printf "Please verify the version you are trying to download.\n\n"
-    exit
-  else
-    filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
-    tar -xzf "${filename}"
-    rm "${filename}"
-  fi
-else
+with_arch() {
+  printf "\nDownloading %s from %s ...\n" "$NAME" "$ARCH_URL"
+  curl -fsLO "$ARCH_URL"
+  filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
+  tar -xzf "${filename}"
+  rm "${filename}"
+}
+
+without_arch() {
+  printf "\nDownloading %s from %s ..." "$NAME" "$URL"
+  curl -fsLO "$URL"
   filename="istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
   tar -xzf "${filename}"
   rm "${filename}"
+}
+
+# Istio 1.6 and above support arch
+ARCH_SUPPORTED=$(echo "$ISTIO_VERSION" | awk  '{ ARCH_SUPPORTED=substr($0, 1, 3); print ARCH_SUPPORTED; }' )
+# Istio 1.5 and below do not have arch support
+ARCH_UNSUPPORTED="1.5"
+
+if [ "${OS}" = "Linux" ] ; then
+  # This checks if 1.6 <= 1.5 or 1.4 <= 1.5
+  if [ "$(expr "${ARCH_SUPPORTED}" \<= "${ARCH_UNSUPPORTED}")" -eq 1 ]; then
+    without_arch
+  else
+    with_arch
+  fi
+elif [ "x${OS}" = "xDarwin" ] ; then
+  without_arch
+else
+  printf "\n\n"
+  printf "Unable to download Istio %s at this moment!\n" "$ISTIO_VERSION"
+  printf "Please verify the version you are trying to download.\n\n"
+  exit
 fi
 
 printf ""

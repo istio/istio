@@ -26,7 +26,8 @@
           {
               "name": "deprecation",
               "static_layer": {
-                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+                  "re2.max_program_size.error_level": 1024
               }
           },
           {
@@ -145,9 +146,44 @@
       "transport_api_version": "V3",
       "grpc_services": [
         {
+        {{ if .call_credentials }}
+        "google_grpc": {
+          "target_uri": "{{ .discovery_address }}",
+          "stat_prefix": "googlegrpcxds",
+          "channel_credentials": {
+            "ssl_credentials": {
+              "root_certs": {
+                "filename": "{{- .provisioned_cert }}"
+              }
+            }
+          },
+          "call_credentials": {
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "./var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              }
+           },
+           "channel_args": {
+              "args": {
+                "grpc.http2.max_pings_without_data": {
+                  "int_value": 0
+                },
+                "grpc.keepalive_time_ms": {
+                  "int_value": 10000
+                },
+                "grpc.keepalive_timeout_ms": {
+                  "int_value": 20000
+                }
+              }
+            }
+
+       }
+         {{ else }}
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
+        {{ end }}
         }
       ]
     }
@@ -218,14 +254,19 @@
             }]
           }]
         }
-      },
-      {
+      } {{ if .call_credentials }}{{ else }}
+       , {
         "name": "xds-grpc",
+        {{- if .proxy_via_agent }}
+        "type" : "STATIC",
+        {{- else }}
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
+        {{- end }}
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
+        {{- if not .proxy_via_agent }}
         {{- if eq .config.ControlPlaneAuthPolicy 1 }}
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
@@ -256,19 +297,14 @@
               ],
               "validation_context": {
                 "trusted_ca": {
-                  {{- if .provisioned_cert }}
-                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
-                  {{- else if eq .pilot_cert_provider "kubernetes" }}
-                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-                  {{- else if eq .pilot_cert_provider "istiod" }}
-                  "filename": "./var/run/secrets/istio/root-cert.pem"
-                  {{- end }}
-                },
+                  "filename": "{{- .provisioned_cert }}"
+                 },
                 "match_subject_alt_names": {{ .pilot_SAN }}
               }
             }
           }
         },
+        {{- end }}
         {{- end }}
         "load_assignment": {
           "cluster_name": "xds-grpc",
@@ -276,7 +312,13 @@
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
+                  {{- if not .proxy_via_agent }}
                   "socket_address": {{ .pilot_grpc_address }}
+                  {{- else }}
+                  "pipe": {
+                    "path": "./etc/istio/proxy/XDS"
+                  }
+                  {{- end }}
                 }
               }
             }]
@@ -306,6 +348,7 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
+      {{ end }}
       {{ if .zipkin }}
       ,
       {
@@ -457,7 +500,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -483,7 +526,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -506,7 +549,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -532,7 +575,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -549,7 +592,7 @@
   ,
   "tracing": {
     "http": {
-      "name": "envoy.zipkin",
+      "name": "envoy.tracers.zipkin",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
         "collector_cluster": "zipkin",
@@ -564,7 +607,7 @@
   ,
   "tracing": {
     "http": {
-      "name": "envoy.lightstep",
+      "name": "envoy.tracers.lightstep",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.trace.v3.LightstepConfig",
         "collector_cluster": "lightstep",
@@ -644,7 +687,7 @@
   "stats_sinks": [
     {{ if .envoy_metrics_service_address }}
     {
-      "name": "envoy.metrics_service",
+      "name": "envoy.stat_sinks.metrics_service",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
         "grpc_service": {
@@ -657,7 +700,7 @@
     {{ end }}
     {{ if .statsd }}
     {
-      "name": "envoy.statsd",
+      "name": "envoy.stat_sinks.statsd",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.StatsdSink",
         "address": {
