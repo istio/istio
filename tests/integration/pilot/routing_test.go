@@ -403,9 +403,6 @@ func vmTestCases(vms echo.Instances) []TrafficTestCase {
 	var testCases []vmCase
 
 	for _, vm := range vms {
-		if !vm.Config().DNSCaptureOnVM {
-			continue
-		}
 		testCases = append(testCases,
 			vmCase{
 				name: "dns: VM to k8s cluster IP service name.namespace host",
@@ -517,7 +514,7 @@ func serverFirstTestCases() []TrafficTestCase {
 
 		// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
 		// there is no server-first "upgrading" to client-first
-		{"tcp-server", "DISABLE", "DISABLE", false},
+		{"tcp-server", "DISABLE", "DISABLE", true},
 		{"tcp-server", "DISABLE", "PERMISSIVE", false},
 
 		// Expected to fail, incompatible configuration
@@ -525,6 +522,9 @@ func serverFirstTestCases() []TrafficTestCase {
 		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", false},
 
 		// In these cases, we expect success
+		// There is no sniffer on either side
+		{"tcp-server", "DISABLE", "DISABLE", true},
+
 		// On outbound, we have no sniffer involved
 		// On inbound, the request is TLS, so its not server first
 		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", true},

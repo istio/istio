@@ -119,8 +119,9 @@ func deploymentMeshifyCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
-		Use:   "deployment <deployment>",
-		Short: "Add deployment to Istio service mesh",
+		Use:     "deployment <deployment>",
+		Aliases: []string{"deploy", "dep"},
+		Short:   "Add deployment to Istio service mesh",
 		// nolint: lll
 		Long: `'istioctl experimental add-to-mesh deployment' restarts pods with the Istio sidecar.  Use 'add-to-mesh'
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
@@ -172,8 +173,9 @@ func svcMeshifyCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
-		Use:   "service <service>",
-		Short: "Add Service to Istio service mesh",
+		Use:     "service <service>",
+		Aliases: []string{"svc"},
+		Short:   "Add Service to Istio service mesh",
 		// nolint: lll
 		Long: `istioctl experimental add-to-mesh service restarts pods with the Istio sidecar.  Use 'add-to-mesh'
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
@@ -558,7 +560,6 @@ func convertToUnsignedInt32Map(s []string) map[string]uint32 {
 	}
 	return out
 }
-
 func convertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {

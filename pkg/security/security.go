@@ -138,9 +138,6 @@ type Options struct {
 	// when do mtls
 	ProvCert string
 
-	// Existing certs, for VM or existing certificates
-	CertsDir string
-
 	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
 	TLSEnabled bool
 

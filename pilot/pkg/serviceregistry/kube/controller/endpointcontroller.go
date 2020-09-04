@@ -135,7 +135,7 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 			log.Debugf("Endpoint without pod %s %s.%s error: %v", ip, ep.Name, ep.Namespace, err)
 			endpointsWithNoPods.Increment()
 			if c.metrics != nil {
-				c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, ip)
+				c.metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
 			}
 			// Tell pod cache we want to queue the endpoint event when this pod arrives.
 			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
