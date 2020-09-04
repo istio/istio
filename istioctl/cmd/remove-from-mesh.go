@@ -67,8 +67,9 @@ istioctl experimental remove-from-mesh service productpage`,
 
 func deploymentUnMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deployment <deployment>",
-		Short: "Remove deployment from Istio service mesh",
+		Use:     "deployment <deployment>",
+		Aliases: []string{"deploy", "dep"},
+		Short:   "Remove deployment from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh deployment' restarts pods with the Istio sidecar un-injected.
 
 'remove-from-mesh' is a compatibility troubleshooting tool.
@@ -102,8 +103,9 @@ istioctl experimental remove-from-mesh deployment productpage-v1`,
 
 func svcUnMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "service <service>",
-		Short: "Remove Service from Istio service mesh",
+		Use:     "service <service>",
+		Aliases: []string{"svc"},
+		Short:   "Remove Service from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh service' restarts pods with the Istio sidecar un-injected.
 
 'remove-from-mesh' is a compatibility troubleshooting tool.

@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
 	"istio.io/istio/pilot/pkg/dns"
@@ -52,6 +53,7 @@ const (
 
 type XdsProxy struct {
 	stopChan             chan struct{}
+	clusterID            string
 	downstreamListener   net.Listener
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
@@ -71,6 +73,7 @@ func initXdsProxy(sa *Agent, isSidecar bool) (*XdsProxy, error) {
 	var err error
 	proxy := &XdsProxy{
 		istiodAddress: sa.proxyConfig.DiscoveryAddress,
+		clusterID:     sa.secOpts.ClusterID,
 	}
 
 	if err = proxy.initDownstreamServer(); err != nil {
@@ -114,7 +117,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
-	upstream, err := xds.StreamAggregatedResources(context.Background(),
+	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
+	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
 		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
@@ -270,10 +274,12 @@ var _ = oauth2.TokenSource(&fileTokenSource{})
 func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 	tokb, err := ioutil.ReadFile(ts.path)
 	if err != nil {
+		proxyLog.Errorf("failed to read token file %q: %v", ts.path, err)
 		return nil, fmt.Errorf("failed to read token file %q: %v", ts.path, err)
 	}
 	tok := strings.TrimSpace(string(tokb))
 	if len(tok) == 0 {
+		proxyLog.Errorf("read empty token from file %q", ts.path)
 		return nil, fmt.Errorf("read empty token from file %q", ts.path)
 	}
 
@@ -330,7 +336,7 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 	if sa.secOpts.ProvCert == "" {
 		// only if running in k8s pod
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
-			"./var/run/secrets/tokens/istio-token",
+			sa.secOpts.JWTPath,
 			time.Second * 300,
 		}}))
 	}

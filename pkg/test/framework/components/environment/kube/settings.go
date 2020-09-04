@@ -53,14 +53,18 @@ type Settings struct {
 	// networkTopology is used for the initial assignment of networks to each cluster.
 	// The source of truth clusters' networks is the Cluster instances themselves, rather than this field.
 	networkTopology map[resource.ClusterIndex]string
+
+	// ConfigTopology maps each cluster to the cluster that runs it's config.
+	// If the cluster runs its own config, the cluster will map to itself (e.g. 0->0)
+	ConfigTopology map[resource.ClusterIndex]resource.ClusterIndex
 }
 
-type SetupSettingsFunc func(s *Settings)
+type SetupSettingsFunc func(s *Settings, ctx resource.Context)
 
 // Setup is a setup function that allows overriding values in the Kube environment settings.
 func Setup(sfn SetupSettingsFunc) resource.SetupFn {
 	return func(ctx resource.Context) error {
-		sfn(ctx.Environment().(*Environment).s)
+		sfn(ctx.Environment().(*Environment).s, ctx)
 		return nil
 	}
 }
@@ -104,7 +108,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("LoadBalancerSupported:      %v\n", s.LoadBalancerSupported)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.ControlPlaneTopology)
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
-
+	result += fmt.Sprintf("ConfigTopology:      %v\n", s.ConfigTopology)
 	return result
 }
 

@@ -133,6 +133,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     # Cluster 0, 1 and 4 share cluster 0's control plane
     # Clusters 2 and 3 control themselves
     export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
+    export INTEGRATION_TEST_CONFIG_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
   fi
 fi
 

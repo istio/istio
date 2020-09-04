@@ -86,6 +86,9 @@ type PushContext struct {
 	ServiceByHostname             map[host.Name]*Service            `json:"-"`
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+	// ClusterVIPs contains a map service and its cluster addresses. It is stored here
+	// to avoid locking each service for every proxy during push.
+	ClusterVIPs map[*Service]map[string]string
 
 	// VirtualService related
 	// This contains all virtual services visible to this namespace extracted from
@@ -464,6 +467,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostname:                           map[host.Name]*Service{},
 		ProxyStatus:                                 map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:                             map[host.Name]map[int][]string{},
+		ClusterVIPs:                                 map[*Service]map[string]string{},
 	}
 }
 
@@ -1035,6 +1039,12 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		}
 		ps.ServiceByHostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 		ps.ServiceByHostname[s.Hostname] = s
+		s.Mutex.RLock()
+		ps.ClusterVIPs[s] = make(map[string]string)
+		for k, v := range s.ClusterVIPs {
+			ps.ClusterVIPs[s][k] = v
+		}
+		s.Mutex.RUnlock()
 	}
 
 	ps.initServiceAccounts(env, allServices)
