@@ -15,6 +15,7 @@
 package istioagent
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -47,9 +48,9 @@ type ApplicationHealthCheckConfig struct {
 	SuccessThresh  int
 	FailThresh     int
 	CheckType      HealthCheckType
-	HTTPConfig     HTTPHealthCheckConfig
-	TCPConfig      TCPHealthCheckConfig
-	ExecConfig     ExecHealthCheckConfig
+	HTTPConfig     *HTTPHealthCheckConfig
+	TCPConfig      *TCPHealthCheckConfig
+	ExecConfig     *ExecHealthCheckConfig
 }
 
 type HTTPHealthCheckConfig struct {
@@ -89,7 +90,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 	if w.config.CheckType == HTTPHealthCheck {
 		for {
 			// healthy
-			if code, err := httpCheck(w.config.HTTPConfig, w.config.ProbeTimeout); code >= 200 && code <= 299 {
+			if code, err := httpCheck(*w.config.HTTPConfig, w.config.ProbeTimeout); code >= 200 && code <= 299 {
 				numSuccess++
 				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
@@ -122,7 +123,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 
 	if w.config.CheckType == TCPHealthCheck {
 		for {
-			if err := tcpCheck(w.config.TCPConfig, w.config.ProbeTimeout); err == nil {
+			if err := tcpCheck(*w.config.TCPConfig, w.config.ProbeTimeout); err == nil {
 				numSuccess++
 				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
@@ -150,7 +151,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 
 	if w.config.CheckType == ExecHealthCheck {
 		for {
-			if err := execCheck(w.config.ExecConfig); err == nil {
+			if err := execCheck(*w.config.ExecConfig); err == nil {
 				numSuccess++
 				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
@@ -182,6 +183,9 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 func httpCheck(config HTTPHealthCheckConfig, timeout time.Duration) (int, error) {
 	client := http.Client{
 		Timeout: timeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
 	}
 	checkURL, err := url.Parse(fmt.Sprintf("%s://localhost:%v/%s", config.Scheme, config.Port, config.Path))
 	req := &http.Request{
