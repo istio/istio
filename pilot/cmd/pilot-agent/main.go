@@ -150,7 +150,7 @@ var (
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
-	proxyXDSViaAgent = env.RegisterStringVar("ISTIO_META_PROXY_XDS_VIA_AGENT", "",
+	proxyXDSViaAgent = env.RegisterStringVar("ISTIO_META_PROXY_XDS_VIA_AGENT", "true",
 		"If set to enable or true or 1, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
 	// This is a copy of the env var in the init code.
