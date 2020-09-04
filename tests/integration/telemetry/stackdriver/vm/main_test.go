@@ -106,7 +106,7 @@ func testSetup(ctx resource.Context) (err error) {
 	vmEnv = map[string]string{
 		"ISTIO_META_INSECURE_STACKDRIVER_ENDPOINT":               sdInst.Address(),
 		"ISTIO_META_STACKDRIVER_MONITORING_EXPORT_INTERVAL_SECS": "10",
-		"ISTIO_META_MESH_ID":                                     "test-mesh",
+		"ISTIO_META_MESH_ID":                                     "proj-test-mesh",
 		"ISTIO_META_WORKLOAD_NAME":                               "vm-server-v1",
 		"ISTIO_METAJSON_LABELS":                                  vmLabelsJSON,
 		"GCE_METADATA_HOST":                                      gceInst.Address(),
