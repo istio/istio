@@ -67,7 +67,7 @@ func TestIncrementalPush(t *testing.T) {
 	t.Run("Incremental Push", func(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{Full: false})
-		if err := ads.WaitSingle(time.Second*5, v3.EndpointType); err != nil {
+		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -79,7 +79,7 @@ func TestIncrementalPush(t *testing.T) {
 				{Name: "destall.default.svc.cluster.local", Namespace: "testns", Kind: gvk.ServiceEntry}: {},
 			},
 		})
-		if err := ads.WaitSingle(time.Second*5, v3.EndpointType); err != nil {
+		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
 			t.Fatal(err)
 		}
 	})
