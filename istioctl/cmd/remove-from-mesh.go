@@ -50,7 +50,14 @@ The 'add-to-mesh' command can be used to add or restore the sidecar.
 THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
 		Example: `
 # Restart all productpage pods without an Istio sidecar
-istioctl experimental remove-from-mesh service productpage`,
+istioctl experimental remove-from-mesh service productpage
+
+# Restart all details-v1 pods without an Istio sidecar
+istioctl x rm service details-v1
+
+# Restart all ratings-v1 pods without an Istio sidecar
+istioctl x rm deploy ratings-v1
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
@@ -78,7 +85,14 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Example: `
 # Restart all productpage-v1 pods without an Istio sidecar
-istioctl experimental remove-from-mesh deployment productpage-v1`,
+istioctl experimental remove-from-mesh deployment productpage-v1
+
+# Restart all details-v1 pods without an Istio sidecar
+istioctl x remove-from-mesh deploy details-v1
+
+# Restart all ratings-v1 pods without an Istio sidecar
+istioctl x rm dep ratings-v1
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting deployment name")
@@ -114,7 +128,14 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Example: `
 # Restart all productpage pods without an Istio sidecar
-istioctl experimental remove-from-mesh service productpage`,
+istioctl experimental remove-from-mesh service productpage
+
+# Restart all details-v1 pods without an Istio sidecar
+istioctl x remove-from-mesh svc details-v1
+
+# Restart all ratings-v1 pods without an Istio sidecar
+istioctl x rm svc ratings-v1
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting service name")
@@ -145,8 +166,9 @@ istioctl experimental remove-from-mesh service productpage`,
 
 func externalSvcUnMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "external-service <svcname>",
-		Short: "Remove Service Entry and Kubernetes Service for the external service from Istio service mesh",
+		Use:     "external-service <svcname>",
+		Aliases: []string{"es"},
+		Short:   "Remove Service Entry and Kubernetes Service for the external service from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh external-service' removes the ServiceEntry and
 the Kubernetes Service for the specified external service (e.g. services running on a VM) from Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
@@ -155,7 +177,14 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Example: `
 # Remove "vmhttp" service entry rules
-istioctl experimental remove-from-mesh external-service vmhttp`,
+istioctl experimental remove-from-mesh external-service vmhttp
+
+# Remove "vmhttp" service entry rules
+istioctl x remove-from-mesh es vmhttp
+
+# Remove "vmhttp" service entry rules
+istioctl x rm es vmhttp
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting external service name")
