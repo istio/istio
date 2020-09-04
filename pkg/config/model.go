@@ -87,6 +87,9 @@ type Config struct {
 
 	// Spec holds the configuration object as a gogo protobuf message
 	Spec Spec
+
+	// Status holds long-running status.
+	Status Status
 }
 
 // Spec defines the spec for the config. In order to use below helper methods,
@@ -255,6 +258,8 @@ func DeepCopy(s Spec) Spec {
 
 	return data
 }
+
+type Status interface{}
 
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {

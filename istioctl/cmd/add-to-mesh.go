@@ -84,6 +84,9 @@ istioctl experimental add-to-mesh service productpage
 # Restart just pods from the productpage-v1 deployment
 istioctl experimental add-to-mesh deployment productpage-v1
 
+# Restart just pods from the details-v1 deployment
+istioctl x add deployment details-v1
+
 # Control how meshed pods see an external service
 istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126 \
    http:9080 tcp:8888 --labels app=test,version=v1 --annotations env=stage --serviceaccount stageAdmin`,
@@ -119,8 +122,9 @@ func deploymentMeshifyCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
-		Use:   "deployment <deployment>",
-		Short: "Add deployment to Istio service mesh",
+		Use:     "deployment <deployment>",
+		Aliases: []string{"deploy", "dep"},
+		Short:   "Add deployment to Istio service mesh",
 		// nolint: lll
 		Long: `'istioctl experimental add-to-mesh deployment' restarts pods with the Istio sidecar.  Use 'add-to-mesh'
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
@@ -134,7 +138,14 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Example: `
 # Restart pods from the productpage-v1 deployment with Istio sidecar
-istioctl experimental add-to-mesh deployment productpage-v1`,
+istioctl experimental add-to-mesh deployment productpage-v1
+
+# Restart pods from the details-v1 deployment with Istio sidecar
+istioctl x add-to-mesh deploy details-v1
+
+# Restart pods from the ratings-v1 deployment with Istio sidecar
+istioctl x add dep ratings-v1
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting deployment name")
@@ -172,8 +183,9 @@ func svcMeshifyCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
-		Use:   "service <service>",
-		Short: "Add Service to Istio service mesh",
+		Use:     "service <service>",
+		Aliases: []string{"svc"},
+		Short:   "Add Service to Istio service mesh",
 		// nolint: lll
 		Long: `istioctl experimental add-to-mesh service restarts pods with the Istio sidecar.  Use 'add-to-mesh'
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
@@ -187,7 +199,14 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Example: `
 # Restart all productpage pods with an Istio sidecar
-istioctl experimental add-to-mesh service productpage`,
+istioctl experimental add-to-mesh service productpage
+
+# Restart all details-v1 pods with an Istio sidecar
+istioctl x add-to-mesh svc details-v1
+
+# Restart all ratings-v1 pods with an Istio sidecar
+istioctl x add svc ratings-v1
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting service name")
@@ -225,8 +244,9 @@ istioctl experimental add-to-mesh service productpage`,
 
 func externalSvcMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
-		Short: "Add external service (e.g. services running on a VM) to Istio service mesh",
+		Use:     "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
+		Aliases: []string{"es"},
+		Short:   "Add external service (e.g. services running on a VM) to Istio service mesh",
 		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and 
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
