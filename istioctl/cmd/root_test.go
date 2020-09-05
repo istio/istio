@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//     htcp://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -82,12 +82,22 @@ func TestHideInheritedFlags(t *testing.T) {
 }
 
 func TestDeprecateCommand(t *testing.T) {
-	fakeCmd := &cobra.Command{
-		Use:   "some-command",
-		Short: "short description of the command",
+	cases := []*cobra.Command{
+		{
+			Use:   "some-command",
+			Short: "short description of the command",
+		},
+		{
+			Use:   "command-with-empty-short-description",
+			Short: "",
+		},
 	}
-	deprecate(fakeCmd)
-	if !strings.HasSuffix(fakeCmd.Short, deprecatedMsg) {
-		t.Errorf("%s short description should have suffix to indicate deprecation, instead got \"%s\"", fakeCmd.Use, fakeCmd.Short)
+	for _, tc := range cases {
+		t.Run(tc.Use, func(t *testing.T) {
+			deprecate(tc)
+			if !strings.HasSuffix(tc.Short, deprecatedMsg) {
+				t.Errorf("%s short description should have suffix to indicate deprecation, instead got \"%s\"", tc.Use, tc.Short)
+			}
+		})
 	}
 }
