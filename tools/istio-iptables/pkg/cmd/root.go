@@ -303,7 +303,6 @@ func GetCommand() *cobra.Command {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
-		os.Exit(1)
+		handleError(err)
 	}
 }
