@@ -69,7 +69,12 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				return err
 			}
 			if len(args) > 0 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					kubeClient.UtilFactory())
+				if err != nil {
+					return err
+				}
 				var envoyDump []byte
 				if configDumpFile != "" {
 					envoyDump, err = readConfigFile(configDumpFile)
@@ -179,7 +184,12 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			}
 
 			if len(args) > 0 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					kubeClient.UtilFactory())
+				if err != nil {
+					return err
+				}
 				path := "config_dump"
 				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
 				if err != nil {
@@ -223,4 +233,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 
 	return statusCmd
+}
+
+func strPtr(val string) *string {
+	return &val
 }
