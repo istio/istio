@@ -19,6 +19,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 type makeConfigMapArgs struct {
@@ -28,10 +30,6 @@ type makeConfigMapArgs struct {
 	Annotations map[string]string
 	Data        map[string]string
 }
-
-const (
-	ValidationContainerName = "istio-validation"
-)
 
 func makeConfigMap(args makeConfigMapArgs) v1.ConfigMap {
 	configmap := v1.ConfigMap{
@@ -178,7 +176,7 @@ var (
 // Container specs
 var (
 	workingInitContainer = v1.ContainerStatus{
-		Name: ValidationContainerName,
+		Name: constants.ValidationContainerName,
 		State: v1.ContainerState{
 			Terminated: &v1.ContainerStateTerminated{
 				ExitCode: 0,
