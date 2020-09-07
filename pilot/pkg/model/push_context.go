@@ -1767,12 +1767,12 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 	if service.Resolution != ClientSideLB {
 		instances := ps.InstancesByPort(service, port.Port, nil)
 		// Assume all instances are same.
-		if len(instances) > 0 && instances[0].Endpoint.TLSMode == IstioMutualTLSModeLabel {
-			return MTLSStrict
+		if len(instances) == 0 || instances[0].Endpoint.TLSMode == DisabledTLSModeLabel {
+			return MTLSDisable
 		}
 	}
 
-	// When all are failed, default to permissive.
+	// Fallback to permissive.
 	return MTLSPermissive
 }
 
