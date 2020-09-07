@@ -704,7 +704,7 @@ func secretConfigCmd() *cobra.Command {
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
   istioctl proxy-config secret --file envoy-config.json
 
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
+  THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
 		Aliases: []string{"s"},
 		Args: func(cmd *cobra.Command, args []string) error {
