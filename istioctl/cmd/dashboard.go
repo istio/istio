@@ -227,7 +227,7 @@ func zipkinDashCmd() *cobra.Command {
 // port-forward to sidecar Envoy admin port; open browser
 func envoyDashCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "envoy <pod-name[.namespace]>",
+		Use:   "envoy [<type>/]<name>[.<namespace>]",
 		Short: "Open Envoy admin web UI",
 		Long:  `Open the Envoy admin dashboard for a sidecar`,
 		Example: `  # Open Envoy dashboard for the productpage-123-456.default pod
@@ -295,7 +295,7 @@ func envoyDashCmd() *cobra.Command {
 func controlZDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "controlz <pod-name[.namespace]>",
+		Use:   "controlz [<type>/]<name>[.<namespace>]",
 		Short: "Open ControlZ web UI",
 		Long:  `Open the ControlZ web UI for a pod in the Istio control plane`,
 		Example: `  # Open ControlZ web UI for the istiod-123-456.istio-system pod

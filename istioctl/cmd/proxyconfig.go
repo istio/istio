@@ -272,7 +272,7 @@ func setupClustersEnvoyConfigWriter(debug []byte, out io.Writer) (*clusters.Conf
 
 func clusterConfigCmd() *cobra.Command {
 	clusterConfigCmd := &cobra.Command{
-		Use:   "cluster [<pod-name[.namespace]>]",
+		Use:   "cluster [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves cluster configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about cluster configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about cluster configuration for a given pod from Envoy.
@@ -349,7 +349,7 @@ func clusterConfigCmd() *cobra.Command {
 
 func listenerConfigCmd() *cobra.Command {
 	listenerConfigCmd := &cobra.Command{
-		Use:   "listener [<pod-name[.namespace]>]",
+		Use:   "listener [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves listener configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about listener configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about listener configuration for a given pod from Envoy.
@@ -427,7 +427,7 @@ func listenerConfigCmd() *cobra.Command {
 
 func logCmd() *cobra.Command {
 	logCmd := &cobra.Command{
-		Use:   "log <pod-name[.namespace]>",
+		Use:   "log [<type>/]<name>[.<namespace>]",
 		Short: "(experimental) Retrieves logging levels of the Envoy in the specified pod",
 		Long:  "(experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
 		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
@@ -550,7 +550,7 @@ func logCmd() *cobra.Command {
 
 func routeConfigCmd() *cobra.Command {
 	routeConfigCmd := &cobra.Command{
-		Use:   "route [<pod-name[.namespace]>]",
+		Use:   "route [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves route configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about route configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about route configuration for a given pod from Envoy.
@@ -623,7 +623,7 @@ func routeConfigCmd() *cobra.Command {
 
 func endpointConfigCmd() *cobra.Command {
 	endpointConfigCmd := &cobra.Command{
-		Use:   "endpoint [<pod-name[.namespace]>]",
+		Use:   "endpoint [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves endpoint configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
@@ -707,7 +707,7 @@ func endpointConfigCmd() *cobra.Command {
 
 func bootstrapConfigCmd() *cobra.Command {
 	bootstrapConfigCmd := &cobra.Command{
-		Use:   "bootstrap [<pod-name[.namespace]>]",
+		Use:   "bootstrap [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about bootstrap configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full bootstrap configuration for a given pod from Envoy.
@@ -760,7 +760,7 @@ func bootstrapConfigCmd() *cobra.Command {
 
 func secretConfigCmd() *cobra.Command {
 	secretConfigCmd := &cobra.Command{
-		Use:   "secret [<pod-name[.namespace]>]",
+		Use:   "secret [<type>/]<name>[.<namespace>]",
 		Short: "(experimental) Retrieves secret configuration for the Envoy in the specified pod",
 		Long:  `(experimental) Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full secret configuration for a given pod from Envoy.

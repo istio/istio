@@ -201,7 +201,8 @@ func (c MockClient) NewPortForwarder(_, _, _ string, _, _ int) (kube.PortForward
 	return nil, fmt.Errorf("TODO MockClient doesn't implement port forwarding")
 }
 
-// UtilFactory should mock kubectl's utility factory, but is unimplemented
+// UtilFactory mock's kubectl's utility factory.  This code sets up a fake factory,
+// similar to the one in https://github.com/kubernetes/kubectl/blob/master/pkg/cmd/describe/describe_test.go
 func (c MockClient) UtilFactory() util.Factory {
 	tf := cmdtesting.NewTestFactory()
 	_, _, codec := cmdtesting.NewExternalScheme()
