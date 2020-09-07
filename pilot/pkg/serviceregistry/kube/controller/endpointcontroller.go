@@ -61,16 +61,20 @@ func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 
 // processEndpointEvent triggers the config update.
 func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep interface{}) error {
+	// Update internal endpoint cache no matter what kind of service, even headless service.
+	// As for gateways, the cluster discovery type is `EDS` for headless service.
+	updateEDS(c, epc, ep, event)
 	if features.EnableHeadlessService {
 		if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
+				hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)
 				c.xdsUpdater.ConfigUpdate(&model.PushRequest{
 					Full: true,
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigsUpdated: map[model.ConfigKey]struct{}{{
 						Kind:      gvk.ServiceEntry,
-						Name:      string(kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)),
+						Name:      string(hostname),
 						Namespace: svc.Namespace,
 					}: {}},
 					Reason: []model.TriggerReason{model.EndpointUpdate},
@@ -79,8 +83,6 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 			}
 		}
 	}
-
-	updateEDS(c, epc, ep, event)
 
 	return nil
 }
