@@ -220,12 +220,19 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("Kubernetes only: endpoint occur earlier", func(t *testing.T) {
 		kc, _, _, kube, xdsUpdater := setupTest(t)
 		makePod(t, kube, pod)
+
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 1 {
+			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
+		}
 
 		// make service populated later than endpoint
 		makeService(t, kube, service)
-
-		event := xdsUpdater.Wait("edscache")
+		event = xdsUpdater.Wait("edscache")
 		if event == nil {
 			t.Fatalf("expecting edscache event")
 		}
@@ -335,8 +342,14 @@ func TestWorkloadInstances(t *testing.T) {
 		kc, _, store, kube, xdsUpdater := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
 
-		makeService(t, kube, service)
+		// Wait no event pushed when workload entry created as no service entry
+		select {
+		case ev := <-xdsUpdater.Events:
+			t.Fatalf("Got %s event, expect none", ev.kind)
+		case <-time.After(200 * time.Millisecond):
+		}
 
+		makeService(t, kube, service)
 		event := xdsUpdater.Wait("edscache")
 		if event == nil {
 			t.Fatalf("expecting edscache event")
@@ -628,8 +641,6 @@ func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// TODO(@hzxuzhonghu): figure out a more graceful way to make sure objects reflected by informer and processed.
-	time.Sleep(100 * time.Millisecond)
 }
 
 func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace string, ports []v1.EndpointPort, ips []string) {
@@ -655,5 +666,4 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	if _, err := c.CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
 	}
-	time.Sleep(100 * time.Millisecond)
 }

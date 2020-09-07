@@ -87,15 +87,6 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 
 func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event model.Event) {
 	host, svcName, ns := epc.getServiceInfo(ep)
-	c.RLock()
-	svc := c.servicesMap[host]
-	c.RUnlock()
-
-	if svc == nil {
-		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has not been populated", svcName, ns)
-		return
-	}
-
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, ns)
 	var endpoints []*model.IstioEndpoint
 	if event == model.EventDelete {
@@ -104,9 +95,17 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
 
+	// handling k8s service selecting workload entries
 	if features.EnableK8SServiceSelectWorkloadEntries {
-		fep := c.collectWorkloadInstanceEndpoints(svc)
-		endpoints = append(endpoints, fep...)
+		c.RLock()
+		svc := c.servicesMap[host]
+		c.RUnlock()
+		if svc == nil {
+			fep := c.collectWorkloadInstanceEndpoints(svc)
+			endpoints = append(endpoints, fep...)
+		} else {
+			log.Infof("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated", svcName, ns)
+		}
 	}
 
 	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, endpoints)
