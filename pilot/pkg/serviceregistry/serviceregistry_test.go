@@ -242,7 +242,7 @@ func TestWorkloadInstances(t *testing.T) {
 		}
 		event = xdsUpdater.Wait("xds")
 		if event == nil {
-			t.Fatalf("expecting eds event")
+			t.Fatalf("expecting xds event")
 		}
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
