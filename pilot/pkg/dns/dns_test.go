@@ -198,16 +198,16 @@ func TestDNS(t *testing.T) {
 		},
 	}
 
-	for _, c := range clients {
+	for i := range clients {
 		for _, tt := range testCases {
-			t.Run(c.Net+"-"+tt.name, func(t *testing.T) {
+			t.Run(clients[i].Net+"-"+tt.name, func(t *testing.T) {
 				m := new(dns.Msg)
 				q := dns.TypeA
 				if tt.queryAAAA {
 					q = dns.TypeAAAA
 				}
 				m.SetQuestion(tt.host, q)
-				res, _, err := c.Exchange(m, testAgentDNSAddr)
+				res, _, err := clients[i].Exchange(m, testAgentDNSAddr)
 
 				if err != nil {
 					t.Errorf("Failed to resolve query for %s: %v", tt.host, err)
