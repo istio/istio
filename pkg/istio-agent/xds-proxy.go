@@ -87,7 +87,9 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	go func() {
-		_ = proxy.downstreamGrpcServer.Serve(proxy.downstreamListener)
+		if err := proxy.downstreamGrpcServer.Serve(proxy.downstreamListener); err != nil {
+			log.Fatalf("failed to start gRPC server to process downstream requests %v", err)
+		}
 	}()
 
 	return proxy, nil
@@ -172,19 +174,29 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			proxyLog.Infof("downstream terminated with status %v", err)
 			// TODO: Close downstream?
 			return err
-		case req := <-requestsChan:
+		case req, ok := <-requestsChan:
+			if !ok {
+				return nil
+			}
 			proxyLog.Debug("request for type url %s", req.TypeUrl)
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
 			}
-		case req := <-ndsRequestChan:
+		case req, ok := <-ndsRequestChan:
+			if !ok {
+				return nil
+			}
 			proxyLog.Debug("request for type url %s", req.TypeUrl)
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
 			}
-		case resp := <-responsesChan:
+		case resp, ok := <-responsesChan:
+			if !ok {
+				return nil
+			}
+			proxyLog.Debug("response for type url %s", resp.TypeUrl)
 			switch resp.TypeUrl {
 			case v3.NameTableType:
 				// intercept. This is for the dns server
