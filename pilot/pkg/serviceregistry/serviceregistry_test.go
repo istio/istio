@@ -166,6 +166,20 @@ func TestWorkloadInstances(t *testing.T) {
 			ClusterIP: "9.9.9.9",
 		},
 	}
+	headlessService := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service",
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{
+				Name: "http",
+				Port: 80,
+			}},
+			Selector:  labels,
+			ClusterIP: v1.ClusterIPNone,
+		},
+	}
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod",
@@ -208,6 +222,28 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    pod.Status.PodIP,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Kubernetes only: headless service", func(t *testing.T) {
+		kc, _, _, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, headlessService)
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		event = xdsUpdater.Wait("xds")
+		if event == nil {
+			t.Fatalf("expecting xds event")
+		}
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
