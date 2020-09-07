@@ -103,7 +103,9 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		_ = proxy.downstreamGrpcServer.Serve(proxy.downstreamListener)
 	}()
 
-	proxy.initCertificateWatches(ia, proxy.stopChan)
+	if err = proxy.initCertificateWatches(ia, proxy.stopChan); err != nil {
+		return nil, err
+	}
 	return proxy, nil
 }
 
