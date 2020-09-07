@@ -16,6 +16,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -56,7 +57,13 @@ func HandleNamespace(ns, defaultNamespace string) string {
 // InferPodInfoFromTypedResource gets a pod name, from an expression like Deployment/httpbin, or Deployment/productpage-v1.bookinfo
 func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Factory) (string, string, error) {
 	resname, ns := inferNsInfo(name, defaultNS)
+	if !strings.Contains(resname, "/") {
+		return resname, ns, nil
+	}
 
+	// Pod is referred to using something like "deployment/httpbin".  Use the kubectl
+	// libraries to look up the the resource name, find the pods it selects, and return
+	// one of those pods.
 	builder := factory.NewBuilder().
 		WithScheme(scheme.Scheme, scheme.Scheme.PrioritizedVersionsAllGroups()...).
 		NamespaceParam(ns).DefaultNamespace().
@@ -69,9 +76,14 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 	if len(infos) != 1 {
 		return "", "", errors.New("expected a resource")
 	}
+	_, ok := infos[0].Object.(*v1.Pod)
+	if ok {
+		// If we got a pod, just use its name
+		return infos[0].Name, infos[0].Namespace, nil
+	}
 	namespace, selector, err := polymorphichelpers.SelectorsForObject(infos[0].Object)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("%q does not refer to a pod", resname)
 	}
 	clientConfig, err := factory.ToRESTConfig()
 	if err != nil {
@@ -81,12 +93,12 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 	if err != nil {
 		return "", "", err
 	}
-	var timeout time.Duration
 	// We need to pass in a sorter, and the one used by `kubectl logs` is good enough.
 	sortBy := func(pods []*v1.Pod) sort.Interface { return podutils.ByLogging(pods) }
+	timeout := 2 * time.Second
 	pod, _, err := polymorphichelpers.GetFirstPod(clientset, namespace, selector.String(), timeout, sortBy)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("no pods match %q", resname)
 	}
 	return pod.Name, ns, nil
 }

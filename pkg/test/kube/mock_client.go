@@ -204,8 +204,6 @@ func (c MockClient) NewPortForwarder(_, _, _ string, _, _ int) (kube.PortForward
 // UtilFactory should mock kubectl's utility factory, but is unimplemented
 func (c MockClient) UtilFactory() util.Factory {
 	tf := cmdtesting.NewTestFactory()
-	// @@@ ecs TODO call tf.Cleanup() when it is time to clean up (which means the test func must be involved?)
-	// defer tf.Cleanup()
 	_, _, codec := cmdtesting.NewExternalScheme()
 	tf.UnstructuredClient = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
