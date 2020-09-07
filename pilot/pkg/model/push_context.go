@@ -1757,19 +1757,19 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 		return MTLSUnknown
 	}
 
-	// First , check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
-	// If the mode is not unknown, use it.
-	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
-		return serviceMTLSMode
-	}
-
-	// Check service instances' tls mode, mainly used for headless service.
+	// 1. Check service instances' tls mode, mainly used for headless service.
 	if service.Resolution != ClientSideLB {
 		instances := ps.InstancesByPort(service, port.Port, nil)
 		// Assume all instances are same.
 		if len(instances) == 0 || instances[0].Endpoint.TLSMode == DisabledTLSModeLabel {
 			return MTLSDisable
 		}
+	}
+
+	// 2, check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// If the mode is not unknown, use it.
+	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
+		return serviceMTLSMode
 	}
 
 	// Fallback to permissive.
