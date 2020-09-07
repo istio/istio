@@ -17,11 +17,13 @@ package kube
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
+	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
@@ -29,6 +31,9 @@ import (
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/rest/fake"
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
+	"k8s.io/kubectl/pkg/cmd/util"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
 
@@ -194,4 +199,21 @@ func (c MockClient) PodLogs(_ context.Context, _ string, _ string, _ string, _ b
 
 func (c MockClient) NewPortForwarder(_, _, _ string, _, _ int) (kube.PortForwarder, error) {
 	return nil, fmt.Errorf("TODO MockClient doesn't implement port forwarding")
+}
+
+// UtilFactory should mock kubectl's utility factory, but is unimplemented
+func (c MockClient) UtilFactory() util.Factory {
+	tf := cmdtesting.NewTestFactory()
+	// @@@ ecs TODO call tf.Cleanup() when it is time to clean up (which means the test func must be involved?)
+	// defer tf.Cleanup()
+	_, _, codec := cmdtesting.NewExternalScheme()
+	tf.UnstructuredClient = &fake.RESTClient{
+		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
+		Resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     cmdtesting.DefaultHeader(),
+			Body: cmdtesting.ObjBody(codec,
+				cmdtesting.NewInternalType("", "", "foo"))},
+	}
+	return tf
 }

@@ -30,6 +30,18 @@ func TestProxyStatus(t *testing.T) {
 			args:           strings.Split("ps", " "),
 			expectedString: "NAME     CDS     LDS     EDS     RDS     ISTIOD",
 		},
+		{ // case 2: supplying nonexistent pod name should result in error with flag
+			args:          strings.Split("proxy-status deployment/random-gibberish", " "),
+			wantException: true,
+		},
+		{ // case 3: supplying nonexistent deployment name
+			args:          strings.Split("proxy-status deployment/random-gibberish.default", " "),
+			wantException: true,
+		},
+		{ // case 4: supplying nonexistent deployment name in nonexistent namespace
+			args:          strings.Split("proxy-status deployment/random-gibberish.bogus", " "),
+			wantException: true,
+		},
 		{ // case 5: supplying nonexistent pod name should result in error with --sds flag
 			args:          strings.Split("proxy-status random-gibberish-podname-61789237418234", " "),
 			wantException: true,

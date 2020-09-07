@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -299,7 +300,18 @@ func clusterConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				var client kube.ExtendedClient
+				client, err = kubeClient(kubeconfig, configContext)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %w", err)
+				}
+				var podName, ns string
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -365,7 +377,18 @@ func listenerConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				var client kube.ExtendedClient
+				client, err = kubeClient(kubeconfig, configContext)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %w", err)
+				}
+				var podName, ns string
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -432,7 +455,17 @@ func logCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+			kubeClient, err := kubeClient(kubeconfig, configContext)
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %w", err)
+			}
+			var podName, ns string
+			podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+				handlers.HandleNamespace(namespace, defaultNamespace),
+				kubeClient.UtilFactory())
+			if err != nil {
+				return err
+			}
 			loggerNames, err := setupEnvoyLogConfig("", podName, ns)
 			if err != nil {
 				return err
@@ -545,7 +578,18 @@ func routeConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				var client kube.ExtendedClient
+				client, err = kubeClient(kubeconfig, configContext)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %w", err)
+				}
+				var podName, ns string
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -612,7 +656,18 @@ func endpointConfigCmd() *cobra.Command {
 			var configWriter *clusters.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				var client kube.ExtendedClient
+				client, err = kubeClient(kubeconfig, configContext)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %w", err)
+				}
+				var podName, ns string
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
 				configWriter, err = setupPodClustersWriter(podName, ns, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout())
@@ -674,7 +729,18 @@ func bootstrapConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				var client kube.ExtendedClient
+				client, err = kubeClient(kubeconfig, configContext)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %w", err)
+				}
+				var podName, ns string
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -718,7 +784,18 @@ func secretConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				var client kube.ExtendedClient
+				client, err = kubeClient(kubeconfig, configContext)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %w", err)
+				}
+				var podName, ns string
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())

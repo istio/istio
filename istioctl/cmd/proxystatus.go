@@ -50,6 +50,9 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
   # Retrieve sync diff for a single Envoy and Istiod
   istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
 
+  # Retrieve sync diff between Istiod and one pod under a deployment
+  istioctl proxy-status deployment/productpage-v1
+
   # Write proxy config-dump to file, and compare to Istio control plane
   kubectl port-forward -n istio-system istio-egressgateway-59585c5b9c-ndc59 15000 &
   curl localhost:15000/config_dump > cd.json
@@ -233,8 +236,4 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 
 	return statusCmd
-}
-
-func strPtr(val string) *string {
-	return &val
 }
