@@ -367,6 +367,94 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
+	t.Run("Service selects both pods and WorkloadEntry", func(t *testing.T) {
+		kc, _, store, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, service)
+		event := xdsUpdater.Wait("svcupdate")
+		if event == nil {
+			t.Fatalf("expecting svcupdate event")
+		}
+
+		makeIstioObject(t, store, workloadEntry)
+		event = xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event = xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 2 {
+			t.Errorf("expecting 2 endpoints, but got %d ", event.endpoints)
+		}
+
+		instances := []ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    pod.Status.PodIP,
+				Port:       80,
+			},
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			},
+		}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Service selects both pods and WorkloadEntry: wle occur earlier", func(t *testing.T) {
+		kc, _, store, kube, xdsUpdater := setupTest(t)
+		makeIstioObject(t, store, workloadEntry)
+
+		// Wait no event pushed when workload entry created as no service entry
+		select {
+		case ev := <-xdsUpdater.Events:
+			t.Fatalf("Got %s event, expect none", ev.kind)
+		case <-time.After(200 * time.Millisecond):
+		}
+
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 1 {
+			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
+		}
+
+		makeService(t, kube, service)
+		event = xdsUpdater.Wait("edscache")
+		if event == nil {
+			t.Fatalf("expecting edscache event")
+		}
+		if event.endpoints != 2 {
+			t.Errorf("expecting 2 endpoints, but got %d ", event.endpoints)
+		}
+
+		instances := []ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    pod.Status.PodIP,
+				Port:       80,
+			},
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			},
+		}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	t.Run("Service selects WorkloadEntry with targetPort name", func(t *testing.T) {
 		kc, _, store, kube, _ := setupTest(t)
 		makeService(t, kube, &v1.Service{
