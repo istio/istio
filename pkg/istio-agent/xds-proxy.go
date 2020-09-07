@@ -24,6 +24,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -42,14 +43,21 @@ import (
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
+)
+
+var (
+	newFileWatcher = filewatcher.NewWatcher
 )
 
 const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
-	defaultInitialConnWindowSize       = 1024 * 1024     // default gRPC InitialWindowSize
-	defaultInitialWindowSize           = 1024 * 1024     // default gRPC ConnWindowSize
-	sendTimeout                        = 5 * time.Second // default upstream send timeout.
+	defaultInitialConnWindowSize       = 1024 * 1024            // default gRPC InitialWindowSize
+	defaultInitialWindowSize           = 1024 * 1024            // default gRPC ConnWindowSize
+	sendTimeout                        = 5 * time.Second        // default upstream send timeout.
+	watchDebounceDelay                 = 100 * time.Millisecond // file watcher event debounce delay.
 )
 
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
@@ -60,12 +68,14 @@ const (
 // connections. These need to be consolidated.
 type XdsProxy struct {
 	stopChan             chan struct{}
+	resetChan            chan struct{}
 	clusterID            string
 	downstreamListener   net.Listener
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
 	localDNSServer       *dns.LocalDNSServer
+	fileWatcher          filewatcher.FileWatcher
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -76,13 +86,16 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
 		clusterID:      ia.secOpts.ClusterID,
 		localDNSServer: ia.localDNSServer,
+		fileWatcher:    newFileWatcher(),
+		stopChan:       make(chan struct{}),
+		resetChan:      make(chan struct{}),
 	}
 
 	if err = proxy.initDownstreamServer(); err != nil {
 		return nil, err
 	}
 
-	if proxy.istiodDialOptions, err = buildUpstreamClientDialOpts(ia); err != nil {
+	if proxy.istiodDialOptions, err = proxy.buildUpstreamClientDialOpts(ia); err != nil {
 		return nil, err
 	}
 
@@ -90,6 +103,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		_ = proxy.downstreamGrpcServer.Serve(proxy.downstreamListener)
 	}()
 
+	proxy.initCertificateWatches(ia, proxy.stopChan)
 	return proxy, nil
 }
 
@@ -214,6 +228,9 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 					return err
 				}
 			}
+		case <-p.resetChan:
+			_ = upstream.CloseSend()
+			return nil
 		case <-p.stopChan:
 			_ = upstream.CloseSend()
 			return nil
@@ -232,6 +249,9 @@ func (p *XdsProxy) close() {
 	}
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
+	}
+	if p.fileWatcher != nil {
+		p.fileWatcher.Close()
 	}
 }
 
@@ -309,8 +329,21 @@ func (p *XdsProxy) initDownstreamServer() error {
 	return nil
 }
 
-func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
-	tlsOpts, err := getTLSDialOption(sa)
+// getCertKeyPaths returns the paths for key and cert.
+func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
+	var key, cert string
+	if agent.secOpts.ProvCert != "" {
+		key = path.Join(agent.secOpts.ProvCert, constants.KeyFilename)
+		cert = path.Join(path.Join(agent.secOpts.ProvCert, constants.CertChainFilename))
+	} else if agent.secOpts.FileMountedCerts {
+		key = agent.proxyConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_KEY"]
+		cert = agent.proxyConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_CERT_CHAIN"]
+	}
+	return key, cert
+}
+
+func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
+	tlsOpts, err := p.getTLSDialOption(sa)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build TLS dial option to talk to upstream: %v", err)
 	}
@@ -340,9 +373,8 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 	// In these cases, while we fallback to mTLS to istiod using the provisioned certs
 	// it would be ideal to keep using token plus k8s ca certs for control plane communication
 	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
-	if sa.secOpts.ProvCert == "" {
-		// only if running in k8s pod
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
+	if !sa.secOpts.FileMountedCerts && sa.secOpts.ProvCert == "" {
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{
 			sa.secOpts.JWTPath,
 			time.Second * 300,
 		}}))
@@ -350,16 +382,88 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 	return dialOptions, nil
 }
 
+// initCertificateWatches sets up  watches for the certs and resets upstream if they change.
+func (p *XdsProxy) initCertificateWatches(agent *Agent, stop <-chan struct{}) error {
+	keyFile, certFile := p.getCertKeyPaths(agent)
+	rootCert := agent.FindRootCAForXDS()
+	for _, file := range []string{rootCert, certFile, keyFile} {
+		log.Infof("adding watcher for certificate %s", file)
+		if err := p.fileWatcher.Add(file); err != nil {
+			return fmt.Errorf("could not watch %v: %v", file, err)
+		}
+	}
+	go func() {
+		var keyCertTimerC <-chan time.Time
+		for {
+			select {
+			case <-keyCertTimerC:
+				keyCertTimerC = nil
+				proxyLog.Info("xds connection certificates have changed, resetting the upstream connection")
+				// Close upstream connection.
+				p.resetChan <- struct{}{}
+			case <-p.fileWatcher.Events(certFile):
+				if keyCertTimerC == nil {
+					keyCertTimerC = time.After(watchDebounceDelay)
+				}
+			case <-p.fileWatcher.Events(keyFile):
+				if keyCertTimerC == nil {
+					keyCertTimerC = time.After(watchDebounceDelay)
+				}
+			case <-stop:
+				return
+			}
+		}
+	}()
+
+	return nil
+}
+
 // Returns the TLS option to use when talking to Istiod
 // If provisioned cert is set, it will return a mTLS related config
 // Else it will return a one-way TLS related config with the assumption
 // that the consumer code will use tokens to authenticate the upstream.
-func getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
+func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
+
+	rootCert, err := p.getRootCertificate(agent)
+	if err != nil {
+		return nil, err
+	}
+
+	config := tls.Config{
+		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			var certificate tls.Certificate
+			key, cert := p.getCertKeyPaths(agent)
+			if key != "" && cert != "" {
+				// Load the certificate from disk
+				certificate, err = tls.LoadX509KeyPair(cert, key)
+				if err != nil {
+					return nil, err
+				}
+			}
+			return &certificate, nil
+		},
+		RootCAs: rootCert,
+	}
+
+	// strip the port from the address
+	parts := strings.Split(agent.proxyConfig.DiscoveryAddress, ":")
+	config.ServerName = parts[0]
+	config.MinVersion = tls.VersionTLS12
+	transportCreds := credentials.NewTLS(&config)
+	return grpc.WithTransportCredentials(transportCreds), nil
+}
+
+func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	var certPool *x509.CertPool
 	var err error
 	var rootCert []byte
-	xdsCACert := agent.FindRootCAForXDS()
-	rootCert, err = ioutil.ReadFile(xdsCACert)
+	var xdsCACertPath string
+	if agent.secOpts.FileMountedCerts {
+		xdsCACertPath = agent.proxyConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_ROOT_CERT"]
+	} else {
+		xdsCACertPath = agent.FindRootCAForXDS()
+	}
+	rootCert, err = ioutil.ReadFile(xdsCACertPath)
 	if err != nil {
 		return nil, err
 	}
@@ -369,27 +473,7 @@ func getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to create TLS dial option with root certificates")
 	}
-
-	var certificate tls.Certificate
-	config := tls.Config{
-		Certificates: []tls.Certificate{certificate},
-		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			if agent.secOpts.ProvCert != "" {
-				// Load the certificate from disk
-				if certificate, err = tls.LoadX509KeyPair(agent.secOpts.ProvCert+"/cert-chain.pem", agent.secOpts.ProvCert+"/key.pem"); err != nil {
-					return nil, err
-				}
-			}
-			return &certificate, nil
-		},
-	}
-	config.RootCAs = certPool
-	// strip the port from the address
-	parts := strings.Split(agent.proxyConfig.DiscoveryAddress, ":")
-	config.ServerName = parts[0]
-	config.MinVersion = tls.VersionTLS12
-	transportCreds := credentials.NewTLS(&config)
-	return grpc.WithTransportCredentials(transportCreds), nil
+	return certPool, nil
 }
 
 // sendUpstreamWithTimeout sends discovery request with default send timeout.
