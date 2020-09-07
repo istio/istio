@@ -100,7 +100,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 		c.RLock()
 		svc := c.servicesMap[host]
 		c.RUnlock()
-		if svc == nil {
+		if svc != nil {
 			fep := c.collectWorkloadInstanceEndpoints(svc)
 			endpoints = append(endpoints, fep...)
 		} else {
