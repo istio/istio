@@ -166,6 +166,20 @@ func TestWorkloadInstances(t *testing.T) {
 			ClusterIP: "9.9.9.9",
 		},
 	}
+	headlessService := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service",
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{
+				Name: "http",
+				Port: 80,
+			}},
+			Selector:  labels,
+			ClusterIP: v1.ClusterIPNone,
+		},
+	}
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod",
@@ -217,15 +231,44 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
+	t.Run("Kubernetes only: headless service", func(t *testing.T) {
+		kc, _, _, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, headlessService)
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		event = xdsUpdater.Wait("xds")
+		if event == nil {
+			t.Fatalf("expecting xds event")
+		}
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    pod.Status.PodIP,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	t.Run("Kubernetes only: endpoint occur earlier", func(t *testing.T) {
 		kc, _, _, kube, xdsUpdater := setupTest(t)
 		makePod(t, kube, pod)
+
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 1 {
+			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
+		}
 
 		// make service populated later than endpoint
 		makeService(t, kube, service)
-
-		event := xdsUpdater.Wait("edscache")
+		event = xdsUpdater.Wait("edscache")
 		if event == nil {
 			t.Fatalf("expecting edscache event")
 		}
@@ -335,8 +378,14 @@ func TestWorkloadInstances(t *testing.T) {
 		kc, _, store, kube, xdsUpdater := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
 
-		makeService(t, kube, service)
+		// Wait no event pushed when workload entry created as no service entry
+		select {
+		case ev := <-xdsUpdater.Events:
+			t.Fatalf("Got %s event, expect none", ev.kind)
+		case <-time.After(200 * time.Millisecond):
+		}
 
+		makeService(t, kube, service)
 		event := xdsUpdater.Wait("edscache")
 		if event == nil {
 			t.Fatalf("expecting edscache event")
@@ -351,6 +400,94 @@ func TestWorkloadInstances(t *testing.T) {
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       80,
 		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Service selects both pods and WorkloadEntry", func(t *testing.T) {
+		kc, _, store, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, service)
+		event := xdsUpdater.Wait("svcupdate")
+		if event == nil {
+			t.Fatalf("expecting svcupdate event")
+		}
+
+		makeIstioObject(t, store, workloadEntry)
+		event = xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event = xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 2 {
+			t.Errorf("expecting 2 endpoints, but got %d ", event.endpoints)
+		}
+
+		instances := []ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    pod.Status.PodIP,
+				Port:       80,
+			},
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			},
+		}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Service selects both pods and WorkloadEntry: wle occur earlier", func(t *testing.T) {
+		kc, _, store, kube, xdsUpdater := setupTest(t)
+		makeIstioObject(t, store, workloadEntry)
+
+		// Wait no event pushed when workload entry created as no service entry
+		select {
+		case ev := <-xdsUpdater.Events:
+			t.Fatalf("Got %s event, expect none", ev.kind)
+		case <-time.After(200 * time.Millisecond):
+		}
+
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 1 {
+			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
+		}
+
+		makeService(t, kube, service)
+		event = xdsUpdater.Wait("edscache")
+		if event == nil {
+			t.Fatalf("expecting edscache event")
+		}
+		if event.endpoints != 2 {
+			t.Errorf("expecting 2 endpoints, but got %d ", event.endpoints)
+		}
+
+		instances := []ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    pod.Status.PodIP,
+				Port:       80,
+			},
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			},
+		}
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
@@ -653,5 +790,4 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	if _, err := c.CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
 	}
-	time.Sleep(100 * time.Millisecond)
 }

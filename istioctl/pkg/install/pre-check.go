@@ -234,7 +234,7 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 
 	if !response.Status.Allowed {
 		if len(response.Status.Reason) > 0 {
-			msg := fmt.Sprintf("Istio installation will not succeed.Create permission lacking for:%s: %v", name, response.Status.Reason)
+			msg := fmt.Sprintf("Istio installation will not succeed. Create permission lacking for:%s: %v", name, response.Status.Reason)
 			return errors.New(msg)
 		}
 		msg := fmt.Sprintf("Istio installation will not succeed. Create permission lacking for:%s", name)
