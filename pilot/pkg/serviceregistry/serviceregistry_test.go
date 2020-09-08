@@ -71,7 +71,26 @@ func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ mode
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
-func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceEntryStore, model.ConfigStoreCache, kubernetes.Interface) {
+func (fx *FakeXdsUpdater) Wait(et string) *Event {
+	for {
+		select {
+		case e := <-fx.Events:
+			if e.kind == et {
+				return &e
+			}
+			continue
+		case <-time.After(5 * time.Second):
+			return nil
+		}
+	}
+}
+
+func setupTest(t *testing.T) (
+	*kubecontroller.Controller,
+	*serviceentry.ServiceEntryStore,
+	model.ConfigStoreCache,
+	kubernetes.Interface,
+	*FakeXdsUpdater) {
 	t.Helper()
 	client := kubeclient.NewFakeClient()
 
@@ -99,7 +118,7 @@ func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceE
 	go kc.Run(stop)
 	go wc.Run(stop)
 
-	return kc, wc, configController, client.Kube()
+	return kc, wc, configController, client.Kube(), xdsUpdater
 }
 
 // TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
@@ -142,6 +161,20 @@ func TestWorkloadInstances(t *testing.T) {
 			ClusterIP: "9.9.9.9",
 		},
 	}
+	headlessService := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service",
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{
+				Name: "http",
+				Port: 80,
+			}},
+			Selector:  labels,
+			ClusterIP: v1.ClusterIPNone,
+		},
+	}
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod",
@@ -176,7 +209,7 @@ func TestWorkloadInstances(t *testing.T) {
 	}
 
 	t.Run("Kubernetes only", func(t *testing.T) {
-		kc, _, _, kube := setupTest(t)
+		kc, _, _, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
@@ -189,9 +222,29 @@ func TestWorkloadInstances(t *testing.T) {
 		}}
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
-
+	t.Run("Kubernetes only: headless service", func(t *testing.T) {
+		kc, _, _, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, headlessService)
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		event = xdsUpdater.Wait("xds")
+		if event == nil {
+			t.Fatalf("expecting xds event")
+		}
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    pod.Status.PodIP,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
 	t.Run("External only", func(t *testing.T) {
-		_, wc, store, _ := setupTest(t)
+		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makeIstioObject(t, store, workloadEntry)
 
@@ -205,7 +258,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("External only with named port override", func(t *testing.T) {
-		_, wc, store, _ := setupTest(t)
+		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makeIstioObject(t, store, model.Config{
 			ConfigMeta: model.ConfigMeta{
@@ -233,7 +286,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("External only with target port", func(t *testing.T) {
-		_, wc, store, _ := setupTest(t)
+		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Name:             "service-entry",
@@ -266,7 +319,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry", func(t *testing.T) {
-		kc, _, store, kube := setupTest(t)
+		kc, _, store, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, workloadEntry)
 
@@ -280,7 +333,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry with targetPort name", func(t *testing.T) {
-		kc, _, store, kube := setupTest(t)
+		kc, _, store, kube, _ := setupTest(t)
 		makeService(t, kube, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "service",
@@ -322,7 +375,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry with targetPort number", func(t *testing.T) {
-		kc, _, store, kube := setupTest(t)
+		kc, _, store, kube, _ := setupTest(t)
 		makeService(t, kube, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "service",
@@ -361,7 +414,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("ServiceEntry selects Pod", func(t *testing.T) {
-		_, wc, store, kube := setupTest(t)
+		_, wc, store, kube, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makePod(t, kube, pod)
 
@@ -375,7 +428,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("ServiceEntry selects Pod with targetPort number", func(t *testing.T) {
-		_, wc, store, kube := setupTest(t)
+		_, wc, store, kube, _ := setupTest(t)
 		makeIstioObject(t, store, model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Name:             "service-entry",
@@ -408,7 +461,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("All directions", func(t *testing.T) {
-		kc, wc, store, kube := setupTest(t)
+		kc, wc, store, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, serviceEntry)
 
@@ -436,7 +489,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("All directions with deletion", func(t *testing.T) {
-		kc, wc, store, kube := setupTest(t)
+		kc, wc, store, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, serviceEntry)
 
