@@ -18,7 +18,6 @@ import (
 	"net"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/miekg/dns"
 
@@ -26,17 +25,14 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Holds configurations for the DNS downstreamServer in Istio Agent
+// Holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
 	lookupTable atomic.Value
 
-	downstreamMux    *dns.ServeMux
-	downstreamServer *dns.Server
+	udpDNSProxy *dnsProxy
+	tcpDNSProxy *dnsProxy
 
-	// This is the upstreamClient used to make upstream DNS queries
-	// in case the data is not in our cache.
-	upstreamClient    *dns.Client
 	resolvConfServers []string
 	searchNamespaces  []string
 	// The namespace where the proxy resides
@@ -65,7 +61,6 @@ const (
 
 func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
-		downstreamMux:  dns.NewServeMux(),
 		proxyNamespace: proxyNamespace,
 	}
 
@@ -78,15 +73,6 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 		}
 		h.proxyDomainParts = parts
 		h.proxyDomain = strings.Join(parts, ".")
-	}
-
-	h.downstreamMux.Handle(".", h)
-
-	h.upstreamClient = &dns.Client{
-		Net: "udp",
-		// TODO: make it configurable
-		DialTimeout: 3 * time.Second,
-		ReadTimeout: 100 * time.Millisecond,
 	}
 
 	// We will use the local resolv.conf for resolving unknown names.
@@ -110,24 +96,20 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 		h.searchNamespaces = dnsConfig.Search
 	}
 
-	h.downstreamServer = &dns.Server{Handler: h.downstreamMux}
-	h.downstreamServer.PacketConn, err = net.ListenPacket("udp", ":15053")
-	if err != nil {
-		log.Errorf("Failed to listen on port 15053: %v", err)
+	if h.udpDNSProxy, err = newDNSProxy("udp", h); err != nil {
 		return nil, err
 	}
+	if h.tcpDNSProxy, err = newDNSProxy("tcp", h); err != nil {
+		return nil, err
+	}
+
 	return h, nil
 }
 
-// StartDNS starts the DNS-over-UDP downstreamServer.
+// StartDNS starts the DNS-over-UDP downstreamUDPServer.
 func (h *LocalDNSServer) StartDNS() {
-	log.Infoa("Starting local DNS server at 0.0.0.0:15053")
-	go func() {
-		err := h.downstreamServer.ActivateAndServe()
-		if err != nil {
-			log.Errorf("Local DNS server terminated: %v", err)
-		}
-	}()
+	go h.udpDNSProxy.start()
+	go h.tcpDNSProxy.start()
 }
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
@@ -158,7 +140,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 }
 
 // ServerDNS is the implementation of DNS interface
-func (h *LocalDNSServer) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
+func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	var response *dns.Msg
 
 	if len(req.Question) == 0 {
@@ -188,7 +170,7 @@ func (h *LocalDNSServer) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 			response.SetReply(req)
 			response.Answer = answers
 		} else {
-			response = h.queryUpstream(req)
+			response = h.queryUpstream(proxy.upstreamClient, req)
 		}
 	}
 
@@ -196,18 +178,15 @@ func (h *LocalDNSServer) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 }
 
 func (h *LocalDNSServer) Close() {
-	if h.downstreamServer != nil {
-		if err := h.downstreamServer.Shutdown(); err != nil {
-			log.Errorf("error in shutting down dns downstreamServer :%v", err)
-		}
-	}
+	h.udpDNSProxy.close()
+	h.tcpDNSProxy.close()
 }
 
 // TODO: Figure out how to send parallel queries to all nameservers
-func (h *LocalDNSServer) queryUpstream(req *dns.Msg) *dns.Msg {
+func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range h.resolvConfServers {
-		cResponse, _, err := h.upstreamClient.Exchange(req, upstream)
+		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil && len(cResponse.Answer) > 0 {
 			response = cResponse
 			break
