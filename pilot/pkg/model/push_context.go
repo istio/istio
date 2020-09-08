@@ -1766,7 +1766,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 		}
 	}
 
-	// 2, check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
 	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
