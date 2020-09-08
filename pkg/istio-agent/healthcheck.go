@@ -38,6 +38,10 @@ type ApplicationHealthCheckConfig struct {
 	FailThresh     int
 }
 
+func NewWorkloadHealthChecker(prober Prober, cfg ApplicationHealthCheckConfig) *WorkloadHealthChecker {
+
+}
+
 // PerformApplicationHealthCheck Performs the application-provided configuration health check.
 // Designed to run async.
 // TODO:
