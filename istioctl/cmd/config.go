@@ -47,10 +47,8 @@ func configCmd() *cobra.Command {
 		Use:   "config SUBCOMMAND",
 		Short: "Configure istioctl defaults",
 		Args:  cobra.NoArgs,
-		Example: `
-# list configuration parameters
-istioctl config list
-`,
+		Example: `  # list configuration parameters
+  istioctl config list`,
 	}
 	configCmd.AddCommand(listCommand())
 	return configCmd
