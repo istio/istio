@@ -39,7 +39,7 @@ kiali:
 
   dashboard:
     auth:
-      strategy: login # Can be anonymous, login, openshift, or ldap
+      strategy: anonymous # Can be anonymous, openid, openshift, or ldap
       # ldap: # This is required to use the ldap strategy
       #   ldap_base: "DC=example,DC=com"
       #   ldap_bind_dn: "CN={USERID},OU=xyz,OU=Users,OU=Accounts,DC=example,DC=com"
