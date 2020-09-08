@@ -70,6 +70,8 @@ var (
 	ClusterCPResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
 		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
 	}
 	// AllClusterResources lists all cluster scope resources types which should be deleted in purge case, including CRD.
 	AllClusterResources = append(ClusterResources,
