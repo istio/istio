@@ -88,7 +88,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 
 	go func() {
 		if err := proxy.downstreamGrpcServer.Serve(proxy.downstreamListener); err != nil {
-			log.Fatalf("failed to start gRPC server to process downstream requests %v", err)
+			log.Errorf("failed to accept downstream gRPC connection %v", err)
 		}
 	}()
 
