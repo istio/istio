@@ -34,6 +34,6 @@ func NewConfigGenerator(plugins []plugin.Plugin, cache model.XdsCache) *ConfigGe
 }
 
 // Called when mesh config is changed.
-func (configgen *ConfigGeneratorImpl) MeshConfigChanged(_ *meshconfig.MeshConfig) {
+func (configgen *ConfigGeneratorImpl) MeshConfigChanged(config *meshconfig.MeshConfig) {
 	accessLogBuilder.reset()
 }
