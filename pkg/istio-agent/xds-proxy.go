@@ -79,6 +79,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		localDNSServer: ia.localDNSServer,
 		healthChecker: &WorkloadHealthChecker{
 			prober: &TCPProber{},
+			config: ApplicationHealthCheckConfig{
+				SuccessThresh: 1,
+				FailThresh: 1,
+			},
 		},
 	}
 
