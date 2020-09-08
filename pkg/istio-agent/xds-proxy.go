@@ -77,7 +77,9 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
 		clusterID:      ia.secOpts.ClusterID,
 		localDNSServer: ia.localDNSServer,
-		healthChecker:  &WorkloadHealthChecker{},
+		healthChecker: &WorkloadHealthChecker{
+			prober: &TCPProber{},
+		},
 	}
 
 	if err = proxy.initDownstreamServer(); err != nil {
