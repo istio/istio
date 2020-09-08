@@ -329,3 +329,27 @@ messages:
         type: string
       - name: port
         type: string
+
+  - name: "VirtualServiceUnreachableRule"
+    code: IST0130
+    level: Warning
+    description: "A VirtualService rule will never be used because a previous rule uses the same match."
+    template: "VirtualService rule %v not used (%s)."
+    args:
+      - name: ruleno
+        type: string
+      - name: reason
+        type: "string"
+
+  - name: "VirtualServiceIneffectiveMatch"
+    code: IST0131
+    level: Info
+    description: "A VirtualService rule match duplicates a match in a previous rule."
+    template: "VirtualService rule %v match %v is not used (duplicates a match in rule %v)."
+    args:
+      - name: ruleno
+        type: string
+      - name: matchno
+        type: string
+      - name: dupno
+        type: string
