@@ -46,8 +46,6 @@ const (
 	HelmValuesHubSubpath = "hub"
 	// HelmValuesTagSubpath is the subpath from the component root to the tag parameter.
 	HelmValuesTagSubpath = "tag"
-	// devDbg generates lots of output useful in development.
-	devDbg = false
 )
 
 var (
@@ -294,9 +292,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 		return "", err
 	}
 
-	if devDbg {
-		scope.Infof("Values translated from IstioOperator API:\n%s", apiValsStr)
-	}
+	scope.Debugf("Values translated from IstioOperator API:\n%s", apiValsStr)
 
 	// Add global overlay from IstioOperatorSpec.Values/UnvalidatedValues.
 	_, err = tpath.SetFromPath(iop, "Values", &globalVals)
@@ -307,10 +303,10 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	if err != nil {
 		return "", err
 	}
-	if devDbg {
-		scope.Infof("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
-		scope.Infof("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
-	}
+
+	scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
+	scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+
 	mergedVals, err := util.OverlayTrees(apiVals, globalVals)
 	if err != nil {
 		return "", err
