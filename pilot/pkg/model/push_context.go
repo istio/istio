@@ -1758,7 +1758,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 	}
 
 	// 1. Check service instances' tls mode, mainly used for headless service.
-	if service.Resolution != ClientSideLB {
+	if service.Resolution == Passthrough {
 		instances := ps.InstancesByPort(service, port.Port, nil)
 		// Assume all instances are same.
 		if len(instances) == 0 || instances[0].Endpoint.TLSMode == DisabledTLSModeLabel {
