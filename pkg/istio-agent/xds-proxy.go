@@ -81,7 +81,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			prober: &TCPProber{},
 			config: ApplicationHealthCheckConfig{
 				SuccessThresh: 1,
-				FailThresh: 1,
+				FailThresh:    1,
 			},
 		},
 	}
