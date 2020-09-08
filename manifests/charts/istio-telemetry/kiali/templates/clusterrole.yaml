@@ -44,10 +44,11 @@ rules:
       - get
       - list
       - watch
-  - apiGroups: 
+  - apiGroups:
     - config.istio.io
     - networking.istio.io
     - authentication.istio.io
+    - rbac.istio.io
     - security.istio.io
     resources: ["*"]
     verbs:
@@ -110,10 +111,11 @@ rules:
       - get
       - list
       - watch
-  - apiGroups: 
+  - apiGroups:
     - config.istio.io
     - networking.istio.io
     - authentication.istio.io
+    - rbac.istio.io
     - security.istio.io
     resources: ["*"]
     verbs:

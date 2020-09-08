@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 27109
+releaseNotes:
+- |
+  **Fixed** an issue with Kiali RBAC permissions which prevented its deployment from working properly.
+upgradeNotes:
+- title: Default auth strategy for Kiali switched to **anonymous**.
+  content: Newer versions of Kiali that are compatible with Istio 1.7+, removed **login** auth strategy so we moved to the updated default one.
