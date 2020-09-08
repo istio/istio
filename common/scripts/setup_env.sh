@@ -109,7 +109,7 @@ fi
 add_KUBECONFIG_if_exists () {
   if [[ -f "$1" ]]; then
     kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
-    container_kubeconfig+="/home/${kubeconfig_random}:"
+    container_kubeconfig+="/config/${kubeconfig_random}:"
     CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${1},destination=/config/${kubeconfig_random},readonly "
   fi
 }
