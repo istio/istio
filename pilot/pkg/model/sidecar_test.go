@@ -1012,6 +1012,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			if tt.virtualServices != nil {
+				// nolint lll
 				ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], tt.virtualServices...)
 			}
 
@@ -1278,6 +1279,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 				},
 			}
 			ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+			// nolint lll
 			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], virtualServices...)
 			ps.SetDestinationRules(destinationRules)
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
