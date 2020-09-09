@@ -375,7 +375,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	// In these cases, while we fallback to mTLS to istiod using the provisioned certs
 	// it would be ideal to keep using token plus k8s ca certs for control plane communication
 	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
-	if !sa.secOpts.FileMountedCerts && sa.secOpts.ProvCert == "" {
+	if sa.secOpts.ProvCert == "" {
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{
 			sa.secOpts.JWTPath,
 			time.Second * 300,
@@ -388,8 +388,12 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 func (p *XdsProxy) initCertificateWatches(agent *Agent, stop <-chan struct{}) error {
 	keyFile, certFile := p.getCertKeyPaths(agent)
 	rootCert := agent.FindRootCAForXDS()
+	if len(keyFile) == 0 || len(certFile) == 0 || len(rootCert) == 0 {
+		return nil
+	}
+
 	for _, file := range []string{rootCert, certFile, keyFile} {
-		log.Infof("adding watcher for certificate %s", file)
+		proxyLog.Infof("adding watcher for certificate %s", file)
 		if err := p.fileWatcher.Add(file); err != nil {
 			return fmt.Errorf("could not watch %v: %v", file, err)
 		}
