@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	health_check "istio.io/istio/pkg/istio-agent/health-check"
+
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/oauth2"
@@ -42,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	health_check "istio.io/istio/pkg/istio-agent/health-check"
 	"istio.io/pkg/log"
 )
 
@@ -66,6 +69,7 @@ type XdsProxy struct {
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
 	localDNSServer       *dns.LocalDNSServer
+	healthChecker        *health_check.WorkloadHealthChecker
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -76,6 +80,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
 		clusterID:      ia.secOpts.ClusterID,
 		localDNSServer: ia.localDNSServer,
+		healthChecker:  health_check.NewWorkloadHealthChecker(health_check.ApplicationHealthCheckConfig{}, &health_check.TCPProber{}),
 	}
 
 	if err = proxy.initDownstreamServer(); err != nil {
@@ -104,7 +109,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	requestsChan := make(chan *discovery.DiscoveryRequest, 10)
 	responsesChan := make(chan *discovery.DiscoveryResponse, 10)
 	// A separate channel for nds requests to not contend with the ones from envoys
-	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
+	directRequestsChan := make(chan *discovery.DiscoveryRequest, 5)
 
 	proxyLog.Infof("connecting to upstream %s", p.istiodAddress)
 	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
@@ -140,7 +145,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}()
 	go func() {
 		defer close(requestsChan) // Indicates downstream close.
-		defer close(ndsRequestChan)
+		defer close(directRequestsChan)
 		for {
 			// From Envoy
 			req, err := downstream.Recv()
@@ -154,13 +159,15 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			requestsChan <- req
 			if !firstNDSSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
-				ndsRequestChan <- &discovery.DiscoveryRequest{
+				directRequestsChan <- &discovery.DiscoveryRequest{
 					TypeUrl: v3.NameTableType,
 				}
 				firstNDSSent = true
 			}
 		}
 	}()
+
+	go p.healthChecker.PerformApplicationHealthCheck(directRequestsChan)
 
 	for {
 		select {
@@ -183,7 +190,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
 			}
-		case req, ok := <-ndsRequestChan:
+		case req, ok := <-directRequestsChan:
 			if !ok {
 				return nil
 			}
@@ -211,7 +218,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				// queue the next nds request. This wont block most likely as we are the only
 				// users of this channel, compared to the requestChan that could be populated with
 				// request from envoy
-				ndsRequestChan <- &discovery.DiscoveryRequest{
+				directRequestsChan <- &discovery.DiscoveryRequest{
 					VersionInfo:   resp.VersionInfo,
 					TypeUrl:       v3.NameTableType,
 					ResponseNonce: resp.Nonce,
