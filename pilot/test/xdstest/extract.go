@@ -73,6 +73,14 @@ func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 	return nil
 }
 
+func ExtractListenerFilters(l *listener.Listener) map[string]*listener.ListenerFilter {
+	res := map[string]*listener.ListenerFilter{}
+	for _, lf := range l.ListenerFilters {
+		res[lf.Name] = lf
+	}
+	return res
+}
+
 func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProxy {
 	for _, fc := range fcs.Filters {
 		if fc.Name == wellknown.TCPProxy {

@@ -17,6 +17,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -176,6 +177,24 @@ func TestAddToMesh(t *testing.T) {
 			expectedOutput:    "Error: deployment \"test\" does not exist\n",
 		},
 		{
+			description: "service does not exist (with short syntax)",
+			args: strings.Split("x add svc test --meshConfigFile testdata/mesh-config.yaml"+
+				" --injectConfigFile testdata/inject-config.yaml"+
+				" --valuesFile testdata/inject-values.yaml", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			expectedOutput:    "Error: services \"test\" not found\n",
+		},
+		{
+			description: "deployment does not exist (with short syntax)",
+			args: strings.Split("x add deploy test --meshConfigFile testdata/mesh-config.yaml"+
+				" --injectConfigFile testdata/inject-config.yaml"+
+				" --valuesFile testdata/inject-values.yaml", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			expectedOutput:    "Error: deployment \"test\" does not exist\n",
+		},
+		{
 			description: "service without deployment",
 			args: strings.Split("experimental add-to-mesh service dummyservice --meshConfigFile testdata/mesh-config.yaml"+
 				" --injectConfigFile testdata/inject-config.yaml"+
@@ -212,6 +231,15 @@ func TestAddToMesh(t *testing.T) {
 		{
 			description:       "service already exists",
 			args:              strings.Split("experimental add-to-mesh external-service dummyservice 11.11.11.11 tcp:12345", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			dynamicConfigs:    cannedDynamicConfigs,
+			namespace:         "default",
+			expectedOutput:    "Error: service \"dummyservice\" already exists, skip\n",
+		},
+		{
+			description:       "service already exists (with short syntax)",
+			args:              strings.Split("x add es dummyservice 11.11.11.11 tcp:12345", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfigs,
 			dynamicConfigs:    cannedDynamicConfigs,
@@ -285,4 +313,49 @@ func mockDynamicClientGenerator(dynamicConfigs []runtime.Object) func(kubeconfig
 		return client, nil
 	}
 	return outFactory
+}
+
+func TestSplitEqual(t *testing.T) {
+	tests := []struct {
+		arg       string
+		wantKey   string
+		wantValue string
+	}{
+		{arg: "key=value", wantKey: "key", wantValue: "value"},
+		{arg: "key==value", wantKey: "key", wantValue: "=value"},
+		{arg: "key=", wantKey: "key", wantValue: ""},
+		{arg: "key", wantKey: "key", wantValue: ""},
+		{arg: "", wantKey: "", wantValue: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.arg, func(t *testing.T) {
+			gotKey, gotValue := splitEqual(tt.arg)
+			if gotKey != tt.wantKey {
+				t.Errorf("splitEqual(%v) got = %v, want %v", tt.arg, gotKey, tt.wantKey)
+			}
+			if gotValue != tt.wantValue {
+				t.Errorf("splitEqual(%v) got1 = %v, want %v", tt.arg, gotValue, tt.wantValue)
+			}
+		})
+	}
+}
+
+func TestConvertToMap(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []string
+		want map[string]string
+	}{
+		{name: "empty", arg: []string{""}, want: map[string]string{"": ""}},
+		{name: "one-valid", arg: []string{"key=value"}, want: map[string]string{"key": "value"}},
+		{name: "one-valid-double-equals", arg: []string{"key==value"}, want: map[string]string{"key": "=value"}},
+		{name: "one-key-only", arg: []string{"key"}, want: map[string]string{"key": ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := convertToStringMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("convertToStringMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

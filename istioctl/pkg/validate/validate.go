@@ -15,13 +15,13 @@
 package validate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/url"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -269,20 +268,23 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 	var referential bool
 
 	c := &cobra.Command{
-		Use:   "validate -f FILENAME [options]",
-		Short: "Validate Istio policy and rules files",
-		Example: `
-		# Validate bookinfo-gateway.yaml
-		istioctl validate -f bookinfo-gateway.yaml
-		
-		# Validate current deployments under 'default' namespace within the cluster
-		kubectl get deployments -o yaml |istioctl validate -f -
+		Use:     "validate -f FILENAME [options]",
+		Aliases: []string{"v"},
+		Short:   "Validate Istio policy and rules files",
+		Example: `  # Validate bookinfo-gateway.yaml
+  istioctl validate -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
-		# Validate current services under 'default' namespace within the cluster
-		kubectl get services -o yaml |istioctl validate -f -
+  # Validate bookinfo-gateway.yaml with shorthand syntax
+  istioctl v -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
-		# Also see the related command 'istioctl analyze'
-		istioctl analyze samples/bookinfo/networking/bookinfo-gateway.yaml
+  # Validate current deployments under 'default' namespace within the cluster
+  kubectl get deployments -o yaml | istioctl validate -f -
+
+  # Validate current services under 'default' namespace within the cluster
+  kubectl get services -o yaml | istioctl validate -f -
+
+  # Also see the related command 'istioctl analyze'
+  istioctl analyze samples/bookinfo/networking/bookinfo-gateway.yaml
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -363,27 +365,18 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndYAML(schema collection.Schema, yml string) (proto.Message, error) {
-	pb, err := schema.Resource().NewProtoInstance()
+func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (config.Spec, error) {
+	// Marshal to json bytes
+	str, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyYAMLStrict(yml, pb); err != nil {
-		return nil, err
-	}
-	return pb, nil
-}
-
-// TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (proto.Message, error) {
-	// Marshal to YAML bytes
-	str, err := yaml.Marshal(data)
+	out, err := schema.Resource().NewInstance()
 	if err != nil {
 		return nil, err
 	}
-	out, err := fromSchemaAndYAML(schema, string(str))
-	if err != nil {
-		return nil, multierror.Prefix(err, fmt.Sprintf("YAML decoding error: %v", string(str)))
+	if err = config.ApplyJSONStrict(out, string(str)); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

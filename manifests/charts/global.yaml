@@ -249,7 +249,7 @@ global:
   # for more detail.
   priorityClassName: ""
 
-  # Use the Mesh Control Protocol (MCP) for configuring Mixer and Pilot. Requires an MCP source.
+  # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
 
   # The trust domain corresponds to the trust root of a system

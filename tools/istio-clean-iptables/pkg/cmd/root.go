@@ -42,8 +42,7 @@ func init() {
 
 	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables")
 	if err := viper.BindPFlag(constants.DryRun, rootCmd.Flags().Lookup(constants.DryRun)); err != nil {
-		log.Errora(err)
-		os.Exit(1)
+		handleError(err)
 	}
 	viper.SetDefault(constants.DryRun, false)
 }
@@ -54,7 +53,11 @@ func GetCommand() *cobra.Command {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
-		os.Exit(1)
+		handleError(err)
 	}
+}
+
+func handleError(err error) {
+	log.Errora(err)
+	os.Exit(1)
 }

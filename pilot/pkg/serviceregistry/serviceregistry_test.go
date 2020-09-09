@@ -61,7 +61,8 @@ func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry 
 	fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, endpoints: len(entry)}
 }
 
-func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, hostname string, namespace string, entry []*model.IstioEndpoint) {
+	fx.Events <- Event{kind: "edscache", host: hostname, namespace: namespace, endpoints: len(entry)}
 }
 
 func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
@@ -75,7 +76,26 @@ func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ mode
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
-func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceEntryStore, model.ConfigStoreCache, kubernetes.Interface) {
+func (fx *FakeXdsUpdater) Wait(et string) *Event {
+	for {
+		select {
+		case e := <-fx.Events:
+			if e.kind == et {
+				return &e
+			}
+			continue
+		case <-time.After(5 * time.Second):
+			return nil
+		}
+	}
+}
+
+func setupTest(t *testing.T) (
+	*kubecontroller.Controller,
+	*serviceentry.ServiceEntryStore,
+	model.ConfigStoreCache,
+	kubernetes.Interface,
+	*FakeXdsUpdater) {
 	t.Helper()
 	client := kubeclient.NewFakeClient()
 
@@ -103,7 +123,7 @@ func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceE
 	go kc.Run(stop)
 	go wc.Run(stop)
 
-	return kc, wc, configController, client.Kube()
+	return kc, wc, configController, client.Kube(), xdsUpdater
 }
 
 // TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
@@ -146,13 +166,30 @@ func TestWorkloadInstances(t *testing.T) {
 			ClusterIP: "9.9.9.9",
 		},
 	}
+	headlessService := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service",
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{
+				Name: "http",
+				Port: 80,
+			}},
+			Selector:  labels,
+			ClusterIP: v1.ClusterIPNone,
+		},
+	}
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod",
 			Namespace: namespace,
 			Labels:    labels,
 		},
-		Status: v1.PodStatus{PodIP: "1.2.3.4"},
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+			Phase: v1.PodPending,
+		},
 	}
 	workloadEntry := config.Config{
 		Meta: config.Meta{
@@ -180,10 +217,64 @@ func TestWorkloadInstances(t *testing.T) {
 	}
 
 	t.Run("Kubernetes only", func(t *testing.T) {
-		kc, _, _, kube := setupTest(t)
+		kc, _, _, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makePod(t, kube, pod)
-		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    pod.Status.PodIP,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Kubernetes only: headless service", func(t *testing.T) {
+		kc, _, _, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, headlessService)
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		event = xdsUpdater.Wait("xds")
+		if event == nil {
+			t.Fatalf("expecting xds event")
+		}
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    pod.Status.PodIP,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Kubernetes only: endpoint occur earlier", func(t *testing.T) {
+		kc, _, _, kube, xdsUpdater := setupTest(t)
+		makePod(t, kube, pod)
+
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 1 {
+			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
+		}
+
+		// make service populated later than endpoint
+		makeService(t, kube, service)
+		event = xdsUpdater.Wait("edscache")
+		if event == nil {
+			t.Fatalf("expecting edscache event")
+		}
+		if event.endpoints != 1 {
+			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
+		}
 
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
@@ -195,7 +286,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("External only", func(t *testing.T) {
-		_, wc, store, _ := setupTest(t)
+		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makeIstioObject(t, store, workloadEntry)
 
@@ -209,7 +300,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("External only with named port override", func(t *testing.T) {
-		_, wc, store, _ := setupTest(t)
+		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makeIstioObject(t, store, config.Config{
 			Meta: config.Meta{
@@ -237,7 +328,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("External only with target port", func(t *testing.T) {
-		_, wc, store, _ := setupTest(t)
+		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, config.Config{
 			Meta: config.Meta{
 				Name:             "service-entry",
@@ -270,7 +361,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry", func(t *testing.T) {
-		kc, _, store, kube := setupTest(t)
+		kc, _, store, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, workloadEntry)
 
@@ -283,8 +374,125 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
+	t.Run("Service selects WorkloadEntry: wle occur earlier", func(t *testing.T) {
+		kc, _, store, kube, xdsUpdater := setupTest(t)
+		makeIstioObject(t, store, workloadEntry)
+
+		// Wait no event pushed when workload entry created as no service entry
+		select {
+		case ev := <-xdsUpdater.Events:
+			t.Fatalf("Got %s event, expect none", ev.kind)
+		case <-time.After(200 * time.Millisecond):
+		}
+
+		makeService(t, kube, service)
+		event := xdsUpdater.Wait("edscache")
+		if event == nil {
+			t.Fatalf("expecting edscache event")
+		}
+		if event.endpoints != 1 {
+			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
+		}
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Service selects both pods and WorkloadEntry", func(t *testing.T) {
+		kc, _, store, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, service)
+		event := xdsUpdater.Wait("svcupdate")
+		if event == nil {
+			t.Fatalf("expecting svcupdate event")
+		}
+
+		makeIstioObject(t, store, workloadEntry)
+		event = xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event = xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 2 {
+			t.Errorf("expecting 2 endpoints, but got %d ", event.endpoints)
+		}
+
+		instances := []ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    pod.Status.PodIP,
+				Port:       80,
+			},
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			},
+		}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Service selects both pods and WorkloadEntry: wle occur earlier", func(t *testing.T) {
+		kc, _, store, kube, xdsUpdater := setupTest(t)
+		makeIstioObject(t, store, workloadEntry)
+
+		// Wait no event pushed when workload entry created as no service entry
+		select {
+		case ev := <-xdsUpdater.Events:
+			t.Fatalf("Got %s event, expect none", ev.kind)
+		case <-time.After(200 * time.Millisecond):
+		}
+
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		event := xdsUpdater.Wait("eds")
+		if event == nil {
+			t.Fatalf("expecting eds event")
+		}
+		if event.endpoints != 1 {
+			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
+		}
+
+		makeService(t, kube, service)
+		event = xdsUpdater.Wait("edscache")
+		if event == nil {
+			t.Fatalf("expecting edscache event")
+		}
+		if event.endpoints != 2 {
+			t.Errorf("expecting 2 endpoints, but got %d ", event.endpoints)
+		}
+
+		instances := []ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    pod.Status.PodIP,
+				Port:       80,
+			},
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			},
+		}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	t.Run("Service selects WorkloadEntry with targetPort name", func(t *testing.T) {
-		kc, _, store, kube := setupTest(t)
+		kc, _, store, kube, _ := setupTest(t)
 		makeService(t, kube, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "service",
@@ -326,7 +534,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry with targetPort number", func(t *testing.T) {
-		kc, _, store, kube := setupTest(t)
+		kc, _, store, kube, _ := setupTest(t)
 		makeService(t, kube, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "service",
@@ -365,7 +573,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("ServiceEntry selects Pod", func(t *testing.T) {
-		_, wc, store, kube := setupTest(t)
+		_, wc, store, kube, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makePod(t, kube, pod)
 
@@ -379,7 +587,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("ServiceEntry selects Pod with targetPort number", func(t *testing.T) {
-		_, wc, store, kube := setupTest(t)
+		_, wc, store, kube, _ := setupTest(t)
 		makeIstioObject(t, store, config.Config{
 			Meta: config.Meta{
 				Name:             "service-entry",
@@ -412,12 +620,12 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("All directions", func(t *testing.T) {
-		kc, wc, store, kube := setupTest(t)
+		kc, wc, store, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, serviceEntry)
 
 		makePod(t, kube, pod)
-		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		makeIstioObject(t, store, workloadEntry)
 
 		instances := []ServiceInstanceResponse{
@@ -440,12 +648,12 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("All directions with deletion", func(t *testing.T) {
-		kc, wc, store, kube := setupTest(t)
+		kc, wc, store, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, serviceEntry)
 
 		makePod(t, kube, pod)
-		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		makeIstioObject(t, store, workloadEntry)
 
 		instances := []ServiceInstanceResponse{
@@ -539,6 +747,7 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(100 * time.Millisecond)
 }
 
 func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
@@ -547,6 +756,7 @@ func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(100 * time.Millisecond)
 }
 
 func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
@@ -580,5 +790,4 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	if _, err := c.CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
 	}
-
 }

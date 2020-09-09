@@ -266,10 +266,11 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./cni/cmd/istio-cni-repair \
   ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
-  ./tools/istio-iptables
+  ./tools/istio-iptables \
+  ./tools/bug-report
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl
+RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -351,6 +352,8 @@ gen-kustomize:
 		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
 	helm3 template istiod-remote --namespace istio-system manifests/charts/istiod-remote \
 		-f manifests/charts/global.yaml > manifests/charts/istiod-remote/files/gen-istiod-remote.yaml
+	helm3 template operator --namespace istio-system manifests/charts/istio-operator \
+		-f manifests/charts/global.yaml --set hub=gcr.io/istio-testing --set tag=${VERSION} > manifests/charts/istio-operator/files/gen-operator.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build

@@ -128,6 +128,14 @@ var (
 	// NoServerCertificateVerificationPortLevel defines a diag.MessageType for message "NoServerCertificateVerificationPortLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port.
 	NoServerCertificateVerificationPortLevel = diag.NewMessageType(diag.Error, "IST0129", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s")
+
+	// VirtualServiceUnreachableRule defines a diag.MessageType for message "VirtualServiceUnreachableRule".
+	// Description: A VirtualService rule will never be used because a previous rule uses the same match.
+	VirtualServiceUnreachableRule = diag.NewMessageType(diag.Warning, "IST0130", "VirtualService rule %v not used (%s).")
+
+	// VirtualServiceIneffectiveMatch defines a diag.MessageType for message "VirtualServiceIneffectiveMatch".
+	// Description: A VirtualService rule match duplicates a match in a previous rule.
+	VirtualServiceIneffectiveMatch = diag.NewMessageType(diag.Info, "IST0131", "VirtualService rule %v match %v is not used (duplicates a match in rule %v).")
 )
 
 // All returns a list of all known message types.
@@ -163,6 +171,8 @@ func All() []*diag.MessageType {
 		NoMatchingWorkloadsFound,
 		NoServerCertificateVerificationDestinationLevel,
 		NoServerCertificateVerificationPortLevel,
+		VirtualServiceUnreachableRule,
+		VirtualServiceIneffectiveMatch,
 	}
 }
 
@@ -464,5 +474,26 @@ func NewNoServerCertificateVerificationPortLevel(r *resource.Instance, destinati
 		mode,
 		host,
 		port,
+	)
+}
+
+// NewVirtualServiceUnreachableRule returns a new diag.Message based on VirtualServiceUnreachableRule.
+func NewVirtualServiceUnreachableRule(r *resource.Instance, ruleno string, reason string) diag.Message {
+	return diag.NewMessage(
+		VirtualServiceUnreachableRule,
+		r,
+		ruleno,
+		reason,
+	)
+}
+
+// NewVirtualServiceIneffectiveMatch returns a new diag.Message based on VirtualServiceIneffectiveMatch.
+func NewVirtualServiceIneffectiveMatch(r *resource.Instance, ruleno string, matchno string, dupno string) diag.Message {
+	return diag.NewMessage(
+		VirtualServiceIneffectiveMatch,
+		r,
+		ruleno,
+		matchno,
+		dupno,
 	)
 }

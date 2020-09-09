@@ -141,7 +141,7 @@ func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*cl
 		if !have.Contains(cluster.Name) {
 			out = append(out, cluster)
 		} else {
-			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy,
+			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy.ID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
 		}
 		have.Insert(cluster.Name)
@@ -525,6 +525,20 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 		return false
 	}
 
+	// TODO (mjog)
+	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
+	override := networking.ConnectionPoolSettings_HTTPSettings_DEFAULT
+	if connectionPool != nil && connectionPool.Http != nil {
+		override = connectionPool.Http.H2UpgradePolicy
+	}
+	// If user wants an upgrade at destination rule/port level that means he is sure that
+	// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
+	// enabled and user wants to upgrade/preserve http protocol from client.
+	if override == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE {
+		log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
+		return true
+	}
+
 	// Do not upgrade non-http ports
 	// This also ensures that we are only upgrading named ports so that
 	// EnableProtocolSniffingForInbound does not interfere.
@@ -533,13 +547,6 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 	// even though the application only supports http 1.1.
 	if port != nil && !port.Protocol.IsHTTP() {
 		return false
-	}
-
-	// TODO (mjog)
-	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
-	override := networking.ConnectionPoolSettings_HTTPSettings_DEFAULT
-	if connectionPool != nil && connectionPool.Http != nil {
-		override = connectionPool.Http.H2UpgradePolicy
 	}
 
 	if !h2UpgradeMap[upgradeTuple{mesh.H2UpgradePolicy, override}] {
@@ -576,7 +583,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
-		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
+		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 	}
 }
 
@@ -804,14 +811,14 @@ func applyLocalityLBSetting(locality *core.Locality, cluster *cluster.Cluster, l
 	}
 }
 
-func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType, node *model.Proxy) {
+func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType) {
 	if tls == nil {
 		return
 	}
 
 	c := opts.cluster
 
-	tlsContext, err := buildUpstreamClusterTLSContext(opts, tls, node)
+	tlsContext, err := buildUpstreamClusterTLSContext(opts, tls)
 	if err != nil {
 		log.Errorf("failed to build Upstream TLSContext: %s", err.Error())
 		return
@@ -849,9 +856,7 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-// nolint unparam
-func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings,
-	node *model.Proxy) (*auth.UpstreamTlsContext, error) {
+func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {
 	c := opts.cluster
 	proxy := opts.proxy
 

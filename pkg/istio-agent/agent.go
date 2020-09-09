@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -71,8 +72,6 @@ var (
 var (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "./etc/istio/proxy/SDS"
-
-	gatewaySecretChan chan struct{}
 )
 
 // Agent contains the configuration of the agent, based on the injected
@@ -82,13 +81,6 @@ var (
 // - root cert to use for connecting to XDS server
 // - CA address, with proper defaults and detection
 type Agent struct {
-	// SDSAddress is the address of the SDS server. Starts with unix: for hostpath mount or built-in
-	// May also be a https address.
-	SDSAddress string
-
-	// CertPath is set with the location of the certs, or empty if mounted certs are not present.
-	CertsPath string
-
 	// RootCert is the CA root certificate. It is loaded part of detecting the
 	// SDS operating mode - may be the Citadel CA, Kubernentes CA or a custom
 	// CA. If not set it should be assumed we are using a public certificate (like ACME).
@@ -111,6 +103,9 @@ type Agent struct {
 
 	// Used when proxying envoy xds via istio-agent is enabled.
 	xdsProxy *XdsProxy
+
+	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
+	localDNSServer *dns.LocalDNSServer
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -122,6 +117,14 @@ type AgentConfig struct {
 	// ferry Envoy's XDS requests to istiod and responses back to envoy
 	// This flag is temporary until the feature is stabilized.
 	ProxyXDSViaAgent bool
+	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
+	// This option will not be considered if proxyXDSViaAgent is false.
+	DNSCapture bool
+	// ProxyNamespace to use for local dns resolution
+	ProxyNamespace string
+	// ProxyDomain is the DNS domain associated with the proxy (assumed
+	// to include the namespace as well) (for local dns resolution)
+	ProxyDomain string
 
 	// LocalXDSGeneratorListenAddress is the address where the agent will listen for XDS connections and generate all
 	// xds configurations locally. If not set, the env variable LOCAL_XDS_GENERATOR will be used.
@@ -130,9 +133,6 @@ type AgentConfig struct {
 
 	// Grpc dial options. Used for testing
 	GrpcOptions []grpc.DialOption
-
-	// Namespace to connect as
-	Namespace string
 
 	// XDSRootCerts is the location of the root CA for the XDS connection. Used for setting platform certs or
 	// using custom roots.
@@ -165,8 +165,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 
 	discAddr := proxyConfig.DiscoveryAddress
 
-	sa.SDSAddress = "unix:" + LocalSDS
-
 	// Auth logic for istio-agent to Cert provider:
 	// - if PROV_CERT is set, it'll be included in the TLS context sent to the server
 	//   This is a 'provisioning certificate' - long lived, managed by a tool, exchanged for
@@ -179,15 +177,9 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	if citadel.ProvCert != "" {
 		certDir = citadel.ProvCert
 	}
-	if _, err := os.Stat(certDir + "/key.pem"); err == nil {
-		sa.CertsPath = certDir
-	}
-	if sa.CertsPath != "" {
-		log.Warna("Using existing certificate ", sa.CertsPath)
-	}
-
 	// If the root-cert is in the old location, use it.
 	if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
+		log.Warna("Using existing certificate ", certDir)
 		CitadelCACertPath = certDir
 	}
 
@@ -195,10 +187,10 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 		// if not set, we will fallback to the discovery address
 		sa.secOpts.CAEndpoint = discAddr
 	}
-
 	// Next to the envoy config, writeable dir (mounted as mem)
-	sa.secOpts.WorkloadUDSPath = LocalSDS
-	sa.secOpts.CertsDir = sa.CertsPath
+	if sa.secOpts.WorkloadUDSPath == "" {
+		sa.secOpts.WorkloadUDSPath = LocalSDS
+	}
 	// Set TLSEnabled if the ControlPlaneAuthPolicy is set to MUTUAL_TLS
 	if sa.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
 		sa.secOpts.TLSEnabled = true
@@ -259,8 +251,10 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 		}
 	}
 
+	if err = sa.initLocalDNSServer(isSidecar); err != nil {
+		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
+	}
 	if sa.cfg.ProxyXDSViaAgent {
-		// TODO: Merge pieces with the nodeagent code
 		sa.xdsProxy, err = initXdsProxy(sa)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
@@ -269,9 +263,23 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	return server, nil
 }
 
+func (sa *Agent) initLocalDNSServer(isSidecar bool) (err error) {
+	// we dont need dns server on gateways
+	if sa.cfg.DNSCapture && sa.cfg.ProxyXDSViaAgent && isSidecar {
+		if sa.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
+			return err
+		}
+		sa.localDNSServer.StartDNS()
+	}
+	return nil
+}
+
 func (sa *Agent) Close() {
 	if sa.xdsProxy != nil {
 		sa.xdsProxy.close()
+	}
+	if sa.localDNSServer != nil {
+		sa.localDNSServer.Close()
 	}
 	sa.closeLocalXDSGenerator()
 }
@@ -417,7 +425,6 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 		os.Exit(1)
 	}
-	fetcher.UseCaClient = true
 	fetcher.CaClient = caClient
 
 	return
@@ -425,23 +432,24 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 
 // TODO: use existing 'sidecar/router' config to enable loading Secrets
 func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
-	gSecretFetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: false,
-	}
+	gSecretFetcher := &secretfetcher.SecretFetcher{}
 	// TODO: use the common init !
 	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
-	cs, err := kube.CreateClientset("", "")
-	if err != nil {
-		log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-		os.Exit(1)
+	if !sa.secOpts.FileMountedCerts {
+		cs, err := kube.CreateClientset("", "")
+		if err != nil {
+			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+			os.Exit(1)
+		}
+
+		gSecretFetcher.FallbackSecretName = "gateway-fallback"
+
+		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
+
+		stopCh := make(chan struct{})
+		gSecretFetcher.Run(stopCh)
 	}
 
-	gSecretFetcher.FallbackSecretName = "gateway-fallback"
-
-	gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
-
-	gatewaySecretChan = make(chan struct{})
-	gSecretFetcher.Run(gatewaySecretChan)
 	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
 	return gatewaySecretCache
 }

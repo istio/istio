@@ -73,7 +73,7 @@ func TestClientNoCRDs(t *testing.T) {
 		Namespace:        "ns",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
-	pb, err := r.NewProtoInstance()
+	pb, err := r.NewInstance()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestClient(t *testing.T) {
 				configMeta.Namespace = configNamespace
 			}
 
-			pb, err := r.NewProtoInstance()
+			pb, err := r.NewInstance()
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -546,13 +546,13 @@ the "--remote-scp-path" option.
 In order to start Istio on the remote node you must have docker installed on the remote node.
 Istio will be started on the host network as a docker container in capture mode.`,
 		Example: `  # Copy certificates to a WorkloadEntry named "we" in the "ns" namespace:
-	istioctl x sidecar-bootstrap we.ns
+  istioctl x sidecar-bootstrap we.ns
 
-	# Copy certificates, and start istio to a WorkloadEntry named "we" in the "ns" namespace:
-	istioctl x sidecar-bootstrap we.ns --start-istio-proxy
+  # Copy certificates, and start istio to a WorkloadEntry named "we" in the "ns" namespace:
+  istioctl x sidecar-bootstrap we.ns --start-istio-proxy
 
-	# Generate Certs locally, but do not copy them to a WorkloadEntry named "we" in the "ns" namespace:
-	istioctl x sidecar-bootstrap we.ns --local-dir path/where/i/want/certs/`,
+  # Generate Certs locally, but do not copy them to a WorkloadEntry named "we" in the "ns" namespace:
+  istioctl x sidecar-bootstrap we.ns --local-dir path/where/i/want/certs/`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) == 1) == all {
 				cmd.Println(cmd.UsageString())

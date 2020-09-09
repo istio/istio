@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/jwt"
@@ -151,9 +150,12 @@ var (
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
-	proxyXDSViaAgent = env.RegisterStringVar("PROXY_XDS_VIA_AGENT", "",
+	proxyXDSViaAgent = env.RegisterStringVar("ISTIO_META_PROXY_XDS_VIA_AGENT", "",
 		"If set to enable or true or 1, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
+	// This is a copy of the env var in the init code.
+	dnsCaptureByAgent = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
+		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -313,6 +315,11 @@ var (
 			}
 			if proxyXDSViaAgent == "enable" || proxyXDSViaAgent == "true" || proxyXDSViaAgent == "1" {
 				agentConfig.ProxyXDSViaAgent = true
+				if dnsCaptureByAgent.Get() != "" {
+					agentConfig.DNSCapture = true
+				}
+				agentConfig.ProxyNamespace = podNamespace
+				agentConfig.ProxyDomain = role.DNSDomain
 			}
 			sa := istio_agent.NewAgent(&proxyConfig, agentConfig, secOpts)
 
@@ -362,24 +369,6 @@ var (
 					return err
 				}
 				defer stsServer.Stop()
-			}
-
-			// Start a local DNS server on 15053, forwarding to DNS-over-TLS server
-			// This will not have any impact on app unless interception is enabled.
-			// We can't start on 53 - istio-agent runs as user istio-proxy.
-			// This is available to apps even if interception is not enabled.
-
-			// TODO: replace hardcoded .global. Right now the ingress templates are
-			// hardcoding it as well, so there is little benefit to do it only here.
-			if dns.DNSTLSEnableAgent.Get() != "" {
-				// In the injection template the only place where global.proxy.clusterDomain
-				// is made available is in the --domain param.
-				// Instead of introducing a new config, use that.
-
-				dnsSrv := dns.InitDNSAgent(proxyConfig.DiscoveryAddress,
-					role.DNSDomain, sa.RootCert,
-					[]string{".global."})
-				dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
 			}
 
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{

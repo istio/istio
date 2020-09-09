@@ -75,5 +75,3 @@ pilot.k8s.readinessProbe.periodSeconds=3
 pilot.k8s.readinessProbe.timeoutSeconds=5
 pilot.k8s.strategy.rollingUpdate.maxSurge="100%"
 pilot.k8s.strategy.rollingUpdate.maxUnavailable="25%"
-policy.enabled=false
-telemetry.enabled=false
