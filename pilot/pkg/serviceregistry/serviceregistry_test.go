@@ -692,16 +692,21 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, s.Store(), workloadEntry)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
 
-		newSvc := *service
+		newSvc := service.DeepCopy()
 		newSvc.Spec.Ports[0].Port = 8080
-		makeService(t, s.KubeClient(), &newSvc)
+		makeService(t, s.KubeClient(), newSvc)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"})
 
 		newSvc.Spec.Ports[0].TargetPort = intstr.IntOrString{IntVal: 9090}
-		makeService(t, s.KubeClient(), &newSvc)
+		makeService(t, s.KubeClient(), newSvc)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:9090"})
+
+		if err := s.KubeClient().CoreV1().Services(newSvc.Namespace).Delete(context.Background(), newSvc.Name, metav1.DeleteOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", nil)
 	})
 
 	t.Run("Service selects WorkloadEntry: update workloadEntry", func(t *testing.T) {
@@ -714,6 +719,11 @@ func TestWorkloadInstances(t *testing.T) {
 		newWE.Spec.(*networking.WorkloadEntry).Address = "3.4.5.6"
 		makeIstioObject(t, s.Store(), newWE)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"3.4.5.6:80"})
+
+		if err := s.Store().Delete(gvk.WorkloadEntry, newWE.Name, newWE.Namespace); err != nil {
+			t.Fatal(err)
+		}
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 	})
 
 	t.Run("ServiceEntry selects Pod: update service entry", func(t *testing.T) {
@@ -754,6 +764,11 @@ func TestWorkloadInstances(t *testing.T) {
 		newPod.Status.PodIP = "2.3.4.5"
 		makePod(t, s.KubeClient(), newPod)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
+
+		if err := s.KubeClient().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 	})
 }
 
