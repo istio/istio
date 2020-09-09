@@ -64,8 +64,8 @@ type serviceIndex struct {
 	Hostname             map[host.Name]*Service            `json:"-"`
 }
 
-func newServiceIndex() serviceIndex {
-	return serviceIndex{
+func newServiceIndex() *serviceIndex {
+	return &serviceIndex{
 		public:               []*Service{},
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
@@ -90,8 +90,8 @@ type virtualServiceIndex struct {
 	publicByGateway map[string][]config.Config
 }
 
-func newVirtualServiceIndex() virtualServiceIndex {
-	return virtualServiceIndex{
+func newVirtualServiceIndex() *virtualServiceIndex {
+	return &virtualServiceIndex{
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[string]map[string][]config.Config{},
 		exportedToNamespaceByGateway: map[string]map[string][]config.Config{},
@@ -107,8 +107,8 @@ type destinationRuleIndex struct {
 	rootNamespaceLocal  *processedDestRules
 }
 
-func newDestinationRuleIndex() destinationRuleIndex {
-	return destinationRuleIndex{
+func newDestinationRuleIndex() *destinationRuleIndex {
+	return &destinationRuleIndex{
 		namespaceLocal:      map[string]*processedDestRules{},
 		exportedByNamespace: map[string]*processedDestRules{},
 	}
@@ -122,8 +122,8 @@ type gatewayIndex struct {
 	all []config.Config
 }
 
-func newGatewayIndex() gatewayIndex {
-	return gatewayIndex{
+func newGatewayIndex() *gatewayIndex {
+	return &gatewayIndex{
 		namespace: map[string][]config.Config{},
 		all:       []config.Config{},
 	}
@@ -149,7 +149,7 @@ type PushContext struct {
 	exportToDefaults exportToDefaults
 
 	// ServiceIndex is the index of services by various fields.
-	ServiceIndex serviceIndex
+	ServiceIndex *serviceIndex
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
@@ -159,13 +159,13 @@ type PushContext struct {
 	ClusterVIPs map[*Service]map[string]string
 
 	// virtualServiceIndex is the index of virtual services by various fields.
-	virtualServiceIndex virtualServiceIndex
+	virtualServiceIndex *virtualServiceIndex
 
 	// destinationRuleIndex is the index of destination rules by various fields.
-	destinationRuleIndex destinationRuleIndex
+	destinationRuleIndex *destinationRuleIndex
 
 	// gatewayIndex is the index of gateways.
-	gatewayIndex gatewayIndex
+	gatewayIndex *gatewayIndex
 
 	// clusterLocalHosts extracted from the MeshConfig
 	clusterLocalHosts host.Names
