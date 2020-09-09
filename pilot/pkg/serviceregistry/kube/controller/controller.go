@@ -206,10 +206,12 @@ type Controller struct {
 	// we run through the label selectors here to pick only ones that we need.
 	// Only nodes with ExternalIP addresses are included in this map !
 	nodeInfoMap map[string]kubernetesNode
-	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
+	// externalNameSvcInstanceMap stores hostname ==2> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 	// workload instances from workload entries  - map of ip -> workload instance
 	workloadInstancesByIP map[string]*model.WorkloadInstance
+	// Stores a map of workload instance name/namespace to address
+	workloadInstancesIPsByName map[string]string
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -235,6 +237,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesByIP:      make(map[string]*model.WorkloadInstance),
+		workloadInstancesIPsByName: make(map[string]string),
 		networksWatcher:            options.NetworksWatcher,
 		metrics:                    options.Metrics,
 	}
@@ -905,7 +908,14 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	case model.EventDelete:
 		delete(c.workloadInstancesByIP, si.Endpoint.Address)
 	default: // add or update
+		// Check to see if the workload entry changed. If it did, clear the old entry
+		k := si.Name + "~" + si.Namespace
+		existing := c.workloadInstancesIPsByName[k]
+		if existing != si.Endpoint.Address {
+			delete(c.workloadInstancesByIP, existing)
+		}
 		c.workloadInstancesByIP[si.Endpoint.Address] = si
+		c.workloadInstancesIPsByName[k] = si.Endpoint.Address
 	}
 	c.Unlock()
 
