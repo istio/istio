@@ -425,6 +425,7 @@ spec:
 }
 
 func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, configIopFile string) error {
+	scopes.Framework.Infof("setting up %s as config cluster", cluster.Name())
 	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, configIopFile)
 	if err != nil {
 		return err
@@ -457,6 +458,8 @@ func multiNetworkFlags(meshID, networkName string) []string {
 }
 
 func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) error {
+	scopes.Framework.Infof("setting up %s as primary cluster", cluster.Name())
+
 	if !i.environment.IsConfigCluster(cluster) {
 		if err := configExternalControlPlaneCluster(cluster, i.environment, cfg); err != nil {
 			return err
@@ -520,7 +523,7 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 
 // Deploy Istio to remote clusters
 func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
-
+	scopes.Framework.Infof("setting up %s as remote cluster", cluster.Name())
 	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, remoteIopFile)
 	if err != nil {
 		return err
