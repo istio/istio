@@ -257,7 +257,8 @@ func (wh *Webhook) admitPilot(request *kube.AdmissionRequest) *kube.AdmissionRes
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	if err := s.Resource().ValidateConfig(*out); err != nil {
+	// TODO expose warnings
+	if _, err := s.Resource().ValidateConfig(*out); err != nil {
 		scope.Infof("configuration is invalid: %v", err)
 		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))

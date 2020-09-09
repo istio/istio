@@ -96,7 +96,9 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 		if err = checkFields(un); err != nil {
 			return err
 		}
-		return schema.Resource().ValidateConfig(*obj)
+		// TODO expose warnings
+		_, err = schema.Resource().ValidateConfig(*obj)
+		return err
 	}
 
 	var errs error
