@@ -92,8 +92,7 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase, namespace
 func RunTrafficTest(ctx framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(apps)
-	// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tests
-	_ = protocolSniffingCases
+	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["vm"] = VMTestCases(apps.VM, apps)
 	for n, tts := range cases {
