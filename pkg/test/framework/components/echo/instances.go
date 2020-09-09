@@ -81,7 +81,7 @@ func InNetwork(n string) Matcher {
 func (i Instances) Match(matches Matcher) Instances {
 	out := make(Instances, 0)
 	for _, i := range i {
-		if matches(i) {
+		if matches == nil || matches(i) {
 			out = append(out, i)
 		}
 	}
