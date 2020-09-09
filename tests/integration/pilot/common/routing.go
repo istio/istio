@@ -334,16 +334,11 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				protocols := []protocolCase{
 					{"http", scheme.HTTP},
 					{"auto-http", scheme.HTTP},
+					// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
+					//{"tcp", scheme.TCP},
+					//{"auto-tcp", scheme.TCP},
 					{"grpc", scheme.GRPC},
 					{"auto-grpc", scheme.GRPC},
-				}
-
-				if !apps.PodA.Clusters().IsMulticluster() {
-					// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp for multicluster
-					protocols = append(protocols,
-						protocolCase{"tcp", scheme.TCP},
-						protocolCase{"auto-tcp", scheme.TCP},
-					)
 				}
 
 				// so we can validate all clusters are hit
