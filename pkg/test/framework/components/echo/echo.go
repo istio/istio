@@ -63,13 +63,6 @@ type Instance interface {
 	// Address of the service (e.g. Kubernetes cluster IP). May be "" if headless.
 	Address() string
 
-	// WaitUntilCallable waits until each of the provided instances are callable from
-	// this Instance. If this instance has a sidecar, this waits until Envoy has
-	// received outbound configuration (e.g. clusters, routes, listeners) for every
-	// port.
-	WaitUntilCallable(instances ...Instance) error
-	WaitUntilCallableOrFail(t test.Failer, instances ...Instance)
-
 	// Workloads retrieves the list of all deployed workloads for this Echo service.
 	// Guarantees at least one workload, if error == nil.
 	Workloads() ([]Workload, error)
