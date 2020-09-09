@@ -50,6 +50,9 @@ func (c CommandParseError) Error() string {
 const (
 	// Location to read istioctl defaults from
 	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
+
+	//deprection messages to be suffixed to the deprecated commands
+	deprecatedMsg = "[Deprecated, it will be removed in Istio 1.9]"
 )
 
 var (
@@ -160,8 +163,10 @@ debug and diagnose their Istio mesh.
 	}
 
 	cmd.AddFlags(rootCmd)
-
-	rootCmd.AddCommand(register())
+	registerCmd := register()
+	deprecate(registerCmd)
+	rootCmd.AddCommand(registerCmd)
+	deprecate(deregisterCmd)
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())
 
@@ -217,14 +222,16 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
-
-	experimentalCmd.AddCommand(vmBootstrapCommand())
+	vmBootstrapCmd := vmBootstrapCommand()
+	deprecate(vmBootstrapCmd)
+	experimentalCmd.AddCommand(vmBootstrapCmd)
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(configCmd())
+	postInstallWebhookCmd := Webhook()
+	deprecate(postInstallWebhookCmd)
+	postInstallCmd.AddCommand(postInstallWebhookCmd)
 	experimentalCmd.AddCommand(workloadCommands())
-
-	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
 
 	analyzeCmd := Analyze()
@@ -232,6 +239,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(analyzeCmd)
 
 	convertIngressCmd := convertIngress()
+	deprecate(convertIngressCmd)
 	hideInheritedFlags(convertIngressCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(convertIngressCmd)
 
@@ -261,7 +269,9 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(bugReportCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
-	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())
+	multiclusterCmd := multicluster.NewMulticlusterCommand()
+	deprecate(multiclusterCmd)
+	experimentalCmd.AddCommand(multiclusterCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -363,4 +373,9 @@ func seeExperimentalCmd(name string) *cobra.Command {
 			return errors.New(msg)
 		},
 	}
+}
+
+// deprecate adds a suffix to command to indicate the command as Deprecated.
+func deprecate(cmd *cobra.Command) {
+	cmd.Short += " " + deprecatedMsg
 }
