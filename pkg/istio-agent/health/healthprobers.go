@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package health_check
+package health
 
 type Prober interface {
 	// Probe will healthcheck and return whether or not the target is healthy.

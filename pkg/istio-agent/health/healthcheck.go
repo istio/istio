@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package health_check
+package health
 
 import (
+	"log"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -66,6 +67,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 		// probe target
 		healthy, err := w.prober.Probe()
 		if err != nil {
+			log.Println(err)
 			// todo handle error
 		}
 		if healthy {

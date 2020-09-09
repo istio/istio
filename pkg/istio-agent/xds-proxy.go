@@ -44,8 +44,8 @@ import (
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	healthcheck "istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/mcp/status"
-	health_check "istio.io/istio/pkg/istio-agent/health-check"
 	"istio.io/pkg/log"
 )
 
@@ -70,7 +70,7 @@ type XdsProxy struct {
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
 	localDNSServer       *dns.LocalDNSServer
-	healthChecker        *health_check.WorkloadHealthChecker
+	healthChecker        *healthcheck.WorkloadHealthChecker
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -81,7 +81,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
 		clusterID:      ia.secOpts.ClusterID,
 		localDNSServer: ia.localDNSServer,
-		healthChecker:  health_check.NewWorkloadHealthChecker(health_check.ApplicationHealthCheckConfig{}, &health_check.TCPProber{}),
+		healthChecker:  healthcheck.NewWorkloadHealthChecker(healthcheck.ApplicationHealthCheckConfig{}, &healthcheck.TCPProber{}),
 	}
 
 	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
