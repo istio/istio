@@ -60,6 +60,12 @@ const (
 	watchDebounceDelay                 = 100 * time.Millisecond // file watcher event debounce delay.
 )
 
+const (
+	MetadataClientCertKey   = "ISTIO_META_TLS_CLIENT_KEY"
+	MetadataClientCertChain = "ISTIO_META_TLS_CLIENT_CERT_CHAIN"
+	MetadataClientRootCert  = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
+)
+
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
@@ -338,8 +344,8 @@ func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
 		key = path.Join(agent.secOpts.ProvCert, constants.KeyFilename)
 		cert = path.Join(path.Join(agent.secOpts.ProvCert, constants.CertChainFilename))
 	} else if agent.secOpts.FileMountedCerts {
-		key = agent.proxyConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_KEY"]
-		cert = agent.proxyConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_CERT_CHAIN"]
+		key = agent.proxyConfig.ProxyMetadata[MetadataClientCertKey]
+		cert = agent.proxyConfig.ProxyMetadata[MetadataClientCertChain]
 	}
 	return key, cert
 }
@@ -375,7 +381,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	// In these cases, while we fallback to mTLS to istiod using the provisioned certs
 	// it would be ideal to keep using token plus k8s ca certs for control plane communication
 	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
-	if sa.secOpts.ProvCert == "" {
+	if sa.secOpts.ProvCert == "" || !sa.secOpts.FileMountedCerts {
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{
 			sa.secOpts.JWTPath,
 			time.Second * 300,
@@ -465,7 +471,7 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	var rootCert []byte
 	var xdsCACertPath string
 	if agent.secOpts.FileMountedCerts {
-		xdsCACertPath = agent.proxyConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_ROOT_CERT"]
+		xdsCACertPath = agent.proxyConfig.ProxyMetadata[MetadataClientRootCert]
 	} else {
 		xdsCACertPath = agent.FindRootCAForXDS()
 	}
