@@ -334,8 +334,8 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				protocols := []protocolCase{
 					{"http", scheme.HTTP},
 					{"auto-http", scheme.HTTP},
-					s{"grpc", scheme.GRPC},
-					s{"auto-grpc", scheme.GRPC},
+					{"grpc", scheme.GRPC},
+					{"auto-grpc", scheme.GRPC},
 				}
 
 				if !apps.PodA.Clusters().IsMulticluster() {
