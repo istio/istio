@@ -274,12 +274,6 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
 
-			// remove from mesh should be clean
-			// users can add it back to mesh successfully
-			if err := a.WaitUntilCallable(a); err != nil {
-				t.Fatal(err)
-			}
-
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
