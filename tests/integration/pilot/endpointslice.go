@@ -1,4 +1,3 @@
-// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,19 +13,3 @@
 // limitations under the License.
 
 package pilot
-
-import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/tests/integration/pilot/common"
-)
-
-func TestTraffic(t *testing.T) {
-	framework.
-		NewTest(t).
-		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
-		Run(func(ctx framework.TestContext) {
-			common.RunTrafficTest(ctx, apps)
-		})
-}

@@ -444,6 +444,18 @@ func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 	return nil
 }
 
+func multiNetworkFlags(meshID, networkName string) []string {
+	return []string{
+		"--set", "values.global.meshID=" + meshID,
+		"--set", "values.global.network=" + networkName,
+		// TODO(landow) remove these in favor of a dedicated cross-network gateway deployment
+		// ingress must be enabled for multi-network
+		"--set", "values.gateways.istio-ingressgateway.enabled=true",
+		// prevents gateways from calling gateways and throwing off cross-network traffic
+		"--set", "values.gateways.istio-ingressgateway.env.ISTIO_META_REQUESTED_NETWORK_VIEW=" + networkName,
+	}
+}
+
 func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) error {
 	if !i.environment.IsConfigCluster(cluster) {
 		if err := configExternalControlPlaneCluster(cluster, i.environment, cfg); err != nil {
@@ -461,14 +473,7 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
 		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings,
-				"--set", "values.global.meshID="+meshID,
-				"--set", "values.global.network="+networkName,
-				// TODO(landow) remove these in favor of a dedicated cross-network gateway deployment
-				// ingress must be enabled for multi-network
-				"--set", "values.gateways.istio-ingressgateway.enabled=true",
-				// prevents gateways from calling gateways and throwing off cross-network traffic
-				"--set", "values.gateways.istio-ingressgateway.env.ISTIO_META_REQUESTED_NETWORK_VIEW="+networkName)
+			installSettings = append(installSettings, multiNetworkFlags(meshID, networkName)...)
 		}
 	}
 	// Create an istioctl to configure this cluster.
@@ -530,8 +535,7 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
 		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
-				"--set", "values.global.network="+networkName)
+			installSettings = append(installSettings, multiNetworkFlags(meshID, networkName)...)
 		}
 	}
 	// Create an istioctl to configure this cluster.

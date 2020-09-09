@@ -28,8 +28,8 @@ var (
 	deregisterCmd = &cobra.Command{
 		Use:   "deregister <svcname> <ip>",
 		Short: "De-registers a service instance",
-		Example: `# de-register an endpoint 172.17.0.2 from service my-svc:
-istioctl deregister my-svc 172.17.0.2`,
+		Example: `  # de-register an endpoint 172.17.0.2 from service my-svc:
+  istioctl deregister my-svc 172.17.0.2`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 2 {
 				cmd.Println(cmd.UsageString())
