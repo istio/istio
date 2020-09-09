@@ -342,8 +342,9 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		c.Unlock()
 	}
 
-	// Update endpoint shards when service added, in case endpoint added earlier than service
-	if event == model.EventAdd {
+	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
+	// but workload entries will also need to be updated.
+	if event == model.EventAdd || event == model.EventUpdate {
 		// Build IstioEndpoints
 		endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Name, svc.Namespace, svcConv.Hostname)
 		if features.EnableK8SServiceSelectWorkloadEntries {

@@ -685,7 +685,6 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry: update service", func(t *testing.T) {
-		t.Skip("this is currently not passing")
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		makeService(t, s.KubeClient(), service)
 		makeIstioObject(t, s.Store(), workloadEntry)
