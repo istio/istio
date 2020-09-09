@@ -64,13 +64,13 @@ const (
 )
 
 var EchoPorts = []echo.Port{
-	{Name: "http", Protocol: protocol.HTTP, ServicePort: 8080, InstancePort: 18080},
+	{Name: "http", Protocol: protocol.HTTP, ServicePort: 80, InstancePort: 18080},
 	{Name: "grpc", Protocol: protocol.GRPC, ServicePort: 7070, InstancePort: 17070},
 	{Name: "tcp", Protocol: protocol.TCP, ServicePort: 9090, InstancePort: 19090},
-	{Name: "tcp-server", Protocol: protocol.TCP, ServicePort: 6060, InstancePort: 16060, ServerFirst: true},
-	{Name: "auto-tcp", Protocol: protocol.TCP, ServicePort: 9091, InstancePort: 19091},
-	{Name: "auto-tcp-server", Protocol: protocol.TCP, ServicePort: 6061, InstancePort: 16061, ServerFirst: true},
-	{Name: "auto-http", Protocol: protocol.HTTP, ServicePort: 8081, InstancePort: 18081},
+	{Name: "tcp-server", Protocol: protocol.TCP, ServicePort: 9091, InstancePort: 16060, ServerFirst: true},
+	{Name: "auto-tcp", Protocol: protocol.TCP, ServicePort: 9092, InstancePort: 19091},
+	{Name: "auto-tcp-server", Protocol: protocol.TCP, ServicePort: 9093, InstancePort: 16061, ServerFirst: true},
+	{Name: "auto-http", Protocol: protocol.HTTP, ServicePort: 81, InstancePort: 18081},
 	{Name: "auto-grpc", Protocol: protocol.GRPC, ServicePort: 7071, InstancePort: 17071},
 }
 
@@ -210,7 +210,8 @@ spec:
 `); err != nil {
 		return err
 	}
-	if se, err := tmpl.Evaluate(`apiVersion: networking.istio.io/v1alpha3
+
+	se, err := tmpl.Evaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
@@ -227,12 +228,12 @@ spec:
     number: {{$p.ServicePort}}
     protocol: "{{$p.Protocol}}"
 {{- end }}
-`, map[string]interface{}{"Namespace": apps.ExternalNamespace.Name(), "Hostname": externalHostname, "Ports": serviceEntryPorts()}); err != nil {
+`, map[string]interface{}{"Namespace": apps.ExternalNamespace.Name(), "Hostname": externalHostname, "Ports": serviceEntryPorts()})
+	if err != nil {
 		return err
-	} else {
-		if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), se); err != nil {
-			return err
-		}
+	}
+	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), se); err != nil {
+		return err
 	}
 	return nil
 }
