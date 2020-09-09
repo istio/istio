@@ -370,6 +370,7 @@ global:
 clusterResources: true
 
 meshConfig:
+  enableTracing: true
   enablePrometheusMerge: true
   defaultConfig:
     proxyMetadata: {}
