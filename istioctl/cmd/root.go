@@ -240,20 +240,23 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(dashboardCmd)
 
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
-	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(manifestCmd)
+
 	operatorCmd := mesh.OperatorCmd()
+	hideInheritedFlags(operatorCmd, "charts")
 	rootCmd.AddCommand(operatorCmd)
+
 	installCmd := mesh.InstallCmd(loggingOptions)
-	hideInheritedFlags(installCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(installCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd()
-	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(profileCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(profileCmd)
 
 	upgradeCmd := mesh.UpgradeCmd()
-	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(upgradeCmd)
 
 	bugReportCmd := bugreport.Cmd()
