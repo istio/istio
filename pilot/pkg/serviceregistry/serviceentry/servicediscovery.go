@@ -72,6 +72,8 @@ type ServiceEntryStore struct { // nolint:golint
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// workload instances from kubernetes pods - map of ip -> workload instance
 	workloadInstancesByIP map[string]*model.WorkloadInstance
+	// Stores a map of workload instance name/namespace to address
+	workloadInstancesIPsByName map[string]string
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	refreshIndexes            *atomic.Bool
@@ -81,12 +83,13 @@ type ServiceEntryStore struct { // nolint:golint
 // NewServiceDiscovery creates a new ServiceEntry discovery service
 func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
 	s := &ServiceEntryStore{
-		XdsUpdater:            xdsUpdater,
-		store:                 store,
-		ip2instance:           map[string][]*model.ServiceInstance{},
-		instances:             map[instancesKey]map[configKey][]*model.ServiceInstance{},
-		workloadInstancesByIP: map[string]*model.WorkloadInstance{},
-		refreshIndexes:        atomic.NewBool(true),
+		XdsUpdater:                 xdsUpdater,
+		store:                      store,
+		ip2instance:                map[string][]*model.ServiceInstance{},
+		instances:                  map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		workloadInstancesByIP:      map[string]*model.WorkloadInstance{},
+		workloadInstancesIPsByName: map[string]string{},
+		refreshIndexes:             atomic.NewBool(true),
 	}
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
@@ -329,12 +332,14 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, event model.Event) {
 	key := configKey{
 		kind:      workloadInstanceConfigType,
-		name:      si.Endpoint.Address,
+		name:      si.Name,
 		namespace: si.Namespace,
 	}
 	// Used to indicate if this event was fired for a pod->workloadentry conversion
 	// and that the event can be ignored due to no relevant change in the workloadentry
 	redundantEventForPod := false
+
+	var addressToDelete string
 
 	s.storeMutex.Lock()
 	// this is from a pod. Store it in separate map so that
@@ -348,6 +353,13 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 			delete(s.workloadInstancesByIP, si.Endpoint.Address)
 		}
 	default: // add or update
+		// Check to see if the workload entry changed. If it did, clear the old entry
+		k := si.Name + "~" + si.Namespace
+		existing := s.workloadInstancesIPsByName[k]
+		if existing != "" && existing != si.Endpoint.Address {
+			delete(s.workloadInstancesByIP, existing)
+			addressToDelete = existing
+		}
 		if old, exists := s.workloadInstancesByIP[si.Endpoint.Address]; exists {
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
@@ -357,6 +369,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 			}
 		}
 		s.workloadInstancesByIP[si.Endpoint.Address] = si
+		s.workloadInstancesIPsByName[k] = si.Endpoint.Address
 	}
 	// We will only select entries in the same namespace
 	entries := s.seWithSelectorByNamespace[si.Namespace]
@@ -370,7 +383,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 	log.Debugf("Handle event %s for service instance (from %s) in namespace %s", event,
 		si.Endpoint.Address, si.Namespace)
 	instances := []*model.ServiceInstance{}
-
+	instancesDeleted := []*model.ServiceInstance{}
 	for _, se := range entries {
 		workloadLabels := labels.Collection{si.Endpoint.Labels}
 		if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
@@ -379,6 +392,17 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 		}
 		instance := convertWorkloadInstanceToServiceInstance(si.Endpoint, se.services, se.entry)
 		instances = append(instances, instance...)
+		if addressToDelete != "" {
+			for _, i := range instance {
+				di := i.DeepCopy()
+				di.Endpoint.Address = addressToDelete
+				instancesDeleted = append(instancesDeleted, di)
+			}
+		}
+	}
+
+	if len(instancesDeleted) > 0 {
+		s.deleteExistingInstances(key, instancesDeleted)
 	}
 
 	if event != model.EventDelete {

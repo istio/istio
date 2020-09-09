@@ -153,7 +153,9 @@ func TestWorkloadInstances(t *testing.T) {
 			Hosts: []string{"service.namespace.svc.cluster.local"},
 			Ports: []*networking.Port{port},
 			WorkloadSelector: &networking.WorkloadSelector{
-				Labels: labels},
+				Labels: labels,
+			},
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 	}
 	service := &v1.Service{
@@ -695,6 +697,11 @@ func TestWorkloadInstances(t *testing.T) {
 		makeService(t, s.KubeClient(), &newSvc)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"})
+
+		newSvc.Spec.Ports[0].TargetPort = intstr.IntOrString{IntVal: 9090}
+		makeService(t, s.KubeClient(), &newSvc)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:9090"})
 	})
 
 	t.Run("Service selects WorkloadEntry: update workloadEntry", func(t *testing.T) {
@@ -708,6 +715,46 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, s.Store(), newWE)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"3.4.5.6:80"})
 	})
+
+	t.Run("ServiceEntry selects Pod: update service entry", func(t *testing.T) {
+		t.Skip("currently failing")
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		makeIstioObject(t, s.Store(), serviceEntry)
+		makePod(t, s.KubeClient(), pod)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+
+		newSE := serviceEntry.DeepCopy()
+		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
+			Name:       "http",
+			Number:     80,
+			Protocol:   "http",
+			TargetPort: 8080,
+		}}
+		makeIstioObject(t, s.Store(), newSE)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:8080"})
+
+		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
+			Name:       "http",
+			Number:     9090,
+			Protocol:   "http",
+			TargetPort: 9091,
+		}}
+		makeIstioObject(t, s.Store(), newSE)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+		expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", []string{"1.2.3.4:9091"})
+	})
+
+	t.Run("ServiceEntry selects Pod: update pod", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		makeIstioObject(t, s.Store(), serviceEntry)
+		makePod(t, s.KubeClient(), pod)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+
+		newPod := pod.DeepCopy()
+		newPod.Status.PodIP = "2.3.4.5"
+		makePod(t, s.KubeClient(), newPod)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
+	})
 }
 
 type ServiceInstanceResponse struct {
@@ -720,9 +767,9 @@ type ServiceInstanceResponse struct {
 func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, expected []string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		got := xdstest.ExtractLoadAssignments(s.Endpoints(s.SetupProxy(nil)))[cluster]
-		if !reflect.DeepEqual(got, expected) {
-			return fmt.Errorf("wanted %v got %v", expected, got)
+		got := xdstest.ExtractLoadAssignments(s.Endpoints(s.SetupProxy(nil)))
+		if !reflect.DeepEqual(got[cluster], expected) {
+			return fmt.Errorf("wanted %v got %v. All endpoints: %+v", expected, got[cluster], got)
 		}
 		return nil
 	}, retry.Converge(2), retry.Timeout(time.Second*2))
@@ -776,6 +823,9 @@ func jsonBytes(t *testing.T, v interface{}) []byte {
 func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	t.Helper()
 	newPod, err := c.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	if kerrors.IsAlreadyExists(err) {
+		newPod, err = c.CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

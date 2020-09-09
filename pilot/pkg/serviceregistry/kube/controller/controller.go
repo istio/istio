@@ -948,12 +948,6 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				}
 				// Similar code as UpdateServiceShards in eds.go
 				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
-				if err != nil {
-					log.Debugf("Failed to get endpoints for service %s on port %d, in response to workload instance: %v",
-						service.Hostname, port.Port, err)
-					continue
-				}
-
 				for _, inst := range instances {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
