@@ -105,7 +105,7 @@ func TestMirroring(t *testing.T) {
 // mesh because of the Sidecar), then we can inspect "external" logs to verify the requests were properly mirrored.
 func TestMirroringExternalService(t *testing.T) {
 	runMirrorTest(t, mirrorTestOptions{
-		mirrorHost: apps.External.GetOrFail(t, nil).Config().HostHeader(),
+		mirrorHost: apps.External[0].Config().HostHeader(),
 		cases: []testCaseMirror{
 			{
 				name:                "mirror-external",
