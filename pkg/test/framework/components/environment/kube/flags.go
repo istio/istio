@@ -68,7 +68,7 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 		return nil, err
 	}
 
-	s.ConfigTopology, err = newConfigTopology(s.KubeConfig)
+	s.ConfigTopology, err = newConfigTopology(s.KubeConfig, s.ControlPlaneTopology)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func parseKubeConfigs(value string) ([]string, error) {
 	return out, nil
 }
 
-func newControlPlaneTopology(kubeConfigs []string) (map[resource.ClusterIndex]resource.ClusterIndex, error) {
+func newControlPlaneTopology(kubeConfigs []string) (clusterTopology, error) {
 	topology, err := parseControlPlaneTopology()
 	if err != nil {
 		return nil, err
@@ -131,8 +131,8 @@ func newControlPlaneTopology(kubeConfigs []string) (map[resource.ClusterIndex]re
 	return topology, nil
 }
 
-func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterIndex, error) {
-	out := make(map[resource.ClusterIndex]resource.ClusterIndex)
+func parseControlPlaneTopology() (clusterTopology, error) {
+	out := make(clusterTopology)
 	if controlPlaneTopology == "" {
 		return out, nil
 	}
@@ -156,16 +156,16 @@ func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterInde
 	return out, nil
 }
 
-func newConfigTopology(kubeConfigs []string) (map[resource.ClusterIndex]resource.ClusterIndex, error) {
+func newConfigTopology(kubeConfigs []string, fallback clusterTopology) (clusterTopology, error) {
 	topology, err := parseConfigTopology()
 	if err != nil {
 		return nil, err
 	}
 
 	if len(topology) == 0 {
-		// Default to every cluster manages it's own config.
-		for index := range kubeConfigs {
-			topology[resource.ClusterIndex(index)] = resource.ClusterIndex(index)
+		// Default to every cluster using config from it's control plane cluster.
+		for k, v := range fallback {
+			topology[k] = v
 		}
 		return topology, nil
 	}
@@ -185,8 +185,8 @@ func newConfigTopology(kubeConfigs []string) (map[resource.ClusterIndex]resource
 	return topology, nil
 }
 
-func parseConfigTopology() (map[resource.ClusterIndex]resource.ClusterIndex, error) {
-	out := make(map[resource.ClusterIndex]resource.ClusterIndex)
+func parseConfigTopology() (clusterTopology, error) {
+	out := make(clusterTopology)
 	if configTopology == "" {
 		return out, nil
 	}
