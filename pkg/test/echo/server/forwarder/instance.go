@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
 	"golang.org/x/sync/semaphore"
 
 	"istio.io/istio/pkg/test/echo/common"

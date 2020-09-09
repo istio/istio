@@ -325,21 +325,28 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 					continue
 				}
 
-				// so we can validate all clusters are hit
-				callCount := callsPerCluster * len(destinations)
-				for _, call := range []struct {
+				type protocolCase struct {
 					// The port we call
 					port string
 					// The actual type of traffic we send to the port
 					scheme scheme.Instance
-				}{
+				}
+				protocols := []protocolCase{
 					{"http", scheme.HTTP},
 					{"auto-http", scheme.HTTP},
-					{"tcp", scheme.TCP},
-					{"auto-tcp", scheme.TCP},
-					{"grpc", scheme.GRPC},
-					{"auto-grpc", scheme.GRPC},
-				} {
+				}
+
+				if !apps.PodA.Clusters().IsMulticluster() {
+					// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp for multicluster
+					protocols = append(protocols,
+						protocolCase{"grpc", scheme.GRPC},
+						protocolCase{"auto-grpc", scheme.GRPC},
+					)
+				}
+
+				// so we can validate all clusters are hit
+				callCount := callsPerCluster * len(destinations)
+				for _, call := range protocols {
 					call := call
 					cases = append(cases, TrafficTestCase{
 						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
