@@ -15,7 +15,6 @@
 package endpoint
 
 import (
-	"bufio"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -25,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 var _ Instance = &tcpInstance{}
@@ -39,6 +37,10 @@ func newTCP(config Config) Instance {
 	return &tcpInstance{
 		Config: config,
 	}
+}
+
+func (s *tcpInstance) GetConfig() Config {
+	return s.Config
 }
 
 func (s *tcpInstance) Start(onReady OnReadyFunc) error {
@@ -77,7 +79,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Warn("TCP accept failed: " + err.Error())
+				epLog.Warn("TCP accept failed: " + err.Error())
 				return
 			}
 
@@ -103,24 +105,54 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
 	}
 
-	initialReply := true
+	firstReply := true
+	buf := make([]byte, 4096)
 	for {
-		buf, err := bufio.NewReader(conn).ReadBytes(byte('\n'))
-		if err != nil {
-			if err != io.EOF {
-				log.Warn("TCP read failed: " + err.Error())
-			}
-			return
-		}
-		log.Infof("TCP Request:\n  Source IP:%s\n  Destination Port:%d", conn.RemoteAddr(), s.Port.Port)
-		if initialReply {
-			// Fill the field in the response
-			_, _ = conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
-			initialReply = false
+		n, err := conn.Read(buf)
+
+		// important not to start sending any response until we've started reading the message,
+		// otherwise the response could be read when we expect the magic string
+		if firstReply {
+			s.writeResponse(conn)
+			firstReply = false
 		}
 
-		// echo the message in the buffer
-		_, _ = conn.Write(buf)
+		if err != nil && err != io.EOF {
+			epLog.Warnf("TCP read failed: %v", err.Error())
+			break
+		}
+
+		// echo the message from the request
+		if n > 0 {
+			out := buf[:n]
+			if _, err := conn.Write(out); err != nil {
+				epLog.Warnf("TCP write failed, :%v", err)
+				break
+			}
+		}
+
+		// Read can return n > 0 with EOF, do this last.
+		if err == io.EOF {
+			break
+		}
+	}
+}
+
+func (s *tcpInstance) writeResponse(conn net.Conn) {
+	// Write non-request fields specific to the instance
+	respFields := map[response.Field]string{
+		response.StatusCodeField:     response.StatusCodeOK,
+		response.ClusterField:        s.Cluster,
+		response.ServiceVersionField: s.Version,
+		response.ServicePortField:    strconv.Itoa(s.Port.Port),
+	}
+	for field, val := range respFields {
+		val := fmt.Sprintf("%s=%s\n", string(field), val)
+		_, err := conn.Write([]byte(val))
+		if err != nil {
+			epLog.Warnf("TCP write failed %q: %v", val, err)
+			break
+		}
 	}
 }
 
@@ -148,8 +180,8 @@ func (s *tcpInstance) awaitReady(onReady OnReadyFunc, port int) {
 	}, retry.Timeout(readyTimeout), retry.Delay(readyInterval))
 
 	if err != nil {
-		log.Errorf("readiness failed for endpoint %s: %v", address, err)
+		epLog.Errorf("readiness failed for endpoint %s: %v", address, err)
 	} else {
-		log.Infof("ready for TCP endpoint %s", address)
+		epLog.Infof("ready for TCP endpoint %s", address)
 	}
 }
