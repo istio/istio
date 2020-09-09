@@ -79,6 +79,7 @@ type ConfigGenTest struct {
 	ConfigGen            *ConfigGeneratorImpl
 	MemRegistry          *memregistry.ServiceDiscovery
 	ServiceEntryRegistry *serviceentry.ServiceEntryStore
+	Registry             model.Controller
 }
 
 func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
@@ -160,6 +161,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		env:                  env,
 		ConfigGen:            NewConfigGenerator(opts.Plugins, &model.DisabledCache{}),
 		MemRegistry:          msd,
+		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
 		pushContextLock:      opts.PushContextLock,
 	}

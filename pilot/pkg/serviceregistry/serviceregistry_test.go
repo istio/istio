@@ -18,11 +18,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -33,7 +35,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -679,6 +683,33 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
 		expectServiceInstances(t, kc, expectedSvc, 80, []ServiceInstanceResponse{})
 	})
+
+	t.Run("Service selects WorkloadEntry: update service", func(t *testing.T) {
+		t.Skip("this is currently not passing")
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		makeService(t, s.KubeClient(), service)
+		makeIstioObject(t, s.Store(), workloadEntry)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
+
+		newSvc := *service
+		newSvc.Spec.Ports[0].Port = 8080
+		makeService(t, s.KubeClient(), &newSvc)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"})
+	})
+
+	t.Run("Service selects WorkloadEntry: update workloadEntry", func(t *testing.T) {
+		t.Skip("this is currently not passing")
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		makeService(t, s.KubeClient(), service)
+		makeIstioObject(t, s.Store(), workloadEntry)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
+
+		newWE := workloadEntry.DeepCopy()
+		newWE.Spec.(*networking.WorkloadEntry).Address = "3.4.5.6"
+		makeIstioObject(t, s.Store(), newWE)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"3.4.5.6:80"})
+	})
 }
 
 type ServiceInstanceResponse struct {
@@ -686,6 +717,17 @@ type ServiceInstanceResponse struct {
 	Namestring string
 	Address    string
 	Port       uint32
+}
+
+func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, expected []string) {
+	t.Helper()
+	retry.UntilSuccessOrFail(t, func() error {
+		got := xdstest.ExtractLoadAssignments(s.Endpoints(s.SetupProxy(nil)))[cluster]
+		if !reflect.DeepEqual(got, expected) {
+			return fmt.Errorf("wanted %v got %v", expected, got)
+		}
+		return nil
+	}, retry.Converge(2), retry.Timeout(time.Second*2))
 }
 
 // nolint: unparam
@@ -753,6 +795,9 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 	t.Helper()
 	_, err := c.CoreV1().Services(svc.Namespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	if kerrors.IsAlreadyExists(err) {
+		_, err = c.CoreV1().Services(svc.Namespace).Update(context.Background(), svc, metav1.UpdateOptions{})
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -762,6 +807,9 @@ func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
 	t.Helper()
 	_, err := c.Create(svc)
+	if err != nil && err.Error() == "item already exists" {
+		_, err = c.Update(svc)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
