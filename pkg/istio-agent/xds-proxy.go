@@ -28,8 +28,6 @@ import (
 	"strings"
 	"time"
 
-	health_check "istio.io/istio/pkg/istio-agent/health-check"
-
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/oauth2"
