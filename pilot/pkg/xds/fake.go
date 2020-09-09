@@ -79,8 +79,22 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.Authn, plugin.Authz})
 
+	serviceHandler := func(svc *model.Service, _ model.Event) {
+		pushReq := &model.PushRequest{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      gvk.ServiceEntry,
+				Name:      string(svc.Hostname),
+				Namespace: svc.Attributes.Namespace,
+			}: {}},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
+		}
+		s.ConfigUpdate(pushReq)
+	}
+
 	kubeClient := kubelib.NewFakeClient(getKubernetesObjects(t, opts)...)
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
+		ServiceHandler:  serviceHandler,
 		Client:          kubeClient,
 		ClusterID:       "Kubernetes",
 		DomainSuffix:    "cluster.local",
@@ -102,6 +116,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   []serviceregistry.Instance{k8s},
 		PushContextLock:     &s.updateMutex,
 	})
+	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
 	// Disable debounce to reduce test times
@@ -140,21 +155,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 
 		cg.Store().RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
-	}
-	serviceHandler := func(svc *model.Service, _ model.Event) {
-		pushReq := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.Hostname),
-				Namespace: svc.Attributes.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
-		}
-		s.ConfigUpdate(pushReq)
-	}
-	if err := cg.Registry.AppendServiceHandler(serviceHandler); err != nil {
-		t.Fatalf("append service handler failed: %v", err)
 	}
 	if err := cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
 		t.Fatal(err)

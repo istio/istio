@@ -245,7 +245,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com:80"})
 	})
 
 	t.Run("DNS no self import", func(t *testing.T) {
@@ -258,7 +258,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com:80"})
 	})
 }
 

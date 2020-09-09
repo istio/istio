@@ -712,7 +712,8 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 
 	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
 	fi1 := &model.WorkloadInstance{
-		Namespace: selector.Name,
+		Name:      selector.Name,
+		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "wle"},
@@ -722,7 +723,8 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 	}
 
 	fi2 := &model.WorkloadInstance{
-		Namespace: selector.Name,
+		Name:      "some-other-name",
+		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
 			Address:        "3.3.3.3",
 			Labels:         map[string]string{"app": "wle"},

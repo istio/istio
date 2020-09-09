@@ -344,6 +344,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 	s.storeMutex.Lock()
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
+	k := si.Name + "~" + si.Namespace
 	switch event {
 	case model.EventDelete:
 		if _, exists := s.workloadInstancesByIP[si.Endpoint.Address]; !exists {
@@ -351,10 +352,10 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 			redundantEventForPod = true
 		} else {
 			delete(s.workloadInstancesByIP, si.Endpoint.Address)
+			delete(s.workloadInstancesIPsByName, k)
 		}
 	default: // add or update
 		// Check to see if the workload entry changed. If it did, clear the old entry
-		k := si.Name + "~" + si.Namespace
 		existing := s.workloadInstancesIPsByName[k]
 		if existing != "" && existing != si.Endpoint.Address {
 			delete(s.workloadInstancesByIP, existing)
