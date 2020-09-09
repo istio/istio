@@ -298,14 +298,14 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 			for _, d := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
-				if s, ok := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)][configNamespace]; ok {
+				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(d.Host)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					addService(s)
 				} else {
 					// We couldn't find the hostname in our config namespace
 					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
 					// TODO: could we choose services more intelligently based on their ports?
-					byNamespace := ps.ServiceByHostnameAndNamespace[host.Name(d.Host)]
+					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(d.Host)]
 					if len(byNamespace) == 0 {
 						// This hostname isn't found anywhere
 						log.Debugf("Could not find service hostname %s parsed from %s", d.Host, vs.Key())
