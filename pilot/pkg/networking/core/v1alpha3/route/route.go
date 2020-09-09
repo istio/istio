@@ -353,6 +353,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	out := &route.Route{
 		Match:    translateRouteMatch(match, node),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
+		Name:     virtualService.Name,
 	}
 
 	routeName := in.Name
@@ -360,7 +361,9 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		routeName = routeName + "." + match.Name
 	}
 	// add a name to the route
-	out.Name = routeName
+	if routeName != "" {
+		out.Name = routeName
+	}
 
 	operations := translateHeadersOperations(in.Headers)
 	out.RequestHeadersToAdd = operations.requestHeadersToAdd
