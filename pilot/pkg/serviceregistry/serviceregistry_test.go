@@ -727,7 +727,6 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("ServiceEntry selects Pod: update service entry", func(t *testing.T) {
-		t.Skip("currently failing")
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		makeIstioObject(t, s.Store(), serviceEntry)
 		makePod(t, s.KubeClient(), pod)
@@ -743,6 +742,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, s.Store(), newSE)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:8080"})
 
+		newSE = newSE.DeepCopy()
 		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
 			Name:       "http",
 			Number:     9090,
@@ -752,6 +752,12 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, s.Store(), newSE)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 		expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", []string{"1.2.3.4:9091"})
+
+		if err := s.Store().Delete(gvk.ServiceEntry, newSE.Name, newSE.Namespace); err != nil {
+			t.Fatal(err)
+		}
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+		expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", nil)
 	})
 
 	t.Run("ServiceEntry selects Pod: update pod", func(t *testing.T) {

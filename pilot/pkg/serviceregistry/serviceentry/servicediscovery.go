@@ -313,12 +313,12 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		}
 	}
 	// non dns service instances
-	var nonDNSServiceInstances []*model.ServiceInstance
-	if len(nonDNSServices) > 0 {
-		nonDNSServiceInstances = convertServiceEntryToInstances(curr, nonDNSServices)
+	keys := map[instancesKey]struct{}{}
+	for _, svc := range nonDNSServices {
+		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
 	// update eds endpoint shards
-	s.edsUpdate(nonDNSServiceInstances, false)
+	s.edsUpdateByKeys(keys, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -530,7 +530,13 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
+	s.edsUpdateByKeys(keys, push)
+}
 
+func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
+	// must call it here to refresh s.instances if necessary
+	// otherwise may get no instances or miss some new addes instances
+	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
 	s.storeMutex.RLock()
 	for key := range keys {
@@ -622,10 +628,10 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	// a full R+W before the other can start, rather than R,R,W,W.
 	s.storeMutex.Lock()
 	// Second, refresh workload instances(pods)
-	for ip, workloadInstance := range s.workloadInstancesByIP {
+	for _, workloadInstance := range s.workloadInstancesByIP {
 		key := configKey{
 			kind:      workloadInstanceConfigType,
-			name:      ip,
+			name:      workloadInstance.Name,
 			namespace: workloadInstance.Namespace,
 		}
 
