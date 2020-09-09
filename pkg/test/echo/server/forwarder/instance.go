@@ -17,10 +17,11 @@ package forwarder
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 
 	"golang.org/x/sync/semaphore"
 
