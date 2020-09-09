@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+- |
+  **Improved** Enable configurng multi-network without using [meshNetworks](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks).
+  Instead "topology.istio.io/network" and "topology.istio.io/gatewayPort" on the gateway's Kubernetes Service can mark it as a gateway.
