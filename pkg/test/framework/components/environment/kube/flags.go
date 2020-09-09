@@ -68,7 +68,7 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 		return nil, err
 	}
 
-	s.ConfigTopology, err = newConfigTopology(s.KubeConfig)
+	s.ConfigTopology, err = newConfigTopology(s.KubeConfig, s.ControlPlaneTopology)
 	if err != nil {
 		return nil, err
 	}
@@ -156,16 +156,16 @@ func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterInde
 	return out, nil
 }
 
-func newConfigTopology(kubeConfigs []string) (map[resource.ClusterIndex]resource.ClusterIndex, error) {
+func newConfigTopology(kubeConfigs []string, fallback map[resource.ClusterIndex]resource.ClusterIndex) (map[resource.ClusterIndex]resource.ClusterIndex, error) {
 	topology, err := parseConfigTopology()
 	if err != nil {
 		return nil, err
 	}
 
 	if len(topology) == 0 {
-		// Default to every cluster manages it's own config.
-		for index := range kubeConfigs {
-			topology[resource.ClusterIndex(index)] = resource.ClusterIndex(index)
+		// Default to every cluster using config from it's control plane cluster.
+		for k, v := range fallback {
+			topology[k] = v
 		}
 		return topology, nil
 	}

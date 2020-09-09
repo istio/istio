@@ -56,6 +56,7 @@ type Settings struct {
 
 	// ConfigTopology maps each cluster to the cluster that runs it's config.
 	// If the cluster runs its own config, the cluster will map to itself (e.g. 0->0)
+	// By default, we use the ControlPlaneTopology as the config topology.
 	ConfigTopology map[resource.ClusterIndex]resource.ClusterIndex
 }
 

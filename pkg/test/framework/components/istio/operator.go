@@ -425,7 +425,7 @@ spec:
 }
 
 func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, configIopFile string) error {
-	installSettings, err := generateCommonInstallSettings(cfg, configIopFile)
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, configIopFile)
 	if err != nil {
 		return err
 	}
@@ -462,7 +462,7 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 			return err
 		}
 	}
-	installSettings, err := generateCommonInstallSettings(cfg, iopFile)
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, iopFile)
 	if err != nil {
 		return err
 	}
@@ -471,10 +471,6 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-
-		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings, multiNetworkFlags(meshID, networkName)...)
-		}
 	}
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
@@ -525,7 +521,7 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 // Deploy Istio to remote clusters
 func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
 
-	installSettings, err := generateCommonInstallSettings(cfg, remoteIopFile)
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, remoteIopFile)
 	if err != nil {
 		return err
 	}
@@ -533,10 +529,6 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-
-		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings, multiNetworkFlags(meshID, networkName)...)
-		}
 	}
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
@@ -564,7 +556,7 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 
 }
 
-func generateCommonInstallSettings(cfg Config, iopFile string) ([]string, error) {
+func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster resource.Cluster, iopFile string) ([]string, error) {
 
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -581,6 +573,11 @@ func generateCommonInstallSettings(cfg Config, iopFile string) ([]string, error)
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
 	}
+
+	if !i.isExternalControlPlane() && i.environment.IsMulticluster() && cluster.NetworkName() != "" {
+		installSettings = append(installSettings, multiNetworkFlags(meshID, cluster.NetworkName())...)
+	}
+
 	// Include all user-specified values.
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
