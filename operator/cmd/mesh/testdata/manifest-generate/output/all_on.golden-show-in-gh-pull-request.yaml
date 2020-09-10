@@ -4681,7 +4681,8 @@ data:
         "configValidation": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
-          "enabled": true
+          "enabled": true,
+          "minAvailable": 1
         },
         "defaultResources": {
           "requests": {

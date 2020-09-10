@@ -64,8 +64,9 @@ global:
   # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
     enabled: true
-    # The values aren't mutable due to a current PodDisruptionBudget limitation
-    # minAvailable: 1
+    # PDBs are updateable since K8 1.15
+    # https://github.com/kubernetes/kubernetes/pull/69867
+    minAvailable: 1
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).

@@ -181,6 +181,11 @@ message CoreDNSConfig {
 message DefaultPodDisruptionBudgetConfig {
   // Controls whether a PodDisruptionBudget with a default minAvailable value of 1 is created for each deployment.
   google.protobuf.BoolValue enabled = 1;
+
+  // An eviction is allowed if at least "minAvailable" pods selected by
+  // "selector" will still be available after the eviction.
+  // https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto#L553
+  uint32 minAvailable = 2;
 }
 
 // DefaultResourcesConfig specifies the default k8s resources settings for all Istio control plane components.
