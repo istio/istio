@@ -413,7 +413,7 @@ func (p *XdsProxy) initCertificateWatches(agent *Agent, stop <-chan struct{}) er
 		}
 	}
 	if !watching {
-		return
+		return nil
 	}
 	go func() {
 		var keyCertTimerC <-chan time.Time
