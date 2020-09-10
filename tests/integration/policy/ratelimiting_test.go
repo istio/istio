@@ -18,85 +18,57 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"math"
 	"strings"
 	"testing"
-	"time"
+
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-	util "istio.io/istio/tests/integration/mixer"
+	"fmt"
+	"os"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/kube"
+	"time"
 )
 
 var (
 	ist         istio.Instance
 	bookinfoNs  namespace.Instance
 	ratelimitNs namespace.Instance
-	g           galley.Instance
-	ing         ingress.Instance
+	ing ingress.Instance
 )
 
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			util.AllowRuleSync(t)
-
-			err := setupEnvoyFilter(ratelimitNs, ctx)
-			if err != nil {
-				return
-			}
-
-			res := util.SendTraffic(ing, t, "Sending traffic...", "", "", 300)
-			totalReqs := float64(res.DurationHistogram.Count)
+			res := sendTraffic(ing, t, "Sending traffic...", 300)
 			got429s := float64(res.RetCodes[http.StatusTooManyRequests])
-			actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
 
-			// Sending 10 requests. Ratelimiting is set to 1 request per minute for productpage.
-			want200s := 1.0
-			// everything in excess of 200s should be 429s (ideally)
-			want429s := totalReqs - want200s
-			t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/actualDuration,
-				want429s, want429s/actualDuration)
-
-			// check resource exhausted
-			want429s = math.Floor(want429s * 0.97)
-			if got429s < want429s {
-				t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got429s,
-					want429s)
+			if got429s <= 0 {
+				t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least 1", got429s)
 			}
 		})
 }
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("envoy_policy_ratelimit", m).
-		Label(label.CustomSetup).
-		RequireEnvironment(environment.Kube).
+		NewSuite( m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Setup(testsetup).
+		Label(label.CustomSetup).
+		Setup(istio.Setup(&ist, nil)).
+		Setup(testSetup).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
-}
-
-func testsetup(ctx resource.Context) (err error) {
+func testSetup(ctx resource.Context) (err error) {
 	bookinfoNs, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-bookinfo",
 		Inject: true,
@@ -107,15 +79,8 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
 		return
 	}
-	g, err = galley.New(ctx, galley.Config{})
-	if err != nil {
-		return
-	}
 
-	ing, err = ingress.New(ctx, ingress.Config{Istio: ist})
-	if err != nil {
-		return
-	}
+	ing = ist.IngressFor(ctx.Clusters().Default())
 
 	bookinfoGatewayFile, err := bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespace(bookinfoNs.Name())
 	if err != nil {
@@ -133,7 +98,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = g.ApplyConfig(bookinfoNs,
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(),
 		bookinfoGatewayFile,
 		destinationRuleFile,
 		virtualServiceFile)
@@ -141,11 +106,14 @@ func testsetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	//TODO(gargnuur): Make this a component in test pkg framework and wait for pods to
-	// come up rather than sleep.
 	ratelimitNs, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-ratelimit",
 	})
+	if err != nil {
+		return
+	}
+
+	err = setupEnvoyFilter(ratelimitNs, ctx)
 	if err != nil {
 		return
 	}
@@ -155,19 +123,29 @@ func testsetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = g.ApplyConfig(ratelimitNs,
+	err = ctx.Config().ApplyYAML(ratelimitNs.Name(),
 		string(yamlContent),
 	)
 	if err != nil {
 		return
 	}
+	// Wait for redis and ratelimit service to be up.
+	fetchFn := kube.NewPodFetch(ctx.Clusters().Default(), ratelimitNs.Name(), "app=redis")
+	if _, err = kube.WaitUntilPodsAreReady(fetchFn); err != nil {
+		return
+	}
+	fetchFn = kube.NewPodFetch(ctx.Clusters().Default(), ratelimitNs.Name(), "app=ratelimit")
+	if _, err = kube.WaitUntilPodsAreReady(fetchFn); err != nil {
+		return
+	}
 
-	time.Sleep(time.Second * 30)
+	// For envoy filter changes to sync.
+	time.Sleep(time.Second*15)
 
 	return nil
 }
 
-func setupEnvoyFilter(ratelimitNs namespace.Instance, ctx resource.Context) error {
+func setupEnvoyFilter(ratelimitNs namespace.Instance,ctx resource.Context) error {
 	content, err := ioutil.ReadFile("testdata/enable_envoy_ratelimit.yaml")
 	if err != nil {
 		return err
@@ -179,11 +157,42 @@ func setupEnvoyFilter(ratelimitNs namespace.Instance, ctx resource.Context) erro
 
 	ns, err := namespace.Claim(ctx, ist.Settings().SystemNamespace, true)
 	if err != nil {
+		scopes.Framework.Infof("err: %v", err)
 		return err
 	}
-	err = g.ApplyConfig(ns, con)
+	err = ctx.Config().ApplyYAML(ns.Name(), con)
 	if err != nil {
+		scopes.Framework.Infof("err: %v", err)
 		return err
 	}
 	return nil
+}
+
+func sendTraffic(ingress ingress.Instance, t *testing.T, msg string,  calls int64) *fhttp.HTTPRunnerResults {
+	t.Log(msg)
+
+		addr := ingress.HTTPAddress()
+		url := fmt.Sprintf("http://%s/productpage", addr.String())
+
+
+	// run at a high enough QPS (here 10) to ensure that enough
+	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
+			QPS:        10,
+			Exactly:    calls,     // will make exactly 300 calls, so run for about 30 seconds
+			NumThreads: 5,         // get the same number of calls per connection (300/5=60)
+			Out:        os.Stderr, // Only needed because of log capture issue
+		},
+		HTTPOptions: fhttp.HTTPOptions{
+			URL: url,
+		},
+	}
+
+	// productpage should still return 200s when ratings is rate-limited.
+	res, err := fhttp.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+	return res
 }

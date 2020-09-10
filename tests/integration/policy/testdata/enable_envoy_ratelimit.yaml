@@ -22,8 +22,9 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.rate_limit
-          config:
+          name: envoy.ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.config.filter.http.rate_limit.v2.RateLimit
             # domain can be anything! Match it to the ratelimter service config
             domain: productpage-ratelimit
             failure_mode_deny: true
@@ -44,10 +45,15 @@ spec:
           connect_timeout: 10s
           lb_policy: ROUND_ROBIN
           http2_protocol_options: {}
-          hosts:
-          - socket_address:
-              address: ratelimit.default.svc.cluster.local
-              port_value: 8081
+          load_assignment:
+            cluster_name: rate_limit_cluster
+            endpoints:
+            - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: ratelimit.default.svc.cluster.local
+                      port_value: 8081
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
