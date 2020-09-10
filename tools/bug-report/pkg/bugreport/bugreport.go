@@ -331,7 +331,9 @@ func BuildClientsFromConfig(kubeConfig []byte) (kube.Client, error) {
 
 func logAndPrintf(format string, a ...interface{}) {
 	fmt.Printf(format, a...)
-	log.Infof(format, a...)
+	o := []interface{}{format}
+	o = append(o, a...)
+	log.Infof(format, o)
 }
 
 func configLogs(opt *log.Options) error {
