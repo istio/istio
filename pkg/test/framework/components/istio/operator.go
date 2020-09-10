@@ -68,7 +68,7 @@ type operatorComponent struct {
 	mu sync.Mutex
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
-	installManifest map[string]string
+	installManifest map[string][]string
 	ingress         map[resource.ClusterIndex]ingress.Instance
 }
 
@@ -132,9 +132,12 @@ func (i *operatorComponent) Close() (err error) {
 	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
-			if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
-				err = multierror.Append(err, e)
+			for _, manifest := range i.installManifest[cluster.Name()] {
+				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
+					err = multierror.Append(err, e)
+				}
 			}
+
 			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
 			for _, cm := range leaderElectionConfigMaps {
 				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
@@ -179,7 +182,7 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 func (i *operatorComponent) saveInstallManifest(name string, out string) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	i.installManifest[name] = out
+	i.installManifest[name] = append(i.installManifest[name], out)
 }
 
 func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
@@ -191,7 +194,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		environment:     env,
 		settings:        cfg,
 		ctx:             ctx,
-		installManifest: map[string]string{},
+		installManifest: map[string][]string{},
 		ingress:         map[resource.ClusterIndex]ingress.Instance{},
 	}
 	i.id = ctx.TrackResource(i)
@@ -272,7 +275,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if env.IsMultinetwork() {
 		// enable cross network traffic
 		for _, cluster := range env.KubeClusters {
-			if err := createCrossNetworkGateway(ctx, cluster, cfg); err != nil {
+			if err := i.createCrossNetworkGateway(ctx, workDir, cluster, cfg); err != nil {
 				return nil, err
 			}
 		}
@@ -400,8 +403,45 @@ spec:
 	return nil
 }
 
-func createCrossNetworkGateway(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
+func (i *operatorComponent) createCrossNetworkGateway(ctx resource.Context, workDir string, cluster resource.Cluster, cfg Config) error {
 	scopes.Framework.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
+
+	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cluster})
+	if err != nil {
+		return err
+	}
+
+	gwIop := fmt.Sprintf(`
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  components:
+    ingressGateways:
+      - name: istio-internalgateway
+        label:
+          istio: internalgateway
+          app: istio-internalgateway
+        enabled: true
+        k8s:
+          env:
+            # traffic through this gateway should be routed inside the network
+            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+              value: %s
+`, cluster.NetworkName())
+	path := path.Join(workDir, "cross-network-gateway-iop.yaml")
+	if err := ioutil.WriteFile(path, []byte(gwIop), 644); err != nil {
+		return err
+	}
+
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, path)
+	if err != nil {
+		return err
+	}
+
+	if err := applyManifest(i, installSettings, istioCtl, cluster.Name()); err != nil {
+		return err
+	}
 
 	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
