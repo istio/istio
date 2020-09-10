@@ -34,14 +34,6 @@ spec:
         env:
           - name: ENABLE_STACKDRIVER_MONITORING
             value: "true"
-  addonComponents:
-    # Grafana is disabled by default, but supported with --set values.grafana.enabled=true
-    # This requires enabling prometheus.
-    grafana:
-      enabled: false
-    # Prometheus is disabled by default
-    prometheus:
-      enabled: false
   values:
     # Protocol sniffing is not supported
     pilot:
