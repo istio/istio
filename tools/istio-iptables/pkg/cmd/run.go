@@ -364,7 +364,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	redirectDNS := false
-	dnsTargetPort := constants.IstioAgentDNSListenerPort
 	if dnsCaptureByAgent.Get() != "" {
 		redirectDNS = true
 	}
@@ -381,6 +380,13 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
 	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
 		iptConfigurator.cfg.InboundTunnelPort, "-j", constants.RETURN)
+
+	if redirectDNS {
+		// redirect all TCP dns traffic on port 53 to the agent on port 15053
+		iptConfigurator.iptables.AppendRuleV4(
+			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "--dport", "53", "-j", constants.REDIRECT, "--to-ports", constants.IstioAgentDNSListenerPort)
+		// the rest of the IPtables rules will take care of ensuring that the traffic does not loop, among other things.
+	}
 
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
@@ -476,12 +482,12 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// from app to agent/envoy - dnat to 127.0.0.1:port
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
 			"-p", "udp", "--dport", "53",
-			"-j", "DNAT", "--to-destination", "127.0.0.1:"+dnsTargetPort)
+			"-j", "DNAT", "--to-destination", "127.0.0.1:"+constants.IstioAgentDNSListenerPort)
 		// overwrite the source IP so that when envoy/agent responds to the DNS request
 		// it responds to localhost on same interface. Otherwise, the connection will not
 		// match in the kernel. Note that the dest port here should be the rewritten port.
 		iptConfigurator.iptables.AppendRuleV4(constants.POSTROUTING, constants.NAT,
-			"-p", "udp", "--dport", dnsTargetPort, "-j", "SNAT", "--to-source", "127.0.0.1")
+			"-p", "udp", "--dport", constants.IstioAgentDNSListenerPort, "-j", "SNAT", "--to-source", "127.0.0.1")
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {

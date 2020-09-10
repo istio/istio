@@ -24,6 +24,8 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+type clusterTopology = map[resource.ClusterIndex]resource.ClusterIndex
+
 // ClientFactoryFunc is a transformation function that creates k8s clients
 // from the provided k8s config files.
 type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.ExtendedClient, error)
@@ -48,7 +50,7 @@ type Settings struct {
 
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
-	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
+	ControlPlaneTopology clusterTopology
 
 	// networkTopology is used for the initial assignment of networks to each cluster.
 	// The source of truth clusters' networks is the Cluster instances themselves, rather than this field.
@@ -56,7 +58,8 @@ type Settings struct {
 
 	// ConfigTopology maps each cluster to the cluster that runs it's config.
 	// If the cluster runs its own config, the cluster will map to itself (e.g. 0->0)
-	ConfigTopology map[resource.ClusterIndex]resource.ClusterIndex
+	// By default, we use the ControlPlaneTopology as the config topology.
+	ConfigTopology clusterTopology
 }
 
 type SetupSettingsFunc func(s *Settings, ctx resource.Context)

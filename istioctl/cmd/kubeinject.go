@@ -168,7 +168,6 @@ func injectCommand() *cobra.Command {
 		Use:   "kube-inject",
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
 		Long: `
-
 kube-inject manually injects the Envoy sidecar into Kubernetes
 workloads. Unsupported resources are left unmodified so it is safe to
 run kube-inject over a single file that contains multiple Service,
@@ -184,26 +183,25 @@ The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
 `,
-		Example: `
-# Update resources on the fly before applying.
-kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
+		Example: `  # Update resources on the fly before applying.
+  kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
 
-# Create a persistent version of the deployment with Envoy sidecar
-# injected.
-istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
+  # Create a persistent version of the deployment with Envoy sidecar injected.
+  istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 
-# Update an existing deployment.
-kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
+  # Update an existing deployment.
+  kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 
-# Capture cluster configuration for later use with kube-inject
-kubectl -n istio-system get cm istio-sidecar-injector  -o jsonpath="{.data.config}" > /tmp/inj-template.tmpl
-kubectl -n istio-system get cm istio -o jsonpath="{.data.mesh}" > /tmp/mesh.yaml
-kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath="{.data.values}" > /tmp/values.json
-# Use kube-inject based on captured configuration
-istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
-	--injectConfigFile /tmp/inj-template.tmpl \
-	--meshConfigFile /tmp/mesh.yaml \
-	--valuesFile /tmp/values.json
+  # Capture cluster configuration for later use with kube-inject
+  kubectl -n istio-system get cm istio-sidecar-injector  -o jsonpath="{.data.config}" > /tmp/inj-template.tmpl
+  kubectl -n istio-system get cm istio -o jsonpath="{.data.mesh}" > /tmp/mesh.yaml
+  kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath="{.data.values}" > /tmp/values.json
+
+  # Use kube-inject based on captured configuration
+  istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
+    --injectConfigFile /tmp/inj-template.tmpl \
+    --meshConfigFile /tmp/mesh.yaml \
+    --valuesFile /tmp/values.json
 `,
 		RunE: func(c *cobra.Command, _ []string) (err error) {
 			if err = validateFlags(); err != nil {

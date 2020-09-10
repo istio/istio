@@ -39,9 +39,6 @@ const (
 	// String to emit for any component which is disabled.
 	componentDisabledStr = "component is disabled."
 	yamlCommentStr       = "#"
-
-	// devDbg generates lots of output useful in development.
-	devDbg = false
 )
 
 var (
@@ -471,7 +468,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return "", err
 	}
 
-	log.Debugf("Merged values:\n%s\n", mergedYAML)
+	scope.Debugf("Merged values:\n%s\n", mergedYAML)
 
 	my, err := cf.renderer.RenderManifest(mergedYAML)
 	if err != nil {
@@ -479,9 +476,8 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return "", err
 	}
 	my += helm.YAMLSeparator + "\n"
-	if devDbg {
-		scope.Infof("Initial manifest with merged values:\n%s\n", my)
-	}
+	scope.Debugf("Initial manifest with merged values:\n%s\n", my)
+
 	// Add the k8s resources from IstioOperatorSpec.
 	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.ComponentName, cf.ResourceName, cf.addonName, cf.index)
 	if err != nil {
@@ -492,9 +488,8 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		cnOutput += " " + cf.addonName
 	}
 	my = "# Resources for " + cnOutput + " component\n\n" + my
-	if devDbg {
-		scope.Infof("Manifest after k8s API settings:\n%s\n", my)
-	}
+	scope.Debugf("Manifest after k8s API settings:\n%s\n", my)
+
 	// Add the k8s resource overlays from IstioOperatorSpec.
 	pathToK8sOverlay := ""
 	if !cf.ComponentName.IsCoreComponent() && !cf.ComponentName.IsGateway() {
@@ -512,7 +507,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return "", err
 	}
 	if !found {
-		log.Debugf("Manifest after resources: \n%s\n", my)
+		scope.Debugf("Manifest after resources: \n%s\n", my)
 		return my, nil
 	}
 	kyo, err := yaml.Marshal(overlays)

@@ -306,18 +306,16 @@ func NewPrecheckCommand() *cobra.Command {
 		Use:   "precheck [-f <deployment or istio operator file>]",
 		Short: "Checks Istio cluster compatibility",
 		Long: `
-		precheck inspects a Kubernetes cluster for Istio install requirements.
+  precheck inspects a Kubernetes cluster for Istio install requirements.
 `,
-		Example: `
-		# Verify that Istio can be installed
-		istioctl experimental precheck
+		Example: `  # Verify that Istio can be installed
+  istioctl experimental precheck
 
-		# Verify the deployment matches a custom Istio deployment configuration
-		istioctl x precheck --set profile=demo
+  # Verify the deployment matches a custom Istio deployment configuration
+  istioctl x precheck --set profile=demo
 
-		# Verify the deployment matches the Istio Operator deployment definition
-		istioctl x precheck -f iop.yaml
-`,
+  # Verify the deployment matches the Istio Operator deployment definition
+  istioctl x precheck -f iop.yaml`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
 			targetNamespace := istioNamespace

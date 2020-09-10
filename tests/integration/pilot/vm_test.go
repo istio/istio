@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/tests/integration/pilot/common"
 )
 
 func GetAdditionVMImages() []string {
@@ -43,8 +44,8 @@ func TestVmOSPost(t *testing.T) {
 			for i, image := range images {
 				b = b.With(&instances[i], echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
-					Namespace:  apps.namespace,
-					Ports:      echoPorts,
+					Namespace:  apps.Namespace,
+					Ports:      common.EchoPorts,
 					DeployAsVM: true,
 					VMImage:    image,
 					Subsets:    []echo.SubsetConfig{{}},
@@ -56,8 +57,8 @@ func TestVmOSPost(t *testing.T) {
 			for i, image := range images {
 				i, image := i, image
 				ctx.NewSubTest(image).RunParallel(func(ctx framework.TestContext) {
-					for _, tt := range vmTestCases(echo.Instances{instances[i]}) {
-						ExecuteTrafficTest(ctx, tt)
+					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, apps) {
+						common.ExecuteTrafficTest(ctx, tt, apps.Namespace.Name())
 					}
 				})
 			}

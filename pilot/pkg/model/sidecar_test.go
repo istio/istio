@@ -1002,17 +1002,18 @@ func TestCreateSidecarScope(t *testing.T) {
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = &meshConfig
 			if tt.services != nil {
-				ps.publicServices = append(ps.publicServices, tt.services...)
+				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 
 				for _, s := range tt.services {
-					if _, f := ps.ServiceByHostnameAndNamespace[s.Hostname]; !f {
-						ps.ServiceByHostnameAndNamespace[s.Hostname] = map[string]*Service{}
+					if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
+						ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 					}
-					ps.ServiceByHostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+					ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 				}
 			}
 			if tt.virtualServices != nil {
-				ps.publicVirtualServicesByGateway[constants.IstioMeshGateway] = append(ps.publicVirtualServicesByGateway[constants.IstioMeshGateway], tt.virtualServices...)
+				// nolint lll
+				ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], tt.virtualServices...)
 			}
 
 			sidecarConfig := tt.sidecarConfig
@@ -1277,8 +1278,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 					},
 				},
 			}
-			ps.publicServices = append(ps.publicServices, services...)
-			ps.publicVirtualServicesByGateway[constants.IstioMeshGateway] = append(ps.publicVirtualServicesByGateway[constants.IstioMeshGateway], virtualServices...)
+			ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+			// nolint lll
+			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], virtualServices...)
 			ps.SetDestinationRules(destinationRules)
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {

@@ -18,11 +18,11 @@ import (
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	discovery "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers/discovery/v1alpha1"
-	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
+	discoveryinformer "k8s.io/client-go/informers/discovery/v1beta1"
+	discoverylister "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -39,7 +39,7 @@ type endpointSliceController struct {
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
-func newEndpointSliceController(c *Controller, informer v1alpha1.EndpointSliceInformer) *endpointSliceController {
+func newEndpointSliceController(c *Controller, informer discoveryinformer.EndpointSliceInformer) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
@@ -58,21 +58,21 @@ func (esc *endpointSliceController) getInformer() cache.SharedIndexInformer {
 }
 
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
-	ep, ok := curr.(*discoveryv1alpha1.EndpointSlice)
+	ep, ok := curr.(*discovery.EndpointSlice)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			log.Errorf("Couldn't get object from tombstone %#v", curr)
 			return nil
 		}
-		ep, ok = tombstone.Obj.(*discoveryv1alpha1.EndpointSlice)
+		ep, ok = tombstone.Obj.(*discovery.EndpointSlice)
 		if !ok {
 			log.Errorf("Tombstone contained an object that is not an endpoints slice %#v", curr)
 			return nil
 		}
 	}
 
-	return processEndpointEvent(esc.c, esc, ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, event, curr)
+	return processEndpointEvent(esc.c, esc, ep.Labels[discovery.LabelServiceName], ep.Namespace, event, curr)
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
@@ -93,10 +93,10 @@ func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, prox
 	return out
 }
 
-func sliceServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
-	hostname := kube.ServiceHostname(ep.Labels[discoveryv1alpha1.LabelServiceName], ep.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(ep.Labels[discovery.LabelServiceName], ep.Namespace, c.domainSuffix)
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
@@ -143,7 +143,7 @@ func sliceServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, p
 }
 
 func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
-	slice := endpoint.(*discoveryv1alpha1.EndpointSlice)
+	slice := endpoint.(*discovery.EndpointSlice)
 	key := kube.KeyFunc(slice.Name, slice.Namespace)
 	for _, e := range slice.Endpoints {
 		for _, a := range e.Addresses {
@@ -153,7 +153,7 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
 }
 
 func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
-	slice := es.(*discoveryv1alpha1.EndpointSlice)
+	slice := es.(*discovery.EndpointSlice)
 	endpoints := make([]*model.IstioEndpoint, 0)
 	for _, e := range slice.Endpoints {
 		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
@@ -187,7 +187,7 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 }
 
 func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
-	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: name}).AsSelectorPreValidated()
+	esLabelSelector := klabels.Set(map[string]string{discovery.LabelServiceName: name}).AsSelectorPreValidated()
 	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
 	if err != nil || len(slices) == 0 {
 		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
@@ -203,13 +203,13 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 }
 
 func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {
-	slice := es.(*discoveryv1alpha1.EndpointSlice)
-	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
+	slice := es.(*discovery.EndpointSlice)
+	svcName := slice.Labels[discovery.LabelServiceName]
 	return kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix), svcName, slice.Namespace
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
-	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
+	esLabelSelector := klabels.Set(map[string]string{discovery.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
 	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
@@ -264,7 +264,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	return out
 }
 
-func (esc *endpointSliceController) newEndpointBuilder(pod *v1.Pod, endpoint discoveryv1alpha1.Endpoint) *EndpointBuilder {
+func (esc *endpointSliceController) newEndpointBuilder(pod *v1.Pod, endpoint discovery.Endpoint) *EndpointBuilder {
 	if pod != nil {
 		// Respect pod "istio-locality" label
 		if pod.Labels[model.LocalityLabel] == "" {

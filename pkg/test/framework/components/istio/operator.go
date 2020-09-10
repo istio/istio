@@ -425,7 +425,8 @@ spec:
 }
 
 func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, configIopFile string) error {
-	installSettings, err := generateCommonInstallSettings(cfg, configIopFile)
+	scopes.Framework.Infof("setting up %s as config cluster", cluster.Name())
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, configIopFile)
 	if err != nil {
 		return err
 	}
@@ -444,13 +445,27 @@ func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 	return nil
 }
 
+func multiNetworkFlags(meshID, networkName string) []string {
+	return []string{
+		"--set", "values.global.meshID=" + meshID,
+		"--set", "values.global.network=" + networkName,
+		// TODO(landow) remove these in favor of a dedicated cross-network gateway deployment
+		// ingress must be enabled for multi-network
+		"--set", "values.gateways.istio-ingressgateway.enabled=true",
+		// prevents gateways from calling gateways and throwing off cross-network traffic
+		"--set", "values.gateways.istio-ingressgateway.env.ISTIO_META_REQUESTED_NETWORK_VIEW=" + networkName,
+	}
+}
+
 func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) error {
+	scopes.Framework.Infof("setting up %s as primary cluster", cluster.Name())
+
 	if !i.environment.IsConfigCluster(cluster) {
 		if err := configExternalControlPlaneCluster(cluster, i.environment, cfg); err != nil {
 			return err
 		}
 	}
-	installSettings, err := generateCommonInstallSettings(cfg, iopFile)
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, iopFile)
 	if err != nil {
 		return err
 	}
@@ -459,17 +474,6 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-
-		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings,
-				"--set", "values.global.meshID="+meshID,
-				"--set", "values.global.network="+networkName,
-				// TODO(landow) remove these in favor of a dedicated cross-network gateway deployment
-				// ingress must be enabled for multi-network
-				"--set", "values.gateways.istio-ingressgateway.enabled=true",
-				// prevents gateways from calling gateways and throwing off cross-network traffic
-				"--set", "values.gateways.istio-ingressgateway.env.ISTIO_META_REQUESTED_NETWORK_VIEW="+networkName)
-		}
 	}
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
@@ -519,8 +523,8 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 
 // Deploy Istio to remote clusters
 func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
-
-	installSettings, err := generateCommonInstallSettings(cfg, remoteIopFile)
+	scopes.Framework.Infof("setting up %s as remote cluster", cluster.Name())
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, remoteIopFile)
 	if err != nil {
 		return err
 	}
@@ -528,11 +532,6 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-
-		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
-				"--set", "values.global.network="+networkName)
-		}
 	}
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
@@ -560,7 +559,7 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 
 }
 
-func generateCommonInstallSettings(cfg Config, iopFile string) ([]string, error) {
+func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster resource.Cluster, iopFile string) ([]string, error) {
 
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -577,6 +576,11 @@ func generateCommonInstallSettings(cfg Config, iopFile string) ([]string, error)
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
 	}
+
+	if !i.isExternalControlPlane() && i.environment.IsMulticluster() && cluster.NetworkName() != "" {
+		installSettings = append(installSettings, multiNetworkFlags(meshID, cluster.NetworkName())...)
+	}
+
 	// Include all user-specified values.
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
