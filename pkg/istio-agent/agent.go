@@ -337,7 +337,7 @@ func (sa *Agent) FindRootCAForXDS() string {
 		return sa.secOpts.ProvCert + "/root-cert.pem"
 	} else if sa.secOpts.FileMountedCerts {
 		// FileMountedCerts - Load it from Proxy Metadata.
-		return agent.proxyConfig.ProxyMetadata[MetadataClientRootCert]
+		return sa.proxyConfig.ProxyMetadata[MetadataClientRootCert]
 	} else {
 		// PILOT_CERT_PROVIDER - default is istiod
 		// This is the default - a mounted config map on K8S
