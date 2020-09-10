@@ -489,11 +489,6 @@ func multiNetworkFlags(meshID, networkName string) []string {
 	return []string{
 		"--set", "values.global.meshID=" + meshID,
 		"--set", "values.global.network=" + networkName,
-		// TODO(landow) remove these in favor of a dedicated cross-network gateway deployment
-		// ingress must be enabled for multi-network
-		"--set", "values.gateways.istio-ingressgateway.enabled=true",
-		// prevents gateways from calling gateways and throwing off cross-network traffic
-		"--set", "values.gateways.istio-ingressgateway.env.ISTIO_META_REQUESTED_NETWORK_VIEW=" + networkName,
 	}
 }
 
@@ -674,7 +669,7 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) *meshAPI.Mes
 	meshNetworks := meshAPI.MeshNetworks{Networks: make(map[string]*meshAPI.Network)}
 	defaultGateways := []*meshAPI.Network_IstioNetworkGateway{{
 		Gw: &meshAPI.Network_IstioNetworkGateway_RegistryServiceName{
-			RegistryServiceName: "istio-ingressgateway." + cfg.IngressNamespace + ".svc.cluster.local",
+			RegistryServiceName: "istio-internalgateway." + cfg.IngressNamespace + ".svc.cluster.local",
 		},
 		Port: 443,
 	}}
