@@ -60,12 +60,6 @@ const (
 	watchDebounceDelay                 = 100 * time.Millisecond // file watcher event debounce delay.
 )
 
-const (
-	MetadataClientCertKey   = "ISTIO_META_TLS_CLIENT_KEY"
-	MetadataClientCertChain = "ISTIO_META_TLS_CLIENT_CERT_CHAIN"
-	MetadataClientRootCert  = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
-)
-
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
@@ -406,15 +400,20 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 func (p *XdsProxy) initCertificateWatches(agent *Agent, stop <-chan struct{}) error {
 	keyFile, certFile := p.getCertKeyPaths(agent)
 	rootCert := agent.FindRootCAForXDS()
-	if len(keyFile) == 0 || len(certFile) == 0 || len(rootCert) == 0 {
-		return nil
-	}
+
+	var watching bool
 
 	for _, file := range []string{rootCert, certFile, keyFile} {
-		proxyLog.Infof("adding watcher for certificate %s", file)
-		if err := p.fileWatcher.Add(file); err != nil {
-			return fmt.Errorf("could not watch %v: %v", file, err)
+		if len(file) > 0 {
+			proxyLog.Infof("adding watcher for certificate %s", file)
+			if err := p.fileWatcher.Add(file); err != nil {
+				return fmt.Errorf("could not watch %v: %v", file, err)
+			}
+			watching = true
 		}
+	}
+	if !watching {
+		return
 	}
 	go func() {
 		var keyCertTimerC <-chan time.Time
@@ -481,12 +480,7 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	var certPool *x509.CertPool
 	var err error
 	var rootCert []byte
-	var xdsCACertPath string
-	if agent.secOpts.FileMountedCerts {
-		xdsCACertPath = agent.proxyConfig.ProxyMetadata[MetadataClientRootCert]
-	} else {
-		xdsCACertPath = agent.FindRootCAForXDS()
-	}
+	xdsCACertPath := agent.FindRootCAForXDS()
 	rootCert, err = ioutil.ReadFile(xdsCACertPath)
 	if err != nil {
 		return nil, err
