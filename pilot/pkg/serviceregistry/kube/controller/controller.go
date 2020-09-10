@@ -314,7 +314,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		}
 	}
 
-	log.Errorf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
+	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
 	svcConv := kube.ConvertService(*svc, c.domainSuffix, c.clusterID)
 	switch event {

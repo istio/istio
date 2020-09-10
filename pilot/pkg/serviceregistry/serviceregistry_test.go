@@ -217,8 +217,9 @@ func TestWorkloadInstances(t *testing.T) {
 			Protocol: "http",
 		}},
 		Attributes: model.ServiceAttributes{
-			Namespace: namespace,
-			Name:      "service",
+			Namespace:      namespace,
+			Name:           "service",
+			LabelSelectors: labels,
 		},
 	}
 
