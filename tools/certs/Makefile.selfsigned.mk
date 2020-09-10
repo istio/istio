@@ -5,7 +5,9 @@
 
 .DEFAULT_GOAL := help
 
-include common.mk
+SELF_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+
+include $(SELF_DIR)common.mk
 
 #------------------------------------------------------------------------
 ##help:		print this help message
