@@ -13,8 +13,8 @@ include $(SELF_DIR)common.mk
 ##help:		print this help message
 .PHONY: help
 
-help: Makefile
-	@sed -n 's/^##//p' $<
+help:
+	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/##//'
 
 #------------------------------------------------------------------------
 ##root-ca:	generate root CA files (key and certifcate) in current directory.
