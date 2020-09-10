@@ -15,11 +15,13 @@
 package policy
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
-
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"fortio.org/fortio/fhttp"
 	"fortio.org/fortio/periodic"
@@ -31,18 +33,15 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"fmt"
-	"os"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/kube"
-	"time"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var (
 	ist         istio.Instance
 	bookinfoNs  namespace.Instance
 	ratelimitNs namespace.Instance
-	ing ingress.Instance
+	ing         ingress.Instance
 )
 
 func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
@@ -60,7 +59,7 @@ func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite( m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
@@ -140,12 +139,12 @@ func testSetup(ctx resource.Context) (err error) {
 	}
 
 	// For envoy filter changes to sync.
-	time.Sleep(time.Second*15)
+	time.Sleep(time.Second * 15)
 
 	return nil
 }
 
-func setupEnvoyFilter(ratelimitNs namespace.Instance,ctx resource.Context) error {
+func setupEnvoyFilter(ratelimitNs namespace.Instance, ctx resource.Context) error {
 	content, err := ioutil.ReadFile("testdata/enable_envoy_ratelimit.yaml")
 	if err != nil {
 		return err
@@ -168,12 +167,11 @@ func setupEnvoyFilter(ratelimitNs namespace.Instance,ctx resource.Context) error
 	return nil
 }
 
-func sendTraffic(ingress ingress.Instance, t *testing.T, msg string,  calls int64) *fhttp.HTTPRunnerResults {
+func sendTraffic(ingress ingress.Instance, t *testing.T, msg string, calls int64) *fhttp.HTTPRunnerResults {
 	t.Log(msg)
 
-		addr := ingress.HTTPAddress()
-		url := fmt.Sprintf("http://%s/productpage", addr.String())
-
+	addr := ingress.HTTPAddress()
+	url := fmt.Sprintf("http://%s/productpage", addr.String())
 
 	// run at a high enough QPS (here 10) to ensure that enough
 	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
