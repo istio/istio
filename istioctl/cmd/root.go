@@ -264,7 +264,7 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(upgradeCmd)
 
-	bugReportCmd := bugreport.Cmd()
+	bugReportCmd := bugreport.Cmd(loggingOptions)
 	hideInheritedFlags(bugReportCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(bugReportCmd)
 
