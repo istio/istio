@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -37,7 +37,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.7
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -128,7 +128,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.8
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -219,7 +219,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -326,7 +326,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.7
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -439,7 +439,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.8
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -552,7 +552,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -609,7 +609,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.7
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -666,7 +666,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.8
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -723,7 +723,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -823,7 +823,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.7
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:
@@ -929,7 +929,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.8
-  namespace: istio-control
+  namespace: istio-system
   labels:
     istio.io/rev: default
 spec:

@@ -15,7 +15,9 @@ webhooks:
       {{- else }}
       service:
         name: istiod
+        {{- if .Values.global.istioNamespace }}
         namespace: {{ .Values.global.istioNamespace }}
+        {{- end }}
         path: "/validate"
       {{- end }}
       caBundle: "" # patched at runtime when the webhook is ready.

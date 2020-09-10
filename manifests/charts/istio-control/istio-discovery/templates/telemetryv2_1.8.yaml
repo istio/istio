@@ -4,10 +4,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.8{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.meshConfig.rootNamespace }}
-  namespace: {{ .Values.meshConfig.rootNamespace }}
-  {{- else if .Values.global.istioNamespace }}
+  {{- if .Values.global.istioNamespace }}
   namespace: {{ .Values.global.istioNamespace }}
+  {{- else if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -117,10 +117,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.8{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.meshConfig.rootNamespace }}
-  namespace: {{ .Values.meshConfig.rootNamespace }}
-  {{- else if .Values.global.istioNamespace }}
+  {{- if .Values.global.istioNamespace }}
   namespace: {{ .Values.global.istioNamespace }}
+  {{- else if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -182,10 +182,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stats-filter-1.8{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.meshConfig.rootNamespace }}
-  namespace: {{ .Values.meshConfig.rootNamespace }}
-  {{- else if .Values.global.istioNamespace }}
+  {{- if .Values.global.istioNamespace }}
   namespace: {{ .Values.global.istioNamespace }}
+  {{- else if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -357,10 +357,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.8{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.meshConfig.rootNamespace }}
-  namespace: {{ .Values.meshConfig.rootNamespace }}
-  {{- else if .Values.global.istioNamespace }}
+  {{- if .Values.global.istioNamespace }}
   namespace: {{ .Values.global.istioNamespace }}
+  {{- else if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -528,10 +528,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stackdriver-filter-1.8{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.meshConfig.rootNamespace }}
-  namespace: {{ .Values.meshConfig.rootNamespace }}
-  {{- else if .Values.global.istioNamespace }}
+  {{- if .Values.global.istioNamespace }}
   namespace: {{ .Values.global.istioNamespace }}
+  {{- else if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -649,10 +649,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: tcp-stackdriver-filter-1.8{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.meshConfig.rootNamespace }}
-  namespace: {{ .Values.meshConfig.rootNamespace }}
-  {{- else if .Values.global.istioNamespace }}
+  {{- if .Values.global.istioNamespace }}
   namespace: {{ .Values.global.istioNamespace }}
+  {{- else if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -764,10 +764,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: stackdriver-sampling-accesslog-filter-1.8{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  {{- if .Values.meshConfig.rootNamespace }}
-  namespace: {{ .Values.meshConfig.rootNamespace }}
-  {{- else if .Values.global.istioNamespace }}
+  {{- if .Values.global.istioNamespace }}
   namespace: {{ .Values.global.istioNamespace }}
+  {{- else if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
