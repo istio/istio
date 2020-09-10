@@ -735,12 +735,21 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 			typeMetadata.Kind = controllerRef.Kind
 
 			// heuristic for deployment detection
+			deployMeta.Name = controllerRef.Name
 			if typeMetadata.Kind == "ReplicaSet" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
 				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
 				deployMeta.Name = name
 				typeMetadata.Kind = "Deployment"
-			} else {
-				deployMeta.Name = controllerRef.Name
+			} else if typeMetadata.Kind == "Job" && len(controllerRef.Name) > 11 {
+				// If job name suffixed with `-<ten-digit-timestamp>`, trim the suffix and set kind to cron job.
+				l := len(controllerRef.Name)
+				if _, err := strconv.Atoi(controllerRef.Name[l-10:]); err == nil && string(controllerRef.Name[l-11]) == "-" {
+					deployMeta.Name = controllerRef.Name[:l-11]
+					typeMetadata.Kind = "CronJob"
+					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
+					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
+					typeMetadata.APIVersion = "batch/v1beta1"
+				}
 			}
 		}
 	}
