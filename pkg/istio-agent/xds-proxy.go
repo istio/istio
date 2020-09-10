@@ -268,7 +268,7 @@ func isExpectedGRPCError(err error) bool {
 	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
 		return true
 	}
-	if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing ") {
+	if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
 		return true
 	}
 	return false
