@@ -350,9 +350,9 @@ type Locality struct {
 // port 80 are forwarded to port 55446, and connections to port 8080 are
 // forwarded to port 33333,
 //
-// then internally, we have two two endpoint structs for the
+// then internally, we have two endpoint structs for the
 // service catalog.mystore.com
-//  --> 172.16.0.1:54546 (with ServicePort pointing to 80) and
+//  --> 172.16.0.1:55446 (with ServicePort pointing to 80) and
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 //
 // TODO: Investigate removing ServiceInstance entirely.
