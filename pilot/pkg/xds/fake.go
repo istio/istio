@@ -116,7 +116,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   []serviceregistry.Instance{k8s},
 		PushContextLock:     &s.updateMutex,
 	})
-	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
+	if err := cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler); err != nil {
+		t.Fatal(err)
+	}
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
 	// Disable debounce to reduce test times
