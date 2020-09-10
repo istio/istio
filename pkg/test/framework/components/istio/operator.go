@@ -179,10 +179,11 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 	}
 }
 
-func (i *operatorComponent) saveInstallManifest(name string, out string) {
+// saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
+func (i *operatorComponent) saveManifestForCleanup(clusterName string, yaml string) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	i.installManifest[name] = append(i.installManifest[name], out)
+	i.installManifest[clusterName] = append(i.installManifest[clusterName], yaml)
 }
 
 func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
@@ -406,12 +407,8 @@ spec:
 func (i *operatorComponent) createCrossNetworkGateway(ctx resource.Context, workDir string, cluster resource.Cluster, cfg Config) error {
 	scopes.Framework.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
 
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cluster})
-	if err != nil {
-		return err
-	}
-
-	gwIop := fmt.Sprintf(`
+	// generate input
+	gwYaml := fmt.Sprintf(`
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -429,21 +426,30 @@ spec:
             - name: ISTIO_META_REQUESTED_NETWORK_VIEW
               value: %s
 `, cluster.NetworkName())
-	path := path.Join(workDir, "cross-network-gateway-iop.yaml")
-	if err := ioutil.WriteFile(path, []byte(gwIop), 644); err != nil {
+	gwIop := path.Join(workDir, "cross-network-gateway-iop.yaml")
+	if err := ioutil.WriteFile(gwIop, []byte(gwYaml), 644); err != nil {
 		return err
 	}
 
-	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, path)
+	// build manifest
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, gwIop)
 	if err != nil {
 		return err
 	}
+	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cluster})
+	if err != nil {
+		return err
+	}
+	out, err := genManifest(installSettings, istioCtl)
+	i.saveManifestForCleanup(cluster.Name(), out)
 
-	if err := applyManifest(i, installSettings, istioCtl, cluster.Name()); err != nil {
+	// temp for debug
+	gwManifest := path.Join(workDir, fmt.Sprintf("custom-gateway-%s.yaml", cluster.Name()))
+	if err := ioutil.WriteFile(gwManifest, []byte(out), 0644); err != nil {
 		return err
 	}
 
-	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, fmt.Sprintf(`
+	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, out, fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -478,7 +484,7 @@ func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 		return err
 	}
 
-	err = applyManifest(i, installSettings, istioCtl, cluster.Name())
+	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
 		return err
 	}
@@ -518,7 +524,7 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 		return err
 	}
 
-	err = applyManifest(i, installSettings, istioCtl, cluster.Name())
+	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
 		return err
 	}
@@ -590,7 +596,7 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 		}
 
 	}
-	return applyManifest(i, installSettings, istioCtl, cluster.Name())
+	return install(i, installSettings, istioCtl, cluster.Name())
 
 }
 
@@ -640,15 +646,25 @@ func isCentralIstio(env *kube.Environment, cfg Config) bool {
 	return false
 }
 
-func applyManifest(c *operatorComponent, installSettings []string, istioCtl istioctl.Instance, clusterName string) error {
+// genManifest will generate a Kubernetes manifest given istioctl install settings
+func genManifest(installSettings []string, istioCtl istioctl.Instance) (string, error) {
 	// Save the manifest generate output so we can later cleanup
 	genCmd := []string{"manifest", "generate"}
 	genCmd = append(genCmd, installSettings...)
 	out, _, err := istioCtl.Invoke(genCmd)
 	if err != nil {
+		return "", err
+	}
+	return out, nil
+}
+
+// install will replace and reconcile the installation based on the given install settings
+func install(c *operatorComponent, installSettings []string, istioCtl istioctl.Instance, clusterName string) error {
+	out, err := genManifest(installSettings, istioCtl)
+	if err != nil {
 		return err
 	}
-	c.saveInstallManifest(clusterName, out)
+	c.saveManifestForCleanup(clusterName, out)
 
 	// Actually run the install command
 	cmd := []string{
@@ -747,7 +763,7 @@ func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster r
 	if err != nil {
 		return err
 	}
-	return applyManifest(i, []string{
+	return install(i, []string{
 		"--set", "profile=empty",
 		"--set", "components.base.enabled=true",
 		"--set", "values.global.configValidation=false",
