@@ -72,7 +72,7 @@ spec:
             - /bin/sh
           args:
             - -c
-            - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+            - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
           securityContext:
             runAsUser: 0
             runAsGroup: 0
@@ -252,6 +252,8 @@ spec:
             mountPath: /etc/certs
             readOnly: true
           {{- end }}
+          - mountPath: /var/lib/istio/data
+            name: istio-data
           - name: podinfo
             mountPath: /etc/istio/pod
           {{- range $gateway.secretVolumes }}
@@ -287,6 +289,8 @@ spec:
       - name: istio-envoy
         emptyDir: {}
       - name: gatewaysdsudspath
+        emptyDir: {}
+      - name: istio-data
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token

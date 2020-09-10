@@ -3395,6 +3395,9 @@ rules:
   - apiGroups: ["apps"]
     resources: ["replicasets"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -5199,12 +5202,6 @@ data:
           {{ toYaml $value | indent 4 }}
           {{ end }}
           {{- end }}
-      {{- if .ProxyConfig.ProxyMetadata.ISTIO_META_DNS_CAPTURE }}
-      dnsConfig:
-        options:
-        - name: "ndots"
-          value: "4"
-      {{- end }}
       volumes:
       {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
       - name: custom-bootstrap-volume
@@ -5493,6 +5490,8 @@ spec:
           readOnly: true
         - mountPath: /var/run/ingress_gateway
           name: gatewaysdsudspath
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/egressgateway-certs
@@ -5524,6 +5523,8 @@ spec:
         name: istio-envoy
       - emptyDir: {}
         name: gatewaysdsudspath
+      - emptyDir: {}
+        name: istio-data
       - name: istio-token
         projected:
           sources:
@@ -5724,6 +5725,8 @@ spec:
           readOnly: true
         - mountPath: /var/run/ingress_gateway
           name: gatewaysdsudspath
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/ingressgateway-certs
@@ -5755,6 +5758,8 @@ spec:
         name: istio-envoy
       - emptyDir: {}
         name: gatewaysdsudspath
+      - emptyDir: {}
+        name: istio-data
       - name: istio-token
         projected:
           sources:
