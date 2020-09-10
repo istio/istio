@@ -110,3 +110,6 @@ global:
 
   # One central istiod controls all remote clusters: disabled by default
   centralIstiod: false
+
+  # Default namespace for Istio configuration
+  istioNamespace: "istio-system"

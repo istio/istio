@@ -6,6 +6,8 @@ metadata:
   name: metadata-exchange-1.7{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else if .Values.global.istioNamespace }}
+  namespace: {{ .Values.global.istioNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -117,6 +119,8 @@ metadata:
   name: tcp-metadata-exchange-1.7{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else if .Values.global.istioNamespace }}
+  namespace: {{ .Values.global.istioNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -180,6 +184,8 @@ metadata:
   name: stats-filter-1.7{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else if .Values.global.istioNamespace }}
+  namespace: {{ .Values.global.istioNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -353,6 +359,8 @@ metadata:
   name: tcp-stats-filter-1.7{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else if .Values.global.istioNamespace }}
+  namespace: {{ .Values.global.istioNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -522,6 +530,8 @@ metadata:
   name: stackdriver-filter-1.7{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else if .Values.global.istioNamespace }}
+  namespace: {{ .Values.global.istioNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -754,6 +764,8 @@ metadata:
   name: stackdriver-sampling-accesslog-filter-1.7{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else if .Values.global.istioNamespace }}
+  namespace: {{ .Values.global.istioNamespace }}
   {{- else }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
