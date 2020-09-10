@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/url"
@@ -273,6 +274,13 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				"x", "remove-from-mesh", "service", "a"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
+
+			// Wait until the new pod is ready
+			fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), ns.Name(), "app=a")
+			_, err := kubetest.WaitUntilPodsAreReady(fetch)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}
