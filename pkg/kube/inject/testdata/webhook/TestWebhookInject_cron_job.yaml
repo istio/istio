@@ -1,0 +1,10 @@
+metadata:
+  generateName: hello-1599753180-
+  ownerReferences:
+  - apiVersion: batch/v1
+    controller: true
+    kind: Job
+    name: hello-1599753180
+spec:
+  containers:
+    - name: c
