@@ -44,10 +44,6 @@ temp_dir="$(mktemp -d)"
 # Swallow the output as we are returning the stdout in the end.
 pushd "${temp_dir}" > /dev/null 2>&1 || exit 1
 GO111MODULE=on go get -u sigs.k8s.io/boskos/cmd/boskosctl
-GO111MODULE=on go get -u sigs.k8s.io/kubetest2
-GO111MODULE=on go get -u sigs.k8s.io/kubetest2/kubetest2-gke
-GO111MODULE=on go get -u sigs.k8s.io/kubetest2/kubetest2-kind
-GO111MODULE=on go get -u sigs.k8s.io/kubetest2/kubetest2-tester-exec
 # TODO(chizhg): install kubetest2-tailorbird
 popd > /dev/null 2>&1 || exit 1
 
@@ -122,13 +118,13 @@ if [[ "${DEPLOYER}" == "gke" ]]; then
   elif [[ "${TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
     # A slightly hacky step to setup the environment, see the comments on the
     # function signature.
-    multiproject_multicluster_setup
+    gcp_projects=$(multiproject_multicluster_setup)
     multi_cluster_deployer_flags=("--create-command=beta container clusters create --quiet --release-channel=regular")
     multi_cluster_deployer_flags+=("--cluster-name=prow-test1:1,prow-test2:2" "--machine-type=e2-standard-4" "--num-nodes=1" "--region=us-central1")
     multi_cluster_deployer_flags+=("--network=test-network" "--subnetwork-ranges=172.16.4.0/22 172.16.16.0/20 172.20.0.0/14,10.0.4.0/22 10.0.32.0/20 10.4.0.0/14" )
     # These projects are mananged by the boskos project rental pool in
     # https://gke-internal.googlesource.com/istio/test-infra-internal/+/refs/heads/master/boskos/config/resources.yaml#105
-    multi_cluster_deployer_flags+=("--project=engprod-test-host,engprod-test-service-1,engprod-test-service-2")
+    multi_cluster_deployer_flags+=("--project=${gcp_projects}")
     deployer_flags+=( "${multi_cluster_deployer_flags[@]}" )
   fi
 fi
