@@ -427,7 +427,7 @@ spec:
               value: %s
 `, cluster.NetworkName())
 	gwIop := path.Join(workDir, "cross-network-gateway-iop.yaml")
-	if err := ioutil.WriteFile(gwIop, []byte(gwYaml), 644); err != nil {
+	if err := ioutil.WriteFile(gwIop, []byte(gwYaml), 0644); err != nil {
 		return err
 	}
 
@@ -441,6 +441,9 @@ spec:
 		return err
 	}
 	out, err := genManifest(installSettings, istioCtl)
+	if err != nil {
+		return err
+	}
 	i.saveManifestForCleanup(cluster.Name(), out)
 
 	// temp for debug
