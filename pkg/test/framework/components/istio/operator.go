@@ -413,19 +413,23 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   profile: empty
+  values:
+    global:
+      multiCluster:
+        clusterName: %s
   components:
     ingressGateways:
-      - name: istio-internalgateway
+      - name: istio-east-west-gateway
         label:
-          istio: internalgateway
-          app: istio-internalgateway
+          istio: east-west-gateway
+          app: istio-east-west-gateway
         enabled: true
         k8s:
           env:
             # traffic through this gateway should be routed inside the network
             - name: ISTIO_META_REQUESTED_NETWORK_VIEW
               value: %s
-`, cluster.NetworkName())
+`, cluster.Name(), cluster.NetworkName())
 	gwIop := path.Join(workDir, "cross-network-gateway-iop.yaml")
 	if err := ioutil.WriteFile(gwIop, []byte(gwYaml), 0644); err != nil {
 		return err
@@ -460,7 +464,7 @@ metadata:
   namespace: %s
 spec:
   selector:
-    istio: internalgateway
+    istio: east-west-gateway
   servers:
   - port:
       number: 443
@@ -688,7 +692,7 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) *meshAPI.Mes
 	meshNetworks := meshAPI.MeshNetworks{Networks: make(map[string]*meshAPI.Network)}
 	defaultGateways := []*meshAPI.Network_IstioNetworkGateway{{
 		Gw: &meshAPI.Network_IstioNetworkGateway_RegistryServiceName{
-			RegistryServiceName: "istio-internalgateway." + cfg.IngressNamespace + ".svc.cluster.local",
+			RegistryServiceName: "east-west-gateway." + cfg.IngressNamespace + ".svc.cluster.local",
 		},
 		Port: 443,
 	}}
