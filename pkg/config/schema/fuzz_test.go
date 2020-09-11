@@ -159,8 +159,8 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		func(t *types.Value, c fuzz.Continue) {
 			*t = types.Value{Kind: &types.Value_StringValue{StringValue: ""}}
 		},
-		func(t *networking.WorkloadGroup, c fuzz.Continue) {
-			*t = networking.WorkloadGroup{Probe: &networking.ReadinessProbe{HealthCheckMethod: &networking.ReadinessProbe_HttpGet{}}}
+		func(t *networking.ReadinessProbe, c fuzz.Continue) {
+			*t = networking.ReadinessProbe{}
 		},
 	}
 }
