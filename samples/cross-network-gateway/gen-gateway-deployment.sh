@@ -14,8 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CLUSTER_NAME=${CLUSTER_NAME:-"SPECIFY A CLUSTER NAME"}
-NETWORK_NAME=${NETWORK_NAME:-"SPECIFY A NETWORK NAME"}
+set -euo pipefail
+
+if [[ -n "${CLUSTER:-}" ]]; then
+  echo The CLUSTER environment variable must be set.
+  exit 1
+fi
+
+if [[ -n "${NETWORK:-}" ]]; then
+  echo The NETWORK environment variable must be set.
+  exit 1
+fi
+
+if [[ -n "${MESH_ID:-}" ]]; then
+  echo The NETWORK environment variable must be set.
+  exit 1
+fi
 
 cat << EOF
 apiVersion: install.istio.io/v1alpha1
@@ -24,9 +38,9 @@ spec:
   profile: empty
   values:
     global:
-      network: ${NETWORK_NAME}
+      network: ${NETWORK}
       multiCluster:
-        clusterName: ${CLUSTER_NAME}
+        clusterName: ${CLUSTER}
   components:
     ingressGateways:
       - name: istio-east-west-gateway
@@ -38,5 +52,5 @@ spec:
           env:
             # traffic through this gateway should be routed inside the network
             - name: ISTIO_META_REQUESTED_NETWORK_VIEW
-              value: ${NETWORK_NAME}
+              value: ${NETWORK}
 EOF

@@ -411,7 +411,10 @@ func (i *operatorComponent) createCrossNetworkGateway(ctx resource.Context, work
 	// generate input
 	cmd := exec.Command(path.Join(env.IstioSrc, "samples", "cross-network-gateway", "gen-gateway-deployment.sh"))
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "CLUSTER_NAME="+cluster.Name(), "NETWORK_NAME="+cluster.NetworkName())
+	cmd.Env = append(cmd.Env,
+		"MESH_ID="+meshID,
+		"CLUSTER="+cluster.Name(),
+		"NETWORK="+cluster.NetworkName())
 	gwYaml, err := cmd.Output()
 	if err != nil {
 		return err
