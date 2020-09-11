@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -28,7 +27,13 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
+
+	//"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -232,39 +237,38 @@ func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, e
 	if err := options.Sanitize(); err != nil {
 		scopes.Framework.Fatalf("CallOptions sanitization failure, error %v", err)
 	}
-	client, err := c.createClient(options)
+	req := &echo.CallOptions{
+		Port: &echo.Port{
+			Protocol:    protocol.HTTP,
+			ServicePort: options.Address.Port,
+		},
+		Host: options.Address.IP.String(),
+		Path: options.Path,
+		Headers: map[string][]string{
+			"Host": {options.Host},
+		},
+		CaCert: options.CaCert,
+	}
+	if options.CallType == ingress.TLS {
+		req.Port.Protocol = protocol.HTTPS
+		req.Scheme = scheme.HTTPS
+	}
+	resp, err := common.CallEcho(nil, req)
 	if err != nil {
-		scopes.Framework.Errorf("failed to create test client, error %v", err)
 		return ingress.CallResponse{}, err
 	}
-	req, err := c.createRequest(options)
-	if err != nil {
-		scopes.Framework.Errorf("failed to create request, error %v", err)
-		return ingress.CallResponse{}, err
+	if len(resp) < 0 {
+		return ingress.CallResponse{}, fmt.Errorf("got no responses")
 	}
 
-	resp, err := client.Do(req)
+	code, err := strconv.Atoi(resp[0].Code)
 	if err != nil {
 		return ingress.CallResponse{}, err
 	}
-	scopes.Framework.Debugf("Received response from %q: %v", req.URL, resp.StatusCode)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	var ba []byte
-	ba, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address.String(), err)
-		return ingress.CallResponse{}, err
-	}
-	contents := string(ba)
-	status := resp.StatusCode
-
 	response := ingress.CallResponse{
-		Code: status,
-		Body: contents,
+		Code: code,
+		Body: resp[0].Body,
 	}
-
 	return response, nil
 }
 

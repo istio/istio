@@ -28,29 +28,17 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/pkg/log"
 )
 
-var (
-	// IdentityOutboundPortSelector is an OutboundPortSelectorFunc that always returns the original service port.
-	IdentityOutboundPortSelector OutboundPortSelectorFunc = func(servicePort int) (int, error) {
-		return servicePort, nil
-	}
-)
-
-// OutboundPortSelectorFunc is a function that selects the appropriate outbound port for sending
-// requests to a target service.
-type OutboundPortSelectorFunc func(servicePort int) (int, error)
-
-func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector OutboundPortSelectorFunc) (client.ParsedResponses, error) {
+func CallEcho(c *client.Instance, opts *echo.CallOptions) (client.ParsedResponses, error) {
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
 
-	port, err := outboundPortSelector(opts.Port.ServicePort)
-	if err != nil {
-		return nil, err
-	}
+	port := opts.Port.ServicePort
 
 	// Forward a request from 'this' service to the destination service.
 	targetHost := net.JoinHostPort(opts.Host, strconv.Itoa(port))
@@ -83,11 +71,32 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 		ServerFirst:   opts.Port.ServerFirst,
 		Cert:          opts.Cert,
 		Key:           opts.Key,
+		CaCert:        opts.CaCert,
 	}
 
-	resp, err := c.ForwardEcho(context.Background(), req)
-	if err != nil {
-		return nil, err
+	direct := true
+	var resp client.ParsedResponses
+	var err error
+	if direct {
+		log.Infof("ForwardEcho[%s] request", req.Url)
+		instance, err := forwarder.New(forwarder.Config{
+			Request: req,
+		})
+		if err != nil {
+			return nil, err
+		}
+		defer instance.Close()
+
+		ret, err := instance.Run(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		resp = client.ParseForwardedResponse(ret)
+	} else {
+		resp, err = c.ForwardEcho(context.Background(), req)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if len(resp) != opts.Count {
@@ -97,41 +106,40 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 }
 
 func fillInCallOptions(opts *echo.CallOptions) error {
-	if opts.Target == nil {
-		return errors.New("callOptions: missing Target")
-	}
 
-	targetPorts := opts.Target.Config().Ports
-	if opts.PortName == "" {
-		// Validate the Port value.
+	if opts.Target != nil {
+		targetPorts := opts.Target.Config().Ports
+		if opts.PortName == "" {
+			// Validate the Port value.
 
-		if opts.Port == nil {
-			return errors.New("callOptions: PortName or Port must be provided")
-		}
-
-		// Check the specified port for a match against the Target Instance
-		found := false
-		for _, port := range targetPorts {
-			if reflect.DeepEqual(port, *opts.Port) {
-				found = true
-				break
+			if opts.Port == nil {
+				return errors.New("callOptions: PortName or Port must be provided")
 			}
-		}
-		if !found {
-			return fmt.Errorf("callOptions: Port does not match any Target port")
-		}
-	} else {
-		// Look up the port.
-		found := false
-		for _, port := range targetPorts {
-			if opts.PortName == port.Name {
-				found = true
-				opts.Port = &port
-				break
+
+			// Check the specified port for a match against the Target Instance
+			found := false
+			for _, port := range targetPorts {
+				if reflect.DeepEqual(port, *opts.Port) {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			return fmt.Errorf("callOptions: no port named %s available in Target Instance", opts.PortName)
+			if !found {
+				return fmt.Errorf("callOptions: Port does not match any Target port")
+			}
+		} else {
+			// Look up the port.
+			found := false
+			for _, port := range targetPorts {
+				if opts.PortName == port.Name {
+					found = true
+					opts.Port = &port
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("callOptions: no port named %s available in Target Instance", opts.PortName)
+			}
 		}
 	}
 

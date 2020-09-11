@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
@@ -38,7 +38,7 @@ func TestReachability(t *testing.T) {
 		Features("security.reachability").
 		Run(func(ctx framework.TestContext) {
 			rctx := reachability.CreateContext(ctx, true)
-			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
+			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
 				{
