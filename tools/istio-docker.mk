@@ -181,7 +181,7 @@ docker.app_sidecar_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_
 # Test application bundled with the sidecar (for non-k8s).
 docker.app_sidecar_centos_7: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_centos_7: tools/packaging/common/envoy_bootstrap.json
-docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/release/istio-sidecar.rpm
+docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/release/istio-sidecar-centos-7.rpm
 docker.app_sidecar_centos_7: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_centos_7: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/client
