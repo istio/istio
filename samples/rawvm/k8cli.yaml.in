@@ -3,6 +3,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: raw-cli-deployement
+  labels:
+    app: fortio
 spec:
   replicas: 1
   selector:

@@ -15,6 +15,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: liveness-http
+  labels:
+    app: liveness-http
+    version: v1
 spec:
   selector:
     matchLabels:

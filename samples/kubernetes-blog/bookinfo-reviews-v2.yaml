@@ -19,6 +19,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v2
+  labels:
+    app: reviews
+    version: v2
 spec:
   replicas: 1
   selector:

@@ -33,6 +33,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: httpbin
+  labels:
+    app: httpbin
+    version: v1
 spec:
   replicas: 1
   selector:
