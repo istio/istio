@@ -21,11 +21,9 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -41,7 +39,7 @@ import (
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
-	"istio.io/istio/pkg/test/env"
+	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -550,14 +548,14 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster re
 	}
 	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
-		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
+		defaultsIOPFile = filepath.Join(testenv.IstioSrc, defaultsIOPFile)
 	}
 
 	installSettings := []string{
 		"-f", defaultsIOPFile,
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
-		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
+		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
 
 	if i.environment.IsMultinetwork() && cluster.NetworkName() != "" {
@@ -700,7 +698,7 @@ func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster r
 		"--set", "profile=empty",
 		"--set", "components.base.enabled=true",
 		"--set", "values.global.configValidation=false",
-		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
+		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}, istioCtl, cluster.Name())
 }
 
