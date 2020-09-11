@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	retryTimeout = time.Second * 30
+	retryTimeout = time.Second * 10
 	retryDelay   = time.Millisecond * 100
 )
 
