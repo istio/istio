@@ -16,8 +16,13 @@
 
 set -euo pipefail
 
+if [[ -n "${CLUSTER:-}" ]]; then
+  echo The CLUSTER environment variable must be set.
+  exit 1
+fi
+
 if [[ -n "${NETWORK:-}" ]]; then
-  echo The NETWORK environment variable must be set in order to specify the local network for the gateway.
+  echo The NETWORK environment variable must be set.
   exit 1
 fi
 
@@ -27,6 +32,11 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   profile: empty # Only generate a gateway component defined below.
+  values:
+    global:
+      network: ${NETWORK}
+      multiCluster:
+        clusterName: ${CLUSTER}
   components:
     ingressGateways:
       - name: istio-eastwestgateway
