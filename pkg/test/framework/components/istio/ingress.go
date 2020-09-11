@@ -29,11 +29,8 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-
-	//"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -251,13 +248,12 @@ func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, e
 	}
 	if options.CallType == ingress.TLS {
 		req.Port.Protocol = protocol.HTTPS
-		req.Scheme = scheme.HTTPS
 	}
 	resp, err := common.CallEcho(req)
 	if err != nil {
 		return ingress.CallResponse{}, err
 	}
-	if len(resp) < 0 {
+	if len(resp) <= 0 {
 		return ingress.CallResponse{}, fmt.Errorf("got no responses")
 	}
 
