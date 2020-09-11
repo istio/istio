@@ -16,22 +16,25 @@
 
 set -euo pipefail
 
-if [[ -n "${CLUSTER:-}" ]]; then
+if [[ -z "${CLUSTER:-}" ]]; then
   echo The CLUSTER environment variable must be set.
   exit 1
 fi
 
-if [[ -n "${NETWORK:-}" ]]; then
+if [[ -z "${NETWORK:-}" ]]; then
   echo The NETWORK environment variable must be set.
   exit 1
 fi
 
 # Generate the YAML for the east-west gateway.
-istioctl manifest generate -f - <<EOF
+istioctl manifest generate ${@} -f - <<EOF
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: empty # Only generate a gateway component defined below.
+  # Only generate a gateway component defined below.
+  # Using this with "istioctl install" will reconcile and remove existing control-plane components.
+  # Instead use "istioctl manifest generate" or "kubectl create" if using the istio operator.
+  profile: empty
   values:
     global:
       network: ${NETWORK}
