@@ -22,21 +22,18 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
 func GetAdditionVMImages() []string {
 	// Note - bionic is not here as its the default
-	return []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal",
-		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_8"}
+	return []string{"app_sidecar_centos_7"}
 }
 
 func TestVmOSPost(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.reachability").
-		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
 			b := echoboot.NewBuilder(ctx)
 			images := GetAdditionVMImages()
