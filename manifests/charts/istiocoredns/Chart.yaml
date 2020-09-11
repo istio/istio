@@ -6,3 +6,8 @@ appVersion: 0.1
 tillerVersion: ">=2.7.2"
 keywords:
   - istio-addon
+  - istiocoredns
+sources:
+  - https://github.com/istio/istio/
+engine: gotpl
+icon: https://istio.io/latest/favicons/android-192x192.png
