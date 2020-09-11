@@ -280,7 +280,9 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		ipAnswers = table.name4[hostname]
 	case dns.TypeAAAA:
 		ipAnswers = table.name6[hostname]
+	default:
 		// TODO: handle PTR records for reverse dns lookups
+		return nil, false
 	}
 
 	if len(ipAnswers) > 0 {
