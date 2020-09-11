@@ -457,7 +457,7 @@ metadata:
   namespace: %s
 spec:
   selector:
-    istio: ingressgateway
+    istio: internalgateway
   servers:
   - port:
       number: 443
