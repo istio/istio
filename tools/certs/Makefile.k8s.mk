@@ -13,8 +13,8 @@ include $(SELF_DIR)common.mk
 ##help:		print this help message
 .PHONY: help
 
-help: Makefile
-	@sed -n 's/^##//p' $<
+help:
+	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/##//'
 
 #------------------------------------------------------------------------
 ##fetch-root-ca:	fetch root CA  and key from a k8s cluster.
