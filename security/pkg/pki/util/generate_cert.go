@@ -305,8 +305,7 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 		ExtKeyUsage:           extKeyUsages,
 		IsCA:                  isCA,
 		BasicConstraintsValid: true,
-		ExtraExtensions:       exts,
-		SignatureAlgorithm:    csr.SignatureAlgorithm}, nil
+		ExtraExtensions:       exts}, nil
 }
 
 // genCertTemplateFromoptions generates a certificate template with the given options.
