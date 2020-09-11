@@ -30,10 +30,9 @@ import (
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/pkg/log"
 )
 
-func CallEcho(c *client.Instance, opts *echo.CallOptions) (client.ParsedResponses, error) {
+func callInternal(opts *echo.CallOptions, send func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error)) (client.ParsedResponses, error) {
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
@@ -74,11 +73,19 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions) (client.ParsedResponse
 		CaCert:        opts.CaCert,
 	}
 
-	direct := true
-	var resp client.ParsedResponses
-	var err error
-	if direct {
-		log.Infof("ForwardEcho[%s] request", req.Url)
+	resp, err := send(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp) != opts.Count {
+		return nil, fmt.Errorf("unexpected number of responses: expected %d, received %d", opts.Count, len(resp))
+	}
+	return resp, err
+}
+
+func CallEcho(opts *echo.CallOptions) (client.ParsedResponses, error) {
+	return callInternal(opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		instance, err := forwarder.New(forwarder.Config{
 			Request: req,
 		})
@@ -91,18 +98,15 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions) (client.ParsedResponse
 		if err != nil {
 			return nil, err
 		}
-		resp = client.ParseForwardedResponse(ret)
-	} else {
-		resp, err = c.ForwardEcho(context.Background(), req)
-		if err != nil {
-			return nil, err
-		}
-	}
+		resp := client.ParseForwardedResponse(ret)
+		return resp, nil
+	})
+}
 
-	if len(resp) != opts.Count {
-		return nil, fmt.Errorf("unexpected number of responses: expected %d, received %d", opts.Count, len(resp))
-	}
-	return resp, err
+func ForwardEcho(c *client.Instance, opts *echo.CallOptions) (client.ParsedResponses, error) {
+	return callInternal(opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+		return c.ForwardEcho(context.Background(), req)
+	})
 }
 
 func fillInCallOptions(opts *echo.CallOptions) error {

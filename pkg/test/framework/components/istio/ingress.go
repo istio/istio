@@ -253,7 +253,7 @@ func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, e
 		req.Port.Protocol = protocol.HTTPS
 		req.Scheme = scheme.HTTPS
 	}
-	resp, err := common.CallEcho(nil, req)
+	resp, err := common.CallEcho(req)
 	if err != nil {
 		return ingress.CallResponse{}, err
 	}
