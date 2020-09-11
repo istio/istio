@@ -589,6 +589,11 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_probe_rewrite_timeout_retention.patch",
 			templateFile: "TestWebhookInject_probe_rewrite_timeout_retention_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_cron_job.yaml",
+			wantFile:     "TestWebhookInject_cron_job.patch",
+			templateFile: "TestWebhookInject_cron_job_template.yaml",
+		},
 	}
 
 	for i, c := range cases {

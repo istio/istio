@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math"
 	"net"
@@ -34,6 +35,7 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/keepalive"
@@ -44,6 +46,7 @@ import (
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -91,6 +94,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		resetChan:      make(chan struct{}),
 	}
 
+	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
+
 	if err = proxy.initDownstreamServer(); err != nil {
 		return nil, err
 	}
@@ -122,7 +127,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	// A separate channel for nds requests to not contend with the ones from envoys
 	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
 
-	proxyLog.Infof("connecting to upstream %s", p.istiodAddress)
 	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
@@ -146,7 +150,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			// from istiod
 			resp, err := upstream.Recv()
 			if err != nil {
-				proxyLog.Errorf("upstream recv error: %v", err)
 				upstreamError <- err
 				close(upstreamError)
 				return
@@ -161,7 +164,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			// From Envoy
 			req, err := downstream.Recv()
 			if err != nil {
-				proxyLog.Errorf("downstream recv error: %v", err)
 				downstreamError <- err
 				close(downstreamError)
 				return
@@ -182,12 +184,20 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		select {
 		case err := <-upstreamError:
 			// error from upstream Istiod.
-			proxyLog.Infof("Upstream terminated with status %v", err)
+			if isExpectedGRPCError(err) {
+				proxyLog.Debugf("upstream terminated with status %v", err)
+			} else {
+				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
+			}
 			_ = upstream.CloseSend()
 			return err
 		case err := <-downstreamError:
 			// error from downstream Envoy.
-			proxyLog.Infof("downstream terminated with status %v", err)
+			if isExpectedGRPCError(err) {
+				proxyLog.Debugf("downstream terminated with status %v", err)
+			} else {
+				proxyLog.Warnf("downstream terminated with unexpected error %v", err)
+			}
 			// TODO: Close downstream?
 			return err
 		case req, ok := <-requestsChan:
@@ -267,6 +277,23 @@ func (p *XdsProxy) close() {
 	if p.fileWatcher != nil {
 		p.fileWatcher.Close()
 	}
+}
+
+// isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
+// things are operating normally. This is basically capturing when the client disconnects.
+func isExpectedGRPCError(err error) bool {
+	if err == io.EOF {
+		return true
+	}
+
+	s := status.Convert(err)
+	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+		return true
+	}
+	if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
+		return true
+	}
+	return false
 }
 
 // TODO reuse code from SDS
