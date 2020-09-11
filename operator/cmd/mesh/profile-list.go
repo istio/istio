@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/spf13/cobra"
 
@@ -55,6 +56,7 @@ func profileList(args *rootArgs, plArgs *profileListArgs) error {
 		fmt.Println("No profiles available.")
 	} else {
 		fmt.Println("Istio configuration profiles:")
+		sort.Strings(profiles)
 		for _, profile := range profiles {
 			fmt.Printf("    %s\n", profile)
 		}
