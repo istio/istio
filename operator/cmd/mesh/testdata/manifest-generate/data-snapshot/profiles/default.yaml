@@ -222,6 +222,7 @@ spec:
           cpu: 10m
       defaultPodDisruptionBudget:
         enabled: true
+        minAvailable: 1
       priorityClassName: ""
       useMCP: false
       trustDomain: "cluster.local"

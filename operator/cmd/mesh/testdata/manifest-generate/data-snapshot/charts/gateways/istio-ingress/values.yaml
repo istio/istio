@@ -142,6 +142,7 @@ global:
   # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
     enabled: true
+    minAvailabel: 1
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).

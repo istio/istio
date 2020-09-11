@@ -173,6 +173,7 @@ spec:
       defaultNodeSelector: {}
       defaultPodDisruptionBudget:
         enabled: true
+        minAvailable: 1
       defaultResources:
         requests:
           cpu: 10m

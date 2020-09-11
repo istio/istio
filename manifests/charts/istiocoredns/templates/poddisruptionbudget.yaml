@@ -8,7 +8,9 @@ metadata:
     app: istiocoredns
     release: {{ .Release.Name }}
 spec:
-  minAvailable: 1
+{{- if .Values.global.defaultPodDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.global.defaultPodDisruptionBudget.minAvailable }}
+{{- end }}
   selector:
     matchLabels:
       app: istiocoredns

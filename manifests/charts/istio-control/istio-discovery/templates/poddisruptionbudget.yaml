@@ -10,7 +10,9 @@ metadata:
     release: {{ .Release.Name }}
     istio: pilot
 spec:
-  minAvailable: 1
+{{- if .Values.global.defaultPodDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.global.defaultPodDisruptionBudget.minAvailable }}
+{{- end }}
   selector:
     matchLabels:
       app: istiod

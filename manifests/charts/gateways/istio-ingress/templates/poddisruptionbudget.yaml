@@ -9,7 +9,9 @@ metadata:
 {{ $gateway.labels | toYaml | trim | indent 4 }}
     release: {{ .Release.Name }}
 spec:
-  minAvailable: 1
+{{- if .Values.global.defaultPodDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.global.defaultPodDisruptionBudget.minAvailable }}
+{{- end }}
   selector:
     matchLabels:
 {{ $gateway.labels | toYaml | trim | indent 6 }}

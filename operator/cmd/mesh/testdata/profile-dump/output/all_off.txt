@@ -106,6 +106,7 @@ values.global.arch.ppc64le=2
 values.global.arch.s390x=2
 values.global.configValidation=true
 values.global.defaultPodDisruptionBudget.enabled=true
+values.global.defaultPodDisruptionBudget.minAvailable=1
 values.global.defaultResources.requests.cpu="10m"
 values.global.imagePullPolicy=""
 values.global.istioNamespace="istio-system"

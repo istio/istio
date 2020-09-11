@@ -813,7 +813,7 @@ type DefaultPodDisruptionBudgetConfig struct {
 	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// An eviction is allowed if at least "minAvailable" pods selected by
 	// "selector" will still be available after the eviction.
-	// https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto#L553
+	// https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto#L462
 	MinAvailable         uint32   `protobuf:"varint,2,opt,name=minAvailable,proto3" json:"minAvailable,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
