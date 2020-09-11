@@ -174,7 +174,7 @@ func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, e
 	if err != nil {
 		return ingress.CallResponse{}, err
 	}
-	if len(resp) <= 0 {
+	if len(resp) == 0 {
 		return ingress.CallResponse{}, fmt.Errorf("got no responses")
 	}
 
