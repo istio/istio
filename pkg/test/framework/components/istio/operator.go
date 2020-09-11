@@ -426,7 +426,10 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resour
 	if err != nil {
 		return err
 	}
+
+	// remote clusters only need this gateway for multi-network purposes
 	if i.ctx.Environment().IsMultinetwork() {
+		// TODO actually test multi-network + external istiod
 		if err := i.deployEastWestGateway(cluster); err != nil {
 			return err
 		}
@@ -499,6 +502,12 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 			return err
 		}
 	}
+	// both multi-network and multi-cluster with remotes will need this gateway
+	if i.ctx.Clusters().IsMulticluster() {
+		if err := i.deployEastWestGateway(cluster); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -521,23 +530,33 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 	if err != nil {
 		return err
 	}
-	if !i.isExternalControlPlane() {
-		remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
-		if err != nil {
+
+	remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
+	if err != nil {
+		return err
+	}
+	installSettings = append(installSettings,
+		"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
+
+	if isCentralIstio(i.environment, cfg) {
+		// TODO eventually all models of "remote" will use external cluster for injection
+		installSettings = append(installSettings,
+			"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
+			"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
+	}
+
+	if err := install(i, installSettings, istioCtl, cluster.Name()); err != nil {
+		return err
+	}
+
+	// remote clusters only need this gateway for multi-network purposes
+	if i.ctx.Environment().IsMultinetwork() {
+		if err := i.deployEastWestGateway(cluster); err != nil {
 			return err
 		}
-		installSettings = append(installSettings,
-			"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
-
-		if isCentralIstio(i.environment, cfg) {
-			installSettings = append(installSettings,
-				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
-				"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
-		}
-
 	}
-	return install(i, installSettings, istioCtl, cluster.Name())
 
+	return nil
 }
 
 func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster resource.Cluster, iopFile string) ([]string, error) {
