@@ -681,7 +681,7 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) *meshAPI.Mes
 	meshNetworks := meshAPI.MeshNetworks{Networks: make(map[string]*meshAPI.Network)}
 	defaultGateways := []*meshAPI.Network_IstioNetworkGateway{{
 		Gw: &meshAPI.Network_IstioNetworkGateway_RegistryServiceName{
-			RegistryServiceName: "east-west-gateway." + cfg.IngressNamespace + ".svc.cluster.local",
+			RegistryServiceName: "istio-east-west-gateway." + cfg.IngressNamespace + ".svc.cluster.local",
 		},
 		Port: 443,
 	}}
