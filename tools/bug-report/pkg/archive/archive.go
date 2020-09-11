@@ -36,6 +36,10 @@ var (
 	initDir sync.Once
 )
 
+func OutputRootDir(rootDir string) string {
+	return getRootDir(rootDir)
+}
+
 func ProxyLogPath(rootDir, namespace, pod string) string {
 	dir := filepath.Join(getRootDir(rootDir), proxyLogsPathSubdir, namespace)
 	return filepath.Join(dir, pod+".log")

@@ -162,7 +162,17 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		// we expect only one question in the query even though the spec allows many
 		// clients usually do not do more than one query either.
 
-		lookupTable := h.lookupTable.Load().(*LookupTable)
+		lp := h.lookupTable.Load()
+		if lp == nil {
+			response = new(dns.Msg)
+			response.SetReply(req)
+			response.Rcode = dns.RcodeNameError
+			_ = w.WriteMsg(response)
+			return
+		}
+		lookupTable := lp.(*LookupTable)
+		var answers []dns.RR
+
 		// This name will always end in a dot
 		hostname := strings.ToLower(req.Question[0].Name)
 		answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)

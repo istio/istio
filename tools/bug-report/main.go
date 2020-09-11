@@ -19,10 +19,11 @@ import (
 	"os"
 
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
+	"istio.io/pkg/log"
 )
 
 func main() {
-	if err := bugreport.Cmd().Execute(); err != nil {
+	if err := bugreport.Cmd(log.DefaultOptions()).Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
