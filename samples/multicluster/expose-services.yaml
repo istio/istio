@@ -5,7 +5,7 @@ metadata:
   namespace: istio-system
 spec:
   selector:
-    istio: ingressgateway
+    istio: eastwestgateway
   servers:
     - port:
         number: 15443

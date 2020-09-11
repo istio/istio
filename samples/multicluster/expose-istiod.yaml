@@ -1,11 +1,11 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: meshexpansion-gateway
+  name: istiod-gateway
   namespace: istio-system
 spec:
   selector:
-    istio: ingressgateway
+    istio: eastwestgateway
   servers:
     - port:
         name: tcp-istiod
@@ -23,13 +23,13 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: meshexpansion-vs-istiod
+  name: istiod-vs
   namespace: istio-system
 spec:
   hosts:
   - istiod.istio-system.svc.cluster.local
   gateways:
-  - meshexpansion-gateway
+  - istiod-gateway
   tcp:
   - match:
     - port: 15012
@@ -49,7 +49,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: meshexpansion-dr-istiod
+  name: istiod-dr
   namespace: istio-system
 spec:
   host: istiod.istio-system.svc.cluster.local
