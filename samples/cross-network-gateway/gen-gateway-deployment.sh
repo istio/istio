@@ -16,18 +16,18 @@
 
 set -euo pipefail
 
-if [[ -n "${CLUSTER:-}" ]]; then
+if [[ -z "${CLUSTER:-}" ]]; then
   echo The CLUSTER environment variable must be set.
   exit 1
 fi
 
-if [[ -n "${NETWORK:-}" ]]; then
+if [[ -z "${NETWORK:-}" ]]; then
   echo The NETWORK environment variable must be set.
   exit 1
 fi
 
-if [[ -n "${MESH_ID:-}" ]]; then
-  echo The NETWORK environment variable must be set.
+if [[ -z "${MESH_ID:-}" ]]; then
+  echo The MESH_ID environment variable must be set.
   exit 1
 fi
 
