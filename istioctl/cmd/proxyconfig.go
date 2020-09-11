@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -271,6 +270,8 @@ func setupClustersEnvoyConfigWriter(debug []byte, out io.Writer) (*clusters.Conf
 }
 
 func clusterConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	clusterConfigCmd := &cobra.Command{
 		Use:   "cluster [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves cluster configuration for the Envoy in the specified pod",
@@ -294,25 +295,18 @@ func clusterConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("cluster requires pod name or --file parameter")
 			}
+			if len(args) == 1 {
+				var err error
+				podName, podNamespace, err = getPodName(args[0])
+				return err
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				var client kube.ExtendedClient
-				client, err = kubeClient(kubeconfig, configContext)
-				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %w", err)
-				}
-				var podName, ns string
-				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					client.UtilFactory())
-				if err != nil {
-					return err
-				}
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -348,6 +342,8 @@ func clusterConfigCmd() *cobra.Command {
 }
 
 func listenerConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	listenerConfigCmd := &cobra.Command{
 		Use:   "listener [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves listener configuration for the Envoy in the specified pod",
@@ -371,25 +367,18 @@ func listenerConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("listener requires pod name or --file parameter")
 			}
+			if len(args) == 1 {
+				var err error
+				podName, podNamespace, err = getPodName(args[0])
+				return err
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				var client kube.ExtendedClient
-				client, err = kubeClient(kubeconfig, configContext)
-				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %w", err)
-				}
-				var podName, ns string
-				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					client.UtilFactory())
-				if err != nil {
-					return err
-				}
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -426,6 +415,8 @@ func listenerConfigCmd() *cobra.Command {
 }
 
 func logCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	logCmd := &cobra.Command{
 		Use:   "log [<type>/]<name>[.<namespace>]",
 		Short: "(experimental) Retrieves logging levels of the Envoy in the specified pod",
@@ -452,21 +443,15 @@ func logCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--level cannot be combined with --reset")
 			}
+			if len(args) == 1 {
+				var err error
+				podName, podNamespace, err = getPodName(args[0])
+				return err
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClient(kubeconfig, configContext)
-			if err != nil {
-				return fmt.Errorf("failed to create k8s client: %w", err)
-			}
-			var podName, ns string
-			podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-				handlers.HandleNamespace(namespace, defaultNamespace),
-				kubeClient.UtilFactory())
-			if err != nil {
-				return err
-			}
-			loggerNames, err := setupEnvoyLogConfig("", podName, ns)
+			loggerNames, err := setupEnvoyLogConfig("", podName, podNamespace)
 			if err != nil {
 				return err
 			}
@@ -511,15 +496,15 @@ func logCmd() *cobra.Command {
 
 			var resp string
 			if len(destLoggerLevels) == 0 {
-				resp, err = setupEnvoyLogConfig("", podName, ns)
+				resp, err = setupEnvoyLogConfig("", podName, podNamespace)
 			} else {
 				if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
 					// update levels of all loggers first
-					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, ns)
+					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
 					delete(destLoggerLevels, defaultLoggerName)
 				}
 				for lg, ll := range destLoggerLevels {
-					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, ns)
+					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
 				}
 			}
 			if err != nil {
@@ -549,6 +534,8 @@ func logCmd() *cobra.Command {
 }
 
 func routeConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	routeConfigCmd := &cobra.Command{
 		Use:   "route [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves route configuration for the Envoy in the specified pod",
@@ -572,25 +559,18 @@ func routeConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("route requires pod name or --file parameter")
 			}
+			if len(args) == 1 {
+				var err error
+				podName, podNamespace, err = getPodName(args[0])
+				return err
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				var client kube.ExtendedClient
-				client, err = kubeClient(kubeconfig, configContext)
-				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %w", err)
-				}
-				var podName, ns string
-				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					client.UtilFactory())
-				if err != nil {
-					return err
-				}
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -622,6 +602,8 @@ func routeConfigCmd() *cobra.Command {
 }
 
 func endpointConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	endpointConfigCmd := &cobra.Command{
 		Use:   "endpoint [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves endpoint configuration for the Envoy in the specified pod",
@@ -650,25 +632,18 @@ func endpointConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("endpoints requires pod name or --file parameter")
 			}
+			if len(args) == 1 {
+				var err error
+				podName, podNamespace, err = getPodName(args[0])
+				return err
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *clusters.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				var client kube.ExtendedClient
-				client, err = kubeClient(kubeconfig, configContext)
-				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %w", err)
-				}
-				var podName, ns string
-				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					client.UtilFactory())
-				if err != nil {
-					return err
-				}
-				configWriter, err = setupPodClustersWriter(podName, ns, c.OutOrStdout())
+				configWriter, err = setupPodClustersWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -706,6 +681,8 @@ func endpointConfigCmd() *cobra.Command {
 }
 
 func bootstrapConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	bootstrapConfigCmd := &cobra.Command{
 		Use:   "bootstrap [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
@@ -723,25 +700,18 @@ func bootstrapConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("bootstrap requires pod name or --file parameter")
 			}
+			if len(args) == 1 {
+				var err error
+				podName, podNamespace, err = getPodName(args[0])
+				return err
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				var client kube.ExtendedClient
-				client, err = kubeClient(kubeconfig, configContext)
-				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %w", err)
-				}
-				var podName, ns string
-				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					client.UtilFactory())
-				if err != nil {
-					return err
-				}
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -759,6 +729,8 @@ func bootstrapConfigCmd() *cobra.Command {
 }
 
 func secretConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	secretConfigCmd := &cobra.Command{
 		Use:   "secret [<type>/]<name>[.<namespace>]",
 		Short: "(experimental) Retrieves secret configuration for the Envoy in the specified pod",
@@ -778,25 +750,18 @@ func secretConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("secret requires pod name or --file parameter")
 			}
+			if len(args) == 1 {
+				var err error
+				podName, podNamespace, err = getPodName(args[0])
+				return err
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				var client kube.ExtendedClient
-				client, err = kubeClient(kubeconfig, configContext)
-				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %w", err)
-				}
-				var podName, ns string
-				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					client.UtilFactory())
-				if err != nil {
-					return err
-				}
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -842,4 +807,19 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(secretConfigCmd())
 
 	return configCmd
+}
+
+func getPodName(podflag string) (string, string, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
+	}
+	var podName, ns string
+	podName, ns, err = handlers.InferPodInfoFromTypedResource(podflag,
+		handlers.HandleNamespace(namespace, defaultNamespace),
+		kubeClient.UtilFactory())
+	if err != nil {
+		return "", "", err
+	}
+	return podName, ns, nil
 }

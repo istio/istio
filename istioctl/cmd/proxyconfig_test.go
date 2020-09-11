@@ -109,6 +109,21 @@ func TestProxyConfig(t *testing.T) {
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config endpoint invalid" should fail
 		},
+		{ // supplying nonexistent deployment name should result in error
+			args:           strings.Split("proxy-config clusters deployment/random-gibberish", " "),
+			expectedString: `"deployment/random-gibberish" does not refer to a pod`,
+			wantException:  true,
+		},
+		{ // supplying nonexistent deployment name in nonexistent namespace
+			args:           strings.Split("proxy-config endpoint deployment/random-gibberish.bogus", " "),
+			expectedString: `"deployment/random-gibberish" does not refer to a pod`,
+			wantException:  true,
+		},
+		{ // supplying type that doesn't select pods should fail
+			args:           strings.Split("proxy-config listeners serviceaccount/sleep", " "),
+			expectedString: `"serviceaccount/sleep" does not refer to a pod`,
+			wantException:  true,
+		},
 	}
 
 	for i, c := range cases {
