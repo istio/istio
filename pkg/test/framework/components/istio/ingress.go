@@ -16,14 +16,11 @@ package istio
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -141,95 +138,6 @@ type clientKey struct {
 	Cert       string
 }
 
-// createClient creates a client which sends HTTP requests or HTTPS requests, depending on
-// ingress type. If host is not empty, the client will resolve domain name and verify server
-// cert using the host name.
-func (c *ingressImpl) createClient(options ingress.CallOptions) (*http.Client, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	key := clientKeyFromOptions(options)
-	if client, ok := c.clients[key]; ok {
-		return client, nil
-	}
-	client := &http.Client{
-		Timeout: DefaultRequestTimeout,
-	}
-	if options.CallType != ingress.PlainText {
-		scopes.Framework.Debug("Prepare root cert for client")
-		roots := x509.NewCertPool()
-		ok := roots.AppendCertsFromPEM([]byte(options.CaCert))
-		if !ok {
-			return nil, fmt.Errorf("failed to parse root certificate")
-		}
-		tlsConfig := &tls.Config{
-			RootCAs:    roots,
-			ServerName: options.Host,
-		}
-		if options.CallType == ingress.Mtls {
-			cer, err := tls.X509KeyPair([]byte(options.Cert), []byte(options.PrivateKey))
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse private key and server cert")
-			}
-			tlsConfig.Certificates = []tls.Certificate{cer}
-		}
-		tr := &http.Transport{
-			TLSClientConfig: tlsConfig,
-			DialTLSContext: func(ctx context.Context, netw, addr string) (net.Conn, error) {
-				if s := strings.Split(addr, ":"); s[0] == options.Host {
-					addr = options.Address.String()
-				}
-				tc, err := tls.DialWithDialer(&net.Dialer{Timeout: DefaultRequestTimeout}, netw, addr, tlsConfig)
-				if err != nil {
-					scopes.Framework.Errorf("TLS dial fail: %v", err)
-					return nil, err
-				}
-				if err := tc.Handshake(); err != nil {
-					scopes.Framework.Errorf("SSL handshake fail: %v", err)
-					return nil, err
-				}
-				return tc, nil
-			}}
-		client.Transport = tr
-	}
-	c.clients[key] = client
-	return client, nil
-}
-
-// clientKeyFromOptions takes the parts of options unique to a client
-// to use as the key to prevent creating identical clients.
-func clientKeyFromOptions(options ingress.CallOptions) clientKey {
-	return clientKey{
-		CallType:   options.CallType,
-		PrivateKey: options.PrivateKey,
-		Cert:       options.Cert,
-		CaCert:     options.CaCert,
-		Host:       options.Host,
-		Address:    options.Address.String(),
-	}
-}
-
-// createRequest returns a request for client to send, or nil and error if request is failed to generate.
-func (c *ingressImpl) createRequest(options ingress.CallOptions) (*http.Request, error) {
-	url := "http://" + options.Address.String() + options.Path
-	if options.CallType != ingress.PlainText {
-		url = "https://" + options.Host + ":" + strconv.Itoa(options.Address.Port) + options.Path
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	if options.Host != "" {
-		req.Host = options.Host
-	}
-	if options.Headers != nil {
-		req.Header = options.Headers.Clone()
-	}
-
-	scopes.Framework.Debugf("Created a request to send %v", req)
-	return req, nil
-}
-
 func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, error) {
 	if err := options.Sanitize(); err != nil {
 		scopes.Framework.Fatalf("CallOptions sanitization failure, error %v", err)
@@ -244,11 +152,24 @@ func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, e
 		Headers: map[string][]string{
 			"Host": {options.Host},
 		},
-		CaCert: options.CaCert,
 	}
+
+	for k, v := range options.Headers {
+		req.Headers[k] = v
+	}
+
 	if options.CallType == ingress.TLS {
 		req.Port.Protocol = protocol.HTTPS
+		req.CaCert = options.CaCert
 	}
+
+	if options.CallType == ingress.Mtls {
+		req.Port.Protocol = protocol.HTTPS
+		req.Key = options.PrivateKey
+		req.Cert = options.Cert
+		req.CaCert = options.CaCert
+	}
+
 	resp, err := common.CallEcho(req)
 	if err != nil {
 		return ingress.CallResponse{}, err
