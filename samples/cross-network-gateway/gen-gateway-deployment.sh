@@ -10,6 +10,7 @@ spec:
   profile: empty
   values:
     global:
+      network ${NETWORK_NAME}
       multiCluster:
         clusterName: ${CLUSTER_NAME}
   components:

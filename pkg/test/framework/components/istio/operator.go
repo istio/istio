@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -408,30 +409,15 @@ func (i *operatorComponent) createCrossNetworkGateway(ctx resource.Context, work
 	scopes.Framework.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
 
 	// generate input
-	gwYaml := fmt.Sprintf(`
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  profile: empty
-  values:
-    global:
-      multiCluster:
-        clusterName: %s
-  components:
-    ingressGateways:
-      - name: istio-east-west-gateway
-        label:
-          istio: east-west-gateway
-          app: istio-east-west-gateway
-        enabled: true
-        k8s:
-          env:
-            # traffic through this gateway should be routed inside the network
-            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
-              value: %s
-`, cluster.Name(), cluster.NetworkName())
+	cmd := exec.Command(path.Join(env.IstioSrc, "samples", "cross-network-gateway", "gen-gateway-deployment.sh"))
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "CLUSTER_NAME="+cluster.Name(), "NETWORK_NAME="+cluster.NetworkName())
+	gwYaml, err := cmd.Output()
+	if err != nil {
+		return err
+	}
 	gwIop := path.Join(workDir, "cross-network-gateway-iop.yaml")
-	if err := ioutil.WriteFile(gwIop, []byte(gwYaml), 0644); err != nil {
+	if err := ioutil.WriteFile(gwIop, gwYaml, 0644); err != nil {
 		return err
 	}
 
