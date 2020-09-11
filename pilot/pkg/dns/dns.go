@@ -236,7 +236,7 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 
 func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNamespace, proxyDomain string,
 	proxyDomainParts []string) map[string]struct{} {
-	out := make(map[string]struct{}, 0)
+	out := make(map[string]struct{})
 	out[hostname+"."] = struct{}{}
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
 	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains
