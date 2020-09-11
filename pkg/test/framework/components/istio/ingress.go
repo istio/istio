@@ -36,9 +36,9 @@ import (
 )
 
 const (
-	ingressServiceName    = "istio-ingressgateway"
-	istioLabel            = "ingressgateway"
-	DefaultRequestTimeout = 10 * time.Second
+	defaultIngressServiceName = "istio-ingressgateway"
+	defaultIngressIstioLabel  = "ingressgateway"
+	DefaultRequestTimeout     = 10 * time.Second
 
 	proxyContainerName = "istio-proxy"
 	proxyAdminPort     = 15000
@@ -53,26 +53,42 @@ var (
 )
 
 type ingressConfig struct {
+	// ServiceName is the kubernetes Service name for the cluster
+	ServiceName string
 	// Namespace the ingress can be found in
 	Namespace string
+	// IstioLabel is the value for the "istio" label on the ingress kubernetes objects
+	IstioLabel string
+
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
 }
 
 func newIngress(ctx resource.Context, cfg ingressConfig) (i ingress.Instance) {
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = defaultIngressServiceName
+	}
+	if cfg.IstioLabel == "" {
+		cfg.IstioLabel = defaultIngressIstioLabel
+	}
 	c := &ingressImpl{
-		clients:   map[clientKey]*http.Client{},
-		namespace: cfg.Namespace,
-		env:       ctx.Environment().(*kube.Environment),
-		cluster:   ctx.Clusters().GetOrDefault(cfg.Cluster),
+		clients:     map[clientKey]*http.Client{},
+		serviceName: cfg.ServiceName,
+		istioLabel:  cfg.IstioLabel,
+		namespace:   cfg.Namespace,
+		env:         ctx.Environment().(*kube.Environment),
+		cluster:     ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
 	return c
 }
 
 type ingressImpl struct {
-	namespace string
-	env       *kube.Environment
-	cluster   resource.Cluster
+	serviceName string
+	istioLabel  string
+	namespace   string
+
+	env     *kube.Environment
+	cluster resource.Cluster
 
 	mu      sync.Mutex
 	clients map[clientKey]*http.Client
@@ -82,7 +98,7 @@ type ingressImpl struct {
 func (c *ingressImpl) getAddressInner(cluster resource.Cluster, ns string, port int) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
-	return getRemoteServiceAddress(c.env.Settings(), cluster, ns, istioLabel, ingressServiceName, port)
+	return getRemoteServiceAddress(c.env.Settings(), cluster, ns, c.istioLabel, c.serviceName, port)
 }
 
 // HTTPAddress returns HTTP address of ingress gateway.

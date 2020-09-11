@@ -91,7 +91,8 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		}
 		addr = address.(net.TCPAddr)
 	} else {
-		addr = i.IngressFor(cp).DiscoveryAddress()
+		// TODO constants
+		addr = i.CustomIngressFor(cp, "istio-east-west-gateway", "east-west-gateway").DiscoveryAddress()
 	}
 	if addr.IP.String() == "<nil>" {
 		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())

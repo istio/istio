@@ -116,12 +116,18 @@ type istioctlConfigFiles struct {
 }
 
 func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instance {
+	return i.CustomIngressFor(cluster, defaultIngressServiceName, defaultIngressIstioLabel)
+}
+
+func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	if _, ok := i.ingress[cluster.Index()]; !ok {
 		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
-			Namespace: i.settings.IngressNamespace,
-			Cluster:   cluster,
+			Namespace:   i.settings.IngressNamespace,
+			Cluster:     cluster,
+			ServiceName: serviceName,
+			IstioLabel:  istioLabel,
 		})
 	}
 	return i.ingress[cluster.Index()]
