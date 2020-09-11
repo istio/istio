@@ -35,8 +35,8 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.reachability").
 		Run(func(ctx framework.TestContext) {
-
 			rctx := reachability.CreateContext(ctx, true)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 

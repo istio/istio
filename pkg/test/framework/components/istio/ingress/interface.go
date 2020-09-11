@@ -94,6 +94,10 @@ type Instance interface {
 
 	// CloseClients closes all clients the ingress has created. The object can still be used with new clients.
 	CloseClients()
+
+	// PodID returns the name of the ingress gateway pod of index i. Returns error if failed to get the pod
+	// or the index is out of boundary.
+	PodID(i int) (string, error)
 }
 
 // CallResponse is the result of a call made through Istio Instance.

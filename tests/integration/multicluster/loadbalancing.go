@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
@@ -34,11 +35,22 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 						src := src
 						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.Name())).
 							Run(func(ctx framework.TestContext) {
+								srcNetwork := src.Config().Cluster.NetworkName()
 								res := callOrFail(ctx, src, apps.LBEchos[0])
-								if err := res.CheckReachedClusters(apps.LBEchos.Clusters()); err != nil {
-									ctx.Fatal(err)
+
+								// make sure we reached all clusters, including cross-network
+								if err := res.CheckReachedClusters(ctx.Clusters()); err != nil {
+									ctx.Error(err)
 								}
-								// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
+
+								// expect same network traffic to have very equal distribution (20% error)
+								intraNetworkClusters := ctx.Clusters().ByNetwork()[srcNetwork]
+								intraNetworkRes := res.Match(func(r *client.ParsedResponse) bool {
+									return srcNetwork == ctx.Clusters().GetByName(r.Cluster).NetworkName()
+								})
+								if err := intraNetworkRes.CheckEqualClusterTraffic(intraNetworkClusters, 20); err != nil {
+									ctx.Errorf("same network traffic was not even: %v", err)
+								}
 							})
 					}
 				})

@@ -24,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -74,7 +75,6 @@ type ServiceEntryStore struct { // nolint:golint
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	refreshIndexes            *atomic.Bool
-	instanceHandlers          []func(*model.ServiceInstance, model.Event)
 	workloadHandlers          []func(*model.WorkloadInstance, model.Event)
 }
 
@@ -99,7 +99,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 // kube registry controller also calls this function indirectly via the Share interface
 // When invoked via the kube registry controller, the old object is nil as the registry
 // controller does its own deduping and has no notion of object versions
-func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event model.Event) {
+func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event model.Event) {
 	var oldWle *networking.WorkloadEntry
 	if old.Spec != nil {
 		oldWle = old.Spec.(*networking.WorkloadEntry)
@@ -205,7 +205,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 }
 
 // serviceEntryHandler defines the handler for service entries
-func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event model.Event) {
+func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event model.Event) {
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
 
@@ -402,12 +402,6 @@ func (s *ServiceEntryStore) Cluster() string {
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
 func (s *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Event)) error {
-	return nil
-}
-
-// AppendInstanceHandler adds instance event handler. Service Entries does not use these handlers.
-func (s *ServiceEntryStore) AppendInstanceHandler(h func(*model.ServiceInstance, model.Event)) error {
-	s.instanceHandlers = append(s.instanceHandlers, h)
 	return nil
 }
 
@@ -782,7 +776,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 }
 
 // This method compares if the selector on a service entry has changed, meaning that it needs full push.
-func selectorChanged(old, curr model.Config) bool {
+func selectorChanged(old, curr config.Config) bool {
 	o := old.Spec.(*networking.ServiceEntry)
 	n := curr.Spec.(*networking.ServiceEntry)
 	return !reflect.DeepEqual(o.WorkloadSelector, n.WorkloadSelector)

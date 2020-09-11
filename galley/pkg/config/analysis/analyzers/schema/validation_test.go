@@ -17,13 +17,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -35,10 +35,10 @@ func TestCorrectArgs(t *testing.T) {
 
 	m1 := &v1alpha3.VirtualService{}
 
-	testSchema := schemaWithValidateFn(func(name, ns string, msg proto.Message) (errs error) {
-		g.Expect(name).To(Equal("name"))
-		g.Expect(ns).To(Equal("ns"))
-		g.Expect(msg).To(Equal(m1))
+	testSchema := schemaWithValidateFn(func(cfg config.Config) (errs error) {
+		g.Expect(cfg.Name).To(Equal("name"))
+		g.Expect(cfg.Namespace).To(Equal("ns"))
+		g.Expect(cfg.Spec).To(Equal(m1))
 		return nil
 	})
 	ctx := &fixtures.Context{
@@ -63,14 +63,14 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	m2 := &v1alpha3.VirtualService{}
 	m3 := &v1alpha3.VirtualService{}
 
-	testSchema := schemaWithValidateFn(func(_, _ string, msg proto.Message) (errs error) {
-		if msg == m1 {
+	testSchema := schemaWithValidateFn(func(cfg config.Config) (errs error) {
+		if cfg.Spec == m1 {
 			return nil
 		}
-		if msg == m2 {
+		if cfg.Spec == m2 {
 			return fmt.Errorf("")
 		}
-		if msg == m3 {
+		if cfg.Spec == m3 {
 			return multierror.Append(fmt.Errorf(""), fmt.Errorf(""))
 		}
 		return nil
@@ -129,7 +129,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 }
 
-func schemaWithValidateFn(validateFn func(string, string, proto.Message) error) collection.Schema {
+func schemaWithValidateFn(validateFn func(cfg config.Config) error) collection.Schema {
 	original := collections.IstioNetworkingV1Alpha3Virtualservices
 	return collection.Builder{
 		Name: original.Name().String(),

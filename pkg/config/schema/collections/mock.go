@@ -17,11 +17,10 @@ package collections
 import (
 	"errors"
 
-	"github.com/gogo/protobuf/proto"
-
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/test/config"
+	testconfig "istio.io/istio/pkg/test/config"
 )
 
 var (
@@ -37,8 +36,8 @@ var (
 			Version:       "v1",
 			Proto:         "test.MockConfig",
 			ProtoPackage:  "istio.io/istio/pkg/test/config",
-			ValidateProto: func(name, namespace string, msg proto.Message) error {
-				if msg.(*config.MockConfig).Key == "" {
+			ValidateProto: func(cfg config.Config) error {
+				if cfg.Spec.(*testconfig.MockConfig).Key == "" {
 					return errors.New("empty key")
 				}
 				return nil

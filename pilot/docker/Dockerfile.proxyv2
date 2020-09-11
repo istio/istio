@@ -46,8 +46,6 @@ ENV ISTIO_META_ISTIO_VERSION $istio_version
 
 COPY pilot-agent /usr/local/bin/pilot-agent
 
-COPY envoy_policy.yaml.tmpl /var/lib/istio/envoy/envoy_policy.yaml.tmpl
-
 COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
 COPY stats-filter.compiled.wasm /etc/istio/extensions/stats-filter.compiled.wasm
 COPY metadata-exchange-filter.wasm /etc/istio/extensions/metadata-exchange-filter.wasm

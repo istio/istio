@@ -46,6 +46,7 @@ func NewAnalyzer(envoyConfig *configdump.Wrapper) (*Analyzer, error) {
 
 // Print print sthe analyze results.
 func (a *Analyzer) Print(writer io.Writer) {
+	var listeners []*listener.Listener
 	for _, l := range a.listenerDump.DynamicListeners {
 		listenerTyped := &listener.Listener{}
 		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
@@ -54,9 +55,7 @@ func (a *Analyzer) Print(writer io.Writer) {
 		if err != nil {
 			return
 		}
-		if listenerTyped.Name == "virtualInbound" {
-			Print(writer, listenerTyped)
-			return
-		}
+		listeners = append(listeners, listenerTyped)
 	}
+	Print(writer, listeners)
 }

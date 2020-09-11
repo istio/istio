@@ -78,6 +78,11 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
+          periodSeconds: 10
+          failureThreshold: 10
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -137,6 +142,11 @@ spec:
           tcpSocket:
             port: tcp-health-port
           initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
           periodSeconds: 10
           failureThreshold: 10
 ---

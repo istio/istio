@@ -26,7 +26,6 @@ import (
 	"time"
 
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
@@ -35,6 +34,7 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -100,15 +100,15 @@ var (
 
 	// EmptyValidate is a Validate that does nothing and returns no error.
 	EmptyValidate = registerValidateFunc("EmptyValidate",
-		func(string, string, proto.Message) error {
+		func(config.Config) error {
 			return nil
 		})
 
 	validateFuncs = make(map[string]ValidateFunc)
 )
 
-// Validate defines a validation func for an API proto.
-type ValidateFunc func(name, namespace string, config proto.Message) error
+// ValidateFunc defines a validation func for an API proto.
+type ValidateFunc func(config config.Config) error
 
 // IsValidateFunc indicates whether there is a validation function with the given name.
 func IsValidateFunc(name string) bool {
@@ -193,6 +193,18 @@ func ValidateHTTPHeaderName(name string) error {
 	return nil
 }
 
+// ValidateHTTPHeaderValue validates a header value for Envoy
+// Valid: "foo", "%HOSTNAME%", "100%%", "prefix %HOSTNAME% suffix"
+// Invalid: "abc%123"
+// We don't try to check that what is inside the %% is one of Envoy recognized values, we just prevent invalid config.
+// See: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers.html#custom-request-response-headers
+func ValidateHTTPHeaderValue(value string) error {
+	if strings.Count(value, "%")%2 != 0 {
+		return errors.New("single % not allowed.  Escape by doubling to %% or encase Envoy variable name in pair of %")
+	}
+	return nil
+}
+
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
@@ -260,14 +272,15 @@ func ValidateUnixAddress(addr string) error {
 
 // ValidateGateway checks gateway specifications
 var ValidateGateway = registerValidateFunc("ValidateGateway",
-	func(name, _ string, msg proto.Message) (errs error) {
+	func(cfg config.Config) (errs error) {
+		name := cfg.Name
 		// Gateway name must conform to the DNS label format (no dots)
 		if !labels.IsDNS1123Label(name) {
 			errs = appendErrors(errs, fmt.Errorf("invalid gateway name: %q", name))
 		}
-		value, ok := msg.(*networking.Gateway)
+		value, ok := cfg.Spec.(*networking.Gateway)
 		if !ok {
-			errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
+			errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", cfg.Spec))
 			return
 		}
 
@@ -402,8 +415,8 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
-	func(_, namespace string, msg proto.Message) (errs error) {
-		rule, ok := msg.(*networking.DestinationRule)
+	func(cfg config.Config) (errs error) {
+		rule, ok := cfg.Spec.(*networking.DestinationRule)
 		if !ok {
 			return fmt.Errorf("cannot cast to destination rule")
 		}
@@ -420,7 +433,7 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			errs = appendErrors(errs, validateSubset(subset))
 		}
 
-		errs = appendErrors(errs, validateExportTo(namespace, rule.ExportTo, false))
+		errs = appendErrors(errs, validateExportTo(cfg.Namespace, rule.ExportTo, false))
 		return
 	})
 
@@ -497,8 +510,8 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error 
 
 // ValidateEnvoyFilter checks envoy filter config supplied by user
 var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
-	func(_, _ string, msg proto.Message) (errs error) {
-		rule, ok := msg.(*networking.EnvoyFilter)
+	func(cfg config.Config) (errs error) {
+		rule, ok := cfg.Spec.(*networking.EnvoyFilter)
 		if !ok {
 			return fmt.Errorf("cannot cast to Envoy filter")
 		}
@@ -657,8 +670,8 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 
 // ValidateSidecar checks sidecar config supplied by user
 var ValidateSidecar = registerValidateFunc("ValidateSidecar",
-	func(_, _ string, msg proto.Message) (errs error) {
-		rule, ok := msg.(*networking.Sidecar)
+	func(cfg config.Config) (errs error) {
+		rule, ok := cfg.Spec.(*networking.Sidecar)
 		if !ok {
 			return fmt.Errorf("cannot cast to Sidecar")
 		}
@@ -1321,11 +1334,13 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPolicy",
-	func(name, namespace string, msg proto.Message) error {
-		in, ok := msg.(*security_beta.AuthorizationPolicy)
+	func(cfg config.Config) error {
+		in, ok := cfg.Spec.(*security_beta.AuthorizationPolicy)
 		if !ok {
 			return fmt.Errorf("cannot cast to AuthorizationPolicy")
 		}
+		name := cfg.Name
+		namespace := cfg.Namespace
 
 		if err := validateWorkloadSelector(in.Selector); err != nil {
 			return err
@@ -1421,8 +1436,8 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
 var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthentication",
-	func(name, namespace string, msg proto.Message) error {
-		in, ok := msg.(*security_beta.RequestAuthentication)
+	func(cfg config.Config) error {
+		in, ok := cfg.Spec.(*security_beta.RequestAuthentication)
 		if !ok {
 			return errors.New("cannot cast to RequestAuthentication")
 		}
@@ -1475,8 +1490,8 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
 var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
-	func(name, namespace string, msg proto.Message) error {
-		in, ok := msg.(*security_beta.PeerAuthentication)
+	func(cfg config.Config) error {
+		in, ok := cfg.Spec.(*security_beta.PeerAuthentication)
 		if !ok {
 			return errors.New("cannot cast to PeerAuthentication")
 		}
@@ -1507,8 +1522,8 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
-	func(_, namespace string, msg proto.Message) (errs error) {
-		virtualService, ok := msg.(*networking.VirtualService)
+	func(cfg config.Config) (errs error) {
+		virtualService, ok := cfg.Spec.(*networking.VirtualService)
 		if !ok {
 			return errors.New("cannot cast to virtual service")
 		}
@@ -1601,7 +1616,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendErrors(errs, validateExportTo(namespace, virtualService.ExportTo, false))
+		errs = appendErrors(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
 		return
 	})
 
@@ -1725,20 +1740,24 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 	}
 
 	// header manipulation
-	for name := range http.Headers.GetRequest().GetAdd() {
+	for name, val := range http.Headers.GetRequest().GetAdd() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
-	for name := range http.Headers.GetRequest().GetSet() {
+	for name, val := range http.Headers.GetRequest().GetSet() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetRequest().GetRemove() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
-	for name := range http.Headers.GetResponse().GetAdd() {
+	for name, val := range http.Headers.GetResponse().GetAdd() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
-	for name := range http.Headers.GetResponse().GetSet() {
+	for name, val := range http.Headers.GetResponse().GetSet() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetResponse().GetRemove() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
@@ -1848,20 +1867,24 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		}
 
 		// header manipulations
-		for name := range weight.Headers.GetRequest().GetAdd() {
+		for name, val := range weight.Headers.GetRequest().GetAdd() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
-		for name := range weight.Headers.GetRequest().GetSet() {
+		for name, val := range weight.Headers.GetRequest().GetSet() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetRequest().GetRemove() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
-		for name := range weight.Headers.GetResponse().GetAdd() {
+		for name, val := range weight.Headers.GetResponse().GetAdd() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
-		for name := range weight.Headers.GetResponse().GetSet() {
+		for name, val := range weight.Headers.GetResponse().GetSet() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetResponse().GetRemove() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
@@ -2107,8 +2130,8 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 
 // ValidateWorkloadEntry validates a workload entry.
 var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
-	func(_, _ string, config proto.Message) (errs error) {
-		we, ok := config.(*networking.WorkloadEntry)
+	func(cfg config.Config) (errs error) {
+		we, ok := cfg.Spec.(*networking.WorkloadEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to workload entry")
 		}
@@ -2122,8 +2145,8 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
-	func(_, namespace string, config proto.Message) (errs error) {
-		serviceEntry, ok := config.(*networking.ServiceEntry)
+	func(cfg config.Config) (errs error) {
+		serviceEntry, ok := cfg.Spec.(*networking.ServiceEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to service entry")
 		}
@@ -2274,10 +2297,11 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				ValidatePort(int(port.Number)))
 		}
 
-		errs = appendErrors(errs, validateExportTo(namespace, serviceEntry.ExportTo, true))
+		errs = appendErrors(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))
 		return
 	})
 
+// ValidatePortName validates a port name to DNS-1123
 func ValidatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("invalid port name: %s", name)
@@ -2285,6 +2309,7 @@ func ValidatePortName(name string) error {
 	return nil
 }
 
+// ValidateProtocol validates a portocol name is known
 func ValidateProtocol(protocolStr string) error {
 	// Empty string is used for protocol sniffing.
 	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {

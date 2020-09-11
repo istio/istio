@@ -36,7 +36,7 @@ import (
 const (
 	testNamespace          = "istio-system-test"
 	testServiceAccountName = "test-service-account"
-	testKubeconfig         = "test-Kubeconfig"
+	testKubeconfig         = "test-kubeconfig"
 	testContext            = "test-context"
 	testNetwork            = "test-network"
 )

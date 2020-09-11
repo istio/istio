@@ -64,6 +64,11 @@ ifneq ($(_INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY),)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.controlPlaneTopology=$(_INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY)
 endif
 
+_INTEGRATION_TEST_CONFIG_TOPOLOGY ?= $(INTEGRATION_TEST_CONFIG_TOPOLOGY)
+ifneq ($(_INTEGRATION_TEST_CONFIG_TOPOLOGY),)
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.configTopology=$(_INTEGRATION_TEST_CONFIG_TOPOLOGY)
+endif
+
 test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT)

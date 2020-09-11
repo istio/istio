@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -129,7 +130,11 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), !tc.isVersion14)
+			option := Option{
+				IsIstioVersionGE15:     !tc.isVersion14,
+				IsOnInboundPassthrough: false,
+			}
+			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -165,7 +170,11 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), true)
+			option := Option{
+				IsIstioVersionGE15:     true,
+				IsOnInboundPassthrough: false,
+			}
+			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -211,7 +220,7 @@ func yamlPolicy(t *testing.T, filename string) *model.AuthorizationPolicies {
 	if err != nil {
 		t.Fatalf("failde to parse CRD: %v", err)
 	}
-	var configs []*model.Config
+	var configs []*config.Config
 	for i := range c {
 		configs = append(configs, &c[i])
 	}
@@ -255,7 +264,7 @@ func convertTCP(in []*tcppb.Filter) []proto.Message {
 	return ret
 }
 
-func newAuthzPolicies(t *testing.T, policies []*model.Config) *model.AuthorizationPolicies {
+func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.AuthorizationPolicies {
 	store := model.MakeIstioStore(memory.Make(collections.Pilot))
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {

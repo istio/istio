@@ -25,6 +25,8 @@ import (
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -37,9 +39,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/pkg/log"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -153,6 +156,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	mux.HandleFunc("/debug", s.Debug)
 
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
+	s.addDebugHandler(mux, "/debug/ndsz", "Status and debug interface for NDS", s.Ndsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
@@ -246,14 +250,10 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 	_, _ = w.Write(out)
 }
 
-type debugCacheResponse struct {
-	Endpoints []string `json:"endpoints"`
-}
-
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
-	keys := s.cache.Keys()
+	keys := s.Cache.Keys()
 	sort.Strings(keys)
-	bytes, err := json.Marshal(debugCacheResponse{keys})
+	bytes, err := json.Marshal(keys)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
@@ -374,7 +374,7 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 }
 
 type kubernetesConfig struct {
-	model.Config
+	config.Config
 }
 
 func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
@@ -408,7 +408,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	schemas := []resource.GroupVersionKind{}
+	schemas := []config.GroupVersionKind{}
 	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
 		schemas = append(schemas, schema.Resource().GroupVersionKind())
 		return false
@@ -554,10 +554,43 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		}
 	}
 
+	secretsDump := &adminapi.SecretsConfigDump{}
+	if s.Generators[v3.SecretType] != nil {
+		secrets := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil)
+		if len(secrets) > 0 {
+			for _, secretAny := range secrets {
+				secret := &tls.Secret{}
+				if err := ptypes.UnmarshalAny(secretAny, secret); err != nil {
+					log.Warnf("failed to unmarshal secret: %v", err)
+				}
+				if secret.GetTlsCertificate() != nil {
+					secret.GetTlsCertificate().PrivateKey = &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: []byte("[redacted]"),
+						},
+					}
+				}
+				secretsDump.DynamicActiveSecrets = append(secretsDump.DynamicActiveSecrets, &adminapi.SecretsConfigDump_DynamicSecret{
+					Name:   secret.Name,
+					Secret: util.MessageToAny(secret),
+				})
+			}
+		}
+	}
+
 	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
+	scopedRoutesAny := util.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	configDump := &adminapi.ConfigDump{
+		Configs: []*any.Any{
+			bootstrapAny,
+			clustersAny, listenersAny,
+			scopedRoutesAny,
+			routeConfigAny,
+			util.MessageToAny(secretsDump),
+		},
+	}
 	return configDump, nil
 }
 
@@ -619,6 +652,43 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(500)
 	}
 	w.WriteHeader(200)
+}
+
+// Ndsz implements a status and debug interface for NDS.
+// It is mapped to /debug/Ndsz on the monitor port (15014).
+func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	if req.Form.Get("push") != "" {
+		AdsPushAll(s)
+	}
+	var con *Connection
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		con = s.getProxyConnection(proxyID)
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		if con == nil {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+		return
+	}
+	if _, err := w.Write([]byte("[")); err != nil {
+		return
+	}
+
+	if s.Generators[v3.NameTableType] != nil {
+		nds := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil)
+		if len(nds) == 0 {
+			return
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		_ = jsonm.Marshal(w, nds[0])
+	}
 }
 
 // Edsz implements a status and debug interface for EDS.

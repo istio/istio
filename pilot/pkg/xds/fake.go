@@ -32,13 +32,16 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 )
 
@@ -48,7 +51,7 @@ type FakeOptions struct {
 	// If provided, the yaml string will be parsed and used as objects
 	KubernetesObjectString string
 	// If provided, these configs will be used directly
-	Configs []model.Config
+	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
 	// If provided, the ConfigString will be treated as a go template, with this as input params
@@ -84,6 +87,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		NetworksWatcher: opts.NetworksWatcher,
 	})
 
+	secretFake := kubelib.NewFakeClient(k8sObjects...)
+	sc := kubesecrets.NewSecretsController(secretFake.KubeInformer().Core().V1().Secrets())
+	secretFake.RunAndWait(stop)
+	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
+
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
@@ -103,7 +111,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Setup config handlers
 	// TODO code re-use from server.go
-	configHandler := func(_, curr model.Config, event model.Event) {
+	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -213,7 +221,8 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		Watch:     watch,
 		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return f.listener.Dial()
-		})},
+		}),
+			grpc.WithInsecure()},
 	})
 	if err != nil {
 		f.t.Fatalf("Error connecting: %v", err)
@@ -260,6 +269,9 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
 		decode := scheme.Codecs.UniversalDeserializer().Decode
 		objectStrs := strings.Split(opts.KubernetesObjectString, "---")
 		for _, s := range objectStrs {
+			if len(strings.TrimSpace(s)) == 0 {
+				continue
+			}
 			o, _, err := decode([]byte(s), nil, nil)
 			if err != nil {
 				t.Fatalf("failed deserializing kubernetes object: %v", err)

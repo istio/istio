@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 24905
+
+releaseNotes:
+- |
+  **Added** `istioctl experimental version` and `proxy-status` now use token security.
+  A new option, `--plaintext`, has been created for testing without tokens.

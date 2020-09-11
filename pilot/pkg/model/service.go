@@ -350,9 +350,9 @@ type Locality struct {
 // port 80 are forwarded to port 55446, and connections to port 8080 are
 // forwarded to port 33333,
 //
-// then internally, we have two two endpoint structs for the
+// then internally, we have two endpoint structs for the
 // service catalog.mystore.com
-//  --> 172.16.0.1:54546 (with ServicePort pointing to 80) and
+//  --> 172.16.0.1:55446 (with ServicePort pointing to 80) and
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 //
 // TODO: Investigate removing ServiceInstance entirely.
@@ -574,12 +574,9 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 }
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
-func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
-	// todo reduce unnecessary locking
-	s.Mutex.RLock()
-	defer s.Mutex.RUnlock()
-	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
-		return s.ClusterVIPs[node.Metadata.ClusterID]
+func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) string {
+	if node.Metadata != nil && node.Metadata.ClusterID != "" && push.ClusterVIPs[s][node.Metadata.ClusterID] != "" {
+		return push.ClusterVIPs[s][node.Metadata.ClusterID]
 	}
 	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
 		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {

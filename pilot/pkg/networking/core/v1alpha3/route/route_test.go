@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -62,14 +63,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		ID:          "someID",
 		DNSDomain:   "foo.com",
 		Metadata:    &model.NodeMetadata{},
-	}
-	node16 := &model.Proxy{
-		Type:         model.SidecarProxy,
-		IPAddresses:  []string{"1.1.1.1"},
-		ID:           "someID",
-		DNSDomain:    "foo.com",
-		Metadata:     &model.NodeMetadata{},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 6},
 	}
 
 	gatewayNames := map[string]bool{"some-gateway": true}
@@ -169,20 +162,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
-		// nolint: staticcheck
-		g.Expect(routes[0].GetMatch().GetSafeRegex().GetGoogleRe2().GetMaxProgramSize().GetValue()).To(gomega.Equal(uint32(1024)))
-	})
-
-	t.Run("for virtual service with regex matching on URI with 1.6 proxy", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node16, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
-		// nolint: staticcheck
-		g.Expect(routes[0].GetMatch().GetSafeRegex().GetGoogleRe2().GetMaxProgramSize().GetValue()).To(gomega.Equal(uint32(1024)))
 	})
 
 	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
@@ -279,9 +258,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push := &model.PushContext{
 			Mesh: &meshConfig,
 		}
-		push.SetDestinationRules([]model.Config{
+		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: model.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -328,9 +307,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push := &model.PushContext{
 			Mesh: &meshConfig,
 		}
-		push.SetDestinationRules([]model.Config{
+		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: model.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -369,8 +348,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with subsets with ring hash", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		virtualService := model.Config{
-			ConfigMeta: model.ConfigMeta{
+		virtualService := config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 				Name:             "acme",
 			},
@@ -381,9 +360,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push := &model.PushContext{
 			Mesh: &meshConfig,
 		}
-		push.SetDestinationRules([]model.Config{
+		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: model.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -413,7 +392,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with subsets with port level settings with ring hash", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		virtualService := model.Config{ConfigMeta: model.ConfigMeta{
+		virtualService := config.Config{Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},
@@ -425,10 +404,10 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Mesh: &meshConfig,
 		}
 
-		push.SetDestinationRules([]model.Config{
+		push.SetDestinationRules([]config.Config{
 			{
 
-				ConfigMeta: model.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -454,16 +433,16 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with subsets and top level traffic policy with ring hash", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		virtualService := model.Config{
-			ConfigMeta: model.ConfigMeta{
+		virtualService := config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 				Name:             "acme",
 			},
 			Spec: virtualServiceWithSubset,
 		}
 
-		cnfg := model.Config{
-			ConfigMeta: model.ConfigMeta{
+		cnfg := config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 				Name:             "acme",
 			},
@@ -477,7 +456,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Mesh: &meshConfig,
 		}
 
-		push.SetDestinationRules([]model.Config{
+		push.SetDestinationRules([]config.Config{
 			cnfg})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
@@ -504,9 +483,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Mesh: &meshConfig,
 		}
 
-		push.SetDestinationRules([]model.Config{
+		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: model.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -649,15 +628,15 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push := &model.PushContext{
 			Mesh: &meshConfig,
 		}
-		push.SetDestinationRules([]model.Config{
+		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: model.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
 				Spec: networkingDestinationRule,
 			}})
-		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []model.Config{}, 8080)
+		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []config.Config{}, 8080)
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
 	})
 	t.Run("for no virtualservice but has destinationrule with portLevel consistentHash loadbalancer", func(t *testing.T) {
@@ -666,16 +645,16 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push := &model.PushContext{
 			Mesh: &meshConfig,
 		}
-		push.SetDestinationRules([]model.Config{
+		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: model.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
 				Spec: networkingDestinationRuleWithPortLevelTrafficPolicy,
 			}})
 
-		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []model.Config{}, 8080)
+		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []config.Config{}, 8080)
 
 		hashPolicy := &envoyroute.RouteAction_HashPolicy{
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
@@ -742,8 +721,8 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 	},
 }
 
-var virtualServicePlain = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServicePlain = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -768,8 +747,8 @@ var virtualServicePlain = model.Config{
 	},
 }
 
-var virtualServiceWithTimeout = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithTimeout = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -797,8 +776,8 @@ var virtualServiceWithTimeout = model.Config{
 	},
 }
 
-var virtualServiceWithTimeoutDisabled = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithTimeoutDisabled = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -826,8 +805,8 @@ var virtualServiceWithTimeoutDisabled = model.Config{
 	},
 }
 
-var virtualServiceWithCatchAllRoute = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithCatchAllRoute = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -870,8 +849,8 @@ var virtualServiceWithCatchAllRoute = model.Config{
 	},
 }
 
-var virtualServiceWithCatchAllMultiPrefixRoute = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithCatchAllMultiPrefixRoute = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -917,8 +896,8 @@ var virtualServiceWithCatchAllMultiPrefixRoute = model.Config{
 	},
 }
 
-var virtualServiceWithCatchAllRouteWeightedDestination = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithCatchAllRouteWeightedDestination = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -967,8 +946,8 @@ var virtualServiceWithCatchAllRouteWeightedDestination = model.Config{
 	},
 }
 
-var virtualServiceWithHeaderOperations = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithHeaderOperations = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1015,8 +994,8 @@ var virtualServiceWithHeaderOperations = model.Config{
 	},
 }
 
-var virtualServiceWithRedirect = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithRedirect = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1035,8 +1014,8 @@ var virtualServiceWithRedirect = model.Config{
 	},
 }
 
-var virtualServiceWithRedirectAndSetHeader = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithRedirectAndSetHeader = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1062,8 +1041,8 @@ var virtualServiceWithRedirectAndSetHeader = model.Config{
 	},
 }
 
-var virtualServiceWithRegexMatchingOnURI = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithRegexMatchingOnURI = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1092,8 +1071,8 @@ var virtualServiceWithRegexMatchingOnURI = model.Config{
 	},
 }
 
-var virtualServiceWithRegexMatchingOnHeader = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithRegexMatchingOnHeader = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1124,11 +1103,11 @@ var virtualServiceWithRegexMatchingOnHeader = model.Config{
 	},
 }
 
-func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*model.Config {
-	ret := []*model.Config{}
+func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*config.Config {
+	ret := []*config.Config{}
 	regex := "*"
-	ret = append(ret, &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	ret = append(ret, &config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},
@@ -1162,8 +1141,8 @@ func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*model.Config 
 	return ret
 }
 
-var virtualServiceWithRegexMatchingOnWithoutHeader = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithRegexMatchingOnWithoutHeader = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1194,8 +1173,8 @@ var virtualServiceWithRegexMatchingOnWithoutHeader = model.Config{
 	},
 }
 
-var virtualServiceWithPresentMatchingOnHeader = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithPresentMatchingOnHeader = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1222,8 +1201,8 @@ var virtualServiceWithPresentMatchingOnHeader = model.Config{
 	},
 }
 
-var virtualServiceWithPresentMatchingOnWithoutHeader = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceWithPresentMatchingOnWithoutHeader = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1250,8 +1229,8 @@ var virtualServiceWithPresentMatchingOnWithoutHeader = model.Config{
 	},
 }
 
-var virtualServiceMatchingOnSourceNamespace = model.Config{
-	ConfigMeta: model.ConfigMeta{
+var virtualServiceMatchingOnSourceNamespace = config.Config{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},

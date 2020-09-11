@@ -3,16 +3,12 @@ FROM centos:8
 # hadolint ignore=DL3005,DL3008
 RUN yum upgrade -y && \
     yum install -y \
-      iptables \
-      iproute \
-      sudo \
-   && update-ca-trust \
+    iptables \
+    iproute \
+    sudo \
+    && update-ca-trust \
     yum clean all && \
     rm -rf /var/cache/yum
-
-# Sudoers used to allow tcpdump and other debug utilities.
-RUN useradd -m --uid 1337 -c "umask=0022" istio-proxy && \
-    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers
 
 # Add a user that will run the application. This allows running as this user and capture iptables
 RUN useradd -m --uid 1338 application && \
@@ -25,6 +21,9 @@ COPY certs/default/*                  /var/run/secrets/istio/
 # Install the sidecar components
 COPY istio-sidecar.rpm  /tmp/istio-sidecar.rpm
 RUN rpm -vi /tmp/istio-sidecar.rpm && rm /tmp/istio-sidecar.rpm
+
+# Sudoers used to allow tcpdump and other debug utilities.
+RUN echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers
 
 # Install the Echo application
 COPY echo-start.sh /usr/local/bin/echo-start.sh

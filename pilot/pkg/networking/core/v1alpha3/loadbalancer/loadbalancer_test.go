@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -266,8 +267,8 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]model.Config{
-		{ConfigMeta: model.ConfigMeta{
+	env.PushContext.SetDestinationRules([]config.Config{
+		{Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},
@@ -323,8 +324,8 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]model.Config{
-		{ConfigMeta: model.ConfigMeta{
+	env.PushContext.SetDestinationRules([]config.Config{
+		{Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},

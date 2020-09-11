@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -33,8 +34,8 @@ import (
 )
 
 var GlobalTime = time.Now()
-var httpNone = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var httpNone = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpNone",
 		Namespace:         "httpNone",
@@ -52,8 +53,8 @@ var httpNone = &model.Config{
 	},
 }
 
-var tcpNone = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var tcpNone = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "tcpNone",
 		Namespace:         "tcpNone",
@@ -70,8 +71,8 @@ var tcpNone = &model.Config{
 	},
 }
 
-var httpStatic = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var httpStatic = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpStatic",
 		Namespace:         "httpStatic",
@@ -106,8 +107,8 @@ var httpStatic = &model.Config{
 }
 
 // Shares the same host as httpStatic, but adds some endpoints. We expect these to be merge
-var httpStaticOverlay = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var httpStaticOverlay = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpStaticOverlay",
 		Namespace:         "httpStatic",
@@ -129,8 +130,8 @@ var httpStaticOverlay = &model.Config{
 	},
 }
 
-var httpDNSnoEndpoints = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var httpDNSnoEndpoints = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpDNSnoEndpoints",
 		Namespace:         "httpDNSnoEndpoints",
@@ -148,8 +149,8 @@ var httpDNSnoEndpoints = &model.Config{
 	},
 }
 
-var httpDNS = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var httpDNS = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpDNS",
 		Namespace:         "httpDNS",
@@ -183,8 +184,8 @@ var httpDNS = &model.Config{
 	},
 }
 
-var tcpDNS = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var tcpDNS = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "tcpDNS",
 		Namespace:         "tcpDNS",
@@ -211,8 +212,8 @@ var tcpDNS = &model.Config{
 	},
 }
 
-var tcpStatic = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var tcpStatic = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "tcpStatic",
 		Namespace:         "tcpStatic",
@@ -240,8 +241,8 @@ var tcpStatic = &model.Config{
 	},
 }
 
-var httpNoneInternal = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var httpNoneInternal = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpNoneInternal",
 		Namespace:         "httpNoneInternal",
@@ -259,8 +260,8 @@ var httpNoneInternal = &model.Config{
 	},
 }
 
-var tcpNoneInternal = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var tcpNoneInternal = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "tcpNoneInternal",
 		Namespace:         "tcpNoneInternal",
@@ -278,8 +279,8 @@ var tcpNoneInternal = &model.Config{
 	},
 }
 
-var multiAddrInternal = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var multiAddrInternal = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "multiAddrInternal",
 		Namespace:         "multiAddrInternal",
@@ -297,8 +298,8 @@ var multiAddrInternal = &model.Config{
 	},
 }
 
-var udsLocal = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var udsLocal = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "udsLocal",
 		Namespace:         "udsLocal",
@@ -318,8 +319,8 @@ var udsLocal = &model.Config{
 }
 
 // ServiceEntry DNS with a selector
-var selectorDNS = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var selectorDNS = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "selector",
 		Namespace:         "selector",
@@ -340,8 +341,8 @@ var selectorDNS = &model.Config{
 }
 
 // ServiceEntry with a selector
-var selector = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var selector = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "selector",
 		Namespace:         "selector",
@@ -362,8 +363,8 @@ var selector = &model.Config{
 }
 
 // DNS ServiceEntry with a selector
-var dnsSelector = &model.Config{
-	ConfigMeta: model.ConfigMeta{
+var dnsSelector = &config.Config{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "dns-selector",
 		Namespace:         "dns-selector",
@@ -383,9 +384,9 @@ var dnsSelector = &model.Config{
 	},
 }
 
-func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *model.Config {
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
+func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *config.Config {
+	return &config.Config{
+		Meta: config.Meta{
 			GroupVersionKind:  gvk.WorkloadEntry,
 			Name:              name,
 			Namespace:         namespace,
@@ -447,7 +448,7 @@ const (
 )
 
 // nolint: unparam
-func makeInstanceWithServiceAccount(cfg *model.Config, address string, port int,
+func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int,
 	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string) *model.ServiceInstance {
 	i := makeInstance(cfg, address, port, svcPort, svcLabels, MTLSUnlabelled)
 	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURI(i.Service.Attributes.Namespace, serviceAccount)
@@ -455,7 +456,7 @@ func makeInstanceWithServiceAccount(cfg *model.Config, address string, port int,
 }
 
 // nolint: unparam
-func makeInstance(cfg *model.Config, address string, port int,
+func makeInstance(cfg *config.Config, address string, port int,
 	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode) *model.ServiceInstance {
 	services := convertServices(*cfg)
 	svc := services[0] // default
@@ -494,7 +495,7 @@ func makeInstance(cfg *model.Config, address string, port int,
 
 func TestConvertService(t *testing.T) {
 	serviceTests := []struct {
-		externalSvc *model.Config
+		externalSvc *config.Config
 		services    []*model.Service
 	}{
 		{
@@ -584,7 +585,7 @@ func TestConvertService(t *testing.T) {
 	selectorSvc.Attributes.LabelSelectors = map[string]string{"app": "wle"}
 
 	serviceTests = append(serviceTests, struct {
-		externalSvc *model.Config
+		externalSvc *config.Config
 		services    []*model.Service
 	}{
 		externalSvc: selector,
@@ -601,7 +602,7 @@ func TestConvertService(t *testing.T) {
 
 func TestConvertInstances(t *testing.T) {
 	serviceInstanceTests := []struct {
-		externalSvc *model.Config
+		externalSvc *config.Config
 		out         []*model.ServiceInstance
 	}{
 		{
@@ -699,7 +700,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	serviceInstanceTests := []struct {
 		name string
 		wle  *networking.WorkloadEntry
-		se   *model.Config
+		se   *config.Config
 		out  []*model.ServiceInstance
 	}{
 		{
@@ -765,13 +766,13 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	workloadInstanceTests := []struct {
 		name      string
 		namespace string
-		wle       model.Config
+		wle       config.Config
 		out       *model.WorkloadInstance
 	}{
 		{
 			name:      "simple",
 			namespace: "ns1",
-			wle: model.Config{Spec: &networking.WorkloadEntry{
+			wle: config.Config{Spec: &networking.WorkloadEntry{
 				Address: "1.1.1.1",
 				Labels:  labels,
 				Ports: map[string]uint32{
@@ -795,7 +796,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 		{
 			name:      "simple - tls mode disabled",
 			namespace: "ns1",
-			wle: model.Config{Spec: &networking.WorkloadEntry{
+			wle: config.Config{Spec: &networking.WorkloadEntry{
 				Address: "1.1.1.1",
 				Labels: map[string]string{
 					"security.istio.io/tlsMode": "disabled",
@@ -823,7 +824,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 		{
 			name:      "unix domain socket",
 			namespace: "ns1",
-			wle: model.Config{Spec: &networking.WorkloadEntry{
+			wle: config.Config{Spec: &networking.WorkloadEntry{
 				Address:        "unix://foo/bar",
 				ServiceAccount: "scooby",
 			}},
@@ -832,7 +833,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 		{
 			name:      "DNS address",
 			namespace: "ns1",
-			wle: model.Config{Spec: &networking.WorkloadEntry{
+			wle: config.Config{Spec: &networking.WorkloadEntry{
 				Address:        "scooby.com",
 				ServiceAccount: "scooby",
 			}},
@@ -841,8 +842,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 		{
 			name:      "metadata labels only",
 			namespace: "ns1",
-			wle: model.Config{
-				ConfigMeta: model.ConfigMeta{
+			wle: config.Config{
+				Meta: config.Meta{
 					Labels: labels,
 				},
 				Spec: &networking.WorkloadEntry{
@@ -868,8 +869,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 		{
 			name:      "labels merge",
 			namespace: "ns1",
-			wle: model.Config{
-				ConfigMeta: model.ConfigMeta{
+			wle: config.Config{
+				Meta: config.Meta{
 					Labels: map[string]string{
 						"my-label": "bar",
 					},

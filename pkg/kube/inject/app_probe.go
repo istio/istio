@@ -111,6 +111,10 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 		}
 
 	}
+	// prevent generate '{}'
+	if len(out) == 0 {
+		return ""
+	}
 	b, err := json.Marshal(out)
 	if err != nil {
 		log.Errorf("failed to serialize the app prober config %v", err)

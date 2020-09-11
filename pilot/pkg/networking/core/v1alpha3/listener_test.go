@@ -49,6 +49,7 @@ import (
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -376,8 +377,8 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			}
 
 			p := &fakePlugin{}
-			virtualService := model.Config{
-				ConfigMeta: model.ConfigMeta{
+			virtualService := config.Config{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 					Name:             "test_vs",
 					Namespace:        "default",
@@ -585,8 +586,8 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:             "sidecar-with-http-proxy",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -886,8 +887,8 @@ func testInboundListenerConfigWithGrpc(t *testing.T, proxy *model.Proxy, service
 func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -915,8 +916,8 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *model.Proxy) {
 	t.Helper()
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:      "foo-without-service",
 			Namespace: "not-default",
 		},
@@ -1035,8 +1036,8 @@ func isTCPFilterChain(fc *listener.FilterChain) bool {
 func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:             "foo",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -1173,8 +1174,8 @@ func testInboundListenerConfigWithoutServicesWithHTTP10Proxy(t *testing.T, proxy
 func testInboundListenerConfigWithSidecarWithHTTP10Proxy(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -1208,8 +1209,8 @@ func testInboundListenerConfigWithSidecarWithHTTP10Proxy(t *testing.T, proxy *mo
 func testInboundListenerConfigWithSidecarWithoutServicesWithHTTP10Proxy(t *testing.T, proxy *model.Proxy) {
 	t.Helper()
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:      "foo-without-service",
 			Namespace: "not-default",
 		},
@@ -1242,8 +1243,8 @@ func testInboundListenerConfigWithSidecarWithoutServicesWithHTTP10Proxy(t *testi
 func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:             "foo",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -1293,8 +1294,8 @@ func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, ser
 func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:             "foo",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -1337,8 +1338,8 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:             "foo",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -1447,7 +1448,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	env.Mesh().AccessLogFormat = "format modified"
 
 	// Trigger MeshConfig change and validate that access log is recomputed.
-	resetCachedListenerConfig()
+	accessLogBuilder.reset()
 
 	// Validate that access log filter users the new format.
 	listeners = buildAllListeners(p, nil, env)
@@ -1475,7 +1476,7 @@ func validateAccessLog(t *testing.T, l *listener.Listener, format string) {
 
 func TestHttpProxyListener(t *testing.T) {
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnv(nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -1786,7 +1787,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 	}
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	for _, tc := range customTagsTest {
 		featuresSet := false
@@ -2039,8 +2040,8 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, env model.Environment) []*listener.Listener {
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+func buildAllListeners(p plugin.Plugin, sidecarConfig *config.Config, env model.Environment) []*listener.Listener {
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
@@ -2067,12 +2068,12 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	return nil
 }
 
-func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config,
-	virtualService *model.Config, services ...*model.Service) []*listener.Listener {
+func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *config.Config,
+	virtualService *config.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
 	cg := NewConfigGenTest(t, TestOptions{
 		Services:       services,
-		ConfigPointers: []*model.Config{sidecarConfig, virtualService},
+		ConfigPointers: []*config.Config{sidecarConfig, virtualService},
 		Plugins:        []plugin.Plugin{p},
 	})
 	listeners := cg.ConfigGen.buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext)
@@ -2080,9 +2081,9 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 	return listeners
 }
 
-func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*listener.Listener {
+func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *config.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 	env := buildListenerEnv(services)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
@@ -2267,7 +2268,7 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 	return buildListenerEnvWithVirtualServices(services, nil)
 }
 
-func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
+func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*config.Config) model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
 	instances := make([]*model.ServiceInstance, 0, len(services))
@@ -2286,8 +2287,8 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	// TODO stop faking this. proxy ip must match the instance IP
 	serviceDiscovery.WantGetProxyServiceInstances = instances
 
-	envoyFilter := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	envoyFilter := config.Config{
+		Meta: config.Meta{
 			Name:             "test-envoyfilter",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.EnvoyFilter,
@@ -2369,7 +2370,7 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 			hostname: util.PassthroughCluster,
 		},
 	}
-	configgen := NewConfigGenerator([]plugin.Plugin{})
+	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	for idx := range tests {
 		t.Run(tests[idx].name, func(t *testing.T) {
 			configgen.appendListenerFallthroughRouteForCompleteListener(tests[idx].listener,
@@ -2532,8 +2533,8 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 		buildService(limitedSvcName+".default.svc.cluster.local", limitedSvcIP, protocol.Thrift, tnow)}
 
 	p := &fakePlugin{}
-	sidecarConfig := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -2548,7 +2549,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 		},
 	}
 
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 

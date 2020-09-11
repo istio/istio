@@ -154,7 +154,7 @@ func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 // - NACKs
 //
 // We can also expose ACKS.
-func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
 	res := []*any.Any{}
 
 	switch w.TypeUrl {

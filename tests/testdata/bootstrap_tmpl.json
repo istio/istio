@@ -26,7 +26,8 @@
           {
               "name": "deprecation",
               "static_layer": {
-                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+                  "re2.max_program_size.error_level": 1024
               }
           },
           {

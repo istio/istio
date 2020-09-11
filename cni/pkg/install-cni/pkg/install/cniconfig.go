@@ -25,11 +25,11 @@ import (
 	"strings"
 
 	"github.com/containernetworking/cni/libcni"
-	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/pkg/errors"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
 )
 
@@ -91,7 +91,7 @@ func createCNIConfigFile(ctx context.Context, cfg *config.Config, saToken string
 }
 
 func readCNIConfigTemplate(template cniConfigTemplate) ([]byte, error) {
-	if fileutil.Exist(template.cniNetworkConfigFile) {
+	if file.Exists(template.cniNetworkConfigFile) {
 		cniConfig, err := ioutil.ReadFile(template.cniNetworkConfigFile)
 		if err != nil {
 			return nil, err
@@ -134,7 +134,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 	}
 
 	if cfg.chainedCNIPlugin {
-		if !fileutil.Exist(cniConfigFilepath) {
+		if !file.Exists(cniConfigFilepath) {
 			return "", fmt.Errorf("CNI config file %s removed during configuration", cniConfigFilepath)
 		}
 		// This section overwrites an existing plugins list entry for istio-cni
@@ -148,7 +148,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		}
 	}
 
-	if err = util.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 		return "", err
 	}
 
@@ -198,11 +198,11 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 
 	cniConfigFilepath := filepath.Join(cfg.mountedCNINetDir, filename)
 
-	for !fileutil.Exist(cniConfigFilepath) {
-		if strings.HasSuffix(cniConfigFilepath, ".conf") && fileutil.Exist(cniConfigFilepath+"list") {
+	for !file.Exists(cniConfigFilepath) {
+		if strings.HasSuffix(cniConfigFilepath, ".conf") && file.Exists(cniConfigFilepath+"list") {
 			log.Infof("%s doesn't exist, but %[1]slist does; Using it as the CNI config file instead.", cniConfigFilepath)
 			cniConfigFilepath += "list"
-		} else if strings.HasSuffix(cniConfigFilepath, ".conflist") && fileutil.Exist(cniConfigFilepath[:len(cniConfigFilepath)-4]) {
+		} else if strings.HasSuffix(cniConfigFilepath, ".conflist") && file.Exists(cniConfigFilepath[:len(cniConfigFilepath)-4]) {
 			log.Infof("%s doesn't exist, but %s does; Using it as the CNI config file instead.", cniConfigFilepath, cniConfigFilepath[:len(cniConfigFilepath)-4])
 			cniConfigFilepath = cniConfigFilepath[:len(cniConfigFilepath)-4]
 		} else {

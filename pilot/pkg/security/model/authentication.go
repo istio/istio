@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -66,6 +65,20 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
+
+	// KubernetesSecretType is the name of a SDS secret stored in Kubernetes
+	KubernetesSecretType    = "kubernetes"
+	KubernetesSecretTypeURI = KubernetesSecretType + "://"
+)
+
+var (
+	SDSAdsConfig = &core.ConfigSource{
+		ConfigSourceSpecifier: &core.ConfigSource_Ads{
+			Ads: &core.AggregatedConfigSource{},
+		},
+		ResourceApiVersion:  core.ApiVersion_V3,
+		InitialFetchTimeout: features.InitialFetchTimeout,
+	}
 )
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
@@ -77,12 +90,19 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 		return nil
 	}
 
+	if features.EnableSDSServer && features.EnableXDSIdentityCheck {
+		return &tls.SdsSecretConfig{
+			Name:      KubernetesSecretTypeURI + name,
+			SdsConfig: SDSAdsConfig,
+		}
+	}
+
 	gRPCConfig := &core.GrpcService_GoogleGrpc{
 		TargetUri:  CredentialNameSDSUdsPath,
 		StatPrefix: SDSStatPrefix,
 	}
 
-	cfg := &tls.SdsSecretConfig{
+	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -102,8 +122,6 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
-
-	return cfg
 }
 
 // Preconfigured SDS configs to avoid excessive memory allocations
@@ -219,59 +237,32 @@ func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
 	sdsPath string, subjectAltNames []string, trustDomainAliases []string) {
-	// configure TLS with SDS
-	if metadata.SdsEnabled && sdsPath != "" {
-		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-		// which does not support rotation, we will serve them over SDS by reading the files.
-		// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
-		res := model.SdsCertificateConfig{
-			CertificatePath:   metadata.TLSServerCertChain,
-			PrivateKeyPath:    metadata.TLSServerKey,
-			CaCertificatePath: metadata.TLSServerRootCert,
-		}
 
-		// TODO: if subjectAltName ends with *, create a prefix match as well.
-		// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
-		matchSAN := util.StringToExactMatch(subjectAltNames)
-		if len(trustDomainAliases) > 0 {
-			matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)
-		}
+	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+	// which does not support rotation, we will serve them over SDS by reading the files.
+	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
+	res := model.SdsCertificateConfig{
+		CertificatePath:   metadata.TLSServerCertChain,
+		PrivateKeyPath:    metadata.TLSServerKey,
+		CaCertificatePath: metadata.TLSServerRootCert,
+	}
 
-		// configure server listeners with SDS.
-		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
-			},
-		}
-		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
-		}
-	} else {
-		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.
-		// SDS disabled, fall back on using mounted certificates
-		base := metadata.CertBaseDir + constants.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
+	// TODO: if subjectAltName ends with *, create a prefix match as well.
+	// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
+	matchSAN := util.StringToExactMatch(subjectAltNames)
+	if len(trustDomainAliases) > 0 {
+		matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)
+	}
 
-		tlsContext.ValidationContextType = ConstructValidationContext(tlsServerRootCert, subjectAltNames)
-
-		tlsServerCertChain := model.GetOrDefault(metadata.TLSServerCertChain, base+constants.CertChainFilename)
-		tlsServerKey := model.GetOrDefault(metadata.TLSServerKey, base+constants.KeyFilename)
-
-		tlsContext.TlsCertificates = []*tls.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerCertChain,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerKey,
-					},
-				},
-			},
-		}
+	// configure server listeners with SDS.
+	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+			DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
+		},
+	}
+	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
 	}
 }
 

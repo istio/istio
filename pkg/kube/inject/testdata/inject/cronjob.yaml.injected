@@ -97,8 +97,6 @@ spec:
             - name: ISTIO_META_MESH_ID
               value: cluster.local
             - name: DNS_AGENT
-            - name: ISTIO_KUBE_APP_PROBERS
-              value: '{}'
             image: gcr.io/istio-testing/proxyv2:latest
             imagePullPolicy: Always
             name: istio-proxy
@@ -170,8 +168,8 @@ spec:
                 cpu: "2"
                 memory: 1Gi
               requests:
-                cpu: 10m
-                memory: 10Mi
+                cpu: 100m
+                memory: 128Mi
             securityContext:
               allowPrivilegeEscalation: false
               capabilities:

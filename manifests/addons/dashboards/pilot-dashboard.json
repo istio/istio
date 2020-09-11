@@ -1129,7 +1129,7 @@
           "refId": "B"
         },
         {
-          "expr": "pilot_xds{app=\"istiod\"}",
+          "expr": "sum(pilot_xds{app=\"istiod\"}) by (instance)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Connected Endpoints",

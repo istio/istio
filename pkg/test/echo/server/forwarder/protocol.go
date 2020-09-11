@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
-	"istio.io/pkg/log"
 )
 
 type request struct {
@@ -86,24 +85,24 @@ func newProtocol(cfg Config) (protocol, error) {
 		for _, c := range cert.Certificate {
 			cert, err := x509.ParseCertificate(c)
 			if err != nil {
-				log.Errorf("Failed to parse client certificate: %v", err)
+				fwLog.Errorf("Failed to parse client certificate: %v", err)
 			}
-			log.Debugf("Using client certificate [%s] issued by %s", cert.SerialNumber, cert.Issuer)
+			fwLog.Debugf("Using client certificate [%s] issued by %s", cert.SerialNumber, cert.Issuer)
 			for _, uri := range cert.URIs {
-				log.Debugf("  URI SAN: %s", uri)
+				fwLog.Debugf("  URI SAN: %s", uri)
 			}
 		}
 		// nolint: unparam
 		getClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			log.Debugf("Peer asking for client certificate")
+			fwLog.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
 				x := &pkix.RDNSequence{}
 				if _, err := asn1.Unmarshal(ca, x); err != nil {
-					log.Errorf("Failed to decode AcceptableCA[%d]: %v", i, err)
+					fwLog.Errorf("Failed to decode AcceptableCA[%d]: %v", i, err)
 				} else {
 					name := &pkix.Name{}
 					name.FillFromRDNSequence(x)
-					log.Debugf("  AcceptableCA[%d]: %s", i, name)
+					fwLog.Debugf("  AcceptableCA[%d]: %s", i, name)
 				}
 			}
 

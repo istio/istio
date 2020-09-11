@@ -22,7 +22,6 @@ import (
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
 	appsv1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
-	auditregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/auditregistration/v1alpha1"
 	authenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	authenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
 	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
@@ -33,12 +32,14 @@ import (
 	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	batchv2alpha1 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
+	certificatesv1 "k8s.io/client-go/kubernetes/typed/certificates/v1"
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 	coordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	discoveryv1alpha1 "k8s.io/client-go/kubernetes/typed/discovery/v1alpha1"
 	discoveryv1beta1 "k8s.io/client-go/kubernetes/typed/discovery/v1beta1"
+	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	flowcontrolv1alpha1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
@@ -102,14 +103,6 @@ func (c *kubeInterface) CoreV1() corev1.CoreV1Interface {
 }
 
 func (c *kubeInterface) Discovery() discovery.DiscoveryInterface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) AuditregistrationV1alpha1() auditregistrationv1alpha1.AuditregistrationV1alpha1Interface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) Auditregistration() auditregistrationv1alpha1.AuditregistrationV1alpha1Interface {
 	panic("not implemented")
 }
 
@@ -185,6 +178,10 @@ func (c *kubeInterface) CertificatesV1beta1() certificatesv1beta1.CertificatesV1
 	panic("not implemented")
 }
 
+func (c *kubeInterface) CertificatesV1() certificatesv1.CertificatesV1Interface {
+	panic("implement me")
+}
+
 func (c *kubeInterface) DiscoveryV1alpha1() discoveryv1alpha1.DiscoveryV1alpha1Interface {
 	panic("not implemented")
 }
@@ -195,6 +192,10 @@ func (c *kubeInterface) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Inte
 
 func (c *kubeInterface) EventsV1beta1() eventsv1beta1.EventsV1beta1Interface {
 	panic("not implemented")
+}
+
+func (c *kubeInterface) EventsV1() eventsv1.EventsV1Interface {
+	panic("implement me")
 }
 
 func (c *kubeInterface) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interface {

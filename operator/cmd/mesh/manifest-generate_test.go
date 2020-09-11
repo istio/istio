@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
+	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/version"
 )
@@ -183,12 +184,12 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(BeNil())
 		g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
 
 		g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-pilot-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
@@ -658,12 +659,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				}
 			}
 
-			if refreshGoldenFiles() {
-				t.Logf("Refreshing golden file for %s", outPath)
-				if err := ioutil.WriteFile(outPath, []byte(got), 0644); err != nil {
-					t.Error(err)
-				}
-			}
+			tutil.RefreshGoldenFile([]byte(got), outPath, t)
 
 			want, err := readFile(outPath)
 			if err != nil {

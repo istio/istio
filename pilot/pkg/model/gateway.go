@@ -22,6 +22,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/monitoring"
@@ -74,7 +75,7 @@ func recordRejectedConfig(gatewayName string) {
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
 // Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
-func MergeGateways(gateways ...Config) *MergedGateway {
+func MergeGateways(gateways ...config.Config) *MergedGateway {
 	names := make(map[string]bool, len(gateways))
 	gatewayPorts := make(map[uint32]bool)
 	servers := make(map[uint32][]*networking.Server)
@@ -291,7 +292,7 @@ func checkDuplicates(hosts []string, knownHosts map[string]struct{}) []string {
 // While we can use the same RDS route name for two servers (say HTTP and HTTPS) exposing the same set of hosts on
 // different ports, the optimization (one RDS instead of two) could quickly become useless the moment the set of
 // hosts on the two servers start differing -- necessitating the need for two different RDS routes.
-func gatewayRDSRouteName(server *networking.Server, cfg Config) string {
+func gatewayRDSRouteName(server *networking.Server, cfg config.Config) string {
 	p := protocol.Parse(server.Port.Protocol)
 	if p.IsHTTP() {
 		return fmt.Sprintf("http.%d", server.Port.Number)

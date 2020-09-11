@@ -181,6 +181,19 @@ func sendCDSNack(node string, client AdsClient) error {
 	return sendXds(node, client, v3.ClusterType, "NOPE!")
 }
 
+func sendNDSReq(node, namespace string, client AdsClient) error {
+	return client.Send(&discovery.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &corev3.Node{
+			Id: node,
+			Metadata: model.NodeMetadata{
+				Namespace:  namespace,
+				DNSCapture: "agent",
+			}.ToStruct(),
+		},
+		TypeUrl: v3.NameTableType})
+}
+
 func sendXds(node string, client AdsClient, typeURL string, errMsg string) error {
 	var errorDetail *status.Status
 	if errMsg != "" {

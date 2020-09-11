@@ -23,15 +23,15 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-var createConfigSet = []*model.Config{
+var createConfigSet = []*config.Config{
 	{
-		ConfigMeta: model.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "magic",
 			GroupVersionKind: gvk.Gateway,
 		},
@@ -50,9 +50,9 @@ var createConfigSet = []*model.Config{
 	},
 }
 
-var updateConfigSet = []*model.Config{
+var updateConfigSet = []*config.Config{
 	{
-		ConfigMeta: model.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "magic",
 			GroupVersionKind: gvk.Gateway,
 		},
@@ -78,11 +78,11 @@ func TestMonitorForChange(t *testing.T) {
 
 	var (
 		callCount int
-		configs   []*model.Config
+		configs   []*config.Config
 		err       error
 	)
 
-	someConfigFunc := func() ([]*model.Config, error) {
+	someConfigFunc := func() ([]*config.Config, error) {
 		switch callCount {
 		case 0:
 			configs = createConfigSet
@@ -90,7 +90,7 @@ func TestMonitorForChange(t *testing.T) {
 		case 3:
 			configs = updateConfigSet
 		case 6:
-			configs = []*model.Config{}
+			configs = []*config.Config{}
 		}
 
 		callCount++
@@ -115,7 +115,7 @@ func TestMonitorForChange(t *testing.T) {
 			return errors.New("no configs")
 		}
 
-		if c[0].ConfigMeta.Name != "magic" {
+		if c[0].Meta.Name != "magic" {
 			return errors.New("wrong config")
 		}
 
@@ -137,7 +137,7 @@ func TestMonitorForChange(t *testing.T) {
 		return nil
 	}).Should(gomega.Succeed())
 
-	g.Eventually(func() ([]model.Config, error) {
+	g.Eventually(func() ([]config.Config, error) {
 		return store.List(gvk.Gateway, "")
 	}).Should(gomega.HaveLen(0))
 
@@ -150,13 +150,13 @@ func TestMonitorForError(t *testing.T) {
 
 	var (
 		callCount int
-		configs   []*model.Config
+		configs   []*config.Config
 		err       error
 	)
 
 	delay := make(chan struct{}, 1)
 
-	someConfigFunc := func() ([]*model.Config, error) {
+	someConfigFunc := func() ([]*config.Config, error) {
 		switch callCount {
 		case 0:
 			configs = createConfigSet

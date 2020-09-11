@@ -31,6 +31,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -96,7 +97,7 @@ func TestAgent(t *testing.T) {
 			ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
 		}, &istioagent.AgentConfig{
 			// Enable proxy - off by default, will be XDS_LOCAL env in install.
-			LocalXDSAddr: "127.0.0.1:15002",
+			LocalXDSGeneratorListenAddress: "127.0.0.1:15002",
 		}, &security.Options{
 			PilotCertProvider: "custom",
 			ClusterID:         "kubernetes",
@@ -106,16 +107,18 @@ func TestAgent(t *testing.T) {
 		// TODO: add a test for cert-based config.
 		// TODO: add a test for JWT-based ( using some mock OIDC in Istiod)
 		sa.WorkloadSecrets = creds
+		sa.RootCert = creds.RootCert
 		_, err = sa.Start(true, "test")
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// connect to the local XDS proxy - it's using a transient port.
-		ldsr, err := adsc.Dial(sa.LocalXDSListener.Addr().String(), "",
+		ldsr, err := adsc.Dial(sa.GetLocalXDSGeneratorListener().Addr().String(), "",
 			&adsc.Config{
 				IP:        "10.11.10.1",
 				Namespace: "test",
+				RootCert:  creds.RootCert,
 				Watch: []string{
 					v3.ClusterType,
 					collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
@@ -433,8 +436,8 @@ func TestAdsPushScoping(t *testing.T) {
 	}
 
 	addVirtualService := func(i int, hosts ...string) {
-		if _, err := s.Store().Create(model.Config{
-			ConfigMeta: model.ConfigMeta{
+		if _, err := s.Store().Create(config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
 				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.VirtualService{
@@ -454,8 +457,8 @@ func TestAdsPushScoping(t *testing.T) {
 		s.Store().Delete(gvk.VirtualService, fmt.Sprintf("vs%d", i), model.IstioDefaultConfigNamespace)
 	}
 	addDestinationRule := func(i int, host string) {
-		if _, err := s.Store().Create(model.Config{
-			ConfigMeta: model.ConfigMeta{
+		if _, err := s.Store().Create(config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
 				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.DestinationRule{
@@ -477,8 +480,8 @@ func TestAdsPushScoping(t *testing.T) {
 			},
 		},
 	}
-	if _, err := s.Store().Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
+	if _, err := s.Store().Create(config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
 			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace},
 		Spec: sc,
@@ -518,7 +521,7 @@ func TestAdsPushScoping(t *testing.T) {
 			ev:            model.EventAdd,
 			svcIndexes:    []int{4},
 			ns:            model.IstioDefaultConfigNamespace,
-			expectUpdates: []string{"lds"},
+			expectUpdates: []string{v3.ListenerType},
 		}, // then: default 1,2,3,4
 		{
 			desc: "Add instances to a scoped service",
@@ -528,7 +531,7 @@ func TestAdsPushScoping(t *testing.T) {
 				indexes []int
 			}{{fmt.Sprintf("svc%d%s", 4, svcSuffix), []int{1, 2}}},
 			ns:            model.IstioDefaultConfigNamespace,
-			expectUpdates: []string{"eds"},
+			expectUpdates: []string{v3.EndpointType},
 		}, // then: default 1,2,3,4
 		{
 			desc: "Add virtual service to a scoped service",
@@ -537,7 +540,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				hosts []string
 			}{{4, []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}}},
-			expectUpdates: []string{"lds"},
+			expectUpdates: []string{v3.ListenerType},
 		},
 		{
 			desc: "Delete virtual service of a scoped service",
@@ -546,7 +549,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				hosts []string
 			}{{index: 4}},
-			expectUpdates: []string{"lds"},
+			expectUpdates: []string{v3.ListenerType},
 		},
 		{
 			desc: "Add destination rule to a scoped service",
@@ -555,7 +558,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				host  string
 			}{{4, fmt.Sprintf("svc%d%s", 4, svcSuffix)}},
-			expectUpdates: []string{"cds"},
+			expectUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Delete destination rule of a scoped service",
@@ -564,14 +567,14 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				host  string
 			}{{index: 4}},
-			expectUpdates: []string{"cds"},
+			expectUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc:            "Add a unscoped(name not match) service",
 			ev:              model.EventAdd,
 			svcNames:        []string{"foo.com"},
 			ns:              model.IstioDefaultConfigNamespace,
-			unexpectUpdates: []string{"cds"},
+			unexpectUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3,4, foo.com; ns1: 11
 		{
 			desc: "Add instances to an unscoped service",
@@ -581,14 +584,14 @@ func TestAdsPushScoping(t *testing.T) {
 				indexes []int
 			}{{"foo.com", []int{1, 2}}},
 			ns:              model.IstioDefaultConfigNamespace,
-			unexpectUpdates: []string{"eds"},
+			unexpectUpdates: []string{v3.EndpointType},
 		}, // then: default 1,2,3,4
 		{
 			desc:            "Add a unscoped(ns not match) service",
 			ev:              model.EventAdd,
 			svcIndexes:      []int{11},
 			ns:              ns1,
-			unexpectUpdates: []string{"cds"},
+			unexpectUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3,4, foo.com; ns1: 11
 		{
 			desc: "Add virtual service to an unscoped service",
@@ -597,7 +600,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				hosts []string
 			}{{0, []string{"foo.com"}}},
-			unexpectUpdates: []string{"cds"},
+			unexpectUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Delete virtual service of a unscoped service",
@@ -606,7 +609,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				hosts []string
 			}{{index: 0}},
-			unexpectUpdates: []string{"cds"},
+			unexpectUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Add destination rule to an unscoped service",
@@ -615,7 +618,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				host  string
 			}{{0, "foo.com"}},
-			unexpectUpdates: []string{"cds"},
+			unexpectUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc: "Delete destination rule of a unscoped service",
@@ -624,28 +627,28 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				host  string
 			}{{index: 0}},
-			unexpectUpdates: []string{"cds"},
+			unexpectUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc:          "Remove a scoped service",
 			ev:            model.EventDelete,
 			svcIndexes:    []int{4},
 			ns:            model.IstioDefaultConfigNamespace,
-			expectUpdates: []string{"lds"},
+			expectUpdates: []string{v3.ListenerType},
 		}, // then: default 1,2,3, foo.com; ns: 11
 		{
 			desc:            "Remove a unscoped(name not match) service",
 			ev:              model.EventDelete,
 			svcNames:        []string{"foo.com"},
 			ns:              model.IstioDefaultConfigNamespace,
-			unexpectUpdates: []string{"cds"},
+			unexpectUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3; ns1: 11
 		{
 			desc:            "Remove a unscoped(ns not match) service",
 			ev:              model.EventDelete,
 			svcIndexes:      []int{11},
 			ns:              ns1,
-			unexpectUpdates: []string{"cds"},
+			unexpectUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3
 	}
 
@@ -975,9 +978,9 @@ func unmarshallRoute(value []byte) (*route.RouteConfiguration, error) {
 }
 
 func TestXdsCache(t *testing.T) {
-	makeEndpoint := func(addr []*networking.WorkloadEntry) model.Config {
-		return model.Config{
-			ConfigMeta: model.ConfigMeta{
+	makeEndpoint := func(addr []*networking.WorkloadEntry) config.Config {
+		return config.Config{
+			Meta: config.Meta{
 				Name:             "service",
 				Namespace:        "default",
 				GroupVersionKind: gvk.ServiceEntry,
@@ -1005,7 +1008,12 @@ func TestXdsCache(t *testing.T) {
 	}
 
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		Configs: []model.Config{makeEndpoint([]*networking.WorkloadEntry{{Address: "1.2.3.4", Locality: "region/zone"}, {Address: "1.2.3.5", Locality: "notmatch"}})},
+		Configs: []config.Config{
+			makeEndpoint([]*networking.WorkloadEntry{
+				{Address: "1.2.3.4", Locality: "region/zone"},
+				{Address: "1.2.3.5", Locality: "notmatch"},
+			}),
+		},
 	})
 	ads := s.Connect(&model.Proxy{Locality: &core.Locality{Region: "region"}}, nil, watchAll)
 
@@ -1025,8 +1033,8 @@ func TestXdsCache(t *testing.T) {
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
 
 	ads.WaitClear()
-	if _, err := s.Store().Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
+	if _, err := s.Store().Create(config.Config{
+		Meta: config.Meta{
 			Name:             "service",
 			Namespace:        "default",
 			GroupVersionKind: gvk.DestinationRule,

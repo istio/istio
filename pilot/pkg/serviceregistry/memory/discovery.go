@@ -29,8 +29,7 @@ import (
 
 // ServiceController is a mock service controller
 type ServiceController struct {
-	svcHandlers  []func(*model.Service, model.Event)
-	instHandlers []func(*model.ServiceInstance, model.Event)
+	svcHandlers []func(*model.Service, model.Event)
 
 	sync.RWMutex
 }
@@ -46,14 +45,6 @@ var _ model.Controller = &ServiceController{}
 func (c *ServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.Lock()
 	c.svcHandlers = append(c.svcHandlers, f)
-	c.Unlock()
-	return nil
-}
-
-// AppendInstanceHandler appends a service instance handler to the controller
-func (c *ServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.Lock()
-	c.instHandlers = append(c.instHandlers, f)
 	c.Unlock()
 	return nil
 }
@@ -157,7 +148,7 @@ func (sd *ServiceDiscovery) AddInstance(service host.Name, instance *model.Servi
 		return
 	}
 	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
+	sd.ip2instance[instance.Endpoint.Address] = append(sd.ip2instance[instance.Endpoint.Address], instance)
 
 	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
 	instanceList := sd.instancesByPortNum[key]

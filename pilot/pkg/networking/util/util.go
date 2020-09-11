@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
@@ -264,12 +265,6 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
 }
 
-// IsIstioVersionGE17 checks whether the given Istio version is greater than or equals 1.7.
-func IsIstioVersionGE17(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 7, Patch: -1}) >= 0
-}
-
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
 	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
@@ -393,7 +388,7 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc.
-func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
+func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
 		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
 	return &core.Metadata{

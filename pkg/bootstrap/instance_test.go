@@ -69,13 +69,8 @@ var (
 )
 
 // Generate configs for the default configs used by istio.
-// If the template is updated, copy the new golden files from out:
-// cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/tracing_datadog/envoy-rev0.json pkg/bootstrap/testdata/tracing_datadog_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
+// If the template is updated, refresh golden files using:
+// REFRESH_GOLDEN=true go test ./pkg/bootstrap/...
 func TestGolden(t *testing.T) {
 	out := "/tmp"
 	var ts *httptest.Server
@@ -89,12 +84,17 @@ func TestGolden(t *testing.T) {
 		expectLightstepAccessToken bool
 		stats                      stats
 		checkLocality              bool
+		proxyViaAgent              bool
 		stsPort                    int
 		platformMeta               map[string]string
 		setup                      func()
 		teardown                   func()
 		check                      func(got *bootstrap.Bootstrap, t *testing.T)
 	}{
+		{
+			base:          "xdsproxy",
+			proxyViaAgent: true,
+		},
 		{
 			base: "auth",
 		},
@@ -332,6 +332,7 @@ func TestGolden(t *testing.T) {
 				OutlierLogPath:    "/dev/stdout",
 				PilotCertProvider: "istiod",
 				STSPort:           c.stsPort,
+				ProxyViaAgent:     c.proxyViaAgent,
 			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)

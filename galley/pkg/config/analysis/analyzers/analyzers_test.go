@@ -169,6 +169,17 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "istioInjectionProxyImageMismatchAbsolute",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+			"testdata/sidecar-injector-configmap-absolute-override.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyImageMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+		},
+	},
+	{
 		name:       "portNameNotFollowConvention",
 		inputFiles: []string{"testdata/service-no-port-name.yaml"},
 		analyzer:   &service.PortNameAnalyzer{},
@@ -380,6 +391,28 @@ var testGrid = []testCase{
 		},
 		analyzer: &destinationrule.CaCertificateAnalyzer{},
 		expected: []message{},
+	},
+	{
+		name: "dupmatches",
+		inputFiles: []string{
+			"testdata/virtualservice_dupmatches.yaml",
+		},
+		analyzer: &virtualservice.MatchesAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-match"},
+			{msg.VirtualServiceUnreachableRule, "VirtualService sample-foo-cluster01.foo"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService almost-duplicate-match"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService duplicate-match"},
+
+			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-tcp-match"},
+			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-empty-tcp"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService almost-duplicate-tcp-match"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService duplicate-tcp-match"},
+
+			{msg.VirtualServiceUnreachableRule, "VirtualService tls-routing.none"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing-almostmatch.none"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing.none"},
+		},
 	},
 }
 

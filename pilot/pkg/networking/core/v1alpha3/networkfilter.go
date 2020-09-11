@@ -17,10 +17,7 @@ package v1alpha3
 import (
 	"time"
 
-	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	alsconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	mongo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mongo_proxy/v3"
 	mysql "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mysql_proxy/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
@@ -34,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -41,9 +39,6 @@ import (
 var (
 	// redisOpTimeout is the default operation timeout for the Redis proxy filter.
 	redisOpTimeout = 5 * time.Second
-
-	// tcpGrpcAccessLog is used when access log service is enabled in mesh config.
-	tcpGrpcAccessLog = buildTCPGrpcAccessLog()
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -63,21 +58,10 @@ func buildInboundNetworkFilters(push *model.PushContext, instance *model.Service
 	return buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)
 }
 
-// setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
-func setAccessLog(push *model.PushContext, config *tcp.TcpProxy) {
-	if push.Mesh.AccessLogFile != "" {
-		config.AccessLog = append(config.AccessLog, maybeBuildAccessLog(push.Mesh))
-	}
-
-	if push.Mesh.EnableEnvoyAccessLogService {
-		config.AccessLog = append(config.AccessLog, tcpGrpcAccessLog)
-	}
-}
-
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
 func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy) *listener.Filter {
-	setAccessLog(push, config)
+	accessLogBuilder.setTCPAccessLog(push.Mesh, config)
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
@@ -109,7 +93,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
 // destination routes and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes []*networking.RouteDestination,
-	push *model.PushContext, port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
+	push *model.PushContext, port *model.Port, configMeta config.Meta) []*listener.Filter {
 
 	statPrefix := configMeta.Name + "." + configMeta.Namespace
 	clusterSpecifier := &tcp.TcpProxy_WeightedClusters{
@@ -182,7 +166,7 @@ func buildNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, stat
 // filter).
 func buildOutboundNetworkFilters(node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
-	port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
+	port *model.Port, configMeta config.Meta) []*listener.Filter {
 	if len(routes) == 1 {
 		service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
@@ -281,26 +265,4 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 	}
 
 	return out
-}
-
-func buildTCPGrpcAccessLog() *accesslog.AccessLog {
-	fl := &alsconfig.TcpGrpcAccessLogConfig{
-		CommonConfig: &alsconfig.CommonGrpcAccessLogConfig{
-			LogName: tcpEnvoyAccessLogFriendlyName,
-			GrpcService: &core.GrpcService{
-				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: EnvoyAccessLogCluster,
-					},
-				},
-			},
-		},
-	}
-
-	fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
-
-	return &accesslog.AccessLog{
-		Name:       tcpEnvoyALSName,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
-	}
 }

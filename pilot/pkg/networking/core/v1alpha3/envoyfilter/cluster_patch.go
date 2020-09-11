@@ -25,66 +25,55 @@ import (
 	"istio.io/pkg/log"
 )
 
-// ApplyClusterPatches applies patches to CDS clusters
-func ApplyClusterPatches(
-	patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy,
-	push *model.PushContext,
-	clusters []*cluster.Cluster) (out []*cluster.Cluster) {
+func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) (out *cluster.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.
-	out = clusters
-
-	efw := push.EnvoyFilters(proxy)
+	out = c
 	if efw == nil {
-		return out
+		return
 	}
-
-	clustersRemoved := false
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
-		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
-			cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
 		}
-		for i := range clusters {
-			if clusters[i] == nil {
-				// deleted by the remove operation
-				continue
-			}
-
-			if commonConditionMatch(patchContext, cp) && clusterMatch(clusters[i], cp) {
-				if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
-					clusters[i] = nil
-					clustersRemoved = true
-				} else {
-					proto.Merge(clusters[i], cp.Value)
-				}
-			}
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
+			proto.Merge(c, cp.Value)
 		}
 	}
+	return c
+}
 
+func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) bool {
+	if efw == nil {
+		return true
+	}
+	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
+		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
+			continue
+		}
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
+			return false
+		}
+	}
+	return true
+}
+
+func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) []*cluster.Cluster {
+	if efw == nil {
+		return nil
+	}
+	var result []*cluster.Cluster
 	// Add cluster if the operation is add, and patch context matches
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			if commonConditionMatch(patchContext, cp) {
-				clusters = append(clusters, proto.Clone(cp.Value).(*cluster.Cluster))
+			if commonConditionMatch(pctx, cp) {
+				result = append(result, proto.Clone(cp.Value).(*cluster.Cluster))
 			}
 		}
 	}
-
-	if clustersRemoved {
-		trimmedClusters := make([]*cluster.Cluster, 0, len(clusters))
-		for i := range clusters {
-			if clusters[i] == nil {
-				continue
-			}
-			trimmedClusters = append(trimmedClusters, clusters[i])
-		}
-		clusters = trimmedClusters
-	}
-	return clusters
+	return result
 }
 
 func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {

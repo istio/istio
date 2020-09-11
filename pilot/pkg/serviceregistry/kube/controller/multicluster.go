@@ -161,9 +161,13 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID)
-	if _, ok := m.remoteKubeControllers[clusterID]; !ok {
+	kc, ok := m.remoteKubeControllers[clusterID]
+	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
 		return nil
+	}
+	if err := kc.Cleanup(); err != nil {
+		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)

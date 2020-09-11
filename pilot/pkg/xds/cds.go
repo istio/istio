@@ -17,8 +17,8 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 type CdsGenerator struct {
@@ -28,22 +28,41 @@ type CdsGenerator struct {
 var _ model.XdsResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
-var skippedCdsConfigs = map[resource.GroupVersionKind]struct{}{
-	// TODO: investigate if this is correct when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is set
+var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.Gateway:               {},
 	gvk.VirtualService:        {},
 	gvk.WorkloadEntry:         {},
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
+	gvk.Secret:                {},
 }
 
-func cdsNeedsPush(updates model.XdsUpdates) bool {
-	// If none set, we will always push
-	if len(updates) == 0 {
+// Map all configs that impacts CDS for gateways.
+var pushCdsGatewayConfig = map[config.GroupVersionKind]struct{}{
+	gvk.VirtualService: {},
+	gvk.Gateway:        {},
+}
+
+func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if req == nil {
 		return true
 	}
-	for config := range updates {
+	if !req.Full {
+		// CDS only handles full push
+		return false
+	}
+	// If none set, we will always push
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for config := range req.ConfigsUpdated {
+		if proxy.Type == model.Router {
+			if _, f := pushCdsGatewayConfig[config.Kind]; f {
+				return true
+			}
+		}
+
 		if _, f := skippedCdsConfigs[config.Kind]; !f {
 			return true
 		}
@@ -51,8 +70,8 @@ func cdsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	if !cdsNeedsPush(updates) {
+func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if !cdsNeedsPush(req, proxy) {
 		return nil
 	}
 	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)

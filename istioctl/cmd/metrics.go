@@ -52,13 +52,11 @@ and error rates are from the perspective of the service itself and not of an
 individual client (or aggregate set of clients). Rates and latencies are
 calculated over a time interval of 1 minute.
 `,
-		Example: `
-# Retrieve workload metrics for productpage-v1 workload
-istioctl experimental metrics productpage-v1
+		Example: `  # Retrieve workload metrics for productpage-v1 workload
+  istioctl experimental metrics productpage-v1
 
-# Retrieve workload metrics for various services in the different namespaces
-istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
-`,
+  # Retrieve workload metrics for various services in the different namespaces
+  istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz`,
 		// nolint: goimports
 		Aliases: []string{"m"},
 		Args: func(cmd *cobra.Command, args []string) error {

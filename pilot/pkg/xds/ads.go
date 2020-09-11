@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	istiolog "istio.io/pkg/log"
 )
@@ -147,6 +146,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				*errP = err
 				return
 			}
+			adsLog.Infof("ADS: new connection for node:%s", con.ConID)
 			defer func() {
 				s.removeCon(con.ConID)
 				if s.InternalGen != nil {
@@ -192,7 +192,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 		g = s.Generators["api"] // default to "MCP" generators - any type supported by store
 	}
 
-	return s.pushXds(con, push, g, versionInfo(), con.Watched(req.TypeUrl), nil)
+	return s.pushXds(con, push, g, versionInfo(), con.Watched(req.TypeUrl), &model.PushRequest{Full: true})
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -289,7 +289,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
-	// If there is an error in request that means previous response is errorneous.
+	// If there is an error in request that means previous response is erroneous.
 	// We do not have to respond in that case. In this case request's version info
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
@@ -524,46 +524,37 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
-	currentVersion := versionInfo()
-	// TODO: update the service deps based on NetworkScope
-	if !pushRequest.Full {
-		if !ProxyNeedsPush(con.proxy, pushEv) {
-			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
+
+	if pushRequest.Full {
+		// Update Proxy with current information.
+		if err := s.updateProxy(con.proxy, pushRequest.Push); err != nil {
 			return nil
 		}
-		if con.proxy.WatchedResources[v3.EndpointType] == nil {
-			return nil
-		}
-		// TODO allow partial updates to types other than EDS
-		return s.pushXds(con, pushRequest.Push, s.Generators[v3.EndpointType],
-			currentVersion, con.Watched(v3.EndpointType), pushRequest.ConfigsUpdated)
 	}
 
-	// Update Proxy with current information.
-	if err := s.updateProxy(con.proxy, pushRequest.Push); err != nil {
-		return nil
-	}
-
-	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.proxy, pushEv) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
-
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, nil)
+		if pushRequest.Full {
+			// Only report for full versions, incremental pushes do not have a new version
+			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, nil)
+		}
 		return nil
 	}
 
-	adsLog.Infof("Pushing %v", con.ConID)
+	currentVersion := versionInfo()
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	for _, w := range getPushResources(con.proxy.WatchedResources) {
-		err := s.pushXds(con, pushRequest.Push, s.Generators[w.TypeUrl], currentVersion, w, pushRequest.ConfigsUpdated)
+		err := s.pushXds(con, pushRequest.Push, s.Generators[w.TypeUrl], currentVersion, w, pushRequest)
 		if err != nil {
 			return err
 		}
 	}
-	// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-	reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, con.proxy.WatchedResources)
+	if pushRequest.Full {
+		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, con.proxy.WatchedResources)
+	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
@@ -571,12 +562,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 // PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
 // order after the types listed here
-var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
+var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
 var KnownPushOrder = map[string]struct{}{
 	v3.ClusterType:  {},
 	v3.EndpointType: {},
 	v3.ListenerType: {},
 	v3.RouteType:    {},
+	v3.SecretType:   {},
 }
 
 func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
@@ -664,14 +656,14 @@ func AdsPushAll(s *DiscoveryServer) {
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	// If we don't know what updated, cannot safely cache. Clear the whole cache
 	if len(req.ConfigsUpdated) == 0 {
-		s.cache.ClearAll()
+		s.Cache.ClearAll()
 	} else {
 		// Otherwise, just clear the updated configs
-		s.cache.Clear(req.ConfigsUpdated)
+		s.Cache.Clear(req.ConfigsUpdated)
 	}
 	if !req.Full {
-		adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-			version, model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry), s.adsClientCount())
+		adsLog.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d",
+			version, s.adsClientCount())
 	} else {
 		totalService := len(req.Push.Services(nil))
 		adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
