@@ -101,6 +101,15 @@ func toUser(serviceAccount, namespace string) string {
 
 const cacheTTL = time.Minute
 
+// clearExpiredCache iterates through the cache and removes all expired entries. Should be called with mutex held.
+func (s *SecretsController) clearExpiredCache() {
+	for k, v := range s.authorizationCache {
+		if v.expiration.Before(time.Now()) {
+			delete(s.authorizationCache, k)
+		}
+	}
+}
+
 // cachedAuthorization checks the authorization cache
 // nolint
 func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, bool) {
@@ -110,13 +119,10 @@ func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, 
 	if !s.authorizationEnabled {
 		return nil, true
 	}
+	s.clearExpiredCache()
+	// No need to check expiration, we will evict expired entries above
 	got, f := s.authorizationCache[key]
 	if !f {
-		return nil, false
-	}
-	// Response found, but its expired. Evict it.
-	if got.expiration.Before(time.Now()) {
-		delete(s.authorizationCache, key)
 		return nil, false
 	}
 	return got.authorized, true
