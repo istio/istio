@@ -103,9 +103,10 @@ func TestDNS(t *testing.T) {
 			expected: a("www.google.com.", []net.IP{net.ParseIP("1.1.1.1").To4()}),
 		},
 		{
-			name:     "success: non k8s host with search namespace yields cname",
-			host:     "www.google.com.ns1.svc.cluster.local.",
-			expected: cname("www.google.com.ns1.svc.cluster.local.", "www.google.com."),
+			name: "success: non k8s host with search namespace yields cname+A record",
+			host: "www.google.com.ns1.svc.cluster.local.",
+			expected: append(cname("www.google.com.ns1.svc.cluster.local.", "www.google.com."),
+				a("www.google.com.", []net.IP{net.ParseIP("1.1.1.1").To4()})...),
 		},
 		{
 			name:                     "success: non k8s host not in local cache",
@@ -128,9 +129,16 @@ func TestDNS(t *testing.T) {
 			expected: a("productpage.", []net.IP{net.ParseIP("9.9.9.9").To4()}),
 		},
 		{
-			name:     "success: k8s host (name.namespace) with search namespace yields cname",
-			host:     "productpage.ns1.ns1.svc.cluster.local.",
-			expected: cname("productpage.ns1.ns1.svc.cluster.local.", "productpage.ns1."),
+			name: "success: k8s host (name.namespace) with search namespace yields cname+A record",
+			host: "productpage.ns1.ns1.svc.cluster.local.",
+			expected: append(cname("productpage.ns1.ns1.svc.cluster.local.", "productpage.ns1."),
+				a("productpage.ns1.", []net.IP{net.ParseIP("9.9.9.9").To4()})...),
+		},
+		{
+			name:                    "failure: AAAA query for IPv4 k8s host (name.namespace) with search namespace",
+			host:                    "productpage.ns1.ns1.svc.cluster.local.",
+			queryAAAA:               true,
+			expectResolutionFailure: true,
 		},
 		{
 			name:     "success: k8s host - non local namespace - name.namespace",
@@ -298,6 +306,7 @@ func bench(t *testing.B, nameserver string, hostname string) {
 			for _, a := range res.Answer {
 				if arec, ok := a.(*dns.A); !ok {
 					// check if this is a cname redirect. If so, repeat the resolution
+					// assuming the client does not see/respect the inlined A record in the response.
 					if crec, ok := a.(*dns.CNAME); !ok {
 						errs++
 					} else {
