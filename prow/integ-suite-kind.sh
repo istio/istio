@@ -34,7 +34,11 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
+# shellcheck source=common/scripts/kind_provisioner.sh
+source "${ROOT}/common/scripts/kind_provisioner.sh"
+
 TOPOLOGY=SINGLE_CLUSTER
+NODE_IMAGE="kindest/node:v1.18.2"
 
 PARAMS=()
 
@@ -104,7 +108,7 @@ export TAG="${TAG:-"istio-testing"}"
 
 # If we're not intending to pull from an actual remote registry, use the local kind registry
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  HUB="${KIND_REGISTRY}/$(echo "${HUB}" | sed 's/[^\/]*\/\([^\/]*\/\)/\1/')"
+  HUB="${KIND_REGISTRY}"
   export HUB
 fi
 
@@ -119,22 +123,26 @@ make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
+      CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/single.json'
   else
-    # TODO: Support IPv6 multicluster
-    time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
-
-    # KinD will have a LoadBalancer for multicluster
-    export TEST_ENV=kind-metallb
-    # Set the kube configs to point to the clusters.
-    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG},${CLUSTER4_KUBECONFIG},${CLUSTER5_KUBECONFIG}"
-    # 3 clusters on one network, 2 on the other
-    export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-0,3:test-network-1,4:test-network-1"
-    # Cluster 0, 1 and 4 share cluster 0's control plane
-    # Clusters 2 and 3 control themselves
-    export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
-    export INTEGRATION_TEST_CONFIG_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
+      CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/multicluster.json'
   fi
+
+  export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
+  export DEFAULT_CLUSTER_YAML="./prow/config/trustworthy-jwt.yaml"
+  export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
+
+  time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
+  time setup_kind_clusters ${NODE_IMAGE} ${IP_FAMILY}
+
+  export TEST_ENV=kind-metallb
+  export INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
+  export KUBECONFIG=$(IFS=':'; echo "${KUBECONFIGS[*]}")
+  
+  # TODO: Externalize configuration (include in cluster topology configuration?)
+  export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-0,3:test-network-1,4:test-network-1"
+  export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
+  export INTEGRATION_TEST_CONFIG_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
