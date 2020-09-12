@@ -101,7 +101,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	case *v1alpha3.ReadinessProbe_Exec:
 		prober = &health.ExecProber{Config: healthCheckMethod.Exec}
 	default:
-		return nil, fmt.Errorf("unknown Health Check method %v", healthCheckMethod)
+		prober = &health.NoOpProber{}
 	}
 	var err error
 	proxy := &XdsProxy{

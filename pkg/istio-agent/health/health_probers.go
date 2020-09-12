@@ -148,3 +148,9 @@ func (e *ExecProber) Probe(timeout time.Duration) (bool, error) {
 		return false, fmt.Errorf("could not extract ExitError from command error")
 	}
 }
+
+type NoOpProber struct{}
+
+func (n *NoOpProber) Probe(_ time.Duration) (bool, error) {
+	return true, nil
+}
