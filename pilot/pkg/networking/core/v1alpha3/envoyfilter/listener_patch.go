@@ -78,6 +78,7 @@ func ApplyListenerPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
 	push *model.PushContext,
+	efw *model.EnvoyFilterWrapper,
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
@@ -86,12 +87,11 @@ func ApplyListenerPatches(
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
 	out = listeners
 
-	envoyFilterWrapper := push.EnvoyFilters(proxy)
-	if envoyFilterWrapper == nil {
+	if efw == nil {
 		return
 	}
 
-	return doListenerListOperation(patchContext, envoyFilterWrapper, listeners, skipAdds)
+	return doListenerListOperation(patchContext, efw, listeners, skipAdds)
 }
 
 func doListenerListOperation(
