@@ -191,6 +191,9 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	if p.ID == "" {
 		p.ID = "app.test"
 	}
+	if p.DNSDomain == "" {
+		p.DNSDomain = p.ConfigNamespace + ".svc.cluster.local"
+	}
 	if len(p.IPAddresses) == 0 {
 		p.IPAddresses = []string{"1.1.1.1"}
 	}
