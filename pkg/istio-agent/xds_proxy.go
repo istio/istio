@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/istio-agent/health"
 	"math"
 	"net"
 	"os"
@@ -32,9 +30,15 @@ import (
 	"strings"
 	"time"
 
+	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
+
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/istio-agent/health"
+
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/oauth2"
+	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
@@ -44,10 +48,12 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -84,7 +90,7 @@ type XdsProxy struct {
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
 	localDNSServer       *dns.LocalDNSServer
-	healthChecker *health.WorkloadHealthChecker
+	healthChecker        *health.WorkloadHealthChecker
 	fileWatcher          filewatcher.FileWatcher
 }
 
@@ -110,7 +116,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		fileWatcher:    newFileWatcher(),
 		stopChan:       make(chan struct{}),
 		resetChan:      make(chan struct{}),
-		healthChecker: health.NewWorkloadHealthChecker(*ia.proxyConfig.ReadinessProbe, prober),
+		healthChecker:  health.NewWorkloadHealthChecker(*ia.proxyConfig.ReadinessProbe, prober),
 	}
 
 	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
@@ -145,8 +151,9 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	downstreamError := make(chan error)
 	requestsChan := make(chan *discovery.DiscoveryRequest, 10)
 	responsesChan := make(chan *discovery.DiscoveryResponse, 10)
+	healthEventsChan := make(chan *health.HealthEvent, 5)
 	// A separate channel for nds requests to not contend with the ones from envoys
-	directRequestsChan := make(chan *discovery.DiscoveryRequest, 5)
+	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
 
 	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
 	if err != nil {
@@ -180,7 +187,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}()
 	go func() {
 		defer close(requestsChan) // Indicates downstream close.
-		defer close(directRequestsChan)
+		defer close(ndsRequestChan)
 		for {
 			// From Envoy
 			req, err := downstream.Recv()
@@ -193,7 +200,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			requestsChan <- req
 			if !firstNDSSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
-				directRequestsChan <- &discovery.DiscoveryRequest{
+				ndsRequestChan <- &discovery.DiscoveryRequest{
 					TypeUrl: v3.NameTableType,
 				}
 				firstNDSSent = true
@@ -201,7 +208,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		}
 	}()
 
-	go p.healthChecker.PerformApplicationHealthCheck(directRequestsChan)
+	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan)
 
 	for {
 		select {
@@ -232,7 +239,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
 			}
-		case req, ok := <-directRequestsChan:
+		case req, ok := <-ndsRequestChan:
 			if !ok {
 				return nil
 			}
@@ -241,6 +248,26 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
 			}
+		case healthEvent := <-healthEventsChan:
+			proxyLog.Debug("request for type url %s", health.HealthInfoTypeURL)
+			var req *discovery.DiscoveryRequest
+			if healthEvent.Healthy {
+				req = &discovery.DiscoveryRequest{TypeUrl: health.HealthInfoTypeURL}
+			} else {
+				req = &discovery.DiscoveryRequest{
+					TypeUrl: health.HealthInfoTypeURL,
+					ErrorDetail: &google_rpc.Status{
+						Code:    500,
+						Message: healthEvent.UnhealthyMessage,
+					},
+				}
+			}
+			proxyLog.Debug("request for type url %s", req.TypeUrl)
+			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
+				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
+				return err
+			}
+
 		case resp, ok := <-responsesChan:
 			if !ok {
 				return nil
@@ -260,7 +287,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				// queue the next nds request. This wont block most likely as we are the only
 				// users of this channel, compared to the requestChan that could be populated with
 				// request from envoy
-				directRequestsChan <- &discovery.DiscoveryRequest{
+				ndsRequestChan <- &discovery.DiscoveryRequest{
 					VersionInfo:   resp.VersionInfo,
 					TypeUrl:       v3.NameTableType,
 					ResponseNonce: resp.Nonce,

@@ -17,14 +17,15 @@ package health
 import (
 	"crypto/tls"
 	"fmt"
-	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/pkg/log"
 	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"time"
+
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/pkg/log"
 )
 
 var healthCheckLog = log.RegisterScope("healthcheck", "Health Checks performed by Istio-Agent", 0)
@@ -118,12 +119,12 @@ func (e *ExecProber) Probe(timeout time.Duration) (bool, error) {
 
 	// wait on another channel
 	done := make(chan error)
-	go func() { done <- cmd.Wait()}()
+	go func() { done <- cmd.Wait() }()
 	// start timeout timer
 	timeoutTimer := time.After(timeout)
 
 	select {
-	case <- timeoutTimer:
+	case <-timeoutTimer:
 		// timeout exceeded counts as unhealthy, return nil err
 		return false, nil
 	case err := <-done:

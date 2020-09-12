@@ -15,11 +15,9 @@
 package health
 
 import (
-	"istio.io/api/networking/v1alpha3"
 	"time"
 
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/genproto/googleapis/rpc/status"
+	"istio.io/api/networking/v1alpha3"
 )
 
 const (
@@ -40,14 +38,20 @@ type applicationHealthCheckConfig struct {
 	FailThresh     int
 }
 
+type HealthEvent struct {
+	Healthy          bool
+	UnhealthyStatus  int32
+	UnhealthyMessage string
+}
+
 func NewWorkloadHealthChecker(cfg v1alpha3.ReadinessProbe, prober Prober) *WorkloadHealthChecker {
 	return &WorkloadHealthChecker{
 		config: applicationHealthCheckConfig{
-			InitialDelay: time.Duration(cfg.InitialDelaySeconds) * time.Second,
-			ProbeTimeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
+			InitialDelay:   time.Duration(cfg.InitialDelaySeconds) * time.Second,
+			ProbeTimeout:   time.Duration(cfg.TimeoutSeconds) * time.Second,
 			CheckFrequency: time.Duration(cfg.PeriodSeconds) * time.Second,
-			SuccessThresh: int(cfg.SuccessThreshold),
-			FailThresh: int(cfg.FailureThreshold),
+			SuccessThresh:  int(cfg.SuccessThreshold),
+			FailThresh:     int(cfg.FailureThreshold),
 		},
 		prober: prober,
 	}
@@ -57,7 +61,8 @@ func NewWorkloadHealthChecker(cfg v1alpha3.ReadinessProbe, prober Prober) *Workl
 // Designed to run async.
 // TODO:
 // 	- Add channel param for quit (better error handling as well)
-func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *discovery.DiscoveryRequest) {
+func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *HealthEvent) {
+	defer close(notifyHealthChange)
 	// delay before starting probes.
 	time.Sleep(w.config.InitialDelay)
 
@@ -78,7 +83,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 			numSuccess++
 			// if we reached the threshold, mark the target as healthy
 			if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
-				notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
+				notifyHealthChange <- &HealthEvent{Healthy: true}
 				numSuccess = 0
 				numFail = 0
 				lastStateHealthy = true
@@ -88,12 +93,10 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 			numFail++
 			// if we reached the fail threshold, mark the target as unhealthy
 			if numFail == w.config.FailThresh && lastStateHealthy {
-				notifyHealthChange <- &discovery.DiscoveryRequest{
-					TypeUrl: HealthInfoTypeURL,
-					ErrorDetail: &status.Status{
-						Code:    int32(500),
-						Message: "unhealthy",
-					},
+				notifyHealthChange <- &HealthEvent{
+					Healthy:          false,
+					UnhealthyStatus:  500,
+					UnhealthyMessage: "unhealthy",
 				}
 				numSuccess = 0
 				numFail = 0
