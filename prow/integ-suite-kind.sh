@@ -132,11 +132,13 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   export DEFAULT_CLUSTER_YAML="./prow/config/trustworthy-jwt.yaml"
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
-  time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
-  time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
-  
   # TODO: Externalize configuration (include in cluster topology configuration?)
-  if [[ "${TOPOLOGY}" != "SINGLE_CLUSTER" ]]; then
+  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
+    time setup_kind_cluster 
+  else
+    time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
+    time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
+  
     export TEST_ENV=kind-metallb
     export INTEGRATION_TEST_KUBECONFIG
     INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
