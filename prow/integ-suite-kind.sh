@@ -133,13 +133,17 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
-  time setup_kind_clusters ${NODE_IMAGE} ${IP_FAMILY}
+  time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
   
   # TODO: Externalize configuration (include in cluster topology configuration?)
   if [[ "${TOPOLOGY}" != "SINGLE_CLUSTER" ]]; then
     export TEST_ENV=kind-metallb
-    export INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
-    export KUBECONFIG=$(IFS=':'; echo "${KUBECONFIGS[*]}")
+    export INTEGRATION_TEST_KUBECONFIG
+    INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
+    
+    export KUBECONFIG
+    KUBECONFIG=$(IFS=':'; echo "${KUBECONFIGS[*]}")
+    
     export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-0,3:test-network-1,4:test-network-1"
     export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
     export INTEGRATION_TEST_CONFIG_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
