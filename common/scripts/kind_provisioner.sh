@@ -121,8 +121,8 @@ function setup_kind_cluster() {
 
   # Patch cluster configuration if IPv6 is required
   if [ "${IP_FAMILY}" = "ipv6" ]; then
-    grep 'ipFamily: ipv6' "${CLUSTER_CONFIG}" || \
-    cat <<EOF >> "${CLUSTER_CONFIG}"
+    grep 'ipFamily: ipv6' "${CLUSTER_CONFIG_YAML}" || \
+    cat <<EOF >> "${CLUSTER_CONFIG_YAML}"
 networking:
   ipFamily: ipv6
 EOF
