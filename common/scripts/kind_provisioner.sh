@@ -104,28 +104,17 @@ function cleanup_kind_cluster() {
 # 1. CLUSTER_CONFIG: KinD cluster configuration YAML file (mandatory)
 # 2. NAME: Name of the Kind cluster (optional)
 # 3. IMAGE: Node image used by KinD (optional)
-# 4. IP_FAMILY: valid values are ipv4 and ipv6.
 # This function returns 0 when everything goes well, or 1 otherwise
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
   CLUSTER_CONFIG_YAML=${1}
   NAME="${2:-istio-testing}"
   IMAGE="${3:-kindest/node:v1.18.2}"
-  IP_FAMILY="${4:-ipv4}"
 
   # Delete any previous KinD cluster
   echo "Deleting previous KinD cluster with name=${NAME}"
   if ! (kind delete cluster --name="${NAME}" -v9) > /dev/null; then
     echo "No existing kind cluster with name ${NAME}. Continue..."
-  fi
-
-  # Patch cluster configuration if IPv6 is required
-  if [ "${IP_FAMILY}" = "ipv6" ]; then
-    grep 'ipFamily: ipv6' "${CLUSTER_CONFIG_YAML}" || \
-    cat <<EOF >> "${CLUSTER_CONFIG_YAML}"
-networking:
-  ipFamily: ipv6
-EOF
   fi
 
   # explicitly disable shellcheck since we actually want $NAME to expand now
@@ -195,13 +184,14 @@ function setup_kind_clusters() {
 networking:
   podSubnet: ${CLUSTER_POD_SUBNET}
   serviceSubnet: ${CLUSTER_SVC_SUBNET}
+  ipFamily: ${IP_FAMILY}
 EOF
     fi
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
     # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_YAML}" "${CLUSTER_NAME}" "${IMAGE}" "${IP_FAMILY}"  
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_YAML}" "${CLUSTER_NAME}" "${IMAGE}"  
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
