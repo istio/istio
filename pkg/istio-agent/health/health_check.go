@@ -38,7 +38,7 @@ type applicationHealthCheckConfig struct {
 	FailThresh     int
 }
 
-type HealthEvent struct {
+type ProbeEvent struct {
 	Healthy          bool
 	UnhealthyStatus  int32
 	UnhealthyMessage string
@@ -58,10 +58,9 @@ func NewWorkloadHealthChecker(cfg v1alpha3.ReadinessProbe, prober Prober) *Workl
 }
 
 // PerformApplicationHealthCheck Performs the application-provided configuration health check.
-// Designed to run async.
-// TODO:
-// 	- Add channel param for quit (better error handling as well)
-func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *HealthEvent) {
+// Instead of a heartbeat-based health checks, we only send on a health state change, and this is
+// determined by the success & failure threshold provided by the user.
+func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *ProbeEvent) {
 	defer close(notifyHealthChange)
 	// delay before starting probes.
 	time.Sleep(w.config.InitialDelay)
@@ -75,15 +74,14 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 		// probe target
 		healthy, err := w.prober.Probe(w.config.ProbeTimeout)
 		if err != nil {
-			healthCheckLog.Error(err)
-			// todo handle error
+			healthCheckLog.Errorf("Unexpected error probing: %v", err)
 		}
 		if healthy {
 			// we were healthy, increment success counter
 			numSuccess++
 			// if we reached the threshold, mark the target as healthy
 			if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
-				notifyHealthChange <- &HealthEvent{Healthy: true}
+				notifyHealthChange <- &ProbeEvent{Healthy: true}
 				numSuccess = 0
 				numFail = 0
 				lastStateHealthy = true
@@ -93,7 +91,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 			numFail++
 			// if we reached the fail threshold, mark the target as unhealthy
 			if numFail == w.config.FailThresh && lastStateHealthy {
-				notifyHealthChange <- &HealthEvent{
+				notifyHealthChange <- &ProbeEvent{
 					Healthy:          false,
 					UnhealthyStatus:  500,
 					UnhealthyMessage: "unhealthy",

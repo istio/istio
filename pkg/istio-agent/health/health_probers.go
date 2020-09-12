@@ -32,6 +32,9 @@ var healthCheckLog = log.RegisterScope("healthcheck", "Health Checks performed b
 
 type Prober interface {
 	// Probe will healthcheck and return whether or not the target is healthy.
+	// If an error returned is not nil, it is assumed that the process could
+	// not complete, and Probe() was unable to determine whether or not the
+	// target was healthy.
 	Probe(timeout time.Duration) (bool, error)
 }
 
@@ -39,7 +42,8 @@ type HTTPProber struct {
 	Config *v1alpha3.HTTPHealthCheckConfig
 }
 
-// HttpProber_Probe will return whether or not the target is healthy (true -> healthy).
+// HttpProber_Probe will return whether or not the target is healthy (true -> healthy)
+// 	by making an HTTP Get response.
 func (h *HTTPProber) Probe(timeout time.Duration) (bool, error) {
 	client := &http.Client{
 		Timeout: timeout,
@@ -53,9 +57,10 @@ func (h *HTTPProber) Probe(timeout time.Duration) (bool, error) {
 	// transform crd into net http header
 	headers := make(http.Header)
 	for _, val := range h.Config.HttpHeaders {
+		// net.httpHeaders value is a []string but uses only index 0
 		headers[val.Name] = []string{val.Value}
 	}
-	// scheme://ip:port/path
+	// GET scheme://ip:port/path
 	targetURL, err := url.Parse(fmt.Sprintf("%s://localhost:%v/%s", h.Config.Scheme, h.Config.Port, h.Config.Path))
 	if err != nil {
 		healthCheckLog.Errorf("unable to parse url: %v", err)
@@ -129,7 +134,14 @@ func (e *ExecProber) Probe(timeout time.Duration) (bool, error) {
 		return false, nil
 	case err := <-done:
 		// extract exit status, log and return
+		if err == nil {
+			return true, nil
+		}
 		if exitError, ok := err.(*exec.ExitError); ok {
+			if exitError.ExitCode() == 0 {
+				// exited successfully
+				return true, nil
+			}
 			healthCheckLog.Infof("Command %v exited with non-zero status %v", cmd.String(), exitError.ExitCode())
 			return false, nil
 		}
