@@ -30,14 +30,10 @@ import (
 	"strings"
 	"time"
 
-	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
-
-	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/istio-agent/health"
-
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/oauth2"
+	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
@@ -47,10 +43,12 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
