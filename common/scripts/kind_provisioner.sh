@@ -180,12 +180,18 @@ function setup_kind_clusters() {
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     if [ ! -f "${CLUSTER_YAML}" ]; then
       cp "${DEFAULT_CLUSTER_YAML}" "${CLUSTER_YAML}"
-      cat <<EOF >> "${CLUSTER_YAML}"
+      if [[ "${IP_FAMILY}" == 'ipv4' ]]; then
+        cat <<EOF >> "${CLUSTER_YAML}"
 networking:
   podSubnet: ${CLUSTER_POD_SUBNET}
   serviceSubnet: ${CLUSTER_SVC_SUBNET}
+EOF
+      else
+        cat <<EOF >> "${CLUSTER_YAML}"
+networking:
   ipFamily: ${IP_FAMILY}
 EOF
+      fi
     fi
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
