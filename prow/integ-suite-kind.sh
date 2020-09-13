@@ -149,7 +149,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
       
       CONTROLPLANE_TOPOLOGIES+=("$i:$CONTROLPLANE_INDEX")
       CONFIG_TOPOLOGIES+=("$i:$CONFIG_INDEX")
-      NETWORK_TOPOLOGIES+=("$i:${CLUSTER_NETWORK_ID[$i]}")
+      NETWORK_TOPOLOGIES+=("$i:test-network-${CLUSTER_NETWORK_ID[$i]}")
     done
 
     export INTEGRATION_TEST_NETWORKS
