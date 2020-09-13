@@ -107,6 +107,10 @@ spec:
                               maxRetries:
                                 format: int32
                                 type: integer
+                              useClientProtocol:
+                                description: If set to true, client protocol will
+                                  be preserved while initiating connection to backend.
+                                type: boolean
                             type: object
                           tcp:
                             description: Settings common to both HTTP and TCP upstream
@@ -338,6 +342,11 @@ spec:
                                     maxRetries:
                                       format: int32
                                       type: integer
+                                    useClientProtocol:
+                                      description: If set to true, client protocol
+                                        will be preserved while initiating connection
+                                        to backend.
+                                      type: boolean
                                   type: object
                                 tcp:
                                   description: Settings common to both HTTP and TCP
@@ -651,6 +660,10 @@ spec:
                         maxRetries:
                           format: int32
                           type: integer
+                        useClientProtocol:
+                          description: If set to true, client protocol will be preserved
+                            while initiating connection to backend.
+                          type: boolean
                       type: object
                     tcp:
                       description: Settings common to both HTTP and TCP upstream connections.
@@ -878,6 +891,10 @@ spec:
                               maxRetries:
                                 format: int32
                                 type: integer
+                              useClientProtocol:
+                                description: If set to true, client protocol will
+                                  be preserved while initiating connection to backend.
+                                type: boolean
                             type: object
                           tcp:
                             description: Settings common to both HTTP and TCP upstream
