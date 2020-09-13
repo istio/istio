@@ -122,33 +122,43 @@ export CI="true"
 make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-      CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/single.json'
-  else
-      CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/multicluster.json'
-  fi
-
   export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
   export DEFAULT_CLUSTER_YAML="./prow/config/trustworthy-jwt.yaml"
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
-  # TODO: Externalize configuration (include in cluster topology configuration?)
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
     time setup_kind_cluster 
   else
+    CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/multicluster.json'
     time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
-  
+
     export TEST_ENV=kind-metallb
     export INTEGRATION_TEST_KUBECONFIG
     INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
-    
-    # export KUBECONFIG
-    # KUBECONFIG=$(IFS=':'; echo "${KUBECONFIGS[*]}")
-    
-    export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-0,3:test-network-1,4:test-network-1"
-    export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
-    export INTEGRATION_TEST_CONFIG_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
+
+    ITER_END=$((NUM_CLUSTERS-1))
+    declare -a CONTROLPLANE_TOPOLOGIES
+    declare -a CONFIG_TOPOLOGIES
+    declare -a NETWORK_TOPOLOGIES
+
+    for i in $(seq 0 $ITER_END); do
+      CLUSTER_ITEM=$(jq -r ".[$i]" "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+      CONTROLPLANE_INDEX=$(echo "$CLUSTER_ITEM" | jq -r '.control_plane_index')
+      CONFIG_INDEX=$(echo "$CLUSTER_ITEM" | jq -r '.config_index')
+      
+      CONTROLPLANE_TOPOLOGIES+=("$i:$CONTROLPLANE_INDEX")
+      CONFIG_TOPOLOGIES+=("$i:$CONFIG_INDEX")
+      NETWORK_TOPOLOGIES+=("$i:${CLUSTER_NETWORK_ID[$i]}")
+    done
+
+    export INTEGRATION_TEST_NETWORKS
+    export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY
+    export INTEGRATION_TEST_CONFIG_TOPOLOGY
+
+    INTEGRATION_TEST_NETWORKS=$(IFS=','; echo "${NETWORK_TOPOLOGIES[*]}")
+    INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY=$(IFS=','; echo "${CONTROLPLANE_TOPOLOGIES[*]}")
+    INTEGRATION_TEST_CONFIG_TOPOLOGY=$(IFS=','; echo "${CONFIG_TOPOLOGIES[*]}")
   fi
 fi
 
