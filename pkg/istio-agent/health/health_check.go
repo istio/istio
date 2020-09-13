@@ -60,7 +60,7 @@ func NewWorkloadHealthChecker(cfg v1alpha3.ReadinessProbe, prober Prober) *Workl
 // PerformApplicationHealthCheck Performs the application-provided configuration health check.
 // Instead of a heartbeat-based health checks, we only send on a health state change, and this is
 // determined by the success & failure threshold provided by the user.
-func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *ProbeEvent) {
+func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *ProbeEvent, quit chan struct{}) {
 	defer close(notifyHealthChange)
 	// delay before starting probes.
 	time.Sleep(w.config.InitialDelay)
@@ -70,35 +70,42 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 	// if the last send/event was a success, this is true, by default false because we want to
 	// first send a healthy message.
 	lastStateHealthy := false
+
+	periodTicker := time.NewTicker(w.config.CheckFrequency)
 	for {
-		// probe target
-		healthy, err := w.prober.Probe(w.config.ProbeTimeout)
-		if err != nil {
-			healthCheckLog.Errorf("Unexpected error probing: %v", err)
-		}
-		if healthy {
-			// we were healthy, increment success counter
-			numSuccess++
-			// if we reached the threshold, mark the target as healthy
-			if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
-				notifyHealthChange <- &ProbeEvent{Healthy: true}
-				numSuccess = 0
-				numFail = 0
-				lastStateHealthy = true
+		select {
+		case <-quit:
+			return
+		case <-periodTicker.C:
+			// probe target
+			healthy, err := w.prober.Probe(w.config.ProbeTimeout)
+			if err != nil {
+				healthCheckLog.Errorf("Unexpected error probing: %v", err)
 			}
-		} else {
-			// we were not healthy, increment fail counter
-			numFail++
-			// if we reached the fail threshold, mark the target as unhealthy
-			if numFail == w.config.FailThresh && lastStateHealthy {
-				notifyHealthChange <- &ProbeEvent{
-					Healthy:          false,
-					UnhealthyStatus:  500,
-					UnhealthyMessage: "unhealthy",
+			if healthy {
+				// we were healthy, increment success counter
+				numSuccess++
+				// if we reached the threshold, mark the target as healthy
+				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
+					notifyHealthChange <- &ProbeEvent{Healthy: true}
+					numSuccess = 0
+					numFail = 0
+					lastStateHealthy = true
 				}
-				numSuccess = 0
-				numFail = 0
-				lastStateHealthy = false
+			} else {
+				// we were not healthy, increment fail counter
+				numFail++
+				// if we reached the fail threshold, mark the target as unhealthy
+				if numFail == w.config.FailThresh && lastStateHealthy {
+					notifyHealthChange <- &ProbeEvent{
+						Healthy:          false,
+						UnhealthyStatus:  500,
+						UnhealthyMessage: "unhealthy",
+					}
+					numSuccess = 0
+					numFail = 0
+					lastStateHealthy = false
+				}
 			}
 		}
 	}
