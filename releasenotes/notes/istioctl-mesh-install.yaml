@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Deprecated** `istioctl manifest install` command is deprecated and will be removed in Istio 1.9. Use `istioctl install` instead.
