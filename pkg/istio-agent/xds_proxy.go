@@ -134,7 +134,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
 
 	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
-	fmt.Println("Connected to upstream....")
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		return err
