@@ -63,7 +63,7 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 	protoHeaders := []*proto.Header{
 		{
 			Key:   "Host",
-			Value: targetHost,
+			Value: opts.HostHeader,
 		},
 	}
 	// Add headers in opts.Headers, e.g., authorization header, etc.
@@ -150,6 +150,11 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 	if opts.Host == "" {
 		// No host specified, use the fully qualified domain name for the service.
 		opts.Host = opts.Target.Config().FQDN()
+	}
+
+	if opts.HostHeader == "" {
+		// No host specified, use the hostname for the service.
+		opts.HostHeader = opts.Target.Config().HostHeader()
 	}
 
 	if opts.Timeout <= 0 {

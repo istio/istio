@@ -954,7 +954,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push,
+			got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push, tt.args.push.EnvoyFilters(tt.args.proxy),
 				tt.args.listeners, tt.args.skipAdds)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
@@ -1041,7 +1041,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		copied := proto.Clone(l)
-		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarProxy, push,
+		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarProxy, push, push.EnvoyFilters(sidecarProxy),
 			[]*listener.Listener{copied.(*listener.Listener)}, false)
 	}
 	_ = got

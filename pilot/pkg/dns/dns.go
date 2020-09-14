@@ -45,10 +45,20 @@ type LocalDNSServer struct {
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
 type LookupTable struct {
+	// This table will be first looked up to see if the host is something that we got a Nametable entry for
+	// (i.e. came from istiod's service registry). If it is, then we will be able to confidently return
+	// NXDOMAIN errors for AAAA records for such hosts when only A records exist (or vice versa). If the
+	// host does not exist in this map, then we will return nil, causing the caller to query the upstream
+	// DNS server to resolve the host. Without this map, we would end up making unnecessary upstream DNS queries
+	// for hosts that will never resolve (e.g., AAAA for svc1.ns1.svc.cluster.local.svc.cluster.local.)
+	allHosts map[string]struct{}
+
 	// The key is a FQDN matching a DNS query (like example.com.), the value is pre-created DNS RR records
 	// of A or AAAA type as appropriate.
 	name4 map[string][]dns.RR
 	name6 map[string][]dns.RR
+	// The cname records here (comprised of different variants of the hosts above,
+	// expanded by the search namespaces) pointing to the actual host.
 	cname map[string][]dns.RR
 }
 
@@ -114,20 +124,21 @@ func (h *LocalDNSServer) StartDNS() {
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 	lookupTable := &LookupTable{
-		name4: map[string][]dns.RR{},
-		name6: map[string][]dns.RR{},
-		cname: map[string][]dns.RR{},
+		allHosts: map[string]struct{}{},
+		name4:    map[string][]dns.RR{},
+		name6:    map[string][]dns.RR{},
+		cname:    map[string][]dns.RR{},
 	}
 	for host, ni := range nt.Table {
 		// Given a host
 		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
 		// if its a k8s host, store all variants (i.e. shortname+., shortname+namespace+., fqdn+., etc.)
 		// shortname+. is only for hosts in current namespace
-		var altHosts []string
+		var altHosts map[string]struct{}
 		if ni.Registry == "Kubernetes" {
 			altHosts = generateAltHosts(host, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
-			altHosts = []string{host + "."}
+			altHosts = map[string]struct{}{host + ".": {}}
 		}
 		ipv4, ipv6 := separateIPtypes(ni.Ips)
 		if len(ipv6) == 0 && len(ipv4) == 0 {
@@ -164,20 +175,20 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 
 		// This name will always end in a dot
 		hostname := strings.ToLower(req.Question[0].Name)
+		answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)
 
-		switch req.Question[0].Qtype {
-		case dns.TypeA:
-			answers = lookupTable.lookupHostIPv4(hostname)
-		case dns.TypeAAAA:
-			answers = lookupTable.lookupHostIPv6(hostname)
-			// TODO: handle PTR records for reverse dns lookups
-		}
-
-		if len(answers) > 0 {
+		if hostFound {
 			response = new(dns.Msg)
 			response.SetReply(req)
 			response.Answer = answers
+			if len(answers) == 0 {
+				// we found the host in our pre-compiled list of known hosts but
+				// there was no valid record for this query type.
+				// so return NXDOMAIN
+				response.Rcode = dns.RcodeNameError
+			}
 		} else {
+			// We did not find the host in our internal cache. Query upstream and return the response as is.
 			response = h.queryUpstream(proxy.upstreamClient, req)
 		}
 	}
@@ -224,40 +235,66 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 }
 
 func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNamespace, proxyDomain string,
-	proxyDomainParts []string) []string {
-	out := make([]string, 0)
-	out = append(out, hostname+".")
+	proxyDomainParts []string) map[string]struct{} {
+	out := make(map[string]struct{})
+	out[hostname+"."] = struct{}{}
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
 	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains
 	if proxyDomain == "" || !strings.HasSuffix(hostname, proxyDomain) {
 		return out
 	}
-	out = append(out, nameinfo.Shortname+"."+nameinfo.Namespace+".")
+	out[nameinfo.Shortname+"."+nameinfo.Namespace+"."] = struct{}{}
 	if proxyNamespace == nameinfo.Namespace {
-		out = append(out, nameinfo.Shortname+".")
+		out[nameinfo.Shortname+"."] = struct{}{}
 	}
 	// Do we need to generate entries for name.namespace.svc, name.namespace.svc.cluster, etc. ?
 	// If these are not that frequently used, then not doing so here will save some space and time
 	// as some people have very long proxy domains with multiple dots
 	// For now, we will generate just one more domain (which is usually the .svc piece).
-	out = append(out, nameinfo.Shortname+"."+nameinfo.Namespace+"."+proxyDomainParts[0]+".")
+	out[nameinfo.Shortname+"."+nameinfo.Namespace+"."+proxyDomainParts[0]+"."] = struct{}{}
 	return out
 }
 
-func (table *LookupTable) lookupHostIPv4(host string) []dns.RR {
-	ans := table.name4[host]
-	if len(ans) == 0 {
-		ans = table.cname[host]
+// Given a host, this function first decides if the host is part of our service registry.
+// If it is not part of the registry, return nil so that caller queries upstream. If it is part
+// of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
+func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
+	var hostFound bool
+	if _, hostFound = table.allHosts[hostname]; !hostFound {
+		// this is not from our registry
+		return nil, false
 	}
-	return ans
-}
 
-func (table *LookupTable) lookupHostIPv6(host string) []dns.RR {
-	ans := table.name6[host]
-	if len(ans) == 0 {
-		ans = table.cname[host]
+	var out []dns.RR
+	// Odds are, the first query will always be an expanded hostname
+	// (productpage.ns1.svc.cluster.local.ns1.svc.cluster.local)
+	// So lookup the cname table first
+	cn := table.cname[hostname]
+	if len(cn) > 0 {
+		// this was a cname match
+		hostname = cn[0].(*dns.CNAME).Target
 	}
-	return ans
+	var ipAnswers []dns.RR
+	switch qtype {
+	case dns.TypeA:
+		ipAnswers = table.name4[hostname]
+	case dns.TypeAAAA:
+		ipAnswers = table.name6[hostname]
+	default:
+		// TODO: handle PTR records for reverse dns lookups
+		return nil, false
+	}
+
+	if len(ipAnswers) > 0 {
+		// We will return a chained response. In a chained response, the first entry is the cname record,
+		// and the second one is the A/AAAA record itself. Some clients do not follow cname redirects
+		// with additional DNS queries. Instead, they expect all the resolved records to be in the same
+		// big DNS response (presumably assuming that a recursive DNS query should do the deed, resolve
+		// cname et al and return the composite response).
+		out = append(out, cn...)
+		out = append(out, ipAnswers...)
+	}
+	return out, hostFound
 }
 
 // This function stores the list of hostnames along with the precomputed DNS response for that hostname.
@@ -273,10 +310,11 @@ func (table *LookupTable) lookupHostIPv6(host string) []dns.RR {
 // Autopath does inline computation to see if the given query could potentially match something else
 // and then returns a CNAME record. In our case, we preemptively store these random dns names as a host
 // in the lookup table with a CNAME record as the DNS response. This technique eliminates the need
-// to do string parsing, memory allocations, etc. at query time at the cost of 2x number of entries (i.e. memory) to store
-// the lookup table.
-func (table *LookupTable) buildDNSAnswers(altHosts []string, ipv4 []net.IP, ipv6 []net.IP, searchNamespaces []string) {
-	for _, h := range altHosts {
+// to do string parsing, memory allocations, etc. at query time at the cost of Nx number of entries (i.e. memory) to store
+// the lookup table, where N is number of search namespaces.
+func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, searchNamespaces []string) {
+	for h := range altHosts {
+		table.allHosts[h] = struct{}{}
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, ipv4)
 		}
@@ -284,10 +322,21 @@ func (table *LookupTable) buildDNSAnswers(altHosts []string, ipv4 []net.IP, ipv6
 			table.name6[h] = aaaa(h, ipv6)
 		}
 		if len(searchNamespaces) > 0 {
+			// NOTE: Right now, rather than storing one expanded host for each one of the search namespace
+			// entries, we are going to store just the first one (assuming that most clients will
+			// do sequential dns resolution, starting with the first search namespace)
+
 			// host h already ends with a .
 			// search namespace does not. So we append one in the end
-			randomHost := h + searchNamespaces[0] + "."
-			table.cname[randomHost] = cname(randomHost, h)
+			expandedHost := h + searchNamespaces[0] + "."
+			// make sure this is not a proper hostname
+			// if host is productpage, and search namespace is ns1.svc.cluster.local
+			// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname
+			// that is likely to be already present in the altHosts
+			if _, exists := altHosts[expandedHost]; !exists {
+				table.cname[expandedHost] = cname(expandedHost, h)
+				table.allHosts[expandedHost] = struct{}{}
+			}
 		}
 	}
 }

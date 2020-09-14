@@ -104,8 +104,12 @@ func TestMirroring(t *testing.T) {
 // Thus when "a" tries to mirror to the external service, it is actually connecting to "external" (which is not part of the
 // mesh because of the Sidecar), then we can inspect "external" logs to verify the requests were properly mirrored.
 func TestMirroringExternalService(t *testing.T) {
+	header := ""
+	if len(apps.External) > 0 {
+		header = apps.External[0].Config().HostHeader()
+	}
 	runMirrorTest(t, mirrorTestOptions{
-		mirrorHost: apps.ExternalHost,
+		mirrorHost: header,
 		cases: []testCaseMirror{
 			{
 				name:                "mirror-external",
