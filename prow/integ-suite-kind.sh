@@ -35,6 +35,7 @@ source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 TOPOLOGY=SINGLE_CLUSTER
+CLUSTER_NUMBER=1
 
 PARAMS=()
 
@@ -62,6 +63,10 @@ while (( "$#" )); do
       MANUAL=true
       shift
     ;;
+    --cluster-number)
+      CLUSTER_NUMBER=$2
+      shift 2
+    ;;
     --topology)
       case $2 in
         # TODO(landow) get rid of MULTICLUSTER_SINGLE_NETWORK after updating Prow job
@@ -86,6 +91,11 @@ while (( "$#" )); do
       ;;
   esac
 done
+
+if [ "${TOPOLOGY}" == "SINGLE_CLUSTER" ] && [ "${CLUSTER_NUMBER}" -gt 1 ]; then
+  echo "Error: Unsupport to specify more than 1 as cluster_number when topology is CLUSTER_NUMBER" >&2
+  exit 1
+fi
 
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
@@ -122,12 +132,10 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
   else
     # TODO: Support IPv6 multicluster
-    time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
+    time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}" "${CLUSTER_NUMBER}"
 
     # KinD will have a LoadBalancer for multicluster
     export TEST_ENV=kind-metallb
-    # Set the kube configs to point to the clusters.
-    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG},${CLUSTER4_KUBECONFIG},${CLUSTER5_KUBECONFIG}"
     # 3 clusters on one network, 2 on the other
     export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-0,3:test-network-1,4:test-network-1"
     # Cluster 0, 1 and 4 share cluster 0's control plane
