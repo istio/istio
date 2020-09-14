@@ -30,7 +30,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 		PeriodSeconds:       1,
 		SuccessThreshold:    1,
 		FailureThreshold:    1,
-		HealthCheckMethod:   &v1alpha3.ReadinessProbe_TcpSocket{
+		HealthCheckMethod: &v1alpha3.ReadinessProbe_TcpSocket{
 			TcpSocket: &v1alpha3.TCPHealthCheckConfig{
 				Host: "localhost",
 				Port: 5991,
