@@ -730,7 +730,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 }
 
 // Generate a root certificate item from the passed in rootCertPath
-func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*model.SecretItem, error) {
+func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey, workload bool) (*model.SecretItem, error) {
 	rootCert, err := ioutil.ReadFile(rootCertPath)
 	if err != nil {
 		return nil, err
@@ -743,8 +743,10 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 		return nil, fmt.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
 	}
 
-	// Set the rootCert
-	sc.setRootCert(rootCert, certExpireTime)
+	// Set the rootCert only if it is workload root cert.
+	if workload {
+		sc.setRootCert(rootCert, certExpireTime)
+	}
 	return &model.SecretItem{
 		ResourceName: connKey.ResourceName,
 		RootCert:     rootCert,
@@ -798,7 +800,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	// Default root certificate.
 	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
 		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey)
+		ns, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey, true)
 		sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
 	// Default workload certificate.
 	case connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExist(sc.existingCertChainFile, sc.existingKeyFile):
@@ -814,7 +816,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 		switch {
 		case ok && cfg.IsRootCertificate() && sc.rootCertificateExist(cfg.CaCertificatePath):
 			sdsFromFile = true
-			ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey)
+			ns, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey, false)
 			sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
 		case ok && cfg.IsKeyCertificate() && sc.keyCertificateExist(cfg.CertificatePath, cfg.PrivateKeyPath):
 			sdsFromFile = true
