@@ -302,13 +302,14 @@ spec:
 // Todo merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	// TODO add VMs to clients when DNS works for VMs.
+	// TODO add VMs to clients when DNS works for VMs. Blocked by https://github.com/istio/istio/issues/27154
 	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
 		for _, client := range clients {
 
 			destinationSets := []echo.Instances{
 				apps.PodA,
 				apps.VM,
+				apps.External,
 				// only hit same network naked services
 				apps.Naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
 				// only hit same cluster headless services
@@ -348,10 +349,22 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 					cases = append(cases, TrafficTestCase{
 						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
 						call: func() (echoclient.ParsedResponses, error) {
-							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount, Timeout: time.Second * 5})
+							return client.Call(echo.CallOptions{
+								Target:   destination,
+								PortName: call.port,
+								Scheme:   call.scheme,
+								Count:    callCount,
+								Timeout:  time.Second * 5,
+							})
 						},
 						validator: func(responses echoclient.ParsedResponses) error {
-							return responses.CheckOK()
+							if err := responses.CheckOK(); err != nil {
+								return err
+							}
+							if err := responses.CheckHost(destination.Config().HostHeader()); err != nil {
+								return err
+							}
+							return nil
 						},
 					})
 				}
