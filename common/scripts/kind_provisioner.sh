@@ -225,7 +225,7 @@ EOF
 
   # Install MetalLB for LoadBalancer support. Must be done synchronously since METALLB_IPS is shared.
   # and keep track of the list of Kubeconfig files that will be exported later
-  declare -a KUBECONFIGS
+  export KUBECONFIGS
   for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
     KUBECONFIG_FILE="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
     if [[ ${NUM_CLUSTERS} -gt 1 ]]; then
