@@ -82,6 +82,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		return net.TCPAddr{}, err
 	}
 	if !i.environment.IsConfigCluster(cp) {
+		// TODO ingress will probably run in the Config cluster, not in the cluster with the external control plane
 		address, err := retry.Do(func() (interface{}, bool, error) {
 			return getRemoteServiceAddress(i.environment.Settings(), cluster, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
@@ -91,7 +92,24 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		}
 		addr = address.(net.TCPAddr)
 	} else {
-		addr = i.CustomIngressFor(cp, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
+		svcName, label := "", ""
+		svcs, err := cluster.CoreV1().Services(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{})
+		if err != nil {
+			return addr, err
+		}
+		for _, svc := range svcs.Items {
+			// prefer east-west
+			if svc.Name == eastWestIngressServiceName {
+				svcName, label = eastWestIngressServiceName, eastWestIngressIstioLabel
+				break
+			}
+			// fallback to default
+			if svc.Name == defaultIngressServiceName {
+				svcName, label = defaultIngressServiceName, defaultIngressIstioLabel
+			}
+		}
+		addr = i.CustomIngressFor(cp, svcName, label).DiscoveryAddress()
+
 	}
 	if addr.IP.String() == "<nil>" {
 		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())
