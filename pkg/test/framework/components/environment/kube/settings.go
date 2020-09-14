@@ -17,6 +17,7 @@ package kube
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/test/scopes"
 
 	"k8s.io/client-go/rest"
 
@@ -67,7 +68,9 @@ type SetupSettingsFunc func(s *Settings, ctx resource.Context)
 // Setup is a setup function that allows overriding values in the Kube environment settings.
 func Setup(sfn SetupSettingsFunc) resource.SetupFn {
 	return func(ctx resource.Context) error {
-		sfn(ctx.Environment().(*Environment).s, ctx)
+		s := ctx.Environment().(*Environment).s
+		sfn(s, ctx)
+		scopes.Framework.Infof("Overridden Kubernetes environment Settings:\n%s", s.String())
 		return nil
 	}
 }

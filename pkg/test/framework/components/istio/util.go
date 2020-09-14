@@ -82,7 +82,12 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		return net.TCPAddr{}, err
 	}
 	if !i.environment.IsConfigCluster(cp) {
-		// TODO ingress will probably run in the Config cluster, not in the cluster with the external control plane
+		cfg, err := i.environment.GetConfigCluster(cp)
+		if err != nil {
+			return addr, err
+		}
+		scopes.Framework.Infof("%s has %s as control plane which has %s as config cluster.", cluster.Name(), cp.Name(), cfg.Name())
+		// for the scenario where we don't run with the control-plane and istiod is exposed as a LoadBalancer service
 		address, err := retry.Do(func() (interface{}, bool, error) {
 			return getRemoteServiceAddress(i.environment.Settings(), cluster, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
