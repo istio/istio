@@ -203,7 +203,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		}
 	}()
 
-	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, p.stopChan)
+	//go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, p.stopChan)
 
 	for {
 		select {

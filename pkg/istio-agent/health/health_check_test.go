@@ -54,7 +54,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
 	// wait for go-ahead for state change
 	go func() {
-		for i := 0; i < 6; i++ {
+		for i := 0; i < len(healthStatuses); i++ {
 			if healthStatuses[i] {
 				// open port until we get confirmation that
 				srv, _ := net.Listen("tcp", "localhost:5991")
@@ -73,7 +73,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
 	go tcpHealthChecker.PerformApplicationHealthCheck(tcpHealthChan, quitChan)
 
-	for c := 0; c < 6; c++ {
+	for c := 0; c < len(expectedEvents); c++ {
 		probeEvent := <-tcpHealthChan
 		finishedEventRequest.Done()
 		if probeEvent.Healthy != expectedEvents[c].Healthy {
