@@ -1,4 +1,4 @@
-//  Copyright 2020 Istio Authors
+// +build integ
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -111,6 +111,12 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
+
+	err = setupEnvoyFilter(ctx)
+	if err != nil {
+		return
+	}
+
 	// Wait for redis and ratelimit service to be up.
 	fetchFn := kube.NewPodFetch(ctx.Clusters().Default(), ratelimitNs.Name(), "app=redis")
 	if _, err = kube.WaitUntilPodsAreReady(fetchFn); err != nil {
@@ -121,13 +127,8 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = setupEnvoyFilter(ctx)
-	if err != nil {
-		return
-	}
-
 	// For envoy filter changes to sync.
-	time.Sleep(time.Second * 15)
+	time.Sleep(time.Second * 60)
 
 	return nil
 }

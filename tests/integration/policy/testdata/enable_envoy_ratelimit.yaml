@@ -4,6 +4,9 @@ metadata:
   name: filter-ratelimit
   namespace: istio-system
 spec:
+  workloadSelector:
+    labels:
+      app: clt
   configPatches:
     # The Envoy config you want to modify
     - applyTo: HTTP_FILTER
@@ -18,9 +21,9 @@ spec:
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.ratelimit
+          name: envoy.filters.http.ratelimit
           typed_config:
-            "@type": type.googleapis.com/envoy.config.filter.http.rate_limit.v2.RateLimit
+            "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit
             # domain can be anything! Match it to the ratelimter service config
             domain: echo-ratelimit
             failure_mode_deny: true
@@ -58,6 +61,9 @@ metadata:
   name: filter-ratelimit-svc
   namespace: istio-system
 spec:
+  workloadSelector:
+    labels:
+      app: clt
   configPatches:
     - applyTo: VIRTUAL_HOST
       match:
