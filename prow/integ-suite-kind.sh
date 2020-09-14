@@ -91,8 +91,8 @@ while (( "$#" )); do
   esac
 done
 
-if [ "${TOPOLOGY}" == "SINGLE_CLUSTER" ] && [ "${CLUSTER_NUMBER}" -gt 1 ]; then
-  echo "Error: Unsupport to specify more than 1 as cluster_number when topology is CLUSTER_NUMBER" >&2
+if [ "${TOPOLOGY}" == "SINGLE_CLUSTER" ] && [ -z "${CLUSTER_NUMBER:-}" ]; then
+  echo "Error: Unsupport to specify  cluster_number when topology is SINGLE_CLUSTER" >&2
   exit 1
 fi
 
