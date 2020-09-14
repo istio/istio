@@ -19,7 +19,8 @@ export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16 10.40.0.0/16 
 export CLUSTER_SVC_SUBNETS=(10.255.10.0/24 10.255.20.0/24 10.255.30.0/24 10.255.40.0/24 10.255.50.0/24)
 
 export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
-
+declare -a CLUSTER_NAMES
+declare -a KUBECONFIGS
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
     gcloud auth configure-docker -q
@@ -177,17 +178,15 @@ function setup_kind_clusters() {
 
   KUBECONFIG_DIR="$(mktemp -d)"
  # Export variables for the clusters.
-  CLUSTER_NAMES=()
-  KUBECONFIGS=()
   INTEGRATION_TEST_KUBECONFIG=""
   for i in $(seq 1 "${CLUSTER_NUMBER}"); do
     export CLUSTER"${i}"_NAME=cluster"${i}"
     name=$(eval echo \$CLUSTER"${i}"_NAME)
-    CLUSTER_NAMES+=( "${name}")
+    CLUSTER_NAMES["${i}"]="${name}"
     pathsep="/"
     export CLUSTER"${i}"_KUBECONFIG="${KUBECONFIG_DIR}""${pathsep}""${name}"
     kubeconfig=$(eval echo \$CLUSTER"${i}"_KUBECONFIG)
-    KUBECONFIGS+=( "${kubeconfig}")
+    KUBECONFIGS["${i}"]="${kubeconfig}"
     sep=","
     INTEGRATION_TEST_KUBECONFIG+=${kubeconfig}${sep}
   done
