@@ -99,7 +99,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		fileWatcher:    newFileWatcher(),
 		stopChan:       make(chan struct{}),
 		resetChan:      make(chan struct{}),
-		//healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe),
+		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe),
 	}
 
 	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
@@ -191,7 +191,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		}
 	}()
 
-	//go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, p.stopChan)
+	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, p.stopChan)
 
 	for {
 		select {
