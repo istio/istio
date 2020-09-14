@@ -100,6 +100,12 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
   istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
 `,
 		Args: cobra.ExactArgs(0),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if iArgs.revision == "" && cmd.PersistentFlags().Changed("revision") {
+				return fmt.Errorf("empty revision specified")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runApplyCmd(cmd, rootArgs, iArgs, logOpts)
 		}}
@@ -110,9 +116,6 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 }
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
-	if iArgs.revision == "" && cmd.PersistentFlags().Changed("revision") {
-		return fmt.Errorf("empty revision specified")
-	}
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
