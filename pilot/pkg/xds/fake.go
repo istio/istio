@@ -65,7 +65,7 @@ type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
 	t         test.Failer
 	Discovery *DiscoveryServer
-	listener  *bufconn.Listener
+	Listener  *bufconn.Listener
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -164,7 +164,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	fake := &FakeDiscoveryServer{
 		t:             t,
 		Discovery:     s,
-		listener:      listener,
+		Listener:      listener,
 		ConfigGenTest: cg,
 	}
 
@@ -184,7 +184,7 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.listener.Dial()
+		return f.Listener.Dial()
 	}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
@@ -220,7 +220,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		Namespace: p.ConfigNamespace,
 		Watch:     watch,
 		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return f.listener.Dial()
+			return f.Listener.Dial()
 		}),
 			grpc.WithInsecure()},
 	})
