@@ -5,4 +5,5 @@ issue:
   - 27293
 releaseNotes:
   - |
-    **Fixed** Do not apply locality load balancer settings for inbound clusters.
+    **Fixed** a bug that locality load balancer settings were applied inbound clusters unnecessarily.
+.
