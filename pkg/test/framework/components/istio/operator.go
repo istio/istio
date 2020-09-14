@@ -69,7 +69,7 @@ type operatorComponent struct {
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string][]string
-	ingress         map[resource.ClusterIndex]ingress.Instance
+	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -122,15 +122,18 @@ func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instanc
 func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if _, ok := i.ingress[cluster.Index()]; !ok {
-		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
+	if i.ingress[cluster.Index()] == nil {
+		i.ingress[cluster.Index()] = map[string]ingress.Instance{}
+	}
+	if _, ok := i.ingress[cluster.Index()][istioLabel]; !ok {
+		i.ingress[cluster.Index()][istioLabel] = newIngress(i.ctx, ingressConfig{
 			Namespace:   i.settings.IngressNamespace,
 			Cluster:     cluster,
 			ServiceName: serviceName,
 			IstioLabel:  istioLabel,
 		})
 	}
-	return i.ingress[cluster.Index()]
+	return i.ingress[cluster.Index()][istioLabel]
 }
 
 func (i *operatorComponent) Close() (err error) {
@@ -165,8 +168,10 @@ func (i *operatorComponent) Close() (err error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	if i.ingress != nil {
-		for _, ing := range i.ingress {
-			ing.CloseClients()
+		for _, ings := range i.ingress {
+			for _, ii := range ings {
+				ii.CloseClients()
+			}
 		}
 	}
 	return
@@ -202,7 +207,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		settings:        cfg,
 		ctx:             ctx,
 		installManifest: map[string][]string{},
-		ingress:         map[resource.ClusterIndex]ingress.Instance{},
+		ingress:         map[resource.ClusterIndex]map[string]ingress.Instance{},
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -501,9 +506,6 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 		}
 	}
 	if i.environment.IsConfigCluster(cluster) {
-		if err := i.applyIstiodGateway(cluster); err != nil {
-			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
-		}
 		if err := waitForIstioReady(i.ctx, cluster, cfg); err != nil {
 			return err
 		}
@@ -512,6 +514,9 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	if i.ctx.Clusters().IsMulticluster() {
 		if err := i.deployEastWestGateway(cluster); err != nil {
 			return err
+		}
+		if err := i.applyIstiodGateway(cluster); err != nil {
+			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
 		}
 	}
 	return nil
