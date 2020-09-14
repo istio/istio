@@ -36,9 +36,13 @@ import (
 )
 
 const (
-	defaultIngressServiceName = "istio-ingressgateway"
 	defaultIngressIstioLabel  = "ingressgateway"
-	DefaultRequestTimeout     = 10 * time.Second
+	defaultIngressServiceName = "istio-" + defaultIngressIstioLabel
+
+	eastWestIngressIstioLabel  = "ingressgateway"
+	eastWestIngressServiceName = "istio-" + eastWestIngressIstioLabel
+
+	DefaultRequestTimeout = 10 * time.Second
 
 	proxyContainerName = "istio-proxy"
 	proxyAdminPort     = 15000
