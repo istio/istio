@@ -27,7 +27,7 @@ if [[ -z "${NETWORK:-}" ]]; then
 fi
 
 # Generate the YAML for the east-west gateway.
-istioctl manifest generate ${@} -f - <<EOF
+istioctl manifest generate "${@}" -f - <<EOF
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
