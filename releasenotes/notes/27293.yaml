@@ -6,4 +6,3 @@ issue:
 releaseNotes:
   - |
     **Fixed** a bug that locality load balancer settings were applied inbound clusters unnecessarily.
-.
