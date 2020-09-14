@@ -4,11 +4,15 @@ metadata:
   name: filter-ratelimit
   namespace: istio-system
 spec:
+  workloadSelector:
+    # select by label in the same namespace
+    labels:
+      istio: ingressgateway
   configPatches:
     # The Envoy config you want to modify
     - applyTo: HTTP_FILTER
       match:
-        context: SIDECAR_OUTBOUND
+        context: GATEWAY
         listener:
           filterChain:
             filter:
@@ -22,7 +26,7 @@ spec:
           typed_config:
             "@type": type.googleapis.com/envoy.config.filter.http.rate_limit.v2.RateLimit
             # domain can be anything! Match it to the ratelimter service config
-            domain: echo-ratelimit
+            domain: productpage-ratelimit
             failure_mode_deny: true
             rate_limit_service:
               grpc_service:
@@ -31,9 +35,8 @@ spec:
                 timeout: 10s
     - applyTo: CLUSTER
       match:
-        context: SIDECAR_OUTBOUND
         cluster:
-          service: ratelimit.{{ .RateLimitNamespace }}.svc.cluster.local
+          service: ratelimit.default.svc.cluster.local
       patch:
         operation: ADD
         value:
@@ -49,7 +52,7 @@ spec:
               - endpoint:
                   address:
                     socket_address:
-                      address: ratelimit.{{ .RateLimitNamespace }}.svc.cluster.local
+                      address: ratelimit.default.svc.cluster.local
                       port_value: 8081
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -58,13 +61,16 @@ metadata:
   name: filter-ratelimit-svc
   namespace: istio-system
 spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
   configPatches:
     - applyTo: VIRTUAL_HOST
       match:
-        context: SIDECAR_OUTBOUND
+        context: GATEWAY
         routeConfiguration:
           vhost:
-            name: "srv.{{ .EchoNamespace }}.svc.cluster.local:80"
+            name: "*:80"
             route:
               action: ANY
       patch:
