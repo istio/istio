@@ -44,13 +44,25 @@ type ProbeEvent struct {
 	UnhealthyMessage string
 }
 
-func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, prober Prober) *WorkloadHealthChecker {
+func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthChecker {
 	if cfg == nil {
 		return &WorkloadHealthChecker{
 			config: applicationHealthCheckConfig{},
 			prober: &NoOpProber{},
 		}
 	}
+	var prober Prober
+	switch healthCheckMethod := cfg.HealthCheckMethod.(type) {
+	case *v1alpha3.ReadinessProbe_HttpGet:
+		prober = &HTTPProber{Config: healthCheckMethod.HttpGet}
+	case *v1alpha3.ReadinessProbe_TcpSocket:
+		prober = &TCPProber{Config: healthCheckMethod.TcpSocket}
+	case *v1alpha3.ReadinessProbe_Exec:
+		prober = &ExecProber{Config: healthCheckMethod.Exec}
+	default:
+		prober = &NoOpProber{}
+	}
+
 	return &WorkloadHealthChecker{
 		config: applicationHealthCheckConfig{
 			InitialDelay:   time.Duration(cfg.InitialDelaySeconds) * time.Second,

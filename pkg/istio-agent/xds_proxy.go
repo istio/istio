@@ -43,7 +43,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
-	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -92,17 +91,6 @@ type XdsProxy struct {
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 
 func initXdsProxy(ia *Agent) (*XdsProxy, error) {
-	var prober health.Prober
-	switch healthCheckMethod := ia.proxyConfig.ReadinessProbe.HealthCheckMethod.(type) {
-	case *v1alpha3.ReadinessProbe_HttpGet:
-		prober = &health.HTTPProber{Config: healthCheckMethod.HttpGet}
-	case *v1alpha3.ReadinessProbe_TcpSocket:
-		prober = &health.TCPProber{Config: healthCheckMethod.TcpSocket}
-	case *v1alpha3.ReadinessProbe_Exec:
-		prober = &health.ExecProber{Config: healthCheckMethod.Exec}
-	default:
-		prober = &health.NoOpProber{}
-	}
 	var err error
 	proxy := &XdsProxy{
 		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
@@ -111,7 +99,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		fileWatcher:    newFileWatcher(),
 		stopChan:       make(chan struct{}),
 		resetChan:      make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, prober),
+		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe),
 	}
 
 	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
