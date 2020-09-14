@@ -82,14 +82,9 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		return net.TCPAddr{}, err
 	}
 	if !i.environment.IsConfigCluster(cp) {
-		cfg, err := i.environment.GetConfigCluster(cp)
-		if err != nil {
-			return addr, err
-		}
-		scopes.Framework.Infof("%s has %s as control plane which has %s as config cluster.", cluster.Name(), cp.Name(), cfg.Name())
 		// for the scenario where we don't run with the control-plane and istiod is exposed as a LoadBalancer service
 		address, err := retry.Do(func() (interface{}, bool, error) {
-			return getRemoteServiceAddress(i.environment.Settings(), cluster, i.settings.SystemNamespace, istiodLabel,
+			return getRemoteServiceAddress(i.environment.Settings(), cp, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
 		}, retryTimeout, retryDelay)
 		if err != nil {
@@ -98,7 +93,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		addr = address.(net.TCPAddr)
 	} else {
 		svcName, label := "", ""
-		svcs, err := cluster.CoreV1().Services(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{})
+		svcs, err := cp.CoreV1().Services(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{})
 		if err != nil {
 			return addr, err
 		}
