@@ -24,7 +24,7 @@ import (
 
 func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
-	tcpHealthChecker := NewWorkloadHealthChecker(v1alpha3.ReadinessProbe{
+	tcpHealthChecker := NewWorkloadHealthChecker(&v1alpha3.ReadinessProbe{
 		InitialDelaySeconds: 0,
 		TimeoutSeconds:      1,
 		PeriodSeconds:       1,

@@ -44,7 +44,13 @@ type ProbeEvent struct {
 	UnhealthyMessage string
 }
 
-func NewWorkloadHealthChecker(cfg v1alpha3.ReadinessProbe, prober Prober) *WorkloadHealthChecker {
+func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, prober Prober) *WorkloadHealthChecker {
+	if cfg == nil {
+		return &WorkloadHealthChecker{
+			config: applicationHealthCheckConfig{},
+			prober: &NoOpProber{},
+		}
+	}
 	return &WorkloadHealthChecker{
 		config: applicationHealthCheckConfig{
 			InitialDelay:   time.Duration(cfg.InitialDelaySeconds) * time.Second,
