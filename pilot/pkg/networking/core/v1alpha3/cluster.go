@@ -573,6 +573,13 @@ func setH2Options(cluster *cluster.Cluster) {
 
 func applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
+	if opts.direction == model.TrafficDirectionOutbound && connectionPool != nil && connectionPool.Http != nil && connectionPool.Http.UseClientProtocol {
+		setH2Options(opts.cluster)
+		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+		// the upstream cluster will use HTTP2.
+		opts.cluster.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
+	}
 	applyH2Upgrade(opts, connectionPool)
 	applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)

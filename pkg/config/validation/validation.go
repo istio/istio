@@ -918,6 +918,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if httpSettings.IdleTimeout != nil {
 			errs = appendErrors(errs, ValidateDurationGogo(httpSettings.IdleTimeout))
 		}
+		if httpSettings.H2UpgradePolicy == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE && httpSettings.UseClientProtocol {
+			errs = appendErrors(errs, fmt.Errorf("use client protocol must not be true when H2UpgradePolicy is UPGRADE"))
+		}
 	}
 
 	if tcp := settings.Tcp; tcp != nil {
