@@ -63,6 +63,10 @@ const (
 	watchDebounceDelay                 = 100 * time.Millisecond // file watcher event debounce delay.
 )
 
+const (
+	xdsUdsPath = "./etc/istio/proxy/XDS"
+)
+
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
@@ -120,6 +124,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	proxyLog.Infof("connecting to %s", p.istiodAddress)
+
 	upstreamError := make(chan error)
 	downstreamError := make(chan error)
 	requestsChan := make(chan *discovery.DiscoveryRequest, 10)
@@ -358,7 +364,7 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
-	l, err := setUpUds("./etc/istio/proxy/XDS")
+	l, err := setUpUds(xdsUdsPath)
 	if err != nil {
 		return err
 	}
