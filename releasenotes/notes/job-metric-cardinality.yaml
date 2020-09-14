@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 24058
+releaseNotes:
+- |
+  **Fixed** unbounded cardinality of Istio metrics for cron job workload.
