@@ -35,7 +35,6 @@ source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 TOPOLOGY=SINGLE_CLUSTER
-CLUSTER_NUMBER=1
 
 PARAMS=()
 
@@ -132,6 +131,9 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
   else
     # TODO: Support IPv6 multicluster
+    if [[ -z "${CLUSTER_NUMBER:-}" ]]; then
+      CLUSTER_NUMBER=5
+    fi
     time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}" "${CLUSTER_NUMBER}"
 
     # KinD will have a LoadBalancer for multicluster
