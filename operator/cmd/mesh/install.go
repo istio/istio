@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"os"
 	"time"
 
@@ -101,8 +102,9 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 `,
 		Args: cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if iArgs.revision == "" && cmd.PersistentFlags().Changed("revision") {
-				return fmt.Errorf("empty revision specified")
+			errs := validation.IsQualifiedName(iArgs.revision)
+			if len(errs)!=0 && cmd.PersistentFlags().Changed("revision") {
+				return fmt.Errorf("invali revision specified: %v", errs)
 			}
 			return nil
 		},
