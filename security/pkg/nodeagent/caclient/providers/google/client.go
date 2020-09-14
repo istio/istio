@@ -35,6 +35,7 @@ import (
 )
 
 const bearerTokenPrefix = "Bearer "
+const hubIDPPrefix = "https://gkehub.googleapis.com/"
 
 var (
 	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging", 0)
@@ -134,6 +135,10 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 }
 
 func parseZone(clusterURL string) string {
+	// for Hub IDNS, the input is https://gkehub.googleapis.com/projects/HUB_PROJECT_ID/locations/global/memberships/MEMBERSHIP_ID which is global
+	if strings.HasPrefix(clusterURL, hubIDPPrefix) {
+		return ""
+	}
 	// input: https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1
 	// output: us-central1-c
 	var rgx = regexp.MustCompile(`.*/projects/(.*)/locations/(.*)/clusters/.*`)
