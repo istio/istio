@@ -236,7 +236,7 @@ func TestCheckConnectionIdentity(t *testing.T) {
 				proxy:      &model.Proxy{ConfigNamespace: tt.namespace, Metadata: &model.NodeMetadata{ServiceAccount: tt.sa}},
 				Identities: tt.identity,
 			}
-			if err := checkConnectionIdentity(con); (err == nil) != tt.success {
+			if _, err := checkConnectionIdentity(con); (err == nil) != tt.success {
 				t.Fatalf("expected success=%v, got err=%v", tt.success, err)
 			}
 		})
