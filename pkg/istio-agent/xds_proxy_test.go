@@ -19,7 +19,6 @@ import (
 	"net"
 	"path"
 	"testing"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -32,13 +31,16 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
+// Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyBasicFlow(t *testing.T) {
 	secOpts := &security.Options{
 		FileMountedCerts: true,
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
-	proxyConfig.DiscoveryAddress = "localhost:1111"
+	proxyConfig.DiscoveryAddress = "buffcon"
 
+	// While the actual test runs on plain text, these are setup to build the default dial options
+	// with out these it looks for default cert location and fails.
 	proxyConfig.ProxyMetadata = map[string]string{
 		MetadataClientCertChain: path.Join(env.IstioSrc, "tests/testdata/certs/pilot/cert-chain.pem"),
 		MetadataClientCertKey:   path.Join(env.IstioSrc, "tests/testdata/certs/pilot/key.pem"),
@@ -46,18 +48,26 @@ func TestXdsProxyBasicFlow(t *testing.T) {
 	}
 	ia := NewAgent(&proxyConfig,
 		&AgentConfig{}, secOpts)
+	t.Cleanup(func() {
+		ia.Close()
+	})
 	proxy, err := initXdsProxy(ia)
 	if err != nil {
 		t.Fatalf("Failed to initialize xds proxy %v", err)
 	}
 
+	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+
+	// Override istiodDialOptions so that the test can connect with plain text and with buffcon listener.
 	proxy.istiodDialOptions = []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithInsecure(),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return f.Listener.Dial()
+		}),
 	}
-	startUpstreamServer()
 
-	res, err := adsRequestStream("./etc/istio/proxy/XDS", &discovery.DiscoveryRequest{
+	res, err := setupDownstreamAndWait(xdsUdsPath, &discovery.DiscoveryRequest{
 		TypeUrl: v3.ClusterType,
 		Node: &core.Node{
 			Id: "sidecar~0.0.0.0~debug~cluster.local",
@@ -69,16 +79,9 @@ func TestXdsProxyBasicFlow(t *testing.T) {
 	if res == nil || res.TypeUrl != v3.ClusterType {
 		t.Fatalf("Expected to get cluster response but got %v", res)
 	}
-	time.Sleep(3 * time.Minute)
-	ia.Close()
 }
 
-func startUpstreamServer() {
-	simple := xds.NewXDS()
-	simple.StartGRPC("localhost:1111")
-}
-
-func adsRequestStream(socket string, req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
+func setupDownstreamAndWait(socket string, req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	conn, err := setupConnection(socket)
 	if err != nil {
 		return nil, err
@@ -97,6 +100,7 @@ func adsRequestStream(socket string, req *discovery.DiscoveryRequest) (*discover
 		return nil, err
 	}
 	res, err := downstream.Recv()
+
 	if err != nil {
 		return nil, err
 	}
