@@ -536,7 +536,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 
 func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
 	// must call it here to refresh s.instances if necessary
-	// otherwise may get no instances or miss some new addes instances
+	// otherwise may get no instances or miss some new addess instances
 	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
 	s.storeMutex.RLock()
