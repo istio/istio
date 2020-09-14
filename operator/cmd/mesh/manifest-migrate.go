@@ -50,8 +50,8 @@ func addManifestMigrateFlags(cmd *cobra.Command, args *manifestMigrateArgs) {
 func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate [<filepath>]",
-		Short: "Migrates a file containing Helm values or IstioControlPlane to IstioOperator format",
-		Long:  "The migrate subcommand migrates a configuration from Helm values or IstioControlPlane format to IstioOperator format.",
+		Short: "Migrates a file containing Helm values to IstioOperator format",
+		Long:  "The migrate subcommand migrates a configuration from Helm values to IstioOperator format.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("migrate accepts optional single filepath")
