@@ -260,10 +260,6 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(manifestCmd)
 
-	meshInstallCmd := mesh.InstallCmd(loggingOptions)
-	deprecate(meshInstallCmd)
-	manifestCmd.AddCommand(meshInstallCmd)
-
 	operatorCmd := mesh.OperatorCmd()
 	hideInheritedFlags(operatorCmd, "charts")
 	rootCmd.AddCommand(operatorCmd)
