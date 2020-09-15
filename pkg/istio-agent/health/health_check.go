@@ -15,6 +15,7 @@
 package health
 
 import (
+	"reflect"
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
@@ -80,6 +81,11 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 // determined by the success & failure threshold provided by the user.
 func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *ProbeEvent, quit chan struct{}) {
 	defer close(notifyHealthChange)
+
+	if reflect.TypeOf(w.prober) == reflect.TypeOf(NoOpProber{}) {
+		return
+	}
+
 	// delay before starting probes.
 	time.Sleep(w.config.InitialDelay)
 
