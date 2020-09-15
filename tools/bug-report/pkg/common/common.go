@@ -16,6 +16,7 @@
 package common
 
 const (
+	// latestKey is an arbitrary value that represents the fallback version (master).
 	latestKey = "latest"
 
 	ProxyContainerName     = "istio-proxy"
