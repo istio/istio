@@ -452,7 +452,7 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resour
 // The cluster is considered a "primary" cluster if it is also a "config cluster", in which case components
 // like ingress will be installed.
 func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) error {
-	scopes.Framework.Infof("setting up %s as primary cluster", cluster.Name())
+	scopes.Framework.Infof("setting up %s as control-plane cluster", cluster.Name())
 
 	if !i.environment.IsConfigCluster(cluster) {
 		if err := i.configureRemoteConfigForControlPlane(cluster); err != nil {
@@ -501,7 +501,9 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if i.environment.IsConfigCluster(cluster) {
-
+		if err := i.deployEastWestGateway(cluster); err != nil {
+			return err
+		}
 		// Other clusters should only use this for discovery if its a config cluster.
 		if err := i.applyIstiodGateway(cluster); err != nil {
 			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
