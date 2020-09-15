@@ -484,21 +484,15 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 	var istiodAddress net.TCPAddr
 	if !i.environment.IsConfigCluster(cluster) {
-		err = retry.UntilSuccess(func() error {
-			istiodAddress, err = i.RemoteDiscoveryAddressFor(cluster)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, retry.Timeout(90*time.Second), retry.Delay(2*time.Second))
+		configCluster, err := i.environment.GetConfigCluster(cluster)
+		if err != nil {
+			return err
+		}
+		istiodAddress, err = i.RemoteDiscoveryAddressFor(configCluster)
 		if err != nil {
 			return err
 		}
 		if err := patchIstiodCustomHost(istiodAddress, cfg, cluster); err != nil {
-			return err
-		}
-		configCluster, err := i.environment.GetConfigCluster(cluster)
-		if err != nil {
 			return err
 		}
 		if err := configureDiscoveryForConfigCluster(istiodAddress.IP.String(), cfg, configCluster); err != nil {
@@ -510,15 +504,17 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 			return err
 		}
 	}
-	// both multi-network and multi-cluster with remotes will need this gateway
-	if i.ctx.Clusters().IsMulticluster() {
-		if err := i.deployEastWestGateway(cluster); err != nil {
-			return err
-		}
+	// Needed for VMs, Multi-Cluster and Multi-Network
+	if err := i.deployEastWestGateway(cluster); err != nil {
+		return err
+	}
+	if i.environment.IsConfigCluster(cluster) {
+		// Other clusters should only use this for discovery if its a config cluster.
 		if err := i.applyIstiodGateway(cluster); err != nil {
 			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
 		}
 	}
+
 	return nil
 }
 
