@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -212,7 +213,7 @@ func BenchmarkSecretGeneration(b *testing.B) {
 			for i := 0; i < tt.Services; i++ {
 				watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://istio-system/sds-credential-%d", i))
 			}
-			proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"})
+			proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "istio-system", VerifiedIdentity: &spiffe.Identity{}})
 			gen := s.Discovery.Generators[v3.SecretType]
 			res := &model.WatchedResource{ResourceNames: watchedResources}
 			b.ResetTimer()
