@@ -39,7 +39,7 @@ source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
 NODE_IMAGE="kindest/node:v1.18.2"
-CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/multicluster.json'
+CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
 PARAMS=()
 
