@@ -98,6 +98,8 @@ function cleanup_kind_cluster() {
   fi
 }
 
+# check_default_cluster_yaml checks the presence of default cluster YAML
+# It returns 1 if it is not present
 function check_default_cluster_yaml() {
   if [[ -z "${DEFAULT_CLUSTER_YAML}" ]]; then
     echo 'DEFAULT_CLUSTER_YAML file must be specified. Exiting...'
@@ -106,11 +108,9 @@ function check_default_cluster_yaml() {
 }
 
 # setup_kind_cluster creates new KinD cluster with given name, image and configuration
-# Even in case of single cluster, don't call this directly. Call through setup_kind_clusters
-# with cluster topology configuration file.
-# 1. CLUSTER_CONFIG: KinD cluster configuration YAML file (mandatory)
-# 2. NAME: Name of the Kind cluster (optional)
-# 3. IMAGE: Node image used by KinD (optional)
+# 1. NAME: Name of the Kind cluster (optional)
+# 2. IMAGE: Node image used by KinD (optional)
+# 3. CONFIG: KinD cluster configuration YAML file. If not specified then DEFAULT_CLUSTER_YAML is used
 # This function returns 0 when everything goes well, or 1 otherwise
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
@@ -132,9 +132,9 @@ function setup_kind_cluster() {
 
     # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
-      # Kubernetes 1.15+
-      CONFIG=${DEFAULT_CLUSTER_YAML}
-      # Configure the cluster IP Family only for default configs
+    # Kubernetes 1.15+
+    CONFIG=${DEFAULT_CLUSTER_YAML}
+    # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
       grep 'ipFamily: ipv6' "${CONFIG}" || \
       cat <<EOF >> "${CONFIG}"
@@ -200,7 +200,7 @@ function setup_kind_clusters() {
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     if [ ! -f "${CLUSTER_YAML}" ]; then
       cp "${DEFAULT_CLUSTER_YAML}" "${CLUSTER_YAML}"
-        cat <<EOF >> "${CLUSTER_YAML}"
+      cat <<EOF >> "${CLUSTER_YAML}"
 networking:
   podSubnet: ${CLUSTER_POD_SUBNET}
   serviceSubnet: ${CLUSTER_SVC_SUBNET}
