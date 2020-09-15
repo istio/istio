@@ -764,22 +764,24 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	}
 
 	workloadInstanceTests := []struct {
-		name      string
-		namespace string
-		wle       config.Config
-		out       *model.WorkloadInstance
+		name string
+		wle  config.Config
+		out  *model.WorkloadInstance
 	}{
 		{
-			name:      "simple",
-			namespace: "ns1",
-			wle: config.Config{Spec: &networking.WorkloadEntry{
-				Address: "1.1.1.1",
-				Labels:  labels,
-				Ports: map[string]uint32{
-					"http": 80,
+			name: "simple",
+			wle: config.Config{
+				Meta: config.Meta{
+					Namespace: "ns1",
 				},
-				ServiceAccount: "scooby",
-			}},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Labels:  labels,
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					ServiceAccount: "scooby",
+				}},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -794,18 +796,21 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 		},
 		{
-			name:      "simple - tls mode disabled",
-			namespace: "ns1",
-			wle: config.Config{Spec: &networking.WorkloadEntry{
-				Address: "1.1.1.1",
-				Labels: map[string]string{
-					"security.istio.io/tlsMode": "disabled",
+			name: "simple - tls mode disabled",
+			wle: config.Config{
+				Meta: config.Meta{
+					Namespace: "ns1",
 				},
-				Ports: map[string]uint32{
-					"http": 80,
-				},
-				ServiceAccount: "scooby",
-			}},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Labels: map[string]string{
+						"security.istio.io/tlsMode": "disabled",
+					},
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					ServiceAccount: "scooby",
+				}},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -822,29 +827,35 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 		},
 		{
-			name:      "unix domain socket",
-			namespace: "ns1",
-			wle: config.Config{Spec: &networking.WorkloadEntry{
-				Address:        "unix://foo/bar",
-				ServiceAccount: "scooby",
-			}},
-			out: nil,
-		},
-		{
-			name:      "DNS address",
-			namespace: "ns1",
-			wle: config.Config{Spec: &networking.WorkloadEntry{
-				Address:        "scooby.com",
-				ServiceAccount: "scooby",
-			}},
-			out: nil,
-		},
-		{
-			name:      "metadata labels only",
-			namespace: "ns1",
+			name: "unix domain socket",
 			wle: config.Config{
 				Meta: config.Meta{
-					Labels: labels,
+					Namespace: "ns1",
+				},
+				Spec: &networking.WorkloadEntry{
+					Address:        "unix://foo/bar",
+					ServiceAccount: "scooby",
+				}},
+			out: nil,
+		},
+		{
+			name: "DNS address",
+			wle: config.Config{
+				Meta: config.Meta{
+					Namespace: "ns1",
+				},
+				Spec: &networking.WorkloadEntry{
+					Address:        "scooby.com",
+					ServiceAccount: "scooby",
+				}},
+			out: nil,
+		},
+		{
+			name: "metadata labels only",
+			wle: config.Config{
+				Meta: config.Meta{
+					Labels:    labels,
+					Namespace: "ns1",
 				},
 				Spec: &networking.WorkloadEntry{
 					Address: "1.1.1.1",
@@ -867,10 +878,10 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 		},
 		{
-			name:      "labels merge",
-			namespace: "ns1",
+			name: "labels merge",
 			wle: config.Config{
 				Meta: config.Meta{
+					Namespace: "ns1",
 					Labels: map[string]string{
 						"my-label": "bar",
 					},
@@ -903,7 +914,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			instance := convertWorkloadEntryToWorkloadInstance(tt.namespace, tt.wle)
+			instance := convertWorkloadEntryToWorkloadInstance(tt.wle)
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
 			}
