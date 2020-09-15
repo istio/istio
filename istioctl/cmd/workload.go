@@ -62,11 +62,11 @@ func workloadCommands() *cobra.Command {
 	workloadCmd := &cobra.Command{
 		Use:   "workload",
 		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-Kubernetes environments",
-		Example: `# workload group yaml generation
-workload group create
+		Example: `  # workload group yaml generation
+  workload group create
 
-# workload entry configuration generation
-workload entry configure`,
+  # workload entry configuration generation
+  workload entry configure`,
 	}
 	workloadCmd.AddCommand(groupCommand())
 	workloadCmd.AddCommand(entryCommand())
@@ -171,11 +171,11 @@ func configureCommand() *cobra.Command {
 		Long: `Generates all the required configuration files for workload instance on a VM or non-Kubernetes environment from a WorkloadGroup artifact.
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.
 Configure requires either the WorkloadGroup artifact path or its location on the API server.`,
-		Example: `# configure example using a local WorkloadGroup artifact
-configure -f workloadgroup.yaml -o config
+		Example: `  # configure example using a local WorkloadGroup artifact
+  configure -f workloadgroup.yaml -o config
 
-# configure example using the API server
-configure --name foo --namespace bar -o config`,
+  # configure example using the API server
+  configure --name foo --namespace bar -o config`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if filename == "" && (name == "" || namespace == "") {
 				return fmt.Errorf("expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup")

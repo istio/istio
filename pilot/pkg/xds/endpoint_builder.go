@@ -185,7 +185,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 
 	if len(locEps) == 0 {
-		b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, nil, "")
+		b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, "", "")
 	}
 
 	return locEps

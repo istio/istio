@@ -38,22 +38,25 @@ func statusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	statusCmd := &cobra.Command{
-		Use:   "proxy-status [<pod-name[.namespace]>]",
+		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
 		Long: `
 Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
 
 `,
-		Example: `# Retrieve sync status for all Envoys in a mesh
-	istioctl proxy-status
+		Example: `  # Retrieve sync status for all Envoys in a mesh
+  istioctl proxy-status
 
-# Retrieve sync diff for a single Envoy and Istiod
-	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+  # Retrieve sync diff for a single Envoy and Istiod
+  istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
 
-# Write proxy config-dump to file, and compare to Istio control plane
-    kubectl port-forward -n istio-system istio-egressgateway-59585c5b9c-ndc59 15000 &
-    curl localhost:15000/config_dump > cd.json
-    istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system --file cd.json
+  # Retrieve sync diff between Istiod and one pod under a deployment
+  istioctl proxy-status deployment/productpage-v1
+
+  # Write proxy config-dump to file, and compare to Istio control plane
+  kubectl port-forward -n istio-system istio-egressgateway-59585c5b9c-ndc59 15000 &
+  curl localhost:15000/config_dump > cd.json
+  istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system --file cd.json
 `,
 		Aliases: []string{"ps"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -69,7 +72,12 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				return err
 			}
 			if len(args) > 0 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					kubeClient.UtilFactory())
+				if err != nil {
+					return err
+				}
 				var envoyDump []byte
 				if configDumpFile != "" {
 					envoyDump, err = readConfigFile(configDumpFile)
@@ -142,35 +150,34 @@ func xdsStatusCommand() *cobra.Command {
 	var centralOpts clioptions.CentralControlPlaneOptions
 
 	statusCmd := &cobra.Command{
-		Use:   "proxy-status [<pod-name[.namespace]>]",
+		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh",
 		Long: `
 Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
-
 `,
-		Example: `# Retrieve sync status for all Envoys in a mesh
-istioctl x proxy-status
+		Example: `  # Retrieve sync status for all Envoys in a mesh
+  istioctl x proxy-status
 
-# Retrieve sync diff for a single Envoy and Istiod
-istioctl x proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+  # Retrieve sync diff for a single Envoy and Istiod
+  istioctl x proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
 
-# SECURITY OPTIONS
+  # SECURITY OPTIONS
 
-# Retrieve proxy status information directly from the control plane, using token security
-# (This is the usual way to get the proxy-status with an out-of-cluster control plane.)
-istioctl x ps --xds-address istio.cloudprovider.example.com:15012
+  # Retrieve proxy status information directly from the control plane, using token security
+  # (This is the usual way to get the proxy-status with an out-of-cluster control plane.)
+  istioctl x ps --xds-address istio.cloudprovider.example.com:15012
 
-# Retrieve proxy status information via Kubernetes config, using token security
-# (This is the usual way to get the proxy-status with an in-cluster control plane.)
-istioctl x proxy-status
+  # Retrieve proxy status information via Kubernetes config, using token security
+  # (This is the usual way to get the proxy-status with an in-cluster control plane.)
+  istioctl x proxy-status
 
-# Retrieve proxy status information directly from the control plane, using RSA certificate security
-# (Certificates must be obtained before this step.  The --cert-dir flag lets istioctl bypass the Kubernetes API server.)
-istioctl x ps --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
+  # Retrieve proxy status information directly from the control plane, using RSA certificate security
+  # (Certificates must be obtained before this step.  The --cert-dir flag lets istioctl bypass the Kubernetes API server.)
+  istioctl x ps --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
 
-# Retrieve proxy status information via XDS from specific control plane in multi-control plane in-cluster configuration
-# (Select a specific control plane in an in-cluster canary Istio configuration.)
-istioctl x ps --xds-label istio.io/rev=default
+  # Retrieve proxy status information via XDS from specific control plane in multi-control plane in-cluster configuration
+  # (Select a specific control plane in an in-cluster canary Istio configuration.)
+  istioctl x ps --xds-label istio.io/rev=default
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
@@ -180,7 +187,12 @@ istioctl x ps --xds-label istio.io/rev=default
 			}
 
 			if len(args) > 0 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					kubeClient.UtilFactory())
+				if err != nil {
+					return err
+				}
 				path := "config_dump"
 				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
 				if err != nil {

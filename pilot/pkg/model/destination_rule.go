@@ -56,7 +56,7 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 				mergedRule.Subsets = append(mergedRule.Subsets, subset)
 			} else {
 				// duplicate subset
-				ps.AddMetric(DuplicatedSubsets, string(resolvedHost), nil,
+				ps.AddMetric(DuplicatedSubsets, string(resolvedHost), "",
 					fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
 						subset.Name, string(resolvedHost)))
 			}

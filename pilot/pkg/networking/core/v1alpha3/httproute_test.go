@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -84,7 +84,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		out := generateVirtualHostDomains(c.service, c.port, c.node)
+		out := generateVirtualHostDomains(c.service, c.port, c.node, model.NewPushContext())
 		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, c.want) {
@@ -124,7 +124,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 
 	virtualServices := []*config.Config{&virtualService6}
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
@@ -148,27 +148,13 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 	vHostCache := make(map[int][]*route.VirtualHost)
 	routeName := "7443"
 	routeCfg := configgen.buildSidecarOutboundHTTPRouteConfig(&proxy, env.PushContext, "7443", vHostCache)
+	xdstest.ValidateRouteConfiguration(t, routeCfg)
 	if routeCfg == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}
 
 	if len(routeCfg.VirtualHosts) != 3 {
 		t.Fatalf("unexpected virtual hosts %v", routeCfg.VirtualHosts)
-	}
-
-	vhosts := sets.Set{}
-	domains := sets.Set{}
-	for _, vhost := range routeCfg.VirtualHosts {
-		if vhosts.Contains(vhost.Name) {
-			t.Fatalf("duplicate virtual host found %s", vhost.Name)
-		}
-		vhosts.Insert(vhost.Name)
-		for _, domain := range vhost.Domains {
-			if domains.Contains(domain) {
-				t.Fatalf("duplicate virtual host domain found %s", domain)
-			}
-			domains.Insert(domain)
-		}
 	}
 }
 
@@ -892,7 +878,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	expectedHosts map[string]map[string]bool, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
@@ -911,6 +897,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 
 	vHostCache := make(map[int][]*route.VirtualHost)
 	routeCfg := configgen.buildSidecarOutboundHTTPRouteConfig(proxy, env.PushContext, routeName, vHostCache)
+	xdstest.ValidateRouteConfiguration(t, routeCfg)
 	if routeCfg == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}

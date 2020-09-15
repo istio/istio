@@ -29,9 +29,9 @@ import (
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
 
-// Make creates an aggregate config store from several config stores and
+// makeStore creates an aggregate config store from several config stores and
 // unifies their descriptors
-func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
+func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.ConfigStore, error) {
 	union := collection.NewSchemasBuilder()
 	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStore)
 	for _, store := range stores {
@@ -52,6 +52,7 @@ func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
 	result := &store{
 		schemas: schemas,
 		stores:  storeTypes,
+		writer:  writer,
 	}
 
 	var l ledger.Ledger
@@ -71,14 +72,14 @@ func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
 	return result, nil
 }
 
-// MakeCache creates an aggregate config store cache from several config store
-// caches.
-func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) {
+// MakeWriteableCache creates an aggregate config store cache from several config store caches. An additional
+// `writer` config store is passed, which may or may not be part of `caches`.
+func MakeWriteableCache(caches []model.ConfigStoreCache, writer model.ConfigStore) (model.ConfigStoreCache, error) {
 	stores := make([]model.ConfigStore, 0, len(caches))
 	for _, cache := range caches {
 		stores = append(stores, cache)
 	}
-	store, err := Make(stores)
+	store, err := makeStore(stores, writer)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +87,12 @@ func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) 
 		ConfigStore: store,
 		caches:      caches,
 	}, nil
+}
+
+// MakeCache creates an aggregate config store cache from several config store
+// caches.
+func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) {
+	return MakeWriteableCache(caches, nil)
 }
 
 type store struct {
@@ -100,6 +107,8 @@ type store struct {
 	getResourceAtVersion func(version, key string) (resourceVersion string, err error)
 
 	ledger ledger.Ledger
+
+	writer model.ConfigStore
 }
 
 func (cr *store) GetLedger() ledger.Ledger {
@@ -161,16 +170,25 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 	return configs, errs.ErrorOrNil()
 }
 
-func (cr *store) Delete(_ config.GroupVersionKind, _, _ string) error {
-	return errorUnsupported
+func (cr *store) Delete(typ config.GroupVersionKind, name, namespace string) error {
+	if cr.writer == nil {
+		return errorUnsupported
+	}
+	return cr.writer.Delete(typ, name, namespace)
 }
 
-func (cr *store) Create(config.Config) (string, error) {
-	return "", errorUnsupported
+func (cr *store) Create(c config.Config) (string, error) {
+	if cr.writer == nil {
+		return "", errorUnsupported
+	}
+	return cr.writer.Create(c)
 }
 
-func (cr *store) Update(config.Config) (string, error) {
-	return "", errorUnsupported
+func (cr *store) Update(c config.Config) (string, error) {
+	if cr.writer == nil {
+		return "", errorUnsupported
+	}
+	return cr.writer.Update(c)
 }
 
 type storeCache struct {

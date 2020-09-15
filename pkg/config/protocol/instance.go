@@ -140,7 +140,7 @@ func (i Instance) IsTLS() bool {
 	}
 }
 
-// IsGRPC is true for GRCP protocols.
+// IsGRPC is true for GRPC protocols.
 func (i Instance) IsGRPC() bool {
 	switch i {
 	case GRPC, GRPCWeb:

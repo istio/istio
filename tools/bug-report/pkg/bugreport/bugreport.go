@@ -16,6 +16,7 @@ package bugreport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -26,6 +27,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
@@ -54,7 +56,7 @@ var (
 )
 
 // Cmd returns a cobra command for bug-report.
-func Cmd() *cobra.Command {
+func Cmd(logOpts *log.Options) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
@@ -62,7 +64,7 @@ func Cmd() *cobra.Command {
 		Long: "This command selectively captures cluster information and logs into an archive to help " +
 			"diagnose problems. It optionally uploads the archive to a GCS bucket.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBugReportCommand(cmd)
+			return runBugReportCommand(cmd, logOpts)
 		},
 	}
 	rootCmd.AddCommand(version.CobraCommand())
@@ -82,7 +84,10 @@ var (
 	lock    = sync.RWMutex{}
 )
 
-func runBugReportCommand(_ *cobra.Command) error {
+func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
+	if err := configLogs(logOpts); err != nil {
+		return err
+	}
 	config, err := parseConfig()
 	if err != nil {
 		return err
@@ -107,7 +112,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 		return err
 	}
 
-	log.Infof("Fetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	logAndPrintf("Fetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(client, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -123,6 +128,24 @@ func runBugReportCommand(_ *cobra.Command) error {
 		}
 		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text)
 	}
+
+	outDir, err := os.Getwd()
+	if err != nil {
+		log.Errorf("using ./ to write archive: %s", err.Error())
+		outDir = "."
+	}
+	outPath := filepath.Join(outDir, "bug-report.tgz")
+	logAndPrintf("Creating archive at %s.\n", outPath)
+
+	tempRoot := archive.OutputRootDir(tempDir)
+	if err := archive.Create(tempRoot, outPath); err != nil {
+		return err
+	}
+	logAndPrintf("Cleaning up temporary files in %s.\n", tempRoot)
+	if err := os.RemoveAll(tempRoot); err != nil {
+		return err
+	}
+	logAndPrintf("Done.\n")
 	return nil
 }
 
@@ -140,6 +163,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		Client: client,
 		DryRun: config.DryRun,
 	}
+	logAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
 	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
@@ -280,4 +304,49 @@ func appendGlobalErr(err error) {
 	lock.Lock()
 	gErrors = util.AppendErr(gErrors, err)
 	lock.Unlock()
+}
+
+func BuildClientsFromConfig(kubeConfig []byte) (kube.Client, error) {
+	if len(kubeConfig) == 0 {
+		return nil, errors.New("kubeconfig is empty")
+	}
+
+	rawConfig, err := clientcmd.Load(kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("kubeconfig cannot be loaded: %v", err)
+	}
+
+	if err := clientcmd.Validate(*rawConfig); err != nil {
+		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
+	}
+
+	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
+
+	clients, err := kube.NewClient(clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kube clients: %v", err)
+	}
+	return clients, nil
+}
+
+func logAndPrintf(format string, a ...interface{}) {
+	fmt.Printf(format, a...)
+	log.Infof(format, a...)
+}
+
+func configLogs(opt *log.Options) error {
+	logDir := filepath.Join(archive.OutputRootDir(tempDir), "bug-report.log")
+	mkdirOrExit(logDir)
+	f, err := os.Create(logDir)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	op := []string{logDir}
+	opt2 := *opt
+	opt2.OutputPaths = op
+	opt2.ErrorOutputPaths = op
+	opt2.SetOutputLevel("default", log.InfoLevel)
+
+	return log.Configure(&opt2)
 }

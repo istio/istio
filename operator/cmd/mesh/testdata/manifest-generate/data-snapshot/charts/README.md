@@ -16,7 +16,7 @@ apps may target different 'environments' which contain different instances and v
 
 - Better security: separate Istio components reside in different namespaces, allowing different teams or
 roles to manage different parts of Istio. For example, a security team would maintain the
-root CA and policy, a telemetry team may only have access to Mixer-telemetry and Prometheus,
+root CA and policy, a telemetry team may only have access to Prometheus,
 and a different team may maintain the control plane components (which are highly security sensitive).
 
 The install is organized in 'environments' - each environment consists of a set of components

@@ -65,8 +65,8 @@ var rootCmd = &cobra.Command{
 			}
 			validator := validation.NewValidator(cfg, hostIP)
 
-			if validator.Run() != nil {
-				os.Exit(constants.ValidationErrorCode)
+			if err := validator.Run(); err != nil {
+				handleErrorWithCode(err, constants.ValidationErrorCode)
 			}
 		}
 	},
@@ -140,8 +140,12 @@ func getLocalIP() (net.IP, error) {
 }
 
 func handleError(err error) {
+	handleErrorWithCode(err, 1)
+}
+
+func handleErrorWithCode(err error, code int) {
 	log.Errora(err)
-	os.Exit(1)
+	os.Exit(code)
 }
 
 func init() {
@@ -303,7 +307,6 @@ func GetCommand() *cobra.Command {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
-		os.Exit(1)
+		handleError(err)
 	}
 }

@@ -39,6 +39,8 @@ var (
 	controlPlaneTopology string
 	// hold networkTopology from command line to parse later
 	networkTopology string
+	// hold configTopology from command line to parse later
+	configTopology string
 )
 
 // NewSettingsFromCommandLine returns Settings obtained from command-line flags.
@@ -62,6 +64,11 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	}
 
 	s.networkTopology, err = parseNetworkTopology(s.KubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	s.ConfigTopology, err = newConfigTopology(s.KubeConfig, s.ControlPlaneTopology)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +102,7 @@ func parseKubeConfigs(value string) ([]string, error) {
 	return out, nil
 }
 
-func newControlPlaneTopology(kubeConfigs []string) (map[resource.ClusterIndex]resource.ClusterIndex, error) {
+func newControlPlaneTopology(kubeConfigs []string) (clusterTopology, error) {
 	topology, err := parseControlPlaneTopology()
 	if err != nil {
 		return nil, err
@@ -124,8 +131,8 @@ func newControlPlaneTopology(kubeConfigs []string) (map[resource.ClusterIndex]re
 	return topology, nil
 }
 
-func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterIndex, error) {
-	out := make(map[resource.ClusterIndex]resource.ClusterIndex)
+func parseControlPlaneTopology() (clusterTopology, error) {
+	out := make(clusterTopology)
 	if controlPlaneTopology == "" {
 		return out, nil
 	}
@@ -145,6 +152,60 @@ func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterInde
 			return nil, fmt.Errorf("failed parsing control plane mapping entry %s: failed parsing control plane index", v)
 		}
 		out[resource.ClusterIndex(clusterIndex)] = resource.ClusterIndex(controlPlaneClusterIndex)
+	}
+	return out, nil
+}
+
+func newConfigTopology(kubeConfigs []string, fallback clusterTopology) (clusterTopology, error) {
+	topology, err := parseConfigTopology()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(topology) == 0 {
+		// Default to every cluster using config from it's control plane cluster.
+		for k, v := range fallback {
+			topology[k] = v
+		}
+		return topology, nil
+	}
+
+	// Verify that all of the specified clusters are valid.
+	numClusters := len(kubeConfigs)
+	for cIndex, cfIndex := range topology {
+		if int(cIndex) >= numClusters {
+			return nil, fmt.Errorf("failed parsing config topology: cluster index %d "+
+				"exceeds number of available clusters %d", cIndex, numClusters)
+		}
+		if int(cfIndex) >= numClusters {
+			return nil, fmt.Errorf("failed parsing config topology: config cluster index %d "+""+
+				"exceeds number of available clusters %d", cfIndex, numClusters)
+		}
+	}
+	return topology, nil
+}
+
+func parseConfigTopology() (clusterTopology, error) {
+	out := make(clusterTopology)
+	if configTopology == "" {
+		return out, nil
+	}
+
+	values := strings.Split(configTopology, ",")
+	for _, v := range values {
+		parts := strings.Split(v, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("failed parsing config mapping entry %s", v)
+		}
+		clusterIndex, err := strconv.Atoi(parts[0])
+		if err != nil || clusterIndex < 0 {
+			return nil, fmt.Errorf("failed parsing config mapping entry %s: failed parsing cluster index", v)
+		}
+		configClusterIndex, err := strconv.Atoi(parts[1])
+		if err != nil || clusterIndex < 0 {
+			return nil, fmt.Errorf("failed parsing config mapping entry %s: failed parsing config cluster index", v)
+		}
+		out[resource.ClusterIndex(clusterIndex)] = resource.ClusterIndex(configClusterIndex)
 	}
 	return out, nil
 }
@@ -217,4 +278,8 @@ func init() {
 		"", "Specifies the mapping for each cluster to it's network name, for multi-network scenarios. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<networkName>, where the indexes refer to the order in which "+
 			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, network name will be left unset")
+	flag.StringVar(&configTopology, "istio.test.kube.configTopology",
+		"", "Specifies the mapping for each cluster to the cluster hosting its config. The value is a "+
+			"comma-separated list of the form <clusterIndex>:<configClusterIndex>, where the indexes refer to the order in which "+
+			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, the default is every cluster maps to itself(e.g. 0:0,1:1,...).")
 }

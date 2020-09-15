@@ -40,7 +40,7 @@ type Instance interface {
 }
 
 // SetupConfigFn is a setup function that specifies the overrides of the configuration to deploy Istio.
-type SetupConfigFn func(cfg *Config)
+type SetupConfigFn func(ctx resource.Context, cfg *Config)
 
 // SetupContextFn is a setup function that uses Context for configuration.
 type SetupContextFn func(ctx resource.Context) error
@@ -71,7 +71,7 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 			return err
 		}
 		if cfn != nil {
-			cfn(&cfg)
+			cfn(ctx, &cfg)
 		}
 		for _, ctxFn := range ctxFns {
 			if ctxFn != nil {

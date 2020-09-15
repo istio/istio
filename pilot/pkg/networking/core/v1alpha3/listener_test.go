@@ -410,6 +410,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
 	services := []*model.Service{svc}
 
+	autoSvc := buildServiceWithPort("test.com", 9999, protocol.Unsupported, tnow)
+	autoSvc.Resolution = model.Passthrough
+	autoSvc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
+
 	extSvc := buildServiceWithPort("example1.com", 9999, protocol.TCP, tnow)
 	extSvc.Resolution = model.Passthrough
 	extSvc.Attributes.ServiceRegistry = serviceregistry.External
@@ -470,6 +474,21 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(extSvcSelector, "11.11.11.11"),
 			},
 			services:                  []*model.Service{extSvcSelector},
+			numListenersOnServicePort: 2,
+		},
+		{
+			name:                      "no listeners for empty Kubernetes auto protocol",
+			instances:                 []*model.ServiceInstance{},
+			services:                  []*model.Service{autoSvc},
+			numListenersOnServicePort: 0,
+		},
+		{
+			name: "listeners per instance for Kubernetes auto protocol",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(autoSvc, "10.10.10.10"),
+				buildServiceInstance(autoSvc, "11.11.11.11"),
+			},
+			services:                  []*model.Service{autoSvc},
 			numListenersOnServicePort: 2,
 		},
 	}
@@ -1476,7 +1495,7 @@ func validateAccessLog(t *testing.T, l *listener.Listener, format string) {
 
 func TestHttpProxyListener(t *testing.T) {
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnv(nil)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -1787,7 +1806,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 	}
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	for _, tc := range customTagsTest {
 		featuresSet := false
@@ -2041,7 +2060,7 @@ func getOldestService(services ...*model.Service) *model.Service {
 }
 
 func buildAllListeners(p plugin.Plugin, sidecarConfig *config.Config, env model.Environment) []*listener.Listener {
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
@@ -2055,7 +2074,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *config.Config, env model.
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	builder := NewListenerBuilder(proxy, env.PushContext)
-	return configgen.buildSidecarListeners(env.PushContext, builder).getListeners()
+	return configgen.buildSidecarListeners(builder).getListeners()
 }
 
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
@@ -2083,7 +2102,7 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 
 func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *config.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 	env := buildListenerEnv(services)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
@@ -2370,7 +2389,7 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 			hostname: util.PassthroughCluster,
 		},
 	}
-	configgen := NewConfigGenerator([]plugin.Plugin{})
+	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	for idx := range tests {
 		t.Run(tests[idx].name, func(t *testing.T) {
 			configgen.appendListenerFallthroughRouteForCompleteListener(tests[idx].listener,
@@ -2549,7 +2568,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 		},
 	}
 
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 

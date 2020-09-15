@@ -52,6 +52,7 @@ This flag can be specified multiple times to overlay multiple files. Multiple fi
 	HubFlagHelpStr           = `The hub for the operator controller image.`
 	TagFlagHelpStr           = `The tag for the operator controller image.`
 	OperatorNamespaceHelpstr = `The namespace the operator controller is installed into.`
+	ComponentFlagHelpStr     = "Specify which component to generate manifests for."
 )
 
 type rootArgs struct {

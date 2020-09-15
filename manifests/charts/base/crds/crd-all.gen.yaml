@@ -105,6 +105,10 @@ spec:
                               maxRetries:
                                 format: int32
                                 type: integer
+                              useClientProtocol:
+                                description: If set to true, client protocol will
+                                  be preserved while initiating connection to backend.
+                                type: boolean
                             type: object
                           tcp:
                             description: Settings common to both HTTP and TCP upstream
@@ -336,6 +340,11 @@ spec:
                                     maxRetries:
                                       format: int32
                                       type: integer
+                                    useClientProtocol:
+                                      description: If set to true, client protocol
+                                        will be preserved while initiating connection
+                                        to backend.
+                                      type: boolean
                                   type: object
                                 tcp:
                                   description: Settings common to both HTTP and TCP
@@ -649,6 +658,10 @@ spec:
                         maxRetries:
                           format: int32
                           type: integer
+                        useClientProtocol:
+                          description: If set to true, client protocol will be preserved
+                            while initiating connection to backend.
+                          type: boolean
                       type: object
                     tcp:
                       description: Settings common to both HTTP and TCP upstream connections.
@@ -876,6 +889,10 @@ spec:
                               maxRetries:
                                 format: int32
                                 type: integer
+                              useClientProtocol:
+                                description: If set to true, client protocol will
+                                  be preserved while initiating connection to backend.
+                                type: boolean
                             type: object
                           tcp:
                             description: Settings common to both HTTP and TCP upstream
@@ -2837,6 +2854,98 @@ spec:
                     format: string
                     type: string
                   type: object
+              type: object
+            probe:
+              description: '`ReadinessProbe` describes the configuration the user
+                must provide for healthchecking on their workload.'
+              oneOf:
+              - not:
+                  anyOf:
+                  - required:
+                    - httpGet
+                  - required:
+                    - tcpSocket
+                  - required:
+                    - exec
+              - required:
+                - httpGet
+              - required:
+                - tcpSocket
+              - required:
+                - exec
+              properties:
+                exec:
+                  description: health is determined by how the command that is executed
+                    exited.
+                  properties:
+                    command:
+                      description: command to run.
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                failureThreshold:
+                  description: Minimum consecutive failures for the probe to be considered
+                    failed after having succeeded.
+                  format: int32
+                  type: integer
+                httpGet:
+                  properties:
+                    host:
+                      description: Host name to connect to, defaults to the pod IP.
+                      format: string
+                      type: string
+                    httpHeaders:
+                      description: headers the proxy will pass on to make the request.
+                      items:
+                        properties:
+                          name:
+                            format: string
+                            type: string
+                          value:
+                            format: string
+                            type: string
+                        type: object
+                      type: array
+                    path:
+                      description: Path to access on the HTTP server.
+                      format: string
+                      type: string
+                    port:
+                      description: port on which the endpoint lives.
+                      type: integer
+                    scheme:
+                      format: string
+                      type: string
+                  type: object
+                initialDelaySeconds:
+                  description: Number of seconds after the container has started before
+                    readiness probes are initiated.
+                  format: int32
+                  type: integer
+                periodSeconds:
+                  description: How often (in seconds) to perform the probe.
+                  format: int32
+                  type: integer
+                successThreshold:
+                  description: Minimum consecutive successes for the probe to be considered
+                    successful after having failed.
+                  format: int32
+                  type: integer
+                tcpSocket:
+                  description: health is determined by if the proxy is able to connect.
+                  properties:
+                    host:
+                      format: string
+                      type: string
+                    port:
+                      type: integer
+                  type: object
+                timeoutSeconds:
+                  description: Number of seconds after which the probe times out.
+                  format: int32
+                  type: integer
               type: object
             template:
               description: Template to be used for the generation of `WorkloadEntry`

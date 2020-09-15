@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 )
@@ -63,9 +64,10 @@ type FakeOptions struct {
 
 type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
-	t         test.Failer
-	Discovery *DiscoveryServer
-	listener  *bufconn.Listener
+	t          test.Failer
+	Discovery  *DiscoveryServer
+	Listener   *bufconn.Listener
+	kubeClient kubelib.Client
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -77,19 +79,32 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.Authn, plugin.Authz})
 
-	k8sObjects := getKubernetesObjects(t, opts)
+	serviceHandler := func(svc *model.Service, _ model.Event) {
+		pushReq := &model.PushRequest{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      gvk.ServiceEntry,
+				Name:      string(svc.Hostname),
+				Namespace: svc.Attributes.Namespace,
+			}: {}},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
+		}
+		s.ConfigUpdate(pushReq)
+	}
 
+	kubeClient := kubelib.NewFakeClient(getKubernetesObjects(t, opts)...)
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
-		Objects:         k8sObjects,
+		ServiceHandler:  serviceHandler,
+		Client:          kubeClient,
 		ClusterID:       "Kubernetes",
 		DomainSuffix:    "cluster.local",
 		XDSUpdater:      s,
 		NetworksWatcher: opts.NetworksWatcher,
 	})
 
-	secretFake := kubelib.NewFakeClient(k8sObjects...)
-	sc := kubesecrets.NewSecretsController(secretFake.KubeInformer().Core().V1().Secrets())
-	secretFake.RunAndWait(stop)
+	sc := kubesecrets.NewSecretsController(kubeClient, "", nil)
+	sc.DisableAuthorization()
+	kubeClient.RunAndWait(stop)
 	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
@@ -101,6 +116,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   []serviceregistry.Instance{k8s},
 		PushContextLock:     &s.updateMutex,
 	})
+	if err := cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler); err != nil {
+		t.Fatal(err)
+	}
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
 	// Disable debounce to reduce test times
@@ -140,6 +158,12 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 		cg.Store().RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 	}
+	if err := cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
+		t.Fatal(err)
+	}
+	if err := k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler); err != nil {
+		t.Fatal(err)
+	}
 
 	// Start in memory gRPC listener
 	buffer := 1024 * 1024
@@ -164,8 +188,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	fake := &FakeDiscoveryServer{
 		t:             t,
 		Discovery:     s,
-		listener:      listener,
+		Listener:      listener,
 		ConfigGenTest: cg,
+		kubeClient:    kubeClient,
 	}
 
 	// currently meshNetworks gateways are stored on the push context
@@ -173,6 +198,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.Env().AddNetworksHandler(fake.refreshPushContext)
 
 	return fake
+}
+
+func (f *FakeDiscoveryServer) KubeClient() kubelib.Client {
+	return f.kubeClient
 }
 
 func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
@@ -184,7 +213,7 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.listener.Dial()
+		return f.Listener.Dial()
 	}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
@@ -220,7 +249,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		Namespace: p.ConfigNamespace,
 		Watch:     watch,
 		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return f.listener.Dial()
+			return f.Listener.Dial()
 		}),
 			grpc.WithInsecure()},
 	})
@@ -241,8 +270,6 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 
 func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
-	c := f.Clusters(p)
-	_ = c
 	for _, c := range xdstest.ExtractEdsClusterNames(f.Clusters(p)) {
 		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(NewEndpointBuilder(c, p, f.PushContext())))
 	}

@@ -64,7 +64,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 			continue
 		}
 
-		svcAddress := svc.GetServiceAddressForProxy(node)
+		svcAddress := svc.GetServiceAddressForProxy(node, push)
 		var addressList []string
 
 		// The IP will be unspecified here if its headless service or if the auto

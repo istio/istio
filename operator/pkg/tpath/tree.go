@@ -126,7 +126,7 @@ func MergeNode(root interface{}, path util.Path, value interface{}) error {
 // It behaves differently from GetPathContext in that it never creates map entries at the leaf and does not provide
 // a way to mutate the parent of the found node.
 func Find(inputTree map[string]interface{}, path util.Path) (interface{}, bool, error) {
-	log.Debugf("Find path=%s", path)
+	scope.Debugf("Find path=%s", path)
 	if len(path) == 0 {
 		return nil, false, fmt.Errorf("path is empty")
 	}

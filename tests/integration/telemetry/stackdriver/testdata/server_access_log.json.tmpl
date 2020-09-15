@@ -1,7 +1,7 @@
 {
     "http_request": {
         "request_method": "POST",
-        "request_url": "http://srv.{{ .EchoNamespace }}.svc.cluster.local:7070/proto.EchoTestService/Echo",
+        "request_url": "http://srv.{{ .EchoNamespace }}.svc.cluster.local/proto.EchoTestService/Echo",
         "protocol": "grpc",
         "status": "200"
     },
@@ -14,7 +14,7 @@
         "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
         "destination_version": "v1",
         "destination_workload": "srv-v1",
-        "mesh_uid": "test-mesh",
+        "mesh_uid": "proj-test-mesh",
         "response_flag": "-",
         "service_authentication_policy": "MUTUAL_TLS",
         "source_app": "clt",
@@ -25,7 +25,7 @@
         "source_version": "v1",
         "source_workload": "clt-v1",
         "protocol": "grpc",
-        "log_sampled": "false",
+        "log_sampled": "true",
         "upstream_cluster": "inbound|7070|grpc|srv.{{ .EchoNamespace }}.svc.cluster.local",
         "route_name": "default",
         "requested_server_name": "outbound_.7070_._.srv.{{ .EchoNamespace }}.svc.cluster.local",

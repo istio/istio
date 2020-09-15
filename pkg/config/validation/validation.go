@@ -96,19 +96,19 @@ var (
 
 	scope = log.RegisterScope("validation", "CRD validation debugging", 0)
 
-	_ ValidateFunc = EmptyValidate
-
 	// EmptyValidate is a Validate that does nothing and returns no error.
 	EmptyValidate = registerValidateFunc("EmptyValidate",
-		func(config.Config) error {
-			return nil
+		func(config.Config) (Warning, error) {
+			return nil, nil
 		})
 
 	validateFuncs = make(map[string]ValidateFunc)
 )
 
+type Warning error
+
 // ValidateFunc defines a validation func for an API proto.
-type ValidateFunc func(config config.Config) error
+type ValidateFunc func(config config.Config) (Warning, error)
 
 // IsValidateFunc indicates whether there is a validation function with the given name.
 func IsValidateFunc(name string) bool {
@@ -272,7 +272,7 @@ func ValidateUnixAddress(addr string) error {
 
 // ValidateGateway checks gateway specifications
 var ValidateGateway = registerValidateFunc("ValidateGateway",
-	func(cfg config.Config) (errs error) {
+	func(cfg config.Config) (warnings Warning, errs error) {
 		name := cfg.Name
 		// Gateway name must conform to the DNS label format (no dots)
 		if !labels.IsDNS1123Label(name) {
@@ -308,7 +308,7 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 			}
 		}
 
-		return errs
+		return nil, errs
 	})
 
 func validateServer(server *networking.Server) (errs error) {
@@ -415,10 +415,10 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
-	func(cfg config.Config) (errs error) {
+	func(cfg config.Config) (warnings Warning, errs error) {
 		rule, ok := cfg.Spec.(*networking.DestinationRule)
 		if !ok {
-			return fmt.Errorf("cannot cast to destination rule")
+			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
 
 		errs = appendErrors(errs,
@@ -510,14 +510,14 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error 
 
 // ValidateEnvoyFilter checks envoy filter config supplied by user
 var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
-	func(cfg config.Config) (errs error) {
+	func(cfg config.Config) (warnings Warning, errs error) {
 		rule, ok := cfg.Spec.(*networking.EnvoyFilter)
 		if !ok {
-			return fmt.Errorf("cannot cast to Envoy filter")
+			return nil, fmt.Errorf("cannot cast to Envoy filter")
 		}
 
 		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
-			return err
+			return nil, err
 		}
 
 		for _, cp := range rule.ConfigPatches {
@@ -670,18 +670,18 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 
 // ValidateSidecar checks sidecar config supplied by user
 var ValidateSidecar = registerValidateFunc("ValidateSidecar",
-	func(cfg config.Config) (errs error) {
+	func(cfg config.Config) (warnings Warning, errs error) {
 		rule, ok := cfg.Spec.(*networking.Sidecar)
 		if !ok {
-			return fmt.Errorf("cannot cast to Sidecar")
+			return nil, fmt.Errorf("cannot cast to Sidecar")
 		}
 
 		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
-			return err
+			return nil, err
 		}
 
 		if len(rule.Egress) == 0 {
-			return fmt.Errorf("sidecar: missing egress")
+			return nil, fmt.Errorf("sidecar: missing egress")
 		}
 
 		portMap := make(map[uint32]struct{})
@@ -918,6 +918,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if httpSettings.IdleTimeout != nil {
 			errs = appendErrors(errs, ValidateDurationGogo(httpSettings.IdleTimeout))
 		}
+		if httpSettings.H2UpgradePolicy == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE && httpSettings.UseClientProtocol {
+			errs = appendErrors(errs, fmt.Errorf("use client protocol must not be true when H2UpgradePolicy is UPGRADE"))
+		}
 	}
 
 	if tcp := settings.Tcp; tcp != nil {
@@ -1065,14 +1068,6 @@ func ValidateDuration(pd *types.Duration) error {
 		return errors.New("only durations to ms precision are supported")
 	}
 	return nil
-}
-
-// ValidateGogoDuration validates the variant of duration.
-func ValidateGogoDuration(in *types.Duration) error {
-	return ValidateDuration(&types.Duration{
-		Seconds: in.Seconds,
-		Nanos:   in.Nanos,
-	})
 }
 
 // ValidateDurationRange verifies range is in specified duration
@@ -1334,20 +1329,20 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPolicy",
-	func(cfg config.Config) error {
+	func(cfg config.Config) (Warning, error) {
 		in, ok := cfg.Spec.(*security_beta.AuthorizationPolicy)
 		if !ok {
-			return fmt.Errorf("cannot cast to AuthorizationPolicy")
+			return nil, fmt.Errorf("cannot cast to AuthorizationPolicy")
 		}
 		name := cfg.Name
 		namespace := cfg.Namespace
 
 		if err := validateWorkloadSelector(in.Selector); err != nil {
-			return err
+			return nil, err
 		}
 
 		if in.Action == security_beta.AuthorizationPolicy_DENY && in.Rules == nil {
-			return fmt.Errorf("a deny policy without `rules` is meaningless and has no effect, found in %s.%s", name, namespace)
+			return nil, fmt.Errorf("a deny policy without `rules` is meaningless and has no effect, found in %s.%s", name, namespace)
 		}
 
 		var errs error
@@ -1431,15 +1426,15 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				}
 			}
 		}
-		return errs
+		return nil, errs
 	})
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
 var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthentication",
-	func(cfg config.Config) error {
+	func(cfg config.Config) (Warning, error) {
 		in, ok := cfg.Spec.(*security_beta.RequestAuthentication)
 		if !ok {
-			return errors.New("cannot cast to RequestAuthentication")
+			return nil, errors.New("cannot cast to RequestAuthentication")
 		}
 
 		var errs error
@@ -1448,7 +1443,7 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		for _, rule := range in.JwtRules {
 			errs = appendErrors(errs, validateJwtRule(rule))
 		}
-		return errs
+		return nil, errs
 	})
 
 func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
@@ -1490,10 +1485,10 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
 var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
-	func(cfg config.Config) error {
+	func(cfg config.Config) (Warning, error) {
 		in, ok := cfg.Spec.(*security_beta.PeerAuthentication)
 		if !ok {
-			return errors.New("cannot cast to PeerAuthentication")
+			return nil, errors.New("cannot cast to PeerAuthentication")
 		}
 
 		var errs error
@@ -1517,15 +1512,15 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
-		return errs
+		return nil, errs
 	})
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
-	func(cfg config.Config) (errs error) {
+	func(cfg config.Config) (warnings Warning, errs error) {
 		virtualService, ok := cfg.Spec.(*networking.VirtualService)
 		if !ok {
-			return errors.New("cannot cast to virtual service")
+			return nil, errors.New("cannot cast to virtual service")
 		}
 
 		isDelegate := false
@@ -2130,29 +2125,29 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 
 // ValidateWorkloadEntry validates a workload entry.
 var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
-	func(cfg config.Config) (errs error) {
+	func(cfg config.Config) (warnings Warning, errs error) {
 		we, ok := cfg.Spec.(*networking.WorkloadEntry)
 		if !ok {
-			return fmt.Errorf("cannot cast to workload entry")
+			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
 		if we.Address == "" {
-			return fmt.Errorf("address must be set")
+			return nil, fmt.Errorf("address must be set")
 		}
 		// TODO: add better validation. The tricky thing is that we don't know if its meant to be
 		// DNS or STATIC type without association with a ServiceEntry
-		return nil
+		return nil, nil
 	})
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
-	func(cfg config.Config) (errs error) {
+	func(cfg config.Config) (warnings Warning, errs error) {
 		serviceEntry, ok := cfg.Spec.(*networking.ServiceEntry)
 		if !ok {
-			return fmt.Errorf("cannot cast to service entry")
+			return nil, fmt.Errorf("cannot cast to service entry")
 		}
 
 		if err := validateAlphaWorkloadSelector(serviceEntry.WorkloadSelector); err != nil {
-			return err
+			return nil, err
 		}
 
 		if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {

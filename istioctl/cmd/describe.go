@@ -85,7 +85,7 @@ the configuration objects that affect that pod.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
+		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting pod name")
@@ -1004,7 +1004,7 @@ the configuration objects that affect that service.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `istioctl experimental describe service productpage`,
+		Example: `  istioctl experimental describe service productpage`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				cmd.Println(cmd.UsageString())

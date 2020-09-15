@@ -89,19 +89,17 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "create-remote-secret",
 		Short: "Create a secret with credentials to allow Istio to access remote Kubernetes apiservers",
-		Example: `
-# Create a secret to access cluster c0's apiserver and install it in cluster c1.
-istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 \
+		Example: `  # Create a secret to access cluster c0's apiserver and install it in cluster c1.
+  istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 \
     | kubectl --kubeconfig=c1.yaml apply -f -
 
-# Delete a secret that was previously installed in c1
-istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 \
+  # Delete a secret that was previously installed in c1
+  istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 \
     | kubectl --kubeconfig=c1.yaml delete -f -
 
-# Create a secret access a remote cluster with an auth plugin
-istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugin --auth-plugin-name=gcp \
-    | kubectl --kubeconfig=c1.yaml apply -f -
-`,
+  # Create a secret access a remote cluster with an auth plugin
+  istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugin --auth-plugin-name=gcp \
+    | kubectl --kubeconfig=c1.yaml apply -f -`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := opts.prepare(c.Flags()); err != nil {

@@ -118,6 +118,7 @@ features:
       central-istiod:
       multimaster:
       remote:
+      centralremotekubeconfig:
   # describes internal build and testing infrastrcuture
   infrastructure:
     # the testing framework

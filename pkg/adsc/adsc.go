@@ -898,8 +898,13 @@ func (a *ADSC) WaitClear() {
 	}
 }
 
-// WaitSingle waits for a single resource, and fails if any other are returned
-func (a *ADSC) WaitSingle(to time.Duration, want string) error {
+// WaitSingle waits for a single resource, and fails if the rejected type is
+// returned. We avoid rejecting all other types to avoid race conditions. For
+// example, a test asserting an incremental update of EDS may fail if a previous
+// push's RDS response comes in later. Instead, we can reject events coming
+// before (ie CDS). The only real alternative is to wait which introduces its own
+// issues.
+func (a *ADSC) WaitSingle(to time.Duration, want string, reject string) error {
 	t := time.NewTimer(to)
 	for {
 		select {
@@ -907,22 +912,17 @@ func (a *ADSC) WaitSingle(to time.Duration, want string) error {
 			if t == "" {
 				return fmt.Errorf("closed")
 			}
-			if t != want && shortTypeMap[t] != want {
-				return fmt.Errorf("wanted update for %v got %v/%v", want, t, shortTypeMap[t])
+			if t != want && t == reject {
+				return fmt.Errorf("wanted update for %v got %v", want, t)
 			}
-			return nil
+			if t == want {
+				return nil
+			}
+			continue
 		case <-t.C:
 			return fmt.Errorf("timeout, still waiting for update for %v", want)
 		}
 	}
-}
-
-// TODO stop using short types
-var shortTypeMap = map[string]string{
-	"cds": v3.ClusterType,
-	"lds": v3.ListenerType,
-	"rds": v3.RouteType,
-	"eds": v3.EndpointType,
 }
 
 // Wait for an updates for all the specified types

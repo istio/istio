@@ -222,8 +222,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
+		CaClient: fakeCACli,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	defer func() {
@@ -288,8 +287,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		EvictionDuration: 0,
 	}
 	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
+		CaClient: fakeCACli,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	defer func() {
@@ -646,9 +644,7 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 }
 
 func createSecretCache() *SecretCache {
-	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: false,
-	}
+	fetcher := &secretfetcher.SecretFetcher{}
 	fetcher.FallbackSecretName = "gateway-fallback"
 	if fallbackSecret := os.Getenv("INGRESS_GATEWAY_FALLBACK_SECRET"); fallbackSecret != "" {
 		fetcher.FallbackSecretName = fallbackSecret
@@ -666,9 +662,7 @@ func createSecretCache() *SecretCache {
 
 // Validate that file mounted certs do not wait for ingress secret.
 func TestShouldWaitForGatewaySecretForFileMountedCerts(t *testing.T) {
-	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: false,
-	}
+	fetcher := &secretfetcher.SecretFetcher{}
 	opt := &security.Options{
 		RotationInterval: 100 * time.Millisecond,
 		EvictionDuration: 0,
@@ -862,8 +856,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    fakeCACli,
+		CaClient: fakeCACli,
 	}
 
 	var wgAddedWatch sync.WaitGroup

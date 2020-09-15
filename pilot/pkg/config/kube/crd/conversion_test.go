@@ -24,9 +24,6 @@ import (
 )
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertConfig(config2.Config{}); err == nil {
-		t.Errorf("expected error for converting empty config")
-	}
 	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
