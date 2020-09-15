@@ -15,11 +15,16 @@
 package istio
 
 import (
+	"context"
 	"fmt"
+	"istio.io/istio/pkg/test/util/retry"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"time"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -52,10 +57,28 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 		return fmt.Errorf("failed generating eastwestgateway manifest for %s: %v", cluster.Name(), err)
 	}
 	i.saveManifestForCleanup(cluster.Name(), string(gwYaml))
-	// push them to the cluster
+	// push the deployment to the cluster
 	if err := i.ctx.Config(cluster).ApplyYAML(i.settings.IngressNamespace, string(gwYaml)); err != nil {
 		return fmt.Errorf("failed applying eastwestgateway deployment to %s: %v", cluster.Name(), err)
 	}
+	// wait for a ready pod
+	if err := retry.UntilSuccess(func() error {
+		pods, err := cluster.CoreV1().Pods(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{
+			LabelSelector: "istio=" + eastWestIngressIstioLabel,
+		})
+		if err != nil {
+			return err
+		}
+		for _, p := range pods.Items {
+			if p.Status.Phase == corev1.PodRunning {
+				return nil
+			}
+		}
+		return fmt.Errorf("no ready pods for istio=" + eastWestIngressIstioLabel)
+	}, retry.Timeout(30*time.Second), retry.Delay(1*time.Second)); err != nil {
+		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
+	}
+
 	return nil
 }
 

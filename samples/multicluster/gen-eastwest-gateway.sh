@@ -44,7 +44,8 @@ $IOP
       network: ${NETWORK}
       multiCluster:
         clusterName: ${CLUSTER}
-EOF)
+EOF
+)
 fi
 
 
