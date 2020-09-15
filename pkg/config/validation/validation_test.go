@@ -2459,6 +2459,15 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "invalid traffic policy, both upgrade and use client protocol set", in: networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy:   networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+					UseClientProtocol: true,
+				},
+			},
+		},
+			valid: false},
 	}
 	for _, c := range cases {
 		if got := validateTrafficPolicy(&c.in); (got == nil) != c.valid {
