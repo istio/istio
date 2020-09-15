@@ -807,7 +807,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 }
 
 func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, cluster resource.Cluster) error {
-	scopes.Framework.Infof("creating endpoints and service in cluster %s", cluster.Name())
+	scopes.Framework.Infof("creating endpoints and service in %s", cluster.Name())
 	svc := &kubeApiCore.Service{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:      istiodSvcName,
@@ -890,7 +890,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resourc
 	}
 	istioKubeConfig, err := file.AsString(env.Settings().KubeConfig[configCluster.Index()])
 	if err != nil {
-		scopes.Framework.Infof("has error in parsing kubeconfig ")
+		scopes.Framework.Infof("error in parsing kubeconfig for %s", configCluster.Name())
 		return err
 	}
 

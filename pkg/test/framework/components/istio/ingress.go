@@ -139,8 +139,6 @@ func (c *ingressImpl) HTTPSAddress() net.TCPAddr {
 }
 
 func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
-	scopes.Framework.Infof("Getting ingress address for %s on %s", c.serviceName, c.cluster.Name())
-
 	address, err := retry.Do(func() (interface{}, bool, error) {
 		return c.getAddressInner(c.cluster, c.namespace, discoveryPort)
 	}, retryTimeout, retryDelay)

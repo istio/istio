@@ -17,12 +17,13 @@ package kube
 import (
 	"errors"
 	"fmt"
-	"istio.io/istio/pkg/test/scopes"
+
 
 	"k8s.io/client-go/rest"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 type clusterTopology = map[resource.ClusterIndex]resource.ClusterIndex
