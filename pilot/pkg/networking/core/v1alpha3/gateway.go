@@ -162,14 +162,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		listeners = append(listeners, mutable.Listener)
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
-	err := errs.ErrorOrNil()
-	if err != nil {
+	if len(errs.Errors) == 1 {
 		// we have some listeners to return, but we also have some errors; log them
-		log.Info(err.Error())
+		log.Info(errs.Errors[0].Error())
+	} else if len(errs.Errors) > 1 {
+		log.Info(errs.Error())
 	}
 
 	if len(listeners) == 0 {
-		log.Error("buildGatewayListeners: Have zero listeners")
+		log.Warnf("gateway has zero listeners for node %v", builder.node.ID)
 		return builder
 	}
 
