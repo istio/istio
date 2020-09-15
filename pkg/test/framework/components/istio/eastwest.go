@@ -35,7 +35,7 @@ var (
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
 func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) error {
-	scopes.Framework.Infof("Deploying eastwestgateway in ", cluster.Name())
+	scopes.Framework.Infof("Deploying eastwestgateway in %s", cluster.Name())
 	// generate k8s resources for the gateway
 	cmd := exec.Command(genGatewayScript,
 		"--istioNamespace", i.settings.SystemNamespace,

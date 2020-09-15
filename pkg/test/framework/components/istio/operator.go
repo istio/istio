@@ -807,7 +807,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 }
 
 func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, cluster resource.Cluster) error {
-	scopes.Framework.Infof("creating endpoints and service in %s", cluster.Name())
+	scopes.Framework.Infof("creating endpoints and service in %s to get discovery from %s", cluster.Name(), discoveryPort)
 	svc := &kubeApiCore.Service{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:      istiodSvcName,

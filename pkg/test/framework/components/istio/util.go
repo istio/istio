@@ -92,24 +92,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		}
 		addr = address.(net.TCPAddr)
 	} else {
-		svcName, label := "", ""
-		svcs, err := cp.CoreV1().Services(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{})
-		if err != nil {
-			return addr, err
-		}
-		for _, svc := range svcs.Items {
-			// prefer east-west
-			if svc.Name == eastWestIngressServiceName {
-				svcName, label = eastWestIngressServiceName, eastWestIngressIstioLabel
-				break
-			}
-			// fallback to default
-			if svc.Name == defaultIngressServiceName {
-				svcName, label = defaultIngressServiceName, defaultIngressIstioLabel
-			}
-		}
-		addr = i.CustomIngressFor(cp, svcName, label).DiscoveryAddress()
-
+		addr = i.CustomIngressFor(cp, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
 	}
 	if addr.IP.String() == "<nil>" {
 		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())
