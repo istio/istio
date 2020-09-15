@@ -89,6 +89,10 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 	// first send a healthy message.
 	lastStateHealthy := false
 
+	if w.config.CheckFrequency == time.Second*0 {
+		w.config.CheckFrequency = time.Second
+	}
+
 	periodTicker := time.NewTicker(w.config.CheckFrequency)
 	for {
 		select {
