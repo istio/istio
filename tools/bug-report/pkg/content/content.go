@@ -141,7 +141,7 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 	}
 	ret := make(map[string]string)
 	for _, url := range common.IstiodDebugURLs(p.ClusterVersion) {
-		out, err := kubectlcmd.Exec(p.Client, p.Namespace, p.Pod, common.DiscoveryContainerName, fmt.Sprintf(`curl localhost:8080/%s`, url), p.DryRun)
+		out, err := kubectlcmd.Exec(p.Client, p.Namespace, p.Pod, common.DiscoveryContainerName, fmt.Sprintf(`pilot-discovery request GET %s`, url), p.DryRun)
 		if err != nil {
 			return nil, err
 		}
