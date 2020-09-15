@@ -17,14 +17,17 @@ package istio
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/util/retry"
-	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/util/retry"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -41,10 +44,18 @@ var (
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
 func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) error {
 	scopes.Framework.Infof("Deploying eastwestgateway in %s", cluster.Name())
+
+	imgSettings, err := image.SettingsFromCommandLine()
+	if err != nil {
+		return err
+	}
+
 	// generate k8s resources for the gateway
 	cmd := exec.Command(genGatewayScript,
 		"--istioNamespace", i.settings.SystemNamespace,
-		"--manifests", filepath.Join(env.IstioSrc, "manifests"))
+		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
+		"--set", "hub="+imgSettings.Hub,
+		"--set", "tag="+imgSettings.Tag)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env,
 		"CLUSTER="+cluster.Name(),
