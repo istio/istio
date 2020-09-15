@@ -1,7 +1,11 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/istio/istio)](https://goreportcard.com/report/github.com/istio/istio)
-[![GoDoc](https://godoc.org/istio.io/istio?status.svg)](https://godoc.org/istio.io/istio)
+<a href="https://istio.io/">
+    <img src="logo/istio-bluelogo-whitebackground-unframed.svg" alt="Istio logo" title="Istio" align="right" width="100" />
+</a>
 
 # Istio
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/istio/istio)](https://goreportcard.com/report/github.com/istio/istio)
+[![GoDoc](https://godoc.org/istio.io/istio?status.svg)](https://godoc.org/istio.io/istio)
 
 An open platform to connect, manage, and secure microservices.
 
