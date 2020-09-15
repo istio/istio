@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -278,6 +279,38 @@ trafficPolicy: {}
 trafficPolicy:
   tls:
     mode: ISTIO_MUTUAL
+`
+	validDeployment = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+  labels:
+    app: helloworld
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+      version: v1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/bootstrapOverride: "istio-custom-bootstrap-config"
+      labels:
+        app: helloworld
+        version: v1
+    spec:
+      containers:
+        - name: helloworld
+          image: docker.io/istio/examples-helloworld-v1
+          resources:
+            requests:
+              cpu: "100m"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
 `
 )
 
@@ -545,4 +578,14 @@ $`),
 			}
 		})
 	}
+}
+
+func TestGetTemplateLabels(t *testing.T) {
+	assert := assert.New(t)
+	un := fromYAML(validDeployment)
+
+	labels := GetTemplateLabels(un)
+	assert.NotEmpty(t, labels)
+	assert.Contains(labels, "app")
+	assert.Contains(labels, "version")
 }
