@@ -98,20 +98,27 @@ function cleanup_kind_cluster() {
   fi
 }
 
+# check_default_cluster_yaml checks the presence of default cluster YAML
+# It returns 1 if it is not present
+function check_default_cluster_yaml() {
+  if [[ -z "${DEFAULT_CLUSTER_YAML}" ]]; then
+    echo 'DEFAULT_CLUSTER_YAML file must be specified. Exiting...'
+    return 1
+  fi
+}
+
 # setup_kind_cluster creates new KinD cluster with given name, image and configuration
-# Even in case of single cluster, don't call this directly. Call through setup_kind_clusters
-# with cluster topology configuration file.
-# 1. CLUSTER_CONFIG: KinD cluster configuration YAML file (mandatory)
-# 2. NAME: Name of the Kind cluster (optional)
-# 3. IMAGE: Node image used by KinD (optional)
-# 4. IP_FAMILY: valid values are ipv4 and ipv6.
+# 1. NAME: Name of the Kind cluster (optional)
+# 2. IMAGE: Node image used by KinD (optional)
+# 3. CONFIG: KinD cluster configuration YAML file. If not specified then DEFAULT_CLUSTER_YAML is used
 # This function returns 0 when everything goes well, or 1 otherwise
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
-  CLUSTER_CONFIG_YAML=${1}
-  NAME="${2:-istio-testing}"
-  IMAGE="${3:-kindest/node:v1.18.2}"
-  IP_FAMILY="${4:-ipv4}"
+  NAME="${1:-istio-testing}"
+  IMAGE="${2:-kindest/node:v1.18.2}"
+  CONFIG="${3:-}"
+
+  check_default_cluster_yaml
 
   # Delete any previous KinD cluster
   echo "Deleting previous KinD cluster with name=${NAME}"
@@ -119,21 +126,26 @@ function setup_kind_cluster() {
     echo "No existing kind cluster with name ${NAME}. Continue..."
   fi
 
-  # Patch cluster configuration if IPv6 is required
-  if [ "${IP_FAMILY}" = "ipv6" ]; then
-    grep 'ipFamily: ipv6' "${CLUSTER_CONFIG}" || \
-    cat <<EOF >> "${CLUSTER_CONFIG}"
-networking:
-  ipFamily: ipv6
-EOF
-  fi
-
   # explicitly disable shellcheck since we actually want $NAME to expand now
   # shellcheck disable=SC2064
   trap "cleanup_kind_cluster ${NAME}" EXIT
 
+    # If config not explicitly set, then use defaults
+  if [[ -z "${CONFIG}" ]]; then
+    # Kubernetes 1.15+
+    CONFIG=${DEFAULT_CLUSTER_YAML}
+    # Configure the cluster IP Family only for default configs
+    if [ "${IP_FAMILY}" = "ipv6" ]; then
+      grep 'ipFamily: ipv6' "${CONFIG}" || \
+      cat <<EOF >> "${CONFIG}"
+networking:
+  ipFamily: ipv6
+EOF
+    fi
+  fi
+
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CLUSTER_CONFIG_YAML}" -v9 --retain --image "${IMAGE}" --wait=60s); then
+  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
@@ -170,10 +182,7 @@ function setup_kind_clusters() {
   KUBECONFIG_DIR="$(mktemp -d)"
   IP_FAMILY="${2:-ipv4}"
 
-  if [[ -z "${DEFAULT_CLUSTER_YAML}" ]]; then
-    echo 'DEFAULT_CLUSTER_YAML file must be specified. Exiting...'
-    return 1
-  fi
+  check_default_cluster_yaml
 
   # The kind tool will error when trying to create clusters in parallel unless we create the network first
   # TODO remove this when kind support creating multiple clusters in parallel - this will break ipv6
@@ -201,7 +210,7 @@ EOF
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
     # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_YAML}" "${CLUSTER_NAME}" "${IMAGE}" "${IP_FAMILY}"  
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}"  
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
