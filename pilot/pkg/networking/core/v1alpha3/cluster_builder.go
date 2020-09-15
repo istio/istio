@@ -198,12 +198,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	}
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
-		// By default, Envoy will use AUTO, which will use IPv6 if the DNS response returns IPv6.
-		// This will break if the proxy does not support IPv6. In these cases, we should explicitly
-		// request on v4.
-		if !cb.proxy.SupportsIPv6() {
-			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		}
+		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
