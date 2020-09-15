@@ -80,6 +80,10 @@ while (( "$#" )); do
       esac
       shift 2
     ;;
+    --topology-config)
+      CLUSTER_TOPOLOGY_CONFIG_FILE=$2
+      shift 2
+    ;;
     -*)
       echo "Error: Unsupported flag $1" >&2
       exit 1
@@ -129,7 +133,13 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
     time setup_kind_cluster 
   else
-    CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/multicluster.json'
+    
+    # if CLUSTER_TOPOLOGY_CONFIG_FILE is not specified explicitly
+    # then pick a default topology used for most tests in this repo
+    if [[ -z "${CLUSTER_TOPOLOGY_CONFIG_FILE}" ]]; then
+      CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/multicluster.json'
+    fi
+
     time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
 
