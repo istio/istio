@@ -29,6 +29,9 @@ type Config struct {
 	// Namespace of the echo Instance. If not provided, a default namespace "apps" is used.
 	Namespace namespace.Instance
 
+	// DefaultHostHeader overrides the default Host header for calls (`service.namespace.svc.cluster.local`)
+	DefaultHostHeader string
+
 	// Domain of the echo Instance. If not provided, a default will be selected.
 	Domain string
 
@@ -108,4 +111,12 @@ func (c Config) FQDN() string {
 		out += "." + c.Domain
 	}
 	return out
+}
+
+// HostHeader returns the Host header that will be used for calls to this service.
+func (c Config) HostHeader() string {
+	if c.DefaultHostHeader != "" {
+		return c.DefaultHostHeader
+	}
+	return c.FQDN()
 }

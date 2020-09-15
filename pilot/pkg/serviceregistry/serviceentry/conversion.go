@@ -368,7 +368,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstance(namespace string, cfg config.Config) *model.WorkloadInstance {
+func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadInstance {
 	we := cfg.Spec.(*networking.WorkloadEntry)
 	// we will merge labels from metadata with spec, with precedence to the metadata
 	labels := map[string]string{}
@@ -390,7 +390,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string, cfg config.Config)
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(namespace, we.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
@@ -406,6 +406,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string, cfg config.Config)
 			ServiceAccount: sa,
 		},
 		PortMap:   we.Ports,
-		Namespace: namespace,
+		Namespace: cfg.Namespace,
+		Name:      cfg.Name,
 	}
 }

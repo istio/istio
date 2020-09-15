@@ -580,10 +580,13 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		// the upstream cluster will use HTTP2.
 		opts.cluster.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
-	applyH2Upgrade(opts, connectionPool)
+	// Connection pool settings are applicable for both inbound and outbound clusters.
 	applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
-	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+	if opts.direction != model.TrafficDirectionInbound {
+		applyH2Upgrade(opts, connectionPool)
+		applyOutlierDetection(opts.cluster, outlierDetection)
+		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+	}
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
