@@ -162,9 +162,15 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 		if host == "" {
 			host = "*"
 		}
+
+		istioGatewayName := fmt.Sprintf("%s/%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName)
+		if istioGateway, exists := ingress.Annotations[kube.IngressIstioGatewayAnnotation]; exists {
+			istioGatewayName = istioGateway
+		}
+
 		virtualService := &networking.VirtualService{
 			Hosts:    []string{},
-			Gateways: []string{fmt.Sprintf("%s/%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName)},
+			Gateways: []string{istioGatewayName},
 		}
 
 		virtualService.Hosts = []string{host}
@@ -325,26 +331,11 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 }
 
 // TODO: WRITE TEST, add error handling
-func ShouldCreateGateway(ingress v1beta1.Ingress, domainSuffix string) *config.Config {
-	if istioGateway, exists := ingress.Annotations[kube.IngressIstioGatewayAnnotation]; exists {
-		gateway := &networking.Gateway{}
-
-		gatewayArray := strings.Split(istioGateway, "/")
-		gatewayNamespace := gatewayArray[0]
-		gatewayName := gatewayArray[1]
-
-		gatewayConfig := config.Config{
-			Meta: config.Meta{
-				GroupVersionKind: gvk.Gateway,
-				Name:             gatewayName,
-				Namespace:        gatewayNamespace,
-				Domain:           domainSuffix,
-			},
-			Spec: gateway,
-		}
-		return &gatewayConfig
+func ShouldCreateGateway(ingress v1beta1.Ingress, domainSuffix string) bool {
+	if _, exists := ingress.Annotations[kube.IngressIstioGatewayAnnotation]; exists {
+		return false
 	} else {
-		return nil
+		return true
 	}
 }
 
