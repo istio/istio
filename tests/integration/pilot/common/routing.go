@@ -320,7 +320,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
-				if apps.Headless.Contains(client) || apps.Headless.Contains(destinations) && len(apps.Headless) > 1 {
+				if (apps.Headless.Contains(client) || apps.Headless.Contains(destinations)) && len(apps.Headless) > 1 {
 					// TODO(landow) fix DNS issues with multicluster/VMs/headless
 					continue
 				}
