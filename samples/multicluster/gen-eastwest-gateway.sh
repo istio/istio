@@ -33,6 +33,10 @@ if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
     echo The NETWORK environment variable must be set.
     exit 1
   fi
+  if [[ -z "${MESH:-}" ]]; then
+    echo The MESH environment variable must be set.
+    exit 1
+  fi
   IOP=$(cat <<EOF
 $IOP
           env:
@@ -41,6 +45,7 @@ $IOP
               value: ${NETWORK}
   values:
     global:
+      meshID: ${MESH}
       network: ${NETWORK}
       multiCluster:
         clusterName: ${CLUSTER}

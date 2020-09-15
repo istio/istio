@@ -48,7 +48,8 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env,
 		"CLUSTER="+cluster.Name(),
-		"NETWORK="+cluster.NetworkName())
+		"NETWORK="+cluster.NetworkName(),
+		"MESH="+meshID)
 	if !i.environment.IsMulticluster() {
 		cmd.Env = append(cmd.Env, "SINGLE_CLUSTER=1")
 	}
