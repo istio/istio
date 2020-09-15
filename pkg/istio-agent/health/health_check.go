@@ -107,9 +107,6 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 		case <-periodTicker.C:
 			// probe target
 			healthy, err := w.prober.Probe(w.config.ProbeTimeout)
-			if err != nil {
-				healthCheckLog.Errorf("Unexpected error probing: %v", err)
-			}
 			if healthy.IsHealthy() {
 				// we were healthy, increment success counter
 				numSuccess++
