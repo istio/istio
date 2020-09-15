@@ -1017,7 +1017,7 @@ func TestXdsCache(t *testing.T) {
 	})
 	ads := s.Connect(&model.Proxy{Locality: &core.Locality{Region: "region"}}, nil, watchAll)
 
-	assertEndpoints(ads, "1.2.3.4", "1.2.3.5")
+	assertEndpoints(ads, "1.2.3.4:80", "1.2.3.5:80")
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
 
 	if _, err := s.Store().Update(makeEndpoint([]*networking.WorkloadEntry{
@@ -1029,7 +1029,7 @@ func TestXdsCache(t *testing.T) {
 	if _, err := ads.Wait(time.Second*5, v3.EndpointType); err != nil {
 		t.Fatal(err)
 	}
-	assertEndpoints(ads, "1.2.3.6", "1.2.3.5")
+	assertEndpoints(ads, "1.2.3.6:80", "1.2.3.5:80")
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
 
 	ads.WaitClear()
@@ -1051,7 +1051,7 @@ func TestXdsCache(t *testing.T) {
 	if _, err := ads.Wait(time.Second*5, v3.EndpointType); err != nil {
 		t.Fatal(err)
 	}
-	assertEndpoints(ads, "1.2.3.6", "1.2.3.5")
+	assertEndpoints(ads, "1.2.3.6:80", "1.2.3.5:80")
 	found := false
 	for _, ep := range ads.GetEndpoints()["outbound|80||foo.com"].Endpoints {
 		if ep.Priority == 1 {
