@@ -324,6 +324,30 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 	}
 }
 
+// TODO: WRITE TEST, add error handling
+func shouldCreateGateway(ingress v1beta1.Ingress, domainSuffix string) *config.Config {
+	if istioGateway, exists := ingress.Annotations[kube.IngressIstioGatewayAnnotation]; exists {
+		gateway := &networking.Gateway{}
+
+		gatewayArray := strings.Split(istioGateway, "/")
+		gatewayNamespace := gatewayArray[0]
+		gatewayName := gatewayArray[1]
+
+		gatewayConfig := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.Gateway,
+				Name:             gatewayName,
+				Namespace:        gatewayNamespace,
+				Domain:           domainSuffix,
+			},
+			Spec: gateway,
+		}
+		return gatewayConfig
+	} else {
+		return false
+	}
+}
+
 func createFallbackStringMatch(s string) *networking.StringMatch {
 	if s == "" {
 		return nil

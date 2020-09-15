@@ -34,6 +34,7 @@ const (
 	// IngressClassAnnotation is the annotation on ingress resources for the class of controllers
 	// responsible for it
 	IngressClassAnnotation = "kubernetes.io/ingress.class"
+	IngressIstioGatewayAnnotation = "ingress.kubernetes.io/istio-gateway"
 
 	// TODO: move to API
 	// The value for this annotation is a set of key value pairs (node labels)
