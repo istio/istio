@@ -1,4 +1,4 @@
-# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=5bf8bb50422900ac8efaa8e40e4a297fbf06cc6e"`
+# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=af99bd89f677c79f220bca8d757e682ec2ad6c13"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -1346,26 +1346,35 @@ spec:
                               type: object
                             type: array
                           matches:
-                            description: 'Matches define conditions used for matching
+                            default:
+                            - path:
+                                type: Prefix
+                                value: /
+                            description: "Matches define conditions used for matching
                               the rule against incoming HTTP requests. Each match
                               is independent, i.e. this rule will be matched if **any**
-                              one of the matches is satisfied. For example, take the
-                              following matches configuration: matches: - path: /foo   headers:     version:
-                              "2" - path: /v2/foo For a request to match against this
-                              rule, a request should satisfy EITHER of the two conditions:
-                              - path prefixed with `/foo` AND contains the header
-                              `version: "2"` - path prefix of `/v2/foo` Please see
-                              doc for HTTPRouteMatch on how to specify multiple match
-                              conditions that should be ANDed together.'
+                              one of the matches is satisfied. \n For example, take
+                              the following matches configuration: \n ``` matches:
+                              - path:     value: \"/foo\"   headers:     values:       version:
+                              \"2\" - path:     value: \"/v2/foo\" ``` \n For a request
+                              to match against this rule, a request should satisfy
+                              EITHER of the two conditions: \n - path prefixed with
+                              `/foo` AND contains the header `version: \"2\"` - path
+                              prefix of `/v2/foo` \n See the documentation for HTTPRouteMatch
+                              on how to specify multiple match conditions that should
+                              be ANDed together. \n If no matches are specified, the
+                              default is a prefix path match on \"/\", which has the
+                              effect of matching every HTTP request."
                             items:
-                              description: 'HTTPRouteMatch defines the predicate used
+                              description: "HTTPRouteMatch defines the predicate used
                                 to match requests to a given action. Multiple match
                                 types are ANDed together, i.e. the match will evaluate
-                                to true only if all conditions are satisfied. For
-                                example:  match:    path: /foo    headers:      version:
-                                "1" will result in a match only if an HTTP request''s
-                                path starts with `/foo` AND contains the `version:
-                                "1"` header.'
+                                to true only if all conditions are satisfied. \n For
+                                example, the match below will match a HTTP request
+                                only if its path starts with `/foo` AND it contains
+                                the `version: \"1\"` header: \n ``` match:   path:
+                                \    value: \"/foo\"   headers:     values:       version:
+                                \"1\" ```"
                               properties:
                                 extensionRef:
                                   description: "ExtensionRef is an optional, implementation-specific
@@ -1410,48 +1419,70 @@ spec:
                                   required:
                                   - name
                                   type: object
-                                headerMatchType:
-                                  default: Exact
-                                  description: "HeaderMatchType defines the semantics
-                                    of the `Header` matcher. \n Support: core (Exact)
-                                    Support: custom (ImplementationSpecific) \n Default:
-                                    \"Exact\""
-                                  enum:
-                                  - Exact
-                                  - ImplementationSpecific
-                                  type: string
                                 headers:
-                                  additionalProperties:
-                                    type: string
-                                  description: Headers are the HTTP Headers to match
-                                    as interpreted via HeaderMatchType. Multiple headers
-                                    are ANDed together, meaning, a request must contain
-                                    all the headers specified in order to select this
-                                    route.
+                                  description: Headers specifies a HTTP request header
+                                    matcher.
+                                  properties:
+                                    type:
+                                      default: Exact
+                                      description: "HeaderMatchType specifies how
+                                        to match a HTTP request header against the
+                                        Values map. \n Support: core (Exact) Support:
+                                        custom (ImplementationSpecific) \n Default:
+                                        \"Exact\""
+                                      enum:
+                                      - Exact
+                                      - ImplementationSpecific
+                                      type: string
+                                    values:
+                                      additionalProperties:
+                                        type: string
+                                      description: "Values is a map of HTTP Headers
+                                        to be matched. It MUST contain at least one
+                                        entry. \n The HTTP header field name to match
+                                        is the map key, and the value of the HTTP
+                                        header is the map value. HTTP header field
+                                        names MUST be matched case-insensitively.
+                                        \n Multiple match values are ANDed together,
+                                        meaning, a request must match all the specified
+                                        headers to select the route."
+                                      type: object
+                                  required:
+                                  - values
                                   type: object
                                 path:
-                                  description: "Path is the value of the HTTP path
-                                    as interpreted via PathType. \n Default: \"/\""
-                                  type: string
-                                pathMatchType:
-                                  default: Prefix
-                                  description: "PathType defines the semantics of
-                                    the `Path` matcher. \n Support: core (Exact, Prefix)
-                                    Support: custom (RegularExpression, ImplementationSpecific)
-                                    \n Since RegularExpression PathType has custom
-                                    conformance, implementations can support POSIX,
-                                    PCRE or any other dialects of regular expressions.
-                                    Please read the implementation's documentation
-                                    to determine the supported dialect. \n Default:
-                                    \"Prefix\""
-                                  enum:
-                                  - Exact
-                                  - Prefix
-                                  - RegularExpression
-                                  - ImplementationSpecific
-                                  type: string
-                              required:
-                              - path
+                                  default:
+                                    type: Prefix
+                                    value: /
+                                  description: Path specifies a HTTP request path
+                                    matcher. If this field is not specified, a default
+                                    prefix match on the "/" path is provided.
+                                  properties:
+                                    type:
+                                      default: Prefix
+                                      description: "Type specifies how to match against
+                                        the path Value. \n Support: core (Exact, Prefix)
+                                        Support: custom (RegularExpression, ImplementationSpecific)
+                                        \n Since RegularExpression PathType has custom
+                                        conformance, implementations can support POSIX,
+                                        PCRE or any other dialects of regular expressions.
+                                        Please read the implementation's documentation
+                                        to determine the supported dialect. \n Default:
+                                        \"Prefix\""
+                                      enum:
+                                      - Exact
+                                      - Prefix
+                                      - RegularExpression
+                                      - ImplementationSpecific
+                                      type: string
+                                    value:
+                                      description: Value of the HTTP path to match
+                                        against.
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
                               type: object
                             type: array
                         type: object

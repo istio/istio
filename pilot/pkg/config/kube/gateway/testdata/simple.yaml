@@ -48,10 +48,13 @@ spec:
   - hostnames: ["first.domain.example", "another.domain.example"]
     rules:
     - matches:
-      - pathMatchType: Prefix
-        path: /get
+      - path:
+          type: Prefix
+          value: /get
         headers:
-          my-header: some-value
+          type: Exact
+          values:
+            my-header: some-value
       filters:
       - type: RequestHeader
         requestHeader:
@@ -65,8 +68,9 @@ spec:
   - hostnames: ["second.domain.example"]
     rules:
     - matches:
-      - pathMatchType: Prefix
-        path: /second
+      - path:
+          type: Prefix
+          value: /second
       action:
         forwardTo:
         - targetRef:
@@ -84,8 +88,9 @@ spec:
   - hostnames: ["should.not.select"]
     rules:
     - matches:
-      - pathMatchType: Prefix
-        path: /get
+      - path:
+          type: Prefix
+          value: /get
       action:
         forwardTo:
         - targetRef:

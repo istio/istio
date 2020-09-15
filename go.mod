@@ -45,7 +45,7 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-logr/logr v0.2.1-0.20200730175230-ee2de8da5be6 // indirect
+	github.com/go-logr/logr v0.2.1 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
@@ -94,10 +94,11 @@ require (
 	go.uber.org/multierr v1.5.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	golang.org/x/tools v0.0.0-20200904185747-39188db58858 // indirect
 	google.golang.org/genproto v0.0.0-20200806141610-86f49bd18e98
 	google.golang.org/grpc v1.33.0-dev.0.20200828165940-d8ef479ab79a
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
@@ -116,9 +117,11 @@ require (
 	k8s.io/apimachinery v0.19.0
 	k8s.io/cli-runtime v0.19.0
 	k8s.io/client-go v0.19.0
+	k8s.io/klog/v2 v2.3.0 // indirect
+	k8s.io/kube-openapi v0.0.0-20200831175022-64514a1d5d59 // indirect
 	k8s.io/kubectl v0.19.0
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
-	sigs.k8s.io/controller-runtime v0.6.1
-	sigs.k8s.io/service-apis v0.0.0-20200828004018-5bf8bb504229
+	sigs.k8s.io/controller-runtime v0.6.2
+	sigs.k8s.io/service-apis v0.0.0-20200908055542-af99bd89f677
 	sigs.k8s.io/yaml v1.2.0
 )

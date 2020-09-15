@@ -191,7 +191,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 			}
 			for _, filter := range r.Filters {
 				switch filter.Type {
-				case k8s.FilterHTTPRequesttHeader:
+				case k8s.FilterHTTPRequestHeader:
 					vs.Headers = createHeadersFilter(filter.RequestHeader)
 				default:
 					log.Warnf("unsupported filter type %q", filter.Type)
@@ -388,40 +388,46 @@ func createHeadersFilter(filter *k8s.HTTPRequestHeaderConfig) *istio.Headers {
 }
 
 func createHeadersMatch(match k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
-	if len(match.Headers) == 0 {
+	if match.Headers == nil {
 		return nil
 	}
 	res := map[string]*istio.StringMatch{}
-	for k, v := range match.Headers {
-		if match.HeaderMatchType == nil ||
-			*match.HeaderMatchType == k8s.HeaderMatchExact ||
-			*match.HeaderMatchType == k8s.HeaderMatchImplementationSpecific {
+	if match.Headers.Type == "" ||
+		match.Headers.Type == k8s.HeaderMatchExact ||
+		match.Headers.Type == k8s.HeaderMatchImplementationSpecific {
+		for k, v := range match.Headers.Values {
 			res[k] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: v},
 			}
-		} else {
-			log.Warnf("unknown type: %v is not supported HeaderMatchType", match.HeaderMatchType)
-			return nil
 		}
+	} else {
+		log.Warnf("unknown type: %v is not supported Header type", match.Headers.Type)
+		return nil
 	}
 	return res
 }
 
 func createURIMatch(match k8s.HTTPRouteMatch) *istio.StringMatch {
-	if match.PathMatchType == "" || match.PathMatchType == k8s.PathMatchExact {
+	if match.Path == nil {
+		// "If this field is not pecified, a default prefix match on the "/" path is provided."
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Exact{Exact: *match.Path},
+			MatchType: &istio.StringMatch_Prefix{Prefix: "/"},
 		}
-	} else if match.PathMatchType == k8s.PathMatchPrefix {
+	}
+	if match.Path.Type == "" || match.Path.Type == k8s.PathMatchImplementationSpecific || match.Path.Type == k8s.PathMatchPrefix {
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Prefix{Prefix: *match.Path},
+			MatchType: &istio.StringMatch_Prefix{Prefix: match.Path.Value},
 		}
-	} else if match.PathMatchType == k8s.PathMatchRegularExpression {
+	} else if match.Path.Type == k8s.PathMatchExact {
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Regex{Regex: *match.Path},
+			MatchType: &istio.StringMatch_Exact{Exact: match.Path.Value},
+		}
+	} else if match.Path.Type == k8s.PathMatchRegularExpression {
+		return &istio.StringMatch{
+			MatchType: &istio.StringMatch_Regex{Regex: match.Path.Value},
 		}
 	} else {
-		log.Warnf("unknown type: %s is not supported PathMatchType", match.PathMatchType)
+		log.Warnf("unknown type: %s is not supported Path match type", match.Path.Type)
 		return nil
 	}
 }

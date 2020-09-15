@@ -68,8 +68,9 @@ spec:
   - hostnames: ["my.domain.example"]
     rules:
     - matches:
-      - pathMatchType: Prefix
-        path: /get
+      - path:
+          type: Prefix
+          value: /get
       action:
         forwardTo:
         - targetRef:
