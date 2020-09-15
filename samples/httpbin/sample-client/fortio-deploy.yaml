@@ -15,8 +15,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortio-deploy
-  labels:
-    app: fortio
 spec:
   replicas: 1
   selector:

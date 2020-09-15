@@ -17,8 +17,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: raw-svc-deployment
-  labels:
-    app: echosrv
 spec:
   replicas: 2 # tells deployment to run 2 pods matching the template
   selector:
@@ -52,8 +50,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mysqlclient-istio
-  labels:
-    app: mysqlclient-istio
 spec:
   replicas: 1
   selector:

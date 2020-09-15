@@ -15,9 +15,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tornado
-  labels:
-    app: tornado
-    version: v1
 spec:
   replicas: 1
   selector:

@@ -35,9 +35,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tcp-echo
-  labels:
-    app: tcp-echo
-    version: v1
 spec:
   replicas: 1
   selector:

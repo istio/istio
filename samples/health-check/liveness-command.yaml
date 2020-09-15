@@ -32,8 +32,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: liveness
-  labels:
-    app: liveness
 spec:
   selector:
     matchLabels:
