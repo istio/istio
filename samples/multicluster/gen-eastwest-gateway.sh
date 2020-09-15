@@ -14,59 +14,42 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+ARGS="${@:-}"
+
 set -euo pipefail
 
-if [[ -z "${CLUSTER:-}" ]]; then
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+
+SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
+
+IOP=$(cat "${ROOT}/eastwest-gateway.yaml")
+
+if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
+  if [[ -z "${CLUSTER:-}" ]]; then
   echo The CLUSTER environment variable must be set.
   exit 1
-fi
-
-if [[ -z "${NETWORK:-}" ]]; then
-  echo The NETWORK environment variable must be set.
-  exit 1
-fi
-
-# Generate the YAML for the east-west gateway.
-istioctl manifest generate "${@}" -f - <<EOF
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  # Only generate a gateway component defined below.
-  # Using this with "istioctl install" will reconcile and remove existing control-plane components.
-  # Instead use "istioctl manifest generate" or "kubectl create" if using the istio operator.
-  profile: empty
+  fi
+  if [[ -z "${NETWORK:-}" ]]; then
+    echo The NETWORK environment variable must be set.
+    exit 1
+  fi
+  IOP=$(cat <<EOF
+$IOP
+          env:
+            # traffic through this gateway should be routed inside the network
+            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+              value: ${NETWORK}
   values:
     global:
       network: ${NETWORK}
       multiCluster:
         clusterName: ${CLUSTER}
-  components:
-    ingressGateways:
-      - name: istio-eastwestgateway
-        label:
-          istio: eastwestgateway
-          app: istio-eastwestgateway
-        enabled: true
-        k8s:
-          env:
-            # traffic through this gateway should be routed inside the network
-            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
-              value: ${NETWORK}
-          service:
-            ports:
-              - name: status-port
-                port: 15021
-                targetPort: 15021
-              - name: mtls
-                port: 15443
-                targetPort: 15443
-              - name: tcp-istiod
-                port: 15012
-                targetPort: 15012
-              - name: tcp-webhook
-                port: 15017
-                targetPort: 15017
-              - name: tcp-dns-tls
-                port: 853
-                targetPort: 8853
+EOF)
+fi
+
+
+# Generate the YAML for the east-west gateway.
+# shellcheck disable=SC2068
+istioctl manifest generate ${ARGS} -f - <<EOF
+$IOP
 EOF

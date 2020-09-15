@@ -44,6 +44,9 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	cmd.Env = append(cmd.Env,
 		"CLUSTER="+cluster.Name(),
 		"NETWORK="+cluster.NetworkName())
+	if !i.environment.IsMulticluster() {
+		cmd.Env = append(cmd.Env, "SINGLE_CLUSTER=1")
+	}
 	gwYaml, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed generating eastwestgateway manifest for %s: %v", cluster.Name(), err)

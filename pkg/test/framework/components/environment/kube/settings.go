@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 
-
 	"k8s.io/client-go/rest"
 
 	istioKube "istio.io/istio/pkg/kube"
