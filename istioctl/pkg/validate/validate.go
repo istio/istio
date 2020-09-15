@@ -188,13 +188,24 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 	if un.GetNamespace() == handleNamespace(istioNamespace) {
 		return
 	}
-	labels := un.GetLabels()
+	labels := GetTemplateLabels(un)
 	for _, l := range istioDeploymentLabel {
 		if _, ok := labels[l]; !ok {
 			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
 				" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
 		}
 	}
+}
+
+// GetTemplateLabels returns spec.template.metadata.labels from Deployment
+func GetTemplateLabels(u *unstructured.Unstructured) map[string]string {
+	if spec, ok := u.Object["spec"].(map[string]interface{}); ok {
+		if template, ok := spec["template"].(map[string]interface{}); ok {
+			m, _, _ := unstructured.NestedStringMap(template, "metadata", "labels")
+			return m
+		}
+	}
+	return nil
 }
 
 func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error {
