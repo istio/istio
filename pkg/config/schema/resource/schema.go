@@ -73,7 +73,7 @@ type Schema interface {
 
 	// ValidateConfig validates that the given config message is of the correct type for this schema
 	// and that the contents are valid.
-	ValidateConfig(cfg config.Config) error
+	ValidateConfig(cfg config.Config) (validation.Warning, error)
 
 	// Equal is a helper function for testing equality between Schema instances. This supports comparison
 	// with the cmp library.
@@ -252,7 +252,7 @@ func (s *schemaImpl) MustNewInstance() config.Spec {
 	return p
 }
 
-func (s *schemaImpl) ValidateConfig(cfg config.Config) error {
+func (s *schemaImpl) ValidateConfig(cfg config.Config) (validation.Warning, error) {
 	return s.validateConfig(cfg)
 }
 
