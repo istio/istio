@@ -272,7 +272,13 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		return nil
 	}
 
-	instances := cb.push.InstancesByPort(service, port, labels)
+	var instances []*model.ServiceInstance
+
+	if len(labels) == 0 {
+		instances = cb.push.ServiceInstancesByPort[service][port]
+	} else {
+		instances = cb.push.InstancesByPort(service, port, labels)
+	}
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.

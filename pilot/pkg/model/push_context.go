@@ -154,9 +154,13 @@ type PushContext struct {
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
-	// ClusterVIPs contains a map service and its cluster addresses. It is stored here
+	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
 	// to avoid locking each service for every proxy during push.
 	ClusterVIPs map[*Service]map[string]string
+
+	// ServiceInstancesByPort contains a map of service and instances by port. It is stored here
+	// to avoid recomputations during push.
+	ServiceInstancesByPort map[*Service]map[int][]*ServiceInstance
 
 	// virtualServiceIndex is the index of virtual services by various fields.
 	virtualServiceIndex virtualServiceIndex
@@ -518,6 +522,7 @@ func NewPushContext() *PushContext {
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
 		ClusterVIPs:             map[*Service]map[string]string{},
+		ServiceInstancesByPort:  map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -1086,6 +1091,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			ps.ClusterVIPs[s][k] = v
 		}
 		s.Mutex.RUnlock()
+		for _, port := range s.Ports {
+			ps.ServiceInstancesByPort[s][port.Port] = ps.InstancesByPort(s, port.Port, nil)
+		}
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -1111,7 +1119,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+			ps.ServiceAccounts[svc.Hostname][port.Port] = GetServiceAccountsFromInstances(svc, ps.ServiceInstancesByPort[svc][port.Port])
 		}
 	}
 }
