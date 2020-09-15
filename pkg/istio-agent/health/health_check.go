@@ -100,27 +100,29 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 			if err != nil {
 				healthCheckLog.Errorf("Unexpected error probing: %v", err)
 			}
-			if healthy {
+			if healthy.IsHealthy() {
 				// we were healthy, increment success counter
 				numSuccess++
+				// wipe numFail (need consecutive success)
+				numFail = 0
 				// if we reached the threshold, mark the target as healthy
 				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 					notifyHealthChange <- &ProbeEvent{Healthy: true}
 					numSuccess = 0
-					numFail = 0
 					lastStateHealthy = true
 				}
 			} else {
 				// we were not healthy, increment fail counter
 				numFail++
+				// wipe numSuccess (need consecutive failure)
+				numSuccess = 0
 				// if we reached the fail threshold, mark the target as unhealthy
 				if numFail == w.config.FailThresh && lastStateHealthy {
 					notifyHealthChange <- &ProbeEvent{
 						Healthy:          false,
 						UnhealthyStatus:  500,
-						UnhealthyMessage: "unhealthy",
+						UnhealthyMessage: err.Error(),
 					}
-					numSuccess = 0
 					numFail = 0
 					lastStateHealthy = false
 				}

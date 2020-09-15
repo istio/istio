@@ -245,7 +245,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 					},
 				}
 			}
-			proxyLog.Debug("request for type url %s", req.TypeUrl)
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err

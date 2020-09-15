@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
@@ -35,7 +36,27 @@ type Prober interface {
 	// If an error returned is not nil, it is assumed that the process could
 	// not complete, and Probe() was unable to determine whether or not the
 	// target was healthy.
-	Probe(timeout time.Duration) (bool, error)
+	Probe(timeout time.Duration) (ProbeResult, error)
+}
+
+type ProbeResult string
+
+const (
+	Healthy   ProbeResult = "HEALTHY"
+	Unhealthy ProbeResult = "UNHEALTHY"
+	Unknown   ProbeResult = "UNKNOWN"
+)
+
+func (p *ProbeResult) IsHealthy() bool {
+	return *p == Healthy
+}
+
+func (p *ProbeResult) IsUnhealthy() bool {
+	return *p == Unhealthy
+}
+
+func (p *ProbeResult) IsUnknown() bool {
+	return *p == Unknown
 }
 
 type HTTPProber struct {
@@ -44,12 +65,12 @@ type HTTPProber struct {
 
 // HttpProber_Probe will return whether or not the target is healthy (true -> healthy)
 // 	by making an HTTP Get response.
-func (h *HTTPProber) Probe(timeout time.Duration) (bool, error) {
+func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	client := &http.Client{
 		Timeout: timeout,
 	}
-	// modify transport if scheme is http
-	if h.Config.Scheme == string(scheme.HTTP) {
+	// modify transport if scheme is https
+	if h.Config.Scheme == string(scheme.HTTPS) {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
@@ -58,17 +79,24 @@ func (h *HTTPProber) Probe(timeout time.Duration) (bool, error) {
 	headers := make(http.Header)
 	for _, val := range h.Config.HttpHeaders {
 		// net.httpHeaders value is a []string but uses only index 0
-		headers[val.Name] = []string{val.Value}
+		headers[val.Name] = append(headers[val.Name], val.Value)
 	}
-	// GET scheme://ip:port/path
-	targetURL, err := url.Parse(fmt.Sprintf("%s://localhost:%v/%s", h.Config.Scheme, h.Config.Port, h.Config.Path))
+	targetURL, err := url.Parse(h.Config.Path)
+	// Something is busted with the path, but it's too late to reject it. Pass it along as is.
+	if err != nil {
+		targetURL = &url.URL{
+			Path: h.Config.Path,
+		}
+	}
+	targetURL.Scheme = h.Config.Scheme
+	targetURL.Host = net.JoinHostPort(h.Config.Host, strconv.Itoa(int(h.Config.Port)))
 	if err != nil {
 		healthCheckLog.Errorf("unable to parse url: %v", err)
-		return false, err
+		return Unknown, err
 	}
 	req, err := http.NewRequest("GET", targetURL.String(), nil)
 	if err != nil {
-		return false, err
+		return Unknown, err
 	}
 	req.Header = headers
 	if headers.Get("Host") != "" {
@@ -78,7 +106,7 @@ func (h *HTTPProber) Probe(timeout time.Duration) (bool, error) {
 	// if we were unable to connect, count as failure
 	if err != nil {
 		healthCheckLog.Infof("Health Check failed for %v: %v", targetURL.String(), err)
-		return false, nil
+		return Unhealthy, err
 	}
 	defer func() {
 		err = res.Body.Close()
@@ -89,38 +117,41 @@ func (h *HTTPProber) Probe(timeout time.Duration) (bool, error) {
 	// from [200,400)
 	if res.StatusCode >= http.StatusOK && res.StatusCode < http.StatusBadRequest {
 		healthCheckLog.Infof("Health check succeeded for %v", targetURL.String())
-		return true, nil
+		return Healthy, nil
 	}
-	return false, nil
+	return Unhealthy, fmt.Errorf("status code was not from [200,400), bad code %v", res.StatusCode)
 }
 
 type TCPProber struct {
 	Config *v1alpha3.TCPHealthCheckConfig
 }
 
-func (t *TCPProber) Probe(timeout time.Duration) (bool, error) {
+func (t *TCPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	// if we cant connect, count as fail
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%v", t.Config.Host, t.Config.Port), timeout)
 	if err != nil {
-		return false, nil
+		return Unhealthy, err
 	}
 	err = conn.Close()
 	if err != nil {
 		healthCheckLog.Errorf("Unable to close TCP Socket: %v", err)
 	}
-	return true, nil
+	return Healthy, nil
 }
 
 type ExecProber struct {
 	Config *v1alpha3.ExecHealthCheckConfig
 }
 
-func (e *ExecProber) Probe(timeout time.Duration) (bool, error) {
+func (e *ExecProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	cmd := exec.Cmd{
 		Path: e.Config.Command[0],
 		Args: e.Config.Command[1:],
 	}
-	_ = cmd.Start()
+	if err := cmd.Start(); err != nil {
+		// should this be unknown? exit code returns status, this shouldnt
+		return Unhealthy, err
+	}
 
 	// wait on another channel
 	done := make(chan error)
@@ -130,27 +161,31 @@ func (e *ExecProber) Probe(timeout time.Duration) (bool, error) {
 
 	select {
 	case <-timeoutTimer:
+		if err := cmd.Process.Kill(); err != nil {
+			healthCheckLog.Errorf("Unable to kill process after timeout: %v", err)
+			return Unhealthy, err
+		}
 		// timeout exceeded counts as unhealthy, return nil err
-		return false, nil
+		return Unhealthy, nil
 	case err := <-done:
 		// extract exit status, log and return
 		if err == nil {
-			return true, nil
+			return Healthy, nil
 		}
 		if exitError, ok := err.(*exec.ExitError); ok {
 			if exitError.ExitCode() == 0 {
 				// exited successfully
-				return true, nil
+				return Healthy, nil
 			}
 			healthCheckLog.Infof("Command %v exited with non-zero status %v", cmd.String(), exitError.ExitCode())
-			return false, nil
+			return Unhealthy, err
 		}
-		return false, fmt.Errorf("could not extract ExitError from command error")
+		return Unhealthy, fmt.Errorf("could not extract ExitError from command error")
 	}
 }
 
 type NoOpProber struct{}
 
-func (n *NoOpProber) Probe(_ time.Duration) (bool, error) {
-	return true, nil
+func (n *NoOpProber) Probe(_ time.Duration) (ProbeResult, error) {
+	return Unknown, nil
 }
