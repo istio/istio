@@ -39,7 +39,7 @@ const (
 	defaultIngressIstioLabel  = "ingressgateway"
 	defaultIngressServiceName = "istio-" + defaultIngressIstioLabel
 
-	eastWestIngressIstioLabel  = "ingressgateway"
+	eastWestIngressIstioLabel  = "eastwestgateway"
 	eastWestIngressServiceName = "istio-" + eastWestIngressIstioLabel
 
 	DefaultRequestTimeout = 10 * time.Second

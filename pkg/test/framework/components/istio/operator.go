@@ -499,19 +499,15 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 			return err
 		}
 	}
+
 	if i.environment.IsConfigCluster(cluster) {
-		if err := waitForIstioReady(i.ctx, cluster, cfg); err != nil {
-			return err
-		}
-	}
-	// Needed for VMs, Multi-Cluster and Multi-Network
-	if err := i.deployEastWestGateway(cluster); err != nil {
-		return err
-	}
-	if i.environment.IsConfigCluster(cluster) {
+
 		// Other clusters should only use this for discovery if its a config cluster.
 		if err := i.applyIstiodGateway(cluster); err != nil {
 			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
+		}
+		if err := waitForIstioReady(i.ctx, cluster, cfg); err != nil {
+			return err
 		}
 	}
 
@@ -525,7 +521,7 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 	if err != nil {
 		return err
 	}
-	if i.environment.IsMulticluster() {
+	if i.environment.IsMulticluster() && !i.isExternalControlPlane() {
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
@@ -537,19 +533,20 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 	if err != nil {
 		return err
 	}
-
-	remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
-	if err != nil {
-		return err
-	}
-	installSettings = append(installSettings,
-		"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
-
-	if isCentralIstio(i.environment, cfg) {
-		// TODO eventually all models of "remote" will use external cluster for injection
+	if !i.isExternalControlPlane() {
+		remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
+		if err != nil {
+			return err
+		}
 		installSettings = append(installSettings,
-			"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
-			"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
+			"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
+
+		if isCentralIstio(i.environment, cfg) {
+			// TODO allow all remotes to use custom injection URLs
+			installSettings = append(installSettings,
+				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
+				"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
+		}
 	}
 
 	if err := install(i, installSettings, istioCtl, cluster.Name()); err != nil {
@@ -604,21 +601,15 @@ func isCentralIstio(env *kube.Environment, cfg Config) bool {
 	return false
 }
 
-// genManifest will generate a Kubernetes manifest given istioctl install settings
-func genManifest(installSettings []string, istioCtl istioctl.Instance) (string, error) {
+// install will replace and reconcile the installation based on the given install settings
+func install(c *operatorComponent, installSettings []string, istioCtl istioctl.Instance, clusterName string) error {
 	// Save the manifest generate output so we can later cleanup
 	genCmd := []string{"manifest", "generate"}
 	genCmd = append(genCmd, installSettings...)
 	out, _, err := istioCtl.Invoke(genCmd)
 	if err != nil {
-		return "", err
+		return err
 	}
-	return out, nil
-}
-
-// install will replace and reconcile the installation based on the given install settings
-func install(c *operatorComponent, installSettings []string, istioCtl istioctl.Instance, clusterName string) error {
-	out, err := genManifest(installSettings, istioCtl)
 	if err != nil {
 		return err
 	}
