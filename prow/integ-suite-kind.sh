@@ -39,6 +39,7 @@ source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
 NODE_IMAGE="kindest/node:v1.18.2"
+CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/multicluster.json'
 
 PARAMS=()
 
@@ -133,13 +134,6 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
     time setup_kind_cluster 
   else
-    
-    # if CLUSTER_TOPOLOGY_CONFIG_FILE is not specified explicitly
-    # then pick a default topology used for most tests in this repo
-    if [[ -z "${CLUSTER_TOPOLOGY_CONFIG_FILE}" ]]; then
-      CLUSTER_TOPOLOGY_CONFIG_FILE='./prow/config/topology/multicluster.json'
-    fi
-
     time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
 
