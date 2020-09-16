@@ -408,7 +408,8 @@ func TestValidateResource(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
 			v := &validator{}
-			err := v.validateResource("istio-system", fromYAML(c.in))
+			var writer io.Writer
+			err := v.validateResource("istio-system", fromYAML(c.in), writer)
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%v", err == nil, c.valid, err)
 			}
