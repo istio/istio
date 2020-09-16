@@ -1097,7 +1097,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		}
 	}
 
-	ps.initServiceAccounts(env, allServices)
+	ps.initServiceAccounts(allServices)
 
 	return nil
 }
@@ -1111,7 +1111,7 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 }
 
 // Caches list of service accounts in the registry
-func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
+func (ps *PushContext) initServiceAccounts(services []*Service) {
 	for _, svc := range services {
 		if ps.ServiceAccounts[svc.Hostname] == nil {
 			ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
