@@ -868,9 +868,9 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res := expectNonEmptyResource(t, responses)
+	expectNonEmptyResource(t, responses)
 	xds.AdsPushAll(s.Discovery)
-	res = expectNonEmptyResource(t, responses)
+	res := expectNonEmptyResource(t, responses)
 
 	// send empty response and validate no response is returned.
 	err = sendRDSReq(gatewayID(gatewayIP), nil, res.VersionInfo, res.Nonce, adscon)
@@ -884,7 +884,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res = expectNonEmptyResource(t, responses)
+	expectNonEmptyResource(t, responses)
 }
 
 func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
