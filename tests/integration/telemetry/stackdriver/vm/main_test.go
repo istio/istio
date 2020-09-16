@@ -64,13 +64,15 @@ func TestMain(m *testing.M) {
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
-			cfg.ControlPlaneValues = `values:
-  telemetry:
-    v2:
-      stackdriver:
-        configOverride:
-          meshEdgesReportingDuration: "5s"
-          enable_mesh_edges_reporting: true`
+			cfg.Values["telemetry.v2.stackdriver.configOverride.meshEdgesReportingDuration"] = "5s"
+			cfg.Values["telemetry.v2.stackdriver.configOverride.enable_mesh_edges_reporting"] = "true"
+			// 			cfg.ControlPlaneValues = `values:
+			//   telemetry:
+			//     v2:
+			//       stackdriver:
+			//         configOverride:
+			//           meshEdgesReportingDuration: "5s"
+			//           enable_mesh_edges_reporting: true`
 		})).
 		Setup(testSetup).
 		Run()

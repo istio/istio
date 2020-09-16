@@ -179,6 +179,7 @@ spec:
 					if strings.HasPrefix(dstUID, "//compute.googleapis.com/projects/test-project/zones/us-west1-c/instances/server-v1-") &&
 						strings.HasPrefix(srcUID, "kubernetes://client-v1-") {
 						foundEdge = true
+						break
 					}
 				}
 
