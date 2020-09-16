@@ -41,31 +41,31 @@ ns1:
       c6: null
 `
 	testClusterResourcesLabels = `
-ns1.d1.p1:
+ns1/p1:
   l1: v1
   l2: v2
-ns1.d1.p2:
+ns1/p2:
   l1: v1
   l2: v22
   l3: v3
-ns1.d2.p3:
+ns1/p3:
   l1: v1
   l2: v2
   l3: v3
   l4: v4
 `
 	testClusterResourcesAnnotations = `
-ns1.d1.p1:
+ns1/p1:
   k2: v2
-ns1.d1.p2:
+ns1/p2:
   k1: v1
   k2: v2
   k3: v33
-ns1.d1.p3:
+ns1/p3:
   k1: v1
   k2: v22
   k3: v3
-ns1.d2.p4:
+ns1/p4:
   k1: v1
   k4: v4
 `

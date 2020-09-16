@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/content"
 	"istio.io/istio/tools/bug-report/pkg/filter"
@@ -125,7 +126,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 			log.Errorf(err.Error())
 			continue
 		}
-		writeFile(archive.ProxyLogPath(tempDir, namespace, pod), text)
+		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text)
 	}
 
 	outDir, err := os.Getwd()
@@ -180,12 +181,14 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		}
 
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
+		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case container == "istio-proxy":
-			getFromCluster(content.GetCoredumps, cp, archive.ProxyCoredumpPath(tempDir, namespace, pod), &mandatoryWg)
+		case common.IsProxyContainer(params.ClusterVersion, container):
+			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
+			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getProxyLogs(client, config, resources, p, namespace, pod, container, &optionalWg)
 
-		case strings.HasPrefix(pod, "istiod-") && container == "discovery":
+		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(client, config, resources, namespace, pod, &mandatoryWg)
 
@@ -244,9 +247,9 @@ func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, r
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		clog, _, _, err := getLog(client, resources, config, namespace, pod, "discovery")
+		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
-		writeFile(archive.IstiodPath(tempDir, namespace, pod+".log"), clog)
+		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog)
 	}()
 }
 
