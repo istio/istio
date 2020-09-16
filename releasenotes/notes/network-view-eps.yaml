@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- https://github.com/istio/istio/issues/26293
+releaseNotes:
+- |
+  **Fixed** Setting the ISTIO_META_REQUESTED_NETWORK_VIEW environment variable for a proxy will filter out endpoints that
+  aren't part of the comma-separated list of networks. This should be set to the local-network on the ingress-gateway used
+  for cross-network traffic to prevent odd loadbalancing behavior.

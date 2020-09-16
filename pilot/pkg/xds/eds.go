@@ -371,6 +371,7 @@ type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
 	network         string
+	networkView     map[string]bool
 	clusterID       string
 	locality        *core.Locality
 	destinationRule *model.Config
@@ -390,6 +391,7 @@ func createEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.P
 	key := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
+		networkView:     model.GetNetworkView(proxy),
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
@@ -413,7 +415,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
 	if b.push.Networks != nil && len(b.push.Networks.Networks) > 0 {
-		endpoints := EndpointsByNetworkFilter(b.push, b.network, l.Endpoints)
+		endpoints := EndpointsByNetworkFilter(b, l.Endpoints)
 		filteredCLA := &endpoint.ClusterLoadAssignment{
 			ClusterName: l.ClusterName,
 			Endpoints:   endpoints,
@@ -433,6 +435,13 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		loadbalancer.ApplyLocalityLBSetting(b.locality, l, lbSetting, enableFailover)
 	}
 	return l
+}
+
+func (b *EndpointBuilder) canViewNetwork(network string) bool {
+	if b.networkView == nil {
+		return true
+	}
+	return b.networkView[network]
 }
 
 // EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
