@@ -322,6 +322,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		ProxyListenPort: 0,
 		ConnectTimeout:  types.DurationProto(-1 * time.Second),
 		DefaultConfig:   &meshconfig.ProxyConfig{},
+		TrustDomainAliases: []string{"a.$b", "a/b"},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -331,7 +332,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 6 {
+			if len(err.Errors) < 7 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
