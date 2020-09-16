@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: pilot
+issue:
+  - 27326
+
+releaseNotes:
+- |
+  **Added** Allow specifying an existing gateway for Kubernetes Ingress via annotation such as 'ingress.kubernetes.io/istio-gateway: "istio-system/my-existing-gateway"'
