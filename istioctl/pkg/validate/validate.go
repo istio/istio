@@ -112,7 +112,10 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 				}
 			}
 			if castItem.GetKind() == name.DeploymentStr {
-				v.validateDeploymentLabel(istioNamespace, castItem)
+				err := v.validateDeploymentLabel(istioNamespace, castItem)
+				if err != nil {
+					errs = multierror.Append(errs, err)
+				}
 			}
 			return nil
 		})
@@ -126,7 +129,10 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 
 	if un.GetKind() == name.DeploymentStr {
-		v.validateDeploymentLabel(istioNamespace, un)
+		err := v.validateDeploymentLabel(istioNamespace, un)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -184,28 +190,35 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 	return nil
 }
 
-func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructured.Unstructured) {
+func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructured.Unstructured) error {
 	if un.GetNamespace() == handleNamespace(istioNamespace) {
-		return
+		return nil
 	}
-	labels := GetTemplateLabels(un)
+	labels, err := GetTemplateLabels(un)
+	if err != nil {
+		return err
+	}
 	for _, l := range istioDeploymentLabel {
 		if _, ok := labels[l]; !ok {
 			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
 				" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
 		}
 	}
+	return nil
 }
 
 // GetTemplateLabels returns spec.template.metadata.labels from Deployment
-func GetTemplateLabels(u *unstructured.Unstructured) map[string]string {
+func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) {
 	if spec, ok := u.Object["spec"].(map[string]interface{}); ok {
 		if template, ok := spec["template"].(map[string]interface{}); ok {
-			m, _, _ := unstructured.NestedStringMap(template, "metadata", "labels")
-			return m
+			m, _, err := unstructured.NestedStringMap(template, "metadata", "labels")
+			if err != nil {
+				return nil, err
+			}
+			return m, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error {

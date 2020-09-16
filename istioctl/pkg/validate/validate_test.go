@@ -584,7 +584,10 @@ func TestGetTemplateLabels(t *testing.T) {
 	assert := assert.New(t)
 	un := fromYAML(validDeployment)
 
-	labels := GetTemplateLabels(un)
+	labels, err := GetTemplateLabels(un)
+	if err != nil {
+		t.Fatal(err)
+	}
 	assert.NotEmpty(t, labels)
 	assert.Contains(labels, "app")
 	assert.Contains(labels, "version")
