@@ -23,10 +23,10 @@ docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
-DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_ubuntu_xenial \
+DOCKER_RELEASE_TARGETS ?= docker.pilot docker.proxyv2 docker.istioctl docker.operator docker.install-cni
+DOCKER_TARGETS ?= $(DOCKER_RELEASE_TARGETS) docker.app docker.app_sidecar_ubuntu_xenial \
 docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_sidecar_debian_9 \
-docker.app_sidecar_debian_10 docker.app_sidecar_centos_8  \
-docker.istioctl docker.operator docker.install-cni
+docker.app_sidecar_debian_10 docker.app_sidecar_centos_8
 
 # Echo docker directory and the template to pass image name and version to for VM testing
 ECHO_DOCKER ?= pkg/test/echo/docker
@@ -281,6 +281,8 @@ dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 		   ); \
 	 ))
 
+# Build only the items needed in the release
+docker.save: DOCKER_TARGETS=$(DOCKER_RELEASE_TARGETS)
 docker.save: dockerx.save
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
