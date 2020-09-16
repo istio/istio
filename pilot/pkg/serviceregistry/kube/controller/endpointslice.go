@@ -25,12 +25,11 @@ import (
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
 )
 
 type endpointSliceController struct {
@@ -185,6 +184,22 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 	}
 	esc.endpointCache.Update(host, slice.Name, endpoints)
 	return esc.endpointCache.Get(host)
+}
+
+func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: name}).AsSelectorPreValidated()
+	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
+	if err != nil || len(slices) == 0 {
+		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
+		return nil
+	}
+
+	endpoints := make([]*model.IstioEndpoint, 0)
+	for _, es := range slices {
+		endpoints = append(endpoints, esc.buildIstioEndpoints(es, host)...)
+	}
+
+	return endpoints
 }
 
 func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {

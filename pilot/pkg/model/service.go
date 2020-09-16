@@ -33,7 +33,6 @@ import (
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
-
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -245,6 +244,7 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 }
 
 type WorkloadInstance struct {
+	Name      string            `json:"name,omitempty"`
 	Namespace string            `json:"namespace,omitempty"`
 	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
 	PortMap   map[string]uint32 `json:"portMap,omitempty"`
@@ -257,6 +257,7 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 		pmap[k] = v
 	}
 	return &WorkloadInstance{
+		Name:      instance.Name,
 		Namespace: instance.Namespace,
 		PortMap:   pmap,
 		Endpoint:  instance.Endpoint.DeepCopy(),
@@ -294,6 +295,9 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 		return false
 	}
 	if first.Namespace != second.Namespace {
+		return false
+	}
+	if first.Name != second.Name {
 		return false
 	}
 	if !portMapEquals(first.PortMap, second.PortMap) {

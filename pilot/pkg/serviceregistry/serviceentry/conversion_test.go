@@ -22,7 +22,6 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/test/util"
@@ -714,22 +713,24 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 		"app": "wle",
 	}
 	workloadInstanceTests := []struct {
-		name      string
-		namespace string
-		wle       *networking.WorkloadEntry
-		out       *model.WorkloadInstance
+		name string
+		wle  model.Config
+		out  *model.WorkloadInstance
 	}{
 		{
-			name:      "simple",
-			namespace: "ns1",
-			wle: &networking.WorkloadEntry{
-				Address: "1.1.1.1",
-				Labels:  labels,
-				Ports: map[string]uint32{
-					"http": 80,
+			name: "simple",
+			wle: model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Namespace: "ns1",
 				},
-				ServiceAccount: "scooby",
-			},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Labels:  labels,
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					ServiceAccount: "scooby",
+				}},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -744,18 +745,21 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 		},
 		{
-			name:      "simple - tls mode disabled",
-			namespace: "ns1",
-			wle: &networking.WorkloadEntry{
-				Address: "1.1.1.1",
-				Labels: map[string]string{
-					"security.istio.io/tlsMode": "disabled",
+			name: "simple - tls mode disabled",
+			wle: model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Namespace: "ns1",
 				},
-				Ports: map[string]uint32{
-					"http": 80,
-				},
-				ServiceAccount: "scooby",
-			},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Labels: map[string]string{
+						"security.istio.io/tlsMode": "disabled",
+					},
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					ServiceAccount: "scooby",
+				}},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -772,28 +776,34 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 		},
 		{
-			name:      "unix domain socket",
-			namespace: "ns1",
-			wle: &networking.WorkloadEntry{
-				Address:        "unix://foo/bar",
-				ServiceAccount: "scooby",
-			},
+			name: "unix domain socket",
+			wle: model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Namespace: "ns1",
+				},
+				Spec: &networking.WorkloadEntry{
+					Address:        "unix://foo/bar",
+					ServiceAccount: "scooby",
+				}},
 			out: nil,
 		},
 		{
-			name:      "DNS address",
-			namespace: "ns1",
-			wle: &networking.WorkloadEntry{
-				Address:        "scooby.com",
-				ServiceAccount: "scooby",
-			},
+			name: "DNS address",
+			wle: model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Namespace: "ns1",
+				},
+				Spec: &networking.WorkloadEntry{
+					Address:        "scooby.com",
+					ServiceAccount: "scooby",
+				}},
 			out: nil,
 		},
 	}
 
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			instance := convertWorkloadEntryToWorkloadInstance(tt.namespace, tt.wle)
+			instance := convertWorkloadEntryToWorkloadInstance(tt.wle)
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
 			}
