@@ -82,6 +82,7 @@ type Options struct {
 	KeyFile string
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
+	// Defaults to ProxyConfig.discoveryAddress, overriden by env CA_ADDR
 	CAEndpoint string
 
 	// The CA provider name.
@@ -131,11 +132,28 @@ type Options struct {
 	// Location of JWTPath to connect to CA.
 	JWTPath string
 
-	// OutputKeyCertToDir is the directory for output the key and certificate
+	// OutputKeyCertToDir (env: OUTPUT_CERTS) is the directory for output the key and certificate.
+	// If not set, the private key and cert will be in memory and made available to Envoy using SDS.
+	//
+	// For VMs must be set to the same value with PROV_CERT to enable auto-refresh of the certificate.
+	// If the PROV_CERT is long lived or rotated by an external tool - this should be empty or have
+	// a different value.
 	OutputKeyCertToDir string
 
-	// ProvCert is the directory for client to provide the key and certificate to server
-	// when do mtls
+	// ProvCert is a directory containing existing certificates.
+	// The certificates will be used to authenticate with the server (CA_ADDR) and
+	// exchanged for fresh certificates.
+	//
+	// Not used if "FileMountedCerts" is set
+	//
+	// This can be used for long-lived certs that are exchanged for short-lived ones, or
+	// to refresh shorter lived certs when set to same value with OutputKeyCertToDir.
+	//
+	// The certificate in this dir will only be used for communication with the CA_ADDR,
+	// the XDS server and all other communication will use the returned certificate and a fresh
+	// key.
+	//
+	// Set using "PROV_CERT" environment. If no private key/certificate is found, token will be used.
 	ProvCert string
 
 	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS

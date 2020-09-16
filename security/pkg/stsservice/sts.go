@@ -18,6 +18,7 @@ import "time"
 
 // StsRequestParameters stores all STS request attributes defined in
 // https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.1
+// Current standard is RFC8693
 type StsRequestParameters struct {
 	// REQUIRED. The value "urn:ietf:params:oauth:grant-type:token- exchange"
 	// indicates that a token exchange is being performed.

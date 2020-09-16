@@ -109,6 +109,21 @@ func (s *Server) ServeStsRequests(w http.ResponseWriter, req *http.Request) {
 		s.sendErrorResponse(w, invalidRequest, validationError)
 		return
 	}
+	// Authentication using the original JWT - Google requests use a Scope.
+	// This is used for authenticating directly with the token, for XDS/Citadel
+	if reqParam.Scope == "" {
+		stsServerLog.Infoa("STS local request: ", reqParam.Audience)
+		tokInfo := &stsservice.StsResponseParameters{
+			AccessToken: reqParam.SubjectToken,
+			TokenType:   "Bearer",
+		}
+		statusJSON, err := json.MarshalIndent(tokInfo, "", " ")
+		if err != nil {
+			stsServerLog.Warna("Failed to marshal", err)
+		}
+		s.sendSuccessfulResponse(w, statusJSON)
+		return
+	}
 	tokenDataJSON, genError := s.tokenManager.GenerateToken(reqParam)
 	if genError != nil {
 		stsServerLog.Warnf("token manager fails to generate token: %v", genError)
@@ -118,6 +133,7 @@ func (s *Server) ServeStsRequests(w http.ResponseWriter, req *http.Request) {
 		s.sendErrorResponse(w, invalidTarget, genError)
 		return
 	}
+	stsServerLog.Infoa("STS request: ", reqParam.Scope)
 	s.sendSuccessfulResponse(w, tokenDataJSON)
 }
 
