@@ -167,8 +167,12 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 	}
 
 	if opts.HostHeader == "" {
-		// No host specified, use the hostname for the service.
-		opts.HostHeader = opts.Target.Config().HostHeader()
+		if opts.Target != nil {
+			// No host specified, use the hostname for the service.
+			opts.HostHeader = opts.Target.Config().HostHeader()
+		} else if h := opts.Headers["Host"]; len(h) > 0 {
+			opts.HostHeader = h[0]
+		}
 	}
 
 	if opts.Timeout <= 0 {
