@@ -17,11 +17,11 @@ package istio
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"time"
 
 	"istio.io/istio/pkg/test/framework/image"
@@ -43,19 +43,21 @@ var (
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
 func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) error {
-	scopes.Framework.Infof("Deploying eastwestgateway in %s", cluster.Name())
-
 	imgSettings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return err
 	}
 
-	// generate k8s resources for the gateway
-	cmd := exec.Command(genGatewayScript,
+	generateSettings := []string{
 		"--istioNamespace", i.settings.SystemNamespace,
 		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
-		"--set", "hub="+imgSettings.Hub,
-		"--set", "tag="+imgSettings.Tag)
+		"--set", "hub=" + imgSettings.Hub,
+		"--set", "tag=" + imgSettings.Tag,
+	}
+	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), generateSettings)
+
+	// generate k8s resources for the gateway
+	cmd := exec.Command(genGatewayScript, generateSettings...)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env,
 		"CLUSTER="+cluster.Name(),
