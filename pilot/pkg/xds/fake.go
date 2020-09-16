@@ -153,7 +153,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 				s.updateMutex.RLock()
 				pc := s.Env.PushContext
 				s.updateMutex.RUnlock()
-				s.initPushContext(nil, pc)
+				_, _ = s.initPushContext(nil, pc)
 			case <-stop:
 				return
 			}
@@ -179,7 +179,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	env.NetworksWatcher = opts.NetworksWatcher
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
-		s.initPushContext(nil, s.Env.PushContext)
+		_, _ = s.initPushContext(nil, s.Env.PushContext)
 	}
 
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
