@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -140,11 +142,6 @@ type PushContext struct {
 	// by the ID.
 	ProxyStatus map[string]map[string]ProxyPushStatus
 
-	// Mutex is used to protect the below store.
-	// All data is set when the PushContext object is populated in `InitContext`,
-	// data should not be changed by plugins.
-	Mutex sync.Mutex `json:"-"`
-
 	// Synthesized from env.Mesh
 	exportToDefaults exportToDefaults
 
@@ -198,13 +195,13 @@ type PushContext struct {
 	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
 	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
-	initDone bool
-
 	Version string
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkGateways map[string][]*Gateway
+
+	initDone atomic.Bool
 }
 
 // Gateway is the gateway of a network
@@ -854,9 +851,7 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
-	ps.Mutex.Lock()
-	defer ps.Mutex.Unlock()
-	if ps.initDone {
+	if ps.initDone.Load() {
 		return nil
 	}
 
@@ -872,7 +867,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigsUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
@@ -887,7 +882,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.initClusterLocalHosts(env)
 
-	ps.initDone = true
+	ps.initDone.Store(true)
 	return nil
 }
 
