@@ -159,7 +159,8 @@ type PushContext struct {
 	ClusterVIPs map[*Service]map[string]string
 
 	// ServiceInstancesByPort contains a map of service and instances by port. It is stored here
-	// to avoid recomputations during push.
+	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
+	// Call InstancesByPort directly when instances need to be filtered by actual labels.
 	ServiceInstancesByPort map[*Service]map[int][]*ServiceInstance
 
 	// virtualServiceIndex is the index of virtual services by various fields.

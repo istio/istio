@@ -274,6 +274,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 
 	var instances []*model.ServiceInstance
 
+	// Use cached version of instances by port when labels are empty. If there are labels,
+	// we will have to make actual call and filter instances by pod labels.
 	if len(labels) == 0 {
 		instances = cb.push.ServiceInstancesByPort[service][port]
 	} else {
