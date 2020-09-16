@@ -82,7 +82,7 @@ type Options struct {
 	KeyFile string
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
-	// Defaults to ProxyConfig.discoveryAddress, overriden by env CA_ADDR
+	// Defaults to ProxyConfig.discoveryAddress, overidden by env CA_ADDR
 	CAEndpoint string
 
 	// The CA provider name.
