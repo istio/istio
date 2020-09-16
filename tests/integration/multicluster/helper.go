@@ -175,7 +175,7 @@ func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...
 			}
 		}
 		if err != nil {
-			return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
+			return fmt.Errorf("%s to %s:%s using %s: %v",
 				src.Config().Service, dest.Config().Service, "http", scheme.HTTP, err)
 		}
 		return nil
