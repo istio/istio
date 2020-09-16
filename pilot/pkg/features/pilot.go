@@ -350,4 +350,8 @@ var (
 	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
 		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
 			"This is only enabled for migration and will be removed soon.").Get()
+
+	EnableLegacyFSGroupInjection = env.RegisterBoolVar("ENABLE_LEGACY_FSGROUP_INJECTION", true,
+		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
+			"(see https://github.com/kubernetes/kubernetes/issues/57923 for details).").Get()
 )

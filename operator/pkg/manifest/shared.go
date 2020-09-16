@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/controlplane"
@@ -356,6 +357,16 @@ func overlayHubAndTag(yml string) (string, error) {
 func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
+	fsgroup, err := getFSGroupOverlay(config)
+	if err != nil {
+		if force {
+			l.LogAndPrint(err)
+		} else {
+			return "", err
+		}
+	} else if fsgroup != "" {
+		overlays = append(overlays, fsgroup)
+	}
 	jwt, err := getJwtTypeOverlay(config, l)
 	if err != nil {
 		if force {
@@ -369,6 +380,17 @@ func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (s
 
 	return makeTreeFromSetList(overlays)
 
+}
+
+func getFSGroupOverlay(config *rest.Config) (string, error) {
+	version, err := k8sversion.GetKubernetesVersion(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+	}
+	if version >= 19 {
+		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=false", nil
+	}
+	return "", nil
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
@@ -394,7 +416,7 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 		}
 		iops := &v1alpha1.IstioOperatorSpec{}
 		if err := util.UnmarshalWithJSONPB(string(testTree), iops, false); err != nil {
-			return "", fmt.Errorf("bad path=value: %s", kv)
+			return "", fmt.Errorf("bad path=value %s: %v", kv, err)
 		}
 	}
 	out, err := yaml.Marshal(tree)
