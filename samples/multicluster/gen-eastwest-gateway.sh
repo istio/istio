@@ -18,10 +18,6 @@ ARGS=("${@:-}")
 
 set -euo pipefail
 
-ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-
-SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
-
 # single-cluster installations may need this gateway to allow VMs to get discovery
 IOP=$(cat <<EOF
 apiVersion: install.istio.io/v1alpha1
@@ -59,6 +55,7 @@ spec:
 EOF
 )
 
+SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
   if [[ -z "${CLUSTER:-}" ]]; then
   echo The CLUSTER environment variable must be set.
