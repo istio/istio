@@ -23,4 +23,4 @@ make -f Makefile.selfsigned.mk root-ca
 
 Note that the Makefile generates long-lived intermediate certificates. While this might be
 acceptable for demonstration purposes, a more realistic and secure deployment would use
-short-lived and automatically renewed certificates for the intermediate Citadels.
+short-lived and automatically renewed certificates for the intermediate CAs.
