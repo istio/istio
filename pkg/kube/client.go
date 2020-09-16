@@ -568,7 +568,7 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
-		"labelSelector": "istio,istio!=ingressgateway,istio!=egressgateway,istio!=ilbgateway",
+		"labelSelector": "istio=pilot",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
