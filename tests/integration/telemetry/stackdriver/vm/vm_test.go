@@ -35,6 +35,7 @@ import (
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/pkg/log"
 )
 
 func TestVMTelemetry(t *testing.T) {
@@ -172,7 +173,7 @@ spec:
 					ta.Destination.Uid = ""
 
 					if diff, equal := messagediff.PrettyDiff(ta, expectedEdge); !equal {
-						fmt.Printf("Traffic Assertion Diff: %v", diff)
+						log.Infof("different edge found: %v", diff)
 						continue
 					}
 
