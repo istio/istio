@@ -349,13 +349,15 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	if event == model.EventAdd || event == model.EventUpdate {
 		// Build IstioEndpoints
 		endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Name, svc.Namespace, svcConv.Hostname)
+		var fep []*model.IstioEndpoint
 		if features.EnableK8SServiceSelectWorkloadEntries {
-			fep := c.collectWorkloadInstanceEndpoints(svcConv)
+			fep = c.collectWorkloadInstanceEndpoints(svcConv)
 			endpoints = append(endpoints, fep...)
 		}
 
-		if len(endpoints) > 0 {
-			c.xdsUpdater.EDSUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, endpoints)
+		// Only trigger update if workload entry changed. Otherwise, Endpoint event will trigger it once it comes in.
+		if len(endpoints) > 0 && len(fep) > 0 {
+			_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, endpoints)
 		}
 	}
 
