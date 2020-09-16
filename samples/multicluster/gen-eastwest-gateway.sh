@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-ARGS="${@:-}"
+ARGS=("${@:-}")
 
 set -euo pipefail
 
@@ -53,9 +53,12 @@ EOF
 )
 fi
 
+if [[ "${#}" -gt 0 ]]; then
+  GEN_PARAMS=("${ARGS[@]}")
+fi
+GEN_PARAMS+=("-f" "-")
 
 # Generate the YAML for the east-west gateway.
-# shellcheck disable=SC2068
-istioctl manifest generate ${ARGS} -f - <<EOF
+istioctl manifest generate "${GEN_PARAMS[@]}" <<EOF
 $IOP
 EOF
