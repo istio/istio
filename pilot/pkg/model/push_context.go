@@ -1096,7 +1096,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			if _, ok := ps.ServiceInstancesByPort[s]; !ok {
 				ps.ServiceInstancesByPort[s] = make(map[int][]*ServiceInstance)
 			}
-			ps.ServiceInstancesByPort[s][port.Port] = ps.InstancesByPort(s, port.Port, nil)
+			instances := make([]*ServiceInstance, 0)
+			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
+			ps.ServiceInstancesByPort[s][port.Port] = instances
 		}
 	}
 
