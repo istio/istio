@@ -225,7 +225,7 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 	_ = adscon.CloseSend()
 	adscon = s.ConnectADS()
 
-	// Connect with the same resources
+	// Reconnect with the same resources
 	err = sendEDSReq([]string{"fake-cluster"}, sidecarID(app3Ip, "app3"), res.VersionInfo, res.Nonce, adscon)
 	if err != nil {
 		t.Fatal(err)
