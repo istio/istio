@@ -334,9 +334,8 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 func ShouldCreateGateway(ingress v1beta1.Ingress, domainSuffix string) bool {
 	if _, exists := ingress.Annotations[kube.IngressIstioGatewayAnnotation]; exists {
 		return false
-	} else {
-		return true
 	}
+	return true
 }
 
 func createFallbackStringMatch(s string) *networking.StringMatch {

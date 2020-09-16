@@ -33,7 +33,7 @@ import (
 const (
 	// IngressClassAnnotation is the annotation on ingress resources for the class of controllers
 	// responsible for it
-	IngressClassAnnotation = "kubernetes.io/ingress.class"
+	IngressClassAnnotation        = "kubernetes.io/ingress.class"
 	IngressIstioGatewayAnnotation = "ingress.kubernetes.io/istio-gateway"
 
 	// TODO: move to API
