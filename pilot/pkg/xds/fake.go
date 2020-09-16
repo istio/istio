@@ -179,7 +179,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	env.NetworksWatcher = opts.NetworksWatcher
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
-		_, _ = s.initPushContext(nil, s.Env.PushContext)
+		s.updateMutex.RLock()
+		pc := s.Env.PushContext
+		s.updateMutex.RUnlock()
+		_, _ = s.initPushContext(nil, pc)
 	}
 
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
