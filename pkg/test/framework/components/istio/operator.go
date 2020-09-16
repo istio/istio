@@ -638,7 +638,7 @@ func meshNetworkSettings(cfg Config, environment *kube.Environment) *meshAPI.Mes
 		Gw: &meshAPI.Network_IstioNetworkGateway_RegistryServiceName{
 			RegistryServiceName: eastWestIngressServiceName + "." + cfg.IngressNamespace + ".svc.cluster.local",
 		},
-		Port: 443,
+		Port: 15443, // should be the mTLS port on east-west gateway (see samples/multicluster/eastwest-gateway.yaml)
 	}}
 
 	for networkName, clusters := range environment.ClustersByNetwork() {
