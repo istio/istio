@@ -1093,6 +1093,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		}
 		s.Mutex.RUnlock()
 		for _, port := range s.Ports {
+			if _, ok := ps.ServiceInstancesByPort[s]; !ok {
+				ps.ServiceInstancesByPort[s] = make(map[int][]*ServiceInstance)
+			}
 			ps.ServiceInstancesByPort[s][port.Port] = ps.InstancesByPort(s, port.Port, nil)
 		}
 	}
