@@ -38,7 +38,19 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 								srcNetwork := src.Config().Cluster.NetworkName()
 								res := callOrFail(ctx, src, apps.LBEchos[0])
 
-								// make sure we reached all clusters, including cross-network
+								// make sure we reached all cluster/subset combos
+								for _, e := range apps.LBEchos {
+									for _, ss := range e.Config().Subsets {
+										version, cluster := ss.Version, e.Config().Cluster.Name()
+										responses := res.Match(func(r *client.ParsedResponse) bool {
+											return r.Cluster == cluster && r.Version == version
+										})
+										if len(responses) < 1 {
+											ctx.Error("did not reach %s in %s", version, cluster)
+										}
+									}
+								}
+
 								if err := res.CheckReachedClusters(ctx.Clusters()); err != nil {
 									ctx.Error(err)
 								}
