@@ -971,10 +971,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				MeshConfig: &tt.mesh,
 				Services:   []*model.Service{service},
+				Instances:  tt.instances,
 			})
-			for _, i := range tt.instances {
-				cg.MemRegistry.AddInstance(i.Service.Hostname, i)
-			}
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
 			nv := map[string]bool{
