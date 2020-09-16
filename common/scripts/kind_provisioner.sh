@@ -115,7 +115,7 @@ function check_default_cluster_yaml() {
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
   NAME="${1:-istio-testing}"
-  IMAGE="${2:-kindest/node:v1.18.2}"
+  IMAGE="${2:-kindest/node:v1.19.1}"
   CONFIG="${3:-}"
 
   check_default_cluster_yaml
@@ -178,7 +178,7 @@ function cleanup_kind_clusters() {
 # NOTE: Please call load_cluster_topology before calling this method as it expects
 # cluster topology information to be loaded in advance
 function setup_kind_clusters() {
-  IMAGE="${1:-kindest/node:v1.18.2}"
+  IMAGE="${1:-kindest/node:v1.19.1}"
   KUBECONFIG_DIR="$(mktemp -d)"
   IP_FAMILY="${2:-ipv4}"
 
