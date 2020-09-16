@@ -151,7 +151,7 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 
 type callChecker func(client.ParsedResponses) error
 
-func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...callChecker) client.ParsedResponses {
+func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...callChecker) {
 	ctx.Helper()
 	var results client.ParsedResponses
 	retry.UntilSuccessOrFail(ctx, func() (err error) {
@@ -175,10 +175,9 @@ func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...
 			}
 		}
 		if err != nil {
-			return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
+			return fmt.Errorf("%s to %s:%s using %s: %v",
 				src.Config().Service, dest.Config().Service, "http", scheme.HTTP, err)
 		}
 		return nil
 	}, retry.Timeout(retryTimeout), retry.Delay(retryDelay))
-	return results
 }
