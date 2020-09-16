@@ -184,11 +184,6 @@ function setup_kind_clusters() {
 
   check_default_cluster_yaml
 
-  # The kind tool will error when trying to create clusters in parallel unless we create the network first
-  # TODO remove this when kind support creating multiple clusters in parallel - this will break ipv6
-  docker network inspect kind > /dev/null 2>&1 || \
-    docker network create -d=bridge -o com.docker.network.bridge.enable_ip_masquerade=true kind
-
   # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
   trap cleanup_kind_clusters EXIT
 
