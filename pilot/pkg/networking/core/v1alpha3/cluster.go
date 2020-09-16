@@ -634,10 +634,13 @@ func setH2Options(cluster *cluster.Cluster) {
 
 func applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(opts.policy, opts.port)
-	applyH2Upgrade(opts, connectionPool)
+	// Connection pool settings are applicable for both inbound and outbound clusters.
 	applyConnectionPool(opts.push, opts.cluster, connectionPool)
-	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.push.Mesh)
+	if opts.direction != model.TrafficDirectionInbound {
+		applyH2Upgrade(opts, connectionPool)
+		applyOutlierDetection(opts.cluster, outlierDetection)
+		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+	}
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
