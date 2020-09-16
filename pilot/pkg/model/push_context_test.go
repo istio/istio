@@ -351,14 +351,6 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 		},
 	}
 
-	// instanceTLS := &ServiceInstance{
-	// 	Endpoint: &IstioEndpoint{
-	// 		Address:      "192.168.1.3",
-	// 		EndpointPort: 1000000,
-	// 		TLSMode:      IstioMutualTLSModeLabel,
-	// 	},
-	// }
-
 	cases := []struct {
 		name              string
 		serviceNamespace  string
