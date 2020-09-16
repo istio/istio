@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -52,7 +54,7 @@ func DefaultPolicy() *route.RetryPolicy {
 
 // ConvertPolicy converts the given Istio retry policy to an Envoy policy.
 //
-// If in is nil, DefaultPolicy is returned.
+// If in is nil and PILOT_ENABLE_DEFAULT_RETRY_POLICY is true, DefaultPolicy is returned.
 //
 // If in.Attempts == 0, returns nil.
 //
@@ -66,8 +68,11 @@ func DefaultPolicy() *route.RetryPolicy {
 // - PerTryTimeout: set from in.PerTryTimeout (if specified)
 func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 	if in == nil {
-		// No policy was set, use a default.
-		return DefaultPolicy()
+		if features.EnableDefaultRetryPolicy {
+			// No policy was set, use a default.
+			return DefaultPolicy()
+		}
+		return nil
 	}
 
 	if in.Attempts <= 0 {

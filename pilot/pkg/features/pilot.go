@@ -350,4 +350,10 @@ var (
 	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
 		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
 			"This is only enabled for migration and will be removed soon.").Get()
+
+	EnableDefaultRetryPolicy = env.RegisterBoolVar(
+		"PILOT_ENABLE_DEFAULT_RETRY_POLICY",
+		true,
+		"If true, Pilot will set a default retry policy for http routes.",
+	).Get()
 )
