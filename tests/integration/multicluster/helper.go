@@ -180,5 +180,4 @@ func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...
 		}
 		return nil
 	}, retry.Timeout(retryTimeout), retry.Delay(retryDelay))
-	return results
 }

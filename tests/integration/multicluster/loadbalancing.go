@@ -61,6 +61,7 @@ func checkReachedAllSubsets(echos echo.Instances) callChecker {
 				}
 			}
 		}
+		return nil
 	}
 }
 
