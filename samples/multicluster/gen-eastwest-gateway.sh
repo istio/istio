@@ -22,7 +22,42 @@ ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
 
-IOP=$(cat "${ROOT}/eastwest-gateway.yaml")
+# single-cluster installations may need this gateway to allow VMs to get discovery
+IOP=$(cat <<EOF
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  # Only generate a gateway component defined below.
+  # Using this with "istioctl install" will reconcile and remove existing control-plane components.
+  # Instead we use "istioctl manifest generate" and "kubectl apply".
+  profile: empty
+  components:
+    ingressGateways:
+      - name: istio-eastwestgateway
+        label:
+          istio: eastwestgateway
+          app: istio-eastwestgateway
+        enabled: true
+        k8s:
+          service:
+            ports:
+              - name: status-port
+                port: 15021
+                targetPort: 15021
+              - name: mtls
+                port: 15443
+                targetPort: 15443
+              - name: tcp-istiod
+                port: 15012
+                targetPort: 15012
+              - name: tcp-webhook
+                port: 15017
+                targetPort: 15017
+              - name: tcp-dns-tls
+                port: 853
+                targetPort: 8853
+EOF
+)
 
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
   if [[ -z "${CLUSTER:-}" ]]; then
