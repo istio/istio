@@ -410,7 +410,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless,
+				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster)),
 				host: apps.Headless[0].Config().FQDN(),
 			},
 		)
