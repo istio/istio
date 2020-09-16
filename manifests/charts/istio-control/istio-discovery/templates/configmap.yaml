@@ -44,6 +44,7 @@
           maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents | default "200" }}
         {{- end }}
       {{- end }}
+      {{- /* Ignore openCensusAgent tracer, it can be configured through meshConfig */ -}}
 
       {{- if .Values.global.remotePilotAddress }}
       discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012

@@ -956,6 +956,7 @@ enum tracer {
   lightstep = 1;
   datadog = 2;
   stackdriver = 3;
+  openCensusAgent = 4;
 }
 
 // Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
