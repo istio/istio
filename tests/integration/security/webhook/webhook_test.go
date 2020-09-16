@@ -35,7 +35,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireSingleCluster().
 		// Deploy Istio
 		Setup(istio.Setup(&inst, setupConfig)).
 		Run()

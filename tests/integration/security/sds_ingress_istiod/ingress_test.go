@@ -32,7 +32,6 @@ func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow with Istiod acting as the SDS server
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Setup(istio.Setup(&inst, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.Values["pilot.env.ISTIOD_ENABLE_SDS_SERVER"] = "true"
 		})).
