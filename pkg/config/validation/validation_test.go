@@ -719,7 +719,7 @@ func TestValidateGateway(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGateway(config.Config{
+			_, err := ValidateGateway(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
@@ -2217,7 +2217,7 @@ func TestValidateVirtualService(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
+			if _, err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -2376,7 +2376,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 	}
 	for _, c := range cases {
-		if got := ValidateDestinationRule(config.Config{
+		if _, got := ValidateDestinationRule(config.Config{
 			Meta: config.Meta{
 				Name:      someName,
 				Namespace: someNamespace,
@@ -2983,7 +2983,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateEnvoyFilter(config.Config{
+			_, err := ValidateEnvoyFilter(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
@@ -3369,7 +3369,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateServiceEntry(config.Config{
+			if _, got := ValidateServiceEntry(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
@@ -4009,7 +4009,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
+			if _, got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
 				t.Errorf("got: %v\nwant: %v", got, c.valid)
 			}
 		})
@@ -4478,7 +4478,7 @@ func TestValidateSidecar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSidecar(config.Config{
+			_, err := ValidateSidecar(config.Config{
 				Meta: config.Meta{
 					Name:      "foo",
 					Namespace: "bar",
@@ -4923,7 +4923,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateRequestAuthentication(config.Config{
+			if _, got := ValidateRequestAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,
@@ -5043,7 +5043,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidatePeerAuthentication(config.Config{
+			if _, got := ValidatePeerAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,
