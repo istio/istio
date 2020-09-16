@@ -639,7 +639,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 	if opts.direction != model.TrafficDirectionInbound {
 		applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.cluster, outlierDetection)
-		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.push.Mesh)
 	}
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
