@@ -151,7 +151,7 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 
 type callChecker func(client.ParsedResponses) error
 
-func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...callChecker) client.ParsedResponses {
+func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...callChecker) {
 	ctx.Helper()
 	var results client.ParsedResponses
 	retry.UntilSuccessOrFail(ctx, func() (err error) {
