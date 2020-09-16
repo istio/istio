@@ -17,13 +17,11 @@ package controller
 import (
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
-
-	kubelib "istio.io/istio/pkg/kube"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 const (
@@ -126,7 +124,7 @@ func (fx *FakeXdsUpdater) Clear() {
 }
 
 type FakeControllerOptions struct {
-	Objects           []runtime.Object
+	Client            kubelib.Client
 	NetworksWatcher   mesh.NetworksWatcher
 	ServiceHandler    func(service *model.Service, event model.Event)
 	InstanceHandler   func(instance *model.ServiceInstance, event model.Event)
@@ -151,7 +149,9 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if opts.DomainSuffix != "" {
 		domainSuffix = opts.DomainSuffix
 	}
-	clients := kubelib.NewFakeClient(opts.Objects...)
+	if opts.Client == nil {
+		opts.Client = kubelib.NewFakeClient()
+	}
 	options := Options{
 		WatchedNamespaces: opts.WatchedNamespaces, // default is all namespaces
 		ResyncPeriod:      1 * time.Second,
@@ -162,7 +162,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		EndpointMode:      opts.Mode,
 		ClusterID:         opts.ClusterID,
 	}
-	c := NewController(clients, options)
+	c := NewController(opts.Client, options)
 	if opts.InstanceHandler != nil {
 		_ = c.AppendInstanceHandler(opts.InstanceHandler)
 	}
@@ -173,7 +173,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)
-	clients.RunAndWait(c.stop)
+	opts.Client.RunAndWait(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
 	cache.WaitForCacheSync(c.stop, c.HasSynced)
 

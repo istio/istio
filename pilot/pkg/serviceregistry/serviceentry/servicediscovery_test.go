@@ -387,7 +387,6 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "other.com", namespace: httpStaticOverlayUpdated.Namespace},
 			Event{kind: "eds", host: "other.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances2)},
-			// TODO why?
 			Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}}) // service added
 
@@ -460,7 +459,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: 6},
-			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace}) // service added
+			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "xds"})
 
 		selector1Updated := func() *model.Config {
 			c := selector1.DeepCopy()

@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 )
 
@@ -68,10 +69,11 @@ type FakeOptions struct {
 }
 
 type FakeDiscoveryServer struct {
-	t         test.Failer
-	Store     model.ConfigStore
-	Discovery *DiscoveryServer
-	Env       *model.Environment
+	t          test.Failer
+	Store      model.ConfigStore
+	Discovery  *DiscoveryServer
+	Env        *model.Environment
+	KubeClient kubelib.Client
 }
 
 func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
@@ -148,6 +150,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			// Read and drop events. This prevents the channel from getting backed up
 			// In the future, we can likely track these for use in tests
 			case <-s.pushChannel:
+				s.updateMutex.RLock()
+				pc := s.Env.PushContext
+				s.updateMutex.RUnlock()
+				s.initPushContext(nil, pc)
 			case <-stop:
 				return
 			}
@@ -172,15 +178,22 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	env.NetworksWatcher = opts.NetworksWatcher
 
+	serviceHandler := func(svc *model.Service, _ model.Event) {
+		s.initPushContext(nil, s.Env.PushContext)
+	}
+
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
 	serviceDiscovery.AddRegistry(se)
+	kubeClient := kubelib.NewFakeClient(k8sObjects...)
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
-		Objects:         k8sObjects,
+		ServiceHandler:  serviceHandler,
+		Client:          kubeClient,
 		ClusterID:       "Kubernetes",
 		DomainSuffix:    "cluster.local",
 		XDSUpdater:      s,
 		NetworksWatcher: env,
 	})
+	kubeClient.RunAndWait(stop)
 	serviceDiscovery.AddRegistry(k8s)
 	for _, cfg := range configs {
 		if _, err := configStore.Create(cfg); err != nil {
@@ -189,14 +202,21 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	cache.WaitForCacheSync(stop, serviceDiscovery.HasSynced)
 	s.CachesSynced()
+	if err := se.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
+		t.Fatal(err)
+	}
+	if err := k8s.AppendWorkloadHandler(se.WorkloadInstanceHandler); err != nil {
+		t.Fatal(err)
+	}
 
 	se.ResyncEDS()
 
 	fake := &FakeDiscoveryServer{
-		t:         t,
-		Store:     configController,
-		Discovery: s,
-		Env:       env,
+		t:          t,
+		Store:      configController,
+		KubeClient: kubeClient,
+		Discovery:  s,
+		Env:        env,
 	}
 
 	// currently meshNetworks gateways are stored on the push context

@@ -201,10 +201,6 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 
-	if event == model.EventDelete {
-		fmt.Println("!")
-	}
-
 	if len(unchangedSvcs) > 0 {
 		currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 		oldServiceEntry := old.Spec.(*networking.ServiceEntry)
