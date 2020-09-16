@@ -16,11 +16,13 @@ package mesh
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -103,7 +105,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 		Args: cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			errs := validation.IsQualifiedName(iArgs.revision)
-			if len(errs)!=0 && cmd.PersistentFlags().Changed("revision") {
+			if len(errs) != 0 && cmd.PersistentFlags().Changed("revision") {
 				return fmt.Errorf("invali revision specified: %v", errs)
 			}
 			return nil

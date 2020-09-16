@@ -16,8 +16,9 @@ package mesh
 
 import (
 	"bytes"
-	"github.com/onsi/gomega"
 	"testing"
+
+	"github.com/onsi/gomega"
 )
 
 func TestInstallEmptyRevision(t *testing.T) {
