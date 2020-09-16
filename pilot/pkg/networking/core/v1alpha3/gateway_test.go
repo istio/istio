@@ -1159,6 +1159,22 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	httpGatewayWildcard := config.Config{
+		Meta: config.Meta{
+			Name:             "gateway",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"*"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
 	virtualServiceSpec := &networking.VirtualService{
 		Hosts:    []string{"example.org"},
 		Gateways: []string{"gateway", "gateway-redirect"},
@@ -1297,6 +1313,18 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				},
 			},
 			map[string]int{"example.org:80": 2},
+		},
+		{
+			"wildcard virtual service",
+			[]config.Config{virtualServiceWildcard},
+			[]config.Config{httpGatewayWildcard},
+			"http.80",
+			map[string][]string{
+				"*.org:80": {
+					"*.org", "*.org:80",
+				},
+			},
+			map[string]int{"*.org:80": 1},
 		},
 	}
 	for _, tt := range cases {
