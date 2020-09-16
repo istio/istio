@@ -625,19 +625,6 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 	return sa.UnsortedList()
 }
 
-// GetServiceAccountsFromInstances returns service accounts for a service derived from passed in instances.
-func GetServiceAccountsFromInstances(svc *Service, instances []*ServiceInstance) []string {
-	sa := sets.Set{}
-	for _, instance := range instances {
-		if instance.Endpoint.ServiceAccount != "" {
-			sa.Insert(instance.Endpoint.ServiceAccount)
-		}
-	}
-	sa.Insert(svc.ServiceAccounts...)
-
-	return sa.UnsortedList()
-}
-
 // DeepCopy creates a clone of Service.
 // TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
 // Service has sync.RWMutex that can not be copied.
