@@ -18,20 +18,24 @@ package vm
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
-	"google.golang.org/protobuf/proto"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/pkg/log"
 )
 
 func TestVMTelemetry(t *testing.T) {
@@ -147,12 +151,48 @@ spec:
 					}
 				}
 
+				// Verify edges
+				edges, err := sdInst.ListTrafficAssertions()
+				if err != nil {
+					return fmt.Errorf("failed to get traffic assertions: %v", err)
+				}
+
+				expectedEdge, err := expectedTrafficAssertion()
+				if err != nil {
+					return fmt.Errorf("failed to get wanted traffic assertion: %v", err)
+				}
+
+				foundEdge := false
+				for _, ta := range edges {
+					srcUID := ta.Source.Uid
+					dstUID := ta.Destination.Uid
+
+					ta.Source.Location = ""
+					ta.Source.ClusterName = ""
+					ta.Source.Uid = ""
+					ta.Destination.Uid = ""
+
+					if diff, equal := messagediff.PrettyDiff(ta, expectedEdge); !equal {
+						log.Infof("different edge found: %v", diff)
+						continue
+					}
+
+					if strings.HasPrefix(dstUID, "//compute.googleapis.com/projects/test-project/zones/us-west1-c/instances/server-v1-") &&
+						strings.HasPrefix(srcUID, "kubernetes://client-v1-") {
+						foundEdge = true
+						break
+					}
+				}
+
 				// Check if both client and server side request count metrics are received
 				if !srvReceived || !cltReceived {
 					return fmt.Errorf("stackdriver server does not received expected server or client request count, server %v client %v", srvReceived, cltReceived)
 				}
 				if !logReceived {
 					return fmt.Errorf("stackdriver server does not received expected log entry")
+				}
+				if !foundEdge {
+					return fmt.Errorf("stackdriver server did not received expected traffic assertion")
 				}
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
@@ -202,4 +242,25 @@ func getWantServerLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
 		return
 	}
 	return
+}
+
+func expectedTrafficAssertion() (*edgespb.TrafficAssertion, error) {
+	taTmpl, err := ioutil.ReadFile(serverEdgeFile)
+	if err != nil {
+		return nil, err
+	}
+
+	taString, err := tmpl.Evaluate(string(taTmpl), map[string]interface{}{
+		"EchoNamespace": ns.Name(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var ta edgespb.TrafficAssertion
+	err = proto.UnmarshalText(taString, &ta)
+	if err != nil {
+		return nil, err
+	}
+	return &ta, nil
 }

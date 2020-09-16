@@ -15,6 +15,7 @@
 package xdstest
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -132,7 +133,7 @@ func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
 			if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-				got = append(got, lb.GetEndpoint().Address.GetSocketAddress().Address)
+				got = append(got, fmt.Sprintf("%s:%d", lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
 			} else {
 				got = append(got, lb.GetEndpoint().Address.GetPipe().Path)
 			}

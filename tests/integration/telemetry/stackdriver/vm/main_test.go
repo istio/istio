@@ -34,6 +34,7 @@ const (
 	serverRequestCount           = "testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"
+	serverEdgeFile               = "testdata/server_edge.prototext.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 )
 
@@ -63,6 +64,8 @@ func TestMain(m *testing.M) {
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
+			cfg.Values["telemetry.v2.stackdriver.configOverride.meshEdgesReportingDuration"] = "5s"
+			cfg.Values["telemetry.v2.stackdriver.configOverride.enable_mesh_edges_reporting"] = "true"
 		})).
 		Setup(testSetup).
 		Run()

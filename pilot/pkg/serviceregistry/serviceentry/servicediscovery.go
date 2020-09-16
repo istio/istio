@@ -72,6 +72,8 @@ type ServiceEntryStore struct { // nolint:golint
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// workload instances from kubernetes pods - map of ip -> workload instance
 	workloadInstancesByIP map[string]*model.WorkloadInstance
+	// Stores a map of workload instance name/namespace to address
+	workloadInstancesIPsByName map[string]string
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	refreshIndexes            *atomic.Bool
@@ -81,12 +83,13 @@ type ServiceEntryStore struct { // nolint:golint
 // NewServiceDiscovery creates a new ServiceEntry discovery service
 func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
 	s := &ServiceEntryStore{
-		XdsUpdater:            xdsUpdater,
-		store:                 store,
-		ip2instance:           map[string][]*model.ServiceInstance{},
-		instances:             map[instancesKey]map[configKey][]*model.ServiceInstance{},
-		workloadInstancesByIP: map[string]*model.WorkloadInstance{},
-		refreshIndexes:        atomic.NewBool(true),
+		XdsUpdater:                 xdsUpdater,
+		store:                      store,
+		ip2instance:                map[string][]*model.ServiceInstance{},
+		instances:                  map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		workloadInstancesByIP:      map[string]*model.WorkloadInstance{},
+		workloadInstancesIPsByName: map[string]string{},
+		refreshIndexes:             atomic.NewBool(true),
 	}
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
@@ -113,7 +116,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// fire off the k8s handlers
 	if len(s.workloadHandlers) > 0 {
-		si := convertWorkloadEntryToWorkloadInstance(curr.Namespace, curr)
+		si := convertWorkloadEntryToWorkloadInstance(curr)
 		if si != nil {
 			for _, h := range s.workloadHandlers {
 				h(si, event)
@@ -310,12 +313,12 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		}
 	}
 	// non dns service instances
-	var nonDNSServiceInstances []*model.ServiceInstance
-	if len(nonDNSServices) > 0 {
-		nonDNSServiceInstances = convertServiceEntryToInstances(curr, nonDNSServices)
+	keys := map[instancesKey]struct{}{}
+	for _, svc := range nonDNSServices {
+		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
 	// update eds endpoint shards
-	s.edsUpdate(nonDNSServiceInstances, false)
+	s.edsUpdateByKeys(keys, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -329,16 +332,19 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, event model.Event) {
 	key := configKey{
 		kind:      workloadInstanceConfigType,
-		name:      si.Endpoint.Address,
+		name:      si.Name,
 		namespace: si.Namespace,
 	}
 	// Used to indicate if this event was fired for a pod->workloadentry conversion
 	// and that the event can be ignored due to no relevant change in the workloadentry
 	redundantEventForPod := false
 
+	var addressToDelete string
+
 	s.storeMutex.Lock()
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
+	k := si.Name + "~" + si.Namespace
 	switch event {
 	case model.EventDelete:
 		if _, exists := s.workloadInstancesByIP[si.Endpoint.Address]; !exists {
@@ -346,8 +352,15 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 			redundantEventForPod = true
 		} else {
 			delete(s.workloadInstancesByIP, si.Endpoint.Address)
+			delete(s.workloadInstancesIPsByName, k)
 		}
 	default: // add or update
+		// Check to see if the workload entry changed. If it did, clear the old entry
+		existing := s.workloadInstancesIPsByName[k]
+		if existing != "" && existing != si.Endpoint.Address {
+			delete(s.workloadInstancesByIP, existing)
+			addressToDelete = existing
+		}
 		if old, exists := s.workloadInstancesByIP[si.Endpoint.Address]; exists {
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
@@ -357,6 +370,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 			}
 		}
 		s.workloadInstancesByIP[si.Endpoint.Address] = si
+		s.workloadInstancesIPsByName[k] = si.Endpoint.Address
 	}
 	// We will only select entries in the same namespace
 	entries := s.seWithSelectorByNamespace[si.Namespace]
@@ -370,7 +384,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 	log.Debugf("Handle event %s for service instance (from %s) in namespace %s", event,
 		si.Endpoint.Address, si.Namespace)
 	instances := []*model.ServiceInstance{}
-
+	instancesDeleted := []*model.ServiceInstance{}
 	for _, se := range entries {
 		workloadLabels := labels.Collection{si.Endpoint.Labels}
 		if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
@@ -379,6 +393,17 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 		}
 		instance := convertWorkloadInstanceToServiceInstance(si.Endpoint, se.services, se.entry)
 		instances = append(instances, instance...)
+		if addressToDelete != "" {
+			for _, i := range instance {
+				di := i.DeepCopy()
+				di.Endpoint.Address = addressToDelete
+				instancesDeleted = append(instancesDeleted, di)
+			}
+		}
+	}
+
+	if len(instancesDeleted) > 0 {
+		s.deleteExistingInstances(key, instancesDeleted)
 	}
 
 	if event != model.EventDelete {
@@ -506,7 +531,13 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
+	s.edsUpdateByKeys(keys, push)
+}
 
+func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
+	// must call it here to refresh s.instances if necessary
+	// otherwise may get no instances or miss some new addess instances
+	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
 	s.storeMutex.RLock()
 	for key := range keys {
@@ -598,10 +629,10 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	// a full R+W before the other can start, rather than R,R,W,W.
 	s.storeMutex.Lock()
 	// Second, refresh workload instances(pods)
-	for ip, workloadInstance := range s.workloadInstancesByIP {
+	for _, workloadInstance := range s.workloadInstancesByIP {
 		key := configKey{
 			kind:      workloadInstanceConfigType,
-			name:      ip,
+			name:      workloadInstance.Name,
 			namespace: workloadInstance.Namespace,
 		}
 

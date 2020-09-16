@@ -171,6 +171,9 @@ type ExtendedClient interface {
 	// CreatePerRPCCredentials creates a gRPC bearer token provider that can create (and renew!) Istio tokens
 	CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
 		expirationSeconds int64) (credentials.PerRPCCredentials, error)
+
+	// UtilFactory returns a kubectl factory
+	UtilFactory() util.Factory
 }
 
 var _ Client = &client{}
@@ -178,6 +181,7 @@ var _ ExtendedClient = &client{}
 
 const resyncInterval = 0
 
+// NewFakeClient creates a new, fake, client
 func NewFakeClient(objects ...runtime.Object) Client {
 	var c client
 	c.Interface = fake.NewSimpleClientset(objects...)
@@ -564,7 +568,7 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
-		"labelSelector": "istio,istio!=ingressgateway,istio!=egressgateway,istio!=ilbgateway",
+		"labelSelector": "istio=pilot",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -637,6 +641,10 @@ func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) err
 func (c *client) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
 	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
 	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds)
+}
+
+func (c *client) UtilFactory() util.Factory {
+	return c.clientFactory
 }
 
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
