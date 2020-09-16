@@ -495,11 +495,9 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
-				Services: tt.services,
+				Services:  tt.services,
+				Instances: tt.instances,
 			})
-			for _, i := range tt.instances {
-				cg.MemRegistry.AddInstance(i.Service.Hostname, i)
-			}
 
 			proxy := cg.SetupProxy(nil)
 

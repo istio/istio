@@ -901,7 +901,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
 						saddress == constants.UnspecifiedIP && (servicePort.Protocol.IsTCP() || servicePort.Protocol.IsUnsupported()) {
-						instances := push.InstancesByPort(service, servicePort.Port, nil)
+						instances := push.ServiceInstancesByPort(service, servicePort.Port, nil)
 						if service.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) && len(instances) == 0 && service.Attributes.LabelSelectors == nil {
 							// A Kubernetes service with no endpoints means there are no endpoints at
 							// all, so don't bother sending, as traffic will never work. If we did
