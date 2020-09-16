@@ -17,21 +17,23 @@ package istio
 import (
 	"context"
 	"fmt"
-	"path/filepath"
-
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/image"
-	"istio.io/istio/pkg/test/util/retry"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
