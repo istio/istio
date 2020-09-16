@@ -150,6 +150,7 @@ func (e *ExecProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	}
 	if err := cmd.Start(); err != nil {
 		// should this be unknown? exit code returns status, this shouldnt
+		// should we extract exit status from here?
 		return Unhealthy, err
 	}
 

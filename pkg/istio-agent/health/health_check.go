@@ -45,6 +45,7 @@ type ProbeEvent struct {
 }
 
 func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthChecker {
+	// if a config does not exist return a no-op prober
 	if cfg == nil {
 		return &WorkloadHealthChecker{
 			config: applicationHealthCheckConfig{},
@@ -96,7 +97,9 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 	lastStateHealthy := false
 
 	if w.config.CheckFrequency == time.Second*0 {
-		w.config.CheckFrequency = time.Second
+		// should probably hard-code a value somewhere else.
+		// like k8s, default to 10s
+		w.config.CheckFrequency = time.Second * 10
 	}
 
 	periodTicker := time.NewTicker(w.config.CheckFrequency)
