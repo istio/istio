@@ -15,7 +15,6 @@
 package health
 
 import (
-	"reflect"
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
@@ -49,7 +48,7 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 	if cfg == nil {
 		return &WorkloadHealthChecker{
 			config: applicationHealthCheckConfig{},
-			prober: &NoOpProber{},
+			prober: nil,
 		}
 	}
 	var prober Prober
@@ -61,7 +60,7 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 	case *v1alpha3.ReadinessProbe_Exec:
 		prober = &ExecProber{Config: healthCheckMethod.Exec}
 	default:
-		prober = &NoOpProber{}
+		prober = nil
 	}
 
 	return &WorkloadHealthChecker{
@@ -82,7 +81,8 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *ProbeEvent, quit chan struct{}) {
 	defer close(notifyHealthChange)
 
-	if reflect.TypeOf(w.prober) == reflect.TypeOf(NoOpProber{}) {
+	// no-op
+	if w.prober == nil {
 		return
 	}
 
@@ -95,7 +95,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 	// first send a healthy message.
 	lastStateHealthy := false
 
-	if w.config.CheckFrequency == time.Second*0 {
+	if w.config.CheckFrequency == time.Second * 0 {
 		w.config.CheckFrequency = time.Second
 	}
 

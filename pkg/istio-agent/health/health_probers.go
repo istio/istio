@@ -183,9 +183,3 @@ func (e *ExecProber) Probe(timeout time.Duration) (ProbeResult, error) {
 		return Unhealthy, fmt.Errorf("could not extract ExitError from command error")
 	}
 }
-
-type NoOpProber struct{}
-
-func (n *NoOpProber) Probe(_ time.Duration) (ProbeResult, error) {
-	return Unknown, nil
-}

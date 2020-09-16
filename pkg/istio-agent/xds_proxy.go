@@ -231,7 +231,10 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
 			}
-		case healthEvent := <-healthEventsChan:
+		case healthEvent, ok := <-healthEventsChan:
+			if !ok {
+				return nil
+			}
 			proxyLog.Debug("request for type url %s", health.HealthInfoTypeURL)
 			var req *discovery.DiscoveryRequest
 			if healthEvent.Healthy {
