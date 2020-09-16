@@ -158,10 +158,10 @@ type PushContext struct {
 	// to avoid locking each service for every proxy during push.
 	ClusterVIPs map[*Service]map[string]string
 
-	// ServiceInstancesByPort contains a map of service and instances by port. It is stored here
+	// instancesByPort contains a map of service and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
-	ServiceInstancesByPort map[*Service]map[int][]*ServiceInstance
+	instancesByPort map[*Service]map[int][]*ServiceInstance
 
 	// virtualServiceIndex is the index of virtual services by various fields.
 	virtualServiceIndex virtualServiceIndex
@@ -523,7 +523,7 @@ func NewPushContext() *PushContext {
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
 		ClusterVIPs:             map[*Service]map[string]string{},
-		ServiceInstancesByPort:  map[*Service]map[int][]*ServiceInstance{},
+		instancesByPort:         map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -1093,12 +1093,12 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		}
 		s.Mutex.RUnlock()
 		for _, port := range s.Ports {
-			if _, ok := ps.ServiceInstancesByPort[s]; !ok {
-				ps.ServiceInstancesByPort[s] = make(map[int][]*ServiceInstance)
+			if _, ok := ps.instancesByPort[s]; !ok {
+				ps.instancesByPort[s] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
 			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
-			ps.ServiceInstancesByPort[s][port.Port] = instances
+			ps.instancesByPort[s][port.Port] = instances
 		}
 	}
 
@@ -1125,7 +1125,7 @@ func (ps *PushContext) initServiceAccounts(services []*Service) {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = GetServiceAccountsFromInstances(svc, ps.ServiceInstancesByPort[svc][port.Port])
+			ps.ServiceAccounts[svc.Hostname][port.Port] = GetServiceAccountsFromInstances(svc, ps.instancesByPort[svc][port.Port])
 		}
 	}
 }
@@ -1770,4 +1770,18 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 
 	// When all are failed, default to permissive.
 	return MTLSPermissive
+}
+
+// ServiceInstancesByPort returns the cached instances by port if it exists, otherwise queries the discovery and returns.
+func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
+	// Use cached version of instances by port when labels are empty. If there are labels,
+	// we will have to make actual call and filter instances by pod labels.
+	if len(labels) == 0 {
+		if instances, exists := ps.instancesByPort[svc][port]; exists {
+			return instances
+		}
+	}
+
+	// Fallback to discovery call.
+	return ps.InstancesByPort(svc, port, labels)
 }
