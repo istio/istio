@@ -67,6 +67,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig)).
 		Setup(tracing.TestSetup).
+		Setup(testSetup).
 		Run()
 }
 
@@ -83,9 +84,7 @@ meshConfig:
         address: "dns:opentelemetry-collector.istio-system.svc:55678"
         context: [B3]
 `
-	cfg.Values["meshConfig.enableTracing"] = "true"
 	cfg.Values["pilot.traceSampling"] = "100.0"
-
 	cfg.Values["global.proxy.tracer"] = "openCensusAgent"
 }
 
