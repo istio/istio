@@ -421,6 +421,7 @@ spec:
 func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, configIopFile string) error {
 	scopes.Framework.Infof("setting up %s as config cluster", cluster.Name())
 	// TODO move values out of external istiod test main into the ConfigClusterValues defaults
+	// TODO(cont) this method should just deploy the "base" resources needed to allow istio to read from k8s
 	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, configIopFile)
 	if err != nil {
 		return err
@@ -436,14 +437,6 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resour
 	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
 		return err
-	}
-
-	// remote clusters only need this gateway for multi-network purposes
-	if i.ctx.Environment().IsMultinetwork() {
-		// TODO actually test multi-network + external istiod
-		if err := i.deployEastWestGateway(cluster); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -518,6 +511,8 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 
 // Deploy Istio to remote clusters
 func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
+	// TODO this method should handle setting up discovery from remote config clusters to their control-plane
+	// TODO(cont) and eventually we should always use istiod-less remotes
 	scopes.Framework.Infof("setting up %s as remote cluster", cluster.Name())
 	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, remoteIopFile)
 	if err != nil {
