@@ -19,6 +19,10 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
+
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -64,7 +68,7 @@ func (c *Checker) Check() error {
 }
 
 func (c *Checker) CheckOrFail(t test.Failer) {
-	if err := retry.UntilSuccess(c.Check, retry.Delay(time.Millisecond*100)); err != nil {
+	if err := retry.UntilSuccess(c.Check, retry.Delay(time.Millisecond*100), retry.Timeout(120*time.Second)); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -44,7 +45,7 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-on.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						return !apps.Multiversion.Contains(opts.Target)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						if apps.IsNaked(src) && apps.IsNaked(opts.Target) {

@@ -100,9 +100,11 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			})
 			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
 			t0 := time.Now()
+			deployedWithinWait := true
 			if err := ik.WaitForConfigs(c.Namespace.Name(), policyYAML); err != nil {
 				// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
 				ctx.Logf("warning: failed to wait for config: %v", err)
+				deployedWithinWait = false
 				// Get proxy status for additional debugging
 				s, _, _ := ik.Invoke([]string{"ps"})
 				ctx.Logf("proxy status: %v", s)
@@ -111,6 +113,9 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			// to work around this, we will temporarily make sure we are always sleeping at least 10s, even if istioctl wait is faster.
 			// This allows us to debug istioctl wait, while still ensuring tests are stable
 			sleep := time.Second*10 - time.Since(t0)
+			if !deployedWithinWait {
+				sleep = time.Second * 30
+			}
 			ctx.Logf("[%s] [%v] Wait for additional %v config propagate to endpoints...", testName, time.Now(), sleep)
 			time.Sleep(sleep)
 			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())

@@ -121,7 +121,7 @@ func (r ParsedResponses) CheckOrFail(t test.Failer, check func(int, *ParsedRespo
 func (r ParsedResponses) CheckOK() error {
 	return r.Check(func(i int, response *ParsedResponse) error {
 		if !response.IsOK() {
-			return fmt.Errorf("response[%d] Status Code: %s", i, response.Code)
+			return fmt.Errorf("response[%d] Status Code: %s details: %v", i, response.Code, response)
 		}
 		return nil
 	})
