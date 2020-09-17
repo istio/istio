@@ -186,7 +186,10 @@ func validateDNS1123Labels(domain string) error {
 }
 
 // validate the trust domain format
-func validateTrustDomain(domain string) error {
+func ValidateTrustDomain(domain string) error {
+	if len(domain) == 0 {
+		return fmt.Errorf("empty domain name not allowed")
+	}
 	parts := strings.Split(domain, ".")
 	for i, label := range parts {
 		// Allow the last part to be empty, for unambiguous names like `istio.io.`
@@ -194,7 +197,7 @@ func validateTrustDomain(domain string) error {
 			return nil
 		}
 		if !labels.IsDNS1123Label(label) {
-			return fmt.Errorf("trust domain name %q invalid (label %q invalid)", domain, label)
+			return fmt.Errorf("trust domain name %q invalid", domain)
 		}
 	}
 	return nil
@@ -1219,16 +1222,21 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, err)
 	}
 
-	if err := validateTrustDomainAlias(mesh.TrustDomainAliases); err != nil {
+	if err := validateTrustDomainConfig(mesh); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
 	return
 }
 
-func validateTrustDomainAlias(trustDomainAliases []string) (errs error) {
-	for i, tda := range trustDomainAliases {
-		if err := validateTrustDomain(tda); err != nil {
+func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
+	// validate trust domain
+	if err := ValidateTrustDomain(config.TrustDomain); err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("trustDomain: %v", err))
+	}
+	// validate trust domain alias
+	for i, tda := range config.TrustDomainAliases {
+		if err := ValidateTrustDomain(tda); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("trustDomainAliases[%d] : %v", i, err))
 		}
 	}

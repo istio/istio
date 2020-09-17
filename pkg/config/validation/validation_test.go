@@ -121,6 +121,35 @@ func TestValidateWildcardDomain(t *testing.T) {
 	}
 }
 
+func TestValidateTrustDomain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{"empty", "", "empty"},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"multi-segment", "foo.bar.com", ""},
+		{"middle dash", "f-oo.bar.com", ""},
+		{"trailing dot", "foo.bar.com.", ""},
+		{"prefix dash", "-foo.bar.com", "invalid"},
+		{"bad format", "foo/bar/com", "invalid"},
+		{"bad format", "foo:bar:com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTrustDomain(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
 func TestValidatePort(t *testing.T) {
 	ports := map[int]bool{
 		0:     false,
@@ -313,16 +342,18 @@ func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	}
 }
 
+// refactor
 func TestValidateMeshConfig(t *testing.T) {
 	if ValidateMeshConfig(&meshconfig.MeshConfig{}) == nil {
 		t.Error("expected an error on an empty mesh config")
 	}
 
 	invalid := meshconfig.MeshConfig{
-		ProxyListenPort: 0,
-		ConnectTimeout:  types.DurationProto(-1 * time.Second),
-		DefaultConfig:   &meshconfig.ProxyConfig{},
-		TrustDomainAliases: []string{"a.$b", "a/b"},
+		ProxyListenPort:    0,
+		ConnectTimeout:     types.DurationProto(-1 * time.Second),
+		DefaultConfig:      &meshconfig.ProxyConfig{},
+		TrustDomain:        "",
+		TrustDomainAliases: []string{"a.$b", "a/b", ""},
 	}
 
 	err := ValidateMeshConfig(&invalid)
