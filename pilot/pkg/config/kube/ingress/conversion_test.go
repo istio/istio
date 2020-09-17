@@ -442,7 +442,7 @@ func TestVirtualServiceGatewayValues(t *testing.T) {
 
 func TestGatewayCreationNeeded(t *testing.T) {
 	cases := []struct {
-		annotation    string
+		annotation          string
 		shouldCreateGateway bool
 	}{
 		{annotation: "", shouldCreateGateway: true},
