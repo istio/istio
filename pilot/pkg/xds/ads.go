@@ -288,8 +288,17 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return false
 	}
 
+	if shouldUnsubscribe(request) {
+		adsLog.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		con.proxy.Lock()
+		delete(con.proxy.WatchedResources, request.TypeUrl)
+		con.proxy.Unlock()
+		return false
+	}
+
 	// This is first request - initialize typeUrl watches.
 	if request.ResponseNonce == "" {
+		adsLog.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
@@ -341,6 +350,36 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
 
 	return true
+}
+
+// shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is
+// no longer watching. For example, we remove all RDS references, we will
+// unsubscribe from RDS. NOTE: This may happen as part of the initial request. If
+// there are no routes needed, Envoy will send an empty request, which this
+// properly handles by not adding it to the watched resource list.
+func shouldUnsubscribe(request *discovery.DiscoveryRequest) bool {
+	return len(request.ResourceNames) == 0 && !isWildcardTypeURL(request.TypeUrl)
+}
+
+// isWildcardTypeURL checks whether a given type is a wildcard type
+// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#how-the-client-specifies-what-resources-to-return
+// If the list of resource names becomes empty, that means that the client is no
+// longer interested in any resources of the specified type. For Listener and
+// Cluster resource types, there is also a “wildcard” mode, which is triggered
+// when the initial request on the stream for that resource type contains no
+// resource names.
+func isWildcardTypeURL(typeURL string) bool {
+	switch typeURL {
+	case v3.SecretType, v3.EndpointType, v3.RouteType:
+		// By XDS spec, these are not wildcard
+		return false
+	case v3.ClusterType, v3.ListenerType:
+		// By XDS spec, these are wildcard
+		return true
+	default:
+		// All of our internal types use wildcard semantics
+		return true
+	}
 }
 
 // listEqualUnordered checks that two lists contain all the same elements
