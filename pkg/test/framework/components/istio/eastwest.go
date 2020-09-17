@@ -21,16 +21,14 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"time"
-
-	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -88,7 +86,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 			}
 		}
 		return fmt.Errorf("no ready pods for istio=" + eastWestIngressIstioLabel)
-	}, retry.Timeout(30*time.Second), retry.Delay(1*time.Second)); err != nil {
+	}, componentDeployTimeout, componentDeployDelay); err != nil {
 		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
 	}
 

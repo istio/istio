@@ -50,8 +50,8 @@ const (
 )
 
 var (
-	retryTimeout = retry.Timeout(3 * time.Minute)
-	retryDelay   = retry.Delay(5 * time.Second)
+	getAddressTimeout = retry.Timeout(3 * time.Minute)
+	getAddressDelay   = retry.Delay(5 * time.Second)
 
 	_ ingress.Instance = &ingressImpl{}
 )
@@ -98,54 +98,52 @@ type ingressImpl struct {
 	clients map[clientKey]*http.Client
 }
 
-// getAddressInner returns the ingress gateway address for plain text http requests.
-func (c *ingressImpl) getAddressInner(cluster resource.Cluster, ns string, port int) (interface{}, bool, error) {
-	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
-	// port.
-	return getRemoteServiceAddress(c.env.Settings(), cluster, ns, c.istioLabel, c.serviceName, port)
+// getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
+// the returned net.Addr will have the externally reachable NodePort address and port.
+func (c *ingressImpl) getAddressInner(port int) (net.TCPAddr, error) {
+	addr, err := retry.Do(func() (result interface{}, completed bool, err error) {
+		return getRemoteServiceAddress(c.env.Settings(), c.cluster, c.namespace, c.istioLabel, c.serviceName, port)
+	}, getAddressTimeout, getAddressDelay)
+	if addr != nil {
+		return addr.(net.TCPAddr), err
+	}
+	return net.TCPAddr{}, err
 }
 
-// HTTPAddress returns HTTP address of ingress gateway.
+// HTTPAddress returns the externally reachable HTTP address (80) of the component.
 func (c *ingressImpl) HTTPAddress() net.TCPAddr {
-	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.cluster, c.namespace, 80)
-	}, retryTimeout, retryDelay)
+	address, err := c.getAddressInner(80)
 	if err != nil {
 		return net.TCPAddr{}
 	}
-	return address.(net.TCPAddr)
+	return address
 }
 
-// TCPAddress returns TCP address of ingress gateway.
+// TCPAddress returns the externally reachable TCP address (31400) of the component.
 func (c *ingressImpl) TCPAddress() net.TCPAddr {
-	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.cluster, c.namespace, 31400)
-	}, retryTimeout, retryDelay)
+	address, err := c.getAddressInner(31400)
 	if err != nil {
 		return net.TCPAddr{}
 	}
-	return address.(net.TCPAddr)
+	return address
 }
 
-// HTTPSAddress returns HTTPS IP address and port number of ingress gateway.
+// HTTPSAddress returns the externally reachable TCP address (443) of the component.
 func (c *ingressImpl) HTTPSAddress() net.TCPAddr {
-	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.cluster, c.namespace, 443)
-	}, retryTimeout, retryDelay)
+	address, err := c.getAddressInner(443)
 	if err != nil {
 		return net.TCPAddr{}
 	}
-	return address.(net.TCPAddr)
+	return address
 }
 
+// DiscoveryAddress returns the externally reachable discovery address (15012) of the component.
 func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
-	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.cluster, c.namespace, discoveryPort)
-	}, retryTimeout, retryDelay)
+	address, err := c.getAddressInner(discoveryPort)
 	if err != nil {
 		return net.TCPAddr{}
 	}
-	return address.(net.TCPAddr)
+	return address
 }
 
 type clientKey struct {

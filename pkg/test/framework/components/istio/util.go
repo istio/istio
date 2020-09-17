@@ -87,7 +87,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		address, err := retry.Do(func() (interface{}, bool, error) {
 			return getRemoteServiceAddress(i.environment.Settings(), cp, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
-		}, retryTimeout, retryDelay)
+		}, getAddressTimeout, getAddressDelay)
 		if err != nil {
 			return net.TCPAddr{}, err
 		}

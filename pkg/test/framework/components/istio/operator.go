@@ -59,6 +59,12 @@ const (
 	istiodSvcName = "istiod"
 )
 
+var (
+	// the retry options for waiting for an individual component to be ready
+	componentDeployTimeout = retry.Timeout(30 * time.Second)
+	componentDeployDelay   = retry.Delay(1 * time.Second)
+)
+
 type operatorComponent struct {
 	id          resource.ID
 	settings    Config
@@ -348,7 +354,7 @@ spec:
 			}
 		}
 		return nil
-	}, retry.Timeout(90*time.Second)); err != nil {
+	}, componentDeployTimeout, componentDeployDelay); err != nil {
 		return fmt.Errorf("failed waiting for patched istiod pod to come up in %s: %v", cluster.Name(), err)
 	}
 
@@ -607,9 +613,6 @@ func install(c *operatorComponent, installSettings []string, istioCtl istioctl.I
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	c.saveManifestForCleanup(clusterName, out)
 
 	// Actually run the install command
@@ -863,7 +866,7 @@ func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, clu
 			return err
 		}
 		return nil
-	}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second))
+	}, componentDeployTimeout, componentDeployDelay)
 	return err
 }
 
