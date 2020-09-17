@@ -33,6 +33,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/oauth2"
+	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
@@ -46,6 +47,7 @@ import (
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -82,6 +84,7 @@ type XdsProxy struct {
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
 	localDNSServer       *dns.LocalDNSServer
+	healthChecker        *health.WorkloadHealthChecker
 	fileWatcher          filewatcher.FileWatcher
 }
 
@@ -96,6 +99,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		fileWatcher:    newFileWatcher(),
 		stopChan:       make(chan struct{}),
 		resetChan:      make(chan struct{}),
+		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe),
 	}
 
 	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
@@ -130,6 +134,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	downstreamError := make(chan error)
 	requestsChan := make(chan *discovery.DiscoveryRequest, 10)
 	responsesChan := make(chan *discovery.DiscoveryResponse, 10)
+	healthEventsChan := make(chan *health.ProbeEvent, 5)
 	// A separate channel for nds requests to not contend with the ones from envoys
 	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
 
@@ -186,6 +191,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		}
 	}()
 
+	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, p.stopChan)
+
 	for {
 		select {
 		case err := <-upstreamError:
@@ -224,6 +231,27 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
 			}
+		case healthEvent, ok := <-healthEventsChan:
+			if ok {
+				proxyLog.Debug("request for type url %s", health.HealthInfoTypeURL)
+				var req *discovery.DiscoveryRequest
+				if healthEvent.Healthy {
+					req = &discovery.DiscoveryRequest{TypeUrl: health.HealthInfoTypeURL}
+				} else {
+					req = &discovery.DiscoveryRequest{
+						TypeUrl: health.HealthInfoTypeURL,
+						ErrorDetail: &google_rpc.Status{
+							Code:    500,
+							Message: healthEvent.UnhealthyMessage,
+						},
+					}
+				}
+				if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
+					proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
+					return err
+				}
+			}
+
 		case resp, ok := <-responsesChan:
 			if !ok {
 				return nil
