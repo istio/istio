@@ -259,9 +259,9 @@ spec:
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
           # Proxy XDS via agent first
-          sudo sh -c 'echo ISTIO_META_PROXY_XDS_VIA_AGENT=enable >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_META_PROXY_XDS_VIA_AGENT=true >> /var/lib/istio/envoy/cluster.env'
           # Capture all DNS traffic in the VM and forward to Envoy
-          sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=true >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
 
           # Setup the namespace
