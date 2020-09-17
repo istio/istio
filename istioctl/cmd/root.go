@@ -181,35 +181,6 @@ debug and diagnose their Istio mesh.
 		Short:   "Experimental commands that may be modified or deprecated",
 	}
 
-	xdsBasedTroubleshooting := []*cobra.Command{
-		xdsVersionCommand(),
-		xdsStatusCommand(),
-	}
-	debugBasedTroubleshooting := []*cobra.Command{
-		newVersionCommand(),
-		statusCommand(),
-	}
-	var debugCmdAttachmentPoint *cobra.Command
-	if viper.GetBool("PREFER-EXPERIMENTAL") {
-		legacyCmd := &cobra.Command{
-			Use:   "legacy",
-			Short: "Legacy command variants",
-		}
-		rootCmd.AddCommand(legacyCmd)
-		for _, c := range xdsBasedTroubleshooting {
-			rootCmd.AddCommand(c)
-		}
-		debugCmdAttachmentPoint = legacyCmd
-	} else {
-		debugCmdAttachmentPoint = rootCmd
-	}
-	for _, c := range xdsBasedTroubleshooting {
-		experimentalCmd.AddCommand(c)
-	}
-	for _, c := range debugBasedTroubleshooting {
-		debugCmdAttachmentPoint.AddCommand(c)
-	}
-
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
 
@@ -233,6 +204,14 @@ debug and diagnose their Istio mesh.
 	postInstallCmd.AddCommand(postInstallWebhookCmd)
 	experimentalCmd.AddCommand(workloadCommands())
 	experimentalCmd.AddCommand(postInstallCmd)
+
+	xdsBasedTroubleshooting := []*cobra.Command{
+		xdsVersionCommand(),
+		xdsStatusCommand(),
+	}
+	for _, c := range xdsBasedTroubleshooting {
+		rootCmd.AddCommand(c)
+	}
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, "istioNamespace")

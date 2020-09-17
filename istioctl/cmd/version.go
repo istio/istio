@@ -29,38 +29,11 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
-	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/proxy"
 	istioVersion "istio.io/pkg/version"
 )
-
-func newVersionCommand() *cobra.Command {
-	profileCmd := mesh.ProfileCmd()
-	var opts clioptions.ControlPlaneOptions
-	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
-		GetRemoteVersion: getRemoteInfoWrapper(&profileCmd, &opts),
-		GetProxyVersions: getProxyInfoWrapper(&opts),
-	})
-	opts.AttachControlPlaneFlags(versionCmd)
-
-	versionCmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		if flag.Name == "short" {
-			err := flag.Value.Set("true")
-			if err != nil {
-				fmt.Fprintf(os.Stdout, "set flag %q as true failed due to error %v", flag.Name, err)
-			}
-		}
-		if flag.Name == "remote" {
-			err := flag.Value.Set("true")
-			if err != nil {
-				fmt.Fprintf(os.Stdout, "set flag %q as true failed due to error %v", flag.Name, err)
-			}
-		}
-	})
-	return versionCmd
-}
 
 func getRemoteInfo(opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
 	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
