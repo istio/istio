@@ -24,7 +24,7 @@ type IstioKind struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
 	Spec               map[string]interface{} `json:"spec"`
-	Status map[string]interface{} `json:"status"`
+	Status             map[string]interface{} `json:"status"`
 }
 
 // GetSpec from a wrapper

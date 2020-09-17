@@ -36,7 +36,7 @@ import (
 // ConfigData is data struct to feed to types.go template.
 type ConfigData struct {
 	Namespaced      bool
-	IstioStatus bool
+	IstioStatus     bool
 	VariableName    string
 	APIImport       string
 	ClientImport    string

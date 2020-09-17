@@ -103,7 +103,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 			ResourceVersion:   meta.ResourceVersion,
 			CreationTimestamp: meta.CreationTimestamp.Time,
 		},
-		Spec: spec,
+		Spec:   spec,
 		Status: status,
 	}, nil
 }
@@ -135,7 +135,7 @@ func ConvertConfig(cfg config.Config) (IstioObject, error) {
 			Annotations:       cfg.Annotations,
 			CreationTimestamp: meta_v1.NewTime(cfg.CreationTimestamp),
 		},
-		Spec: spec,
+		Spec:   spec,
 		Status: status,
 	}, nil
 }
