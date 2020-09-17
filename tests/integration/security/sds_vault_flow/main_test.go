@@ -54,7 +54,6 @@ func TestMain(m *testing.M) {
 		Skip("https://github.com/istio/istio/issues/17572").
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
-		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }
