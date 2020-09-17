@@ -16,13 +16,16 @@ package xds
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_proxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -30,16 +33,11 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -50,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 )
 
@@ -70,10 +69,11 @@ type FakeOptions struct {
 }
 
 type FakeDiscoveryServer struct {
-	t         test.Failer
-	Store     model.ConfigStore
-	Discovery *DiscoveryServer
-	Env       *model.Environment
+	t          test.Failer
+	Store      model.ConfigStore
+	Discovery  *DiscoveryServer
+	Env        *model.Environment
+	KubeClient kubelib.Client
 }
 
 func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
@@ -150,6 +150,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			// Read and drop events. This prevents the channel from getting backed up
 			// In the future, we can likely track these for use in tests
 			case <-s.pushChannel:
+				s.updateMutex.RLock()
+				pc := s.Env.PushContext
+				s.updateMutex.RUnlock()
+				_, _ = s.initPushContext(nil, pc)
 			case <-stop:
 				return
 			}
@@ -174,15 +178,25 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	env.NetworksWatcher = opts.NetworksWatcher
 
+	serviceHandler := func(svc *model.Service, _ model.Event) {
+		s.updateMutex.RLock()
+		pc := s.Env.PushContext
+		s.updateMutex.RUnlock()
+		_, _ = s.initPushContext(nil, pc)
+	}
+
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
 	serviceDiscovery.AddRegistry(se)
+	kubeClient := kubelib.NewFakeClient(k8sObjects...)
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
-		Objects:         k8sObjects,
+		ServiceHandler:  serviceHandler,
+		Client:          kubeClient,
 		ClusterID:       "Kubernetes",
 		DomainSuffix:    "cluster.local",
 		XDSUpdater:      s,
 		NetworksWatcher: env,
 	})
+	kubeClient.RunAndWait(stop)
 	serviceDiscovery.AddRegistry(k8s)
 	for _, cfg := range configs {
 		if _, err := configStore.Create(cfg); err != nil {
@@ -191,14 +205,21 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	cache.WaitForCacheSync(stop, serviceDiscovery.HasSynced)
 	s.CachesSynced()
+	if err := se.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
+		t.Fatal(err)
+	}
+	if err := k8s.AppendWorkloadHandler(se.WorkloadInstanceHandler); err != nil {
+		t.Fatal(err)
+	}
 
 	se.ResyncEDS()
 
 	fake := &FakeDiscoveryServer{
-		t:         t,
-		Store:     configController,
-		Discovery: s,
-		Env:       env,
+		t:          t,
+		Store:      configController,
+		KubeClient: kubeClient,
+		Discovery:  s,
+		Env:        env,
 	}
 
 	// currently meshNetworks gateways are stored on the push context
@@ -364,8 +385,9 @@ func ExtractEndpoints(endpoints []*endpoint.ClusterLoadAssignment) map[string][]
 		}
 		for _, ep := range cla.Endpoints {
 			for _, lb := range ep.LbEndpoints {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetSocketAddress().Address)
+				addr := lb.GetEndpoint().Address.GetSocketAddress()
+				if addr != nil {
+					got[cla.ClusterName] = append(got[cla.ClusterName], fmt.Sprintf("%s:%d", addr.Address, addr.GetPortValue()))
 				} else {
 					got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetPipe().Path)
 				}

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+- 27183
+- 27151
+- 27185
+releaseNotes:
+- |
+  **Fixed** issues with WorkloadEntry when the Service or WorkloadEntry is updated after creation.

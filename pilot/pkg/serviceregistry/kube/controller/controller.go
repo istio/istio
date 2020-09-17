@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,9 +30,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
-
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -44,6 +41,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -205,6 +204,8 @@ type Controller struct {
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 	// workload instances from workload entries  - map of ip -> workload instance
 	workloadInstancesByIP map[string]*model.WorkloadInstance
+	// Stores a map of workload instance name/namespace to address
+	workloadInstancesIPsByName map[string]string
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -235,6 +236,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesByIP:      make(map[string]*model.WorkloadInstance),
+		workloadInstancesIPsByName: make(map[string]string),
 		networksWatcher:            options.NetworksWatcher,
 		metrics:                    options.Metrics,
 	}
@@ -340,6 +342,23 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
+	}
+
+	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
+	// but workload entries will also need to be updated.
+	if event == model.EventAdd || event == model.EventUpdate {
+		// Build IstioEndpoints
+		endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Name, svc.Namespace, svcConv.Hostname)
+		var fep []*model.IstioEndpoint
+		if features.EnableK8SServiceSelectWorkloadEntries {
+			fep = c.collectWorkloadInstanceEndpoints(svcConv)
+			endpoints = append(endpoints, fep...)
+		}
+
+		// Only trigger update if workload entry changed. Otherwise, Endpoint event will trigger it once it comes in.
+		if len(endpoints) > 0 && len(fep) > 0 {
+			_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, endpoints)
+		}
 	}
 
 	c.xdsUpdater.SvcUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, event)
@@ -704,8 +723,9 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
 	c.RUnlock()
 
+	// Only select internal Kubernetes services with selectors
 	if !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
-		svc.MeshExternal || svc.Resolution != model.ClientSideLB {
+		svc.MeshExternal || svc.Resolution != model.ClientSideLB || svc.Attributes.LabelSelectors == nil {
 		return nil
 	}
 
@@ -908,7 +928,14 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	case model.EventDelete:
 		delete(c.workloadInstancesByIP, si.Endpoint.Address)
 	default: // add or update
+		// Check to see if the workload entry changed. If it did, clear the old entry
+		k := si.Name + "~" + si.Namespace
+		existing := c.workloadInstancesIPsByName[k]
+		if existing != si.Endpoint.Address {
+			delete(c.workloadInstancesByIP, existing)
+		}
 		c.workloadInstancesByIP[si.Endpoint.Address] = si
+		c.workloadInstancesIPsByName[k] = si.Endpoint.Address
 	}
 	c.Unlock()
 

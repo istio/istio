@@ -22,12 +22,11 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
 )
 
 type endpointsController struct {
@@ -208,6 +207,16 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 		}
 	}
 	return endpoints
+}
+
+func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+	ep, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(namespace).Get(name)
+	if err != nil || ep == nil {
+		log.Debugf("endpoints(%s, %s) not found => error %v", name, namespace, err)
+		return nil
+	}
+
+	return e.buildIstioEndpoints(ep, host)
 }
 
 func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {
