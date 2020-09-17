@@ -57,10 +57,10 @@ const (
 	finalizer = "istio-finalizer.install.istio.io"
 	// finalizerMaxRetries defines the maximum number of attempts to remove the finalizer.
 	finalizerMaxRetries = 1
-	restConfig *rest.Config
 )
 
 var (
+	restConfig *rest.Config
 	// watchedResources contains all resources we will watch and reconcile when changed
 	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
 	// a type that does not yet exist.
