@@ -78,7 +78,15 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 	if err != nil {
 		return nil, err
 	}
-	data, err := FromJSON(schema, string(js))
+	spec, err := FromJSON(schema, string(js))
+	if err != nil {
+		return nil, err
+	}
+	js, err = json.Marshal(object.GetStatus())
+	if err != nil {
+		return nil, err
+	}
+	status, err := FromJSON(schema, string(js))
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +103,18 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 			ResourceVersion:   meta.ResourceVersion,
 			CreationTimestamp: meta.CreationTimestamp.Time,
 		},
-		Spec: data,
+		Spec: spec,
+		Status: status,
 	}, nil
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(cfg config.Config) (IstioObject, error) {
 	spec, err := config.ToMap(cfg.Spec)
+	if err != nil {
+		return nil, err
+	}
+	status, err := config.ToMap(cfg.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +136,7 @@ func ConvertConfig(cfg config.Config) (IstioObject, error) {
 			CreationTimestamp: meta_v1.NewTime(cfg.CreationTimestamp),
 		},
 		Spec: spec,
+		Status: status,
 	}, nil
 }
 

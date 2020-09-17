@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
+	"strings"
 	"text/template"
 
 	"istio.io/istio/pkg/config/schema/collection"
@@ -35,6 +36,7 @@ import (
 // ConfigData is data struct to feed to types.go template.
 type ConfigData struct {
 	Namespaced      bool
+	IstioStatus bool
 	VariableName    string
 	APIImport       string
 	ClientImport    string
@@ -51,6 +53,7 @@ type ConfigData struct {
 func MakeConfigData(schema collection.Schema) ConfigData {
 	out := ConfigData{
 		Namespaced:      !schema.Resource().IsClusterScoped(),
+		IstioStatus:     !strings.Contains(schema.VariableName(), "K8S"),
 		VariableName:    schema.VariableName(),
 		APIImport:       apiImport[schema.Resource().ProtoPackage()],
 		ClientImport:    clientGoImport[schema.Resource().ProtoPackage()],
