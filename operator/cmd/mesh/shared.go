@@ -242,17 +242,25 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 		// Setup default namespace
 		namespace = istioDefaultNamespace
 	}
-
-	ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
-		Name: namespace,
-		Labels: map[string]string{
-			"istio-injection": "disabled",
-		},
-	}}
-	_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
+	//check if the namespace already exists. If yes, do nothing. If no, create a new one.
+	_, err := cs.CoreV1().Namespaces().Get(context.TODO(), namespace, v12.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
+				Name: namespace,
+				Labels: map[string]string{
+					"istio-injection": "disabled",
+				},
+			}}
+			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
+			}
+		} else {
+			return fmt.Errorf("failed to check if namespace %v exists: %v", namespace, err)
+		}
 	}
+
 	return nil
 }
 
