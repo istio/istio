@@ -66,12 +66,12 @@ var SkipLogTypes = map[string]struct{}{
 	v3.EndpointType: {},
 }
 
-func (s *DiscoveryServer) findGenerator(typeUrl string, con *Connection) model.XdsResourceGenerator {
-	if g, f := s.Generators[typeUrl]; f {
+func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
+	if g, f := s.Generators[typeURL]; f {
 		return g
 	}
 
-	if g, f := s.Generators[con.proxy.Metadata.Generator+"/"+typeUrl]; f {
+	if g, f := s.Generators[con.proxy.Metadata.Generator+"/"+typeURL]; f {
 		return g
 	}
 
