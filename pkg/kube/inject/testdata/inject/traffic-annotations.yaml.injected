@@ -91,7 +91,7 @@ spec:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar"}}
+            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar"},"meshId":"cluster.local"}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [

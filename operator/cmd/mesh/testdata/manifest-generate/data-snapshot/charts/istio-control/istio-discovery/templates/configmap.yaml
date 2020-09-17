@@ -5,6 +5,11 @@
     trustDomain: {{ .Values.global.trustDomain | quote }}
 
     defaultConfig:
+      {{- if .Values.global.meshID }}
+      meshId: {{ .Values.global.meshID }}
+      {{- else if .Values.global.trustDomain }}
+      meshId: {{ .Values.global.trustDomain }}
+      {{- end }}
       tracing:
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
         lightstep:
