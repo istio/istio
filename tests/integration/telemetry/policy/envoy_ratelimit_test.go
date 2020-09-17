@@ -101,6 +101,11 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
+	err = setupEnvoyFilter(ctx)
+	if err != nil {
+		return
+	}
+
 	yamlContent, err := ioutil.ReadFile("testdata/ratelimitservice.yaml")
 	if err != nil {
 		return
@@ -109,11 +114,6 @@ func testSetup(ctx resource.Context) (err error) {
 	err = ctx.Config().ApplyYAML(ratelimitNs.Name(),
 		string(yamlContent),
 	)
-	if err != nil {
-		return
-	}
-
-	err = setupEnvoyFilter(ctx)
 	if err != nil {
 		return
 	}
@@ -128,8 +128,8 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	// For envoy filter changes to sync.
-	time.Sleep(time.Second * 60)
+	// TODO(gargnupur): Figure out a way to query, envoy is ready to talk to rate limit service.
+	time.Sleep(time.Second * 45)
 
 	return nil
 }

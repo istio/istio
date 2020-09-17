@@ -45,6 +45,7 @@ spec:
           connect_timeout: 10s
           lb_policy: ROUND_ROBIN
           http2_protocol_options: {}
+          dns_refresh_rate: 500ms
           load_assignment:
             cluster_name: rate_limit_cluster
             endpoints:
