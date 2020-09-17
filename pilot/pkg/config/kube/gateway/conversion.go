@@ -191,15 +191,15 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 			}
 			for _, filter := range r.Filters {
 				switch filter.Type {
-				case k8s.FilterHTTPRequestHeader:
+				case k8s.FilterTypeHTTPRequestHeader:
 					vs.Headers = createHeadersFilter(filter.RequestHeader)
 				default:
 					log.Warnf("unsupported filter type %q", filter.Type)
 				}
 			}
 			// TODO this should be required in the spec. Follow up with the service-apis team
-			if r.Action != nil {
-				vs.Route = buildHTTPDestination(r.Action, obj.Namespace)
+			if r.Forward != nil {
+				vs.Route = buildHTTPDestination(r.Forward, obj.Namespace)
 			}
 			httproutes = append(httproutes, vs)
 		}
@@ -226,7 +226,7 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 	routes := []*istio.TCPRoute{}
 	for _, r := range route.Rules {
 		ir := &istio.TCPRoute{
-			Match: buildTCPMatch(r.Match),
+			Match: buildTCPMatch(r.Matches),
 			Route: buildTCPDestination(r.Action, obj.Namespace),
 		}
 		routes = append(routes, ir)
@@ -249,14 +249,14 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 	return vsConfig
 }
 
-func buildTCPDestination(action *k8s.TCPRouteAction, ns string) []*istio.RouteDestination {
-	if action == nil || len(action.ForwardTo) == 0 {
+func buildTCPDestination(action k8s.TCPRouteAction, ns string) []*istio.RouteDestination {
+	if len(action.ForwardTo) == 0 {
 		return nil
 	}
 
 	if len(action.ForwardTo) == 1 {
 		return []*istio.RouteDestination{{
-			Destination: buildDestination(action.ForwardTo[0], ns),
+			Destination: buildGenericDestination(action.ForwardTo[0], ns),
 		}}
 	}
 
@@ -267,7 +267,7 @@ func buildTCPDestination(action *k8s.TCPRouteAction, ns string) []*istio.RouteDe
 	weights = standardizeWeights(weights)
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action.ForwardTo {
-		dst := buildDestination(fwd, ns)
+		dst := buildGenericDestination(fwd, ns)
 		res = append(res, &istio.RouteDestination{
 			Destination: dst,
 			Weight:      int32(weights[i]),
@@ -276,7 +276,7 @@ func buildTCPDestination(action *k8s.TCPRouteAction, ns string) []*istio.RouteDe
 	return res
 }
 
-func buildTCPMatch(*k8s.TCPRouteMatch) []*istio.L4MatchAttributes {
+func buildTCPMatch([]k8s.TCPRouteMatch) []*istio.L4MatchAttributes {
 	// Currently the spec only supports extensions, which are not currently implemented by Istio.
 	return nil
 }
@@ -289,41 +289,63 @@ func intSum(n []int) int {
 	return r
 }
 
-func buildHTTPDestination(action *k8s.HTTPRouteAction, ns string) []*istio.HTTPRouteDestination {
-	if action == nil || len(action.ForwardTo) == 0 {
+func buildHTTPDestination(action *k8s.HTTPForwardingTarget, ns string) []*istio.HTTPRouteDestination {
+	if action == nil || len(action.To) == 0 {
 		return nil
 	}
 
-	if len(action.ForwardTo) == 1 {
+	if len(action.To) == 1 {
 		return []*istio.HTTPRouteDestination{{
-			Destination: buildDestination(action.ForwardTo[0], ns),
+			Destination: buildDestination(action.To[0], ns),
 		}}
 	}
 
 	weights := []int{}
-	for _, w := range action.ForwardTo {
+	for _, w := range action.To {
 		weights = append(weights, int(w.Weight))
 	}
 	weights = standardizeWeights(weights)
 	res := []*istio.HTTPRouteDestination{}
-	for i, fwd := range action.ForwardTo {
+	for i, fwd := range action.To {
 		dst := buildDestination(fwd, ns)
-		res = append(res, &istio.HTTPRouteDestination{
+		rd := &istio.HTTPRouteDestination{
 			Destination: dst,
 			Weight:      int32(weights[i]),
-		})
+		}
+		for _, filter := range fwd.Filters {
+			switch filter.Type {
+			case k8s.FilterTypeHTTPRequestHeader:
+				rd.Headers = createHeadersFilter(filter.RequestHeader)
+			default:
+				log.Warnf("unsupported filter type %q", filter.Type)
+			}
+		}
+		res = append(res, rd)
 	}
 	return res
 }
 
-func buildDestination(to k8s.ForwardToTarget, ns string) *istio.Destination {
+func buildDestination(to k8s.HTTPForwardToTarget, ns string) *istio.Destination {
 	res := &istio.Destination{}
 	if to.TargetPort != nil {
 		res.Port = &istio.PortSelector{Number: uint32(*to.TargetPort)}
 	}
 	// Referencing a Service or default
-	if (to.TargetRef.Group == "core" || to.TargetRef.Group == "") &&
-		(to.TargetRef.Resource == k8sServiceResource.Plural() || to.TargetRef.Resource == "") {
+	if emptyOrEqual(to.TargetRef.Group, "core") && emptyOrEqual(to.TargetRef.Resource, k8sServiceResource.Plural()) {
+		res.Host = fmt.Sprintf("%s.%s.svc.%s", to.TargetRef.Name, ns, constants.DefaultKubernetesDomain)
+	} else {
+		log.Errorf("referencing unsupported destination %+v", to.TargetRef)
+	}
+	return res
+}
+
+func buildGenericDestination(to k8s.GenericForwardToTarget, ns string) *istio.Destination {
+	res := &istio.Destination{}
+	if to.TargetPort != nil {
+		res.Port = &istio.PortSelector{Number: uint32(*to.TargetPort)}
+	}
+	// Referencing a Service or default
+	if emptyOrEqual(to.TargetRef.Group, "core") && emptyOrEqual(to.TargetRef.Resource, k8sServiceResource.Plural()) {
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", to.TargetRef.Name, ns, constants.DefaultKubernetesDomain)
 	} else {
 		log.Errorf("referencing unsupported destination %+v", to.TargetRef)
@@ -375,7 +397,7 @@ func argsort(n []float64) []int {
 	return s.idx
 }
 
-func createHeadersFilter(filter *k8s.HTTPRequestHeaderConfig) *istio.Headers {
+func createHeadersFilter(filter *k8s.HTTPRequestHeaderFilter) *istio.Headers {
 	if filter == nil {
 		return nil
 	}
@@ -452,7 +474,7 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 	classes := getGatewayClasses(r)
 	for _, obj := range r.Gateway {
 		kgw := obj.Spec.(*k8s.GatewaySpec)
-		if _, f := classes[kgw.Class]; !f {
+		if _, f := classes[kgw.GatewayClassName]; !f {
 			// No gateway class found, this may be meant for another controller; should be skipped.
 			continue
 		}
@@ -503,7 +525,7 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 	return result, routeToGateway
 }
 
-func buildTLS(tls *k8s.TLSConfig) *istio.ServerTLSSettings {
+func buildTLS(tls *k8s.GatewayTLSConfig) *istio.ServerTLSSettings {
 	if tls == nil {
 		return nil
 	}
@@ -513,24 +535,20 @@ func buildTLS(tls *k8s.TLSConfig) *istio.ServerTLSSettings {
 	// TODO: "The SNI server_name must match a route host name for the Gateway to route the TLS request."
 	// Do we need to do something smarter here to support ^ ?
 	out := &istio.ServerTLSSettings{
-		HttpsRedirect:  false,
-		Mode:           istio.ServerTLSSettings_SIMPLE,
-		CredentialName: buildSecretReference(tls.CertificateRefs),
+		HttpsRedirect: false,
+	}
+	switch tls.Mode {
+	case "", k8s.TLSModeTerminate:
+		out.Mode = istio.ServerTLSSettings_SIMPLE
+		out.CredentialName = buildSecretReference(tls.CertificateRef)
+	case k8s.TLSModePassthrough:
+		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 	}
 	return out
 }
 
-func buildSecretReference(refs []k8s.CertificateObjectReference) string {
-	// No certs provided
-	if len(refs) == 0 {
-		return ""
-	}
-	ref := refs[0]
-	if len(refs) > 1 {
-		// TODO not sure how this is supposed to be implemented? Somehow needs to align with routes I think
-		log.Errorf("unsupported multiple certificate references")
-	}
-	if (ref.Group != "" && ref.Group != "v1") || (ref.Resource != "" && ref.Resource != "secrets") {
+func buildSecretReference(ref k8s.CertificateObjectReference) string {
+	if !emptyOrEqual(ref.Group, "v1") || !emptyOrEqual(ref.Resource, "secrets") {
 		log.Errorf("invalid certificate reference %v, only secret is allowed", ref)
 	}
 	return ref.Name
@@ -551,4 +569,8 @@ func buildHostnameMatch(hostname k8s.HostnameMatch) []string {
 		// TODO better error handling. Probably need to reject the whole
 		return []string{"*"}
 	}
+}
+
+func emptyOrEqual(have, expected string) bool {
+	return have == "" || have == expected
 }
