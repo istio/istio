@@ -404,8 +404,7 @@ func buildAutoMtlsSettings(
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode,
-	clusterDiscoveryType cluster.Cluster_DiscoveryType) (*networking.ClientTLSSettings, mtlsContextType) {
+	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
 		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
 			return tls, userSupplied
@@ -428,11 +427,7 @@ func buildAutoMtlsSettings(
 	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
 		return nil, userSupplied
 	}
-	// Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`
-	// We don't know whether headless service instance has sidecar injected or not.
-	if clusterDiscoveryType == cluster.Cluster_ORIGINAL_DST {
-		return nil, userSupplied
-	}
+
 	// Build settings for auto MTLS.
 	return buildIstioMutualTLS(serviceAccounts, sni, proxy), autoDetected
 }
@@ -592,7 +587,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 	}
 }
