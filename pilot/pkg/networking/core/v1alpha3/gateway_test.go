@@ -913,6 +913,21 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	httpGatewayWildcard := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
+			Name:      "gateway",
+			Namespace: "default",
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"*"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
 	virtualServiceSpec := &networking.VirtualService{
 		Hosts:    []string{"example.org"},
 		Gateways: []string{"gateway"},
@@ -1020,6 +1035,17 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
+				},
+			},
+		},
+		{
+			"wildcard virtual service",
+			[]pilot_model.Config{virtualServiceWildcard},
+			[]pilot_model.Config{httpGatewayWildcard},
+			"http.80",
+			map[string][]string{
+				"*.org:80": {
+					"*.org", "*.org:80",
 				},
 			},
 		},
