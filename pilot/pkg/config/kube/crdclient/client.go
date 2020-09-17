@@ -207,12 +207,15 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 }
 
 // Create implements store interface
-func (cl *Client) Create(config config.Config) (string, error) {
-	if config.Spec == nil {
-		return "", fmt.Errorf("nil spec for %v/%v", config.Name, config.Namespace)
+func (cl *Client) Create(cfg config.Config) (string, error) {
+	if cfg.Spec == nil {
+		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
+	}
+	if cfg.Status == nil {
+		cfg.Status = new(config.Status)
 	}
 
-	meta, err := create(cl.istioClient, cl.serviceApisClient, config, getObjectMetadata(config))
+	meta, err := create(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
