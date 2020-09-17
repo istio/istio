@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue:
+  - 27238
+releaseNotes:
+  - |
+    **Fixed** supports cacert's algorithms other than RSA.
