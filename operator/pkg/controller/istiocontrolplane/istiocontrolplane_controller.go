@@ -60,6 +60,7 @@ const (
 )
 
 var (
+	restConfig *rest.Config
 	// watchedResources contains all resources we will watch and reconcile when changed
 	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
 	// a type that does not yet exist.
@@ -112,7 +113,11 @@ var (
 				crName := obj.GetLabels()[helmreconciler.OwningResourceName]
 				crNamespace := obj.GetLabels()[helmreconciler.OwningResourceNamespace]
 				componentName := obj.GetLabels()[helmreconciler.IstioComponentLabelStr]
-				crHash := strings.Join([]string{crName, crNamespace, componentName}, "-")
+				var host string
+				if restConfig != nil {
+					host = restConfig.Host
+				}
+				crHash := strings.Join([]string{crName, crNamespace, componentName, host}, "-")
 				oh := object.NewK8sObject(&unstructured.Unstructured{Object: unsObj}, nil, nil).Hash()
 				cache.RemoveObject(crHash, oh)
 				return true
@@ -358,6 +363,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 // Add creates a new IstioOperator Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
+	restConfig = mgr.GetConfig()
 	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()})
 }
 
