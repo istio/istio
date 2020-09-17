@@ -537,19 +537,12 @@ func conditionallyConvertToIstioMtls(
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode,
-	clusterDiscoveryType apiv2.Cluster_DiscoveryType) (*networking.ClientTLSSettings, mtlsContextType) {
+	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
 		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
 			return nil, mtlsCtx
 		}
-		// Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`
-		// We don't know whether headless service instance has sidecar injected or not.
-		if clusterDiscoveryType == apiv2.Cluster_ORIGINAL_DST {
-			return nil, mtlsCtx
-		}
-
 		mtlsCtx = autoDetected
 		// we will setup transport sockets later
 		tls = &networking.ClientTLSSettings{
@@ -726,7 +719,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
 	}
 }
