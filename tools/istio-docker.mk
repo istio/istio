@@ -335,7 +335,7 @@ DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
-docker.push: $(DOCKER_PUSH_TARGETS)
+docker.push: dockerx.pushx
 
 # Build and push docker images using dockerx
 dockerx.push: dockerx
