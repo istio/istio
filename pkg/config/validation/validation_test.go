@@ -342,7 +342,6 @@ func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	}
 }
 
-// refactor
 func TestValidateMeshConfig(t *testing.T) {
 	if ValidateMeshConfig(&meshconfig.MeshConfig{}) == nil {
 		t.Error("expected an error on an empty mesh config")
