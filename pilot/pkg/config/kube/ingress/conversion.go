@@ -330,8 +330,7 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 	}
 }
 
-// TODO: WRITE TEST, add error handling
-func ShouldCreateGateway(ingress v1beta1.Ingress, domainSuffix string) bool {
+func ShouldCreateGateway(ingress v1beta1.Ingress) bool {
 	if _, exists := ingress.Annotations[kube.IngressIstioGatewayAnnotation]; exists {
 		return false
 	}

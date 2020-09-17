@@ -297,7 +297,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost, c.serviceLister)
 		case gvk.Gateway:
 			// if gateway is not specified create one automatically
-			if ShouldCreateGateway(*ingress, c.domainSuffix) {
+			if ShouldCreateGateway(*ingress) {
 				gatewayConfig := ConvertIngressV1alpha3(*ingress, c.meshWatcher.Mesh(), c.domainSuffix)
 				out = append(out, gatewayConfig)
 			}
