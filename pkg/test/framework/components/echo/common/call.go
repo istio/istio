@@ -28,29 +28,16 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-var (
-	// IdentityOutboundPortSelector is an OutboundPortSelectorFunc that always returns the original service port.
-	IdentityOutboundPortSelector OutboundPortSelectorFunc = func(servicePort int) (int, error) {
-		return servicePort, nil
-	}
-)
-
-// OutboundPortSelectorFunc is a function that selects the appropriate outbound port for sending
-// requests to a target service.
-type OutboundPortSelectorFunc func(servicePort int) (int, error)
-
-func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector OutboundPortSelectorFunc) (client.ParsedResponses, error) {
+func callInternal(opts *echo.CallOptions, send func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error)) (client.ParsedResponses, error) {
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
 
-	port, err := outboundPortSelector(opts.Port.ServicePort)
-	if err != nil {
-		return nil, err
-	}
+	port := opts.Port.ServicePort
 
 	// Forward a request from 'this' service to the destination service.
 	targetHost := net.JoinHostPort(opts.Host, strconv.Itoa(port))
@@ -83,9 +70,10 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 		ServerFirst:   opts.Port.ServerFirst,
 		Cert:          opts.Cert,
 		Key:           opts.Key,
+		CaCert:        opts.CaCert,
 	}
 
-	resp, err := c.ForwardEcho(context.Background(), req)
+	resp, err := send(req)
 	if err != nil {
 		return nil, err
 	}
@@ -96,43 +84,69 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 	return resp, err
 }
 
+func CallEcho(opts *echo.CallOptions) (client.ParsedResponses, error) {
+	return callInternal(opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+		instance, err := forwarder.New(forwarder.Config{
+			Request: req,
+		})
+		if err != nil {
+			return nil, err
+		}
+		defer instance.Close()
+
+		ret, err := instance.Run(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		resp := client.ParseForwardedResponse(ret)
+		return resp, nil
+	})
+}
+
+func ForwardEcho(c *client.Instance, opts *echo.CallOptions) (client.ParsedResponses, error) {
+	return callInternal(opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+		return c.ForwardEcho(context.Background(), req)
+	})
+}
+
 func fillInCallOptions(opts *echo.CallOptions) error {
-	if opts.Target == nil {
-		return errors.New("callOptions: missing Target")
-	}
 
-	targetPorts := opts.Target.Config().Ports
-	if opts.PortName == "" {
-		// Validate the Port value.
+	if opts.Target != nil {
+		targetPorts := opts.Target.Config().Ports
+		if opts.PortName == "" {
+			// Validate the Port value.
 
-		if opts.Port == nil {
-			return errors.New("callOptions: PortName or Port must be provided")
-		}
+			if opts.Port == nil {
+				return errors.New("callOptions: PortName or Port must be provided")
+			}
 
-		// Check the specified port for a match against the Target Instance
-		found := false
-		for _, port := range targetPorts {
-			if reflect.DeepEqual(port, *opts.Port) {
-				found = true
-				break
+			// Check the specified port for a match against the Target Instance
+			found := false
+			for _, port := range targetPorts {
+				if reflect.DeepEqual(port, *opts.Port) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("callOptions: Port does not match any Target port")
+			}
+		} else {
+			// Look up the port.
+			found := false
+			for _, port := range targetPorts {
+				if opts.PortName == port.Name {
+					found = true
+					opts.Port = &port
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("callOptions: no port named %s available in Target Instance", opts.PortName)
 			}
 		}
-		if !found {
-			return fmt.Errorf("callOptions: Port does not match any Target port")
-		}
-	} else {
-		// Look up the port.
-		found := false
-		for _, port := range targetPorts {
-			if opts.PortName == port.Name {
-				found = true
-				opts.Port = &port
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("callOptions: no port named %s available in Target Instance", opts.PortName)
-		}
+	} else if opts.Port == nil || opts.Port.ServicePort == 0 || opts.Port.Protocol == "" {
+		return fmt.Errorf("if target is not set, then port.servicePort and port.protocol must be set")
 	}
 
 	if opts.Scheme == "" {
@@ -153,8 +167,12 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 	}
 
 	if opts.HostHeader == "" {
-		// No host specified, use the hostname for the service.
-		opts.HostHeader = opts.Target.Config().HostHeader()
+		if opts.Target != nil {
+			// No host specified, use the hostname for the service.
+			opts.HostHeader = opts.Target.Config().HostHeader()
+		} else if h := opts.Headers["Host"]; len(h) > 0 {
+			opts.HostHeader = h[0]
+		}
 	}
 
 	if opts.Timeout <= 0 {
