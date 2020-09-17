@@ -43,6 +43,7 @@ export REPO_ROOT=/work
     ${DOCKER_SOCKET_MOUNT:--v /var/run/docker.sock:/var/run/docker.sock} \
     $CONTAINER_OPTIONS \
     --env-file <(env | grep -v ${ENV_BLOCKLIST}) \
+    --env REFRESH_GOLDEN=true \
     -e IN_BUILD_CONTAINER=1 \
     -e TZ="${TIMEZONE:-$TZ}" \
     --mount "type=bind,source=${PWD},destination=/work,consistency=cached" \
