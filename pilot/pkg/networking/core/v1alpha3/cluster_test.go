@@ -777,17 +777,16 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 		Sni:             "custom.foo.com",
 	}
 	tests := []struct {
-		name                 string
-		tls                  *networking.ClientTLSSettings
-		sans                 []string
-		sni                  string
-		proxy                *model.Proxy
-		autoMTLSEnabled      bool
-		meshExternal         bool
-		serviceMTLSMode      model.MutualTLSMode
-		clusterDiscoveryType cluster.Cluster_DiscoveryType
-		want                 *networking.ClientTLSSettings
-		wantCtxType          mtlsContextType
+		name            string
+		tls             *networking.ClientTLSSettings
+		sans            []string
+		sni             string
+		proxy           *model.Proxy
+		autoMTLSEnabled bool
+		meshExternal    bool
+		serviceMTLSMode model.MutualTLSMode
+		want            *networking.ClientTLSSettings
+		wantCtxType     mtlsContextType
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
@@ -795,7 +794,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
+			false, false, model.MTLSUnknown,
 			tlsSettings,
 			userSupplied,
 		},
@@ -812,7 +811,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
+			false, false, model.MTLSUnknown,
 			&networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
@@ -830,7 +829,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
+			false, false, model.MTLSUnknown,
 			&networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -847,7 +846,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSStrict, cluster.Cluster_EDS,
+			true, false, model.MTLSStrict,
 			&networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
@@ -861,7 +860,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSPermissive, cluster.Cluster_EDS,
+			true, false, model.MTLSPermissive,
 			&networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
@@ -875,7 +874,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSDisable, cluster.Cluster_EDS,
+			true, false, model.MTLSDisable,
 			nil,
 			userSupplied,
 		},
@@ -885,7 +884,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSUnknown, cluster.Cluster_EDS,
+			true, false, model.MTLSUnknown,
 			nil,
 			userSupplied,
 		},
@@ -895,7 +894,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, true, model.MTLSUnknown, cluster.Cluster_EDS,
+			true, true, model.MTLSUnknown,
 			nil,
 			userSupplied,
 		},
@@ -905,17 +904,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSDisable, cluster.Cluster_EDS,
-			nil,
-			userSupplied,
-		},
-		{
-			"Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSPermissive, cluster.Cluster_ORIGINAL_DST,
+			false, false, model.MTLSDisable,
 			nil,
 			userSupplied,
 		},
@@ -924,7 +913,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotTLS, gotCtxType := buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.proxy,
-				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.clusterDiscoveryType)
+				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
