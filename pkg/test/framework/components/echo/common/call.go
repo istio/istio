@@ -145,8 +145,8 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 				return fmt.Errorf("callOptions: no port named %s available in Target Instance", opts.PortName)
 			}
 		}
-	} else if opts.Port == nil || opts.Port.ServicePort == 0 || opts.Port.Protocol == "" {
-		return fmt.Errorf("if target is not set, then port.servicePort and port.protocol must be set")
+	} else if opts.Port == nil || opts.Port.ServicePort == 0 || opts.Port.Protocol == "" || opts.Host == "" {
+		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol, and host must be set")
 	}
 
 	if opts.Scheme == "" {

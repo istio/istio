@@ -90,11 +90,11 @@ spec:
 
 			ctx.NewSubTest("http").Run(func(ctx framework.TestContext) {
 				if err := retry.UntilSuccess(func() error {
-					resp, err := ingr.Call(ingress.CallOptions{
+					resp, err := apps.Ingress.Call(ingress.CallOptions{
 						Host:     "my.domain.example",
 						Path:     "/get",
 						CallType: ingress.PlainText,
-						Address:  ingr.HTTPAddress(),
+						Address:  apps.Ingress.HTTPAddress(),
 					})
 					if err != nil {
 						return err
@@ -109,11 +109,11 @@ spec:
 			})
 			ctx.NewSubTest("tcp").Run(func(ctx framework.TestContext) {
 				if err := retry.UntilSuccess(func() error {
-					resp, err := ingr.Call(ingress.CallOptions{
+					resp, err := apps.Ingress.Call(ingress.CallOptions{
 						Host:     "my.domain.example",
 						Path:     "/",
 						CallType: ingress.PlainText,
-						Address:  ingr.TCPAddress(),
+						Address:  apps.Ingress.TCPAddress(),
 					})
 					if err != nil {
 						return err
@@ -205,7 +205,7 @@ spec:
 						Host:     "server",
 						Path:     "/test",
 						CallType: ingress.PlainText,
-						Address:  ingr.HTTPAddress(),
+						Address:  apps.Ingress.HTTPAddress(),
 					},
 				},
 				{
@@ -215,7 +215,7 @@ spec:
 						Host:     "foo.example.com",
 						Path:     "/test",
 						CallType: ingress.TLS,
-						Address:  ingr.HTTPSAddress(),
+						Address:  apps.Ingress.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialA.CaCert,
 					},
 				},
@@ -226,7 +226,7 @@ spec:
 						Host:     "bar.example.com",
 						Path:     "/test",
 						CallType: ingress.TLS,
-						Address:  ingr.HTTPSAddress(),
+						Address:  apps.Ingress.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialB.CaCert,
 					},
 				},
@@ -237,7 +237,7 @@ spec:
 						Host:     "bar.example.com",
 						Path:     "/test/namedport",
 						CallType: ingress.TLS,
-						Address:  ingr.HTTPSAddress(),
+						Address:  apps.Ingress.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialB.CaCert,
 					},
 				},
@@ -245,7 +245,7 @@ spec:
 			for _, tt := range cases {
 				ctx.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := ingr.Call(tt.call)
+						resp, err := apps.Ingress.Call(tt.call)
 						// TODO check all clusters were hit
 						if err != nil {
 							return err
