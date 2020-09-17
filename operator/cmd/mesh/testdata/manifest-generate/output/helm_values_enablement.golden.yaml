@@ -20,7 +20,7 @@ spec:
     metadata:
       annotations:
         prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15090"
+        prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
@@ -176,6 +176,8 @@ spec:
           readOnly: true
         - mountPath: /var/run/ingress_gateway
           name: gatewaysdsudspath
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/egressgateway-certs
@@ -207,6 +209,8 @@ spec:
         name: istio-envoy
       - emptyDir: {}
         name: gatewaysdsudspath
+      - emptyDir: {}
+        name: istio-data
       - name: istio-token
         projected:
           sources:
