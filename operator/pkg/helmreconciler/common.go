@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -112,7 +113,7 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 }
 
 // applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
-func applyOverlay(current, overlay runtime.Object) error {
+func applyOverlay(current, overlay *unstructured.Unstructured) error {
 	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
 	if err != nil {
 		return err
@@ -125,5 +126,77 @@ func applyOverlay(current, overlay runtime.Object) error {
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
+	// save any immutable values
+	clusterIP := getPath(current, name.ServiceStr, util.PathFromString("spec.clusterIP"))
+
+	err = runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
+	uc := current.UnstructuredContent()
+	uo := overlay.UnstructuredContent()
+	writeMap(uc, uo, util.PathFromString("spec"))
+	writeMap(uc, uo, util.PathFromString("metadata.labels"))
+
+	// restore any immutable values
+	writePath(current, name.ServiceStr, util.PathFromString("spec.clusterIP"), clusterIP)
+
+	return err
+
+}
+
+// writeMap replaces base with overlay at the given path. If the paths hit any nil non-leaf node, nothing is modified.
+func writeMap(base, overlay map[string]interface{}, path util.Path) {
+	for ; len(path) > 1; path = path[1:] {
+		pe := path[0]
+		if base[pe] == nil || overlay[pe] == nil {
+			return
+		}
+		bn, ok := base[pe].(map[string]interface{})
+		if !ok {
+			scope.Error("Unexpected type %T at path %s", base[pe], path)
+		}
+		on, ok := overlay[pe].(map[string]interface{})
+		if !ok {
+			scope.Error("Unexpected type %T at path %s", overlay[pe], path)
+		}
+		base, overlay = bn, on
+	}
+	pe := path[0]
+	base[pe] = overlay[pe]
+}
+
+// getPath returns the value at path, if it exists and the objects is of the given kind, otherwise returns nil.
+func getPath(obj *unstructured.Unstructured, kind string, path util.Path) interface{} {
+	if len(path) < 1 {
+		return nil
+	}
+	if obj.GroupVersionKind().Kind != kind {
+		return nil
+	}
+	uo := obj.UnstructuredContent()
+	for ; len(path) > 1; path = path[1:] {
+		pe := path[0]
+		if uo[pe] == nil {
+			return nil
+		}
+		uo = uo[pe].(map[string]interface{})
+	}
+	return uo[path[0]]
+}
+
+// writePath writes the value at path, if the path exists and the objects is of the given kind, otherwise does nothing.
+func writePath(obj *unstructured.Unstructured, kind string, path util.Path, value interface{}) {
+	if len(path) < 1 {
+		return
+	}
+	if obj.GroupVersionKind().Kind != kind {
+		return
+	}
+	uo := obj.UnstructuredContent()
+	for ; len(path) > 1; path = path[1:] {
+		pe := path[0]
+		if uo[pe] == nil {
+			return
+		}
+		uo = uo[pe].(map[string]interface{})
+	}
+	uo[path[0]] = value
 }
