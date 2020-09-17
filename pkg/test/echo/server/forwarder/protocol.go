@@ -109,6 +109,18 @@ func newProtocol(cfg Config) (protocol, error) {
 			return &cert, nil
 		}
 	}
+	tlsConfig := &tls.Config{
+		GetClientCertificate: getClientCertificate,
+	}
+	if cfg.Request.CaCert != "" {
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(cfg.Request.CaCert)) {
+			return nil, fmt.Errorf("failed to create cert pool")
+		}
+		tlsConfig.RootCAs = certPool
+	} else {
+		tlsConfig.InsecureSkipVerify = true
+	}
 
 	switch scheme.Instance(u.Scheme) {
 	case scheme.HTTP, scheme.HTTPS:
@@ -119,11 +131,8 @@ func newProtocol(cfg Config) (protocol, error) {
 					// so this means every ForwardEcho request will create a new connection. Without setting an idle timeout,
 					// we would never close these connections.
 					IdleConnTimeout: time.Second,
-					TLSClientConfig: &tls.Config{
-						GetClientCertificate: getClientCertificate,
-						InsecureSkipVerify:   true,
-					},
-					DialContext: httpDialContext,
+					TLSClientConfig: tlsConfig,
+					DialContext:     httpDialContext,
 				},
 				Timeout: timeout,
 			},
@@ -131,10 +140,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 		if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
 			proto.client.Transport = &http2.Transport{
-				TLSClientConfig: &tls.Config{
-					GetClientCertificate: getClientCertificate,
-					InsecureSkipVerify:   true,
-				},
+				TLSClientConfig: tlsConfig,
 				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
 					return tls.Dial(network, addr, cfg)
 				},
@@ -159,11 +165,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		// transport security
 		security := grpc.WithInsecure()
 		if getClientCertificate != nil {
-			security = grpc.WithTransportCredentials(credentials.NewTLS(
-				&tls.Config{
-					GetClientCertificate: getClientCertificate,
-					InsecureSkipVerify:   true,
-				}))
+			security = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 		}
 
 		// Strip off the scheme from the address.
@@ -185,10 +187,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		}, nil
 	case scheme.WebSocket:
 		dialer := &websocket.Dialer{
-			TLSClientConfig: &tls.Config{
-				GetClientCertificate: getClientCertificate,
-				InsecureSkipVerify:   true,
-			},
+			TLSClientConfig:  tlsConfig,
 			NetDial:          wsDialContext,
 			HandshakeTimeout: timeout,
 		}
@@ -209,10 +208,7 @@ func newProtocol(cfg Config) (protocol, error) {
 				if getClientCertificate == nil {
 					return cfg.Dialer.TCP(dialer, ctx, address)
 				}
-				return tls.Dial("tcp", address, &tls.Config{
-					GetClientCertificate: getClientCertificate,
-					InsecureSkipVerify:   true,
-				})
+				return tls.Dial("tcp", address, tlsConfig)
 
 			},
 		}, nil
