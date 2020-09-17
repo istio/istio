@@ -43,7 +43,7 @@ kind: Gateway
 metadata:
   name: gateway
 spec:
-  class: istio
+  gatewayClassName: istio
   listeners:
   - hostname:
       match: Domain
@@ -71,8 +71,8 @@ spec:
       - path:
           type: Prefix
           value: /get
-      action:
-        forwardTo:
+      forward:
+        to:
         - targetRef:
             name: b
 ---
