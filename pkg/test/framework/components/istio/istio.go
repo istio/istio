@@ -29,7 +29,11 @@ type Instance interface {
 	resource.Resource
 
 	// IngressFor returns an ingress used for reaching workloads in the given cluster.
+	// The ingress's service name will be "istio-ingressgateway" and the istio label will be "ingressgateway".
 	IngressFor(cluster resource.Cluster) ingress.Instance
+	// CustomIngressFor returns an ingress with a specific service name and "istio" label used for reaching workloads
+	// in the given cluster.
+	CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance
 
 	// RemoteDiscoveryAddressFor returns the external address of the discovery server that controls
 	// the given cluster. This allows access to the discovery server from
