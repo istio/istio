@@ -27,7 +27,6 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
