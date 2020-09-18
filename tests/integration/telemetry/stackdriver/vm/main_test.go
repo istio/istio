@@ -133,7 +133,7 @@ func TestMain(m *testing.M) {
 			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_name.environment.name"] = "CANONICAL_SERVICE"
 			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_name.environment.defaultValue"] = "unknown"
 			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.name"] = "CANONICAL_REVISION"
-			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.defaultValue"] = "latest"
+			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.defaultValue"] = "earliest"
 			cfg.Values["global.proxy.tracer"] = "stackdriver"
 			cfg.Values["telemetry.enabled"] = "true"
 			cfg.Values["telemetry.v2.enabled"] = "true"
@@ -232,11 +232,7 @@ func testSetup(ctx resource.Context) error {
 			Ports:     ports,
 			Subsets: []echo.SubsetConfig{
 				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarBootstrapOverride: {
-							Value: sdBootstrapConfigMap,
-						},
-					},
+					Annotations: echo.NewAnnotations().Set(echo.SidecarBootstrapOverride, sdBootstrapConfigMap),
 				},
 			},
 		})
