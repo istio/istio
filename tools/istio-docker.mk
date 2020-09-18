@@ -316,7 +316,7 @@ dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 		   ); \
 	 ))
 
-docker.save: $(DOCKER_TAR_TARGETS)
+docker.save: dockerx.save
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
@@ -335,7 +335,7 @@ DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
-docker.push: dockerx.pushx
+docker.push: $(DOCKER_PUSH_TARGETS)
 
 # Build and push docker images using dockerx
 dockerx.push: dockerx
