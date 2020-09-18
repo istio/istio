@@ -21,12 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/meta/v1alpha1"
-
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
