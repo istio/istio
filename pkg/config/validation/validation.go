@@ -1230,11 +1230,9 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 }
 
 func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
-	// validate trust domain
 	if err := ValidateTrustDomain(config.TrustDomain); err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("trustDomain: %v", err))
 	}
-	// validate trust domain alias
 	for i, tda := range config.TrustDomainAliases {
 		if err := ValidateTrustDomain(tda); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("trustDomainAliases[%d], domain `%s` : %v", i, tda, err))

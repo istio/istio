@@ -125,7 +125,7 @@ func TestValidateTrustDomain(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
-		out  string
+		err  string
 	}{
 		{"empty", "", "empty"},
 		{"happy", strings.Repeat("x", 63), ""},
@@ -133,18 +133,18 @@ func TestValidateTrustDomain(t *testing.T) {
 		{"middle dash", "f-oo.bar.com", ""},
 		{"trailing dot", "foo.bar.com.", ""},
 		{"prefix dash", "-foo.bar.com", "invalid"},
-		{"bad format", "foo/bar/com", "invalid"},
-		{"bad format", "foo:bar:com", "invalid"},
+		{"forward slash separated", "foo/bar/com", "invalid"},
+		{"colon separated", "foo:bar:com", "invalid"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateTrustDomain(tt.in)
-			if err == nil && tt.out != "" {
-				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.out)
-			} else if err != nil && tt.out == "" {
+			if err == nil && tt.err != "" {
+				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.err)
+			} else if err != nil && tt.err == "" {
 				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
-				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.out)
+			} else if err != nil && !strings.Contains(err.Error(), tt.err) {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.err)
 			}
 		})
 	}
