@@ -15,8 +15,10 @@
 package kube
 
 import (
+	"bufio"
 	"fmt"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
@@ -270,16 +272,16 @@ spec:
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
 
           # Provide a proxyconfig override
-          # Provide a proxyconfig override
+          
+          {{- range $name, $value := $subset.Annotations }}
+          {{- if eq $name.Name "proxy.istio.io/config" }}
           sudo sh -c 'chmod a+w /etc/istio/config/mesh'
           sudo sh -c 'echo "defaultConfig:" >> /etc/istio/config/mesh'
-          sudo sh -c 'echo "  tracing:" >> /etc/istio/config/mesh'
-          sudo sh -c 'echo "    stackdriver:" >> /etc/istio/config/mesh'
-          sudo sh -c 'echo "      debug: true" >> /etc/istio/config/mesh'
-
-          # sudo sh -c 'mkdir -p /etc/istio/pod'
-          # sudo sh -c 'touch /etc/istio/pod/annotations'
-          # sudo sh -c 'echo "sidecar.istio.io/bootstrapOverride='stackdriver-bootstrap-config'" >> /etc/istio/pod/annotations'
+          {{- range $idx, $line := (Lines $value.Value) }}
+          sudo sh -c 'echo "  {{ $line }}" >> /etc/istio/config/mesh'
+          {{- end }}
+          {{- end }}
+          {{- end }}
 
           # TODO: run with systemctl?
           export ISTIO_AGENT_FLAGS="--concurrency 2"
@@ -315,8 +317,12 @@ spec:
           name: {{ $.Service }}-istio-token
         - mountPath: /var/run/secrets/istio
           name: istio-ca-root-cert
+        {{- range $name, $value := $subset.Annotations }}
+        {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
+        {{- end }}
+        {{- end }}
       volumes:
       - secret:
           secretName: {{ $.Service }}-istio-token
@@ -324,9 +330,13 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istio-ca-root-cert
+      {{- range $name, $value := $subset.Annotations }}
+      {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
       - name: custom-bootstrap-volume
         configMap:
-          name: stackdriver-bootstrap-config
+          name: {{ $value.Value }}
+      {{- end }}
+      {{- end }}
 {{- end}}
 `
 )
@@ -349,7 +359,7 @@ func init() {
 	}
 
 	vmDeploymentTemplate = template.New("echo_vm_deployment")
-	if _, err := vmDeploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(vmDeploymentYaml); err != nil {
+	if _, err := vmDeploymentTemplate.Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{"Lines": lines}).Parse(vmDeploymentYaml); err != nil {
 		panic(fmt.Sprintf("unable to parse echo vm deployment template: %v", err))
 	}
 }
@@ -446,4 +456,13 @@ func generateYAMLWithSettings(
 	// Generate the YAML content.
 	deploymentYAML, err = tmpl.Execute(deploy, params)
 	return
+}
+
+func lines(input string) []string {
+	out := []string{}
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	for scanner.Scan() {
+		out = append(out, scanner.Text())
+	}
+	return out
 }

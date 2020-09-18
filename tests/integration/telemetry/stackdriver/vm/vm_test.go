@@ -60,7 +60,7 @@ func TestVMTelemetry(t *testing.T) {
 				gotLogs := gotLogEntry(wantLogEntry)
 
 				// Verify edges
-				gotEdges := gotTrafficAssertion(*wantTrafficAssertion)
+				gotEdges := gotTrafficAssertion(wantTrafficAssertion)
 
 				// verify traces
 				gotTraces := gotTrace(wantTrace)
@@ -106,7 +106,7 @@ func traceEqual(got, want *cloudtrace.Trace) bool {
 	return true
 }
 
-func gotRequestCountMetrics(wantClient, wantServer monitoring.TimeSeries) bool {
+func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool {
 	ts, err := sdInst.ListTimeSeries()
 	if err != nil {
 		log.Errorf("could not get list of time-series from stackdriver: %v", err)
@@ -117,10 +117,10 @@ func gotRequestCountMetrics(wantClient, wantServer monitoring.TimeSeries) bool {
 	for _, series := range ts {
 		// Making resource nil, as test can run on various platforms.
 		series.Resource = nil
-		if proto.Equal(series, &wantServer) {
+		if proto.Equal(series, wantServer) {
 			gotServer = true
 		}
-		if proto.Equal(series, &wantClient) {
+		if proto.Equal(series, wantClient) {
 			gotClient = true
 		}
 	}
@@ -128,7 +128,7 @@ func gotRequestCountMetrics(wantClient, wantServer monitoring.TimeSeries) bool {
 	return gotServer && gotClient
 }
 
-func gotLogEntry(want loggingpb.LogEntry) bool {
+func gotLogEntry(want *loggingpb.LogEntry) bool {
 	entries, err := sdInst.ListLogEntries()
 	if err != nil {
 		log.Errorf("failed to get list of log entries from stackdriver: %v", err)
@@ -137,15 +137,15 @@ func gotLogEntry(want loggingpb.LogEntry) bool {
 	for _, l := range entries {
 		l.Trace = ""
 		l.SpanId = ""
-		if proto.Equal(l, &want) {
+		if proto.Equal(l, want) {
 			return true
 		}
-		log.Errorf("incorrect log: got %v\nwant %v", *l, want)
+		log.Errorf("incorrect log: got %v\nwant %v", l, want)
 	}
 	return false
 }
 
-func gotTrafficAssertion(want edgespb.TrafficAssertion) bool {
+func gotTrafficAssertion(want *edgespb.TrafficAssertion) bool {
 	edges, err := sdInst.ListTrafficAssertions()
 	if err != nil {
 		log.Errorf("failed to get traffic assertions from stackdriver: %v", err)
@@ -161,7 +161,7 @@ func gotTrafficAssertion(want edgespb.TrafficAssertion) bool {
 		ta.Source.Uid = ""
 		ta.Destination.Uid = ""
 
-		if diff, equal := messagediff.PrettyDiff(ta, &want); !equal {
+		if diff, equal := messagediff.PrettyDiff(ta, want); !equal {
 			log.Errorf("different edge found: %v", diff)
 			continue
 		}
@@ -175,7 +175,7 @@ func gotTrafficAssertion(want edgespb.TrafficAssertion) bool {
 	return false
 }
 
-func gotTrace(want cloudtrace.Trace) bool {
+func gotTrace(want *cloudtrace.Trace) bool {
 	traces, err := sdInst.ListTraces()
 	if err != nil {
 		log.Errorf("failed to retreive list of tracespans from stackdriver: %v", err)
@@ -183,7 +183,7 @@ func gotTrace(want cloudtrace.Trace) bool {
 	}
 
 	for _, trace := range traces {
-		if found := traceEqual(trace, &want); found {
+		if found := traceEqual(trace, want); found {
 			return true
 		}
 	}

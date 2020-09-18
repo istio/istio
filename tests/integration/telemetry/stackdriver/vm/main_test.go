@@ -63,11 +63,11 @@ var (
 
 var (
 	// golden values for tests
-	wantServerReqs       monitoring.TimeSeries
-	wantClientReqs       monitoring.TimeSeries
-	wantLogEntry         loggingpb.LogEntry
+	wantServerReqs       *monitoring.TimeSeries
+	wantClientReqs       *monitoring.TimeSeries
+	wantLogEntry         *loggingpb.LogEntry
 	wantTrafficAssertion *edgespb.TrafficAssertion
-	wantTrace            cloudtrace.Trace
+	wantTrace            *cloudtrace.Trace
 )
 
 var (
@@ -80,8 +80,11 @@ var (
 		Type: echo.WorkloadAnnotation,
 	}
 
-	envTagsProxyConfig = `|0
+	envTagsProxyConfig = `
 tracing:
+  stackdriver:
+    debug: true
+  sampling: 100.0
   custom_tags:
     canonical_service_name:
       environment:
@@ -91,46 +94,7 @@ tracing:
       environment:
         name: CANONICAL_REVISION
         defaultValue: "earliest"`
-
-	envTagsJSON = `{\"tracing\":{\"custom_tags\":{\"hello\":{\"literal\":{\"value\":\"test\"},\"canonical_service_name\":{\"environment\":{\"name\":\"CANONICAL_SERVICE\",\"defaultValue\":\"unknown\"}},\"canonical_service_revision\":{\"environment\":{\"name\":\"CANONICAL_REVISION\",\"defaultValue\":\"earliest\"}}}}}`
 )
-
-var envoyFilterTpml = `
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stackdriver-tracing
-  namespace: {{ .EchoNamespace }}
-spec:
-  workloadSelector:
-    labels:
-      service.istio.io/canonical-name: "vm-server"
-  configPatches:
-  - applyTo: NETWORK_FILTER
-    match:
-      context: ANY
-      listener:
-        filterChain:
-          filter:
-            name: "envoy.http_connection_manager"
-    patch:
-      operation: MERGE
-      value:
-        typed_config:
-          "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
-          tracing:
-            random_sampling:
-              value: 100.0
-            custom_tags:
-            - tag: "canonical_service_name"
-              environment:
-                name: "CANONICAL_SERVICE"
-                default_value: "unknown"
-            - tag: "canonical_service_name"
-              environment:
-                name: "CANONICAL_REVISION"
-                default_value: "earliest"
-`
 
 const enforceMTLS = `
 apiVersion: security.istio.io/v1beta1
@@ -165,31 +129,12 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.Values["meshConfig.enableTracing"] = "true"
-			// 			cfg.ControlPlaneValues = `
-			// meshConfig:
-			//   enableTracing: true
-			//   defaultConfig:
-			//     tracing:
-			//       sampling: "100.0"
-			//       customTags:
-			//         hello:
-			//           literal:
-			//             value: "test"
-			//         canonical_service_name:
-			//           environment:
-			//             name: "CANONICAL_SERVICE"
-			//             defaultValue: "unknown"
-			//         canonical_service_revision:
-			//           environment:
-			//             name: "CANONICAL_REVISION"
-			//             defaultValue: "latest"`
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
-			// cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_name.environment.name"] = "CANONICAL_SERVICE"
-			// cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_name.environment.defaultValue"] = "unknown"
-			// cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.name"] = "CANONICAL_REVISION"
-			// cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.defaultValue"] = "latest"
+			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_name.environment.name"] = "CANONICAL_SERVICE"
+			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_name.environment.defaultValue"] = "unknown"
+			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.name"] = "CANONICAL_REVISION"
+			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.defaultValue"] = "latest"
 			cfg.Values["global.proxy.tracer"] = "stackdriver"
-			// cfg.Values["pilot.traceSampling"] = "100.0"
 			cfg.Values["telemetry.enabled"] = "true"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
@@ -224,19 +169,6 @@ func testSetup(ctx resource.Context) error {
 		return err
 	}
 	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
-		"StackdriverNamespace": sdInst.GetStackdriverNamespace(),
-		"StackdriverAddress":   sdInst.Address(),
-		"EchoNamespace":        ns.Name(),
-	})
-	if err != nil {
-		return err
-	}
-
-	if err = ctx.Config().ApplyYAML(ns.Name(), sdBootstrap); err != nil {
-		return err
-	}
-
-	sdFilter, err := tmpl.Evaluate(envoyFilterTpml, map[string]interface{}{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      ns.Name(),
 	})
@@ -244,7 +176,7 @@ func testSetup(ctx resource.Context) error {
 		return err
 	}
 
-	if err = ctx.Config().ApplyYAML(ns.Name(), sdFilter); err != nil {
+	if err = ctx.Config().ApplyYAML(ns.Name(), sdBootstrap); err != nil {
 		return err
 	}
 
@@ -259,7 +191,8 @@ func testSetup(ctx resource.Context) error {
 		"GCE_METADATA_HOST":                                      gceInst.Address(),
 		"CANONICAL_SERVICE":                                      "vm-server",
 		"CANONICAL_REVISION":                                     "v1",
-		"ISTIO_BOOTSTRAP_OVERRIDE":                               "/etc/istio/custom-bootstrap/custom_bootstrap.json",
+		// we must supply a bootstrap override to get the test endpoint uri into the tracing configuration
+		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio/custom-bootstrap/custom_bootstrap.json",
 	}
 
 	// read expected values from testdata
@@ -315,17 +248,19 @@ func testSetup(ctx resource.Context) error {
 			Ports:         ports,
 			DeployAsVM:    true,
 			VMEnvironment: vmEnv,
-			// Subsets: []echo.SubsetConfig{
-			// 	{
-			// 		Annotations: echo.NewAnnotations().Set(proxyConfigAnnotation, envTagsProxyConfig),
-			// 	},
-			// },
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: echo.NewAnnotations().
+						Set(proxyConfigAnnotation, envTagsProxyConfig).
+						Set(echo.SidecarBootstrapOverride, sdBootstrapConfigMap),
+				},
+			},
 		})
 
 	return nil
 }
 
-func goldenRequestCounts() (cltRequestCount, srvRequestCount monitoring.TimeSeries, err error) {
+func goldenRequestCounts() (cltRequestCount, srvRequestCount *monitoring.TimeSeries, err error) {
 	srvRequestCountTmpl, err := ioutil.ReadFile(serverRequestCount)
 	if err != nil {
 		return
@@ -336,7 +271,9 @@ func goldenRequestCounts() (cltRequestCount, srvRequestCount monitoring.TimeSeri
 	if err != nil {
 		return
 	}
-	if err = jsonpb.UnmarshalString(sr, &srvRequestCount); err != nil {
+	cltRequestCount = &monitoring.TimeSeries{}
+	srvRequestCount = &monitoring.TimeSeries{}
+	if err = jsonpb.UnmarshalString(sr, srvRequestCount); err != nil {
 		return
 	}
 	cltRequestCountTmpl, err := ioutil.ReadFile(clientRequestCount)
@@ -349,11 +286,11 @@ func goldenRequestCounts() (cltRequestCount, srvRequestCount monitoring.TimeSeri
 	if err != nil {
 		return
 	}
-	err = jsonpb.UnmarshalString(cr, &cltRequestCount)
+	err = jsonpb.UnmarshalString(cr, cltRequestCount)
 	return
 }
 
-func goldenLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
+func goldenLogEntry() (srvLogEntry *loggingpb.LogEntry, err error) {
 	srvlogEntryTmpl, err := ioutil.ReadFile(serverLogEntry)
 	if err != nil {
 		return
@@ -364,7 +301,8 @@ func goldenLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
 	if err != nil {
 		return
 	}
-	if err = jsonpb.UnmarshalString(sr, &srvLogEntry); err != nil {
+	srvLogEntry = &loggingpb.LogEntry{}
+	if err = jsonpb.UnmarshalString(sr, srvLogEntry); err != nil {
 		return
 	}
 	return
@@ -384,28 +322,27 @@ func goldenTrafficAssertion() (*edgespb.TrafficAssertion, error) {
 	}
 
 	var ta edgespb.TrafficAssertion
-	err = proto.UnmarshalText(taString, &ta)
-	if err != nil {
+	if err = proto.UnmarshalText(taString, &ta); err != nil {
 		return nil, err
 	}
 	return &ta, nil
 }
 
-func goldenTrace() (cloudtrace.Trace, error) {
+func goldenTrace() (*cloudtrace.Trace, error) {
 	traceTmpl, err := ioutil.ReadFile(traceTmplFile)
 	if err != nil {
-		return cloudtrace.Trace{}, err
+		return nil, err
 	}
 	traceStr, err := tmpl.Evaluate(string(traceTmpl), map[string]interface{}{
 		"EchoNamespace": ns.Name(),
 	})
 	if err != nil {
-		return cloudtrace.Trace{}, err
+		return nil, err
 	}
 	var trace cloudtrace.Trace
-	err = proto.UnmarshalText(traceStr, &trace)
-	if err != nil {
-		return cloudtrace.Trace{}, err
+	if err = proto.UnmarshalText(traceStr, &trace); err != nil {
+		return nil, err
 	}
-	return trace, nil
+
+	return &trace, nil
 }
