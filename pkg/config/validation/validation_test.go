@@ -121,6 +121,35 @@ func TestValidateWildcardDomain(t *testing.T) {
 	}
 }
 
+func TestValidateTrustDomain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		err  string
+	}{
+		{"empty", "", "empty"},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"multi-segment", "foo.bar.com", ""},
+		{"middle dash", "f-oo.bar.com", ""},
+		{"trailing dot", "foo.bar.com.", ""},
+		{"prefix dash", "-foo.bar.com", "invalid"},
+		{"forward slash separated", "foo/bar/com", "invalid"},
+		{"colon separated", "foo:bar:com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTrustDomain(tt.in)
+			if err == nil && tt.err != "" {
+				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.err)
+			} else if err != nil && tt.err == "" {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.err) {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.err)
+			}
+		})
+	}
+}
+
 func TestValidatePort(t *testing.T) {
 	ports := map[int]bool{
 		0:     false,
@@ -319,9 +348,11 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		ProxyListenPort: 0,
-		ConnectTimeout:  types.DurationProto(-1 * time.Second),
-		DefaultConfig:   &meshconfig.ProxyConfig{},
+		ProxyListenPort:    0,
+		ConnectTimeout:     types.DurationProto(-1 * time.Second),
+		DefaultConfig:      &meshconfig.ProxyConfig{},
+		TrustDomain:        "",
+		TrustDomainAliases: []string{"a.$b", "a/b", ""},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -331,7 +362,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 6 {
+			if len(err.Errors) < 7 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:

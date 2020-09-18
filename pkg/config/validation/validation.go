@@ -185,6 +185,24 @@ func validateDNS1123Labels(domain string) error {
 	return nil
 }
 
+// validate the trust domain format
+func ValidateTrustDomain(domain string) error {
+	if len(domain) == 0 {
+		return fmt.Errorf("empty domain name not allowed")
+	}
+	parts := strings.Split(domain, ".")
+	for i, label := range parts {
+		// Allow the last part to be empty, for unambiguous names like `istio.io.`
+		if i == len(parts)-1 && label == "" {
+			return nil
+		}
+		if !labels.IsDNS1123Label(label) {
+			return fmt.Errorf("trust domain name %q invalid", domain)
+		}
+	}
+	return nil
+}
+
 // ValidateHTTPHeaderName validates a header name
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
@@ -1204,6 +1222,22 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, err)
 	}
 
+	if err := validateTrustDomainConfig(mesh); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	return
+}
+
+func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
+	if err := ValidateTrustDomain(config.TrustDomain); err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("trustDomain: %v", err))
+	}
+	for i, tda := range config.TrustDomainAliases {
+		if err := ValidateTrustDomain(tda); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("trustDomainAliases[%d], domain `%s` : %v", i, tda, err))
+		}
+	}
 	return
 }
 
