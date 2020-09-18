@@ -37,7 +37,7 @@ require (
 	github.com/containernetworking/cni v0.7.0-alpha1
 	github.com/containernetworking/plugins v0.7.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/d4l3k/messagediff v1.2.1
+	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/envoyproxy/go-control-plane v0.9.7-0.20200916010546-233296ddbe82
@@ -45,7 +45,6 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-logr/logr v0.2.1-0.20200730175230-ee2de8da5be6 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
@@ -94,7 +93,7 @@ require (
 	go.uber.org/multierr v1.5.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
@@ -118,7 +117,7 @@ require (
 	k8s.io/client-go v0.19.0
 	k8s.io/kubectl v0.19.0
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
-	sigs.k8s.io/controller-runtime v0.6.1
-	sigs.k8s.io/service-apis v0.0.0-20200731055707-56154e7bfde5
+	sigs.k8s.io/controller-runtime v0.6.2
+	sigs.k8s.io/service-apis v0.0.0-20200916220245-b060b8df63c9
 	sigs.k8s.io/yaml v1.2.0
 )

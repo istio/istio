@@ -16,6 +16,5 @@ spec:
       protocol: TLS
     tls:
       credentialName: my-cert
-      minProtocolVersion: TLSV1_2
       mode: SIMPLE
 ---
