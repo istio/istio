@@ -24,9 +24,7 @@ import (
 	"io/ioutil"
 	"math"
 	"net"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -49,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/istio/pkg/uds"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -330,42 +329,6 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-// TODO reuse code from SDS
-// TODO reuse the connection, not just code
-func setUpUds(udsPath string) (net.Listener, error) {
-	// Remove unix socket before use.
-	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
-		// Anything other than "file not found" is an error.
-		proxyLog.Errorf("Failed to remove unix://%s: %v", udsPath, err)
-		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
-	}
-
-	// Attempt to create the folder in case it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(udsPath), 0750); err != nil {
-		// If we cannot create it, just warn here - we will fail later if there is a real error
-		proxyLog.Warnf("Failed to create directory for %v: %v", udsPath, err)
-	}
-
-	var err error
-	udsListener, err := net.Listen("unix", udsPath)
-	if err != nil {
-		proxyLog.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
-		return nil, err
-	}
-
-	// Update SDS UDS file permission so that istio-proxy has permission to access it.
-	if _, err := os.Stat(udsPath); err != nil {
-		proxyLog.Errorf("SDS uds file %q doesn't exist", udsPath)
-		return nil, fmt.Errorf("sds uds file %q doesn't exist", udsPath)
-	}
-	if err := os.Chmod(udsPath, 0666); err != nil {
-		proxyLog.Errorf("Failed to update %q permission", udsPath)
-		return nil, fmt.Errorf("failed to update %q permission", udsPath)
-	}
-
-	return udsListener, nil
-}
-
 type fileTokenSource struct {
 	path   string
 	period time.Duration
@@ -392,7 +355,7 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
-	l, err := setUpUds(xdsUdsPath)
+	l, err := uds.NewListener(xdsUdsPath)
 	if err != nil {
 		return err
 	}
