@@ -47,10 +47,11 @@ var (
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
 func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControlPlaneOptions, grpcOpts []grpc.DialOption) (*xdsapi.DiscoveryResponse, error) {
-	adscConn, err := adsc.Dial(opts.Xds, opts.CertDir, &adsc.Config{
+	adscConn, err := adsc.Dial(opts.Xds, &adsc.Config{
 		Meta: model.NodeMetadata{
 			Generator: "event",
 		}.ToStruct(),
+		CertDir:            opts.CertDir,
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		XDSSAN:             opts.XDSSAN,
 		GrpcOpts:           grpcOpts,

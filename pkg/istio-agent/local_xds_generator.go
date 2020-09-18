@@ -133,11 +133,11 @@ func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets 
 
 	// Set Secrets and JWTPath if the default ControlPlaneAuthPolicy is MUTUAL_TLS
 	if sa.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		cfg.Secrets = secrets
+		cfg.SecretManager = secrets
 		cfg.JWTPath = sa.secOpts.JWTPath
 	}
 
-	ads, err := adsc.New(proxyConfig, cfg)
+	ads, err := adsc.New(proxyConfig.DiscoveryAddress, cfg)
 	if err != nil {
 		// Error to be handled by caller - probably by exit if
 		// we are in 'envoy using proxy' mode.

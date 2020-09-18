@@ -82,7 +82,7 @@ type Config struct {
 	CertDir string
 
 	// Secrets is the interface used for getting keys and rootCA.
-	Secrets security.SecretManager
+	SecretManager security.SecretManager
 
 	// For getting the certificate, using same code as SDS server.
 	// Either the JWTPath or the certs must be present.
@@ -106,20 +106,12 @@ type Config struct {
 	// or type URLs.
 	Watch []string
 
-	// InitialReconnectDelay is the time to wait before attempting to reconnect.
-	// If empty reconnect will not be attempted.
-	// TODO: client will use exponential backoff to reconnect.
-	InitialReconnectDelay time.Duration
-
-	// backoffPolicy determines the reconnect policy. Based on MCP client.
+	// BackoffPolicy determines the reconnect policy. Based on MCP client.
 	BackoffPolicy backoff.BackOff
 
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
 	ResponseHandler ResponseHandler
-
-	// TODO: remove the duplication - all security settings belong here.
-	SecOpts *security.Options
 
 	GrpcOpts []grpc.DialOption
 }
@@ -130,8 +122,9 @@ type ADSC struct {
 	// Stream is the GRPC connection stream, allowing direct GRPC send operations.
 	// Set after Dial is called.
 	stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-
-	conn *grpc.ClientConn
+	// xds client used to create a stream
+	client discovery.AggregatedDiscoveryServiceClient
+	conn   *grpc.ClientConn
 
 	// Indicates if the ADSC client is closed
 	closed bool
@@ -220,21 +213,18 @@ var (
 // - get certificate using the Secret provider, if CertRequired
 // - connect to the XDS server specified in ProxyConfig
 // - send initial request for watched resources
-// - wait for respose from XDS server
+// - wait for response from XDS server
 // - on success, start a background thread to maintain the connection, with exp. backoff.
-func New(proxyConfig *v1alpha1.ProxyConfig, opts *Config) (*ADSC, error) {
-	// We want to reconnect
+func New(discoveryAddr string, opts *Config) (*ADSC, error) {
+	// We want to recreate stream
 	if opts.BackoffPolicy == nil {
 		opts.BackoffPolicy = backoff.NewExponentialBackOff()
 	}
-
-	adsc, err := Dial(proxyConfig.DiscoveryAddress, "", opts)
-
-	return adsc, err
+	return Dial(discoveryAddr, opts)
 }
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
-func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
+func Dial(url string, opts *Config) (*ADSC, error) {
 	if opts == nil {
 		opts = &Config{}
 	}
@@ -250,9 +240,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		sync:        map[string]time.Time{},
 		grpcOpts:    opts.GrpcOpts,
 	}
-	if certDir != "" {
-		opts.CertDir = certDir
-	}
+
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
 	}
@@ -305,32 +293,37 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var err error
 	var certName string
 
-	// If we need MTLS - CertDir or Secrets provider is set.
-	if a.cfg.Secrets != nil {
-		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
-		if err != nil {
-			log.Infof("Failed to get credential token in agent: %v", err)
-			tok = []byte("")
-		}
+	var getClientCertificate func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error)
 
-		certName = fmt.Sprintf("(generated from %s)", a.cfg.JWTPath)
-		key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
-			cache.WorkloadKeyCertResourceName, string(tok))
-		if err != nil {
-			return nil, err
+	if a.cfg.SecretManager != nil {
+		getClientCertificate = func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			tok, err := ioutil.ReadFile(a.cfg.JWTPath)
+			if err != nil {
+				log.Infof("Failed to get credential token in agent: %v", err)
+				tok = []byte("")
+			}
+
+			certName = fmt.Sprintf("(generated from %s)", a.cfg.JWTPath)
+			key, err := a.cfg.SecretManager.GenerateSecret(context.Background(), "agent",
+				cache.WorkloadKeyCertResourceName, string(tok))
+			if err != nil {
+				return nil, err
+			}
+			clientCert, err = tls.X509KeyPair(key.CertificateChain, key.PrivateKey)
+			if err != nil {
+				return nil, err
+			}
+			return &clientCert, nil
 		}
-		clientCert, err = tls.X509KeyPair(key.CertificateChain, key.PrivateKey)
-		if err != nil {
-			return nil, err
-		}
-		clientCerts = []tls.Certificate{clientCert}
 	} else if a.cfg.CertDir != "" {
-		certName = a.cfg.CertDir + "/cert-chain.pem"
-		clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")
-		if err != nil {
-			return nil, err
+		getClientCertificate = func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			certName = a.cfg.CertDir + "/cert-chain.pem"
+			clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")
+			if err != nil {
+				return nil, err
+			}
+			return &clientCert, nil
 		}
-		clientCerts = []tls.Certificate{clientCert}
 	}
 
 	// Load the root CAs
@@ -338,9 +331,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes = a.cfg.RootCert
 	} else if a.cfg.XDSRootCAFile != "" {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
-	} else if a.cfg.Secrets != nil {
+	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
-		rootCA, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
+		rootCA, err := a.cfg.SecretManager.GenerateSecret(context.Background(), "agent",
 			cache.RootCertReqResourceName, "")
 		if err != nil {
 			return nil, err
@@ -376,17 +369,13 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		shost = a.cfg.XDSSAN
 	}
 
-	tc := &tls.Config{
-		Certificates: clientCerts,
-		RootCAs:      serverCAs,
-		ServerName:   shost,
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			return nil
-		},
-		InsecureSkipVerify: a.cfg.InsecureSkipVerify,
-	}
-
-	return tc, nil
+	return &tls.Config{
+		GetClientCertificate: getClientCertificate,
+		Certificates:         clientCerts,
+		RootCAs:              serverCAs,
+		ServerName:           shost,
+		InsecureSkipVerify:   a.cfg.InsecureSkipVerify,
+	}, nil
 }
 
 // Close the stream.
@@ -400,29 +389,31 @@ func (a *ADSC) Close() {
 // Run will run one connection to the ADS client.
 func (a *ADSC) Run() error {
 	var err error
-
 	opts := a.grpcOpts
-	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
+	// If we need MTLS - CertDir or Secrets provider is set.
+	if len(a.cfg.CertDir) > 0 || a.cfg.SecretManager != nil {
 		tlsCfg, err := a.tlsConfig()
 		if err != nil {
 			return err
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else if len(opts) == 0 {
+	}
+
+	if len(opts) == 0 {
 		// Only disable transport security if the user didn't supply custom dial options
 		opts = append(opts, grpc.WithInsecure())
 	}
+
 	a.conn, err = grpc.Dial(a.url, opts...)
 	if err != nil {
 		return err
 	}
-	xds := discovery.NewAggregatedDiscoveryServiceClient(a.conn)
-	edsstr, err := xds.StreamAggregatedResources(context.Background())
+	a.client = discovery.NewAggregatedDiscoveryServiceClient(a.conn)
+	a.stream, err = a.client.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
 	}
-	a.stream = edsstr
 	a.sendNodeMeta = true
 
 	// Send the initial requests
@@ -456,12 +447,25 @@ func (a *ADSC) reconnect() {
 		return
 	}
 	a.mutex.RUnlock()
-	err := a.Run()
+
+	// recreate a new stream
+	stream, err := a.client.StreamAggregatedResources(context.Background())
 	if err == nil {
 		a.cfg.BackoffPolicy.Reset()
 	} else {
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 	}
+
+	a.stream = stream
+	a.sendNodeMeta = true
+	// Send the initial requests
+	for _, r := range a.cfg.Watch {
+		_ = a.Send(&discovery.DiscoveryRequest{
+			TypeUrl: r,
+		})
+	}
+
+	go a.handleRecv()
 }
 
 func (a *ADSC) handleRecv() {

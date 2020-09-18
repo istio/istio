@@ -242,7 +242,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 	if wait == nil {
 		watch = []string{v3.ClusterType}
 	}
-	adscConn, err := adsc.Dial("buffcon", "", &adsc.Config{
+	adscConn, err := adsc.Dial("buffcon", &adsc.Config{
 		IP:        p.IPAddresses[0],
 		Meta:      p.Metadata.ToStruct(),
 		Locality:  p.Locality,
