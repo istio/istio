@@ -17,6 +17,7 @@ package kube
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -588,7 +589,16 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
 		result, err := c.proxyGet(pod.Name, pod.Namespace, "/version", 15014).DoRaw(ctx)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error port-forwarding into %s : %v", pod.Name, err))
+			bi, execErr := c.GetIstioVersionUsingExec(&pod)
+			if execErr != nil {
+				errs = multierror.Append(errs,
+					fmt.Errorf("error port-forwarding into %s : %v", pod.Name, err),
+					execErr,
+				)
+				continue
+			}
+			server.Info = *bi
+			res = append(res, server)
 			continue
 		}
 		if len(result) > 0 {
@@ -608,6 +618,54 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		}
 	}
 	return &res, errs
+}
+
+// GetIstioVersionUsingExec gets the version for each Istio control plane component
+func (c *client) GetIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
+
+	// exclude data plane components from control plane list
+	labelToPodDetail := map[string]struct {
+		binary    string
+		container string
+	}{
+		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
+		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
+		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
+		"galley":           {"/usr/local/bin/galley", "galley"},
+		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
+		"policy":           {"/usr/local/bin/mixs", "mixer"},
+		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},
+	}
+
+	component := pod.Labels["istio"]
+
+	// Special cases
+	switch component {
+	case "statsd-prom-bridge":
+		// statsd-prom-bridge doesn't support version
+		return nil, fmt.Errorf("statsd-prom-bridge doesn't support version")
+	case "mixer":
+		component = pod.Labels["istio-mixer-type"]
+	}
+
+	detail, ok := labelToPodDetail[component]
+	if !ok {
+		return nil, fmt.Errorf("unknown Istio component %q", component)
+	}
+
+	stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, detail.container,
+		fmt.Sprintf("%s version -o json", detail.binary))
+	if err != nil {
+		return nil, fmt.Errorf("error exec'ing into %s %s container: %w", pod.Name, detail.container, err)
+	}
+
+	var v version.Version
+	err = json.Unmarshal([]byte(stdout), &v)
+	if err == nil && v.ClientVersion.Version != "" {
+		return v.ClientVersion, nil
+	}
+
+	return nil, fmt.Errorf("error reading %s %s container version: %v", pod.Name, detail.container, stderr)
 }
 
 func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort int, podPort int) (PortForwarder, error) {
