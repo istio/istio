@@ -75,7 +75,7 @@ global:
     # The initial delay for readiness probes in seconds.
     readinessInitialDelaySeconds: 1
 
-    # The period between readiness probes.
+    # The period between readiness probes in seconds.
     readinessPeriodSeconds: 2
 
     # The number of successive failed probes before indicating readiness failure.
