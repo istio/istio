@@ -364,7 +364,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	redirectDNS := false
-	if dnsCaptureByAgent.Get() != "" {
+	if dnsCaptureByAgent.Get() {
 		redirectDNS = true
 	}
 	iptConfigurator.logConfig()
