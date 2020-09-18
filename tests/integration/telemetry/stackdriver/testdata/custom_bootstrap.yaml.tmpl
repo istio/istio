@@ -8,7 +8,7 @@ data:
     {
       "node": {
         "metadata": {
-          "INSECURE_STACKDRIVER_ENDPOINT": "stackdriver.{{ .StackdriverNamespace }}:8090",
+          "INSECURE_STACKDRIVER_ENDPOINT": "{{ .StackdriverAddress }}",
           "STACKDRIVER_MONITORING_EXPORT_INTERVAL_SECS": "10",
           "MESH_ID": "proj-test-mesh",
         }
@@ -30,7 +30,7 @@ data:
             "stackdriver_exporter_enabled": true,
             "stackdriver_grpc_service": {
               "google_grpc": {
-                "target_uri": "stackdriver.{{ .StackdriverNamespace }}.svc.cluster.local:8090",
+                "target_uri": "{{ .StackdriverAddress }}",
                 "stat_prefix": "oc_stackdriver_tracer",
               }
             },

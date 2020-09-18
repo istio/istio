@@ -269,6 +269,18 @@ spec:
 
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
 
+          # Provide a proxyconfig override
+          # Provide a proxyconfig override
+          sudo sh -c 'chmod a+w /etc/istio/config/mesh'
+          sudo sh -c 'echo "defaultConfig:" >> /etc/istio/config/mesh'
+          sudo sh -c 'echo "  tracing:" >> /etc/istio/config/mesh'
+          sudo sh -c 'echo "    stackdriver:" >> /etc/istio/config/mesh'
+          sudo sh -c 'echo "      debug: true" >> /etc/istio/config/mesh'
+
+          # sudo sh -c 'mkdir -p /etc/istio/pod'
+          # sudo sh -c 'touch /etc/istio/pod/annotations'
+          # sudo sh -c 'echo "sidecar.istio.io/bootstrapOverride='stackdriver-bootstrap-config'" >> /etc/istio/pod/annotations'
+
           # TODO: run with systemctl?
           export ISTIO_AGENT_FLAGS="--concurrency 2"
           sudo -E /usr/local/bin/istio-start.sh&
@@ -303,6 +315,8 @@ spec:
           name: {{ $.Service }}-istio-token
         - mountPath: /var/run/secrets/istio
           name: istio-ca-root-cert
+        - mountPath: /etc/istio/custom-bootstrap
+          name: custom-bootstrap-volume
       volumes:
       - secret:
           secretName: {{ $.Service }}-istio-token
@@ -310,6 +324,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istio-ca-root-cert
+      - name: custom-bootstrap-volume
+        configMap:
+          name: stackdriver-bootstrap-config
 {{- end}}
 `
 )
