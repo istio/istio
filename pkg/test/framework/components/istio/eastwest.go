@@ -66,7 +66,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	}
 	gwYaml, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("failed generating eastwestgateway manifest for %s: %v", cluster.Name(), err)
+		return fmt.Errorf("failed generating eastwestgateway manifest for %s: %v: %s", cluster.Name(), err, gwYaml)
 	}
 	i.saveManifestForCleanup(cluster.Name(), string(gwYaml))
 	// push the deployment to the cluster
