@@ -500,7 +500,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 				fmt.Sprintf("%s request GET %s", pilotDiscoveryPath, path))
 			if execErr != nil {
 				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s: %v", istiod.Name, err),
+					fmt.Errorf("error port-forwarding into %s.%s: %v", istiod.Name, istiod.Namespace, err),
 					execErr,
 				)
 				continue
@@ -616,7 +616,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 			bi, execErr := c.getIstioVersionUsingExec(&pod)
 			if execErr != nil {
 				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s: %v", pod.Name, err),
+					fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Name, pod.Namespace, err),
 					execErr,
 				)
 				continue
