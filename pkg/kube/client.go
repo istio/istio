@@ -494,7 +494,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 150140).DoRaw(ctx)
+		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
 			execRes, execErr := c.extractExecResult(istiod.Name, istiod.Namespace, discoveryContainer,
 				fmt.Sprintf("%s request GET %s", pilotDiscoveryPath, path))
