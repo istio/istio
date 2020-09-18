@@ -70,6 +70,8 @@ import (
 const (
 	defaultLocalAddress = "localhost"
 	fieldManager        = "istio-kube-client"
+	discoveryContainer  = "discovery"
+	pilotDiscoveryPath  = "/usr/local/bin/pilot-discovery"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -492,10 +494,20 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
+		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 150140).DoRaw(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Problem forwarding to %s.%s: %v; skipping.", istiod.Name, istiod.Namespace, err)
-			errs = multierror.Append(errs, err)
+			execRes, execErr := c.extractExecResult(istiod.Name, istiod.Namespace, discoveryContainer,
+				fmt.Sprintf("%s request GET %s", pilotDiscoveryPath, path))
+			if execErr != nil {
+				errs = multierror.Append(errs,
+					fmt.Errorf("error port-forwarding into %s: %v", istiod.Name, err),
+					execErr,
+				)
+				continue
+			}
+			if len(execRes) > 0 {
+				result[istiod.Name] = []byte(execRes)
+			}
 			continue
 		}
 		if len(res) > 0 {
@@ -567,6 +579,18 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 	return list.Items, nil
 }
 
+// ExtractExecResult wraps PodExec and return the execution result and error if has any.
+func (c *client) extractExecResult(podName, podNamespace, container, cmd string) (string, error) {
+	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
+	if err != nil {
+		if stderr != "" {
+			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podName, podNamespace, container, err, stderr)
+		}
+		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podName, podNamespace, container, err)
+	}
+	return stdout, nil
+}
+
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
 		"labelSelector": "istio=pilot",
@@ -589,10 +613,10 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
 		result, err := c.proxyGet(pod.Name, pod.Namespace, "/version", 15014).DoRaw(ctx)
 		if err != nil {
-			bi, execErr := c.GetIstioVersionUsingExec(&pod)
+			bi, execErr := c.getIstioVersionUsingExec(&pod)
 			if execErr != nil {
 				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s : %v", pod.Name, err),
+					fmt.Errorf("error port-forwarding into %s: %v", pod.Name, err),
 					execErr,
 				)
 				continue
@@ -620,8 +644,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 	return &res, errs
 }
 
-// GetIstioVersionUsingExec gets the version for each Istio control plane component
-func (c *client) GetIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
+func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
 
 	// exclude data plane components from control plane list
 	labelToPodDetail := map[string]struct {
