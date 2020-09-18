@@ -19,8 +19,6 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/validation"
-
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/validation"
 
