@@ -27,7 +27,7 @@ func NewListener(path string) (net.Listener, error) {
 	// Remove unix socket before use.
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		// Anything other than "file not found" is an error.
-		return nil, fmt.Errorf("Failed to remove unix://%s", path)
+		return nil, fmt.Errorf("failed to remove unix://%s", path)
 	}
 
 	// Attempt to create the folder in case it doesn't exist
@@ -39,7 +39,7 @@ func NewListener(path string) (net.Listener, error) {
 	var err error
 	listener, err := net.Listen("unix", path)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to listen on unix socket %q: %v", path, err)
+		return nil, fmt.Errorf("failed to listen on unix socket %q: %v", path, err)
 	}
 
 	// Update file permission so that istio-proxy has permission to access it.
