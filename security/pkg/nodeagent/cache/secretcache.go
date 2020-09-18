@@ -34,6 +34,7 @@ import (
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -846,8 +847,15 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		numFailedOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
 		return nil, err
 	}
+	csrHostName := &spiffe.Identity{
+		TrustDomain:    sc.configOptions.TrustDomain,
+		Namespace:      sc.configOptions.WorkloadNamespace,
+		ServiceAccount: sc.configOptions.ServiceAccount,
+	}
 
+	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
 	options := pkiutil.CertOptions{
+		Host:       csrHostName.String(),
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),

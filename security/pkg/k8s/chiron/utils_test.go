@@ -361,8 +361,17 @@ func TestSubmitCSR(t *testing.T) {
 				continue
 			}
 		}
-
-		r, err := submitCSR(wc.certClient.CertificateSigningRequests(), csrName, []byte(csrPEM), numRetries)
+		csrSpec := &cert.CertificateSigningRequestSpec{
+			Request: []byte(csrPEM),
+			Groups:  []string{"system:authenticated"},
+			Usages: []cert.KeyUsage{
+				cert.UsageDigitalSignature,
+				cert.UsageKeyEncipherment,
+				cert.UsageServerAuth,
+				cert.UsageClientAuth,
+			},
+		}
+		r, err := submitCSR(wc.certClient.CertificateSigningRequests(), csrName, csrSpec, numRetries)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")

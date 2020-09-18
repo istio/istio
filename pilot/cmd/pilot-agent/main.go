@@ -84,6 +84,7 @@ var (
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
 
@@ -264,6 +265,8 @@ var (
 				CAEndpoint:         caEndpointEnv,
 				UseTokenForCSR:     useTokenForCSREnv,
 				CredFetcher:        nil,
+				WorkloadNamespace:  podNamespace,
+				ServiceAccount:     serviceAccountVar.Get(),
 			}
 			// If not set explicitly, default to the discovery address.
 			if caEndpointEnv == "" {
