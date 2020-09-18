@@ -17,4 +17,5 @@ spec:
     tls:
       credentialName: my-cert
       mode: SIMPLE
+status: null
 ---

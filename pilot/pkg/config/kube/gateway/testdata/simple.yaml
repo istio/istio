@@ -4,6 +4,7 @@ metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
+status: null
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
@@ -35,6 +36,7 @@ spec:
         matchLabels:
           selected: "yes"
       resource: tcproutes
+status: null
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -75,6 +77,7 @@ spec:
         to:
         - targetRef:
             name: httpbin-second
+status: null
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -95,6 +98,7 @@ spec:
         to:
         - targetRef:
             name: httpbin
+status: null
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: TCPRoute
@@ -109,3 +113,4 @@ spec:
       forwardTo:
       - targetRef:
           name: httpbin
+status: null

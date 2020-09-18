@@ -21,10 +21,13 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/meta/v1alpha1"
+
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -79,8 +82,9 @@ func TestClientNoCRDs(t *testing.T) {
 	}
 
 	if _, err := store.Create(config.Config{
-		Meta: configMeta,
-		Spec: pb,
+		Meta:   configMeta,
+		Spec:   pb,
+		Status: &v1alpha1.IstioStatus{},
 	}); err != nil {
 		t.Fatalf("Create => got %v", err)
 	}
@@ -129,8 +133,9 @@ func TestClient(t *testing.T) {
 			}
 
 			if _, err := store.Create(config.Config{
-				Meta: configMeta,
-				Spec: pb,
+				Meta:   configMeta,
+				Spec:   pb,
+				Status: &v1alpha1.IstioStatus{},
 			}); err != nil {
 				t.Fatalf("Create(%v) => got %v", name, err)
 			}

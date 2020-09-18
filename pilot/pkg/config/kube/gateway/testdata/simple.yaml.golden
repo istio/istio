@@ -20,6 +20,7 @@ spec:
       name: tcp-34000-gateway-gateway-istio-system
       number: 34000
       protocol: TCP
+status: null
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -36,6 +37,7 @@ spec:
   - route:
     - destination:
         host: httpbin.default.svc.cluster.local
+status: null
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -65,6 +67,7 @@ spec:
     route:
     - destination:
         host: httpbin.default.svc.cluster.local
+status: null
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -84,4 +87,5 @@ spec:
     route:
     - destination:
         host: httpbin-second.default.svc.cluster.local
+status: null
 ---

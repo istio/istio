@@ -38,7 +38,7 @@ func TestConvert(t *testing.T) {
 			Labels:           map[string]string{"label": "value"},
 			Annotations:      map[string]string{"annotation": "value"},
 		},
-		Spec: mock.ExampleVirtualService,
+		Spec:   mock.ExampleVirtualService,
 		Status: map[string]interface{}{},
 	}
 

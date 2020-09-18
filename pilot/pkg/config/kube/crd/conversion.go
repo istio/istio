@@ -21,11 +21,14 @@ import (
 	"io"
 	"reflect"
 
+	"istio.io/api/meta/v1alpha1"
+
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -82,11 +85,9 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 	if err != nil {
 		return nil, err
 	}
-	js, err = json.Marshal(object.GetStatus())
-	if err != nil {
-		return nil, err
-	}
-	status, err := FromJSON(schema, string(js))
+	statusJs, err := json.Marshal(object.GetStatus())
+	var status *v1alpha1.IstioStatus
+	err = json.Unmarshal(statusJs, status)
 	if err != nil {
 		return nil, err
 	}

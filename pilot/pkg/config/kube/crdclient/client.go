@@ -212,12 +212,6 @@ func (cl *Client) Create(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	// we probably dont want to error here because its nil in most
-	// use cases. just populate it with an empty status.
-	if cfg.Status == nil {
-		cfg.Status = new(config.Status)
-	}
-
 	meta, err := create(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err

@@ -50,7 +50,6 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Create(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
-			 {{if .IstioStatus}}Status:     *(cfg.Status.(*v1alpha1.IstioStatus)),{{end}}
 		}, metav1.CreateOptions{})
 {{- end }}
 	default:
