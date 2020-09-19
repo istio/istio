@@ -26,7 +26,6 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
@@ -152,8 +151,9 @@ func testAdscTLS(t *testing.T, creds security.SecretManager) {
 	// connect to the local XDS proxy - it's using a transient port.
 	ldsr, err := adsc.New(util.MockPilotSGrpcAddr,
 		&adsc.Config{
-			IP:        "10.11.10.1",
-			Namespace: "test",
+			IP:            "10.11.10.1",
+			Namespace:     "test",
+			SecretManager: creds,
 			InitialDiscoveryRequests: []*discovery.DiscoveryRequest{
 				{TypeUrl: v3.ClusterType},
 				{TypeUrl: xds.TypeURLConnections},
