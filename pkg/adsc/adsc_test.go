@@ -132,8 +132,6 @@ func TestADSC_Run(t *testing.T) {
 				return
 			}
 
-			tt.inAdsc.RecvWg.Add(1)
-			err = tt.inAdsc.Run()
 			tt.inAdsc.RecvWg.Wait()
 			if !cmp.Equal(tt.inAdsc.Received, tt.expectedADSResources.Received, protocmp.Transform()) {
 				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedADSResources.Received, tt.inAdsc.Received)
