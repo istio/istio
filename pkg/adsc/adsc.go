@@ -102,9 +102,9 @@ type Config struct {
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
 
-	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
+	// InitialDiscoveryRequests is a list of resources to watch at first, represented as URLs (for new XDS resource naming)
 	// or type URLs.
-	Watch []string
+	InitialDiscoveryRequests []*discovery.DiscoveryRequest
 
 	// BackoffPolicy determines the reconnect policy. Based on MCP client.
 	BackoffPolicy backoff.BackOff
@@ -133,8 +133,6 @@ type ADSC struct {
 	nodeID string
 
 	url string
-
-	grpcOpts []grpc.DialOption
 
 	watchTime time.Time
 
@@ -224,7 +222,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 }
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
-func Dial(url string, opts *Config) (*ADSC, error) {
+func Dial(addr string, opts *Config) (*ADSC, error) {
 	if opts == nil {
 		opts = &Config{}
 	}
@@ -232,13 +230,12 @@ func Dial(url string, opts *Config) (*ADSC, error) {
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *discovery.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
-		url:         url,
+		url:         addr,
 		Received:    map[string]*discovery.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
 		sync:        map[string]time.Time{},
-		grpcOpts:    opts.GrpcOpts,
 	}
 
 	if opts.Namespace == "" {
@@ -259,10 +256,29 @@ func Dial(url string, opts *Config) (*ADSC, error) {
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
-	// by default, we assume 1 goroutine decrements the waitgroup (go a.handleRecv()).
-	// for synchronizing when the goroutine finishes reading from the gRPC stream.
-	adsc.RecvWg.Add(1)
-	err := adsc.Run()
+	var err error
+	grpcDialOptions := opts.GrpcOpts
+	// If we need MTLS - CertDir or Secrets provider is set.
+	if len(opts.CertDir) > 0 || opts.SecretManager != nil {
+		tlsCfg, err := adsc.tlsConfig()
+		if err != nil {
+			return nil, err
+		}
+		creds := credentials.NewTLS(tlsCfg)
+		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(creds))
+	}
+
+	if len(grpcDialOptions) == 0 {
+		// Only disable transport security if the user didn't supply custom dial options
+		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
+	}
+
+	adsc.conn, err = grpc.Dial(addr, grpcDialOptions...)
+	if err != nil {
+		return nil, err
+	}
+
+	err = adsc.Run()
 	return adsc, err
 }
 
@@ -386,43 +402,28 @@ func (a *ADSC) Close() {
 	a.mutex.Unlock()
 }
 
-// Run will run one connection to the ADS client.
+// Run will create a new stream using the existing grpc client connection and send the initial xds requests.
+// And then it will run a go routine receiving and handling xds response.
+// Note: it is non blocking
 func (a *ADSC) Run() error {
 	var err error
-	opts := a.grpcOpts
-	// If we need MTLS - CertDir or Secrets provider is set.
-	if len(a.cfg.CertDir) > 0 || a.cfg.SecretManager != nil {
-		tlsCfg, err := a.tlsConfig()
-		if err != nil {
-			return err
-		}
-		creds := credentials.NewTLS(tlsCfg)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	}
-
-	if len(opts) == 0 {
-		// Only disable transport security if the user didn't supply custom dial options
-		opts = append(opts, grpc.WithInsecure())
-	}
-
-	a.conn, err = grpc.Dial(a.url, opts...)
-	if err != nil {
-		return err
-	}
 	a.client = discovery.NewAggregatedDiscoveryServiceClient(a.conn)
 	a.stream, err = a.client.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
 	}
 	a.sendNodeMeta = true
-
+	a.InitialLoad = 0
 	// Send the initial requests
-	for _, r := range a.cfg.Watch {
-		_ = a.Send(&discovery.DiscoveryRequest{
-			TypeUrl: r,
-		})
+	for _, r := range a.cfg.InitialDiscoveryRequests {
+		if r.TypeUrl == v3.ClusterType {
+			a.watchTime = time.Now()
+		}
+		_ = a.Send(r)
 	}
-
+	// by default, we assume 1 goroutine decrements the waitgroup (go a.handleRecv()).
+	// for synchronizing when the goroutine finishes reading from the gRPC stream.
+	a.RecvWg.Add(1)
 	go a.handleRecv()
 	return nil
 }
@@ -441,6 +442,7 @@ func (a *ADSC) hasSynced() bool {
 	return true
 }
 
+// reconnect will create a new stream
 func (a *ADSC) reconnect() {
 	a.mutex.RLock()
 	if a.closed {
@@ -448,24 +450,12 @@ func (a *ADSC) reconnect() {
 	}
 	a.mutex.RUnlock()
 
-	// recreate a new stream
-	stream, err := a.client.StreamAggregatedResources(context.Background())
+	err := a.Run()
 	if err == nil {
 		a.cfg.BackoffPolicy.Reset()
 	} else {
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 	}
-
-	a.stream = stream
-	a.sendNodeMeta = true
-	// Send the initial requests
-	for _, r := range a.cfg.Watch {
-		_ = a.Send(&discovery.DiscoveryRequest{
-			TypeUrl: r,
-		})
-	}
-
-	go a.handleRecv()
 }
 
 func (a *ADSC) handleRecv() {
@@ -473,12 +463,12 @@ func (a *ADSC) handleRecv() {
 		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
+			a.RecvWg.Done()
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			// if 'reconnect' enabled - schedule a new Run
 			if a.cfg.BackoffPolicy != nil {
 				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 			} else {
-				a.RecvWg.Done()
 				a.Close()
 				a.WaitClear()
 				a.Updates <- ""
@@ -994,6 +984,14 @@ func (a *ADSC) EndpointsJSON() string {
 	return string(out)
 }
 
+func XdsInitialRequests() []*discovery.DiscoveryRequest {
+	return []*discovery.DiscoveryRequest{
+		{
+			TypeUrl: v3.ClusterType,
+		},
+	}
+}
+
 // Watch will start watching resources, starting with CDS. Based on the CDS response
 // it will start watching RDS and LDS.
 func (a *ADSC) Watch() {
@@ -1002,6 +1000,20 @@ func (a *ADSC) Watch() {
 		Node:    a.node(),
 		TypeUrl: v3.ClusterType,
 	})
+}
+
+func ConfigInitialRequests() []*discovery.DiscoveryRequest {
+	out := make([]*discovery.DiscoveryRequest, 0, len(collections.Pilot.All())+1)
+	out = append(out, &discovery.DiscoveryRequest{
+		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
+	})
+	for _, sch := range collections.Pilot.All() {
+		out = append(out, &discovery.DiscoveryRequest{
+			TypeUrl: sch.Resource().GroupVersionKind().String(),
+		})
+	}
+
+	return out
 }
 
 // WatchConfig will use the new experimental API watching, similar with MCP.

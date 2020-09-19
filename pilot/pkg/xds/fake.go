@@ -236,18 +236,23 @@ func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_
 func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
 	f.t.Helper()
 	p = f.SetupProxy(p)
+	initialWatch := []*discovery.DiscoveryRequest{}
 	if watch == nil {
-		watch = []string{v3.ClusterType}
+		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
+	} else {
+		for _, typeURL := range watch {
+			initialWatch = append(initialWatch, &discovery.DiscoveryRequest{TypeUrl: typeURL})
+		}
 	}
 	if wait == nil {
-		watch = []string{v3.ClusterType}
+		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
 	}
-	adscConn, err := adsc.Dial("buffcon", &adsc.Config{
-		IP:        p.IPAddresses[0],
-		Meta:      p.Metadata.ToStruct(),
-		Locality:  p.Locality,
-		Namespace: p.ConfigNamespace,
-		Watch:     watch,
+	adscConn, err := adsc.New("buffcon", &adsc.Config{
+		IP:                       p.IPAddresses[0],
+		Meta:                     p.Metadata.ToStruct(),
+		Locality:                 p.Locality,
+		Namespace:                p.ConfigNamespace,
+		InitialDiscoveryRequests: initialWatch,
 		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return f.Listener.Dial()
 		}),

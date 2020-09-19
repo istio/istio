@@ -61,9 +61,7 @@ func TestADSC_Run(t *testing.T) {
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
-				cfg: &Config{
-					Watch: make([]string, 0),
-				},
+				cfg:        &Config{},
 			},
 			port: uint32(49133),
 			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
@@ -81,9 +79,7 @@ func TestADSC_Run(t *testing.T) {
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
-				cfg: &Config{
-					Watch: make([]string, 0),
-				},
+				cfg:        &Config{},
 			},
 			port: uint32(49133),
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {

@@ -123,12 +123,13 @@ func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets 
 	}
 
 	cfg := &adsc.Config{
-		XDSSAN:          discHost,
-		ResponseHandler: sa.localXDSGenerator.proxyGen,
-		XDSRootCAFile:   sa.FindRootCAForXDS(),
-		RootCert:        sa.RootCert,
-		GrpcOpts:        sa.cfg.GrpcOptions,
-		Namespace:       namespace,
+		XDSSAN:                   discHost,
+		ResponseHandler:          sa.localXDSGenerator.proxyGen,
+		XDSRootCAFile:            sa.FindRootCAForXDS(),
+		RootCert:                 sa.RootCert,
+		GrpcOpts:                 sa.cfg.GrpcOptions,
+		Namespace:                namespace,
+		InitialDiscoveryRequests: append(adsc.ConfigInitialRequests(), adsc.XdsInitialRequests()...),
 	}
 
 	// Set Secrets and JWTPath if the default ControlPlaneAuthPolicy is MUTUAL_TLS
@@ -147,12 +148,6 @@ func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets 
 	ads.LocalCacheDir = savePath.Get()
 	ads.Store = sa.localXDSGenerator.xdsServer.MemoryConfigStore
 	ads.Registry = sa.localXDSGenerator.xdsServer.DiscoveryServer.MemRegistry
-
-	// Send requests for MCP configs, for caching/debugging.
-	ads.WatchConfig()
-
-	// Send requests for normal envoy configs
-	ads.Watch()
 
 	sa.localXDSGenerator.proxyGen.AddClient(ads)
 

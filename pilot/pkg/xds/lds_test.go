@@ -139,7 +139,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
-	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, &adsc.Config{
+	adsResponse, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:  []string{"100.1.1.2"},
 			Namespace:    "ns1",
@@ -203,7 +203,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
-	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, &adsc.Config{
+	adsResponse, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:  []string{"99.1.1.1"}, // as service instance of ingress gateway
 			Namespace:    "istio-system",
@@ -304,7 +304,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
-	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, &adsc.Config{
+	adsResponse, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:  []string{"98.1.1.1"}, // as service instance of ingress gateway
 			Namespace:    "consumerns",
@@ -407,7 +407,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, &adsc.Config{
+			adsResponse, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
 				Meta: model.NodeMetadata{
 					InstanceIPs:  []string{test.ip}, // as service instance of ingress gateway
 					Namespace:    "istio-system",
