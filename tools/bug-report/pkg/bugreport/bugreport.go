@@ -22,6 +22,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -61,8 +63,16 @@ func Cmd(logOpts *log.Options) *cobra.Command {
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
 		SilenceUsage: true,
-		Long: "This command selectively captures cluster information and logs into an archive to help " +
-			"diagnose problems. It optionally uploads the archive to a GCS bucket.",
+		Long: "bug-report selectively captures cluster information and logs into an archive to help " +
+			"diagnose problems and optionally uploads the archive to a GCS bucket. \n" +
+			"Proxy logs can be filtered using:\n" +
+			"  --include|--exclude namespace1,.../deployment1,.../pod1,.../container1,.../label1=value1,.../annotation1=value1,...\n" +
+			"Exclude is applied after include." +
+			"All components are optional and can be omitted, which selects all.\n" +
+			"All names except label and annotation keys support '*' glob matching pattern.\n" +
+			"e.g. --include ns1,ns2 (only namespaces ns1 and ns2)\n" +
+			"     --include n*//p*/lbl=v* (pods with name beginning with 'p' in namespaces\n" +
+			"         beginning with 'n' and having label 'lbl' with value starting with 'v'.)\n",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBugReportCommand(cmd, logOpts)
 		},
@@ -92,6 +102,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
+
+	logAndPrintf("Running with the following config: \n\n%s\n\n", config)
 
 	clientConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
@@ -201,7 +213,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	// If log fetches have completed, cancel the timeout.
 	go func() {
 		optionalWg.Wait()
-		cmdTimer.Stop()
+		cmdTimer.Reset(0)
 	}()
 
 	// Wait for log fetches, up to the timeout.
@@ -212,6 +224,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 // Runs if a goroutine, with errors reported through gErrors.
 func getFromCluster(f func(params *content.Params) (map[string]string, error), params *content.Params, dir string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	go func() {
 		defer wg.Done()
 		out, err := f(params)
@@ -219,6 +232,7 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 		if err == nil {
 			writeFiles(dir, out)
 		}
+		log.Infof("Done with %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	}()
 }
 
@@ -228,6 +242,7 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	path, namespace, pod, container string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
 		clog, cstat, imp, err := getLog(client, resources, config, namespace, pod, container)
@@ -237,6 +252,7 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 			logs[path], stats[path], importance[path] = clog, cstat, imp
 		}
 		lock.Unlock()
+		log.Infof("Done with logs %s", pod)
 	}()
 }
 
@@ -245,11 +261,13 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
 		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog)
+		log.Infof("Done with logs %s", pod)
 	}()
 }
 

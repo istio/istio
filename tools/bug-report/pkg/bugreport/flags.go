@@ -44,7 +44,8 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 
 	// input config
 	cmd.PersistentFlags().StringVarP(&configFile, "filename", "f", "",
-		"Path to a file containing configuration in YAML format.")
+		"Path to a file containing configuration in YAML format. The file contents are applied over the default "+
+			"values and flag settings, with lists being replaced per JSON merge semantics.")
 
 	// dry run
 	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false,
@@ -56,7 +57,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 
 	// istio namespaces
 	cmd.PersistentFlags().StringVar(&args.IstioNamespace, "istio-namespace", bugReportDefaultIstioNamespace,
-		"List of comma-separated namespaces where Istio control planes are installed.")
+		"Namespace where Istio control plane is installed.")
 
 	// timeouts and max sizes
 	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout,
@@ -68,10 +69,10 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 
 	// include / exclude specs
 	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude,
-		"Spec for which pods' proxy logs to include in the archive. See 'help' for examples.")
+		"Spec for which pods' proxy logs to include in the archive. See above for format and examples.")
 	cmd.PersistentFlags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude,
 		"Spec for which pods' proxy logs to exclude from the archive, after the include spec "+
-			"is processed. See 'help' for examples.")
+			"is processed. See above for format and examples.")
 
 	// log time ranges
 	cmd.PersistentFlags().StringVar(&startTime, "start-time", "",
@@ -103,9 +104,21 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {
+	fileConfig := &config2.BugReportConfig{}
+	if configFile != "" {
+		b, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+		if err := yaml.Unmarshal(b, fileConfig); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := parseTimes(gConfig, startTime, endTime); err != nil {
 		log.Fatal(err.Error())
 	}
+	gConfig.CommandTimeout = config2.Duration(commandTimeout)
 	for _, s := range included {
 		ss := &config2.SelectionSpec{}
 		if err := ss.UnmarshalJSON([]byte(s)); err != nil {
@@ -121,22 +134,7 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		gConfig.Exclude = append(gConfig.Exclude, ss)
 	}
 
-	fileConfig := &config2.BugReportConfig{}
-	if configFile != "" {
-		b, err := ioutil.ReadFile(configFile)
-		if err != nil {
-			return nil, err
-		}
-		if err := yaml.Unmarshal(b, fileConfig); err != nil {
-			return nil, err
-		}
-		gConfig, err = overlayConfig(gConfig, fileConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return gConfig, nil
+	return overlayConfig(fileConfig, gConfig)
 }
 
 func parseTimes(config *config2.BugReportConfig, startTime, endTime string) error {
@@ -150,7 +148,7 @@ func parseTimes(config *config2.BugReportConfig, startTime, endTime string) erro
 	}
 	if config.Since != 0 {
 		if startTime != "" {
-			return fmt.Errorf("only one --start-time or --Since may be set")
+			return fmt.Errorf("only one --start-time or --since may be set")
 		}
 		config.StartTime = config.EndTime.Add(-1 * time.Duration(config.Since))
 	} else {
