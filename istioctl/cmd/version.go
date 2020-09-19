@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -31,39 +30,8 @@ import (
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/proxy"
 	istioVersion "istio.io/pkg/version"
 )
-
-func getRemoteInfo(opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
-	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
-}
-
-func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
-	return func() (*istioVersion.MeshInfo, error) {
-		remInfo, err := getRemoteInfo(*opts)
-		if err != nil {
-			fmt.Fprintf((*pc).OutOrStdout(), "%v\n", err)
-			// Return nil so that the client version is printed
-			return nil, nil
-		}
-		if remInfo == nil {
-			fmt.Fprintf((*pc).OutOrStdout(), "Istio is not present in the cluster with namespace %q\n", istioNamespace)
-		}
-		return remInfo, err
-	}
-}
-
-func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
-	return func() (*[]istioVersion.ProxyInfo, error) {
-		return proxy.GetProxyInfo(kubeconfig, configContext, opts.Revision, istioNamespace)
-	}
-}
 
 // xdsVersionCommand gets the Control Plane and Sidecar versions via XDS
 func xdsVersionCommand() *cobra.Command {

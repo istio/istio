@@ -17,8 +17,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -31,29 +29,7 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
-
-func readConfigFile(filename string) ([]byte, error) {
-	file := os.Stdin
-	if filename != "-" {
-		var err error
-		file, err = os.Open(filename)
-		if err != nil {
-			return nil, err
-		}
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			log.Errorf("failed to close %s: %s", filename, err)
-		}
-	}()
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
 
 func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
 	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
