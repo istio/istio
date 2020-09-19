@@ -167,7 +167,6 @@ func TestEds(t *testing.T) {
 		}
 		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
-
 	})
 }
 

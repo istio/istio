@@ -452,6 +452,7 @@ func (a *ADSC) hasSynced() bool {
 func (a *ADSC) reconnect() {
 	a.mutex.RLock()
 	if a.closed {
+		a.mutex.RUnlock()
 		return
 	}
 	a.mutex.RUnlock()
