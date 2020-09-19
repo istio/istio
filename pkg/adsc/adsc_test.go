@@ -111,6 +111,7 @@ func TestADSC_Run(t *testing.T) {
 			l, err := net.Listen("tcp", ":"+fmt.Sprint(tt.port))
 			if err != nil {
 				t.Errorf("Unable to listen on port %v with tcp err %v", tt.port, err)
+				return
 			}
 			xds := grpc.NewServer()
 			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
@@ -123,7 +124,14 @@ func TestADSC_Run(t *testing.T) {
 			defer xds.GracefulStop()
 			if err != nil {
 				t.Errorf("Could not start serving ads server %v", err)
+				return
 			}
+
+			if err := tt.inAdsc.Dial(); err != nil {
+				t.Errorf("Dial error: %v", err)
+				return
+			}
+
 			tt.inAdsc.RecvWg.Add(1)
 			err = tt.inAdsc.Run()
 			tt.inAdsc.RecvWg.Wait()

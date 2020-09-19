@@ -214,23 +214,18 @@ var (
 // - wait for response from XDS server
 // - on success, start a background thread to maintain the connection, with exp. backoff.
 func New(discoveryAddr string, opts *Config) (*ADSC, error) {
+	if opts == nil {
+		opts = &Config{}
+	}
 	// We want to recreate stream
 	if opts.BackoffPolicy == nil {
 		opts.BackoffPolicy = backoff.NewExponentialBackOff()
-	}
-	return Dial(discoveryAddr, opts)
-}
-
-// Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
-func Dial(addr string, opts *Config) (*ADSC, error) {
-	if opts == nil {
-		opts = &Config{}
 	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *discovery.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
-		url:         addr,
+		url:         discoveryAddr,
 		Received:    map[string]*discovery.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
@@ -256,13 +251,24 @@ func Dial(addr string, opts *Config) (*ADSC, error) {
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
+	if err := adsc.Dial(); err != nil {
+		return nil, err
+	}
+
+	return adsc, nil
+}
+
+// Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
+func (a *ADSC) Dial() error {
+	opts := a.cfg
+
 	var err error
 	grpcDialOptions := opts.GrpcOpts
 	// If we need MTLS - CertDir or Secrets provider is set.
 	if len(opts.CertDir) > 0 || opts.SecretManager != nil {
-		tlsCfg, err := adsc.tlsConfig()
+		tlsCfg, err := a.tlsConfig()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(creds))
@@ -273,13 +279,13 @@ func Dial(addr string, opts *Config) (*ADSC, error) {
 		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
 	}
 
-	adsc.conn, err = grpc.Dial(addr, grpcDialOptions...)
+	a.conn, err = grpc.Dial(a.url, grpcDialOptions...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = adsc.Run()
-	return adsc, err
+	err = a.Run()
+	return err
 }
 
 // Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
