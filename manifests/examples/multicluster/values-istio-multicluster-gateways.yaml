@@ -18,6 +18,9 @@ spec:
 
       multiCluster:
         enabled: true
+        globalDomainSuffix: global
+        envoyFilter:
+          enabled: true
 
     gateways:
       istio-egressgateway:
