@@ -19,4 +19,3 @@ spec:
         port:
           number: 1234
       weight: 100
-status: null

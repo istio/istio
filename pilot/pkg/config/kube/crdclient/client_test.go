@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
