@@ -606,6 +606,10 @@ message MultiClusterConfig {
   google.protobuf.BoolValue enabled = 1;
 
   string clusterName = 2;
+
+  string globalDomainSuffix = 3;
+
+  google.protobuf.BoolValue includeEnvoyFilter = 4;
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.

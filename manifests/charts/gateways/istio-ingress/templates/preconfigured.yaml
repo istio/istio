@@ -21,7 +21,7 @@ spec:
     tls:
       mode: AUTO_PASSTHROUGH
 ---
-{{- if .Values.global.multiCluster.envoyFilter.enabled }}
+{{- if .Values.global.multiCluster.includeEnvoyFilter }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
