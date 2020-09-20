@@ -46,7 +46,6 @@ func FromJSON(s collection.Schema, js string) (config.Spec, error) {
 	return c, nil
 }
 
-
 func IstioStatusJSONFromMap(jsonMap map[string]interface{}) (config.Status, error) {
 	if len(jsonMap) == 0 {
 		return nil, nil
