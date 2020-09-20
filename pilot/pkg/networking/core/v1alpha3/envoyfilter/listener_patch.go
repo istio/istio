@@ -299,7 +299,7 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 				}
 			}
 			if replacePosition == -1 {
-				log.Debugf("EnvoyFilter patch %v is not applied because no matching network filter found.",cp)
+				log.Debugf("EnvoyFilter patch %v is not applied because no matching network filter found.", cp)
 				continue
 			}
 			fc.Filters[replacePosition] = proto.Clone(cp.Value).(*xdslistener.Filter)
@@ -469,7 +469,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			}
 
 			if replacePosition == -1 {
-				log.Debugf("EnvoyFilter patch %v is not applied because no matching HTTP filter found.",cp)
+				log.Debugf("EnvoyFilter patch %v is not applied because no matching HTTP filter found.", cp)
 				continue
 			}
 

@@ -490,7 +490,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_REPLACE,
-				Value: buildPatchStruct(`{"name": "network-filter-replaced-should-not-be-applied"}`),
+				Value:     buildPatchStruct(`{"name": "network-filter-replaced-should-not-be-applied"}`),
 			},
 		},
 		{
