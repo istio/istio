@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	l "log"
 	"reflect"
 
 	"github.com/hashicorp/go-multierror"
@@ -47,10 +46,25 @@ func FromJSON(s collection.Schema, js string) (config.Spec, error) {
 	return c, nil
 }
 
-//
-//func StatusFromJSON(js string) (config.Status, error) {
-//
-//}
+
+func IstioStatusJSONFromMap(jsonMap map[string]interface{}) (config.Status, error) {
+	if len(jsonMap) == 0 {
+		return nil, nil
+	}
+	js, err := json.Marshal(jsonMap)
+	if err != nil {
+		return nil, err
+	}
+	var status *v1alpha1.IstioStatus
+	err = json.Unmarshal(js, status)
+	if err != nil {
+		return nil, err
+	}
+	if status != nil {
+		return *status, nil
+	}
+	return nil, nil
+}
 
 // FromYAML converts a canonical YAML to a proto message
 func FromYAML(s collection.Schema, yml string) (config.Spec, error) {
@@ -89,34 +103,12 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 	if err != nil {
 		return nil, err
 	}
-	l.Printf("len: %v", len(object.GetStatus()))
-	statusJs, err := json.Marshal(object.GetStatus())
-	l.Printf("statusJS: %v", string(statusJs))
-	var status *v1alpha1.IstioStatus
-	err = json.Unmarshal(statusJs, status)
-	if string(statusJs) == "null" {
-		l.Printf("YOYOYY: %v", status)
-		status = (*v1alpha1.IstioStatus)(nil)
-		l.Printf("YOYOYY: %v pt2", status)
+	status, err := IstioStatusJSONFromMap(object.GetStatus())
+	if err != nil {
+		log.Errorf("could not get istio status from map %v, err %v", object.GetStatus(), err)
 	}
 	meta := object.GetObjectMeta()
 
-	if status == nil {
-		return &config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  schema.Resource().GroupVersionKind(),
-				Name:              meta.Name,
-				Namespace:         meta.Namespace,
-				Domain:            domain,
-				Labels:            meta.Labels,
-				Annotations:       meta.Annotations,
-				ResourceVersion:   meta.ResourceVersion,
-				CreationTimestamp: meta.CreationTimestamp.Time,
-			},
-			Spec:   spec,
-			Status: status == nil,
-		}, nil
-	}
 	return &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind:  schema.Resource().GroupVersionKind(),

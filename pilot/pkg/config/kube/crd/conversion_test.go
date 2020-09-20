@@ -15,7 +15,6 @@
 package crd
 
 import (
-	"log"
 	"reflect"
 	"testing"
 
@@ -39,11 +38,10 @@ func TestConvert(t *testing.T) {
 			Annotations:      map[string]string{"annotation": "value"},
 		},
 		Spec:   mock.ExampleVirtualService,
-		Status: map[string]interface{}{},
+		Status: nil,
 	}
 
 	obj, err := ConvertConfig(config)
-	log.Println(obj.GetStatus())
 	if err != nil {
 		t.Errorf("ConvertConfig() => unexpected error %v", err)
 	}
