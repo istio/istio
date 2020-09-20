@@ -276,6 +276,9 @@ global:
     # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
     # to properly label proxies
     clusterName: ""
+    globalDomainSuffix: "global"
+    envoyFilter:
+      enabled: true
 
   # Network defines the network this cluster belong to. This name
   # corresponds to the networks in the map of mesh networks.
