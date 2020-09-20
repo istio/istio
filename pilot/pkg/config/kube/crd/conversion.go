@@ -87,7 +87,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 	var status *v1alpha1.IstioStatus
 	err = json.Unmarshal(statusJs, status)
 	if err != nil {
-		return nil, err
+		status = &v1alpha1.IstioStatus{}
 	}
 	meta := object.GetObjectMeta()
 
