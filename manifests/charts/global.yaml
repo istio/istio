@@ -215,6 +215,10 @@ global:
     # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
     # to properly label proxies
     clusterName: ""
+    # The suffix for global service names
+    globalDomainSuffix: "global"
+    # Enable envoy filter to translate `globalDomainSuffix` to cluster local suffix for cross cluster communication
+    includeEnvoyFilter: true
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
