@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **Added** Ability to configure domain suffix for multicluster installation
+    **Added** ability to configure domain suffix for multicluster installation
