@@ -21,6 +21,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -31,6 +33,9 @@ type EchoDeployments struct {
 	Namespace namespace.Instance
 	// Namespace where external echo app will be deployed
 	ExternalNamespace namespace.Instance
+
+	// Ingressgateway instance
+	Ingress ingress.Instance
 
 	// Standard echo app to be used by tests
 	PodA echo.Instances
@@ -87,7 +92,7 @@ func serviceEntryPorts() []echo.Port {
 	return res
 }
 
-func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
+func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
 	apps.Namespace, err = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
@@ -103,6 +108,9 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
+
+	apps.Ingress = i.IngressFor(ctx.Clusters().Default())
+
 	// Headless services don't work with targetPort, set to same port
 	headlessPorts := make([]echo.Port, len(EchoPorts))
 	for i, p := range EchoPorts {

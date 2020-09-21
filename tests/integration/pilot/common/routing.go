@@ -20,15 +20,62 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
+
+func httpGateway(host string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "%s"
+---
+`, host)
+}
+
+func httpVirtualService(gateway, host string, port int) string {
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.Host}}
+spec:
+  gateways:
+  - {{.Gateway}}
+  hosts:
+  - {{.Host}}
+  http:
+  - route:
+    - destination:
+        host: {{.Host}}
+        port:
+          number: {{.Port}}
+---
+`, struct {
+		Gateway string
+		Host    string
+		Port    int
+	}{gateway, host, port})
+}
 
 func virtualServiceCases(apps *EchoDeployments) []TrafficTestCase {
 	var cases []TrafficTestCase
 	callCount := callsPerCluster * len(apps.PodB)
+	// Send the same call from all different clusters
 	for _, podA := range apps.PodA {
+		podA := podA
 		cases = append(cases,
 			TrafficTestCase{
 				name: "added header",
@@ -296,6 +343,36 @@ spec:
 		}
 	}
 
+	return cases
+}
+
+func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+
+	destinationSets := []echo.Instances{
+		apps.PodA,
+		apps.VM,
+		apps.Naked,
+		apps.Headless,
+		apps.External,
+	}
+	for _, d := range destinationSets {
+		d := d
+		if len(d) == 0 {
+			continue
+		}
+		fqdn := d[0].Config().FQDN()
+		cases = append(cases, TrafficTestCase{
+			name:   fqdn,
+			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
+			call: func() (echoclient.ParsedResponses, error) {
+				return apps.Ingress.CallEcho(echo.CallOptions{Port: &echo.Port{Protocol: protocol.HTTP}, Host: fqdn})
+			},
+			validator: func(responses echoclient.ParsedResponses) error {
+				return responses.CheckOK()
+			},
+		})
+	}
 	return cases
 }
 

@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -154,6 +155,42 @@ type clientKey struct {
 	PrivateKey string
 	CaCert     string
 	Cert       string
+}
+
+func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses, error) {
+	if options.Port == nil || options.Port.Protocol == "" {
+		return nil, fmt.Errorf("must provide protocol")
+	}
+	if options.Port.ServicePort == 0 {
+		// Default port based on protocol
+		switch options.Port.Protocol {
+		case protocol.HTTP:
+			options.Port.ServicePort = c.HTTPAddress().Port
+		case protocol.HTTPS:
+			options.Port.ServicePort = c.HTTPSAddress().Port
+		case protocol.TCP:
+			options.Port.ServicePort = c.TCPAddress().Port
+		default:
+			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
+		}
+	}
+	host := options.Host
+	// Default host based on protocol
+	switch options.Port.Protocol {
+	case protocol.HTTP:
+		options.Host = c.HTTPAddress().IP.String()
+	case protocol.HTTPS:
+		options.Host = c.HTTPSAddress().IP.String()
+	case protocol.TCP:
+		options.Host = c.TCPAddress().IP.String()
+	default:
+		return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
+	}
+	if options.Headers == nil {
+		options.Headers = map[string][]string{}
+	}
+	options.Headers["Host"] = []string{host}
+	return common.CallEcho(&options)
 }
 
 func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, error) {
