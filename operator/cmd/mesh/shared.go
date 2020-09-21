@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -60,7 +61,11 @@ func initLogsOrExit(_ *rootArgs) {
 	}
 }
 
+var logMutex = sync.Mutex{}
+
 func configLogs(opt *log.Options) error {
+	logMutex.Lock()
+	defer logMutex.Unlock()
 	op := []string{"stderr"}
 	opt2 := *opt
 	opt2.OutputPaths = op

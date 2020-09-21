@@ -2,10 +2,6 @@ module istio.io/istio
 
 go 1.15
 
-replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
-
-replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
-
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
 // Old version had no license
@@ -105,7 +101,7 @@ require (
 	istio.io/api v0.0.0-20200918164500-6a1b8009cc9a
 	istio.io/client-go v0.0.0-20200908160912-f99162621a1a
 	istio.io/gogo-genproto v0.0.0-20200908160912-66171252e3db
-	istio.io/pkg v0.0.0-20200918225156-9d5251fe0fe9
+	istio.io/pkg v0.0.0-20200921180429-09928dfbba8f
 	k8s.io/api v0.19.1
 	k8s.io/apiextensions-apiserver v0.19.1
 	k8s.io/apimachinery v0.19.1
