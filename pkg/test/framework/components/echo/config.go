@@ -101,6 +101,16 @@ func (c Config) String() string {
 	return fmt.Sprint("{service: ", c.Service, ", version: ", c.Version, "}")
 }
 
+// PortByName looks up a given port by name
+func (c Config) PortByName(name string) *Port {
+	for _, p := range c.Ports {
+		if p.Name == name {
+			return &p
+		}
+	}
+	return nil
+}
+
 // FQDN returns the fully qualified domain name for the service.
 func (c Config) FQDN() string {
 	out := c.Service
