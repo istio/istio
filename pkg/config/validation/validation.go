@@ -2418,7 +2418,12 @@ func appendErrors(err error, errs ...error) error {
 	}
 
 	for _, err2 := range errs {
-		err = appendError(err, err2)
+		switch t := err.(type) {
+		case Validation:
+			err = appendError(err, t.Err)
+		default:
+			err = appendError(err, err2)
+		}
 	}
 	return err
 }
