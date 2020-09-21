@@ -1,0 +1,7 @@
+piVersion: release-notes/v2
+kind: feature
+area: istioctl
+
+releaseNotes:
+- |
+  **Added** `--secret-name` for `istioctl experimental create-remote-secret` to allow user specify name for the created secret
