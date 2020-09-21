@@ -23,7 +23,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
@@ -63,7 +62,6 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -458,28 +456,6 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 	return builder.String(), nil
 }
 
-// proxyGet returns a response of the pod by calling it through the proxy.
-// Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
-func (c *client) proxyGet(name, namespace, path string, port int) rest.ResponseWrapper {
-	pathURL, err := url.Parse(path)
-	if err != nil {
-		log.Errorf("failed to parse path %s: %v", path, err)
-		pathURL = &url.URL{Path: path}
-	}
-	request := c.restClient.Get().
-		Namespace(namespace).
-		Resource("pods").
-		SubResource("proxy").
-		Name(fmt.Sprintf("%s:%d", name, port)).
-		Suffix(pathURL.Path)
-	for key, vals := range pathURL.Query() {
-		for _, val := range vals {
-			request = request.Param(key, val)
-		}
-	}
-	return request
-}
-
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
 	istiods, err := c.GetIstioPods(ctx, istiodNamespace, map[string]string{
 		"labelSelector": "app=istiod",
@@ -494,7 +470,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
+		res, err := c.CoreV1().Pods(istiod.Namespace).ProxyGet("", istiod.Name, "15014", path, nil).DoRaw(ctx)
 		if err != nil {
 			execRes, execErr := c.extractExecResult(istiod.Name, istiod.Namespace, discoveryContainer,
 				fmt.Sprintf("%s request GET %s", pilotDiscoveryPath, path))
@@ -611,7 +587,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 
 		// :15014/version returns something like
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
-		result, err := c.proxyGet(pod.Name, pod.Namespace, "/version", 15014).DoRaw(ctx)
+		result, err := c.CoreV1().Pods(pod.Namespace).ProxyGet("", pod.Name, "15014", "/version", nil).DoRaw(ctx)
 		if err != nil {
 			bi, execErr := c.getIstioVersionUsingExec(&pod)
 			if execErr != nil {
