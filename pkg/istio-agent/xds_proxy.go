@@ -231,24 +231,25 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				return err
 			}
 		case healthEvent, ok := <-healthEventsChan:
-			if ok {
-				proxyLog.Debug("request for type url %s", health.HealthInfoTypeURL)
-				var req *discovery.DiscoveryRequest
-				if healthEvent.Healthy {
-					req = &discovery.DiscoveryRequest{TypeUrl: health.HealthInfoTypeURL}
-				} else {
-					req = &discovery.DiscoveryRequest{
-						TypeUrl: health.HealthInfoTypeURL,
-						ErrorDetail: &google_rpc.Status{
-							Code:    500,
-							Message: healthEvent.UnhealthyMessage,
-						},
-					}
+			if !ok {
+				return nil
+			}
+			proxyLog.Debug("request for type url %s", health.HealthInfoTypeURL)
+			var req *discovery.DiscoveryRequest
+			if healthEvent.Healthy {
+				req = &discovery.DiscoveryRequest{TypeUrl: health.HealthInfoTypeURL}
+			} else {
+				req = &discovery.DiscoveryRequest{
+					TypeUrl: health.HealthInfoTypeURL,
+					ErrorDetail: &google_rpc.Status{
+						Code:    500,
+						Message: healthEvent.UnhealthyMessage,
+					},
 				}
-				if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
-					proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
-					return err
-				}
+			}
+			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
+				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
+				return err
 			}
 
 		case resp, ok := <-responsesChan:
