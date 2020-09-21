@@ -32,7 +32,7 @@ func TestKind(t *testing.T) {
 		t.Errorf("GetSpec() => got %v, want %v", got, spec)
 	}
 
-	status := map[string]interface{}{"yo": "lit", "istio>linkerd": "true"}
+	status := map[string]interface{}{"yo": "lit"}
 	obj.Status = status
 	if got := obj.GetStatus(); !reflect.DeepEqual(status, got) {
 		t.Errorf("GetStatus() => got %v, want %v", got, status)
