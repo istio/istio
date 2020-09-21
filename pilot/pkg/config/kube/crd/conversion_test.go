@@ -15,10 +15,10 @@
 package crd
 
 import (
-	"istio.io/api/meta/v1alpha1"
 	"reflect"
 	"testing"
 
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/test/mock"
 	config2 "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -38,7 +38,7 @@ func TestConvert(t *testing.T) {
 			Labels:           map[string]string{"label": "value"},
 			Annotations:      map[string]string{"annotation": "value"},
 		},
-		Spec:   mock.ExampleVirtualService,
+		Spec: mock.ExampleVirtualService,
 		Status: v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{
 				{Type: "Health"},
@@ -48,7 +48,7 @@ func TestConvert(t *testing.T) {
 
 	obj, err := ConvertConfig(config)
 	if err != nil {
-		t.Errorf("Conv" +
+		t.Errorf("Conv"+
 			"ertConfig() => unexpected error %v", err)
 	}
 	got, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, obj, "cluster")
