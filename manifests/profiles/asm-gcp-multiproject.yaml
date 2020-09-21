@@ -33,7 +33,7 @@ spec:
       k8s:
         resources:
           requests:
-            cpu: 2000m
+            cpu: 500m
   values:
     # Protocol sniffing is not supported
     pilot:
