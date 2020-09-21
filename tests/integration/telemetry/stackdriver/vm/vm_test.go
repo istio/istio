@@ -17,24 +17,21 @@ package vm
 
 import (
 	"fmt"
-	"io/ioutil"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"gopkg.in/d4l3k/messagediff.v1"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/pkg/log"
 )
 
@@ -45,222 +42,150 @@ func TestVMTelemetry(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
-			ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), `
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: default
-spec:
-  mtls:
-    mode: STRICT
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: send-mtls
-spec:
-  host: "*.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
-`)
-			ports := []echo.Port{
-				{
-					Name:     "http",
-					Protocol: protocol.HTTP,
-					// Due to a bug in WorkloadEntry, service port must equal target port for now
-					InstancePort: 8090,
-					ServicePort:  8090,
-				},
-			}
+			ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), enforceMTLS)
 
-			// builder to build the instances iteratively
-			echoboot.NewBuilder(ctx).
-				With(&clt, echo.Config{
-					Service:   "client",
-					Namespace: ns,
-					Ports:     ports,
-					Subsets: []echo.SubsetConfig{
-						{
-							Annotations: map[echo.Annotation]*echo.AnnotationValue{
-								echo.SidecarBootstrapOverride: {
-									Value: sdBootstrapConfigMap,
-								},
-							},
-						},
-					},
-				}).
-				BuildOrFail(t)
+			clientBuilder.BuildOrFail(t)
+			serverBuilder.BuildOrFail(t)
 
-			echoboot.NewBuilder(ctx).
-				With(&srv, echo.Config{
-					Service:       "server",
-					Namespace:     ns,
-					Ports:         ports,
-					DeployAsVM:    true,
-					VMEnvironment: vmEnv,
-				}).
-				BuildOrFail(t)
-
-			srvReceived := false
-			cltReceived := false
-			logReceived := false
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := clt.Call(echo.CallOptions{
-					Target:   srv,
-					PortName: "http",
-					Count:    1,
-				})
-				if err != nil {
+				// send single request from client -> server
+				if _, err := client.Call(echo.CallOptions{Target: server, PortName: "http", Count: 1}); err != nil {
 					return err
 				}
+
 				// Verify stackdriver metrics
-				wantClt, wantSrv, err := getWantRequestCountTS()
-				if err != nil {
-					return err
-				}
-				// Traverse all time series received and compare with expected client and server time series.
-				ts, err := sdInst.ListTimeSeries()
-				if err != nil {
-					return err
-				}
-				for _, tt := range ts {
-					// Making resource nil, as test can run on various platforms.
-					tt.Resource = nil
-					if proto.Equal(tt, &wantSrv) {
-						srvReceived = true
-					}
-					if proto.Equal(tt, &wantClt) {
-						cltReceived = true
-					}
-				}
+				gotMetrics := gotRequestCountMetrics(wantClientReqs, wantServerReqs)
 
 				// Verify log entry
-				wantLog, err := getWantServerLogEntry()
-				if err != nil {
-					return fmt.Errorf("failed to parse wanted log entry: %v", err)
-				}
-				// Traverse all log entries received and compare with expected server log entry.
-				entries, err := sdInst.ListLogEntries()
-				if err != nil {
-					return fmt.Errorf("failed to get received log entries: %v", err)
-				}
-				for _, l := range entries {
-					if proto.Equal(l, &wantLog) {
-						logReceived = true
-					}
-				}
+				gotLogs := gotLogEntry(wantLogEntry)
 
 				// Verify edges
-				edges, err := sdInst.ListTrafficAssertions()
-				if err != nil {
-					return fmt.Errorf("failed to get traffic assertions: %v", err)
+				gotEdges := gotTrafficAssertion(wantTrafficAssertion)
+
+				// verify traces
+				gotTraces := gotTrace(wantTrace)
+
+				if !(gotMetrics && gotLogs && gotEdges && gotTraces) {
+					return fmt.Errorf("did not receive all expected telemetry; status: metrics=%t, logs=%t, edges=%t, traces=%t", gotMetrics, gotLogs, gotEdges, gotTraces)
 				}
 
-				expectedEdge, err := expectedTrafficAssertion()
-				if err != nil {
-					return fmt.Errorf("failed to get wanted traffic assertion: %v", err)
-				}
-
-				foundEdge := false
-				for _, ta := range edges {
-					srcUID := ta.Source.Uid
-					dstUID := ta.Destination.Uid
-
-					ta.Source.Location = ""
-					ta.Source.ClusterName = ""
-					ta.Source.Uid = ""
-					ta.Destination.Uid = ""
-
-					if diff, equal := messagediff.PrettyDiff(ta, expectedEdge); !equal {
-						log.Infof("different edge found: %v", diff)
-						continue
-					}
-
-					if strings.HasPrefix(dstUID, "//compute.googleapis.com/projects/test-project/zones/us-west1-c/instances/server-v1-") &&
-						strings.HasPrefix(srcUID, "kubernetes://client-v1-") {
-						foundEdge = true
-						break
-					}
-				}
-
-				// Check if both client and server side request count metrics are received
-				if !srvReceived || !cltReceived {
-					return fmt.Errorf("stackdriver server does not received expected server or client request count, server %v client %v", srvReceived, cltReceived)
-				}
-				if !logReceived {
-					return fmt.Errorf("stackdriver server does not received expected log entry")
-				}
-				if !foundEdge {
-					return fmt.Errorf("stackdriver server did not received expected traffic assertion")
-				}
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
 		})
 }
 
-func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSeries, err error) {
-	srvRequestCountTmpl, err := ioutil.ReadFile(serverRequestCount)
-	if err != nil {
-		return
+func traceEqual(got, want *cloudtrace.Trace) bool {
+	if len(got.Spans) != len(want.Spans) {
+		log.Infof("incorrect number of spans: got %d, want: %d", len(got.Spans), len(want.Spans))
+		return false
 	}
-	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]interface{}{
-		"EchoNamespace": ns.Name(),
-	})
-	if err != nil {
-		return
+	if got.ProjectId != want.ProjectId {
+		log.Errorf("mismatched project ids: got %q, want %q", got.ProjectId, want.ProjectId)
+		return false
 	}
-	if err = jsonpb.UnmarshalString(sr, &srvRequestCount); err != nil {
-		return
+
+	for _, wantSpan := range want.Spans {
+		foundSpan := false
+		for _, gotSpan := range got.Spans {
+			delete(gotSpan.Labels, "guid:x-request-id")
+			delete(gotSpan.Labels, "node_id")
+			delete(gotSpan.Labels, "peer.address")
+			delete(gotSpan.Labels, "zone")
+			delete(gotSpan.Labels, "g.co/agent")    // ignore OpenCensus lib versions
+			delete(gotSpan.Labels, "response_size") // this could be slightly off, just ignore
+			if foundSpan = reflect.DeepEqual(gotSpan.Labels, wantSpan.Labels); foundSpan {
+				break
+			}
+		}
+		if !foundSpan {
+			log.Errorf("missing span from trace: got %v\nwant %v", got, want)
+			return false
+		}
 	}
-	cltRequestCountTmpl, err := ioutil.ReadFile(clientRequestCount)
-	if err != nil {
-		return
-	}
-	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]interface{}{
-		"EchoNamespace": ns.Name(),
-	})
-	if err != nil {
-		return
-	}
-	err = jsonpb.UnmarshalString(cr, &cltRequestCount)
-	return
+
+	return true
 }
 
-func getWantServerLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
-	srvlogEntryTmpl, err := ioutil.ReadFile(serverLogEntry)
+func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool {
+	ts, err := sdInst.ListTimeSeries()
 	if err != nil {
-		return
+		log.Errorf("could not get list of time-series from stackdriver: %v", err)
+		return false
 	}
-	sr, err := tmpl.Evaluate(string(srvlogEntryTmpl), map[string]interface{}{
-		"EchoNamespace": ns.Name(),
-	})
-	if err != nil {
-		return
+
+	var gotServer, gotClient bool
+	for _, series := range ts {
+		// Making resource nil, as test can run on various platforms.
+		series.Resource = nil
+		if proto.Equal(series, wantServer) {
+			gotServer = true
+		}
+		if proto.Equal(series, wantClient) {
+			gotClient = true
+		}
 	}
-	if err = jsonpb.UnmarshalString(sr, &srvLogEntry); err != nil {
-		return
-	}
-	return
+
+	return gotServer && gotClient
 }
 
-func expectedTrafficAssertion() (*edgespb.TrafficAssertion, error) {
-	taTmpl, err := ioutil.ReadFile(serverEdgeFile)
+func gotLogEntry(want *loggingpb.LogEntry) bool {
+	entries, err := sdInst.ListLogEntries()
 	if err != nil {
-		return nil, err
+		log.Errorf("failed to get list of log entries from stackdriver: %v", err)
+		return false
+	}
+	for _, l := range entries {
+		l.Trace = ""
+		l.SpanId = ""
+		if proto.Equal(l, want) {
+			return true
+		}
+		log.Errorf("incorrect log: got %v\nwant %v", l, want)
+	}
+	return false
+}
+
+func gotTrafficAssertion(want *edgespb.TrafficAssertion) bool {
+	edges, err := sdInst.ListTrafficAssertions()
+	if err != nil {
+		log.Errorf("failed to get traffic assertions from stackdriver: %v", err)
+		return false
 	}
 
-	taString, err := tmpl.Evaluate(string(taTmpl), map[string]interface{}{
-		"EchoNamespace": ns.Name(),
-	})
-	if err != nil {
-		return nil, err
+	for _, ta := range edges {
+		srcUID := ta.Source.Uid
+		dstUID := ta.Destination.Uid
+
+		ta.Source.Location = ""
+		ta.Source.ClusterName = ""
+		ta.Source.Uid = ""
+		ta.Destination.Uid = ""
+
+		if diff, equal := messagediff.PrettyDiff(ta, want); !equal {
+			log.Errorf("different edge found: %v", diff)
+			continue
+		}
+
+		if strings.HasPrefix(dstUID, "//compute.googleapis.com/projects/test-project/zones/us-west1-c/instances/server-v1-") &&
+			strings.HasPrefix(srcUID, "kubernetes://client-v1-") {
+			return true
+		}
 	}
 
-	var ta edgespb.TrafficAssertion
-	err = proto.UnmarshalText(taString, &ta)
+	return false
+}
+
+func gotTrace(want *cloudtrace.Trace) bool {
+	traces, err := sdInst.ListTraces()
 	if err != nil {
-		return nil, err
+		log.Errorf("failed to retreive list of tracespans from stackdriver: %v", err)
+		return false
 	}
-	return &ta, nil
+
+	for _, trace := range traces {
+		if found := traceEqual(trace, want); found {
+			return true
+		}
+	}
+	return false
 }
