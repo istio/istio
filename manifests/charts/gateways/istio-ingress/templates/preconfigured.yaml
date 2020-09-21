@@ -13,7 +13,7 @@ spec:
     istio: ingressgateway
   servers:
   - hosts:
-    - "*.{{ .Values.global.multiCluster.globalDomainSuffix }}"
+    - "*.{{ .Values.global.multiCluster.globalDomainSuffix | trim }}"
     port:
       name: tls
       number: 15443
@@ -48,7 +48,7 @@ spec:
       value:
         name: "envoy.filters.network.tcp_cluster_rewrite"
         config:
-          cluster_pattern: "\\.{{ .Values.global.multiCluster.globalDomainSuffix }}$"
+          cluster_pattern: "\\.{{ .Values.global.multiCluster.globalDomainSuffix | trim }}$"
           cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"
 ---
 {{- end }}
@@ -62,7 +62,7 @@ metadata:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
-  host: "*.{{ .Values.global.multiCluster.globalDomainSuffix }}"
+  host: "*.{{ .Values.global.multiCluster.globalDomainSuffix | trim }}"
   {{- if .Values.global.defaultConfigVisibilitySettings }}
   exportTo:
   - '*'
