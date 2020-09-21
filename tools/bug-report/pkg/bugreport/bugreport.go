@@ -66,7 +66,7 @@ func Cmd(logOpts *log.Options) *cobra.Command {
 		Long: "bug-report selectively captures cluster information and logs into an archive to help " +
 			"diagnose problems and optionally uploads the archive to a GCS bucket. \n" +
 			"Proxy logs can be filtered using:\n" +
-			"  --include|--exclude namespace1,.../deployment1,.../pod1,.../container1,.../label1=value1,.../annotation1=value1,...\n" +
+			"  --include|--exclude namespace1,namespace2.../deployment1,.../pod1,.../container1,.../label1=value1,.../annotation1=value1,...\n" +
 			"Exclude is applied after include." +
 			"All components are optional and can be omitted, which selects all.\n" +
 			"All names except label and annotation keys support '*' glob matching pattern.\n" +

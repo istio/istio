@@ -212,6 +212,9 @@ func parseToIncludeTypeMap(s string) (map[string]string, error) {
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("bad label/annotation selection %s, must have format key=value", ss)
 		}
+		if strings.Contains(kv[0], "*") {
+			return nil, fmt.Errorf("bad label/annotation selection %s, key cannot have '*' wildcards", ss)
+		}
 		out[kv[0]] = kv[1]
 	}
 	return out, nil
