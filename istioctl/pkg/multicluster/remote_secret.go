@@ -85,7 +85,6 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 		ServiceAccountName: DefaultServiceAccountName,
 		AuthType:           RemoteSecretAuthTypeBearerToken,
 		AuthPluginConfig:   make(map[string]string),
-		SecretName:         remoteSecretPrefix + "`name of the cluster`",
 	}
 	c := &cobra.Command{
 		Use:   "create-remote-secret",
@@ -345,8 +344,9 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 	flagset.StringToString("auth-plugin-config", o.AuthPluginConfig,
 		fmt.Sprintf("Authenticator plug-in configuration. --auth-type=%v must be set with this option",
 			RemoteSecretAuthTypePlugin))
-	flagset.StringVar(&o.SecretName, "secret-name", o.SecretName,
-		"Create a secret with this name.")
+	flagset.StringVar(&o.SecretName, "secret-name", "",
+		"Create a secret with this name. If secret-name is not specified, "+
+			"remoteSecretPrefix + \"name of the cluster\" will be used.")
 }
 
 func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
