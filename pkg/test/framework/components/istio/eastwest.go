@@ -55,14 +55,16 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	// generate k8s resources for the gateway
 	cmd := exec.Command(genGatewayScript, generateSettings...)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env,
-		"CLUSTER="+cluster.Name(),
-		"NETWORK="+cluster.NetworkName(),
-		"MESH="+meshID)
-	if !i.environment.IsMulticluster() {
-		cmd.Env = append(cmd.Env, "SINGLE_CLUSTER=1")
+	customEnv := []string{
+		"CLUSTER=" + cluster.Name(),
+		"NETWORK=" + cluster.NetworkName(),
+		"MESH=" + meshID,
 	}
-	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), append(generateSettings, cmd.Env...))
+	if !i.environment.IsMulticluster() {
+		customEnv = append(customEnv, "SINGLE_CLUSTER=1")
+	}
+	cmd.Env = append(cmd.Env, customEnv...)
+	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v %v", cluster.Name(), customEnv, generateSettings)
 	gwYaml, err := cmd.CombinedOutput()
 
 	if err != nil {
