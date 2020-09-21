@@ -43,7 +43,7 @@ var (
 	clt         echo.Instance
 )
 
-func TestRateLimiting_DefaultLessThanOverride(t *testing.T) {
+func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
