@@ -17,7 +17,6 @@ package istio
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -53,8 +52,6 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 		"--set", "hub=" + imgSettings.Hub,
 		"--set", "tag=" + imgSettings.Tag,
 	}
-	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), generateSettings)
-
 	// generate k8s resources for the gateway
 	cmd := exec.Command(genGatewayScript, generateSettings...)
 	cmd.Env = os.Environ()
@@ -65,15 +62,12 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	if !i.environment.IsMulticluster() {
 		cmd.Env = append(cmd.Env, "SINGLE_CLUSTER=1")
 	}
-	stdErr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-	gwYaml, err := cmd.Output()
+	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), append(generateSettings, cmd.Env...))
+	gwYaml, err := cmd.CombinedOutput()
 
 	if err != nil {
-		stdErr, _ := ioutil.ReadAll(stdErr)
-		return fmt.Errorf("failed generating eastwestgateway manifest for %s: %v: %s", cluster.Name(), err, string(stdErr))
+		whichIstioctl, _ := exec.Command("which", "istioctl").CombinedOutput()
+		return fmt.Errorf("failed generating eastwestgateway manifest for %s using %q: %v: %s", cluster.Name(), whichIstioctl, err, string(gwYaml))
 	}
 	i.saveManifestForCleanup(cluster.Name(), string(gwYaml))
 	// push the deployment to the cluster
