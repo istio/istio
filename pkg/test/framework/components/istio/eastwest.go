@@ -17,6 +17,7 @@ package istio
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -64,9 +65,15 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	if !i.environment.IsMulticluster() {
 		cmd.Env = append(cmd.Env, "SINGLE_CLUSTER=1")
 	}
-	gwYaml, err := cmd.Output()
+	stdErr, err := cmd.StderrPipe()
 	if err != nil {
-		return fmt.Errorf("failed generating eastwestgateway manifest for %s: %v: %s", cluster.Name(), err, gwYaml)
+		return err
+	}
+	gwYaml, err := cmd.Output()
+
+	if err != nil {
+		stdErr, _ := ioutil.ReadAll(stdErr)
+		return fmt.Errorf("failed generating eastwestgateway manifest for %s: %v: %s", cluster.Name(), err, string(stdErr))
 	}
 	i.saveManifestForCleanup(cluster.Name(), string(gwYaml))
 	// push the deployment to the cluster
