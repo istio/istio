@@ -90,7 +90,6 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("translator", log.WarnLevel)
 	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
-	o.SetOutputLevel("klog", log.WarnLevel)
 
 	return o
 }
