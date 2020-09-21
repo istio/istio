@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -80,9 +79,8 @@ func TestClientNoCRDs(t *testing.T) {
 	}
 
 	if _, err := store.Create(config.Config{
-		Meta:   configMeta,
-		Spec:   pb,
-		Status: &v1alpha1.IstioStatus{},
+		Meta: configMeta,
+		Spec: pb,
 	}); err != nil {
 		t.Fatalf("Create => got %v", err)
 	}
@@ -131,9 +129,8 @@ func TestClient(t *testing.T) {
 			}
 
 			if _, err := store.Create(config.Config{
-				Meta:   configMeta,
-				Spec:   pb,
-				Status: &v1alpha1.IstioStatus{},
+				Meta: configMeta,
+				Spec: pb,
 			}); err != nil {
 				t.Fatalf("Create(%v) => got %v", name, err)
 			}
