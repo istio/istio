@@ -16,6 +16,17 @@ spec:
     egressGateways:
     - enabled: false
       name: istio-egressgateway
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 2
+    ingressGateways:
+    - enabled: true
+      name: istio-ingressgateway
+      k8s:
+        hpaSpec:
+          maxReplicas: 5
+          minReplicas: 2
     # The default profile is tuned to fit on smaller clusters.
     # Increase cpu req to ensure we can handle larger scale clusters.
     pilot:
