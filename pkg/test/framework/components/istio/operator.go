@@ -329,7 +329,7 @@ spec:
 	}
 
 	if err := retry.UntilSuccess(func() error {
-		pods, err := cluster.CoreV1().Pods(cfg.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: "istio=pilot"})
+		pods, err := cluster.CoreV1().Pods(cfg.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: "app=istiod"})
 		if err != nil {
 			return err
 		}
