@@ -80,8 +80,6 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 // Instead of a heartbeat-based health checks, we only send on a health state change, and this is
 // determined by the success & failure threshold provided by the user.
 func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *ProbeEvent, quit chan struct{}) {
-	defer close(notifyHealthChange)
-
 	// no-op
 	if w.prober == nil {
 		return
