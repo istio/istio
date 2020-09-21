@@ -53,7 +53,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
-	errs := &multierror.Error{}
+	errs := &multierror.Error{
+		ErrorFormat: util.MultiErrorFormat(),
+	}
 	listeners := make([]*listener.Listener, 0, len(mergedGateway.Servers))
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
 	for portNumber, servers := range mergedGateway.Servers {
@@ -162,11 +164,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		listeners = append(listeners, mutable.Listener)
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
-	if len(errs.Errors) == 1 {
+	err := errs.ErrorOrNil()
+	if err != nil {
 		// we have some listeners to return, but we also have some errors; log them
-		log.Info(errs.Errors[0].Error())
-	} else if len(errs.Errors) > 1 {
-		log.Info(errs.Error())
+		log.Info(err.Error())
 	}
 
 	if len(listeners) == 0 {
