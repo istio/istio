@@ -47,22 +47,19 @@ func FromJSON(s collection.Schema, js string) (config.Spec, error) {
 }
 
 func IstioStatusJSONFromMap(jsonMap map[string]interface{}) (config.Status, error) {
-	if len(jsonMap) == 0 {
+	if jsonMap == nil {
 		return nil, nil
 	}
 	js, err := json.Marshal(jsonMap)
 	if err != nil {
 		return nil, err
 	}
-	var status *v1alpha1.IstioStatus
-	err = json.Unmarshal(js, status)
+	var status v1alpha1.IstioStatus
+	err = json.Unmarshal(js, &status)
 	if err != nil {
 		return nil, err
 	}
-	if status != nil {
-		return *status, nil
-	}
-	return nil, nil
+	return status, nil
 }
 
 // FromYAML converts a canonical YAML to a proto message

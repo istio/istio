@@ -15,6 +15,7 @@
 package crd
 
 import (
+	"istio.io/api/meta/v1alpha1"
 	"reflect"
 	"testing"
 
@@ -38,12 +39,17 @@ func TestConvert(t *testing.T) {
 			Annotations:      map[string]string{"annotation": "value"},
 		},
 		Spec:   mock.ExampleVirtualService,
-		Status: nil,
+		Status: v1alpha1.IstioStatus{
+			Conditions: []*v1alpha1.IstioCondition{
+				{Type: "Health"},
+			},
+		},
 	}
 
 	obj, err := ConvertConfig(config)
 	if err != nil {
-		t.Errorf("ConvertConfig() => unexpected error %v", err)
+		t.Errorf("Conv" +
+			"ertConfig() => unexpected error %v", err)
 	}
 	got, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, obj, "cluster")
 	if err != nil {
