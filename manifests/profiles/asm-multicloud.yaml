@@ -33,7 +33,7 @@ spec:
       k8s:
         resources:
           requests:
-            cpu: 1000m
+            cpu: 500m
         hpaSpec:
           minReplicas: 2
         replicaCount: 2
