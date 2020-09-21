@@ -140,7 +140,7 @@ type clientKey struct {
 }
 
 func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses, error) {
-	if options.Port == nil || &options.Port.Protocol == nil {
+	if options.Port == nil || options.Port.Protocol == "" {
 		return nil, fmt.Errorf("must provide protocol")
 	}
 	if options.Port.ServicePort == 0 {

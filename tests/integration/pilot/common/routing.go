@@ -358,7 +358,7 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 	}
 	for _, d := range destinationSets {
 		d := d
-		if len(d) < 0 {
+		if len(d) == 0 {
 			continue
 		}
 		fqdn := d[0].Config().FQDN()
