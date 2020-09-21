@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
@@ -36,6 +37,7 @@ func TestVmOSPost(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster(). // TODO(landow) fix DNS issues with multicluster/VMs/headless
 		Features("traffic.reachability").
+		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
 			b := echoboot.NewBuilder(ctx)
 			images := GetAdditionVMImages()
