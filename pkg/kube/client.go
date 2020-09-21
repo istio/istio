@@ -582,7 +582,7 @@ func (c *client) extractExecResult(podName, podNamespace, container, cmd string)
 
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
-		"labelSelector": "istio=pilot",
+		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
