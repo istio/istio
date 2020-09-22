@@ -1,21 +1,25 @@
 package simulation
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/istio/pilot/pkg/xds"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
 
 type Protocol string
@@ -29,91 +33,151 @@ const (
 	TLS   Protocol = "tls"
 )
 
+type Expect struct {
+	Call   Call
+	Result Result
+}
+
 type Call struct {
 	Address  string
 	Port     int
 	Path     string
 	Protocol Protocol
 	Alpn     string
-	Headers  http.Header
-	Sni      string
+
+	// HostHeader is a convenience field for Headers
+	HostHeader string
+	Headers    http.Header
+
+	Sni string
 }
 
 type Result struct {
-	Info               string
+	Error              error
 	ListenerMatched    string
 	FilterChainMatched string
 	RouteMatched       string
 	RouteConfigMatched string
 	VirtualHostMatched string
 	ClusterMatched     string
+	t                  test.Failer
 }
 
-func (r Result) Matches(t test.Failer, want Result) {
-	t.Helper()
-	diff := cmp.Diff(want, r)
-	if want.Info != "" && want.Info != r.Info {
-		t.Fatalf("want info %q got %q. Diff: %s", want.Info, r.Info, diff)
+func (r Result) Matches(want Result) error {
+	diff := cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors())
+	if want.Error != nil && want.Error != r.Error {
+		return fmt.Errorf("want info %q got %q. Diff: %s", want.Error, r.Error, diff)
 	}
 	if want.ListenerMatched != "" && want.ListenerMatched != r.ListenerMatched {
-		t.Fatalf("want listener matched %q got %q. Diff: %s", want.ListenerMatched, r.ListenerMatched, diff)
+		return fmt.Errorf("want listener matched %q got %q. Diff: %s", want.ListenerMatched, r.ListenerMatched, diff)
 	}
 	if want.FilterChainMatched != "" && want.FilterChainMatched != r.FilterChainMatched {
-		t.Fatalf("want filter chain matched %q got %q. Diff: %s", want.FilterChainMatched, r.FilterChainMatched, diff)
+		return fmt.Errorf("want filter chain matched %q got %q. Diff: %s", want.FilterChainMatched, r.FilterChainMatched, diff)
 	}
 	if want.RouteMatched != "" && want.RouteMatched != r.RouteMatched {
-		t.Fatalf("want route matched %q got %q. Diff: %s", want.RouteMatched, r.RouteMatched, diff)
+		return fmt.Errorf("want route matched %q got %q. Diff: %s", want.RouteMatched, r.RouteMatched, diff)
 	}
 	if want.RouteConfigMatched != "" && want.RouteConfigMatched != r.RouteConfigMatched {
-		t.Fatalf("want route config matched %q got %q. Diff: %s", want.RouteConfigMatched, r.RouteConfigMatched, diff)
+		return fmt.Errorf("want route config matched %q got %q. Diff: %s", want.RouteConfigMatched, r.RouteConfigMatched, diff)
 	}
 	if want.VirtualHostMatched != "" && want.VirtualHostMatched != r.VirtualHostMatched {
-		t.Fatalf("want virtual host matched %q got %q. Diff: %s", want.VirtualHostMatched, r.VirtualHostMatched, diff)
+		return fmt.Errorf("want virtual host matched %q got %q. Diff: %s", want.VirtualHostMatched, r.VirtualHostMatched, diff)
 	}
 	if want.ClusterMatched != "" && want.ClusterMatched != r.ClusterMatched {
-		t.Fatalf("want cluster matched %q got %q. Diff: %s", want.ClusterMatched, r.ClusterMatched, diff)
+		return fmt.Errorf("want cluster matched %q got %q. Diff: %s", want.ClusterMatched, r.ClusterMatched, diff)
+	}
+	return nil
+}
+
+type Simulation struct {
+	t         test.Failer
+	Listeners []*listener.Listener
+	Clusters  []*cluster.Cluster
+	Routes    []*route.RouteConfiguration
+}
+
+func NewSimulation(t test.Failer, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
+	return &Simulation{
+		t:         t,
+		Listeners: s.Listeners(proxy),
+		Clusters:  s.Clusters(proxy),
+		Routes:    s.Routes(proxy),
 	}
 }
 
-func RunSimulation(t test.Failer, s *xds.FakeDiscoveryServer, proxy *model.Proxy, input Call) (result Result) {
-	listeners := s.Listeners(proxy)
-	l := matchListener(listeners, input)
-	if _, hasHttpInspector := xdstest.ExtractListenerFilters(l)[xdsfilters.HTTPInspector.Name]; hasHttpInspector {
-		input.Alpn = protocolToAlpn(input.Protocol)
+var (
+	ErrNoListener          = errors.New("no listener matched")
+	ErrNoFilterChain       = errors.New("no filter chains matched")
+	ErrNoRoute             = errors.New("no route matched")
+	ErrNoVirtualHost       = errors.New("no virtual host matched")
+	ErrMultipleFilterChain = errors.New("multiple filter chains matched")
+)
+
+func (c Call) FillDefaults() Call {
+	if c.Headers == nil {
+		c.Headers = http.Header{}
 	}
-	if input.Path == "" {
-		input.Path = "/"
+	if c.HostHeader != "" {
+		c.Headers["Host"] = []string{c.HostHeader}
 	}
+	if c.Path == "" {
+		c.Path = "/"
+	}
+	return c
+}
+
+func (sim *Simulation) RunExpectations(es []Expect) {
+	for i, e := range es {
+		res := sim.Run(e.Call)
+		log.Infof("%d: %+v", i, res)
+		if err := res.Matches(e.Result); err != nil {
+			sim.t.Fatalf("%d: %v", i, err)
+		}
+	}
+}
+
+func (sim *Simulation) Run(input Call) (result Result) {
+	result = Result{t: sim.t}
+	input = input.FillDefaults()
+
+	// First we will match a listener
+	l := matchListener(sim.Listeners, input)
 	if l == nil {
-		result.Info = "no listener matches"
+		result.Error = ErrNoListener
 		return
 	}
 	result.ListenerMatched = l.Name
+
+	// Apply listener filters. This will likely need the TLS inspector in the future as well
+	if _, hasHttpInspector := xdstest.ExtractListenerFilters(l)[xdsfilters.HTTPInspector.Name]; hasHttpInspector {
+		input.Alpn = protocolToAlpn(input.Protocol)
+	}
 	fc, err := matchFilterChain(l.FilterChains, input)
 	if err != nil {
-		result.Info = err.Error()
+		result.Error = err
 		return
 	}
 	result.FilterChainMatched = fc.Name
-	hcm := xdstest.ExtractHTTPConnectionManager(t, fc)
+
+	hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc)
 	if hcm != nil {
 		routeName := hcm.GetRds().RouteConfigName
 		result.RouteConfigMatched = routeName
-		rc := xdstest.ExtractRouteConfigurations(s.Routes(proxy))[routeName]
+		rc := xdstest.ExtractRouteConfigurations(sim.Routes)[routeName]
 		if len(input.Headers["Host"]) != 1 {
-			result.Info = "must have exactly 1 host for http calls"
+			result.Error = errors.New("http requests require a host header")
 			return
 		}
 		vh := matchDomain(rc, input.Headers["Host"][0])
 		if vh == nil {
-			result.Info = "no virtual host match"
+			result.Error = ErrNoVirtualHost
 			return
 		}
 		result.VirtualHostMatched = vh.Name
 		r := matchVirtualHost(vh, input)
 
 		if r == nil {
-			result.Info = "no route match"
+			result.Error = ErrNoRoute
 			return
 		}
 		result.RouteMatched = r.Name
@@ -203,6 +267,12 @@ func matchDomain(rc *route.RouteConfiguration, host string) *route.VirtualHost {
 	return nil
 }
 
+// Follow the 8 step Sieve as in
+// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/listener/v3/listener_components.proto.html#config-listener-v3-filterchainmatch
+// The implementation may initially be confusing because of a property of the
+// Envoy algorithm - at each level we will filter out all FilterChains that do
+// not match. This means an empty match (`{}`) may not match if another chain
+// matches one criteria but not another.
 func matchFilterChain(chains []*listener.FilterChain, input Call) (*listener.FilterChain, error) {
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetDestinationPort() == nil
@@ -237,11 +307,12 @@ func matchFilterChain(chains []*listener.FilterChain, input Call) (*listener.Fil
 	}, func(fc *listener.FilterChainMatch) bool {
 		return sets.NewSet(fc.GetApplicationProtocols()...).Contains(input.Alpn)
 	})
+	// We do not implement the "source" based filters as we do not use them
 	if len(chains) > 1 {
-		return nil, fmt.Errorf("multiple matching filter chains")
+		return nil, ErrMultipleFilterChain
 	}
 	if len(chains) == 0 {
-		return nil, fmt.Errorf("no matching filter chains")
+		return nil, ErrNoFilterChain
 	}
 	return chains[0], nil
 }
@@ -279,6 +350,8 @@ func protocolToAlpn(s Protocol) string {
 }
 
 func matchListener(listeners []*listener.Listener, input Call) *listener.Listener {
+	// First find exact match for the IP/Port, then fallback to wildcard IP/Port
+	// There is no wildcard port
 	for _, l := range listeners {
 		if matchAddress(l.GetAddress(), input.Address, input.Port) {
 			return l
