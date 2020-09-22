@@ -28,7 +28,6 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
-	"go.uber.org/zap"
 
 	"istio.io/api/annotation"
 	"istio.io/pkg/log"
@@ -202,7 +201,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 					"pod", string(k8sArgs.K8S_POD_NAME),
 					"Namespace", string(k8sArgs.K8S_POD_NAMESPACE),
 					"annotations", annotations).
-					Info("Checking annotations prior to redirect for Istio proxy",
+					Info("Checking annotations prior to redirect for Istio proxy")
 				if val, ok := annotations[injectAnnotationKey]; ok {
 					log.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
 					if injectEnabled, err := strconv.ParseBool(val); err == nil {
