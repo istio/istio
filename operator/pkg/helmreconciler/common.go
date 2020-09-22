@@ -129,7 +129,9 @@ func applyOverlay(current, overlay *unstructured.Unstructured) error {
 	// save any immutable values
 	clusterIP := getPath(current, name.ServiceStr, util.PathFromString("spec.clusterIP"))
 
-	err = runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
+	if err = runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current); err != nil {
+		return err
+	}
 	uc := current.UnstructuredContent()
 	uo := overlay.UnstructuredContent()
 	writeMap(uc, uo, util.PathFromString("spec"))
@@ -138,7 +140,7 @@ func applyOverlay(current, overlay *unstructured.Unstructured) error {
 	// restore any immutable values
 	writePath(current, name.ServiceStr, util.PathFromString("spec.clusterIP"), clusterIP)
 
-	return err
+	return nil
 
 }
 
