@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/url"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -76,7 +75,7 @@ func checkFields(un *unstructured.Unstructured) error {
 	return errs
 }
 
-func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
+func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured, writer io.Writer) error {
 	gvk := config.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
@@ -112,7 +111,10 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 				}
 			}
 			if castItem.GetKind() == name.DeploymentStr {
-				v.validateDeploymentLabel(istioNamespace, castItem)
+				err := v.validateDeploymentLabel(istioNamespace, castItem, writer)
+				if err != nil {
+					errs = multierror.Append(errs, err)
+				}
 			}
 			return nil
 		})
@@ -126,7 +128,10 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 
 	if un.GetKind() == name.DeploymentStr {
-		v.validateDeploymentLabel(istioNamespace, un)
+		err := v.validateDeploymentLabel(istioNamespace, un, writer)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -184,20 +189,39 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 	return nil
 }
 
-func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructured.Unstructured) {
+func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructured.Unstructured, writer io.Writer) error {
 	if un.GetNamespace() == handleNamespace(istioNamespace) {
-		return
+		return nil
 	}
-	labels := un.GetLabels()
+	labels, err := GetTemplateLabels(un)
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("See %s\n", url.DeploymentRequirements)
 	for _, l := range istioDeploymentLabel {
 		if _, ok := labels[l]; !ok {
-			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
-				" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
+			fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry without label %q. "+url,
+				fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
 		}
 	}
+	return nil
 }
 
-func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error {
+// GetTemplateLabels returns spec.template.metadata.labels from Deployment
+func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) {
+	if spec, ok := u.Object["spec"].(map[string]interface{}); ok {
+		if template, ok := spec["template"].(map[string]interface{}); ok {
+			m, _, err := unstructured.NestedStringMap(template, "metadata", "labels")
+			if err != nil {
+				return nil, err
+			}
+			return m, nil
+		}
+	}
+	return nil, nil
+}
+
+func (v *validator) validateFile(istioNamespace *string, reader io.Reader, writer io.Writer) error {
 	decoder := yaml.NewDecoder(reader)
 	decoder.SetStrict(true)
 	var errs error
@@ -217,7 +241,7 @@ func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error
 		}
 		out := transformInterfaceMap(raw)
 		un := unstructured.Unstructured{Object: out}
-		err = v.validateResource(*istioNamespace, &un)
+		err = v.validateResource(*istioNamespace, &un, writer)
 		if err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%s/%s/%s:",
 				un.GetKind(), un.GetNamespace(), un.GetName())))
@@ -244,7 +268,7 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
 			continue
 		}
-		err = v.validateFile(istioNamespace, reader)
+		err = v.validateFile(istioNamespace, reader, writer)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
