@@ -1988,7 +1988,7 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 // chain)
 func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buildListenerOpts) error {
 	if len(opts.filterChainOpts) == 0 {
-		return fmt.Errorf("must have more than 0 chains in listener: %#v", mutable.Listener)
+		return fmt.Errorf("must have more than 0 chains in listener %q", mutable.Listener.Name)
 	}
 
 	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(mutable.FilterChains))
