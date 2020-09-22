@@ -278,26 +278,23 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
+allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				out = append(out, r)
 			}
-			// We have a rule with catch all match prefix: /. Other rules are of no use.
+			// We have a rule with catch all match. Other rules are of no use.
 			break
 		} else {
-			if match := catchAllMatch(http); match != nil {
-				// We have a catch all match block in the route, check if it is valid - A catch all match block is not valid
-				// (translateRoute returns nil), if source or port match fails.
-				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-					// We have a valid catch all route. No point building other routes, with match conditions.
-					out = append(out, r)
-					break
-				}
-			}
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 					out = append(out, r)
+					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
+					// As an optimization, we can just top sending any more routes here.
+					if isCatchAllMatch(match) {
+						break allroutes
+					}
 				}
 			}
 		}
@@ -1045,17 +1042,9 @@ func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.H
 	return consistentHashToHashPolicy(consistentHash)
 }
 
-// catchAllMatch returns a catch all match block if available in the route, otherwise returns nil.
-func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
-	for _, match := range http.Match {
-		if isCatchAllMatch(match) {
-			return match
-		}
-	}
-	return nil
-}
-
-// isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise false.
+// isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise
+// false. Note - this may not be exactly "catch all" as we don't know the full
+// class of possible inputs As such, this is used only for optimization.
 func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 	catchall := false
 	if m.Uri != nil {
@@ -1066,9 +1055,19 @@ func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 			catchall = m.Regex == "*"
 		}
 	}
-	// A Match is catch all if and only if it has no header/query param match
+	// A Match is catch all if and only if it has no match set
 	// and URI has a prefix / or regex *.
-	return catchall && len(m.Headers) == 0 && len(m.QueryParams) == 0
+	return catchall &&
+		len(m.Headers) == 0 &&
+		len(m.QueryParams) == 0 &&
+		len(m.SourceLabels) == 0 &&
+		len(m.WithoutHeaders) == 0 &&
+		len(m.Gateways) == 0 &&
+		m.Method == nil &&
+		m.Scheme == nil &&
+		m.Port == 0 &&
+		m.Authority == nil &&
+		m.SourceNamespace == ""
 }
 
 // CombineVHostRoutes semi concatenates Vhost's routes into a single route set.
