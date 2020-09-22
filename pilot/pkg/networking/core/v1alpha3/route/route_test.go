@@ -131,7 +131,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(len(routes)).To(gomega.Equal(2))
+		g.Expect(routes[0].Name).To(gomega.Equal("route.non-catch-all"))
+		g.Expect(routes[1].Name).To(gomega.Equal("route.catch-all"))
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
@@ -815,6 +817,7 @@ var virtualServiceWithCatchAllRoute = config.Config{
 		Gateways: []string{"some-gateway"},
 		Http: []*networking.HTTPRoute{
 			{
+				Name: "route",
 				Match: []*networking.HTTPMatchRequest{
 					{
 						Name: "non-catch-all",
