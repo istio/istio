@@ -49,7 +49,7 @@ func TelemetryTest(t *testing.T, apps AppContext, features ...features.Feature) 
 									src := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(src))
 									dest := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(dest))
 
-									_ = callOrFail(ctx, src, dest)
+									callOrFail(ctx, src, dest)
 									validateClusterLabelsInStats(src, t)
 									validateClusterLabelsInStats(dest, t)
 								})

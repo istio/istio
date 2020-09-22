@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
 	"istio.io/pkg/log"
 )
@@ -27,30 +28,15 @@ const (
 	coredumpDir = "/var/lib/istio"
 )
 
-var (
-	istiodURLs = []string{
-		"debug/adsz",
-		"debug/cdsz",
-		"debug/syncz",
-		"debug/registryz",
-		"debug/endpointz",
-		"debug/endpointShardz",
-		"debug/configz",
-		"debug/resourcesz",
-		"debug/authorizationz",
-		"debug/push_status",
-		"debug/inject",
-	}
-)
-
 // Params contains parameters for running a kubectl fetch command.
 type Params struct {
-	Client    kube.ExtendedClient
-	DryRun    bool
-	Verbose   bool
-	Namespace string
-	Pod       string
-	Container string
+	Client         kube.ExtendedClient
+	DryRun         bool
+	Verbose        bool
+	ClusterVersion string
+	Namespace      string
+	Pod            string
+	Container      string
 }
 
 func (p *Params) SetClient(client kube.ExtendedClient) *Params {
@@ -154,17 +140,42 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
 	}
 	ret := make(map[string]string)
-	for _, url := range istiodURLs {
-
-		out, err := kubectlcmd.Exec(p.Client, p.Namespace, p.Pod, "discovery", fmt.Sprintf(`curl localhost:8080/%s`, url), p.DryRun)
+	for _, url := range common.IstiodDebugURLs(p.ClusterVersion) {
+		out, err := kubectlcmd.Exec(p.Client, p.Namespace, p.Pod, common.DiscoveryContainerName, fmt.Sprintf(`pilot-discovery request GET %s`, url), p.DryRun)
 		if err != nil {
 			return nil, err
 		}
-
 		ret[url] = out
 	}
 	return ret, nil
 }
+
+// GetNetstat returns netstat for the given container.
+func GetNetstat(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getNetstat requires namespace and pod")
+	}
+
+	out, err := kubectlcmd.Exec(p.Client, p.Namespace, p.Pod, common.ProxyContainerName, "netstat -natpw", p.DryRun)
+	if err != nil {
+		return nil, err
+	}
+	return retMap("netstat", out, err)
+}
+
+// GetNetfilter returns netfilter for the given container.
+/*func GetNetfilter(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getNetfilter requires namespace and pod")
+	}
+
+	out, err := kubectlcmd.RunCmd("exec -it -n "+p.Namespace+" "+p.Pod+
+		" -- bash -c for fl in $(ls -1 /proc/sys/net/netfilter/*); do echo $fl: $(cat $fl); done", "", p.DryRun)
+	if err != nil {
+		return nil, err
+	}
+	return retMap("netfilter", out, err)
+}*/
 
 // GetCoredumps returns coredumps for the given namespace/pod/container.
 func GetCoredumps(p *Params) (map[string]string, error) {

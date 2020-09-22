@@ -46,7 +46,7 @@ values:
       PILOT_USE_ENDPOINT_SLICE: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
-			return common.SetupApps(ctx, apps)
+			return common.SetupApps(ctx, i, apps)
 		}).
 		Run()
 }

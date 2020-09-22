@@ -181,6 +181,26 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "destination rule with use client protocol traffic policy",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[string]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
 	}
 
 	for _, tt := range cases {
@@ -225,6 +245,15 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 			if len(tt.expectedSubsetClusters) > 0 {
 				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
+			}
+			// Validate that use client protocol configures cluster correctly.
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
+				if tt.cluster.ProtocolSelection != cluster.Cluster_USE_DOWNSTREAM_PROTOCOL {
+					t.Errorf("Expected cluster to have USE_DOWNSTREAM_PROTOCOL but has %v", tt.cluster.ProtocolSelection)
+				}
+				if tt.cluster.Http2ProtocolOptions == nil {
+					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				}
 			}
 		})
 	}
@@ -942,10 +971,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				MeshConfig: &tt.mesh,
 				Services:   []*model.Service{service},
+				Instances:  tt.instances,
 			})
-			for _, i := range tt.instances {
-				cg.MemRegistry.AddInstance(i.Service.Hostname, i)
-			}
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
 			nv := map[string]bool{

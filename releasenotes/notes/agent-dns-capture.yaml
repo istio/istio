@@ -8,4 +8,4 @@ releaseNotes:
   **Added** Experimental DNS resolution in the Istio agent to better support use cases like service entries
   with TCP services without VIPs, multicluster DNS resolution, and DNS resolution of Kubernetes services
   from VM sidecars. This feature is disabled by default and can be enabled by setting the following in the
-  Istio Operator: `meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE="ALL"`.
+  Istio Operator: `meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE="true"`.

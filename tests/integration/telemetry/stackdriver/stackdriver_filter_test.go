@@ -161,8 +161,8 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
-		"StackdriverNamespace": sdInst.GetStackdriverNamespace(),
-		"EchoNamespace":        getEchoNamespaceInstance().Name(),
+		"StackdriverAddress": sdInst.Address(),
+		"EchoNamespace":      getEchoNamespaceInstance().Name(),
 	})
 	if err != nil {
 		return

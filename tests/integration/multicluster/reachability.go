@@ -45,7 +45,7 @@ func ReachabilityTest(t *testing.T, apps AppContext, features ...features.Featur
 								"/")
 							ctx.NewSubTest(subTestName).
 								RunParallel(func(ctx framework.TestContext) {
-									_ = callOrFail(ctx, src, dest)
+									callOrFail(ctx, src, dest)
 								})
 						}
 					}

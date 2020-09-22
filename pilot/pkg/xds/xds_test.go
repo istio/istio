@@ -195,7 +195,7 @@ func TestServiceScoping(t *testing.T) {
 		proxy := s.SetupProxy(baseProxy())
 
 		endpoints := xdstest.ExtractLoadAssignments(s.Endpoints(proxy))
-		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
+		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1:80"}) {
 			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
 		}
 
@@ -245,7 +245,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com:80"})
 	})
 
 	t.Run("DNS no self import", func(t *testing.T) {
@@ -258,7 +258,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com:80"})
 	})
 }
 
@@ -474,6 +474,10 @@ spec:
 						},
 					})
 
+					gatewayPort := "15443"
+					if ingr.Spec.Type == corev1.ServiceTypeNodePort && name == "gateway-registryServiceName" {
+						gatewayPort = "25443"
+					}
 					tests := []struct {
 						p      *model.Proxy
 						expect map[string][]string
@@ -481,43 +485,43 @@ spec:
 						{
 							p: pod,
 							expect: map[string][]string{
-								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
-								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20"},
-								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
-								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30"},
+								"outbound|7070||httpbin.com":                 {"10.10.10.10:7070"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20:80"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3:15443"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30:80"},
 							},
 						},
 						{
 							p: labeledPod,
 							expect: map[string][]string{
-								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
-								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2"},
-								"outbound|80||labeled.pod.svc.cluster.local": {"10.10.10.40"},
-								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2"},
+								"outbound|7070||httpbin.com":                 {"10.10.10.10:7070"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2:" + gatewayPort},
+								"outbound|80||labeled.pod.svc.cluster.local": {"10.10.10.40:80"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2:" + gatewayPort},
 							},
 						},
 						{
 							p: se,
 							expect: map[string][]string{
-								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
-								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20"},
-								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
-								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30"},
+								"outbound|7070||httpbin.com":                 {"10.10.10.10:7070"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20:80"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3:15443"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30:80"},
 							},
 						},
 						{
 							p: vm,
 							expect: map[string][]string{
-								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
-								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2"},
-								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
-								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2"},
+								"outbound|7070||httpbin.com":                 {"10.10.10.10:7070"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2:" + gatewayPort},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3:15443"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2:" + gatewayPort},
 							},
 						},
 						{
 							p: gw,
 							expect: map[string][]string{
-								"outbound|7070||httpbin.com": {"10.10.10.10"},
+								"outbound|7070||httpbin.com": {"10.10.10.10:7070"},
 								// Network view will filter these out
 								"outbound|80||kubeapp.pod.svc.cluster.local": {},
 								"outbound|80||labeled.pod.svc.cluster.local": {},

@@ -6,8 +6,8 @@ spec:
     accessLogFile: "/dev/stdout"
     defaultConfig:
       proxyMetadata:
-        ISTIO_META_PROXY_XDS_VIA_AGENT: "enable"
-        ISTIO_META_DNS_CAPTURE: "ALL"
+        ISTIO_META_PROXY_XDS_VIA_AGENT: "true"
+        ISTIO_META_DNS_CAPTURE: "true"
   values:
     global:
       proxy:

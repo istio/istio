@@ -1,0 +1,15 @@
+source:<
+  owner_uid:"kubernetes://apis/apps/v1/namespaces/{{ .EchoNamespace }}/deployments/client-v1"
+  workload_name:"client-v1"
+  workload_namespace:"{{ .EchoNamespace }}"
+  canonical_service:"client" canonical_revision:"v1" > 
+destination:<
+  location:"us-west1-c"
+  owner_uid:"//compute.googleapis.com/some-creator"
+  workload_name:"vm-server-v1"
+  workload_namespace:"{{ .EchoNamespace }}"
+  canonical_service:"vm-server"
+  canonical_revision:"v1" > 
+protocol: 1
+destination_service_name:"server"
+destination_service_namespace:"{{ .EchoNamespace }}" 

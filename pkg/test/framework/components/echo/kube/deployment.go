@@ -15,8 +15,10 @@
 package kube
 
 import (
+	"bufio"
 	"fmt"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
@@ -259,15 +261,27 @@ spec:
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
           # Proxy XDS via agent first
-          sudo sh -c 'echo ISTIO_META_PROXY_XDS_VIA_AGENT=enable >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_META_PROXY_XDS_VIA_AGENT=true >> /var/lib/istio/envoy/cluster.env'
           # Capture all DNS traffic in the VM and forward to Envoy
-          sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=true >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
 
           # Setup the namespace
           sudo sh -c 'echo ISTIO_NAMESPACE={{ $.Namespace }} >> /var/lib/istio/envoy/sidecar.env'
 
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
+
+          # Provide a proxyconfig override
+          
+          {{- range $name, $value := $subset.Annotations }}
+          {{- if eq $name.Name "proxy.istio.io/config" }}
+          sudo sh -c 'chmod a+w /etc/istio/config/mesh'
+          sudo sh -c 'echo "defaultConfig:" >> /etc/istio/config/mesh'
+          {{- range $idx, $line := (Lines $value.Value) }}
+          sudo sh -c 'echo "  {{ $line }}" >> /etc/istio/config/mesh'
+          {{- end }}
+          {{- end }}
+          {{- end }}
 
           # TODO: run with systemctl?
           export ISTIO_AGENT_FLAGS="--concurrency 2"
@@ -303,6 +317,12 @@ spec:
           name: {{ $.Service }}-istio-token
         - mountPath: /var/run/secrets/istio
           name: istio-ca-root-cert
+        {{- range $name, $value := $subset.Annotations }}
+        {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
+        - mountPath: /etc/istio/custom-bootstrap
+          name: custom-bootstrap-volume
+        {{- end }}
+        {{- end }}
       volumes:
       - secret:
           secretName: {{ $.Service }}-istio-token
@@ -310,6 +330,13 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istio-ca-root-cert
+      {{- range $name, $value := $subset.Annotations }}
+      {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
+      - name: custom-bootstrap-volume
+        configMap:
+          name: {{ $value.Value }}
+      {{- end }}
+      {{- end }}
 {{- end}}
 `
 )
@@ -332,7 +359,7 @@ func init() {
 	}
 
 	vmDeploymentTemplate = template.New("echo_vm_deployment")
-	if _, err := vmDeploymentTemplate.Funcs(sprig.TxtFuncMap()).Parse(vmDeploymentYaml); err != nil {
+	if _, err := vmDeploymentTemplate.Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{"Lines": lines}).Parse(vmDeploymentYaml); err != nil {
 		panic(fmt.Sprintf("unable to parse echo vm deployment template: %v", err))
 	}
 }
@@ -429,4 +456,13 @@ func generateYAMLWithSettings(
 	// Generate the YAML content.
 	deploymentYAML, err = tmpl.Execute(deploy, params)
 	return
+}
+
+func lines(input string) []string {
+	out := []string{}
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	for scanner.Scan() {
+		out = append(out, scanner.Text())
+	}
+	return out
 }

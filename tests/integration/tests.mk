@@ -79,7 +79,7 @@ test.integration.%.analyze: | $(JUNIT_REPORT)
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
-	$(GO) test -p 1 ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 

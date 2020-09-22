@@ -320,6 +320,8 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	const wholeNS string = "whole"
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	sd := &localServiceDiscovery{}
+	env.ServiceDiscovery = sd
 	ps.Mesh = env.Mesh()
 	ps.ServiceDiscovery = env
 
@@ -341,40 +343,71 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 		t.Fatalf("init authn policies failed: %v", err)
 	}
 
-	cases := []struct {
-		name             string
-		serviceNamespace string
-		servicePort      int
-		wanted           MutualTLSMode
-	}{
-		{
-			name:             "from namespace policy",
-			serviceNamespace: wholeNS,
-			servicePort:      80,
-			wanted:           MTLSStrict,
-		},
-		{
-			name:             "from mesh default",
-			serviceNamespace: partialNS,
-			servicePort:      80,
-			wanted:           MTLSPermissive,
+	instancePlainText := &ServiceInstance{
+		Endpoint: &IstioEndpoint{
+			Address:      "192.168.1.2",
+			EndpointPort: 1000000,
+			TLSMode:      DisabledTLSModeLabel,
 		},
 	}
+
+	cases := []struct {
+		name              string
+		serviceNamespace  string
+		servicePort       int
+		serviceResolution Resolution
+		serviceInstances  []*ServiceInstance
+		wanted            MutualTLSMode
+	}{
+		{
+			name:              "from namespace policy",
+			serviceNamespace:  wholeNS,
+			servicePort:       80,
+			serviceResolution: ClientSideLB,
+			wanted:            MTLSStrict,
+		},
+		{
+			name:              "from mesh default",
+			serviceNamespace:  partialNS,
+			servicePort:       80,
+			serviceResolution: ClientSideLB,
+			wanted:            MTLSPermissive,
+		},
+		{
+			name:              "headless service with no instances found yet",
+			serviceNamespace:  partialNS,
+			servicePort:       80,
+			serviceResolution: Passthrough,
+			wanted:            MTLSDisable,
+		},
+		{
+			name:              "headless service with instances",
+			serviceNamespace:  partialNS,
+			servicePort:       80,
+			serviceResolution: Passthrough,
+			serviceInstances:  []*ServiceInstance{instancePlainText},
+			wanted:            MTLSDisable,
+		},
+	}
+
 	serviceName := host.Name("some-service")
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			service := &Service{
 				Hostname:   host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
+				Resolution: tc.serviceResolution,
 				Attributes: ServiceAttributes{Namespace: tc.serviceNamespace},
 			}
 			// Intentionally use the externalService with the same name and namespace for test, though
 			// these attributes don't matter.
 			externalService := &Service{
 				Hostname:     host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
+				Resolution:   tc.serviceResolution,
 				Attributes:   ServiceAttributes{Namespace: tc.serviceNamespace},
 				MeshExternal: true,
 			}
 
+			sd.serviceInstances = tc.serviceInstances
 			port := &Port{
 				Port: tc.servicePort,
 			}
@@ -962,7 +995,8 @@ func TestIsClusterLocal(t *testing.T) {
 
 // MockDiscovery is an in-memory ServiceDiscover with mock services
 type localServiceDiscovery struct {
-	services []*Service
+	services         []*Service
+	serviceInstances []*ServiceInstance
 }
 
 func (l *localServiceDiscovery) Services() ([]*Service, error) {
@@ -974,7 +1008,7 @@ func (l *localServiceDiscovery) GetService(hostname host.Name) (*Service, error)
 }
 
 func (l *localServiceDiscovery) InstancesByPort(svc *Service, servicePort int, labels labels.Collection) []*ServiceInstance {
-	panic("implement me")
+	return l.serviceInstances
 }
 
 func (l *localServiceDiscovery) GetProxyServiceInstances(proxy *Proxy) ([]*ServiceInstance, error) {

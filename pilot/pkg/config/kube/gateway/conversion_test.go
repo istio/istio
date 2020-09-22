@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/d4l3k/messagediff"
 	"github.com/ghodss/yaml"
+	"github.com/google/go-cmp/cmp"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/test/util"
@@ -45,9 +45,8 @@ func TestConvertResources(t *testing.T) {
 				}
 			}
 			golden := splitOutput(readConfig(t, goldenFile))
-			if diff, eq := messagediff.PrettyDiff(golden, output); !eq {
-				o, _ := messagediff.PrettyDiff(output, golden)
-				t.Fatalf("Diff:\n%s\nReverse:\n%s", diff, o)
+			if diff := cmp.Diff(golden, output); diff != "" {
+				t.Fatalf("Diff:\n%s", diff)
 			}
 		})
 	}

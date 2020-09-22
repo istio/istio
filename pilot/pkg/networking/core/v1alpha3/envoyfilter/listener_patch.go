@@ -78,6 +78,7 @@ func ApplyListenerPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
 	push *model.PushContext,
+	efw *model.EnvoyFilterWrapper,
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
@@ -86,12 +87,11 @@ func ApplyListenerPatches(
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
 	out = listeners
 
-	envoyFilterWrapper := push.EnvoyFilters(proxy)
-	if envoyFilterWrapper == nil {
+	if efw == nil {
 		return
 	}
 
-	return doListenerListOperation(patchContext, envoyFilterWrapper, listeners, skipAdds)
+	return doListenerListOperation(patchContext, efw, listeners, skipAdds)
 }
 
 func doListenerListOperation(
@@ -286,6 +286,23 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 			fc.Filters = append(fc.Filters, clonedVal)
 			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
 			fc.Filters[insertPosition] = clonedVal
+		} else if cp.Operation == networking.EnvoyFilter_Patch_REPLACE {
+			if !hasNetworkFilterMatch(cp) {
+				continue
+			}
+			// find the matching filter first
+			replacePosition := -1
+			for i := 0; i < len(fc.Filters); i++ {
+				if networkFilterMatch(fc.Filters[i], cp) {
+					replacePosition = i
+					break
+				}
+			}
+			if replacePosition == -1 {
+				log.Debugf("EnvoyFilter patch %v is not applied because no matching network filter found.", cp)
+				continue
+			}
+			fc.Filters[replacePosition] = proto.Clone(cp.Value).(*xdslistener.Filter)
 		}
 	}
 	if networkFiltersRemoved {
@@ -437,6 +454,27 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
 			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
 			hcm.HttpFilters[insertPosition] = clonedVal
+		} else if cp.Operation == networking.EnvoyFilter_Patch_REPLACE {
+			if !hasHTTPFilterMatch(cp) {
+				continue
+			}
+
+			// find the matching filter first
+			replacePosition := -1
+			for i := 0; i < len(hcm.HttpFilters); i++ {
+				if httpFilterMatch(hcm.HttpFilters[i], cp) {
+					replacePosition = i
+					break
+				}
+			}
+
+			if replacePosition == -1 {
+				log.Debugf("EnvoyFilter patch %v is not applied because no matching HTTP filter found.", cp)
+				continue
+			}
+
+			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters[replacePosition] = clonedVal
 		}
 	}
 	if httpFiltersRemoved {

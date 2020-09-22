@@ -113,7 +113,7 @@ docker.app: $(ISTIO_DOCKER)/certs
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
-docker.app_sidecar_ubuntu_xenial: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=xenial
+docker.app_sidecar_ubuntu_xenial: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=xenial --build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_ubuntu_xenial: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_DOCKER)/certs
@@ -124,7 +124,7 @@ docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/server
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:bionic (for non-k8s).
-docker.app_sidecar_ubuntu_bionic: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=bionic
+docker.app_sidecar_ubuntu_bionic: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=bionic --build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_ubuntu_bionic: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_DOCKER)/certs
@@ -135,7 +135,7 @@ docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/server
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:focal (for non-k8s).
-docker.app_sidecar_ubuntu_focal: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=focal
+docker.app_sidecar_ubuntu_focal: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=focal --build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_ubuntu_focal: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_focal: $(ISTIO_DOCKER)/certs
@@ -146,7 +146,7 @@ docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/server
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with debian 9 (for non-k8s).
-docker.app_sidecar_debian_9: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=9
+docker.app_sidecar_debian_9: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=9 --build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_debian_9: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian_9: $(ISTIO_DOCKER)/certs
@@ -157,7 +157,7 @@ docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/server
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with debian 10 (for non-k8s).
-docker.app_sidecar_debian_10: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=10
+docker.app_sidecar_debian_10: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=10 --build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_debian_10: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian_10: $(ISTIO_DOCKER)/certs
@@ -168,7 +168,7 @@ docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/server
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar (for non-k8s).
-docker.app_sidecar_centos_8: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_centos_8: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar_centos_8: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/release/istio-sidecar.rpm
 docker.app_sidecar_centos_8: $(ISTIO_DOCKER)/certs
@@ -183,7 +183,7 @@ docker.istioctl: istioctl/docker/Dockerfile.istioctl
 docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
 	$(DOCKER_RULE)
 
-docker.operator: manifests/
+docker.operator: manifests
 docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.operator: operator/docker/Dockerfile.operator
 docker.operator: $(ISTIO_OUT_LINUX)/operator
@@ -230,6 +230,41 @@ dockerx.%:
 	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
 
 docker.base: docker/Dockerfile.base
+	$(DOCKER_RULE)
+
+docker.app_sidecar_base_debian_9: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=9
+docker.app_sidecar_base_debian_9: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base
+docker.app_sidecar_base_debian_9: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
+docker.app_sidecar_base_debian_10: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=10
+docker.app_sidecar_base_debian_10: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base
+docker.app_sidecar_base_debian_10: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
+docker.app_sidecar_base_ubuntu_xenial: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=xenial
+docker.app_sidecar_base_ubuntu_xenial: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base
+docker.app_sidecar_base_ubuntu_xenial: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
+docker.app_sidecar_base_ubuntu_bionic: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=bionic
+docker.app_sidecar_base_ubuntu_bionic: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base
+docker.app_sidecar_base_ubuntu_bionic: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
+docker.app_sidecar_base_ubuntu_focal: BUILD_ARGS=--build-arg VM_IMAGE_NAME=ubuntu --build-arg VM_IMAGE_VERSION=focal
+docker.app_sidecar_base_ubuntu_focal: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base
+docker.app_sidecar_base_ubuntu_focal: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
+docker.app_sidecar_base_centos_8: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base_centos
+docker.app_sidecar_base_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
+	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
 docker.distroless: docker/Dockerfile.distroless
@@ -281,7 +316,7 @@ dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 		   ); \
 	 ))
 
-docker.save: $(DOCKER_TAR_TARGETS)
+docker.save: dockerx.save
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub

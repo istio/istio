@@ -32,7 +32,6 @@ func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Setup(istio.Setup(&inst, nil)).
 		Run()
 }

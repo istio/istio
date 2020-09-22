@@ -121,6 +121,35 @@ func TestValidateWildcardDomain(t *testing.T) {
 	}
 }
 
+func TestValidateTrustDomain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		err  string
+	}{
+		{"empty", "", "empty"},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"multi-segment", "foo.bar.com", ""},
+		{"middle dash", "f-oo.bar.com", ""},
+		{"trailing dot", "foo.bar.com.", ""},
+		{"prefix dash", "-foo.bar.com", "invalid"},
+		{"forward slash separated", "foo/bar/com", "invalid"},
+		{"colon separated", "foo:bar:com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTrustDomain(tt.in)
+			if err == nil && tt.err != "" {
+				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.err)
+			} else if err != nil && tt.err == "" {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.err) {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.err)
+			}
+		})
+	}
+}
+
 func TestValidatePort(t *testing.T) {
 	ports := map[int]bool{
 		0:     false,
@@ -319,9 +348,11 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		ProxyListenPort: 0,
-		ConnectTimeout:  types.DurationProto(-1 * time.Second),
-		DefaultConfig:   &meshconfig.ProxyConfig{},
+		ProxyListenPort:    0,
+		ConnectTimeout:     types.DurationProto(-1 * time.Second),
+		DefaultConfig:      &meshconfig.ProxyConfig{},
+		TrustDomain:        "",
+		TrustDomainAliases: []string{"a.$b", "a/b", ""},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -331,7 +362,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 6 {
+			if len(err.Errors) < 7 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -719,7 +750,7 @@ func TestValidateGateway(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGateway(config.Config{
+			_, err := ValidateGateway(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
@@ -2217,7 +2248,7 @@ func TestValidateVirtualService(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
+			if _, err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -2376,7 +2407,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 	}
 	for _, c := range cases {
-		if got := ValidateDestinationRule(config.Config{
+		if _, got := ValidateDestinationRule(config.Config{
 			Meta: config.Meta{
 				Name:      someName,
 				Namespace: someNamespace,
@@ -2456,6 +2487,15 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 			OutlierDetection: &networking.OutlierDetection{
 				MinHealthPercent: -1,
+			},
+		},
+			valid: false},
+		{name: "invalid traffic policy, both upgrade and use client protocol set", in: networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy:   networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+					UseClientProtocol: true,
+				},
 			},
 		},
 			valid: false},
@@ -2974,7 +3014,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateEnvoyFilter(config.Config{
+			_, err := ValidateEnvoyFilter(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
@@ -3360,7 +3400,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateServiceEntry(config.Config{
+			if _, got := ValidateServiceEntry(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
@@ -4000,7 +4040,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
+			if _, got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
 				t.Errorf("got: %v\nwant: %v", got, c.valid)
 			}
 		})
@@ -4469,7 +4509,7 @@ func TestValidateSidecar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSidecar(config.Config{
+			_, err := ValidateSidecar(config.Config{
 				Meta: config.Meta{
 					Name:      "foo",
 					Namespace: "bar",
@@ -4914,7 +4954,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateRequestAuthentication(config.Config{
+			if _, got := ValidateRequestAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,
@@ -5034,7 +5074,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidatePeerAuthentication(config.Config{
+			if _, got := ValidatePeerAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,

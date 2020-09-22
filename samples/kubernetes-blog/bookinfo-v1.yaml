@@ -32,6 +32,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: details-v1
+  labels:
+    app: details
+    version: v1
 spec:
   replicas: 1
   selector:
@@ -71,6 +74,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v1
+  labels:
+    app: reviews
+    version: v1
 spec:
   replicas: 1
   selector:
@@ -110,6 +116,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: productpage-v1
+  labels:
+    app: productpage
+    version: v1
 spec:
   replicas: 1
   selector:

@@ -5,6 +5,11 @@
     trustDomain: {{ .Values.global.trustDomain | quote }}
 
     defaultConfig:
+      {{- if .Values.global.meshID }}
+      meshId: {{ .Values.global.meshID }}
+      {{- else if .Values.global.trustDomain }}
+      meshId: {{ .Values.global.trustDomain }}
+      {{- end }}
       tracing:
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
         lightstep:
@@ -38,6 +43,9 @@
           # The global default max number of message events per span.
           maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents | default "200" }}
         {{- end }}
+      {{- else if eq .Values.global.proxy.tracer "openCensusAgent" }}
+      {{- /* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */ -}}
+        {{ toYaml $.Values.meshConfig.defaultConfig.tracing }}
       {{- end }}
 
       {{- if .Values.global.remotePilotAddress }}

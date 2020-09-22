@@ -105,7 +105,7 @@ spec:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"proxyMetadata":{"DNS_AGENT":""}}
+            {"proxyMetadata":{"DNS_AGENT":""},"meshId":"cluster.local"}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
