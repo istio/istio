@@ -101,7 +101,8 @@ data:
       node_selector: {}
       override_ingress_yaml:
         metadata: {}
-      pod_annotations: {}
+      pod_annotations:
+        sidecar.istio.io/inject: "false"
       priority_class_name: ""
       replicas: 1
       resources: {}
@@ -540,10 +541,10 @@ spec:
         app.kubernetes.io/version: "v1.22.0"
         app.kubernetes.io/managed-by: Helm
       annotations:
-        sidecar.istio.io/inject: "false"
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         kiali.io/runtimes: go,kiali
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: kiali
       containers:

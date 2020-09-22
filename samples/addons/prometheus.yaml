@@ -389,14 +389,14 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         component: "server"
         app: prometheus
         release: prometheus
         chart: prometheus-11.7.0
         heritage: Helm
-      annotations:
-        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: prometheus
       containers:
