@@ -10,9 +10,9 @@ spec:
       proxyMetadata:
         # Enable Istio agent to handle DNS requests for known hosts
         # Unknown hosts will automatically be resolved using upstream dns servers in resolv.conf
-        ISTIO_META_DNS_CAPTURE: "ALL"
+        ISTIO_META_DNS_CAPTURE: "true"
         # proxy envoy xds via istio agent (pre-req for dns)
-        ISTIO_META_PROXY_XDS_VIA_AGENT: "enable"
+        ISTIO_META_PROXY_XDS_VIA_AGENT: "true"
   values:
     telemetry:
       v2:
