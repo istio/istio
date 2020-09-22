@@ -84,7 +84,8 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Generate presubmit integration test targets for each component in kubernetes environment
-test.integration.%.kube.presubmit: test.integration.%.kube
+test.integration.%.kube.presubmit:
+	@make test.integration.$*.kube
 
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
