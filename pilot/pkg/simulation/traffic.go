@@ -159,8 +159,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	}
 	result.FilterChainMatched = fc.Name
 
-	hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc)
-	if hcm != nil {
+	if hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc); hcm != nil {
 		routeName := hcm.GetRds().RouteConfigName
 		result.RouteConfigMatched = routeName
 		rc := xdstest.ExtractRouteConfigurations(sim.Routes)[routeName]
@@ -185,6 +184,8 @@ func (sim *Simulation) Run(input Call) (result Result) {
 		case *route.Route_Route:
 			result.ClusterMatched = t.Route.GetCluster()
 		}
+	} else if tcp := xdstest.ExtractTCPProxy(sim.t, fc); tcp != nil {
+		result.ClusterMatched = tcp.GetCluster()
 	}
 	return
 }

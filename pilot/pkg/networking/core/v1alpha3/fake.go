@@ -19,6 +19,7 @@ import (
 	"errors"
 	"sync"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/sprig/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -246,9 +247,6 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 			opts.Configs = append(opts.Configs, *p)
 		}
 	}
-	if len(opts.Configs) > 0 {
-		return opts.Configs
-	}
 	configStr := opts.ConfigString
 	if opts.ConfigTemplateInput != nil {
 		tmpl := template.Must(template.New("").Funcs(sprig.TxtFuncMap()).Parse(opts.ConfigString))
@@ -258,18 +256,25 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 		}
 		configStr = buf.String()
 	}
-	configs, _, err := crd.ParseInputs(configStr)
-	if err != nil {
-		t.Fatalf("failed to read config: %v", err)
-	}
-	// setup default namespace if not defined
-	for i, c := range configs {
-		if c.Namespace == "" {
-			c.Namespace = "default"
+	cfgs := opts.Configs
+	if configStr != "" {
+		t0 := time.Now()
+		configs, _, err := crd.ParseInputs(configStr)
+		if err != nil {
+			t.Fatalf("failed to read config: %v", err)
 		}
-		configs[i] = c
+		// setup default namespace if not defined
+		for _, c := range configs {
+			if c.Namespace == "" {
+				c.Namespace = "default"
+			}
+			// Set creation timestamp to same time for all of them for consistency.
+			// If explict setting is needed it can be set in the yaml
+			c.CreationTimestamp = t0
+			cfgs = append(cfgs, c)
+		}
 	}
-	return configs
+	return cfgs
 }
 
 type FakeXdsUpdater struct{}
