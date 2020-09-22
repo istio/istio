@@ -7,6 +7,8 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
+    chart: prometheus-11.7.0
+    heritage: Helm
   name: prometheus
   namespace: istio-system
   annotations:
@@ -20,6 +22,8 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
+    chart: prometheus-11.7.0
+    heritage: Helm
   name: prometheus
   namespace: istio-system
 data:
@@ -285,6 +289,8 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
+    chart: prometheus-11.7.0
+    heritage: Helm
   name: prometheus
 rules:
   - apiGroups:
@@ -325,6 +331,8 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
+    chart: prometheus-11.7.0
+    heritage: Helm
   name: prometheus
 subjects:
   - kind: ServiceAccount
@@ -343,6 +351,8 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
+    chart: prometheus-11.7.0
+    heritage: Helm
   name: prometheus
   namespace: istio-system
 spec:
@@ -366,6 +376,8 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
+    chart: prometheus-11.7.0
+    heritage: Helm
   name: prometheus
   namespace: istio-system
 spec:
@@ -381,6 +393,8 @@ spec:
         component: "server"
         app: prometheus
         release: prometheus
+        chart: prometheus-11.7.0
+        heritage: Helm
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -398,6 +412,7 @@ spec:
             - name: config-volume
               mountPath: /etc/config
               readOnly: true
+
         - name: prometheus-server
           image: "prom/prometheus:v2.19.0"
           imagePullPolicy: "IfNotPresent"
