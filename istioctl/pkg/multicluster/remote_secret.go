@@ -346,7 +346,7 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 			RemoteSecretAuthTypePlugin))
 	flagset.StringVar(&o.SecretName, "secret-name", "",
 		"Create a secret with this name. If secret-name is not specified, "+
-			"remoteSecretPrefix + \"name of the cluster\" will be used.")
+			remoteSecretPrefix+"\"name of the cluster\" will be used.")
 }
 
 func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
