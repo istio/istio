@@ -3,7 +3,9 @@ package simulation
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"regexp"
 	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -12,12 +14,14 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/yl2chen/cidranger"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/test"
 	"istio.io/pkg/log"
 )
@@ -129,7 +133,6 @@ func (c Call) FillDefaults() Call {
 func (sim *Simulation) RunExpectations(es []Expect) {
 	for i, e := range es {
 		res := sim.Run(e.Call)
-		log.Infof("%d: %+v", i, res)
 		if err := res.Matches(e.Result); err != nil {
 			sim.t.Fatalf("%d: %v", i, err)
 		}
@@ -192,7 +195,6 @@ func (sim *Simulation) Run(input Call) (result Result) {
 
 func matchVirtualHost(vh *route.VirtualHost, input Call) *route.Route {
 	for _, r := range vh.Routes {
-
 		// check path
 		switch pt := r.Match.GetPathSpecifier().(type) {
 		case *route.RouteMatch_Prefix:
@@ -204,10 +206,16 @@ func matchVirtualHost(vh *route.VirtualHost, input Call) *route.Route {
 				continue
 			}
 		case *route.RouteMatch_SafeRegex:
-			// TODO
-			continue
+			r, err := regexp.Compile(pt.SafeRegex.GetRegex())
+			if err != nil {
+				log.Errorf("invalid regex: %v", err)
+				continue
+			}
+			if !r.MatchString(input.Path) {
+				continue
+			}
 		default:
-			continue
+			panic("unknown route path type")
 		}
 
 		return r
@@ -283,14 +291,32 @@ func matchFilterChain(chains []*listener.FilterChain, input Call) (*listener.Fil
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetPrefixRanges() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
-		// TODO implement
-		return true
+		ranger := cidranger.NewPCTrieRanger()
+		for _, a := range fc.GetPrefixRanges() {
+			_, cidr, err := net.ParseCIDR(fmt.Sprintf("%s/%d", a.AddressPrefix, a.GetPrefixLen().GetValue()))
+			if err != nil {
+				panic(err.Error())
+			}
+			if err := ranger.Insert(cidranger.NewBasicRangerEntry(*cidr)); err != nil {
+				panic(err.Error())
+			}
+		}
+		f, err := ranger.Contains(net.ParseIP(input.Address))
+		if err != nil {
+			panic(err.Error())
+		}
+		return f
 	})
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetServerNames() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
-		// TODO implement
-		return true
+		sni := host.Name(input.Sni)
+		for _, s := range fc.GetServerNames() {
+			if sni.SubsetOf(host.Name(s)) {
+				return true
+			}
+		}
+		return false
 	})
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetTransportProtocol() == ""

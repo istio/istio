@@ -235,9 +235,6 @@ spec:
 		},
 	}
 	for _, tt := range cases {
-		if tt.name != "duplicate tls gateway" {
-			continue
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
