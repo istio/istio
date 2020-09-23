@@ -63,18 +63,19 @@ func Cmd(logOpts *log.Options) *cobra.Command {
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
 		SilenceUsage: true,
-		Long: "bug-report selectively captures cluster information and logs into an archive to help " +
-			"diagnose problems and optionally uploads the archive to a GCS bucket. \n" +
-			"Proxy logs can be filtered using:\n" +
-			"  --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../cntr1,cntr.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2...\n" +
-			"    where ns=namespace, dep=deployment, cntr=container, lbl=label, ann=annotation" +
-			"The filter spec is interpreted as 'must be in (ns1 OR ns2) AND (dep1 OR dep2) AND (cntr1 OR cntr2)...'" +
-			"The log will be included only if the container matches at least one include filter and does not match any exclude filters." +
-			"All parts of the filter are optional and can be omitted e.g. ns1//pod1 filters only for namespace ns1 and pod1.\n" +
-			"All names except label and annotation keys support '*' glob matching pattern.\n" +
-			"e.g. --include ns1,ns2 (only namespaces ns1 and ns2)\n" +
-			"     --include n*//p*/l=v* (pods with name beginning with 'p' in namespaces\n" +
-			"         beginning with 'n' and having label 'l' with value beginning with 'v'.)\n",
+		Long: `bug-report selectively captures cluster information and logs into an archive to help diagnose problems.
+Proxy logs can be filtered using:
+  --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../cntr1,cntr.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2...
+where ns=namespace, dep=deployment, cntr=container, lbl=label, ann=annotation
+
+The filter spec is interpreted as 'must be in (ns1 OR ns2) AND (dep1 OR dep2) AND (cntr1 OR cntr2)...'
+The log will be included only if the container matches at least one include filter and does not match any exclude filters.
+All parts of the filter are optional and can be omitted e.g. ns1//pod1 filters only for namespace ns1 and pod1.
+All names except label and annotation keys support '*' glob matching pattern.
+
+e.g.
+--include ns1,ns2 (only namespaces ns1 and ns2)
+--include n*//p*/l=v* (pods with name beginning with 'p' in namespaces beginning with 'n' and having label 'l' with value beginning with 'v'.)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBugReportCommand(cmd, logOpts)
 		},
