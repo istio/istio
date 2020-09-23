@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -27,10 +28,16 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+const (
+	defaultKubeConfig = "~/.kube/config"
+)
+
 var (
+	// The KUBECONFIG value from the environment.
+	kubeConfigsFromEnv = getKubeConfigsFromEnvironmentOrDefault()
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		KubeConfig:            requireKubeConfigs(env.ISTIO_TEST_KUBE_CONFIG.Value()),
+		KubeConfig:            kubeConfigsFromEnv,
 		LoadBalancerSupported: true,
 	}
 	// hold kubeconfigs from command line to split later
@@ -53,9 +60,12 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	s := settingsFromCommandLine.clone()
 
 	var err error
-	s.KubeConfig, err = parseKubeConfigs(kubeConfigs)
+	s.KubeConfig, err = parseKubeConfigs(kubeConfigs, ",")
 	if err != nil {
 		return nil, fmt.Errorf("kubeconfig: %v", err)
+	}
+	if len(s.KubeConfig) == 0 {
+		s.KubeConfig = kubeConfigsFromEnv
 	}
 
 	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
@@ -76,20 +86,31 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	return s, nil
 }
 
-func requireKubeConfigs(value string) []string {
-	out, err := parseKubeConfigs(value)
+func getKubeConfigsFromEnvironmentOrDefault() []string {
+	// Normalize KUBECONFIG so that it is separated by the OS path list separator.
+	// The framework currently supports comma as a separator, but that violates the
+	// KUBECONFIG spec.
+	value := env.KUBECONFIG.Value()
+	if strings.Contains(value, ",") {
+		value = strings.ReplaceAll(value, ",", string(filepath.ListSeparator))
+		_ = os.Setenv(env.KUBECONFIG.Name(), value)
+	}
+	out, err := parseKubeConfigs(value, string(filepath.ListSeparator))
 	if err != nil {
 		panic(err)
+	}
+	if len(out) == 0 {
+		return []string{defaultKubeConfig}
 	}
 	return out
 }
 
-func parseKubeConfigs(value string) ([]string, error) {
+func parseKubeConfigs(value, separator string) ([]string, error) {
 	if len(value) == 0 {
-		return []string{defaultKubeConfig()}, nil
+		return make([]string, 0), nil
 	}
 
-	parts := strings.Split(value, ",")
+	parts := strings.Split(value, separator)
 	out := make([]string, 0, len(parts))
 	for _, f := range parts {
 		if f != "" {
@@ -248,14 +269,6 @@ func normalizeFile(path *string) error {
 	}
 
 	return nil
-}
-
-func defaultKubeConfig() string {
-	v := os.Getenv("KUBECONFIG")
-	if len(v) > 0 {
-		return v
-	}
-	return "~/.kube/config"
 }
 
 // init registers the command-line flags that we can exposed for "go test".
