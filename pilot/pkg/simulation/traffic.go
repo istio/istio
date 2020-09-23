@@ -15,7 +15,6 @@
 package simulation
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -28,6 +27,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/yl2chen/cidranger"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -84,6 +85,9 @@ func (c Call) FillDefaults() Call {
 	if c.HostHeader != "" {
 		c.Headers["Host"] = []string{c.HostHeader}
 	}
+	if c.Sni == "" && c.Protocol == HTTPS {
+		c.Sni = c.HostHeader
+	}
 	if c.Path == "" {
 		c.Path = "/"
 	}
@@ -102,6 +106,7 @@ type Result struct {
 }
 
 func (r Result) Matches(t *testing.T, want Result) {
+	diff := cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors())
 	if want.Error != nil && want.Error != r.Error {
 		t.Errorf("want error %v got %v", want.Error, r.Error)
 	}
@@ -124,8 +129,7 @@ func (r Result) Matches(t *testing.T, want Result) {
 		t.Errorf("want cluster matched %q got %q", want.ClusterMatched, r.ClusterMatched)
 	}
 	if t.Failed() {
-		s, _ := json.MarshalIndent(r, "", "  ")
-		t.Logf("Got: %+v", string(s))
+		t.Logf("Diff: %+v", diff)
 	}
 }
 
@@ -137,12 +141,16 @@ type Simulation struct {
 }
 
 func NewSimulation(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
-	return &Simulation{
+	sim := &Simulation{
 		t:         t,
 		Listeners: s.Listeners(proxy),
 		Clusters:  s.Clusters(proxy),
 		Routes:    s.Routes(proxy),
 	}
+	xdstest.ValidateClusters(t, sim.Clusters)
+	xdstest.ValidateListeners(t, sim.Listeners)
+	xdstest.ValidateRouteConfigurations(t, sim.Routes)
+	return sim
 }
 
 // withT swaps out the testing struct. This allows executing sub tests.

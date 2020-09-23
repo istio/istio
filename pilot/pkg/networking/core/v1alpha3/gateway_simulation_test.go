@@ -17,9 +17,12 @@ package v1alpha3_test
 import (
 	"testing"
 
+	"istio.io/pkg/env"
+
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/simulation"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -327,6 +330,79 @@ spec:
 				},
 			},
 		},
+		gatewayTest{
+			name: "multiple wildcards with virtual service disambiguator",
+			config: createGateway("alpha", "", `
+hosts:
+  - ns-1/*.example.com
+port:
+  name: http
+  number: 80
+  protocol: HTTP`) +
+				createGateway("beta", "", `
+hosts:
+  - ns-2/*.example.com
+port:
+  name: http
+  number: 80
+  protocol: HTTP`) + `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+  namespace: ns-1
+spec:
+  hosts:
+  - "ns-1.example.com"
+  gateways:
+  - default/alpha
+  http:
+  - route:
+    - destination:
+        host: echo
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+  namespace: ns-2
+spec:
+  hosts:
+  - "ns-2.example.com"
+  gateways:
+  - default/beta
+  http:
+  - route:
+    - destination:
+        host: echo
+`,
+			calls: []simulation.Expect{
+				{
+					simulation.Call{
+						Port:       80,
+						HostHeader: "ns-1.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					simulation.Result{
+						ListenerMatched:    "0.0.0.0_80",
+						RouteConfigMatched: "http.80",
+						ClusterMatched:     "outbound|80||echo.ns-1",
+					},
+				},
+				{
+					simulation.Call{
+						Port:       80,
+						HostHeader: "ns-2.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					simulation.Result{
+						ListenerMatched:    "0.0.0.0_80",
+						RouteConfigMatched: "http.80",
+						ClusterMatched:     "outbound|80||echo.ns-2",
+					},
+				},
+			},
+		},
 	)
 }
 
@@ -336,8 +412,13 @@ type gatewayTest struct {
 	calls  []simulation.Expect
 }
 
+var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", true, "if enabled, will dump verbose output").Get()
+
 func runGatewayTest(t *testing.T, cases ...gatewayTest) {
 	for _, tt := range cases {
+		if tt.name != "multiple wildcards with virtual service disambiguator" {
+			continue
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
@@ -346,7 +427,14 @@ func runGatewayTest(t *testing.T, cases ...gatewayTest) {
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				ConfigString: tt.config,
 			})
-			simulation.NewSimulation(t, s, s.SetupProxy(proxy)).RunExpectations(tt.calls)
+			sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+			sim.RunExpectations(tt.calls)
+			if t.Failed() && debugMode {
+				t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Clusters)))
+				t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Listeners)))
+				t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Routes)))
+				t.Log(tt.config)
+			}
 		})
 	}
 }
