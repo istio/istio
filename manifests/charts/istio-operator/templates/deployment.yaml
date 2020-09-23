@@ -36,13 +36,13 @@ spec:
             - name: WATCH_NAMESPACE
               value: {{.Values.watchedNamespaces | quote}}
             - name: LEADER_ELECTION_NAMESPACE
-              value: {{.Chart.Namespace | quote}}
+              value: {{.Release.Namespace | quote}}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: {{.Chart.Namespace | quote}}
+              value: {{.Release.Namespace | quote}}
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: {{.Values.waitForResourcesTimeout | quote}}
             - name: REVISION
