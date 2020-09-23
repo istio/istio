@@ -46,7 +46,7 @@ var (
 func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("policy.ratelimit.envoy").
+		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
 			if !sendTrafficAndCheckIfRatelimited(t) {
 				t.Errorf("No request received StatusTooMantRequest Error.")
