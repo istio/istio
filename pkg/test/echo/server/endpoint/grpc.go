@@ -179,7 +179,7 @@ func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoReq
 	}
 	defer instance.Close()
 
-	ret, err := instance.Run(ctx)
+	ret, err := instance.Run(context.Background())
 	epLog.Infof("ForwardEcho[%s] response: %v and error %v", req.Url, ret.GetOutput(), err)
 	return ret, err
 }
