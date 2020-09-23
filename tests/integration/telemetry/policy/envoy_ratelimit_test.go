@@ -130,7 +130,8 @@ func testSetup(ctx resource.Context) (err error) {
 	}
 
 	// TODO(gargnupur): Figure out a way to query, envoy is ready to talk to rate limit service.
-	time.Sleep(time.Second * 45)
+	// Also, change to use mock rate limit and redis service.
+	time.Sleep(time.Second * 60)
 
 	return nil
 }
