@@ -47,8 +47,7 @@ import (
 )
 
 const (
-	bugReportDefaultMaxSizeMb = 500
-	bugReportDefaultTimeout   = 30 * time.Minute
+	bugReportDefaultTimeout = 30 * time.Minute
 )
 
 var (
