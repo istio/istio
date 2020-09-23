@@ -42,6 +42,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -761,16 +762,18 @@ func getDeployMetaFromPod(pod *corev1.Pod) (*metav1.ObjectMeta, *metav1.TypeMeta
 func injectPod(req InjectionParameters) ([]byte, error) {
 	pod := req.pod
 
-	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
-	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
-	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	var grp = int64(1337)
-	if pod.Spec.SecurityContext == nil {
-		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
+	if features.EnableLegacyFSGroupInjection {
+		// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
+		// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
+		// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+		var grp = int64(1337)
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+				FSGroup: &grp,
+			}
+		} else {
+			pod.Spec.SecurityContext.FSGroup = &grp
 		}
-	} else {
-		pod.Spec.SecurityContext.FSGroup = &grp
 	}
 
 	spec, iStatus, err := InjectionData(req, req.typeMeta, req.deployMeta)

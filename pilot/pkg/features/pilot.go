@@ -350,4 +350,12 @@ var (
 	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
 		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
 			"This is only enabled for migration and will be removed soon.").Get()
+
+	// EnableLegacyFSGroupInjection has first-party-jwt as allowed because we only
+	// need the fsGroup configuration for the projected service account volume mount,
+	// which is only used by first-party-jwt. The installer will automatically
+	// configure this on Kubernetes 1.19+.
+	EnableLegacyFSGroupInjection = env.RegisterBoolVar("ENABLE_LEGACY_FSGROUP_INJECTION", JwtPolicy.Get() != jwt.PolicyFirstParty,
+		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
+			`(see https://github.com/kubernetes/kubernetes/issues/57923 for details) unless JWT_POLICY is "first-party-jwt".`).Get()
 )
