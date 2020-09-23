@@ -269,7 +269,7 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 				c.Namespace = "default"
 			}
 			// Set creation timestamp to same time for all of them for consistency.
-			// If explict setting is needed it can be set in the yaml
+			// If explicit setting is needed it can be set in the yaml
 			c.CreationTimestamp = t0
 			cfgs = append(cfgs, c)
 		}

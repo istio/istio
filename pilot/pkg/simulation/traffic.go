@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -37,7 +38,6 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
 type Protocol string
@@ -49,6 +49,14 @@ const (
 	GRPC  Protocol = "grpc"
 	TCP   Protocol = "tcp"
 	TLS   Protocol = "tls"
+)
+
+var (
+	ErrNoListener          = errors.New("no listener matched")
+	ErrNoFilterChain       = errors.New("no filter chains matched")
+	ErrNoRoute             = errors.New("no route matched")
+	ErrNoVirtualHost       = errors.New("no virtual host matched")
+	ErrMultipleFilterChain = errors.New("multiple filter chains matched")
 )
 
 type Expect struct {
@@ -70,67 +78,6 @@ type Call struct {
 	Sni string
 }
 
-type Result struct {
-	Error              error
-	ListenerMatched    string
-	FilterChainMatched string
-	RouteMatched       string
-	RouteConfigMatched string
-	VirtualHostMatched string
-	ClusterMatched     string
-	t                  test.Failer
-}
-
-func (r Result) Matches(want Result) error {
-	diff := cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors())
-	if want.Error != nil && want.Error != r.Error {
-		return fmt.Errorf("want info %q got %q. Diff: %s", want.Error, r.Error, diff)
-	}
-	if want.ListenerMatched != "" && want.ListenerMatched != r.ListenerMatched {
-		return fmt.Errorf("want listener matched %q got %q. Diff: %s", want.ListenerMatched, r.ListenerMatched, diff)
-	}
-	if want.FilterChainMatched != "" && want.FilterChainMatched != r.FilterChainMatched {
-		return fmt.Errorf("want filter chain matched %q got %q. Diff: %s", want.FilterChainMatched, r.FilterChainMatched, diff)
-	}
-	if want.RouteMatched != "" && want.RouteMatched != r.RouteMatched {
-		return fmt.Errorf("want route matched %q got %q. Diff: %s", want.RouteMatched, r.RouteMatched, diff)
-	}
-	if want.RouteConfigMatched != "" && want.RouteConfigMatched != r.RouteConfigMatched {
-		return fmt.Errorf("want route config matched %q got %q. Diff: %s", want.RouteConfigMatched, r.RouteConfigMatched, diff)
-	}
-	if want.VirtualHostMatched != "" && want.VirtualHostMatched != r.VirtualHostMatched {
-		return fmt.Errorf("want virtual host matched %q got %q. Diff: %s", want.VirtualHostMatched, r.VirtualHostMatched, diff)
-	}
-	if want.ClusterMatched != "" && want.ClusterMatched != r.ClusterMatched {
-		return fmt.Errorf("want cluster matched %q got %q. Diff: %s", want.ClusterMatched, r.ClusterMatched, diff)
-	}
-	return nil
-}
-
-type Simulation struct {
-	t         test.Failer
-	Listeners []*listener.Listener
-	Clusters  []*cluster.Cluster
-	Routes    []*route.RouteConfiguration
-}
-
-func NewSimulation(t test.Failer, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
-	return &Simulation{
-		t:         t,
-		Listeners: s.Listeners(proxy),
-		Clusters:  s.Clusters(proxy),
-		Routes:    s.Routes(proxy),
-	}
-}
-
-var (
-	ErrNoListener          = errors.New("no listener matched")
-	ErrNoFilterChain       = errors.New("no filter chains matched")
-	ErrNoRoute             = errors.New("no route matched")
-	ErrNoVirtualHost       = errors.New("no virtual host matched")
-	ErrMultipleFilterChain = errors.New("multiple filter chains matched")
-)
-
 func (c Call) FillDefaults() Call {
 	if c.Headers == nil {
 		c.Headers = http.Header{}
@@ -144,12 +91,73 @@ func (c Call) FillDefaults() Call {
 	return c
 }
 
+type Result struct {
+	Error              error
+	ListenerMatched    string
+	FilterChainMatched string
+	RouteMatched       string
+	RouteConfigMatched string
+	VirtualHostMatched string
+	ClusterMatched     string
+	t                  test.Failer
+}
+
+func (r Result) Matches(t *testing.T, want Result) {
+	diff := cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors())
+	if want.Error != nil && want.Error != r.Error {
+		t.Errorf("want info %q got %q", want.Error, r.Error)
+	}
+	if want.ListenerMatched != "" && want.ListenerMatched != r.ListenerMatched {
+		t.Errorf("want listener matched %q got %q", want.ListenerMatched, r.ListenerMatched)
+	}
+	if want.FilterChainMatched != "" && want.FilterChainMatched != r.FilterChainMatched {
+		t.Errorf("want filter chain matched %q got %q", want.FilterChainMatched, r.FilterChainMatched)
+	}
+	if want.RouteMatched != "" && want.RouteMatched != r.RouteMatched {
+		t.Errorf("want route matched %q got %q", want.RouteMatched, r.RouteMatched)
+	}
+	if want.RouteConfigMatched != "" && want.RouteConfigMatched != r.RouteConfigMatched {
+		t.Errorf("want route config matched %q got %q", want.RouteConfigMatched, r.RouteConfigMatched)
+	}
+	if want.VirtualHostMatched != "" && want.VirtualHostMatched != r.VirtualHostMatched {
+		t.Errorf("want virtual host matched %q got %q", want.VirtualHostMatched, r.VirtualHostMatched)
+	}
+	if want.ClusterMatched != "" && want.ClusterMatched != r.ClusterMatched {
+		t.Errorf("want cluster matched %q got %q", want.ClusterMatched, r.ClusterMatched)
+	}
+	if t.Failed() {
+		t.Logf("Diff: %s", diff)
+	}
+}
+
+type Simulation struct {
+	t         *testing.T
+	Listeners []*listener.Listener
+	Clusters  []*cluster.Cluster
+	Routes    []*route.RouteConfiguration
+}
+
+func NewSimulation(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
+	return &Simulation{
+		t:         t,
+		Listeners: s.Listeners(proxy),
+		Clusters:  s.Clusters(proxy),
+		Routes:    s.Routes(proxy),
+	}
+}
+
+// withT swaps out the testing struct. This allows executing sub tests.
+func (sim *Simulation) withT(t *testing.T) *Simulation {
+	cpy := *sim
+	cpy.t = t
+	return &cpy
+}
+
 func (sim *Simulation) RunExpectations(es []Expect) {
 	for i, e := range es {
-		res := sim.Run(e.Call)
-		if err := res.Matches(e.Result); err != nil {
-			sim.t.Fatalf("%d: %v", i, err)
-		}
+		sim.t.Run(fmt.Sprint(i), func(t *testing.T) {
+			sim.withT(t).Run(e.Call).Matches(t, e.Result)
+		})
 	}
 }
 
@@ -166,10 +174,10 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	result.ListenerMatched = l.Name
 
 	// Apply listener filters. This will likely need the TLS inspector in the future as well
-	if _, hasHttpInspector := xdstest.ExtractListenerFilters(l)[xdsfilters.HTTPInspector.Name]; hasHttpInspector {
+	if _, f := xdstest.ExtractListenerFilters(l)[xdsfilters.HTTPInspector.Name]; f {
 		input.Alpn = protocolToAlpn(input.Protocol)
 	}
-	fc, err := matchFilterChain(l.FilterChains, input)
+	fc, err := sim.matchFilterChain(l.FilterChains, input)
 	if err != nil {
 		result.Error = err
 		return
@@ -184,13 +192,13 @@ func (sim *Simulation) Run(input Call) (result Result) {
 			result.Error = errors.New("http requests require a host header")
 			return
 		}
-		vh := matchDomain(rc, input.Headers["Host"][0])
+		vh := sim.matchDomain(rc, input.Headers["Host"][0])
 		if vh == nil {
 			result.Error = ErrNoVirtualHost
 			return
 		}
 		result.VirtualHostMatched = vh.Name
-		r := matchVirtualHost(vh, input)
+		r := sim.matchVirtualHost(vh, input)
 
 		if r == nil {
 			result.Error = ErrNoRoute
@@ -207,7 +215,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	return
 }
 
-func matchVirtualHost(vh *route.VirtualHost, input Call) *route.Route {
+func (sim *Simulation) matchVirtualHost(vh *route.VirtualHost, input Call) *route.Route {
 	for _, r := range vh.Routes {
 		// check path
 		switch pt := r.Match.GetPathSpecifier().(type) {
@@ -222,14 +230,13 @@ func matchVirtualHost(vh *route.VirtualHost, input Call) *route.Route {
 		case *route.RouteMatch_SafeRegex:
 			r, err := regexp.Compile(pt.SafeRegex.GetRegex())
 			if err != nil {
-				log.Errorf("invalid regex: %v", err)
-				continue
+				sim.t.Fatalf("invalid regex %v: %v", r, err)
 			}
 			if !r.MatchString(input.Path) {
 				continue
 			}
 		default:
-			panic("unknown route path type")
+			sim.t.Fatalf("unknown route path type")
 		}
 
 		return r
@@ -237,7 +244,7 @@ func matchVirtualHost(vh *route.VirtualHost, input Call) *route.Route {
 	return nil
 }
 
-func matchDomain(rc *route.RouteConfiguration, host string) *route.VirtualHost {
+func (sim *Simulation) matchDomain(rc *route.RouteConfiguration, host string) *route.VirtualHost {
 	// Exact match
 	for _, vh := range rc.VirtualHosts {
 		for _, d := range vh.Domains {
@@ -254,7 +261,7 @@ func matchDomain(rc *route.RouteConfiguration, host string) *route.VirtualHost {
 			if d[0] != '*' {
 				continue
 			}
-			if len(host) > len(d)-1 && strings.HasSuffix(host, d[1:]) && len(d) > longest {
+			if len(host) >= len(d) && strings.HasSuffix(host, d[1:]) && len(d) > longest {
 				bestMatch = vh
 				longest = len(d)
 			}
@@ -270,7 +277,7 @@ func matchDomain(rc *route.RouteConfiguration, host string) *route.VirtualHost {
 			if d[len(d)-1] != '*' {
 				continue
 			}
-			if len(host) > len(d)-1 && strings.HasPrefix(host, d[:len(d)-1]) && len(d) > longest {
+			if len(host) >= len(d) && strings.HasPrefix(host, d[:len(d)-1]) && len(d) > longest {
 				bestMatch = vh
 				longest = len(d)
 			}
@@ -296,7 +303,7 @@ func matchDomain(rc *route.RouteConfiguration, host string) *route.VirtualHost {
 // Envoy algorithm - at each level we will filter out all FilterChains that do
 // not match. This means an empty match (`{}`) may not match if another chain
 // matches one criteria but not another.
-func matchFilterChain(chains []*listener.FilterChain, input Call) (*listener.FilterChain, error) {
+func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Call) (*listener.FilterChain, error) {
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetDestinationPort() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
@@ -309,15 +316,15 @@ func matchFilterChain(chains []*listener.FilterChain, input Call) (*listener.Fil
 		for _, a := range fc.GetPrefixRanges() {
 			_, cidr, err := net.ParseCIDR(fmt.Sprintf("%s/%d", a.AddressPrefix, a.GetPrefixLen().GetValue()))
 			if err != nil {
-				panic(err.Error())
+				sim.t.Fatal(err)
 			}
 			if err := ranger.Insert(cidranger.NewBasicRangerEntry(*cidr)); err != nil {
-				panic(err.Error())
+				sim.t.Fatal(err)
 			}
 		}
 		f, err := ranger.Contains(net.ParseIP(input.Address))
 		if err != nil {
-			panic(err.Error())
+			sim.t.Fatal(err)
 		}
 		return f
 	})

@@ -15,7 +15,6 @@
 package v1alpha3_test
 
 import (
-	"fmt"
 	"testing"
 
 	pilot_model "istio.io/istio/pilot/pkg/model"
@@ -24,30 +23,17 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
-func TestGateway(t *testing.T) {
-	cases := []struct {
-		name   string
-		config string
-		calls  []simulation.Expect
-	}{
-		{
-			name: "no virtual services",
-			config: `
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: bookinfo-gateway
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "foo.bar"
-`,
+func TestHTTPGateway(t *testing.T) {
+	httpServer := `port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "foo.bar"`
+	runGatewayTest(t,
+		gatewayTest{
+			name:   "no virtual services",
+			config: createGateway("", "", httpServer),
 			calls: []simulation.Expect{
 				{
 					// Port define in gateway, but no virtual services
@@ -76,24 +62,9 @@ spec:
 				},
 			},
 		},
-		{
+		gatewayTest{
 			name: "simple http and virtual service",
-			config: `
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: bookinfo-gateway
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "foo.bar"
----
+			config: createGateway("gateway", "", httpServer) + `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -102,7 +73,7 @@ spec:
   hosts:
   - "*"
   gateways:
-  - bookinfo-gateway
+  - gateway
   http:
   - match:
     - uri:
@@ -158,34 +129,81 @@ spec:
 					},
 				},
 			},
-		},
-		{
-			name:   "duplicate cross namespace gateway collision",
-			config: fmt.Sprintf(gatewayCollision, "alpha"), // namespace comes before istio-system
+		})
+}
+
+func TestGatewayConflicts(t *testing.T) {
+	tcpServer := `port:
+  number: 80
+  name: tcp
+  protocol: TCP
+hosts:
+- "foo.bar"`
+	httpServer := `port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "foo.bar"`
+	tlsServer := `hosts:
+  - ./*
+port:
+  name: https-ingress
+  number: 443
+  protocol: HTTPS
+tls:
+  credentialName: sds-credential
+  mode: SIMPLE`
+	gatewayCollision := `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookinfo
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - istio-system/gateway
+  tcp:
+  - route:
+    - destination:
+        host: productpage
+        port:
+          number: 9080
+`
+	runGatewayTest(t,
+		gatewayTest{
+			name: "duplicate cross namespace gateway collision",
+			config: createGateway("gateway", "istio-system", tcpServer) +
+				createGateway("gateway", "alpha", tcpServer) + // namespace comes before istio-system
+
+				gatewayCollision,
 			calls: []simulation.Expect{
 				{
-					simulation.Call{Port: 34000, Protocol: simulation.TCP},
+					simulation.Call{Port: 80, Protocol: simulation.TCP},
 					// TODO(https://github.com/istio/istio/issues/21394) This is a bug!
 					// Should have identical result to the test below
 					simulation.Result{Error: simulation.ErrNoListener},
 				},
 			},
 		},
-		{
-			name:   "duplicate cross namespace gateway collision - selected first",
-			config: fmt.Sprintf(gatewayCollision, "zeta"), // namespace comes after istio-system
+		gatewayTest{
+			name: "duplicate cross namespace gateway collision - selected first",
+			config: createGateway("gateway", "istio-system", tcpServer) +
+				createGateway("gateway", "zeta", tcpServer) + // namespace comes after istio-system
+				gatewayCollision,
 			calls: []simulation.Expect{
 				{
-					simulation.Call{Port: 34000, Protocol: simulation.TCP},
-					simulation.Result{ListenerMatched: "0.0.0.0_34000", ClusterMatched: "outbound|9080||productpage.default"},
+					simulation.Call{Port: 80, Protocol: simulation.TCP},
+					simulation.Result{ListenerMatched: "0.0.0.0_80", ClusterMatched: "outbound|9080||productpage.default"},
 				},
 			},
 		},
-		{
+		gatewayTest{
 			name: "duplicate tls gateway",
 			// Create the same gateway in two namespaces
-			config: tmpl.EvaluateOrFail(t, tlsGateway, struct{ Namespace string }{"istio-system"}) +
-				tmpl.EvaluateOrFail(t, tlsGateway, struct{ Namespace string }{"default"}),
+			config: createGateway("", "istio-system", tlsServer) +
+				createGateway("", "default", tlsServer),
 			calls: []simulation.Expect{
 				{
 					// TODO(https://github.com/istio/istio/issues/24638) This is a bug!
@@ -195,40 +213,11 @@ spec:
 				},
 			},
 		},
-		{
+		gatewayTest{
 			// TODO(https://github.com/istio/istio/issues/27481) this may be a bug. At very least, this should have indication to user
 			name: "multiple protocols on a port - tcp first",
-			config: `
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: alpha
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: tcp
-      protocol: TCP
-    hosts:
-    - "foo.bar"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: beta
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "foo.bar"
-`,
+			config: createGateway("alpha", "", tcpServer) +
+				createGateway("beta", "", httpServer),
 			calls: []simulation.Expect{
 				{
 					// TCP takes precedence. Since we have no tcp routes, this will result in no listeners
@@ -242,40 +231,11 @@ spec:
 				},
 			},
 		},
-		{
+		gatewayTest{
 			// TODO(https://github.com/istio/istio/issues/27481) this may be a bug. At very least, this should have indication to user
 			name: "multiple protocols on a port - http first",
-			config: `
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: beta
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: tcp
-      protocol: TCP
-    hosts:
-    - "foo.bar"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: alpha
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "foo.bar"
-`,
+			config: createGateway("beta", "", tcpServer) +
+				createGateway("alpha", "", httpServer),
 			calls: []simulation.Expect{
 				{
 					// Port define in gateway, but no virtual services
@@ -294,7 +254,16 @@ spec:
 				},
 			},
 		},
-	}
+	)
+}
+
+type gatewayTest struct {
+	name   string
+	config string
+	calls  []simulation.Expect
+}
+
+func runGatewayTest(t *testing.T, cases ...gatewayTest) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := &pilot_model.Proxy{
@@ -309,74 +278,30 @@ spec:
 	}
 }
 
-var (
-	tlsGateway = `apiVersion: networking.istio.io/v1alpha3
+func createGateway(name, namespace string, servers ...string) string {
+	if name == "" {
+		name = "default"
+	}
+	if namespace == "" {
+		namespace = "default"
+	}
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: istio-ingressgateway
-  namespace: {{.Namespace}}
+  name: "{{.Name}}"
+  namespace: "{{.Namespace}}"
 spec:
   selector:
     istio: ingressgateway
   servers:
-    - hosts:
-        - ./*
-      port:
-        name: https-ingress
-        number: 443
-        protocol: HTTPS
-      tls:
-        credentialName: sds-credential
-        mode: SIMPLE
+{{- range $i, $p := $.Servers }}
+  -
+{{$p | trim | indent 4}}
+{{- end }}
 ---
-`
-	gatewayCollision = `
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: gateway
-  namespace: istio-system
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 34000
-      name: tcp
-      protocol: TCP
-    hosts:
-    - "foo.bar"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: gateway
-  namespace: %s # namespace matters - must be alphabetically lower than istio-system to trigger bug
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 34000
-      name: tcp
-      protocol: TCP
-    hosts:
-    - "foo.bar"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: bookinfo
-spec:
-  hosts:
-  - "*"
-  gateways:
-  - istio-system/gateway
-  tcp:
-  - route:
-    - destination:
-        host: productpage
-        port:
-          number: 9080
-`
-)
+`, struct {
+		Name      string
+		Namespace string
+		Servers   []string
+	}{name, namespace, servers})
+}
