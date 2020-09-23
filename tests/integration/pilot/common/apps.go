@@ -245,3 +245,7 @@ spec:
 	}
 	return nil
 }
+
+func (d EchoDeployments) Multicluster() bool {
+	return d.All.Clusters().IsMulticluster()
+}
