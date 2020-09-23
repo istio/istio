@@ -56,7 +56,7 @@ var (
 			proxyDebugURLs: []string{
 				"certs",
 				"clusters",
-				"config_dump",
+				"config_dump?include_eds",
 				"listeners",
 				"memory",
 				"server_info",
