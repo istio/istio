@@ -63,10 +63,6 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout,
 		"Maximum amount of time to spend fetching logs. When timeout is reached "+
 			"only the logs captured so far are saved to the archive.")
-	cmd.PersistentFlags().Int32Var(&args.MaxArchiveSizeMb, "max-size", bugReportDefaultMaxSizeMb,
-		"Maximum size of the compressed archive in Mb. Logs are prioritized"+
-			"according to importance heuristics.")
-
 	// include / exclude specs
 	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude,
 		"Spec for which pods' proxy logs to include in the archive. See above for format and examples.")
@@ -91,12 +87,6 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().StringSliceVar(&args.IgnoredErrors, "ignore-errs", nil,
 		"List of comma separated glob patters to match against log error strings. "+
 			"Any error matching these patters is ignored when calculating the log importance heuristic.")
-
-	// archive and upload control
-	cmd.PersistentFlags().StringVar(&args.GCSURL, "gcs-url", "",
-		"URL of the GCS bucket where the archive is uploaded.")
-	cmd.PersistentFlags().BoolVar(&args.UploadToGCS, "upload", false,
-		"Upload archive to GCS bucket. If gcs-url is unset, a new bucket is created.")
 
 	// output/working dir
 	cmd.PersistentFlags().StringVar(&tempDir, "dir", "",

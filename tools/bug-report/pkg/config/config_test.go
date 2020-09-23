@@ -32,7 +32,6 @@ istioNamespace: e1
 dryRun: true
 fullSecrets: true
 commandTimeout: 5m
-maxArchiveSizeMb: 123
 include:
   - ns1,ns2/d1,d2/p1,p2/l1=lv1,l2=lv2/a1=av1,a2=av2/c1,c2
   - ns4,ns5/d4,d5/p4,p5/l4=lv4,l5=lv5/a4=av4,a5=av5/c4,c5
@@ -47,22 +46,18 @@ criticalErrors:
 ignoredErrors:
   - e3
   - e4
-gcsURL: f
-uploadToGCS: true
 `
-
 	wantTime, err := time.Parse(time.RFC3339, "2002-10-02T10:00:00-05:00")
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := &BugReportConfig{
-		KubeConfigPath:   "a/b/c",
-		Context:          "d",
-		IstioNamespace:   "e1",
-		DryRun:           true,
-		FullSecrets:      true,
-		CommandTimeout:   Duration(5 * time.Minute),
-		MaxArchiveSizeMb: 123,
+		KubeConfigPath: "a/b/c",
+		Context:        "d",
+		IstioNamespace: "e1",
+		DryRun:         true,
+		FullSecrets:    true,
+		CommandTimeout: Duration(5 * time.Minute),
 		Include: []*SelectionSpec{
 			{
 				Namespaces:  []string{"ns1", "ns2"},
@@ -114,8 +109,6 @@ uploadToGCS: true
 		Since:          Duration(time.Minute),
 		CriticalErrors: []string{"e1", "e2"},
 		IgnoredErrors:  []string{"e3", "e4"},
-		GCSURL:         "f",
-		UploadToGCS:    true,
 	}
 
 	got := &BugReportConfig{}

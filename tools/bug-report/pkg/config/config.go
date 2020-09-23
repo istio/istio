@@ -132,10 +132,6 @@ type BugReportConfig struct {
 	// before giving up, even if not all logs are captured. Upon timeout,
 	// the command creates an archive with only the logs captured so far.
 	CommandTimeout Duration `json:"commandTimeout,omitempty"`
-	// MaxArchiveSizeMb is the maximum size of the archive in Mb. When
-	// the maximum size is reached, logs are selectively discarded based
-	// on importance metrics.
-	MaxArchiveSizeMb int32 `json:"maxArchiveSizeMb,omitempty"`
 
 	// Include is a list of SelectionSpec entries for resources to include.
 	Include SelectionSpecs `json:"include,omitempty"`
@@ -160,12 +156,6 @@ type BugReportConfig struct {
 	// IgnoredErrors are glob error patterns which are ignored when
 	// calculating the error heuristic for a log.
 	IgnoredErrors []string `json:"ignoredErrors,omitempty"`
-
-	// GCSURL is an URL to the GCS bucket where the archive is uploaded.
-	GCSURL string `json:"gcsURL,omitempty"`
-	// UploadToGCS uploads the archive to a GCS bucket. If no bucket
-	// address is given, it creates one.
-	UploadToGCS bool `json:"uploadToGCS,omitempty"`
 }
 
 func (b *BugReportConfig) String() string {
@@ -179,7 +169,6 @@ func (b *BugReportConfig) String() string {
 	out += fmt.Sprintf("istio-namespace: %s\n", b.IstioNamespace)
 	out += fmt.Sprintf("full-secrets: %v\n", b.FullSecrets)
 	out += fmt.Sprintf("timeout (mins): %v\n", math.Round(float64(int(b.CommandTimeout))/float64(time.Minute)))
-	out += fmt.Sprintf("max-size (Mb): %d\n", b.MaxArchiveSizeMb)
 	out += fmt.Sprintf("include: %s\n", b.Include)
 	out += fmt.Sprintf("exclude: %s\n", b.Exclude)
 	if !b.StartTime.Equal(time.Time{}) {
