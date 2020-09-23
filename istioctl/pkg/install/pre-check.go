@@ -98,7 +98,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 		errs = multierror.Append(errs, err)
 		fmt.Fprint(writer, err)
 	} else if !res {
-		msg := fmt.Sprintf("The Kubernetes API version: %v is lower than the minimum version: "+k8sversion.MinK8SVersion, v)
+		msg := fmt.Sprintf("The Kubernetes API version: %v is lower than the minimum version: 1.%d", v, k8sversion.MinK8SVersion)
 		errs = multierror.Append(errs, errors.New(msg))
 		fmt.Fprintf(writer, msg+"\n")
 	} else {
