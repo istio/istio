@@ -389,6 +389,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         component: "server"
         app: prometheus

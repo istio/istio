@@ -122,6 +122,7 @@ spec:
         checksum/config: fe7e580c8af3062a70a8dfda740e0ae1daa655c20dd5b94e78bdd09a79b9b5cb
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        sidecar.istio.io/inject: "false"
     spec:
       
       serviceAccountName: grafana
