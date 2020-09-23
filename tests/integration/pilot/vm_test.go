@@ -29,7 +29,7 @@ import (
 func GetAdditionVMImages() []string {
 	// Note - bionic is not here as its the default
 	return []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal",
-		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_8"}
+		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_7", "app_sidecar_centos_8"}
 }
 
 func TestVmOSPost(t *testing.T) {
