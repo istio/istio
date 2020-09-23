@@ -31,6 +31,7 @@ type kv struct {
 type resourceNames struct {
 	discoveryLabels []kv
 	istioDebugURLs  []string
+	proxyDebugURLs  []string
 }
 
 var (
@@ -52,6 +53,16 @@ var (
 				"debug/push_status",
 				"debug/inject",
 			},
+			proxyDebugURLs: []string{
+				"certs",
+				"clusters",
+				"config_dump",
+				"listeners",
+				"memory",
+				"server_info",
+				"stats/prometheus",
+				"runtime",
+			},
 		},
 	}
 )
@@ -59,6 +70,11 @@ var (
 // IstiodDebugURLs returns a list of Istiod debug URLs for the given version.
 func IstiodDebugURLs(clusterVersion string) []string {
 	return versionMap[getVersionKey(clusterVersion)].istioDebugURLs
+}
+
+// ProxyDebugURLs returns a list of proxy debug URLs for the given version.
+func ProxyDebugURLs(clusterVersion string) []string {
+	return versionMap[getVersionKey(clusterVersion)].proxyDebugURLs
 }
 
 // IsDiscoveryContainer reports whether the given container is an Istio discovery container for the given version.

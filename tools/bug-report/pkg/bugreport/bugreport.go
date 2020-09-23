@@ -200,6 +200,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		case common.IsProxyContainer(params.ClusterVersion, container):
 			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(client, config, resources, p, namespace, pod, container, &optionalWg)
 
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
