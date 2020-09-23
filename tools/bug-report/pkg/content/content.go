@@ -15,6 +15,7 @@
 package content
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -146,6 +147,22 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 			return nil, err
 		}
 		ret[url] = out
+	}
+	return ret, nil
+}
+
+// GetProxyInfo returns internal proxy debug info.
+func GetProxyInfo(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
+	}
+	ret := make(map[string]string)
+	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
+		out, err := p.Client.EnvoyDo(context.TODO(), p.Pod, p.Namespace, "GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		ret[url] = string(out)
 	}
 	return ret, nil
 }
