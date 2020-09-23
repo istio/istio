@@ -150,6 +150,22 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 	return ret, nil
 }
 
+// GetProxyInfo returns internal proxy debug info.
+func GetProxyInfo(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
+	}
+	ret := make(map[string]string)
+	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
+		out, err := kubectlcmd.Exec(p.Client, p.Namespace, p.Pod, common.ProxyContainerName, fmt.Sprintf(`curl http://localhost:15000/%s`, url), p.DryRun)
+		if err != nil {
+			return nil, err
+		}
+		ret[url] = out
+	}
+	return ret, nil
+}
+
 // GetNetstat returns netstat for the given container.
 func GetNetstat(p *Params) (map[string]string, error) {
 	if p.Namespace == "" || p.Pod == "" {
