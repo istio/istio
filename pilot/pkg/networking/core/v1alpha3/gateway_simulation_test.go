@@ -196,12 +196,28 @@ spec:
 			},
 		},
 		{
-			name: "multiple protocols on a port",
+			// TODO(https://github.com/istio/istio/issues/27481) this may be a bug. At very least, this should have indication to user
+			name: "multiple protocols on a port - tcp first",
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: bookinfo-gateway
+  name: alpha
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: tcp
+      protocol: TCP
+    hosts:
+    - "foo.bar"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: beta
 spec:
   selector:
     istio: ingressgateway
@@ -212,10 +228,51 @@ spec:
       protocol: HTTP
     hosts:
     - "foo.bar"
+`,
+			calls: []simulation.Expect{
+				{
+					// TCP takes precedence. Since we have no tcp routes, this will result in no listeners
+					simulation.Call{
+						Port:     80,
+						Protocol: simulation.TCP,
+					},
+					simulation.Result{
+						Error: simulation.ErrNoListener,
+					},
+				},
+			},
+		},
+		{
+			// TODO(https://github.com/istio/istio/issues/27481) this may be a bug. At very least, this should have indication to user
+			name: "multiple protocols on a port - http first",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: beta
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
   - port:
       number: 80
       name: tcp
       protocol: TCP
+    hosts:
+    - "foo.bar"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: alpha
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
     hosts:
     - "foo.bar"
 `,
@@ -223,6 +280,7 @@ spec:
 				{
 					// Port define in gateway, but no virtual services
 					// Expect a 404
+					// HTTP protocol takes precedence
 					simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
@@ -232,17 +290,6 @@ spec:
 						ListenerMatched:    "0.0.0.0_80",
 						RouteConfigMatched: "http.80",
 						VirtualHostMatched: "blackhole:80",
-					},
-				},
-				{
-					// Port not defined at all. There should be no listener.
-					simulation.Call{
-						Port:       81,
-						HostHeader: "foo.bar",
-						Protocol:   simulation.HTTP,
-					},
-					simulation.Result{
-						Error: simulation.ErrNoListener,
 					},
 				},
 			},

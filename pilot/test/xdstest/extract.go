@@ -236,6 +236,19 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	return ret
 }
 
+// DumpList will dump a list of protos. To workaround go type issues, call DumpList(t, InterfaceSlice([]proto.Message))
+func DumpList(t test.Failer, protoList []interface{}) []string {
+	res := []string{}
+	for _, i := range protoList {
+		p, ok := i.(proto.Message)
+		if !ok {
+			t.Fatalf("expected proto, got %T", i)
+		}
+		res = append(res, Dump(t, p))
+	}
+	return res
+}
+
 func Dump(t test.Failer, p proto.Message) string {
 	v := reflect.ValueOf(p)
 	if p == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
