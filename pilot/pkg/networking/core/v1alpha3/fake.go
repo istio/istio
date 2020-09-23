@@ -27,6 +27,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -65,6 +66,9 @@ type TestOptions struct {
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
+	// Additional ConfigStoreCache to use
+	ConfigStoreCaches []model.ConfigStoreCache
+
 	// ConfigGen plugins to use. If not set, all default plugins will be used
 	Plugins []plugin.Plugin
 
@@ -93,7 +97,10 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	configs := getConfigs(t, opts)
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 
-	configController := memory.NewSyncController(configStore)
+	cc := memory.NewSyncController(configStore)
+	controllers := []model.ConfigStoreCache{cc}
+	controllers = append(controllers, opts.ConfigStoreCaches...)
+	configController, _ := configaggregate.MakeWriteableCache(controllers, cc)
 	go configController.Run(stop)
 
 	m := opts.MeshConfig
@@ -124,7 +131,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	env := &model.Environment{}
 	env.PushContext = model.NewPushContext()
 	env.ServiceDiscovery = serviceDiscovery
-	env.IstioConfigStore = model.MakeIstioStore(configStore)
+	env.IstioConfigStore = model.MakeIstioStore(configController)
 	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/pkg/xds"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
@@ -60,6 +61,7 @@ var (
 )
 
 type Expect struct {
+	Name   string
 	Call   Call
 	Result Result
 }
@@ -140,7 +142,7 @@ type Simulation struct {
 	Routes    []*route.RouteConfiguration
 }
 
-func NewSimulation(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
+func NewSimulationFromConfigGen(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
 	sim := &Simulation{
 		t:         t,
 		Listeners: s.Listeners(proxy),
@@ -153,6 +155,10 @@ func NewSimulation(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) 
 	return sim
 }
 
+func NewSimulation(t *testing.T, s *xds.FakeDiscoveryServer, proxy *model.Proxy) *Simulation {
+	return NewSimulationFromConfigGen(t, s.ConfigGenTest, proxy)
+}
+
 // withT swaps out the testing struct. This allows executing sub tests.
 func (sim *Simulation) withT(t *testing.T) *Simulation {
 	cpy := *sim
@@ -161,8 +167,8 @@ func (sim *Simulation) withT(t *testing.T) *Simulation {
 }
 
 func (sim *Simulation) RunExpectations(es []Expect) {
-	for i, e := range es {
-		sim.t.Run(fmt.Sprint(i), func(t *testing.T) {
+	for _, e := range es {
+		sim.t.Run(e.Name, func(t *testing.T) {
 			sim.withT(t).Run(e.Call).Matches(t, e.Result)
 		})
 	}

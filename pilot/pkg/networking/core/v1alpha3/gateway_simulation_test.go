@@ -17,13 +17,12 @@ package v1alpha3_test
 import (
 	"testing"
 
-	"istio.io/pkg/env"
-
 	pilot_model "istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/simulation"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/pkg/env"
 )
 
 func TestHTTPGateway(t *testing.T) {
@@ -39,8 +38,8 @@ hosts:
 			config: createGateway("", "", httpServer),
 			calls: []simulation.Expect{
 				{
-					// Port define in gateway, but no virtual services
-					// Expect a 404
+					// Expect listener, but no routing
+					"defined port",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
@@ -53,7 +52,8 @@ hosts:
 					},
 				},
 				{
-					// Port not defined at all. There should be no listener.
+					// There will be no listener
+					"undefined port",
 					simulation.Call{
 						Port:       81,
 						HostHeader: "foo.bar",
@@ -89,7 +89,7 @@ spec:
 `,
 			calls: []simulation.Expect{
 				{
-					// Do not match any URI
+					"uri mismatch",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
@@ -104,7 +104,7 @@ spec:
 					},
 				},
 				{
-					// Do not match host
+					"host mismatch",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "bad.bar",
@@ -118,7 +118,7 @@ spec:
 					},
 				},
 				{
-					// Match everything
+					"match",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
@@ -181,6 +181,7 @@ spec:
 `,
 			calls: []simulation.Expect{
 				{
+					"a",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "a.example.com",
@@ -189,6 +190,7 @@ spec:
 					simulation.Result{ClusterMatched: "outbound|80||a.default"},
 				},
 				{
+					"b",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "b.example.com",
@@ -197,6 +199,7 @@ spec:
 					simulation.Result{ClusterMatched: "outbound|80||b.default"},
 				},
 				{
+					"undefined hostname",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "c.example.com",
@@ -256,6 +259,7 @@ spec:
 				gatewayCollision,
 			calls: []simulation.Expect{
 				{
+					"call",
 					simulation.Call{Port: 80, Protocol: simulation.TCP},
 					// TODO(https://github.com/istio/istio/issues/21394) This is a bug!
 					// Should have identical result to the test below
@@ -270,6 +274,7 @@ spec:
 				gatewayCollision,
 			calls: []simulation.Expect{
 				{
+					"call",
 					simulation.Call{Port: 80, Protocol: simulation.TCP},
 					simulation.Result{ListenerMatched: "0.0.0.0_80", ClusterMatched: "outbound|9080||productpage.default"},
 				},
@@ -284,6 +289,7 @@ spec:
 				{
 					// TODO(https://github.com/istio/istio/issues/24638) This is a bug!
 					// We should not have multiple matches, envoy will NACK this
+					"call",
 					simulation.Call{Port: 443, Protocol: simulation.HTTPS, HostHeader: "foo.bar"},
 					simulation.Result{Error: simulation.ErrMultipleFilterChain},
 				},
@@ -296,6 +302,7 @@ spec:
 				createGateway("beta", "", httpServer),
 			calls: []simulation.Expect{
 				{
+					"call tcp",
 					// TCP takes precedence. Since we have no tcp routes, this will result in no listeners
 					simulation.Call{
 						Port:     80,
@@ -317,6 +324,7 @@ spec:
 					// Port define in gateway, but no virtual services
 					// Expect a 404
 					// HTTP protocol takes precedence
+					"call http",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "foo.bar",
@@ -378,6 +386,7 @@ spec:
 `,
 			calls: []simulation.Expect{
 				{
+					"ns-1",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "ns-1.example.com",
@@ -390,6 +399,7 @@ spec:
 					},
 				},
 				{
+					"ns-2",
 					simulation.Call{
 						Port:       80,
 						HostHeader: "ns-2.example.com",
@@ -406,26 +416,112 @@ spec:
 	)
 }
 
+func TestIngress(t *testing.T) {
+	cfg := `
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: {{.Name}}
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: istio
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - backend:
+          serviceName: {{.Name}}
+          servicePort: 80
+        path: /{{.Name}}
+  tls:
+  - hosts:
+    - example.com
+    secretName: ingressgateway-certs
+---`
+	runGatewayTest(t, gatewayTest{
+		name:       "ingress shared TLS cert conflict",
+		kubeConfig: tmpl.MustEvaluate(cfg, map[string]string{"Name": "alpha"}) + tmpl.MustEvaluate(cfg, map[string]string{"Name": "beta"}),
+		calls: []simulation.Expect{
+			{
+				"http alpha",
+				simulation.Call{
+					Port:       80,
+					HostHeader: "example.com",
+					Path:       "/alpha",
+					Protocol:   simulation.HTTP,
+				},
+				simulation.Result{
+					ListenerMatched:    "0.0.0.0_80",
+					RouteConfigMatched: "http.80",
+					ClusterMatched:     "outbound|80||alpha.default.svc.cluster.local",
+				},
+			},
+			{
+				"http beta",
+				simulation.Call{
+					Port:       80,
+					HostHeader: "example.com",
+					Path:       "/beta",
+					Protocol:   simulation.HTTP,
+				},
+				simulation.Result{
+					ListenerMatched:    "0.0.0.0_80",
+					RouteConfigMatched: "http.80",
+					ClusterMatched:     "outbound|80||beta.default.svc.cluster.local",
+				},
+			},
+			{
+				"https alpha",
+				simulation.Call{
+					Port:       443,
+					HostHeader: "example.com",
+					Path:       "/alpha",
+					Protocol:   simulation.HTTPS,
+				},
+				simulation.Result{
+					ListenerMatched:    "0.0.0.0_443",
+					RouteConfigMatched: "https.443.https-443-ingress-alpha-default-0.alpha-istio-autogenerated-k8s-ingress.istio-system",
+					ClusterMatched:     "outbound|80||alpha.default.svc.cluster.local",
+				},
+			},
+			{
+				"https beta",
+				simulation.Call{
+					Port:       443,
+					HostHeader: "example.com",
+					Path:       "/beta",
+					Protocol:   simulation.HTTPS,
+				},
+				simulation.Result{
+					ListenerMatched:    "0.0.0.0_443",
+					RouteConfigMatched: "https.443.https-443-ingress-alpha-default-0.alpha-istio-autogenerated-k8s-ingress.istio-system",
+					ClusterMatched:     "outbound|80||beta.default.svc.cluster.local",
+				},
+			},
+		},
+	})
+}
+
 type gatewayTest struct {
-	name   string
-	config string
-	calls  []simulation.Expect
+	name       string
+	config     string
+	kubeConfig string
+	calls      []simulation.Expect
 }
 
 var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", true, "if enabled, will dump verbose output").Get()
 
 func runGatewayTest(t *testing.T, cases ...gatewayTest) {
 	for _, tt := range cases {
-		if tt.name != "multiple wildcards with virtual service disambiguator" {
-			continue
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
 				Type:     pilot_model.Router,
 			}
-			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
-				ConfigString: tt.config,
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				ConfigString:           tt.config,
+				KubernetesObjectString: tt.kubeConfig,
 			})
 			sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
 			sim.RunExpectations(tt.calls)
