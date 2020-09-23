@@ -4,4 +4,4 @@ area: istioctl
 
 releaseNotes:
 - |
-  **Added** `--secret-name` for `istioctl experimental create-remote-secret` to allow user specify name for the created secret
+  **Added** `--type` for `istioctl experimental create-remote-secret` to allow user specify type for the created secret
