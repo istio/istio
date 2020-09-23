@@ -129,6 +129,79 @@ spec:
 					},
 				},
 			},
+		},
+		gatewayTest{
+			name: "virtual service merging",
+			config: createGateway("gateway", "", `port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "*.example.com"`) + `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: a
+spec:
+  hosts:
+  - "a.example.com"
+  gateways:
+  - gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: a
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: b
+spec:
+  hosts:
+  - "b.example.com"
+  gateways:
+  - gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: b
+        port:
+          number: 80
+`,
+			calls: []simulation.Expect{
+				{
+					simulation.Call{
+						Port:       80,
+						HostHeader: "a.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					simulation.Result{ClusterMatched: "outbound|80||a.default"},
+				},
+				{
+					simulation.Call{
+						Port:       80,
+						HostHeader: "b.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					simulation.Result{ClusterMatched: "outbound|80||b.default"},
+				},
+				{
+					simulation.Call{
+						Port:       80,
+						HostHeader: "c.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					simulation.Result{Error: simulation.ErrNoVirtualHost},
+				},
+			},
 		})
 }
 

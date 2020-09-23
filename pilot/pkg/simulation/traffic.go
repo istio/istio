@@ -15,6 +15,7 @@
 package simulation
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -27,8 +28,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/yl2chen/cidranger"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -103,9 +102,8 @@ type Result struct {
 }
 
 func (r Result) Matches(t *testing.T, want Result) {
-	diff := cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors())
 	if want.Error != nil && want.Error != r.Error {
-		t.Errorf("want info %q got %q", want.Error, r.Error)
+		t.Errorf("want error %v got %v", want.Error, r.Error)
 	}
 	if want.ListenerMatched != "" && want.ListenerMatched != r.ListenerMatched {
 		t.Errorf("want listener matched %q got %q", want.ListenerMatched, r.ListenerMatched)
@@ -126,7 +124,8 @@ func (r Result) Matches(t *testing.T, want Result) {
 		t.Errorf("want cluster matched %q got %q", want.ClusterMatched, r.ClusterMatched)
 	}
 	if t.Failed() {
-		t.Logf("Diff: %s", diff)
+		s, _ := json.MarshalIndent(r, "", "  ")
+		t.Logf("Got: %+v", string(s))
 	}
 }
 
