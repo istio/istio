@@ -104,7 +104,7 @@ description: test
 				helmChartDirPath: "testdata/render",
 			},
 			wantResult: `apiVersion: v1
-description: 
+description: test
 name: addon
 version: 1.1.0
 appVersion: 1.1.0
