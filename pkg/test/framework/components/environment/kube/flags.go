@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 const (
@@ -92,16 +93,21 @@ func getKubeConfigsFromEnvironmentOrDefault() []string {
 	// KUBECONFIG spec.
 	value := env.KUBECONFIG.Value()
 	if strings.Contains(value, ",") {
-		value = strings.ReplaceAll(value, ",", string(filepath.ListSeparator))
-		_ = os.Setenv(env.KUBECONFIG.Name(), value)
+		updatedValue := strings.ReplaceAll(value, ",", string(filepath.ListSeparator))
+		_ = os.Setenv(env.KUBECONFIG.Name(), updatedValue)
+		scopes.Framework.Warnf("KUBECONFIG contains commas: %s.\nReplacing with %s: %s", value,
+			filepath.ListSeparator, updatedValue)
+		value = updatedValue
 	}
+	scopes.Framework.Infof("KUBECONFIG: %s", value)
 	out, err := parseKubeConfigs(value, string(filepath.ListSeparator))
 	if err != nil {
 		panic(err)
 	}
 	if len(out) == 0 {
-		return []string{defaultKubeConfig}
+		out = []string{defaultKubeConfig}
 	}
+	scopes.Framework.Infof("Using KUBECONFIG array: %v", out)
 	return out
 }
 
