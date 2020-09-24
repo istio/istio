@@ -70,8 +70,6 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/zapr v0.1.1 // indirect
-	github.com/go-openapi/spec v0.19.5 // indirect
-	github.com/go-openapi/swag v0.19.6 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -81,7 +79,7 @@ require (
 	github.com/google/cel-go v0.4.1
 	github.com/google/go-cmp v0.5.0
 	github.com/google/gofuzz v1.1.0
-	github.com/google/uuid v1.1.1
+	github.com/google/uuid v1.1.2
 	github.com/googleapis/gax-go v2.0.2+incompatible
 	github.com/googleapis/gax-go/v2 v2.0.5
 	github.com/gorilla/mux v1.7.3
@@ -115,7 +113,6 @@ require (
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/opentracing/opentracing-go v1.0.2
 	github.com/openzipkin/zipkin-go v0.1.7
-	github.com/pelletier/go-toml v1.3.0 // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/pierrec/lz4 v2.2.7+incompatible // indirect
 	github.com/pkg/errors v0.9.1
@@ -130,8 +127,9 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.4.0
-	github.com/stretchr/testify v1.5.1
+	github.com/spf13/viper v1.7.0
+	github.com/stretchr/testify v1.6.1
+	github.com/thalescpl-io/k8s-kms-plugin v0.5.1-0.20200921230108-72051fb36f12
 	github.com/tinylib/msgp v1.0.2 // indirect
 	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c // indirect
 	github.com/uber/jaeger-client-go v0.0.0-20190228190846-ecf2d03a9e80
@@ -148,13 +146,13 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
-	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
-	golang.org/x/tools v0.0.0-20200115044656-831fdb1e1868
+	golang.org/x/tools v0.0.0-20200626171337-aa94e735be7f
 	google.golang.org/api v0.15.0
 	google.golang.org/genproto v0.0.0-20200619004808-3e7fca5c55db
-	google.golang.org/grpc v1.29.1
+	google.golang.org/grpc v1.31.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
@@ -164,14 +162,16 @@ require (
 	istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26
 	istio.io/gogo-genproto v0.0.0-20200807182027-a780f93e8ee1
 	istio.io/pkg v0.0.0-20200807181912-d97bc429be20
-	k8s.io/api v0.18.3
+	k8s.io/api v0.18.6
 	k8s.io/apiextensions-apiserver v0.18.3
-	k8s.io/apimachinery v0.18.3
+	k8s.io/apimachinery v0.18.6
 	k8s.io/cli-runtime v0.18.3
-	k8s.io/client-go v0.18.3
+	k8s.io/client-go v0.18.6
 	k8s.io/kubectl v0.18.3
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	sigs.k8s.io/controller-runtime v0.6.0
 	sigs.k8s.io/service-apis v0.0.0-20200708220836-10c7cb28ed93
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace google.golang.org/grpc v1.31.0 => google.golang.org/grpc v1.29.1

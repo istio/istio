@@ -218,6 +218,10 @@ meshConfig:
   # What we may configure in mesh config is the ".global" - and use of other suffixes.
   # No hurry to do this in 1.6, we're trying to prove the code.
 
+hsm:
+  # HSM enablement. Disabled by default.
+  enabled: false
+
 global:
   # enable pod disruption budget for the control plane, which is used to
   # ensure Istio control plane components are gradually upgraded or recovered.

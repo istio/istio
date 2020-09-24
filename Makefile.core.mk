@@ -274,6 +274,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
   ./security/tools/sdsclient \
+  ./security/tools/vaultclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
@@ -284,7 +285,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./tools/istio-iptables
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient vaultclient
 
 .PHONY: build
 build: depend ## Builds all go binaries.

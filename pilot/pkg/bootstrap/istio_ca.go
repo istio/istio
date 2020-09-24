@@ -115,6 +115,12 @@ var (
 
 	caRSAKeySize = env.RegisterIntVar("CITADEL_SELF_SIGNED_CA_RSA_KEY_SIZE", 2048,
 		"Specify the RSA key size to use for self-signed Istio CA certificates.")
+
+	keyManagementEndpoint = env.RegisterStringVar("KEY_MANAGEMENT_ENDPOINT", "",
+		"Key management endpoint, which can be implemented by HSM")
+
+	keyManagementKeyID = env.RegisterStringVar("KEY_MANAGEMENT_KEY_ID", "",
+		"Key management key ID, which can be HSM KEK ID")
 )
 
 type CAOptions struct {
@@ -323,7 +329,21 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 		rootCertFile = ""
 	}
 
-	if _, err := os.Stat(signingKeyFile); err != nil && client != nil {
+	if len(keyManagementEndpoint.Get()) != 0 {
+		// The KMS endpoint is set. Run the KMS backed CA.
+		log.Info("Use KMS backed CA")
+		spiffe.SetTrustDomain(opts.TrustDomain)
+		// Abort after 100 days. This does not really matter.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Hour*2400)
+		defer cancel()
+
+		caOpts, err = ca.NewKMSBackedCAOptions(ctx, workloadCertTTL.Get(), maxCertTTL, opts.TrustDomain, true,
+			opts.Namespace, client, caRSAKeySize.Get(), keyManagementEndpoint.Get(), []byte(keyManagementKeyID.Get()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a KMS backed CA: %v", err)
+		}
+
+	} else if _, err := os.Stat(signingKeyFile); err != nil && client != nil {
 		// The user-provided certs are missing - create a self-signed cert.
 		log.Info("Use self-signed certificate as the CA certificate")
 		spiffe.SetTrustDomain(opts.TrustDomain)
