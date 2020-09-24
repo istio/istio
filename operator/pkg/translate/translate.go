@@ -172,6 +172,7 @@ func NewTranslator() *Translator {
 			"Components.{{.ComponentName}}.K8S.Tolerations":         {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"},
 			"Components.{{.ComponentName}}.K8S.ServiceAnnotations":  {OutPath: "[Service:{{.ResourceName}}].metadata.annotations"},
 			"Components.{{.ComponentName}}.K8S.Service":             {OutPath: "[Service:{{.ResourceName}}].spec"},
+			"Components.{{.ComponentName}}.K8S.SecurityContext":     {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.securityContext"},
 		},
 	}
 	return t
