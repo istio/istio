@@ -24,7 +24,7 @@ import (
 )
 
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
-const callsPerCluster = 10
+const callsPerCluster = 5
 
 type TrafficTestCase struct {
 	name   string
