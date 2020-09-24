@@ -197,21 +197,25 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return sc.NetworkingV1alpha1().GatewayClasses().Update(context.TODO(), &servicev1alpha1.GatewayClass{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.GatewayClassSpec)),
+			Status:     *(cfg.Status.(*servicev1alpha1.GatewayClassStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().Gateways(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.GatewaySpec)),
+			Status:     *(cfg.Status.(*servicev1alpha1.GatewayStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().HTTPRoutes(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.HTTPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.HTTPRouteSpec)),
+			Status:     *(cfg.Status.(*servicev1alpha1.HTTPRouteStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().TCPRoutes(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.TCPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.TCPRouteSpec)),
+			Status:     *(cfg.Status.(*servicev1alpha1.TCPRouteStatus)),
 		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)

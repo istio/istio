@@ -64,7 +64,7 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
-			{{if .IstioStatus}}Status:     *(cfg.Status.(*v1alpha1.IstioStatus)),{{end}}
+			Status:     {{if .IstioStatus}}*(cfg.Status.(*v1alpha1.IstioStatus)),{{else}}*(cfg.Status.(*{{ .APIImport }}.{{ .Kind }}Status)),{{end}}
 		}, metav1.UpdateOptions{})
 {{- end }}
 	default:
