@@ -53,6 +53,9 @@ const (
 
 	//deprection messages to be suffixed to the deprecated commands
 	deprecatedMsg = "[Deprecated, it will be removed in Istio 1.9]"
+
+	// ExperimentalMsg indicate active development and not for production use warning.
+	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
 )
 
 var (
