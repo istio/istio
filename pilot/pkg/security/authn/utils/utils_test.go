@@ -130,6 +130,15 @@ func TestBuildInboundFilterChain(t *testing.T) {
 								},
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
+							TlsParams: &auth.TlsParameters{
+								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
+								CipherSuites: []string{
+									"ECDHE-RSA-AES256-GCM-SHA384",
+									"ECDHE-RSA-AES128-GCM-SHA256",
+									"ECDHE-ECDSA-AES256-GCM-SHA384",
+									"ECDHE-ECDSA-AES128-GCM-SHA256",
+								},
+							},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -201,6 +210,15 @@ func TestBuildInboundFilterChain(t *testing.T) {
 								},
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
+							TlsParams: &auth.TlsParameters{
+								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
+								CipherSuites: []string{
+									"ECDHE-RSA-AES256-GCM-SHA384",
+									"ECDHE-RSA-AES128-GCM-SHA256",
+									"ECDHE-ECDSA-AES256-GCM-SHA384",
+									"ECDHE-ECDSA-AES128-GCM-SHA256",
+								},
+							},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
