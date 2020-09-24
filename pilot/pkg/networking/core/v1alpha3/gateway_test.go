@@ -1031,8 +1031,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-	httpGatewayWildcard := config.Config{
-		Meta: config.Meta{
+	httpGatewayWildcard := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
 			Name:             "gateway",
 			Namespace:        "default",
 			GroupVersionKind: gvk.Gateway,
@@ -1188,8 +1188,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 		{
 			"wildcard virtual service",
-			[]config.Config{virtualServiceWildcard},
-			[]config.Config{httpGatewayWildcard},
+			[]pilot_model.Config{virtualServiceWildcard},
+			[]pilot_model.Config{httpGatewayWildcard},
 			"http.80",
 			map[string][]string{
 				"*.org:80": {
