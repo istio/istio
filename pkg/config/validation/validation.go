@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
@@ -106,6 +106,35 @@ var (
 )
 
 type Warning error
+
+// Validation holds errors and warnings. They can be joined with additional errors by called appendValidation
+type Validation struct {
+	Err     error
+	Warning Warning
+}
+
+var _ error = Validation{}
+
+// WrapError turns an error into a Validation
+func WrapError(e error) Validation {
+	return Validation{Err: e}
+}
+
+// WrapWarning turns an error into a Validation as a warning
+func WrapWarning(e error) Validation {
+	return Validation{Warning: e}
+}
+
+func (v Validation) Unwrap() (Warning, error) {
+	return v.Warning, v.Err
+}
+
+func (v Validation) Error() string {
+	if v.Err == nil {
+		return ""
+	}
+	return v.Err.Error()
+}
 
 // ValidateFunc defines a validation func for an API proto.
 type ValidateFunc func(config config.Config) (Warning, error)
@@ -433,26 +462,27 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
 		rule, ok := cfg.Spec.(*networking.DestinationRule)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
 
-		errs = appendErrors(errs,
+		v := Validation{}
+		v = appendValidation(v,
 			ValidateWildcardDomain(rule.Host),
 			validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
 			if subset == nil {
-				errs = appendErrors(errs, errors.New("subset may not be null"))
+				v = appendValidation(v, errors.New("subset may not be null"))
 				continue
 			}
-			errs = appendErrors(errs, validateSubset(subset))
+			v = appendValidation(v, validateSubset(subset))
 		}
 
-		errs = appendErrors(errs, validateExportTo(cfg.Namespace, rule.ExportTo, false))
-		return
+		v = appendValidation(v, validateExportTo(cfg.Namespace, rule.ExportTo, false))
+		return v.Unwrap()
 	})
 
 func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
@@ -878,36 +908,39 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 	return
 }
 
-func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
+func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 	if policy == nil {
-		return nil
+		return Validation{}
 	}
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
 		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil {
-		return fmt.Errorf("traffic policy must have at least one field")
+		return WrapError(fmt.Errorf("traffic policy must have at least one field"))
 	}
 
-	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
+	return appendValidation(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
-		validateTLS(policy.Tls), validatePortTrafficPolicies(policy.PortLevelSettings))
+		validateTLS(policy.Tls),
+		validatePortTrafficPolicies(policy.PortLevelSettings))
 }
 
-func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
+func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Validation) {
 	if outlier == nil {
 		return
 	}
 
 	if outlier.BaseEjectionTime != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
+		errs = appendValidation(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
 	if outlier.ConsecutiveErrors != 0 {
-		scope.Warnf("outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead")
+		warn := "outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead"
+		scope.Warnf(warn)
+		errs = appendValidation(errs, WrapWarning(errors.New(warn)))
 	}
 	if outlier.Interval != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
+		errs = appendValidation(errs, ValidateDurationGogo(outlier.Interval))
 	}
-	errs = appendErrors(errs, ValidatePercent(outlier.MaxEjectionPercent), ValidatePercent(outlier.MinHealthPercent))
+	errs = appendValidation(errs, ValidatePercent(outlier.MaxEjectionPercent), ValidatePercent(outlier.MinHealthPercent))
 
 	return
 }
@@ -1026,6 +1059,7 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 			t.LoadBalancer == nil && t.Tls == nil {
 			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
 		} else {
+
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
 				validateLoadBalancer(t.LoadBalancer),
@@ -2349,6 +2383,30 @@ func ValidateProtocol(protocolStr string) error {
 
 // wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
 // error is nil (allowing validation without branching).
+func appendValidation(v Validation, vs ...error) Validation {
+	appendError := func(err, err2 error) error {
+		if err == nil {
+			return err2
+		} else if err2 == nil {
+			return err
+		}
+		return multierror.Append(err, err2)
+	}
+
+	for _, nv := range vs {
+		switch t := nv.(type) {
+		case Validation:
+			v.Err = appendError(v.Err, t.Err)
+			v.Warning = appendError(v.Warning, t.Warning)
+		default:
+			v.Err = appendError(v.Err, t)
+		}
+	}
+	return v
+}
+
+// wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
+// error is nil (allowing validation without branching).
 func appendErrors(err error, errs ...error) error {
 	appendError := func(err, err2 error) error {
 		if err == nil {
@@ -2360,7 +2418,12 @@ func appendErrors(err error, errs ...error) error {
 	}
 
 	for _, err2 := range errs {
-		err = appendError(err, err2)
+		switch t := err.(type) {
+		case Validation:
+			err = appendError(err, t.Err)
+		default:
+			err = appendError(err, err2)
+		}
 	}
 	return err
 }

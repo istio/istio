@@ -2501,7 +2501,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			valid: false},
 	}
 	for _, c := range cases {
-		if got := validateTrafficPolicy(&c.in); (got == nil) != c.valid {
+		if got := validateTrafficPolicy(&c.in).Err; (got == nil) != c.valid {
 			t.Errorf("ValidateTrafficPolicy failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -2669,6 +2669,7 @@ func TestValidateOutlierDetection(t *testing.T) {
 		name  string
 		in    networking.OutlierDetection
 		valid bool
+		warn  bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
 			Interval:           &types.Duration{Seconds: 2},
@@ -2695,12 +2696,22 @@ func TestValidateOutlierDetection(t *testing.T) {
 			MinHealthPercent: 101,
 		},
 			valid: false},
+		{name: "deprecated outlier detection, ConsecutiveErrors", in: networking.OutlierDetection{
+			ConsecutiveErrors: 101,
+		},
+			valid: true,
+			warn:  true},
 	}
 
 	for _, c := range cases {
-		if got := validateOutlierDetection(&c.in); (got == nil) != c.valid {
+		got := validateOutlierDetection(&c.in)
+		if (got.Err == nil) != c.valid {
 			t.Errorf("ValidateOutlierDetection failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
+				c.name, got.Err == nil, c.valid, got.Err)
+		}
+		if (got.Warning == nil) == c.warn {
+			t.Errorf("ValidateOutlierDetection failed on %v: got warn=%v but wanted warn=%v: %v",
+				c.name, got.Warning == nil, c.warn, got.Warning)
 		}
 	}
 }
