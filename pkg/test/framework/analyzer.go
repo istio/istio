@@ -16,9 +16,10 @@ package framework
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/features"
