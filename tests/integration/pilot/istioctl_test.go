@@ -408,7 +408,7 @@ func TestProxyStatus(t *testing.T) {
 			// test the --file param
 			filename := "ps-configdump.json"
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
-			dump, err := cs.EnvoyDo(context.TODO(), podID, apps.namespace.Name(), "GET", cmd.ConfigDumpPath, nil)
+			dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", cmd.ConfigDumpPath, nil)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			err = ioutil.WriteFile(filename, dump, os.ModePerm)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
