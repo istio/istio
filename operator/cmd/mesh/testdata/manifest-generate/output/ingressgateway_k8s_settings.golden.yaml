@@ -193,6 +193,9 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337
+        sysctls:
+        - name: net.ipv4.ip_local_port_range
+          value: 80 65535
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
