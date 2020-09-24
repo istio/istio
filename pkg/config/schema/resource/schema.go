@@ -65,6 +65,9 @@ type Schema interface {
 	// NewInstance returns a new instance of the protocol buffer message for this resource.
 	NewInstance() (config.Spec, error)
 
+	// Status returns the associated status of the schema
+	Status() (config.Status, error)
+
 	// MustNewInstance calls NewInstance and panics if an error occurs.
 	MustNewInstance() config.Spec
 
@@ -102,6 +105,9 @@ type Builder struct {
 
 	// ReflectType is the type of the go struct
 	ReflectType reflect.Type
+
+	// StatusType is the type of the associated status.
+	StatusType reflect.Type
 
 	// ProtoPackage refers to the name of golang package for the protobuf message.
 	ProtoPackage string
@@ -150,6 +156,7 @@ func (b Builder) BuildNoValidate() Schema {
 		goPackage:      b.ProtoPackage,
 		reflectType:    b.ReflectType,
 		validateConfig: b.ValidateProto,
+		statusType:     b.StatusType,
 	}
 }
 
@@ -162,6 +169,7 @@ type schemaImpl struct {
 	goPackage      string
 	validateConfig validation.ValidateFunc
 	reflectType    reflect.Type
+	statusType     reflect.Type
 }
 
 func (s *schemaImpl) GroupVersionKind() config.GroupVersionKind {
@@ -240,6 +248,19 @@ func (s *schemaImpl) NewInstance() (config.Spec, error) {
 		return nil, fmt.Errorf(
 			"newInstance: message is not an instance of config.Spec. kind:%s, type:%v, value:%v",
 			s.Kind(), rt, instance)
+	}
+	return p, nil
+}
+
+func (s *schemaImpl) Status() (config.Status, error) {
+	statTyp := s.statusType
+	if statTyp == nil {
+		return nil, errors.New("unknown status type")
+	}
+	instance := reflect.New(statTyp).Interface()
+	p, ok := instance.(config.Status)
+	if !ok {
+		return nil, fmt.Errorf("status: statusType not an instance of config.Status. type: %v, value: %v", statTyp, instance)
 	}
 	return p, nil
 }

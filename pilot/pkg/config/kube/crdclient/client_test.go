@@ -211,4 +211,41 @@ func TestClient(t *testing.T) {
 			}, timeout)
 		})
 	}
+
+	// test just workloadgroup for now
+	wgConfigMeta := config.Meta{
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(),
+		Name:             "foo",
+		Namespace:        "bar",
+	}
+
+	spec, err := collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().NewInstance()
+	if err != nil {
+		t.Error(err)
+	}
+	stat, err := collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Status()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = store.Create(config.Config{
+		Meta: wgConfigMeta,
+		Spec: spec,
+	})
+	if err != nil {
+		t.Errorf("fail: %v", err)
+	}
+
+	retry.UntilSuccessOrFail(t, func() error {
+		_, err := store.Update(config.Config{
+			Meta:   wgConfigMeta,
+			Spec:   spec,
+			Status: stat,
+		})
+		if err != nil {
+			t.Errorf("err: %v", err)
+			return err
+		}
+		return nil
+	}, timeout)
 }
