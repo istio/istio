@@ -4,6 +4,7 @@
 package collections
 
 import (
+	"istio.io/api/meta/v1alpha1"
 	"reflect"
 
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
@@ -206,6 +207,7 @@ var (
 			Version:       "v1alpha3",
 			Proto:         "istio.networking.v1alpha3.WorkloadGroup",
 			ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(),
+			StatusType: reflect.TypeOf(&v1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage:  "istio.io/api/networking/v1alpha3",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
