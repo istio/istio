@@ -65,7 +65,7 @@ func GetServerInfo(adminPort uint32) (*envoyAdmin.ServerInfo, error) {
 
 // GetConfigDump polls Envoy admin port for the config dump and returns the response.
 func GetConfigDump(adminPort uint32) (*envoyAdmin.ConfigDump, error) {
-	buffer, err := doEnvoyGet("config_dump?include_eds=true", adminPort)
+	buffer, err := doEnvoyGet("config_dump", adminPort)
 	if err != nil {
 		return nil, err
 	}

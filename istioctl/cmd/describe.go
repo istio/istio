@@ -888,7 +888,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 	if len(ingressSvcs.Items) == 0 {
 		return fmt.Errorf("no ingress gateway service")
 	}
-	byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", ConfigDumpPath, nil)
+	byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump", nil)
 	if err != nil {
 		return fmt.Errorf("failed to execute command on ingress gateway sidecar: %v", err)
 	}
@@ -1111,7 +1111,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 func describePodServices(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
 	var err error
 
-	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", ConfigDumpPath, nil)
+	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", nil)
 	if err != nil {
 		if ignoreUnmeshed {
 			return nil

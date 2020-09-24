@@ -30,7 +30,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -408,7 +407,7 @@ func TestProxyStatus(t *testing.T) {
 			// test the --file param
 			filename := "ps-configdump.json"
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
-			dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", cmd.ConfigDumpPath, nil)
+			dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			err = ioutil.WriteFile(filename, dump, os.ModePerm)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
