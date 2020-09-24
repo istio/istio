@@ -385,7 +385,7 @@ data:
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
-      {{- else if .Values.global.proxy.holdApplicationUntilProxyStarts}}
+      {{- else if eq (annotation .ObjectMeta `sidecar.istio.io/holdApplicationUntilProxyStarts` .Values.global.proxy.holdApplicationUntilProxyStarts) `true` }}
         lifecycle:
           postStart:
             exec:
