@@ -81,10 +81,7 @@ func podDescribeCmd() *cobra.Command {
 		Use:   "pod <pod>",
 		Short: "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
-the configuration objects that affect that pod.
-
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+the configuration objects that affect that pod.`,
 		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
@@ -156,7 +153,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
@@ -1000,10 +997,7 @@ func svcDescribeCmd() *cobra.Command {
 		Aliases: []string{"svc"},
 		Short:   "Describe services and their Istio configuration [kube-only]",
 		Long: `Analyzes service, pods, DestinationRules, and VirtualServices and reports
-the configuration objects that affect that service.
-
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+the configuration objects that affect that service.`,
 		Example: `  istioctl experimental describe service productpage`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
@@ -1104,7 +1098,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 

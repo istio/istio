@@ -729,10 +729,7 @@ func secretConfigCmd() *cobra.Command {
 
   # Retrieve full bootstrap without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
-  istioctl proxy-config secret --file envoy-config.json
-
-  THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+  istioctl proxy-config secret --file envoy-config.json`,
 		Aliases: []string{"s"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) == 1) != (configDumpFile == "") {
@@ -769,7 +766,7 @@ func secretConfigCmd() *cobra.Command {
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-
+	secretConfigCmd.Long += "\n\n" + ExperimentalMsg
 	return secretConfigCmd
 }
 
