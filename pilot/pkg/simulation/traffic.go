@@ -149,9 +149,6 @@ func NewSimulationFromConfigGen(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *
 		Clusters:  s.Clusters(proxy),
 		Routes:    s.Routes(proxy),
 	}
-	xdstest.ValidateClusters(t, sim.Clusters)
-	xdstest.ValidateListeners(t, sim.Listeners)
-	xdstest.ValidateRouteConfigurations(t, sim.Routes)
 	return sim
 }
 
