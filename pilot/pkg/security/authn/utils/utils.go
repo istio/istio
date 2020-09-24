@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	// Supported Ciphers for server side TLS configuration.
+	// SupportedCiphers for server side TLS configuration.
 	SupportedCiphers = []string{
 		"ECDHE-RSA-AES256-GCM-SHA384",
 		"ECDHE-RSA-AES128-GCM-SHA256",
