@@ -79,6 +79,15 @@ var (
 		ResourceApiVersion:  core.ApiVersion_V3,
 		InitialFetchTimeout: features.InitialFetchTimeout,
 	}
+
+	SupportedCiphers = []string{
+		"AES256-GCM-SHA384",
+		"AES128-GCM-SHA256",
+		"ECDHE-ECDSA-AES128-GCM-SHA256",
+		"ECDHE-RSA-AES128-GCM-SHA256",
+		"ECDHE-RSA-AES256-GCM-SHA384",
+		"ECDHE-ECDSA-AES256-GCM-SHA384",
+	}
 )
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
@@ -237,6 +246,12 @@ func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
 	sdsPath string, subjectAltNames []string, trustDomainAliases []string) {
+
+	if tlsContext.TlsParams == nil {
+		tlsContext.TlsParams = &tls.TlsParameters{}
+	}
+	tlsContext.TlsParams.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_2
+	tlsContext.TlsParams.CipherSuites = SupportedCiphers
 
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
