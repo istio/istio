@@ -598,7 +598,7 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 			client, c := client, c
 			cases = append(cases, TrafficTestCase{
 				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
-				skip:   apps.Multicluster(), // TODO stabilize tcp connection breaks
+				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
 				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
 				call: func() (echoclient.ParsedResponses, error) {
 					return client.Call(echo.CallOptions{
