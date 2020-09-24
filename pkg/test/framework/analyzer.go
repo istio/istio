@@ -15,6 +15,8 @@
 package framework
 
 import (
+	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"strings"
 	"testing"
 
@@ -154,24 +156,31 @@ func (t *testAnalyzer) Label(labels ...label.Instance) Test {
 }
 
 func (t *testAnalyzer) Features(feats ...features.Feature) Test {
+	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
+		log.Errorf(err)
+		t.goTest.FailNow()
+	}
+	return t
+}
+
+func addFeatureLabels(featureLabels map[features.Feature][]string, feats ...features.Feature) error {
 	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
 	if err != nil {
-		log.Errorf("Unable to build feature checker: %s", err)
-		t.goTest.FailNow()
-		return nil
+		return fmt.Errorf("unable to build feature checker: %v", err)
 	}
+
+	err = nil
 	for _, f := range feats {
 		check, scenario := c.Check(f)
 		if !check {
-			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
-			t.goTest.FailNow()
-			return nil
+			err = multierror.Append(err, fmt.Errorf("feature %s is not a leaf in /pkg/test/framework/features/features.yaml", f))
+			continue
 		}
 		// feats actually contains feature and scenario.  split them here.
 		onlyFeature := features.Feature(strings.Replace(string(f), scenario, "", 1))
-		t.featureLabels[onlyFeature] = append(t.featureLabels[onlyFeature], scenario)
+		featureLabels[onlyFeature] = append(featureLabels[onlyFeature], scenario)
 	}
-	return t
+	return err
 }
 
 func (t *testAnalyzer) NotImplementedYet(features ...features.Feature) Test {
