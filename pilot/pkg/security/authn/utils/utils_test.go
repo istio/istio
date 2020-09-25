@@ -135,10 +135,12 @@ func TestBuildInboundFilterChain(t *testing.T) {
 							TlsParams: &auth.TlsParameters{
 								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
 								CipherSuites: []string{
-									"ECDHE-RSA-AES256-GCM-SHA384",
-									"ECDHE-RSA-AES128-GCM-SHA256",
 									"ECDHE-ECDSA-AES256-GCM-SHA384",
+									"ECDHE-RSA-AES256-GCM-SHA384",
 									"ECDHE-ECDSA-AES128-GCM-SHA256",
+									"ECDHE-RSA-AES128-GCM-SHA256",
+									"AES256_GCM_SHA384",
+									"AES128_GCM_SHA256",
 								},
 							},
 						},
@@ -215,10 +217,12 @@ func TestBuildInboundFilterChain(t *testing.T) {
 							TlsParams: &auth.TlsParameters{
 								TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
 								CipherSuites: []string{
-									"ECDHE-RSA-AES256-GCM-SHA384",
-									"ECDHE-RSA-AES128-GCM-SHA256",
 									"ECDHE-ECDSA-AES256-GCM-SHA384",
+									"ECDHE-RSA-AES256-GCM-SHA384",
 									"ECDHE-ECDSA-AES128-GCM-SHA256",
+									"ECDHE-RSA-AES128-GCM-SHA256",
+									"AES256_GCM_SHA384",
+									"AES128_GCM_SHA256",
 								},
 							},
 						},
