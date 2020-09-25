@@ -121,6 +121,10 @@ func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dry
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
 	requestLimiter.Wait(context.TODO())
+	logFetchLimitCh <- struct{}{}
+	defer func() {
+		<-logFetchLimitCh
+	}()
 	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
 	addRunningTask(task)
 	defer removeRunningTask(task)
