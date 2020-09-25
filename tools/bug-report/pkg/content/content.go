@@ -15,7 +15,6 @@
 package content
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -158,11 +157,11 @@ func GetProxyInfo(p *Params) (map[string]string, error) {
 	}
 	ret := make(map[string]string)
 	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
-		out, err := p.Client.EnvoyDo(context.TODO(), p.Pod, p.Namespace, "GET", url, nil)
+		out, err := kubectlcmd.EnvoyGet(p.Client, p.Namespace, p.Pod, url, p.DryRun)
 		if err != nil {
 			return nil, err
 		}
-		ret[url] = string(out)
+		ret[url] = out
 	}
 	return ret, nil
 }
