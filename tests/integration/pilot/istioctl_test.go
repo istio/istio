@@ -315,7 +315,7 @@ func TestProxyConfig(t *testing.T) {
 			g := gomega.NewWithT(t)
 
 			args = []string{"--namespace=dummy",
-				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())}
+				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--output=json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))

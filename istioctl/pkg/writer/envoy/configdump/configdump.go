@@ -18,7 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
+	"text/tabwriter"
 
+	envoy_admin_v3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -44,6 +47,36 @@ func (c *ConfigWriter) Prime(b []byte) error {
 	return nil
 }
 
+// getVersionInfo returns istio proxy version and envoy version
+func getVersionInfo(bootstrapDump *envoy_admin_v3.BootstrapConfigDump) (string, string) {
+	metadata := bootstrapDump.GetBootstrap().GetNode().GetMetadata().GetFields()
+	var istioProxyVersion strings.Builder
+	if value, present := metadata["ISTIO_VERSION"]; present {
+		istioProxyVersion.WriteString(value.GetStringValue())
+	}
+	if value, present := metadata["ISTIO_PROXY_SHA"]; present {
+		istioProxyVersion.WriteString(fmt.Sprintf("(%s)", value.GetStringValue()))
+	}
+	var envoyVersion strings.Builder
+	uaBuildInfo := bootstrapDump.GetBootstrap().GetNode().GetUserAgentBuildVersion()
+	uaBuildVersion := uaBuildInfo.GetVersion()
+	envoyVersion.WriteString(fmt.Sprintf("%d.%d-%d", uaBuildVersion.GetMajorNumber(), uaBuildVersion.GetMinorNumber(), uaBuildVersion.GetPatch()))
+	uaMetadata := uaBuildInfo.GetMetadata().GetFields()
+	if value, present := uaMetadata["build.label"]; present {
+		envoyVersion.WriteString(fmt.Sprintf("-%s", value.GetStringValue()))
+	}
+	if value, present := uaMetadata["revision.status"]; present {
+		envoyVersion.WriteString(fmt.Sprintf("/%s", value.GetStringValue()))
+	}
+	if value, present := uaMetadata["build.type"]; present {
+		envoyVersion.WriteString(fmt.Sprintf("/%s", value.GetStringValue()))
+	}
+	if value, present := uaMetadata["ssl.version"]; present {
+		envoyVersion.WriteString(fmt.Sprintf("/%s", value.GetStringValue()))
+	}
+	return istioProxyVersion.String(), envoyVersion.String()
+}
+
 // PrintBootstrapDump prints just the bootstrap config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintBootstrapDump() error {
 	if c.configDump == nil {
@@ -58,6 +91,22 @@ func (c *ConfigWriter) PrintBootstrapDump() error {
 		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
 	}
 	return nil
+}
+
+// PrintProxyVersionInfo prints just proxy and envoy version information from config dump
+func (c *ConfigWriter) PrintProxyVersionInfo() error {
+	if c.configDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	bootstrapDump, err := c.configDump.GetBootstrapConfigDump()
+	if err != nil {
+		return err
+	}
+	istioProxyVersion, envoyVersion := getVersionInfo(bootstrapDump)
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 1, ' ', 0)
+	fmt.Fprintln(w, "Istio Proxy Version:\t", istioProxyVersion)
+	fmt.Fprintln(w, "Envoy Version:\t", envoyVersion)
+	return w.Flush()
 }
 
 // PrintSecretDump prints just the secret config dump to the ConfigWriter stdout

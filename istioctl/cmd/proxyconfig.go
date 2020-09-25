@@ -707,10 +707,18 @@ func bootstrapConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return configWriter.PrintBootstrapDump()
+			switch outputFormat {
+			case summaryOutput:
+				return configWriter.PrintProxyVersionInfo()
+			case jsonOutput:
+				return configWriter.PrintBootstrapDump()
+			default:
+				return fmt.Errorf("output format %q not supported", outputFormat)
+			}
 		},
 	}
 
+	bootstrapConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|short")
 	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
