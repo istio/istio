@@ -40,6 +40,8 @@ kubernetesMapping:
     outPath: "[Service:{{.ResourceName}}].metadata.annotations"
   "Components.{{.ComponentName}}.K8S.Service":
     outPath: "[Service:{{.ResourceName}}].spec"
+  "Components.{{.ComponentName}}.K8S.SecurityContext":
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.securityContext"
 globalNamespaces:
   Pilot:      "istioNamespace"
   Galley:     "configNamespace"
