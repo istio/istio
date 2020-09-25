@@ -51,6 +51,13 @@ var (
 		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()
 
+	// MaxSendMsgSize The max send buffer size of gRPC channel of Pilot in bytes.
+	MaxSendMsgSize = env.RegisterIntVar(
+		"ISTIO_GPRC_MAXSENDMSGSIZE",
+		4*1024*1024,
+		"Sets the max send buffer size of gRPC stream in bytes.",
+	).Get()
+
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", true, "").Get()
 
