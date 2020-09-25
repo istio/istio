@@ -15,6 +15,7 @@
 package manifest
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,10 +24,14 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/controlplane"
@@ -44,7 +49,12 @@ import (
 
 var (
 	// installerScope is the scope for shared manifest package.
-	installerScope = log.RegisterScope("installer", "installer", 0)
+	installerScope   = log.RegisterScope("installer", "installer", 0)
+	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+		Group:    iopv1alpha1.SchemeGroupVersion.Group,
+		Version:  iopv1alpha1.SchemeGroupVersion.Version,
+		Resource: "istiooperators",
+	}
 )
 
 // GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
@@ -520,4 +530,32 @@ func getPV(setFlag string) (path string, value string) {
 	}
 	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
 	return
+}
+
+// OperatorFromCluster finds an IstioOperator matching revision in the cluster.  The IstioOperators
+// don't have a label for their revision, so we parse them and check .Spec.Revision
+func OperatorFromCluster(restConfig *rest.Config, istioNamespaceFlag string, revision string) (*iopv1alpha1.IstioOperator, error) {
+	client, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	ul, err := client.
+		Resource(istioOperatorGVR).
+		Namespace(istioNamespaceFlag).
+		List(context.TODO(), meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, un := range ul.Items {
+		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		by := util.ToYAML(un.Object)
+		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
+		if err != nil {
+			return nil, err
+		}
+		if iop.Spec.Revision == revision {
+			return iop, nil
+		}
+	}
+	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }

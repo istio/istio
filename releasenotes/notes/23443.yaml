@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 23443
+
+releaseNotes:
+- |
+  **Added** `istioctl install` supports a new flag, --profile-from-cluster, to re-use previous install configuration.

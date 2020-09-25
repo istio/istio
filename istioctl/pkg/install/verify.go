@@ -38,6 +38,7 @@ import (
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -409,29 +410,7 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 	if err != nil {
 		return nil, err
 	}
-	client, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	ul, err := client.
-		Resource(istioOperatorGVR).
-		Namespace(istioNamespaceFlag).
-		List(context.TODO(), meta_v1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	for _, un := range ul.Items {
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-		by := util.ToYAML(un.Object)
-		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
-		if err != nil {
-			return nil, err
-		}
-		if iop.Spec.Revision == revision {
-			return iop, nil
-		}
-	}
-	return nil, fmt.Errorf("control plane revision %q not found", revision)
+	return manifest.OperatorFromCluster(restConfig, istioNamespaceFlag, revision)
 }
 
 // Find all IstioOperator in the cluster.

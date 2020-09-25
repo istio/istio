@@ -16,10 +16,13 @@ package mesh
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -27,6 +30,7 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -61,6 +65,8 @@ type installArgs struct {
 	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// profileFromCluster should the install default to the in-cluster IOP settings?
+	profileFromCluster bool
 }
 
 func addInstallFlags(cmd *cobra.Command, args *installArgs) {
@@ -75,6 +81,7 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.profileFromCluster, "profile-from-cluster", false, profileFromClusterHelpStr)
 }
 
 // InstallCmd generates an Istio install manifest and applies it to a cluster
@@ -120,6 +127,11 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	}
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
+	}
+	if iArgs.profileFromCluster {
+		if err := handleProfileFromCluster(iArgs); err != nil {
+			return fmt.Errorf("could load profile from cluster: %w", err)
+		}
 	}
 	if err := InstallManifests(applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision), iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
 		iArgs.kubeConfigPath, iArgs.context, iArgs.readinessTimeout, l); err != nil {
@@ -186,4 +198,47 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 	}
 
 	return saveIOPToCluster(reconciler, iopStr)
+}
+
+func handleProfileFromCluster(iArgs *installArgs) error {
+	// Read the IOP from Kubernetes
+	kubeConfigFlags := &genericclioptions.ConfigFlags{
+		Context:    strPtr(""),
+		Namespace:  strPtr(""),
+		KubeConfig: strPtr(""),
+	}
+	restConfig, err := kubeConfigFlags.ToRESTConfig()
+	if err != nil {
+		return err
+	}
+	iop, err := manifest.OperatorFromCluster(restConfig, name.IstioDefaultNamespace, iArgs.revision)
+	if err != nil {
+		return err
+	}
+
+	// Serialize the IOP to a temp file
+	out, err := yaml.Marshal(&iop)
+	if err != nil {
+		return err
+	}
+	tmpFile, err := ioutil.TempFile("", "cluster-profile")
+	if err != nil {
+		return err
+	}
+	_, err = tmpFile.Write(out)
+	if err != nil {
+		return err
+	}
+	err = tmpFile.Close()
+	if err != nil {
+		return err
+	}
+
+	// Pretend the IOP we read from cluster was supplied as a file
+	iArgs.inFilenames = append([]string{tmpFile.Name()}, iArgs.inFilenames...)
+	return nil
+}
+
+func strPtr(val string) *string {
+	return &val
 }
