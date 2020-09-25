@@ -94,6 +94,11 @@ var (
 	// Aggregated errors for all fetch operations.
 	gErrors util.Errors
 	lock    = sync.RWMutex{}
+
+	isSystemNamespace = map[string]bool{
+		"kube-system": true,
+		"kube-public": true,
+	}
 )
 
 func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
@@ -183,7 +188,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
-	getFromCluster(content.GetDescribePods, params.SetNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
+	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
 	// optionalWg is subject to timer.
 	var optionalWg sync.WaitGroup
@@ -221,6 +226,9 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 
 	// Wait for log fetches, up to the timeout.
 	<-cmdTimer.C
+
+	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
+	runAnalyze(config, resources, params)
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
@@ -293,6 +301,22 @@ func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *c
 	var cstat *processlog.Stats
 	clog, cstat = processlog.Process(config, clog)
 	return clog, cstat, cstat.Importance(), nil
+}
+
+func runAnalyze(config *config.BugReportConfig, resources *cluster2.Resources, params *content.Params) {
+	for ns := range resources.Root {
+		if isSystemNamespace[ns] {
+			continue
+		}
+		logAndPrintf("Running istio analyze on namespace %s.\n", ns)
+		out, err := content.GetAnalyze(params.SetIstioNamespace(config.IstioNamespace))
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		writeFiles(archive.AnalyzePath(tempDir, ns), out)
+	}
+	logAndPrintf("\n")
 }
 
 func writeFiles(dir string, files map[string]string) {
