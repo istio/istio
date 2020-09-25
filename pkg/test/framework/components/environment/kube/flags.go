@@ -239,7 +239,10 @@ func parseConfigTopology() (clusterTopology, error) {
 
 func parseNetworkTopology(kubeConfigs []string) (map[resource.ClusterIndex]string, error) {
 	out := make(map[resource.ClusterIndex]string)
-	if networkTopology == "" {
+	if controlPlaneTopology == "" {
+		for index := range kubeConfigs {
+			out[resource.ClusterIndex(index)] = "network-0"
+		}
 		return out, nil
 	}
 	numClusters := len(kubeConfigs)
