@@ -151,7 +151,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	outPath := filepath.Join(outDir, "bug-report.tgz")
 	common.LogAndPrintf("Creating archive at %s.\n", outPath)
 
-	archiveDir := archive.ArchiveDir(tempDir)
+	archiveDir := archive.DirToArchive(tempDir)
 	if err := archive.Create(archiveDir, outPath); err != nil {
 		return err
 	}

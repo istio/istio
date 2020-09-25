@@ -90,7 +90,8 @@ func Logs(client kube.ExtendedClient, namespace, pod, container string, previous
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.PodLogs(%s, %s, %s)", pod, namespace, container), nil
 	}
-	requestLimiter.Wait(context.TODO())
+	// ignore cancellation errors since this is subject to global timeout.
+	_ = requestLimiter.Wait(context.TODO())
 	logFetchLimitCh <- struct{}{}
 	defer func() {
 		<-logFetchLimitCh
@@ -106,7 +107,7 @@ func EnvoyGet(client kube.ExtendedClient, namespace, pod, url string, dryRun boo
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.EnvoyDo(%s, %s, %s)", pod, namespace, url), nil
 	}
-	requestLimiter.Wait(context.TODO())
+	_ = requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("ProxyGet %s/%s:%s", namespace, pod, url)
 	addRunningTask(task)
 	defer removeRunningTask(task)
@@ -120,7 +121,7 @@ func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dry
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
-	requestLimiter.Wait(context.TODO())
+	_ = requestLimiter.Wait(context.TODO())
 	logFetchLimitCh <- struct{}{}
 	defer func() {
 		<-logFetchLimitCh
@@ -141,7 +142,7 @@ func Exec(client kube.ExtendedClient, namespace, pod, container, cmdStr string, 
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
-	requestLimiter.Wait(context.TODO())
+	_ = requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
 	addRunningTask(task)
 	defer removeRunningTask(task)
@@ -191,7 +192,7 @@ func Run(subcmds []string, opts *Options) (string, error) {
 		return "", nil
 	}
 
-	requestLimiter.Wait(context.TODO())
+	_ = requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("kubectl %s", cmdStr)
 	addRunningTask(task)
 	defer removeRunningTask(task)

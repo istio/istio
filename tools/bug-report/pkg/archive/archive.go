@@ -36,8 +36,8 @@ var (
 	initDir sync.Once
 )
 
-// ArchiveDir is the dir to archive.
-func ArchiveDir(rootDir string) string {
+// DirToArchive is the dir to archive.
+func DirToArchive(rootDir string) string {
 	return filepath.Dir(getRootDir(rootDir))
 }
 
