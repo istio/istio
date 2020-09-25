@@ -53,11 +53,11 @@ var (
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
 			// check for duplicate ports in lists
-			errMsg:=checkForDuplicatePorts()
+			errMsg := checkForDuplicatePorts()
 
-			if(len(errMsg)>0) {
+			if len(errMsg) > 0 {
 				var errorStr string
-				for _,val := range errMsg {
+				for _, val := range errMsg {
 					errorStr = errorStr + fmt.Sprintf("\n%s", val)
 
 				}
@@ -162,13 +162,11 @@ func main() {
 	}
 }
 
-
 func checkForDuplicatePorts() []string {
 	strSlc := make([]string, 0)
-	strSlc=append(strSlc,checkItself(httpPorts,"httpPorts")...)
-	strSlc=append(strSlc,checkItself(grpcPorts,"grpcPorts")...)
-	strSlc=append(strSlc,checkItself(tcpPorts,"tcpPorts")...)
-
+	strSlc = append(strSlc, checkItself(httpPorts, "httpPorts")...)
+	strSlc = append(strSlc, checkItself(grpcPorts, "grpcPorts")...)
+	strSlc = append(strSlc, checkItself(tcpPorts, "tcpPorts")...)
 
 	for i := 0; i < len(httpPorts); i++ {
 		for j := 0; j < len(tcpPorts); j++ {
@@ -195,12 +193,12 @@ func checkForDuplicatePorts() []string {
 	return strSlc
 }
 
-func checkItself(arr []int, portType string) []string{
-	slc:=make([]string,0)
-	for i:=0;i<len(arr);i++{
-		for j:=i+1;j<=len(arr)-1;j++{
-			if arr[i]==arr[j] {
-				slc= append(slc, fmt.Sprintf("Duplicate port in %s",portType))
+func checkItself(arr []int, portType string) []string {
+	slc := make([]string, 0)
+	for i := 0; i < len(arr); i++ {
+		for j := i + 1; j <= len(arr)-1; j++ {
+			if arr[i] == arr[j] {
+				slc = append(slc, fmt.Sprintf("Duplicate port in %s", portType))
 			}
 		}
 	}
