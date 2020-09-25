@@ -202,13 +202,13 @@ func (sim *Simulation) Run(input Call) (result Result) {
 			result.Error = errors.New("http requests require a host header")
 			return
 		}
-		vh := sim.matchDomain(rc, input.Headers["Host"][0])
+		vh := sim.matchVirtualHost(rc, input.Headers["Host"][0])
 		if vh == nil {
 			result.Error = ErrNoVirtualHost
 			return
 		}
 		result.VirtualHostMatched = vh.Name
-		r := sim.matchVirtualHost(vh, input)
+		r := sim.matchRoute(vh, input)
 
 		if r == nil {
 			result.Error = ErrNoRoute
@@ -225,7 +225,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	return
 }
 
-func (sim *Simulation) matchVirtualHost(vh *route.VirtualHost, input Call) *route.Route {
+func (sim *Simulation) matchRoute(vh *route.VirtualHost, input Call) *route.Route {
 	for _, r := range vh.Routes {
 		// check path
 		switch pt := r.Match.GetPathSpecifier().(type) {
@@ -249,12 +249,14 @@ func (sim *Simulation) matchVirtualHost(vh *route.VirtualHost, input Call) *rout
 			sim.t.Fatalf("unknown route path type")
 		}
 
+		// TODO this only handles path - we need to add headers, query params, etc to be complete.
+
 		return r
 	}
 	return nil
 }
 
-func (sim *Simulation) matchDomain(rc *route.RouteConfiguration, host string) *route.VirtualHost {
+func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host string) *route.VirtualHost {
 	// Exact match
 	for _, vh := range rc.VirtualHosts {
 		for _, d := range vh.Domains {
@@ -375,7 +377,9 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Ca
 	return chains[0], nil
 }
 
-func filter(chains []*listener.FilterChain, empty func(fc *listener.FilterChainMatch) bool, match func(fc *listener.FilterChainMatch) bool) []*listener.FilterChain {
+func filter(chains []*listener.FilterChain,
+	empty func(fc *listener.FilterChainMatch) bool,
+	match func(fc *listener.FilterChainMatch) bool) []*listener.FilterChain {
 	res := []*listener.FilterChain{}
 	anySet := false
 	for _, c := range chains {

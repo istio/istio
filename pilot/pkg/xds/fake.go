@@ -127,6 +127,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   []serviceregistry.Instance{k8s},
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
+		SkipRun:             true,
 	})
 	if err := cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler); err != nil {
 		t.Fatal(err)
@@ -196,6 +197,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.CachesSynced()
 	s.Start(stop)
 	cg.ServiceEntryRegistry.ResyncEDS()
+
+	// Now that handlers are added, get everything started
+	cg.Run()
 
 	fake := &FakeDiscoveryServer{
 		t:             t,

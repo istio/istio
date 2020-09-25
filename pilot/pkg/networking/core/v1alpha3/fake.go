@@ -74,6 +74,9 @@ type TestOptions struct {
 
 	// Mutex used for push context access. Should generally only be used by NewFakeDiscoveryServer
 	PushContextLock *sync.RWMutex
+
+	// If set, we will not run immediately, allowing adding event handlers, etc prior to start.
+	SkipRun bool
 }
 
 type ConfigGenTest struct {
@@ -85,6 +88,8 @@ type ConfigGenTest struct {
 	MemRegistry          *memregistry.ServiceDiscovery
 	ServiceEntryRegistry *serviceentry.ServiceEntryStore
 	Registry             model.Controller
+	initialConfigs       []config.Config
+	stop                 chan struct{}
 }
 
 func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
@@ -101,7 +106,6 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	controllers := []model.ConfigStoreCache{cc}
 	controllers = append(controllers, opts.ConfigStoreCaches...)
 	configController, _ := configaggregate.MakeWriteableCache(controllers, cc)
-	go configController.Run(stop)
 
 	m := opts.MeshConfig
 	if m == nil {
@@ -138,27 +142,6 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	env.NetworksWatcher = opts.NetworksWatcher
 
-	// Setup configuration. This should be done after registries are added so they can process events.
-	for _, cfg := range configs {
-		if _, err := configStore.Create(cfg); err != nil {
-			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
-		}
-	}
-
-	// TODO allow passing event handlers for controller
-
-	retry.UntilSuccessOrFail(t, func() error {
-		if !serviceDiscovery.HasSynced() {
-			return errors.New("not synced")
-		}
-		return nil
-	})
-
-	se.ResyncEDS()
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		t.Fatalf("Failed to initialize push context: %v", err)
-	}
-
 	if opts.Plugins == nil {
 		opts.Plugins = registry.NewPlugins([]string{plugin.Authn, plugin.Authz})
 	}
@@ -167,13 +150,42 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		t:                    t,
 		store:                configController,
 		env:                  env,
+		initialConfigs:       configs,
+		stop:                 stop,
 		ConfigGen:            NewConfigGenerator(opts.Plugins, &model.DisabledCache{}),
 		MemRegistry:          msd,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
 		pushContextLock:      opts.PushContextLock,
 	}
+	if !opts.SkipRun {
+		fake.Run()
+	}
 	return fake
+}
+
+func (f *ConfigGenTest) Run() {
+	go f.store.Run(f.stop)
+	// Setup configuration. This should be done after registries are added so they can process events.
+	for _, cfg := range f.initialConfigs {
+		if _, err := f.store.Create(cfg); err != nil {
+			f.t.Fatalf("failed to create config %v: %v", cfg.Name, err)
+		}
+	}
+
+	// TODO allow passing event handlers for controller
+
+	retry.UntilSuccessOrFail(f.t, func() error {
+		if !f.Registry.HasSynced() {
+			return errors.New("not synced")
+		}
+		return nil
+	})
+
+	f.ServiceEntryRegistry.ResyncEDS()
+	if err := f.PushContext().InitContext(f.env, nil, nil); err != nil {
+		f.t.Fatalf("Failed to initialize push context: %v", err)
+	}
 }
 
 // SetupProxy initializes a proxy for the current environment. This should generally be used when creating
