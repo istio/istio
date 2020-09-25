@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/tests/integration/pilot/common"
 )
 
 func TestTraffic(t *testing.T) {
@@ -27,6 +26,7 @@ func TestTraffic(t *testing.T) {
 		NewTest(t).
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(ctx framework.TestContext) {
-			common.RunTrafficTest(ctx, apps)
+			ctx.FailNow()
+			//common.RunTrafficTest(ctx, apps)
 		})
 }
