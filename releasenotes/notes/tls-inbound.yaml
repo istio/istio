@@ -1,5 +1,5 @@
 apiVersion: release-notes/v2
-kind: fix
+kind: bug-fix
 area: security
 releaseNotes:
 - |
