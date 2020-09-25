@@ -35,6 +35,8 @@ func ManifestCmd(logOpts *log.Options) *cobra.Command {
 
 	mgc := manifestGenerateCmd(args, mgcArgs, logOpts)
 	mdc := manifestDiffCmd(args, mdcArgs)
+	ic := InstallCmd(logOpts)
+	ic.Deprecated = "use \"istioctl install\"."
 
 	addFlags(mc, args)
 	addFlags(mgc, args)
@@ -45,6 +47,7 @@ func ManifestCmd(logOpts *log.Options) *cobra.Command {
 
 	mc.AddCommand(mgc)
 	mc.AddCommand(mdc)
+	mc.AddCommand(ic)
 
 	return mc
 }
