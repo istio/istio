@@ -24,6 +24,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -201,7 +202,14 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		depName := strings.Join([]string{dep.Name, dep.Namespace}, ".")
 		sidecarInjected := false
 		podSpec := dep.Spec.Template.Spec.DeepCopy()
-		for _, c := range podSpec.Containers {
+		containers := podSpec.Containers
+		// The sidecar is always named 'istio-proxy', but it isn't a proxy if there is only one container.
+		// (For example, The pod container of ingressgateway is named "istio-proxy", but it isn't a sidecar)
+		if len(containers) == 1 && containers[0].Name == proxyContainerName {
+			fmt.Fprintf(writer, "deployment %q isn't a proxy. Skipping.\n", depName)
+			continue
+		}
+		for _, c := range containers {
 			if c.Name == proxyContainerName {
 				sidecarInjected = true
 				break
@@ -229,12 +237,24 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initValidationContainerName)
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
 		podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, dataVolumeName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, pilotCertVolumeName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, podInfoVolumeName)
+		if !usedVolume(podSpec, certVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
+		}
+		if !usedVolume(podSpec, dataVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, dataVolumeName)
+		}
+		if !usedVolume(podSpec, envoyVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
+		}
+		if !usedVolume(podSpec, jwtTokenVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
+		}
+		if !usedVolume(podSpec, pilotCertVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, pilotCertVolumeName)
+		}
+		if !usedVolume(podSpec, podInfoVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, podInfoVolumeName)
+		}
 		removeDNSConfig(podSpec.DNSConfig)
 		res.Spec.Template.Spec = *podSpec
 		// If we are in an auto-inject namespace, removing the sidecar isn't enough, we
@@ -262,6 +282,22 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		fmt.Fprintf(writer, "deployment %q updated successfully with Istio sidecar un-injected.\n", depName)
 	}
 	return errs
+}
+
+// usedVolume returns true if a volume name is used
+func usedVolume(podSpec *corev1.PodSpec, volname string) bool {
+	return volumeMounted(podSpec.InitContainers, volname) || volumeMounted(podSpec.Containers, volname)
+}
+
+func volumeMounted(containers []corev1.Container, volname string) bool {
+	for _, container := range containers {
+		for _, mount := range container.VolumeMounts {
+			if mount.Name == volname {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // removeServiceOnVMFromMesh removes the Service Entry and K8s service for the specified external service
