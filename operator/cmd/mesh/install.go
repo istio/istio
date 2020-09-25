@@ -130,7 +130,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	}
 	if iArgs.profileFromCluster {
 		if err := handleProfileFromCluster(iArgs); err != nil {
-			return fmt.Errorf("could load profile from cluster: %w", err)
+			return fmt.Errorf("could not load profile from cluster: %w", err)
 		}
 	}
 	if err := InstallManifests(applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision), iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
