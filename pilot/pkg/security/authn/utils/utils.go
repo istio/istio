@@ -83,14 +83,18 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 				// include "istio", which would interfere with negotiation of the underlying
 				// protocol, e.g. HTTP/2.
 				AlpnProtocols: util.ALPNHttp,
-				// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
-				TlsParams: &tls.TlsParameters{
-					TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-					CipherSuites:              SupportedCiphers,
-				},
 			},
 			RequireClientCertificate: protovalue.BoolTrue,
 		}
+
+		if features.EnableTLSv2OnInboundPath {
+			// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
+			ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+				CipherSuites:              SupportedCiphers,
+			}
+		}
+
 	}
 
 	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/, trustDomainAliases)
