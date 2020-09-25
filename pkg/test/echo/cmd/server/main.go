@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
@@ -51,6 +52,18 @@ var (
 		Long:              `Echo application for testing Istio E2E`,
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
+			// check for duplicate ports in lists
+			errMsg:=checkForDuplicatePorts()
+
+			if(len(errMsg)>0) {
+				var errorStr string
+				for _,val := range errMsg {
+					errorStr = errorStr + fmt.Sprintf("\n%s", val)
+
+				}
+				log.Errora(errorStr)
+				os.Exit(-1)
+			}
 			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts))
 			tlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
@@ -147,4 +160,49 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}
+}
+
+
+func checkForDuplicatePorts() []string {
+	strSlc := make([]string, 0)
+	strSlc=append(strSlc,checkItself(httpPorts,"httpPorts")...)
+	strSlc=append(strSlc,checkItself(grpcPorts,"grpcPorts")...)
+	strSlc=append(strSlc,checkItself(tcpPorts,"tcpPorts")...)
+
+
+	for i := 0; i < len(httpPorts); i++ {
+		for j := 0; j < len(tcpPorts); j++ {
+			if httpPorts[i] == tcpPorts[j] {
+				s := fmt.Sprintf("Duplicate Port http:%d and tcp:%d", httpPorts[i], tcpPorts[j])
+				strSlc = append(strSlc, s)
+			}
+			if httpPorts[i] == grpcPorts[j] {
+				s := fmt.Sprintf("Duplicate Port http:%d and grpc:%d", httpPorts[i], grpcPorts[j])
+				strSlc = append(strSlc, s)
+			}
+		}
+
+	}
+	for i := 0; i < len(tcpPorts); i++ {
+		for j := 0; j < len(grpcPorts); j++ {
+			if tcpPorts[i] == grpcPorts[j] {
+				s := fmt.Sprintf("Duplicate Port tcp:%d and grpc:%d", tcpPorts[i], grpcPorts[j])
+				strSlc = append(strSlc, s)
+			}
+		}
+	}
+
+	return strSlc
+}
+
+func checkItself(arr []int, portType string) []string{
+	slc:=make([]string,0)
+	for i:=0;i<len(arr);i++{
+		for j:=i+1;j<=len(arr)-1;j++{
+			if arr[i]==arr[j] {
+				slc= append(slc, fmt.Sprintf("Duplicate port in %s",portType))
+			}
+		}
+	}
+	return slc
 }
