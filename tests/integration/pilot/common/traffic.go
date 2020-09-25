@@ -24,7 +24,7 @@ import (
 )
 
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
-const callsPerCluster = 10
+const callsPerCluster = 5
 
 type TrafficTestCase struct {
 	name   string
@@ -39,6 +39,8 @@ type TrafficTestCase struct {
 
 	// if enabled, we will assert the request fails, rather than the request succeeds
 	expectFailure bool
+	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
+	skip bool
 }
 
 type TrafficCall struct {
@@ -49,6 +51,9 @@ type TrafficCall struct {
 
 func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase, namespace string) {
 	ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
+		if tt.skip {
+			ctx.SkipNow()
+		}
 		if len(tt.config) > 0 {
 			ctx.Config().ApplyYAMLOrFail(ctx, namespace, tt.config)
 			ctx.Cleanup(func() {
