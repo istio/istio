@@ -415,9 +415,8 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				protocols := []protocolCase{
 					{"http", scheme.HTTP},
 					{"auto-http", scheme.HTTP},
-					// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
-					//{"tcp", scheme.TCP},
-					//{"auto-tcp", scheme.TCP},
+					{"tcp", scheme.TCP},
+					{"auto-tcp", scheme.TCP},
 					{"grpc", scheme.GRPC},
 					{"auto-grpc", scheme.GRPC},
 				}
@@ -427,6 +426,8 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				for _, call := range protocols {
 					call := call
 					cases = append(cases, TrafficTestCase{
+						// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
+						skip: call.scheme == scheme.TCP,
 						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
 						call: func() (echoclient.ParsedResponses, error) {
 							return client.Call(echo.CallOptions{
@@ -597,6 +598,7 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 			client, c := client, c
 			cases = append(cases, TrafficTestCase{
 				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
+				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
 				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
 				call: func() (echoclient.ParsedResponses, error) {
 					return client.Call(echo.CallOptions{
