@@ -36,6 +36,12 @@ var (
 	initDir sync.Once
 )
 
+// DirToArchive is the dir to archive.
+func DirToArchive(rootDir string) string {
+	return filepath.Dir(getRootDir(rootDir))
+}
+
+// OutputRootDir is the root dir of output artifacts.
 func OutputRootDir(rootDir string) string {
 	return getRootDir(rootDir)
 }
@@ -102,7 +108,8 @@ func getRootDir(rootDir string) string {
 		return rootDir
 	}
 	initDir.Do(func() {
-		tmpDir = filepath.Join(os.TempDir(), bugReportSubdir)
+		// Extra subdir so archive extracts under new ./bug-report subdir.
+		tmpDir = filepath.Join(os.TempDir(), bugReportSubdir, bugReportSubdir)
 	})
 	return tmpDir
 }

@@ -105,7 +105,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
-	logAndPrintf("Running with the following config: \n\n%s\n\n", config)
+	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
 
 	clientConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
@@ -126,7 +126,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
-	logAndPrintf("Fetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("Fetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(client, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -149,17 +149,17 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		outDir = "."
 	}
 	outPath := filepath.Join(outDir, "bug-report.tgz")
-	logAndPrintf("Creating archive at %s.\n", outPath)
+	common.LogAndPrintf("Creating archive at %s.\n", outPath)
 
-	tempRoot := archive.OutputRootDir(tempDir)
-	if err := archive.Create(tempRoot, outPath); err != nil {
+	archiveDir := archive.DirToArchive(tempDir)
+	if err := archive.Create(archiveDir, outPath); err != nil {
 		return err
 	}
-	logAndPrintf("Cleaning up temporary files in %s.\n", tempRoot)
-	if err := os.RemoveAll(tempRoot); err != nil {
+	common.LogAndPrintf("Cleaning up temporary files in %s.\n", archiveDir)
+	if err := os.RemoveAll(archiveDir); err != nil {
 		return err
 	}
-	logAndPrintf("Done.\n")
+	common.LogAndPrintf("Done.\n")
 	return nil
 }
 
@@ -177,7 +177,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		Client: client,
 		DryRun: config.DryRun,
 	}
-	logAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
+	common.LogAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
 	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
@@ -348,13 +348,6 @@ func BuildClientsFromConfig(kubeConfig []byte) (kube.Client, error) {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
 	return clients, nil
-}
-
-func logAndPrintf(format string, a ...interface{}) {
-	fmt.Printf(format, a...)
-	o := []interface{}{format}
-	o = append(o, a...)
-	log.Infof(format, o)
 }
 
 func configLogs(opt *log.Options) error {
