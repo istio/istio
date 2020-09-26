@@ -296,7 +296,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 func TestManagementListenerBuilder(t *testing.T) {
 	listeners := prepareListeners(t, nil, []int{9876}, model.InterceptionRedirect)
 	l := expectListener(t, listeners, "virtualInbound")
-	expectTCPProxy(t, l.FilterChains, "inbound|9876||mgmtCluster")
+	expectTCPProxy(t, l.FilterChains, "inbound|9876||localhost")
 }
 
 func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {

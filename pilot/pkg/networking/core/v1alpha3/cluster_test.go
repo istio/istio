@@ -2030,7 +2030,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-				if cluster.Name == "inbound|80|default|backend.default.svc.cluster.local" {
+				if cluster.Name == "inbound|80||localhost" {
 					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(&c.expected))
 				}
 			}

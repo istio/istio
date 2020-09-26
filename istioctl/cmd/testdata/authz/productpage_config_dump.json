@@ -385,7 +385,7 @@
           "version_info": "2019-04-02T19:54:27Z/16",
           "cluster": {
             "@type": "type.googleapis.com/envoy.api.v2.Cluster",
-            "name": "inbound|15020|mgmt-15020|mgmtCluster",
+            "name": "inbound|15020||localhost",
             "connect_timeout": "1s",
             "circuit_breakers": {
               "thresholds": [
@@ -393,7 +393,7 @@
               ]
             },
             "load_assignment": {
-              "cluster_name": "inbound|15020|mgmt-15020|mgmtCluster",
+              "cluster_name": "inbound|15020||localhost",
               "endpoints": [
                 {
                   "lb_endpoints": [
@@ -7043,8 +7043,8 @@
                           }
                         }
                       ],
-                      "stat_prefix": "inbound|15020|mgmt-15020|mgmtCluster",
-                      "cluster": "inbound|15020|mgmt-15020|mgmtCluster"
+                      "stat_prefix": "inbound|15020||localhost",
+                      "cluster": "inbound|15020||localhost"
                     }
                   }
                 ]

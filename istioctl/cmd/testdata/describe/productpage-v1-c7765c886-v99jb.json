@@ -569,7 +569,7 @@
      "version_info": "2019-10-21T14:42:37Z/10",
      "cluster": {
       "@type": "type.googleapis.com/envoy.api.v2.Cluster",
-      "name": "inbound|15020|mgmt-15020|mgmtCluster",
+      "name": "inbound|15020||localhost",
       "type": "STATIC",
       "connect_timeout": "10s",
       "circuit_breakers": {
@@ -578,7 +578,7 @@
        ]
       },
       "load_assignment": {
-       "cluster_name": "inbound|15020|mgmt-15020|mgmtCluster",
+       "cluster_name": "inbound|15020||localhost",
        "endpoints": [
         {
          "lb_endpoints": [
@@ -1769,8 +1769,8 @@
           "name": "envoy.tcp_proxy",
           "typed_config": {
            "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
-           "stat_prefix": "inbound|15020|mgmt-15020|mgmtCluster",
-           "cluster": "inbound|15020|mgmt-15020|mgmtCluster"
+           "stat_prefix": "inbound|15020||localhost",
+           "cluster": "inbound|15020||localhost"
           }
          }
         ]
@@ -2505,8 +2505,8 @@
           "name": "envoy.tcp_proxy",
           "typed_config": {
            "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
-           "stat_prefix": "inbound|15020|mgmt-15020|mgmtCluster",
-           "cluster": "inbound|15020|mgmt-15020|mgmtCluster"
+           "stat_prefix": "inbound|15020||localhost",
+           "cluster": "inbound|15020||localhost"
           }
          }
         ],

@@ -226,7 +226,7 @@ func TestApplyClusterPatches(t *testing.T) {
 
 	sidecarInboundIn := []*xdsapi.Cluster{
 		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V4_ONLY, LbPolicy: xdsapi.Cluster_ROUND_ROBIN},
-		{Name: "inbound|9999||mgmtCluster"},
+		{Name: "inbound|9999||localhost"},
 	}
 	sidecarInboundOut := []*xdsapi.Cluster{
 		{Name: "cluster1", DnsLookupFamily: xdsapi.Cluster_V6_ONLY, LbPolicy: xdsapi.Cluster_RING_HASH},
