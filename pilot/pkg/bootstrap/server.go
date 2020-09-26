@@ -209,6 +209,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		)
 	}
 
+	// used for both initKubeRegistry and initClusterRegistreis
+	if features.EnableEndpointSliceController {
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
+	} else {
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
+	}
+
 	prometheus.EnableHandlingTimeHistogram()
 
 	// TODO: revert to watching k8s (and merge with the file)
