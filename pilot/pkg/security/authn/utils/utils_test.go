@@ -40,7 +40,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		node             *model.Proxy
 		listenerProtocol networking.ListenerProtocol
 		trustDomains     []string
-		tlsV2Disabled    bool
+		tlsV2Enabled     bool
 	}
 	tests := []struct {
 		name string
@@ -55,6 +55,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 				listenerProtocol: networking.ListenerProtocolAuto,
+				tlsV2Enabled:     false,
 			},
 			// No need to set up filter chain, default one is okay.
 			want: nil,
@@ -67,6 +68,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 				listenerProtocol: networking.ListenerProtocolAuto,
+				tlsV2Enabled:     false,
 			},
 			want: nil,
 		},
@@ -79,6 +81,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 				listenerProtocol: networking.ListenerProtocolHTTP,
+				tlsV2Enabled:     true,
 			},
 			want: []networking.FilterChain{
 				{
@@ -159,6 +162,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				},
 				listenerProtocol: networking.ListenerProtocolHTTP,
 				trustDomains:     []string{"cluster.local"},
+				tlsV2Enabled:     true,
 			},
 			want: []networking.FilterChain{
 				{
@@ -241,7 +245,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				},
 				listenerProtocol: networking.ListenerProtocolHTTP,
 				trustDomains:     []string{"cluster.local"},
-				tlsV2Disabled:    true,
+				tlsV2Enabled:     false,
 			},
 			want: []networking.FilterChain{
 				{
@@ -307,7 +311,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defaultValue := features.EnableTLSv2OnInboundPath
-			features.EnableTLSv2OnInboundPath = !tt.args.tlsV2Disabled
+			features.EnableTLSv2OnInboundPath = tt.args.tlsV2Enabled
 			defer func() {
 				features.EnableTLSv2OnInboundPath = defaultValue
 			}()
