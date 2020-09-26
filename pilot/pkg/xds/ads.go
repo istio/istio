@@ -223,6 +223,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		return err
 	}
 	con := newConnection(peerAddr, stream)
+
 	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
@@ -766,7 +767,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 
 	select {
 	case <-t.C:
-		// TODO: wait for ACK
 		adsLog.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
 		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
