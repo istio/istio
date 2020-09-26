@@ -82,6 +82,9 @@ type Connection struct {
 	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
 	node *core.Node
+
+	// Outstanding push events on this connection
+	semaphore chan struct{}
 }
 
 // Event represents a config or registry event that results in a push.
@@ -99,6 +102,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
+		semaphore:   make(chan struct{}, 1),
 	}
 }
 
@@ -155,6 +159,10 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			}()
 		}
 
+		if !s.shouldRespond(con, req) {
+			continue
+		}
+
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
@@ -170,10 +178,6 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
-	}
-
-	if !s.shouldRespond(con, req) {
-		return nil
 	}
 
 	push := s.globalPushContext()
@@ -249,6 +253,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				// Remote side closed connection or error processing the request.
 				return receiveError
 			}
+
+			// Wait for signal from receive thread
+			con.semaphore <- struct{}{}
+
 			// processRequest is calling pushXXX, accessing common structs with pushConnection.
 			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
 			err := s.processRequest(req, con)
@@ -257,6 +265,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 
 		case pushEv := <-con.pushChannel:
+			// Wait for signal from receive thread
+			con.semaphore <- struct{}{}
+
 			// TODO: possible race condition: if a config change happens while the envoy
 			// was getting the initial config, between LDS and RDS, the push will miss the
 			// monitored 'routes'. Same for CDS/EDS interval. It is very tricky to handle
@@ -339,6 +350,10 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
 	con.proxy.WatchedResources[request.TypeUrl].LastRequest = request
 	con.proxy.Unlock()
+
+	// Signal waiting semaphore in push operations that a valid
+	// ACK has been processed as determined by matched nonce
+	<-con.semaphore
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
