@@ -79,18 +79,15 @@ test.integration.%.analyze: | $(JUNIT_REPORT)
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT)
-	$(GO) test -p 1 ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-# Generate presubmit integration test targets for each component in kubernetes environment
-test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
+# Generate presubmit integration test targets for each component in kubernetes environment
+test.integration.%.kube.presubmit:
+	@make test.integration.$*.kube
 
-# Presubmit integration tests targeting Kubernetes environment.
+# Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \

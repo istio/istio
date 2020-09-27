@@ -86,16 +86,28 @@ func needsUpdate(proxy *model.Proxy, updates model.XdsUpdates) bool {
 }
 
 // Currently only same namespace is allowed. In the future this will be expanded.
-func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResource) bool {
+func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResource) error {
 	// In the initial experimental mode, only istio-system will be allowed. Prior to
 	// being launched, this must be revisited, along with the authorization model for SDS.
 	if proxy.ConfigNamespace != "istio-system" {
-		return false
+		return fmt.Errorf("SDS is currently only supported in istio-system, proxy runs in %v", proxy.ConfigNamespace)
 	}
-	return proxy.ConfigNamespace == sr.Namespace
+	if proxy.ConfigNamespace != sr.Namespace {
+		return fmt.Errorf("SDS is currently only supporting accessing secret within the same namespace. Secret namespace %q does not match proxy namespace %q",
+			sr.Namespace, proxy.ConfigNamespace)
+	}
+	return nil
 }
 
 func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if proxy.VerifiedIdentity == nil {
+		adsLog.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		return nil
+	}
+	if err := s.secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace, ""); err != nil {
+		adsLog.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
+		return nil
+	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
 		return nil
 	}
@@ -118,8 +130,8 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 			}
 		}
 
-		if !s.proxyAuthorizedForSecret(proxy, sr) {
-			adsLog.Warnf("requested secret %v not accessible for proxy %v", sr.ResourceName, proxy.ID)
+		if err := s.proxyAuthorizedForSecret(proxy, sr); err != nil {
+			adsLog.Warnf("requested secret %v not accessible for proxy %v: %v", sr.ResourceName, proxy.ID, err)
 			continue
 		}
 		if cached, f := s.cache.Get(sr); f {

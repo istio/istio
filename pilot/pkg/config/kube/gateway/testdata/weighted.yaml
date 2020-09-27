@@ -11,7 +11,7 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
-  class: istio
+  gatewayClassName: istio
   listeners:
   - hostname:
       match: Domain
@@ -30,11 +30,12 @@ spec:
   hosts:
   - hostnames: ["first.domain.example"]
     rules:
-    - match:
-        pathMatchType: Prefix
-        path: /get
-      action:
-        forwardTo:
+    - matches:
+      - path:
+          type: Prefix
+          value: /get
+      forward:
+        to:
         - targetRef:
             name: httpbin
           weight: 2

@@ -244,6 +244,7 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 }
 
 type WorkloadInstance struct {
+	Name      string            `json:"name,omitempty"`
 	Namespace string            `json:"namespace,omitempty"`
 	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
 	PortMap   map[string]uint32 `json:"portMap,omitempty"`
@@ -256,6 +257,7 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 		pmap[k] = v
 	}
 	return &WorkloadInstance{
+		Name:      instance.Name,
 		Namespace: instance.Namespace,
 		PortMap:   pmap,
 		Endpoint:  instance.Endpoint.DeepCopy(),
@@ -293,6 +295,9 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 		return false
 	}
 	if first.Namespace != second.Namespace {
+		return false
+	}
+	if first.Name != second.Name {
 		return false
 	}
 	if !portMapEquals(first.PortMap, second.PortMap) {
@@ -350,9 +355,9 @@ type Locality struct {
 // port 80 are forwarded to port 55446, and connections to port 8080 are
 // forwarded to port 33333,
 //
-// then internally, we have two two endpoint structs for the
+// then internally, we have two endpoint structs for the
 // service catalog.mystore.com
-//  --> 172.16.0.1:54546 (with ServicePort pointing to 80) and
+//  --> 172.16.0.1:55446 (with ServicePort pointing to 80) and
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 //
 // TODO: Investigate removing ServiceInstance entirely.

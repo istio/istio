@@ -79,7 +79,7 @@ func TestValidationFuzzing(t *testing.T) {
 				}
 				obj := istiofuzz.Fuzz(t, kgvk, scheme, fz)
 				iobj = crdclient.TranslateObject(obj, gvk, "cluster.local")
-				_ = r.Resource().ValidateConfig(*iobj)
+				_, _ = r.Resource().ValidateConfig(*iobj)
 			}
 		})
 	}
@@ -158,6 +158,9 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		},
 		func(t *types.Value, c fuzz.Continue) {
 			*t = types.Value{Kind: &types.Value_StringValue{StringValue: ""}}
+		},
+		func(t *networking.ReadinessProbe, c fuzz.Continue) {
+			*t = networking.ReadinessProbe{}
 		},
 	}
 }

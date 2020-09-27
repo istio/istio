@@ -22,6 +22,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +35,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/content"
 	"istio.io/istio/tools/bug-report/pkg/filter"
@@ -44,8 +47,7 @@ import (
 )
 
 const (
-	bugReportDefaultMaxSizeMb = 500
-	bugReportDefaultTimeout   = 30 * time.Minute
+	bugReportDefaultTimeout = 30 * time.Minute
 )
 
 var (
@@ -55,15 +57,26 @@ var (
 )
 
 // Cmd returns a cobra command for bug-report.
-func Cmd() *cobra.Command {
+func Cmd(logOpts *log.Options) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
 		SilenceUsage: true,
-		Long: "This command selectively captures cluster information and logs into an archive to help " +
-			"diagnose problems. It optionally uploads the archive to a GCS bucket.",
+		Long: `bug-report selectively captures cluster information and logs into an archive to help diagnose problems.
+Proxy logs can be filtered using:
+  --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../cntr1,cntr.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2...
+where ns=namespace, dep=deployment, cntr=container, lbl=label, ann=annotation
+
+The filter spec is interpreted as 'must be in (ns1 OR ns2) AND (dep1 OR dep2) AND (cntr1 OR cntr2)...'
+The log will be included only if the container matches at least one include filter and does not match any exclude filters.
+All parts of the filter are optional and can be omitted e.g. ns1//pod1 filters only for namespace ns1 and pod1.
+All names except label and annotation keys support '*' glob matching pattern.
+
+e.g.
+--include ns1,ns2 (only namespaces ns1 and ns2)
+--include n*//p*/l=v* (pods with name beginning with 'p' in namespaces beginning with 'n' and having label 'l' with value beginning with 'v'.)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBugReportCommand(cmd)
+			return runBugReportCommand(cmd, logOpts)
 		},
 	}
 	rootCmd.AddCommand(version.CobraCommand())
@@ -83,11 +96,16 @@ var (
 	lock    = sync.RWMutex{}
 )
 
-func runBugReportCommand(_ *cobra.Command) error {
+func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
+	if err := configLogs(logOpts); err != nil {
+		return err
+	}
 	config, err := parseConfig()
 	if err != nil {
 		return err
 	}
+
+	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
 
 	clientConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
@@ -108,7 +126,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 		return err
 	}
 
-	log.Infof("Fetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("Fetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(client, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -122,8 +140,26 @@ func runBugReportCommand(_ *cobra.Command) error {
 			log.Errorf(err.Error())
 			continue
 		}
-		writeFile(archive.ProxyLogPath(tempDir, namespace, pod), text)
+		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text)
 	}
+
+	outDir, err := os.Getwd()
+	if err != nil {
+		log.Errorf("using ./ to write archive: %s", err.Error())
+		outDir = "."
+	}
+	outPath := filepath.Join(outDir, "bug-report.tgz")
+	common.LogAndPrintf("Creating archive at %s.\n", outPath)
+
+	archiveDir := archive.DirToArchive(tempDir)
+	if err := archive.Create(archiveDir, outPath); err != nil {
+		return err
+	}
+	common.LogAndPrintf("Cleaning up temporary files in %s.\n", archiveDir)
+	if err := os.RemoveAll(archiveDir); err != nil {
+		return err
+	}
+	common.LogAndPrintf("Done.\n")
 	return nil
 }
 
@@ -141,6 +177,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		Client: client,
 		DryRun: config.DryRun,
 	}
+	common.LogAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
 	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
@@ -158,12 +195,15 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		}
 
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
+		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case container == "istio-proxy":
-			getFromCluster(content.GetCoredumps, cp, archive.ProxyCoredumpPath(tempDir, namespace, pod), &mandatoryWg)
+		case common.IsProxyContainer(params.ClusterVersion, container):
+			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
+			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(client, config, resources, p, namespace, pod, container, &optionalWg)
 
-		case strings.HasPrefix(pod, "istiod-") && container == "discovery":
+		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(client, config, resources, namespace, pod, &mandatoryWg)
 
@@ -176,7 +216,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	// If log fetches have completed, cancel the timeout.
 	go func() {
 		optionalWg.Wait()
-		cmdTimer.Stop()
+		cmdTimer.Reset(0)
 	}()
 
 	// Wait for log fetches, up to the timeout.
@@ -187,6 +227,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 // Runs if a goroutine, with errors reported through gErrors.
 func getFromCluster(f func(params *content.Params) (map[string]string, error), params *content.Params, dir string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	go func() {
 		defer wg.Done()
 		out, err := f(params)
@@ -194,6 +235,7 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 		if err == nil {
 			writeFiles(dir, out)
 		}
+		log.Infof("Done with %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	}()
 }
 
@@ -203,6 +245,7 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	path, namespace, pod, container string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
 		clog, cstat, imp, err := getLog(client, resources, config, namespace, pod, container)
@@ -212,6 +255,7 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 			logs[path], stats[path], importance[path] = clog, cstat, imp
 		}
 		lock.Unlock()
+		log.Infof("Done with logs %s", pod)
 	}()
 }
 
@@ -220,11 +264,13 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
-		clog, _, _, err := getLog(client, resources, config, namespace, pod, "discovery")
+		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
-		writeFile(archive.IstiodPath(tempDir, namespace, pod+".log"), clog)
+		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog)
+		log.Infof("Done with logs %s", pod)
 	}()
 }
 
@@ -302,4 +348,21 @@ func BuildClientsFromConfig(kubeConfig []byte) (kube.Client, error) {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
 	return clients, nil
+}
+
+func configLogs(opt *log.Options) error {
+	logDir := filepath.Join(archive.OutputRootDir(tempDir), "bug-report.log")
+	mkdirOrExit(logDir)
+	f, err := os.Create(logDir)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	op := []string{logDir}
+	opt2 := *opt
+	opt2.OutputPaths = op
+	opt2.ErrorOutputPaths = op
+	opt2.SetOutputLevel("default", log.InfoLevel)
+
+	return log.Configure(&opt2)
 }

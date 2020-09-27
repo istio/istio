@@ -77,7 +77,7 @@ func TestSecretsController(t *testing.T) {
 		tlsMtlsCertSplitCa,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewSecretsController(client.KubeInformer().Core().V1().Secrets())
+	sc := NewSecretsController(client, "", nil)
 	client.RunAndWait(make(chan struct{}))
 	cases := []struct {
 		name      string

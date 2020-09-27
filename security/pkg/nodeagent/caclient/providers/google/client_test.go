@@ -96,6 +96,10 @@ func TestParseZone(t *testing.T) {
 			clusterURL:   "https://container.googleapis.com/v1/projects/testproj1/locations/us-central1-c/clusters/c1",
 			expectedZone: "us-central1-c",
 		},
+		"Hub URL": {
+			clusterURL:   "https://gkehub.googleapis.com/projects/testproject1/locations/global/memberships/test01",
+			expectedZone: "",
+		},
 		"InValid response": {
 			clusterURL:   "aaa",
 			expectedZone: "",

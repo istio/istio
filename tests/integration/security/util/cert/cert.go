@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/shell"
@@ -70,7 +71,7 @@ func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, con
 // CreateCASecret creates a k8s secret "cacerts" to store the CA key and cert.
 func CreateCASecret(ctx resource.Context) error {
 	name := "cacerts"
-	systemNs, err := namespace.ClaimSystemNamespace(ctx)
+	systemNs, err := istio.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return err
 	}
@@ -141,7 +142,7 @@ func ReadSampleCertFromFile(f string) ([]byte, error) {
 // CreateCustomEgressSecret creates a k8s secret "cacerts" to store egress gateways CA key and cert.
 func CreateCustomEgressSecret(ctx resource.Context) error {
 	name := "egress-gw-cacerts"
-	systemNs, err := namespace.ClaimSystemNamespace(ctx)
+	systemNs, err := istio.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return err
 	}

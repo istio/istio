@@ -15,13 +15,14 @@
 package xdstest
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
-	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcpproxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -73,6 +74,14 @@ func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 		}
 	}
 	return nil
+}
+
+func ExtractRouteConfigurations(rc []*route.RouteConfiguration) map[string]*route.RouteConfiguration {
+	res := map[string]*route.RouteConfiguration{}
+	for _, l := range rc {
+		res[l.Name] = l
+	}
+	return res
 }
 
 func ExtractListenerFilters(l *listener.Listener) map[string]*listener.ListenerFilter {
@@ -132,7 +141,7 @@ func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
 			if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-				got = append(got, lb.GetEndpoint().Address.GetSocketAddress().Address)
+				got = append(got, fmt.Sprintf("%s:%d", lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
 			} else {
 				got = append(got, lb.GetEndpoint().Address.GetPipe().Path)
 			}
@@ -227,7 +236,20 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	return ret
 }
 
-func Dump(t testing.TB, p proto.Message) string {
+// DumpList will dump a list of protos. To workaround go type issues, call DumpList(t, InterfaceSlice([]proto.Message))
+func DumpList(t test.Failer, protoList []interface{}) []string {
+	res := []string{}
+	for _, i := range protoList {
+		p, ok := i.(proto.Message)
+		if !ok {
+			t.Fatalf("expected proto, got %T", i)
+		}
+		res = append(res, Dump(t, p))
+	}
+	return res
+}
+
+func Dump(t test.Failer, p proto.Message) string {
 	v := reflect.ValueOf(p)
 	if p == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
 		return "nil"

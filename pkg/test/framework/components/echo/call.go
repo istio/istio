@@ -43,6 +43,11 @@ type CallOptions struct {
 	// default is chosen for the target Instance.
 	Host string
 
+	// HostHeader specifies the "Host" header to be used on a request. This will override the Host
+	// field if set, in which case Host will be used for DNS resolution while HostHeader will be set
+	// as a header.
+	HostHeader string
+
 	// Path specifies the URL path for the HTTP(s) request.
 	Path string
 
@@ -64,5 +69,5 @@ type CallOptions struct {
 
 	// Use the custom certificate to make the call. This is mostly used to make mTLS request directly
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
-	Cert, Key string
+	Cert, Key, CaCert string
 }

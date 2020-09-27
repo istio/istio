@@ -35,7 +35,7 @@ var (
 		Controller: ControllerName,
 	}
 	gatewaySpec = &svc.GatewaySpec{
-		Class: "gwclass",
+		GatewayClassName: "gwclass",
 		Listeners: []svc.Listener{
 			{
 				Hostname: svc.HostnameMatch{Match: svc.HostnameMatchAny},

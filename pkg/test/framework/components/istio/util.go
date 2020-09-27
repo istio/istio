@@ -82,16 +82,18 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 		return net.TCPAddr{}, err
 	}
 	if !i.environment.IsConfigCluster(cp) {
+		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
+		//a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
 		address, err := retry.Do(func() (interface{}, bool, error) {
-			return getRemoteServiceAddress(i.environment.Settings(), cluster, i.settings.SystemNamespace, istiodLabel,
+			return getRemoteServiceAddress(i.environment.Settings(), cp, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
-		}, retryTimeout, retryDelay)
+		}, getAddressTimeout, getAddressDelay)
 		if err != nil {
 			return net.TCPAddr{}, err
 		}
 		addr = address.(net.TCPAddr)
 	} else {
-		addr = i.IngressFor(cp).DiscoveryAddress()
+		addr = i.CustomIngressFor(cp, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
 	}
 	if addr.IP.String() == "<nil>" {
 		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())

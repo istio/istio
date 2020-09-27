@@ -150,8 +150,12 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 		if mesh.AccessLogFormat != "" {
 			formatString = mesh.AccessLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
-			Format: formatString,
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_TextFormat{
+					TextFormat: formatString,
+				},
+			},
 		}
 	case meshconfig.MeshConfig_JSON:
 		var jsonLog *structpb.Struct
@@ -172,8 +176,12 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 		if jsonLog == nil {
 			jsonLog = EnvoyJSONLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
-			JsonFormat: jsonLog,
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: jsonLog,
+				},
+			},
 		}
 	default:
 		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)

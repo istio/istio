@@ -37,6 +37,8 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		// EndpointSlice is not enabled by default on older clusters
+		// TODO fix cluster vip issue - fails endpoint slice with multi-cluster
+		RequireSingleCluster().
 		RequireEnvironmentVersion("1.17").
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
@@ -46,7 +48,7 @@ values:
       PILOT_USE_ENDPOINT_SLICE: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
-			return common.SetupApps(ctx, apps)
+			return common.SetupApps(ctx, i, apps)
 		}).
 		Run()
 }

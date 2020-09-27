@@ -1,0 +1,20 @@
+policy: enabled
+alwaysInjectSelector: []
+neverInjectSelector: []
+injectedAnnotations: {}
+template: |-
+  initContainers:
+  - name: istio-init
+    image: example.com/init:latest
+  containers:
+  - name: istio-proxy
+    image: example.com/proxy:latest
+    env:
+    {{- if .DeploymentMeta.Name }}
+    - name: ISTIO_META_WORKLOAD_NAME
+      value: "{{ .DeploymentMeta.Name }}"
+    {{ end }}
+    {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
+    - name: ISTIO_META_OWNER
+      value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+    {{- end}}

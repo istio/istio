@@ -20,15 +20,62 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
+
+func httpGateway(host string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "%s"
+---
+`, host)
+}
+
+func httpVirtualService(gateway, host string, port int) string {
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.Host}}
+spec:
+  gateways:
+  - {{.Gateway}}
+  hosts:
+  - {{.Host}}
+  http:
+  - route:
+    - destination:
+        host: {{.Host}}
+        port:
+          number: {{.Port}}
+---
+`, struct {
+		Gateway string
+		Host    string
+		Port    int
+	}{gateway, host, port})
+}
 
 func virtualServiceCases(apps *EchoDeployments) []TrafficTestCase {
 	var cases []TrafficTestCase
 	callCount := callsPerCluster * len(apps.PodB)
+	// Send the same call from all different clusters
 	for _, podA := range apps.PodA {
+		podA := podA
 		cases = append(cases,
 			TrafficTestCase{
 				name: "added header",
@@ -299,16 +346,46 @@ spec:
 	return cases
 }
 
+func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+
+	destinationSets := []echo.Instances{
+		apps.PodA,
+		apps.VM,
+		apps.Naked,
+		apps.Headless,
+		apps.External,
+	}
+	for _, d := range destinationSets {
+		d := d
+		if len(d) == 0 {
+			continue
+		}
+		fqdn := d[0].Config().FQDN()
+		cases = append(cases, TrafficTestCase{
+			name:   fqdn,
+			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
+			call: func() (echoclient.ParsedResponses, error) {
+				return apps.Ingress.CallEcho(echo.CallOptions{Port: &echo.Port{Protocol: protocol.HTTP}, Host: fqdn})
+			},
+			validator: func(responses echoclient.ParsedResponses) error {
+				return responses.CheckOK()
+			},
+		})
+	}
+	return cases
+}
+
 // Todo merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	// TODO add VMs to clients when DNS works for VMs.
+	// TODO add VMs to clients when DNS works for VMs. Blocked by https://github.com/istio/istio/issues/27154
 	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
 		for _, client := range clients {
-
 			destinationSets := []echo.Instances{
 				apps.PodA,
 				apps.VM,
+				apps.External,
 				// only hit same network naked services
 				apps.Naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
 				// only hit same cluster headless services
@@ -320,6 +397,10 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
+				if (apps.Headless.Contains(client) || apps.Headless.Contains(destination)) && len(apps.Headless) > 1 {
+					// TODO(landow) fix DNS issues with multicluster/VMs/headless
+					continue
+				}
 				if apps.Naked.Contains(client) && apps.VM.Contains(destination) {
 					// Need a sidecar to connect to VMs
 					continue
@@ -334,16 +415,10 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				protocols := []protocolCase{
 					{"http", scheme.HTTP},
 					{"auto-http", scheme.HTTP},
+					{"tcp", scheme.TCP},
+					{"auto-tcp", scheme.TCP},
 					{"grpc", scheme.GRPC},
 					{"auto-grpc", scheme.GRPC},
-				}
-
-				if !apps.PodA.Clusters().IsMulticluster() {
-					// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp for multicluster
-					protocols = append(protocols,
-						protocolCase{"tcp", scheme.TCP},
-						protocolCase{"auto-tcp", scheme.TCP},
-					)
 				}
 
 				// so we can validate all clusters are hit
@@ -351,12 +426,26 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				for _, call := range protocols {
 					call := call
 					cases = append(cases, TrafficTestCase{
+						// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
+						skip: call.scheme == scheme.TCP,
 						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
 						call: func() (echoclient.ParsedResponses, error) {
-							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount, Timeout: time.Second * 5})
+							return client.Call(echo.CallOptions{
+								Target:   destination,
+								PortName: call.port,
+								Scheme:   call.scheme,
+								Count:    callCount,
+								Timeout:  time.Second * 5,
+							})
 						},
 						validator: func(responses echoclient.ParsedResponses) error {
-							return responses.CheckOK()
+							if err := responses.CheckOK(); err != nil {
+								return err
+							}
+							if err := responses.CheckHost(destination.Config().HostHeader()); err != nil {
+								return err
+							}
+							return nil
 						},
 					})
 				}
@@ -399,7 +488,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless,
+				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster)),
 				host: apps.Headless[0].Config().FQDN(),
 			},
 		)
@@ -509,6 +598,7 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 			client, c := client, c
 			cases = append(cases, TrafficTestCase{
 				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
+				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
 				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
 				call: func() (echoclient.ParsedResponses, error) {
 					return client.Call(echo.CallOptions{

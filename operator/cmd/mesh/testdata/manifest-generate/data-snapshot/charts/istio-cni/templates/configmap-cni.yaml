@@ -21,3 +21,19 @@ data:
               "exclude_namespaces": [ {{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }}, {{ end }}{{ quote $ns }}{{ end }} ]
           }
         }
+---
+  {{- if .Values.cni.taint.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "istio-cni-taint-configmap"
+  namespace: "kube-system"
+  labels:
+    app: istio-cni
+    release: {{ .Release.Name }}
+data:
+  config: |
+        - name: istio-cni
+          selector: k8s-app=istio-cni-node
+          namespace: kube-system
+  {{- end }}

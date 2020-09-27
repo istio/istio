@@ -36,14 +36,18 @@ var (
 	initDir sync.Once
 )
 
-func ProxyLogPath(rootDir, namespace, pod string) string {
-	dir := filepath.Join(getRootDir(rootDir), proxyLogsPathSubdir, namespace)
-	return filepath.Join(dir, pod+".log")
+// DirToArchive is the dir to archive.
+func DirToArchive(rootDir string) string {
+	return filepath.Dir(getRootDir(rootDir))
 }
 
-func ProxyCoredumpPath(rootDir, namespace, pod string) string {
-	dir := filepath.Join(getRootDir(rootDir), proxyLogsPathSubdir, namespace)
-	return filepath.Join(dir, pod+".core")
+// OutputRootDir is the root dir of output artifacts.
+func OutputRootDir(rootDir string) string {
+	return getRootDir(rootDir)
+}
+
+func ProxyOutputPath(rootDir, namespace, pod string) string {
+	return filepath.Join(getRootDir(rootDir), proxyLogsPathSubdir, namespace, pod)
 }
 
 func IstiodPath(rootDir, namespace, pod string) string {
@@ -104,7 +108,8 @@ func getRootDir(rootDir string) string {
 		return rootDir
 	}
 	initDir.Do(func() {
-		tmpDir = filepath.Join(os.TempDir(), bugReportSubdir)
+		// Extra subdir so archive extracts under new ./bug-report subdir.
+		tmpDir = filepath.Join(os.TempDir(), bugReportSubdir, bugReportSubdir)
 	})
 	return tmpDir
 }

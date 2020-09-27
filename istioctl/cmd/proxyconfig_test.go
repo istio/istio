@@ -40,6 +40,7 @@ type execTestCase struct {
 func TestProxyConfig(t *testing.T) {
 	loggingConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/envoy/logging/testdata/logging.txt", t),
+		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 	}
 	cases := []execTestCase{
 		{
@@ -108,6 +109,51 @@ func TestProxyConfig(t *testing.T) {
 			args:           strings.Split("proxy-config endpoint invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config endpoint invalid" should fail
+		},
+		{ // supplying nonexistent deployment name should result in error
+			args:           strings.Split("proxy-config clusters deployment/random-gibberish", " "),
+			expectedString: `"deployment/random-gibberish" does not refer to a pod`,
+			wantException:  true,
+		},
+		{ // supplying nonexistent deployment name in nonexistent namespace
+			args:           strings.Split("proxy-config endpoint deployment/random-gibberish.bogus", " "),
+			expectedString: `"deployment/random-gibberish" does not refer to a pod`,
+			wantException:  true,
+		},
+		{ // supplying type that doesn't select pods should fail
+			args:           strings.Split("proxy-config listeners serviceaccount/sleep", " "),
+			expectedString: `"serviceaccount/sleep" does not refer to a pod`,
+			wantException:  true,
+		},
+		{ // supplying valid pod name retrieves Envoy config (fails because we don't check in Envoy config unit tests)
+			execClientConfig: loggingConfig,
+			args:             strings.Split("pc clusters httpbin-794b576b6c-qx6pf", " "),
+			expectedString:   `config dump has no configuration type`,
+			wantException:    true,
+		},
+		{ // supplying valid pod name retrieves Envoy config (fails because we don't check in Envoy config unit tests)
+			execClientConfig: loggingConfig,
+			args:             strings.Split("pc bootstrap httpbin-794b576b6c-qx6pf", " "),
+			expectedString:   `config dump has no configuration type`,
+			wantException:    true,
+		},
+		{ // supplying valid pod name retrieves Envoy config (fails because we don't check in Envoy config unit tests)
+			execClientConfig: loggingConfig,
+			args:             strings.Split("pc endpoint httpbin-794b576b6c-qx6pf", " "),
+			expectedString:   `ENDPOINT     STATUS     OUTLIER CHECK     CLUSTER`,
+			wantException:    false,
+		},
+		{ // supplying valid pod name retrieves Envoy config (fails because we don't check in Envoy config unit tests)
+			execClientConfig: loggingConfig,
+			args:             strings.Split("pc listener httpbin-794b576b6c-qx6pf", " "),
+			expectedString:   `config dump has no configuration type`,
+			wantException:    true,
+		},
+		{ // supplying valid pod name retrieves Envoy config (fails because we don't check in Envoy config unit tests)
+			execClientConfig: loggingConfig,
+			args:             strings.Split("pc route httpbin-794b576b6c-qx6pf", " "),
+			expectedString:   `config dump has no configuration type`,
+			wantException:    true,
 		},
 	}
 
