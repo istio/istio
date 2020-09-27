@@ -1693,9 +1693,6 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	if listenerOpts.push.Mesh.EnableTracing {
 		proxyConfig := listenerOpts.proxy.Metadata.ProxyConfigOrDefault(listenerOpts.push.Mesh.DefaultConfig)
 		connectionManager.Tracing = buildTracingConfig(proxyConfig)
-		connectionManager.GenerateRequestId = proto.BoolTrue
-	} else {
-		connectionManager.GenerateRequestId = proto.BoolFalse
 	}
 
 	return connectionManager
