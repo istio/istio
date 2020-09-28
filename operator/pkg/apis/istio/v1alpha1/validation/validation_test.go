@@ -230,7 +230,7 @@ func TestValidateProfiles(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			verr, warnings := validation.ValidateConfig(false, s)
+			verr, warnings := validation.ValidateConfig(false, s.Spec)
 			if verr != nil {
 				t.Fatalf("got error validating: %v", verr)
 			}

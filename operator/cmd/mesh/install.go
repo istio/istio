@@ -147,11 +147,6 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 		return err
 	}
 
-	crName := iop.Name
-	if iop.Spec.Revision != "" {
-		crName += "-" + iop.Spec.Revision
-	}
-
 	if err := createNamespace(clientset, iop.Namespace); err != nil {
 		return err
 	}
