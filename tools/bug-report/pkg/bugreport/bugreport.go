@@ -308,7 +308,7 @@ func runAnalyze(config *config.BugReportConfig, resources *cluster2.Resources, p
 		if isSystemNamespace[ns] {
 			continue
 		}
-		logAndPrintf("Running istio analyze on namespace %s.\n", ns)
+		common.LogAndPrintf("Running istio analyze on namespace %s.\n", ns)
 		out, err := content.GetAnalyze(params.SetIstioNamespace(config.IstioNamespace))
 		if err != nil {
 			log.Error(err.Error())
@@ -316,7 +316,7 @@ func runAnalyze(config *config.BugReportConfig, resources *cluster2.Resources, p
 		}
 		writeFiles(archive.AnalyzePath(tempDir, ns), out)
 	}
-	logAndPrintf("\n")
+	common.LogAndPrintf("\n")
 }
 
 func writeFiles(dir string, files map[string]string) {
