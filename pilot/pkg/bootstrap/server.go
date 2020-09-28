@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
+	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -479,6 +480,20 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			if err != nil {
 				return fmt.Errorf("failed creating kube config: %v", err)
 			}
+			// start watch istio-kubeconfig secret in the cluster that runs external istiod(need use in-cluster client
+			// other than the remote client which bootstraps istiod
+			inClusterConfig, err := rest.InClusterConfig()
+			if err != nil {
+				return err
+			}
+			inClusterClient, err := kubernetes.NewForConfig(inClusterConfig)
+			if err != nil {
+				return err
+			}
+			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+				kubecontroller.StartSecretController(inClusterClient, args.Namespace, kubelib.RemoteKubeConfigSecretName, stop)
+				return nil
+			})
 
 		} else {
 			// Used by validation
@@ -494,12 +509,6 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
-		}
-		if features.CentralIstioD {
-			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-				kubecontroller.StartSecretController(s.kubeClient, args.Namespace, kubelib.RemoteKubeConfigSecretName, stop)
-				return nil
-			})
 		}
 	}
 
