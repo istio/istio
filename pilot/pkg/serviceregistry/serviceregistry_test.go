@@ -805,6 +805,14 @@ func TestEndpointsDeduping(t *testing.T) {
 	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
 	createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"2.3.4.5"})
 	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80", "2.3.4.5:80"})
+
+	// Delete endpoint
+	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
+	createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+
+	s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Delete(context.TODO(), "slice1", metav1.DeleteOptions{})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 }
 
 type ServiceInstanceResponse struct {
@@ -819,6 +827,7 @@ func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, e
 	retry.UntilSuccessOrFail(t, func() error {
 		got := xdstest.ExtractLoadAssignments(s.Endpoints(s.SetupProxy(nil)))
 		sort.Strings(got[cluster])
+		sort.Strings(expected)
 		if !reflect.DeepEqual(got[cluster], expected) {
 			return fmt.Errorf("wanted %v got %v. All endpoints: %+v", expected, got[cluster], got)
 		}
