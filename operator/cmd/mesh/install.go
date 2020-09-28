@@ -174,6 +174,8 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 
 	opts.ProgressLog.SetState(progress.StateComplete)
 
+	// Save a copy of what was installed as a CR in the cluster.
+	iop.Name = installedSpecCRPrefix + "-" + iop.Name + "-" + iop.Spec.Revision
 	iopStr, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
 		return err
