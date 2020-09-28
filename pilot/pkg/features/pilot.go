@@ -358,4 +358,7 @@ var (
 	EnableLegacyFSGroupInjection = env.RegisterBoolVar("ENABLE_LEGACY_FSGROUP_INJECTION", JwtPolicy.Get() != jwt.PolicyFirstParty,
 		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
 			`(see https://github.com/kubernetes/kubernetes/issues/57923 for details) unless JWT_POLICY is "first-party-jwt".`).Get()
+
+	EnableTLSv2OnInboundPath = env.RegisterBoolVar("PILOT_SIDECAR_ENABLE_INBOUND_TLS_V2", true,
+		"If true, Pilot will set the TLS version on server side as TLSv1_2 and also enforce strong cipher suites").Get()
 )
