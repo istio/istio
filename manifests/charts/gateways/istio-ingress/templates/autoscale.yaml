@@ -1,5 +1,5 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if and $gateway.autoscaleEnabled $gateway.autoscaleMin $gateway.autoscaleMax }}
+{{- if and $gateway.autoscaleEnabled $gateway.autoscaleMin $gateway.autoscaleMax $gateway.revisionDeployment }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:

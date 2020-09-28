@@ -1,4 +1,5 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if $gateway.revisionDeployment }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -13,4 +14,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ $gateway.name | default "istio-ingressgateway" }}-service-account
----
+{{- end }}

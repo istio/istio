@@ -1,5 +1,5 @@
 {{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
-{{- if not $gateway.customService }}
+{{- if or (eq $gateway.customService true) (eq $gateway.revisionService true) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -48,5 +48,4 @@ spec:
       port: {{ $app.port }}
       name: {{ $app.name }}
   {{- end }}
----
 {{ end }}
