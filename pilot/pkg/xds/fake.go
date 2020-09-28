@@ -149,11 +149,13 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			select {
 			// Read and drop events. This prevents the channel from getting backed up
 			// In the future, we can likely track these for use in tests
-			case <-s.pushChannel:
+			case r := <-s.pushChannel:
 				s.updateMutex.RLock()
 				pc := s.Env.PushContext
 				s.updateMutex.RUnlock()
-				_, _ = s.initPushContext(nil, pc)
+				if r.Full {
+					_, _ = s.initPushContext(r, pc)
+				}
 			case <-stop:
 				return
 			}
