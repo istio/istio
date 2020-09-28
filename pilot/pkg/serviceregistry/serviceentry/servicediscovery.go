@@ -512,11 +512,13 @@ type servicesWithEntry struct {
 func (s *ServiceEntryStore) ResyncEDS() {
 	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
+	s.storeMutex.RLock()
 	for _, imap := range s.instances {
 		for _, i := range imap {
 			allInstances = append(allInstances, i...)
 		}
 	}
+	s.storeMutex.RUnlock()
 	s.edsUpdate(allInstances, true)
 }
 
