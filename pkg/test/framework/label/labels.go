@@ -28,13 +28,17 @@ const (
 
 	// Multicluster indicates that the test requires a multicluster configuration.
 	Multicluster Instance = "multicluster"
+
+	// ExternalIstiod indicates that the test should be run under externalIstiod set up
+	ExternalIstiod Instance = "externalistiod"
 )
 
 var all = NewSet(
 	Postsubmit,
 	CustomSetup,
 	Flaky,
-	Multicluster)
+	Multicluster,
+	ExternalIstiod)
 
 // Find the label with the given name
 func Find(name string) (Instance, bool) {

@@ -33,7 +33,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Label(label.Multicluster).
+		Label(label.Multicluster, label.ExternalIstiod).
 		RequireMinClusters(2).
 		Setup(kube.Setup(func(s *kube.Settings, ctx resource.Context) {
 			// Make istiod run on 2nd cluster and points to KUBECONFIG in cluster 0
