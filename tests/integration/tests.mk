@@ -34,7 +34,7 @@ endif
 
 _INTEGRATION_TEST_SELECT_FLAGS ?= --istio.test.select=$(TEST_SELECT)
 ifeq ($(TEST_SELECT),)
-    _INTEGRATION_TEST_SELECT_FLAGS = --istio.test.select=-postsubmit,-flaky,-multicluster
+    _INTEGRATION_TEST_SELECT_FLAGS = --istio.test.select=-postsubmit,-flaky
 endif
 
 # $(INTEGRATION_TEST_KUBECONFIG) overrides all kube config settings.
