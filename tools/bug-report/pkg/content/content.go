@@ -130,8 +130,23 @@ func GetCRs(p *Params) (map[string]string, error) {
 
 // GetClusterInfo returns the cluster info.
 func GetClusterInfo(p *Params) (map[string]string, error) {
-	out, err := kubectlcmd.RunCmd("cluster-info dump", "", p.DryRun)
-	return retMap("cluster-info", out, err)
+	out, err := kubectlcmd.RunCmd("config current-context", "", p.DryRun)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]string)
+	ret["cluster-context"] = out
+	out, err = kubectlcmd.RunCmd("version", "", p.DryRun)
+	if err != nil {
+		return nil, err
+	}
+	ret["kubectl-version"] = out
+	return ret, nil
+}
+
+// GetClusterContext returns the cluster context.
+func GetClusterContext() (string, error) {
+	return kubectlcmd.RunCmd("config current-context", "", false)
 }
 
 // GetDescribePods returns describe pods for istioNamespace.
