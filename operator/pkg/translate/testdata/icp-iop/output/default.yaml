@@ -303,8 +303,6 @@ spec:
       omitSidecarInjectorConfigMap: false
       oneNamespace: false
       operatorManageWebhooks: false
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       policyCheckFailOpen: false
       priorityClassName: ""
       proxy:
