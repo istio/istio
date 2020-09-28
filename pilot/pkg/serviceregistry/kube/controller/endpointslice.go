@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
@@ -292,13 +293,15 @@ func getLocalityFromTopology(topology map[string]string) string {
 }
 
 type endpointSliceCache struct {
-	mu                         sync.RWMutex
-	endpointsByServiceAndSlice map[host.Name]map[string][]*model.IstioEndpoint
+	mu                           sync.RWMutex
+	endpointIPsByServiceAndSlice map[host.Name]map[string][]string
+	endpointByIP                 map[string]*model.IstioEndpoint
 }
 
 func newEndpointSliceCache() *endpointSliceCache {
 	out := &endpointSliceCache{
-		endpointsByServiceAndSlice: make(map[host.Name]map[string][]*model.IstioEndpoint),
+		endpointIPsByServiceAndSlice: make(map[host.Name]map[string][]string),
+		endpointByIP:                 make(map[string]*model.IstioEndpoint),
 	}
 	return out
 }
@@ -307,21 +310,35 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if len(endpoints) == 0 {
-		delete(e.endpointsByServiceAndSlice[hostname], slice)
+		for _, ip := range e.endpointIPsByServiceAndSlice[hostname][slice] {
+			delete(e.endpointByIP, ip)
+		}
+		delete(e.endpointIPsByServiceAndSlice[hostname], slice)
 	}
-	if _, f := e.endpointsByServiceAndSlice[hostname]; !f {
-		e.endpointsByServiceAndSlice[hostname] = make(map[string][]*model.IstioEndpoint)
+	if _, f := e.endpointIPsByServiceAndSlice[hostname]; !f {
+		e.endpointIPsByServiceAndSlice[hostname] = make(map[string][]string)
 	}
-	e.endpointsByServiceAndSlice[hostname][slice] = endpoints
+	ips := make([]string, 0, len(endpoints))
+	for _, ep := range endpoints {
+		ips = append(ips, ep.Address)
+		// We will always overwrite. A conflict here means an endpoint is transitioning
+		// from one slice to another See
+		// https://github.com/kubernetes/website/blob/master/content/en/docs/concepts/services-networking/endpoint-slices.md#duplicate-endpoints
+		// In this case, we can always assume and update is fresh, although older slices
+		// we have not gotten updates may be stale; therefor we always take the new
+		// update.
+		e.endpointByIP[ep.Address] = ep
+	}
+	e.endpointIPsByServiceAndSlice[hostname][slice] = ips
 }
 
 func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	delete(e.endpointsByServiceAndSlice[hostname], slice)
-	if len(e.endpointsByServiceAndSlice[hostname]) == 0 {
-		delete(e.endpointsByServiceAndSlice, hostname)
+	delete(e.endpointIPsByServiceAndSlice[hostname], slice)
+	if len(e.endpointIPsByServiceAndSlice[hostname]) == 0 {
+		delete(e.endpointIPsByServiceAndSlice, hostname)
 	}
 }
 
@@ -329,8 +346,17 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	var endpoints []*model.IstioEndpoint
-	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
-		endpoints = append(endpoints, eps...)
+	found := sets.NewSet()
+	for _, ips := range e.endpointIPsByServiceAndSlice[hostname] {
+		for _, ip := range ips {
+			if found.Contains(ip) {
+				// This a duplicate. Update() already handles conflict resolution, so we don't
+				// need to pick the "right" one here.
+				continue
+			}
+			found.Insert(ip)
+			endpoints = append(endpoints, e.endpointByIP[ip])
+		}
 	}
 	return endpoints
 }

@@ -52,6 +52,8 @@ type FakeOptions struct {
 	KubernetesObjects []runtime.Object
 	// If provided, the yaml string will be parsed and used as objects
 	KubernetesObjectString string
+	// Endpoint mode for the Kubernetes service registry
+	KubernetesEndpointMode kube.EndpointMode
 	// If provided, these configs will be used directly
 	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -107,6 +109,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		DomainSuffix:    "cluster.local",
 		XDSUpdater:      s,
 		NetworksWatcher: opts.NetworksWatcher,
+		Mode:            opts.KubernetesEndpointMode,
 	})
 
 	sc := kubesecrets.NewMulticluster(kubeClient, "", "")
