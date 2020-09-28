@@ -240,7 +240,7 @@ func DumpNdsz(ctx resource.Context, c resource.Cluster, workDir string, namespac
 		return
 	}
 	for _, p := range pods {
-		endpoint := fmt.Sprintf("/debug/ndsz?proxyID=%s/%s", p.Name, p.Namespace)
+		endpoint := fmt.Sprintf("/debug/ndsz?proxyID=%s.%s", p.Name, p.Namespace)
 		out, err := dumpDebug(cp, istiod, endpoint)
 		if err != nil {
 			scopes.Framework.Errorf("failed dumping ndsz: %v", err)
