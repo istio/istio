@@ -196,6 +196,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		XDSUpdater:      s,
 		NetworksWatcher: env,
 	})
+	t.Cleanup(k8s.Stop)
 	kubeClient.RunAndWait(stop)
 	serviceDiscovery.AddRegistry(k8s)
 	for _, cfg := range configs {
