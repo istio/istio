@@ -43,6 +43,8 @@ features:
     mirroring:
     ingress:
       loadbalancing:
+    ratelimit:
+      envoy:
   usability:
     observability:
       describe:
