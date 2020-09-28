@@ -23,11 +23,10 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/pkg/log"
@@ -143,18 +142,14 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
 		return err
 	}
-	_, iops, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
+	_, iop, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
 		return err
 	}
 
-	crName := installedSpecCRPrefix
-	if iops.Revision != "" {
-		crName += "-" + iops.Revision
-	}
-	iop, err := translate.IOPStoIOP(iops, crName, iopv1alpha1.Namespace(iops))
-	if err != nil {
-		return err
+	crName := iop.Name
+	if iop.Spec.Revision != "" {
+		crName += "-" + iop.Spec.Revision
 	}
 
 	if err := createNamespace(clientset, iop.Namespace); err != nil {
@@ -179,8 +174,7 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 
 	opts.ProgressLog.SetState(progress.StateComplete)
 
-	// Save state to cluster in IstioOperator CR.
-	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
+	iopStr, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
 		return err
 	}
