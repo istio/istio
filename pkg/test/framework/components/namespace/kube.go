@@ -54,9 +54,7 @@ func (n *kubeNamespace) Dump(ctx resource.Context) {
 		return
 	}
 
-	for _, cluster := range n.ctx.Clusters() {
-		kube2.DumpPods(cluster, d, n.name)
-	}
+	kube2.DumpPods(n.ctx, d, n.name)
 }
 
 var _ Instance = &kubeNamespace{}

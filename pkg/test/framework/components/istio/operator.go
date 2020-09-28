@@ -185,15 +185,13 @@ func (i *operatorComponent) Close() (err error) {
 
 func (i *operatorComponent) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
-
-	for _, cluster := range i.environment.KubeClusters {
-		d, err := ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
-		if err != nil {
-			scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
-			return
-		}
-		kube2.DumpPods(cluster, d, i.settings.SystemNamespace)
+	ns := i.settings.SystemNamespace
+	d, err := ctx.CreateTmpDirectory("istio-state")
+	if err != nil {
+		scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
+		return
 	}
+	kube2.DumpPods(ctx, d, ns)
 }
 
 // saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
