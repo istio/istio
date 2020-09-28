@@ -474,18 +474,32 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 
 	if hasK8SConfigStore || hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
-		// Used by validation
-		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
-			config.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
-			config.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
-		})
-		if err != nil {
-			return fmt.Errorf("failed creating kube config: %v", err)
+		if features.CentralIstioD {
+			s.kubeRestConfig, err = kubelib.ConfigFromRemoteKubeConfig(args.Namespace)
+			if err != nil {
+				return fmt.Errorf("failed creating kube config: %v", err)
+			}
+
+		} else {
+			// Used by validation
+			s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
+				config.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
+				config.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
+			})
+			if err != nil {
+				return fmt.Errorf("failed creating kube config: %v", err)
+			}
 		}
 
 		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
+		}
+		if features.CentralIstioD {
+			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+				kubecontroller.StartSecretController(s.kubeClient, args.Namespace, kubelib.RemoteKubeConfigSecretName, stop)
+				return nil
+			})
 		}
 	}
 

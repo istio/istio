@@ -819,6 +819,8 @@ spec:
             readOnly: true
           - name: local-certs
             mountPath: /var/run/secrets/istio-dns
+          - name: remote-token
+            mountPath: /var/run/secrets/remote-token
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
@@ -834,6 +836,9 @@ spec:
       - emptyDir:
           medium: Memory
         name: local-certs
+      - emptyDir:
+          medium: Memory
+        name: remote-token
       - name: istio-token
         projected:
           sources:
