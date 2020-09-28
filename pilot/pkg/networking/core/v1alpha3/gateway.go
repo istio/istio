@@ -764,7 +764,7 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 	// we can only have one wildcard. Ideally, we want to match any port, as the host
 	// header may have a different port (behind a LB, nodeport, etc). However, if we
 	// have a wildcard domain we cannot do that since we would need two wildcards.
-	// Therefore, we we will preserve the original port if there is a wildcard host.
+	// Therefore, we will preserve the original port if there is a wildcard host.
 	// TODO(https://github.com/envoyproxy/envoy/issues/12647) support wildcard host with wildcard port.
 	if len(hostname) > 0 && hostname[0] == '*' {
 		domains = append(domains, hostname+":"+strconv.Itoa(port))
