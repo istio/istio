@@ -131,7 +131,17 @@ func GetCRs(p *Params) (map[string]string, error) {
 // GetClusterInfo returns the cluster info.
 func GetClusterInfo(p *Params) (map[string]string, error) {
 	out, err := kubectlcmd.RunCmd("config current-context", "", p.DryRun)
-	return retMap("cluster-context", out, err)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]string)
+	ret["cluster-context"] = out
+	out, err = kubectlcmd.RunCmd("version", "", p.DryRun)
+	if err != nil {
+		return nil, err
+	}
+	ret["kubectl-version"] = out
+	return ret, nil
 }
 
 // GetClusterContext returns the cluster context.
