@@ -31,7 +31,12 @@ import (
 
 func ValidateListeners(t testing.TB, ls []*listener.Listener) {
 	t.Helper()
+	found := sets.String{}
 	for _, l := range ls {
+		if found.Has(l.Name) {
+			t.Errorf("duplicate listener name %v", l.Name)
+		}
+		found.Insert(l.Name)
 		ValidateListener(t, l)
 	}
 }
@@ -145,7 +150,12 @@ func validateInspector(t testing.TB, l *listener.Listener) {
 }
 
 func ValidateClusters(t testing.TB, ls []*cluster.Cluster) {
+	found := sets.String{}
 	for _, l := range ls {
+		if found.Has(l.Name) {
+			t.Errorf("duplicate cluster name %v", l.Name)
+		}
+		found.Insert(l.Name)
 		ValidateCluster(t, l)
 	}
 }
@@ -175,7 +185,12 @@ func ValidateRoute(t testing.TB, r *route.Route) {
 	}
 }
 func ValidateRouteConfigurations(t testing.TB, ls []*route.RouteConfiguration) {
+	found := sets.String{}
 	for _, l := range ls {
+		if found.Has(l.Name) {
+			t.Errorf("duplicate route config name %v", l.Name)
+		}
+		found.Insert(l.Name)
 		ValidateRouteConfiguration(t, l)
 	}
 }
