@@ -711,15 +711,15 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
 					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
+					// exclude workload selector that not match
 					if !workloadLabels.IsSupersetOf(workloadSelector) {
 						continue
 					}
-					return wrapper
 				}
 
 				// it is guaranteed sidecars with selectors are put in front
 				// and the sidecars are sorted by creation timestamp,
-				// return wildcard matching one directly
+				// return exact/wildcard matching one directly
 				return wrapper
 			}
 			// this happens at last, it is the default sidecar scope
