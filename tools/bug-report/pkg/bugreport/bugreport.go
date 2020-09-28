@@ -110,6 +110,12 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
+	clusterCtxStr, err := content.GetClusterContext()
+	if err != nil {
+		return err
+	}
+
+	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
 	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
 
 	clientConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
