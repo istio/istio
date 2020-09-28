@@ -194,7 +194,6 @@ func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) string {
 			}
 		}
 	}
-	log.Infof("no owning Deployment found for pod %s", pod.Name)
 	return ""
 }
 
