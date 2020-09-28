@@ -66,7 +66,7 @@ if [[ "${IMAGE_NAME:-}" == "" ]]; then
 fi
 
 export UID
-DOCKER_GID=$(grep '^docker:' /etc/group | cut -f3 -d:)
+DOCKER_GID="${DOCKER_GID:-$(grep '^docker:' /etc/group | cut -f3 -d:)}"
 export DOCKER_GID
 
 TIMEZONE=$(readlink "$readlink_flags" /etc/localtime | sed -e 's/^.*zoneinfo\///')
