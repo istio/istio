@@ -931,7 +931,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-	authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -967,6 +967,7 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
+		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
 		// TODO should this be a deep copy, or is the old push context discarded?
@@ -1053,7 +1054,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		s.Mutex.RUnlock()
 
 		ns := s.Attributes.Namespace
-		// add service to appropriate index based on export-to
 		if len(s.Attributes.ExportTo) == 0 {
 			if ps.exportToDefaults.service[visibility.Private] {
 				ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
@@ -1066,10 +1066,8 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			// if service has exportTo ., replace with current namespace
 			if s.Attributes.ExportTo[visibility.Public] {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+				continue
 			} else if s.Attributes.ExportTo[visibility.None] {
-				// don't index in instancesByPort or ClusterVIPS
-				// TODO wouldn't we check those maps after first finding the service in the appropriate "exportTo" index?
-				log.Infof("%s has exportTo none", s.Hostname)
 				continue
 			} else {
 				// . or other namespaces
@@ -1084,7 +1082,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				}
 			}
 		}
-
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 		}
