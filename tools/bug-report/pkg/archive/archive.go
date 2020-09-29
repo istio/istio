@@ -29,6 +29,7 @@ const (
 	proxyLogsPathSubdir = "proxies"
 	istioLogsPathSubdir = "istio"
 	clusterInfoSubdir   = "cluster"
+	analyzeSubdir       = "analyze"
 )
 
 var (
@@ -51,13 +52,15 @@ func ProxyOutputPath(rootDir, namespace, pod string) string {
 }
 
 func IstiodPath(rootDir, namespace, pod string) string {
-	dir := filepath.Join(getRootDir(rootDir), istioLogsPathSubdir, namespace)
-	return filepath.Join(dir, pod)
+	return filepath.Join(getRootDir(rootDir), istioLogsPathSubdir, namespace, pod)
+}
+
+func AnalyzePath(rootDir, namespace string) string {
+	return filepath.Join(getRootDir(rootDir), analyzeSubdir, namespace)
 }
 
 func ClusterInfoPath(rootDir string) string {
-	dir := filepath.Join(getRootDir(rootDir), clusterInfoSubdir)
-	return dir
+	return filepath.Join(getRootDir(rootDir), clusterInfoSubdir)
 }
 
 // Create creates a gzipped tar file from srcDir and writes it to outPath.
