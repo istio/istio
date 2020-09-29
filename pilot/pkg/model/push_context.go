@@ -969,6 +969,8 @@ func (ps *PushContext) updateContext(
 	} else {
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+		// TODO should this be a deep copy, or is the old push context discarded?
+		ps.ClusterVIPs = oldPushContext.ClusterVIPs
 	}
 
 	if virtualServicesChanged {
