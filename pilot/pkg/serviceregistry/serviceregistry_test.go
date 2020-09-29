@@ -813,6 +813,21 @@ func TestEndpointsDeduping(t *testing.T) {
 
 	s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Delete(context.TODO(), "slice1", metav1.DeleteOptions{})
 	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+
+	// Ensure there is nothing is left over
+	expectServiceInstances(t, s.KubeRegistry, &model.Service{
+		Hostname: "service.namespace.svc.cluster.local",
+		Ports: []*model.Port{{
+			Name:     "http",
+			Port:     80,
+			Protocol: "http",
+		}},
+		Attributes: model.ServiceAttributes{
+			Namespace:      namespace,
+			Name:           "service",
+			LabelSelectors: labels,
+		},
+	}, 80, []ServiceInstanceResponse{})
 }
 
 type ServiceInstanceResponse struct {

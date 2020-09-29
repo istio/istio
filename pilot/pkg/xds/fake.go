@@ -67,10 +67,11 @@ type FakeOptions struct {
 
 type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
-	t          test.Failer
-	Discovery  *DiscoveryServer
-	Listener   *bufconn.Listener
-	kubeClient kubelib.Client
+	t            test.Failer
+	Discovery    *DiscoveryServer
+	Listener     *bufconn.Listener
+	kubeClient   kubelib.Client
+	KubeRegistry *kube.FakeController
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -209,6 +210,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Listener:      listener,
 		ConfigGenTest: cg,
 		kubeClient:    kubeClient,
+		KubeRegistry:  k8s,
 	}
 
 	// currently meshNetworks gateways are stored on the push context
