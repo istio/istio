@@ -25,22 +25,6 @@ const (
 	LikeyCauseSecondPrefix = "Another possible cause could be "
 )
 
-func fixFormat(s string) string {
-	s = strings.TrimSpace(s)
-	return strings.TrimSuffix(s, ".")
-}
-
-func formatCauses(causes ...string) string {
-	if len(causes) == 0 {
-		return ""
-	}
-	out := LikelyCauseFirstPrefix + fixFormat(causes[0]) + "."
-	for _, c := range causes[1:] {
-		out += LikeyCauseSecondPrefix + fixFormat(c) + "."
-	}
-	return out
-}
-
 // General boilerplate.
 const (
 	// Boilerplate messages applicable all over the code base.
@@ -48,7 +32,7 @@ const (
 	// Action
 	ActionIfErrPersistsCheckBugList            = "If this error persists, " + ActionCheckBugList
 	ActionIfErrSureCorrectConfigContactSupport = "If you are sure your configuration is correct, " + ActionCheckBugList
-	ActionCheckBugList                         = "see https://istio.io/latest/about/bugs/ for possible solutions."
+	ActionCheckBugList                         = "see https://istio.io/latest/about/bugs for possible solutions."
 
 	// LikelyCause
 	LikelyCauseAPIServer     = "a problem with the Kubernetes API server"
@@ -110,3 +94,19 @@ var (
 			ActionIfErrSureCorrectConfigContactSupport,
 	}
 )
+
+func fixFormat(s string) string {
+	s = strings.TrimSpace(s)
+	return strings.TrimSuffix(s, ".")
+}
+
+func formatCauses(causes ...string) string {
+	if len(causes) == 0 {
+		return ""
+	}
+	out := LikelyCauseFirstPrefix + fixFormat(causes[0]) + "."
+	for _, c := range causes[1:] {
+		out += LikeyCauseSecondPrefix + fixFormat(c) + "."
+	}
+	return out
+}
