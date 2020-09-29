@@ -125,9 +125,7 @@ func (m *Monitor) checkAndUpdate() {
 	// make a deep copy of newConfigs to prevent data race
 	copyConfigs := make([]*config.Config, 0)
 	for _, config := range newConfigs {
-		cpy := *config
-		// TODO do not merge howardjohn!!!
-		//cpy.Spec = proto.Clone(config.Spec)
+		cpy := config.DeepCopy()
 		copyConfigs = append(copyConfigs, &cpy)
 	}
 
