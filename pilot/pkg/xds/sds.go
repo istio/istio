@@ -104,7 +104,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 		adsLog.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil
 	}
-	if err := s.secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace, ""); err != nil {
+	if err := s.secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID); err != nil {
 		adsLog.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
 		return nil
 	}

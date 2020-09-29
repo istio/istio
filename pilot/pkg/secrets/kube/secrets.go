@@ -176,7 +176,11 @@ func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID strin
 		return cached
 	}
 	resp := func() error {
-		resp, err := s.sar.Create(context.Background(), &authorizationv1.SubjectAccessReview{
+		sar := s.getAccessReviewClient(clusterID)
+		if sar == nil {
+			return fmt.Errorf("client for cluster %v is missing", clusterID)
+		}
+		resp, err := sar.Create(context.Background(), &authorizationv1.SubjectAccessReview{
 			ObjectMeta: metav1.ObjectMeta{},
 			Spec: authorizationv1.SubjectAccessReviewSpec{
 				ResourceAttributes: &authorizationv1.ResourceAttributes{
