@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
@@ -169,12 +170,23 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 
 	opts.ProgressLog.SetState(progress.StateComplete)
 
-	// Save a copy of what was installed as a CR in the cluster.
-	iop.Name = installedSpecCRPrefix + "-" + iop.Name + "-" + iop.Spec.Revision
+	// Save a copy of what was installed as a CR in the cluster under an internal name.
+	iop.Name = savedIOPName(iop)
 	iopStr, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
 		return err
 	}
 
 	return saveIOPToCluster(reconciler, iopStr)
+}
+
+func savedIOPName(iop *v1alpha12.IstioOperator) string {
+	ret := installedSpecCRPrefix
+	if iop.Name != "" {
+		ret += "-" + iop.Name
+	}
+	if iop.Spec.Revision != "" {
+		ret += "-" + iop.Spec.Revision
+	}
+	return ret
 }
