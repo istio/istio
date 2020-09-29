@@ -581,7 +581,14 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" && push.ClusterVIPs[s][node.Metadata.ClusterID] != "" {
-		return push.ClusterVIPs[s][node.Metadata.ClusterID]
+		sa := push.ClusterVIPs[s][node.Metadata.ClusterID]
+		// If push context cache does not have cluser VIP for this service, fallback to cluster VIP in the service.
+		if sa == "" {
+			s.Mutex.RLock()
+			sa = s.ClusterVIPs[node.Metadata.ClusterID]
+			s.Mutex.RUnlock()
+		}
+		return sa
 	}
 	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
 		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {

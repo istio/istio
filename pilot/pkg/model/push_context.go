@@ -1043,7 +1043,17 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
+
+		s.Mutex.RLock()
+		ps.ClusterVIPs[s] = make(map[string]string)
+		for k, v := range s.ClusterVIPs {
+			ps.ClusterVIPs[s][k] = v
+		}
+		s.Mutex.RUnlock()
+
 		ns := s.Attributes.Namespace
+
+		// add service to appropriate index based on export-to
 		if len(s.Attributes.ExportTo) == 0 {
 			if ps.exportToDefaults.service[visibility.Private] {
 				ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
@@ -1077,12 +1087,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		}
 		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 		ps.ServiceIndex.Hostname[s.Hostname] = s
-		s.Mutex.RLock()
-		ps.ClusterVIPs[s] = make(map[string]string)
-		for k, v := range s.ClusterVIPs {
-			ps.ClusterVIPs[s][k] = v
-		}
-		s.Mutex.RUnlock()
+
 		for _, port := range s.Ports {
 			if _, ok := ps.instancesByPort[s]; !ok {
 				ps.instancesByPort[s] = make(map[int][]*ServiceInstance)
