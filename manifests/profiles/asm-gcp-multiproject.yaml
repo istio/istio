@@ -1,11 +1,15 @@
 # Default ASM Profile for GCP multiproject installations.
-#   * Security: citadel
+#   * Security: Mesh CA
 #   * Telemetry: Stackdriver
-#   * Networking: istiod
+#   * Networking: Istiod
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        CA_PROVIDER: "GoogleCA"
+        PLUGINS: "GoogleTokenExchange"
     # Protocol detection timeout is not supported
     protocolDetectionTimeout: 0s
     # Locality load balancing is not supported
@@ -54,3 +58,8 @@ spec:
           topology: true
     sidecarInjectorWebhook:
       rewriteAppHTTPProbe: true
+    global:
+      caAddress: "meshca.googleapis.com:443"
+      pilotCertProvider: kubernetes
+      sts:
+        servicePort: 15463
