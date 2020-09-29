@@ -15,12 +15,15 @@
 package xds
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pilot/pkg/model"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
@@ -117,21 +120,18 @@ var (
 )
 
 func TestGenerate(t *testing.T) {
-	s := NewFakeDiscoveryServer(t, FakeOptions{
-		KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
-	})
-	gen := s.Discovery.Generators[v3.SecretType]
 	type Expected struct {
 		Key    string
 		Cert   string
 		CaCert string
 	}
 	cases := []struct {
-		name      string
-		proxy     *model.Proxy
-		resources []string
-		request   *model.PushRequest
-		expect    map[string]Expected
+		name                 string
+		proxy                *model.Proxy
+		resources            []string
+		request              *model.PushRequest
+		expect               map[string]Expected
+		accessReviewResponse func(action k8stesting.Action) (bool, runtime.Object, error)
 	}{
 		{
 			name:      "simple",
@@ -238,11 +238,36 @@ func TestGenerate(t *testing.T) {
 				},
 			},
 		},
+		{
+			// proxy without authorization
+			name:      "unauthorized",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"},
+			resources: []string{"kubernetes://generic"},
+			request:   &model.PushRequest{Full: true},
+			// Should get a response, but it will be empty
+			expect: map[string]Expected{},
+			accessReviewResponse: func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, nil, errors.New("not authorized")
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			s := NewFakeDiscoveryServer(t, FakeOptions{
+				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
+			})
+			cc := s.KubeClient().Kube().(*fake.Clientset)
+			if tt.accessReviewResponse != nil {
+				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
+			} else {
+				kubesecrets.DisableAuthorizationForTest(cc)
+			}
+
+			gen := s.Discovery.Generators[v3.SecretType]
+
 			raw := xdstest.ExtractTLSSecrets(t, gen.Generate(s.SetupProxy(tt.proxy), s.PushContext(),
 				&model.WatchedResource{ResourceNames: tt.resources}, tt.request))
+
 			got := map[string]Expected{}
 			for _, scrt := range raw {
 				got[scrt.Name] = Expected{

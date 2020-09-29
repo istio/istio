@@ -24,9 +24,12 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/secrets"
@@ -61,9 +64,8 @@ type SecretsController struct {
 	clusterID    string
 	remoteGetter RemoteKubeClientGetter
 
-	mu                   sync.RWMutex
-	authorizationCache   map[authorizationKey]authorizationResponse
-	authorizationEnabled bool
+	mu                 sync.RWMutex
+	authorizationCache map[authorizationKey]authorizationResponse
 }
 
 type authorizationKey struct {
@@ -87,11 +89,10 @@ func NewSecretsController(client kube.Client, clusterID string, remoteClientGett
 	return &SecretsController{
 		secrets: client.KubeInformer().Core().V1().Secrets(),
 
-		authorizationEnabled: true,
-		sar:                  client.AuthorizationV1().SubjectAccessReviews(),
-		clusterID:            clusterID,
-		remoteGetter:         remoteClientGetter,
-		authorizationCache:   make(map[authorizationKey]authorizationResponse),
+		sar:                client.AuthorizationV1().SubjectAccessReviews(),
+		clusterID:          clusterID,
+		remoteGetter:       remoteClientGetter,
+		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
 }
 
@@ -116,9 +117,6 @@ func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, 
 	key := authorizationKey{cluster: clusterID, user: user}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.authorizationEnabled {
-		return nil, true
-	}
 	s.clearExpiredCache()
 	// No need to check expiration, we will evict expired entries above
 	got, f := s.authorizationCache[key]
@@ -161,11 +159,15 @@ func (s *SecretsController) getAccessReviewClient(clusterID string) authorizatio
 	return nil
 }
 
-// DisableAuthorization makes the authorization check always pass. Should be used only for tests.
-func (s *SecretsController) DisableAuthorization() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.authorizationEnabled = false
+// DisableAuthorizationForTest makes the authorization check always pass. Should be used only for tests.
+func DisableAuthorizationForTest(fake *fake.Clientset) {
+	fake.Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, &authorizationv1.SubjectAccessReview{
+			Status: authorizationv1.SubjectAccessReviewStatus{
+				Allowed: true,
+			},
+		}, nil
+	})
 }
 
 func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID string) error {
