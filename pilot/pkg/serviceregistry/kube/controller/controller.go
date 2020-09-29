@@ -304,7 +304,7 @@ func (c *Controller) Cleanup() error {
 		return fmt.Errorf("error listing services for deletion: %v", err)
 	}
 	for _, s := range svcs {
-		name := kube.ServiceHostname(s.Namespace, s.Namespace, c.domainSuffix)
+		name := kube.ServiceHostname(s.Name, s.Namespace, c.domainSuffix)
 		c.xdsUpdater.SvcUpdate(c.clusterID, string(name), s.Namespace, model.EventDelete)
 		// TODO(landow) do we need to notify service handlers?
 	}
