@@ -135,6 +135,10 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 	if err != nil {
 		return err
 	}
+	y, err = tpath.GetConfigSubtree(y, "spec")
+	if err != nil {
+		return err
+	}
 
 	if pdArgs.configPath == "" {
 		if y, err = prependHeader(y); err != nil {

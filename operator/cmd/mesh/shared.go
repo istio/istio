@@ -237,7 +237,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
 	}
 	customResource = string(b)
-	istioNamespace = v1alpha1.Namespace(mergedIOPS)
+	istioNamespace = mergedIOPS.Namespace
 	return
 }
 
