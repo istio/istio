@@ -15,7 +15,7 @@ rules:
   document-end: disable
   document-start: disable
   empty-lines: disable
-  empty-values: enable
+  empty-values: disable
   hyphens: enable
   indentation: disable
   key-duplicates: enable
