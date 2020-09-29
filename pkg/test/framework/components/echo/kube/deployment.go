@@ -265,7 +265,10 @@ spec:
           # Capture all DNS traffic in the VM and forward to Envoy
           sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=true >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
-
+          {{- if $.VM.Network }}
+		  # Make sure proxy knows which network it's on
+          sudo sh -c 'echo ISTIO_META_NETWORK={{$.VM.Network}} >> /var/lib/istio/envoy/cluster.env'
+          {{- end }}
           # Setup the namespace
           sudo sh -c 'echo ISTIO_NAMESPACE={{ $.Namespace }} >> /var/lib/istio/envoy/sidecar.env'
 
@@ -439,6 +442,7 @@ func generateYAMLWithSettings(
 			"Image":      vmImage,
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
+			"Network":    cfg.Cluster.NetworkName(),
 		},
 		"Environment": cfg.VMEnvironment,
 	}
