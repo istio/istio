@@ -587,7 +587,8 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) stri
 		return push.ClusterVIPs[s][node.Metadata.ClusterID]
 	} else if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		if len(push.ClusterVIPs) == 0 {
-			log.Warnf("cluster vips for %s: %v", s, push.ClusterVIPs[s])
+			log.Warnf("key cluster vips for %s: %v", s.Hostname, s.ClusterVIPs)
+			log.Warnf("cached cluster vips for %s: %v", s.Hostname, push.ClusterVIPs[s])
 		}
 	}
 	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
