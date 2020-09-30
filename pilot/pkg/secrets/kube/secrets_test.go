@@ -141,10 +141,10 @@ func allowIdentities(c kube.Client, identities ...string) {
 func TestAuthorize(t *testing.T) {
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
-	sc := NewMulticluster(localClient, "local", "")
-	sc.AddMemberCluster(remoteClient, "remote")
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
+	sc := NewMulticluster(localClient, "local", "")
+	sc.AddMemberCluster(remoteClient, "remote")
 	cases := []struct {
 		sa      string
 		ns      string

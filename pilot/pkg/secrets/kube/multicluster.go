@@ -34,13 +34,13 @@ type Multicluster struct {
 
 var _ secrets.Controller = &Multicluster{}
 
-func NewMulticluster(client kube.Client, localClusterId, secretNamespace string) *Multicluster {
+func NewMulticluster(client kube.Client, localCluster, secretNamespace string) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[string]*SecretsController{},
-		localCluster:          localClusterId,
+		localCluster:          localCluster,
 	}
 	// Add the local cluster
-	if err := m.AddMemberCluster(client, localClusterId); err != nil {
+	if err := m.AddMemberCluster(client, localCluster); err != nil {
 		return nil
 	}
 	sc := secretcontroller.StartSecretController(client,
@@ -111,9 +111,8 @@ func (m *Multicluster) Authorize(serviceAccount, namespace, clusterID string) er
 	if c, f := m.remoteKubeControllers[clusterID]; f {
 		// For auth, we always lookup in the same namespace as the proxy is running
 		return c.Authorize(serviceAccount, namespace, clusterID)
-	} else {
-		return fmt.Errorf("client for cluster %q not found", clusterID)
 	}
+	return fmt.Errorf("client for cluster %q not found", clusterID)
 }
 
 func (m *Multicluster) AddEventHandler(f func(name string, namespace string)) {
