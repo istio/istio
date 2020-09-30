@@ -85,6 +85,9 @@ type Connection struct {
 
 	// Outstanding push events on this connection
 	semaphore chan struct{}
+
+	// Exit the receive routine on this connection
+	exitReceive chan struct{}
 }
 
 // Event represents a config or registry event that results in a push.
@@ -103,6 +106,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		Connect:     time.Now(),
 		stream:      stream,
 		semaphore:   make(chan struct{}, 1),
+		exitReceive: make(chan struct{}, 1),
 	}
 }
 
@@ -159,7 +163,11 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			}()
 		}
 
-		if !s.shouldRespond(con, req) {
+		respond, err := s.shouldRespond(con, req)
+		if err != nil {
+			return
+		}
+		if !respond {
 			continue
 		}
 
@@ -263,8 +271,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
 			err := s.processRequest(req, con)
 			if err != nil {
+				// Signal receive thread to exit the channel wait
 				if features.EnableFlowControl {
-					<-con.semaphore
+					con.exitReceive <- struct{}{}
 				}
 				return err
 			}
@@ -282,7 +291,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			err := s.pushConnection(con, pushEv)
 			pushEv.done()
 			if err != nil {
-				return nil
+				// Signal receive thread to exit the channel wait
+				if features.EnableFlowControl {
+					con.exitReceive <- struct{}{}
+				}
+				return err
 			}
 		}
 	}
@@ -290,7 +303,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 
 // shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
+func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) (bool, error) {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is erroneous.
@@ -303,7 +316,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		if s.InternalGen != nil {
 			s.InternalGen.OnNack(con.proxy, request)
 		}
-		return false
+		return false, nil
 	}
 
 	if shouldUnsubscribe(request) {
@@ -311,7 +324,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		con.proxy.Lock()
 		delete(con.proxy.WatchedResources, request.TypeUrl)
 		con.proxy.Unlock()
-		return false
+		return false, nil
 	}
 
 	// This is first request - initialize typeUrl watches.
@@ -320,7 +333,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
-		return true
+		return true, nil
 	}
 
 	con.proxy.RLock()
@@ -336,7 +349,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
-		return true
+		return true, nil
 	}
 
 	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
@@ -345,7 +358,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.Increment()
-		return false
+		return false, nil
 	}
 
 	// If it comes here, that means nonce match. This an ACK. We should record
@@ -361,19 +374,23 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// Signal waiting semaphore in push operations that a valid
 	// ACK has been processed as determined by matched nonce
 	if features.EnableFlowControl {
-		<-con.semaphore
+		select {
+		case <-con.semaphore:
+		case <-con.exitReceive:
+			return false, errors.New("Flow control is enabled and the connection was closed to prevent deadlock.")
+		}
 	}
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if listEqualUnordered(previousResources, request.ResourceNames) {
 		adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-		return false
+		return false, nil
 	}
 	adsLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
 		previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
 
-	return true
+	return true, nil
 }
 
 // shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is
