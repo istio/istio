@@ -2,7 +2,7 @@
 
 ## Install
 
-The Helm charts are support both by Helm v2 and Helm v3. Please do not introduce Helm v3 specific changes as many
+The Helm charts are supported both by Helm v2 and Helm v3. Please do not introduce Helm v3 specific changes as many
 users are still using Helm v2 and the operator is currently using the Helm v2 code to generate.
 
 To install with Helm v3, you must first create the namespace that you wish to install in if the namespace does not exist already. The default namespace used is `istio-system` and can be created as follows:
@@ -13,16 +13,16 @@ kubectl create namespace istio-system
 
 The charts are as follows:
 
-- 'base' creates cluster-wide CRDs, cluster bindings and cluster resources. It is possible to change the namespace from `istio-system` but it is not recommended.
+- `base` creates cluster-wide CRDs, cluster bindings and cluster resources. It is possible to change the namespace from `istio-system` but it is not recommended.
 
 ```console
 helm install istio-base -n istio-system manifests/charts/base
 ```
 
-- 'istio-control/istio-discovery' installs a revision of istiod.  You can install it multiple times, with different revisions.
+- `istio-control/istio-discovery` installs a revision of istiod.  You can install it multiple times, with different revisions.
 
 ```console
- helm install -n istio-system istio-17 manifests/charts/istio-control/istio-discovery -f manifests/charts/global.yaml
+ helm install -n istio-system istio-17 manifests/charts/istio-control/istio-discovery
 
  helm install -n istio-system istio-canary manifests/charts/istio-control/istio-discovery \
     -f manifests/charts/global.yaml  --set revision=canary --set clusterResources=false
@@ -31,7 +31,7 @@ helm install istio-base -n istio-system manifests/charts/base
     -f manifests/charts/global.yaml  --set revision=mytest --set clusterResources=false
 ```
 
-- 'gateways' install a load balancer with `ingress` and `egress`. You can install it multiple times with different revisions but they must be installed in separate namespaces.
+- `gateways` install a load balancer with `ingress` and `egress`. You can install it multiple times with different revisions but they must be installed in separate namespaces.
 
 Ingress secrets and access should be separated from the control plane.
 
