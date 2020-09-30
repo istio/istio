@@ -266,7 +266,7 @@ spec:
           sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=true >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
           {{- if $.VM.Network }}
-		  # Make sure proxy knows which network it's on
+          # Make sure proxy knows which network it's on
           sudo sh -c 'echo ISTIO_META_NETWORK={{$.VM.Network}} >> /var/lib/istio/envoy/cluster.env'
           {{- end }}
           # Setup the namespace
