@@ -49,9 +49,6 @@ spec:
               - name: tcp-webhook
                 port: 15017
                 targetPort: 15017
-              - name: tcp-dns-tls
-                port: 853
-                targetPort: 8853
 EOF
 )
 

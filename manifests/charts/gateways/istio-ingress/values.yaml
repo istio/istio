@@ -72,9 +72,6 @@ gateways:
     - port: 15012
       targetPort: 15012
       name: tcp-istiod
-    - port: 853
-      targetPort: 8853
-      name: tcp-dns-tls
     ####### end MESH EXPANSION PORTS ######
 
     ##############
