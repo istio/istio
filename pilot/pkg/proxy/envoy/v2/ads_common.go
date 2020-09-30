@@ -113,6 +113,8 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 		for config := range pushEv.configsUpdated {
 			switch config.Kind {
 			case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
+				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():

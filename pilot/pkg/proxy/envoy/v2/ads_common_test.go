@@ -221,11 +221,10 @@ func TestPushTypeFor(t *testing.T) {
 			expect: map[XdsType]bool{LDS: true, RDS: true},
 		},
 		{
-			name:  "virtualservice and destinationrule updated",
-			proxy: sidecar,
-			configTypes: []resource.GroupVersionKind{collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
-				collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()},
-			expect: map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			name:        "virtualservice updated for sidecar proxy",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "requestauthentication updated",
