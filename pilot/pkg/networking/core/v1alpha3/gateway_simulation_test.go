@@ -17,7 +17,7 @@ package v1alpha3_test
 import (
 	"testing"
 
-	pilot_model "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -33,7 +33,7 @@ func TestHTTPGateway(t *testing.T) {
 hosts:
 - "foo.bar"`
 	runGatewayTest(t,
-		gatewayTest{
+		simulationTest{
 			name:   "no virtual services",
 			config: createGateway("", "", httpServer),
 			calls: []simulation.Expect{
@@ -65,7 +65,7 @@ hosts:
 				},
 			},
 		},
-		gatewayTest{
+		simulationTest{
 			name: "simple http and virtual service",
 			config: createGateway("gateway", "", httpServer) + `
 apiVersion: networking.istio.io/v1alpha3
@@ -133,7 +133,7 @@ spec:
 				},
 			},
 		},
-		gatewayTest{
+		simulationTest{
 			name: "virtual service merging",
 			config: createGateway("gateway", "", `port:
   number: 80
@@ -251,7 +251,7 @@ spec:
           number: 9080
 `
 	runGatewayTest(t,
-		gatewayTest{
+		simulationTest{
 			name: "duplicate cross namespace gateway collision",
 			config: createGateway("gateway", "istio-system", tcpServer) +
 				createGateway("gateway", "alpha", tcpServer) + // namespace comes before istio-system
@@ -267,7 +267,7 @@ spec:
 				},
 			},
 		},
-		gatewayTest{
+		simulationTest{
 			name: "duplicate cross namespace gateway collision - selected first",
 			config: createGateway("gateway", "istio-system", tcpServer) +
 				createGateway("gateway", "zeta", tcpServer) + // namespace comes after istio-system
@@ -280,7 +280,7 @@ spec:
 				},
 			},
 		},
-		gatewayTest{
+		simulationTest{
 			name:           "duplicate tls gateway",
 			skipValidation: true,
 			// Create the same gateway in two namespaces
@@ -296,7 +296,7 @@ spec:
 				},
 			},
 		},
-		gatewayTest{
+		simulationTest{
 			// TODO(https://github.com/istio/istio/issues/27481) this may be a bug. At very least, this should have indication to user
 			name: "multiple protocols on a port - tcp first",
 			config: createGateway("alpha", "", tcpServer) +
@@ -315,7 +315,7 @@ spec:
 				},
 			},
 		},
-		gatewayTest{
+		simulationTest{
 			// TODO(https://github.com/istio/istio/issues/27481) this may be a bug. At very least, this should have indication to user
 			name: "multiple protocols on a port - http first",
 			config: createGateway("beta", "", tcpServer) +
@@ -339,7 +339,7 @@ spec:
 				},
 			},
 		},
-		gatewayTest{
+		simulationTest{
 			name: "multiple wildcards with virtual service disambiguator",
 			config: createGateway("alpha", "", `
 hosts:
@@ -441,7 +441,7 @@ spec:
     - example.com
     secretName: ingressgateway-certs
 ---`
-	runGatewayTest(t, gatewayTest{
+	runGatewayTest(t, simulationTest{
 		name: "ingress shared TLS cert conflict - beta first",
 		// TODO(https://github.com/istio/istio/issues/24385) this is a bug
 		// "alpha" is created after "beta". This triggers a mismatch in the conflict resolution logic in Ingress and VirtualService, leading to unexpected results
@@ -505,7 +505,7 @@ spec:
 				},
 			},
 		},
-	}, gatewayTest{
+	}, simulationTest{
 		name: "ingress shared TLS cert conflict - alpha first",
 		// "alpha" is created before "beta". This avoids the bug in the previous test
 		kubeConfig: tmpl.MustEvaluate(cfg, map[string]string{"Name": "alpha", "Time": "2010-01-01T00:00:00Z"}) +
@@ -571,7 +571,7 @@ spec:
 	})
 }
 
-type gatewayTest struct {
+type simulationTest struct {
 	name       string
 	config     string
 	kubeConfig string
@@ -582,31 +582,34 @@ type gatewayTest struct {
 
 var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", false, "if enabled, will dump verbose output").Get()
 
-func runGatewayTest(t *testing.T, cases ...gatewayTest) {
+func runGatewayTest(t *testing.T, cases ...simulationTest) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			proxy := &pilot_model.Proxy{
-				Metadata: &pilot_model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
-				Type:     pilot_model.Router,
+			proxy := &model.Proxy{
+				Metadata: &model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
+				Type:     model.Router,
 			}
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-				ConfigString:           tt.config,
-				KubernetesObjectString: tt.kubeConfig,
-			})
-			sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
-			sim.RunExpectations(tt.calls)
-			if t.Failed() && debugMode {
-				t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Clusters)))
-				t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Listeners)))
-				t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Routes)))
-				t.Log(tt.config)
-			}
-			if !tt.skipValidation {
-				xdstest.ValidateClusters(t, sim.Clusters)
-				xdstest.ValidateListeners(t, sim.Listeners)
-				xdstest.ValidateRouteConfigurations(t, sim.Routes)
-			}
+			runSimulationTest(t, proxy, tt, xds.FakeOptions{})
 		})
+	}
+}
+
+func runSimulationTest(t *testing.T, proxy *model.Proxy, tt simulationTest, o xds.FakeOptions) {
+	o.ConfigString = tt.config
+	o.KubernetesObjectString = tt.kubeConfig
+	s := xds.NewFakeDiscoveryServer(t, o)
+	sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+	sim.RunExpectations(tt.calls)
+	if t.Failed() && debugMode {
+		t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Clusters)))
+		t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Listeners)))
+		t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Routes)))
+		t.Log(tt.config)
+	}
+	if !tt.skipValidation {
+		xdstest.ValidateClusters(t, sim.Clusters)
+		xdstest.ValidateListeners(t, sim.Listeners)
+		xdstest.ValidateRouteConfigurations(t, sim.Routes)
 	}
 }
 

@@ -111,7 +111,7 @@ func validateListenerTLS(t testing.TB, l *listener.Listener) {
 			continue
 		}
 		// if we are matching TLS traffic and doing HTTP traffic, we must terminate the TLS
-		if m.TransportProtocol == xdsfilters.TLSTransportProtocol && fc.TransportSocket != nil && ExtractHTTPConnectionManager(t, fc) == nil {
+		if m.TransportProtocol == xdsfilters.TLSTransportProtocol && fc.TransportSocket == nil && ExtractHTTPConnectionManager(t, fc) != nil {
 			t.Errorf("listener %v is invalid: tls traffic may not be terminated: %v", l.Name, Dump(t, fc))
 		}
 	}

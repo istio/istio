@@ -52,12 +52,22 @@ const (
 	TLS   Protocol = "tls"
 )
 
+func (p Protocol) IsHttp() bool {
+	return httpProtocols.Contains(string(p))
+}
+
+var (
+	httpProtocols = sets.NewSet(string(HTTP), string(GRPC), string(HTTP2))
+)
+
 var (
 	ErrNoListener          = errors.New("no listener matched")
 	ErrNoFilterChain       = errors.New("no filter chains matched")
 	ErrNoRoute             = errors.New("no route matched")
 	ErrNoVirtualHost       = errors.New("no virtual host matched")
 	ErrMultipleFilterChain = errors.New("multiple filter chains matched")
+	// Sending TLS/TCP request to HCM, for example
+	ErrProtocolError = errors.New("protocol error")
 )
 
 type Expect struct {
@@ -185,7 +195,9 @@ func (sim *Simulation) Run(input Call) (result Result) {
 
 	// Apply listener filters. This will likely need the TLS inspector in the future as well
 	if _, f := xdstest.ExtractListenerFilters(l)[xdsfilters.HTTPInspector.Name]; f {
-		input.Alpn = protocolToAlpn(input.Protocol)
+		if alpn := protocolToAlpn(input.Protocol); alpn != "" {
+			input.Alpn = alpn
+		}
 	}
 	fc, err := sim.matchFilterChain(l.FilterChains, input)
 	if err != nil {
@@ -195,6 +207,10 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	result.FilterChainMatched = fc.Name
 
 	if hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc); hcm != nil {
+		if !input.Protocol.IsHttp() && fc.TransportSocket == nil {
+			result.Error = ErrProtocolError
+			return
+		}
 		routeName := hcm.GetRds().RouteConfigName
 		result.RouteConfigMatched = routeName
 		rc := xdstest.ExtractRouteConfigurations(sim.Routes)[routeName]
@@ -395,6 +411,17 @@ func filter(chains []*listener.FilterChain,
 			res = append(res, c)
 		}
 	}
+	// Return all matching filter chains
+	if len(res) > 0 {
+		return res
+	}
+	// Unless there were no matches - in which case we return all filter chains that did not have a
+	// match set
+	for _, c := range chains {
+		if empty(c.GetFilterChainMatch()) {
+			res = append(res, c)
+		}
+	}
 	return res
 }
 
@@ -403,9 +430,9 @@ func protocolToAlpn(s Protocol) string {
 	case HTTP:
 		return "http/1.1"
 	case HTTP2:
-		return "http/2"
+		return "h2c"
 	case GRPC:
-		return "http/2"
+		return "h2c"
 	default:
 		return ""
 	}
@@ -421,6 +448,14 @@ func matchListener(listeners []*listener.Listener, input Call) *listener.Listene
 	}
 	for _, l := range listeners {
 		if matchAddress(l.GetAddress(), "0.0.0.0", input.Port) {
+			return l
+		}
+	}
+
+	// Fallback to the outbound listener
+	// TODO - support inbound
+	for _, l := range listeners {
+		if l.Name == v1alpha3.VirtualOutboundListenerName {
 			return l
 		}
 	}
