@@ -305,10 +305,14 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 				// we create endpoints from service's host
 				// Do not use serviceentry.hosts as a service entry is converted into
 				// multiple services (one for each host)
+				endpointPort := serviceEntryPort.Number
+				if serviceEntryPort.TargetPort > 0 {
+					endpointPort = serviceEntryPort.TargetPort
+				}
 				out = append(out, &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
 						Address:         string(service.Hostname),
-						EndpointPort:    serviceEntryPort.Number,
+						EndpointPort:    endpointPort,
 						ServicePortName: serviceEntryPort.Name,
 						Labels:          nil,
 						TLSMode:         model.DisabledTLSModeLabel,
