@@ -32,7 +32,7 @@ echo "Using ${KUBECONFIG} to connect to the cluster(s)"
 
 echo "The kubetest2 deployer is ${DEPLOYER}"
 
-echo "The topology is ${TOPOLOGY}"
+echo "The topology is ${CLUSTER_TOPOLOGY}"
 
 echo "Installing ASM control plane..."
 

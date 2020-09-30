@@ -35,6 +35,10 @@ set -u
 # Print commands
 set -x
 
+# Setup junit report and verbose logging
+export T="${T:-"-v"}"
+export CI="true"
+
 # shellcheck source=prow/asm/lib.sh
 source "${WD}/lib.sh"
 
@@ -52,12 +56,13 @@ deployer_flags=("--up")
 gke_deployer_flags=(
   "--ignore-gcp-ssh-key=true"
   "--gcp-service-account=${GOOGLE_APPLICATION_CREDENTIALS}"
+  "-v=1"
 )
 
 DEPLOYER=""
 EXTRA_DEPLOYER_FLAGS=""
 TEST_FLAGS=""
-TOPOLOGY=SINGLE_CLUSTER
+CLUSTER_TOPOLOGY=SINGLE_CLUSTER
 
 while (( "$#" )); do
   case "$1" in
@@ -78,12 +83,12 @@ while (( "$#" )); do
     ;;
     --topology)
       case $2 in
-        MULTICLUSTER | MULTIPROJECT_MULTICLUSTER )
-          TOPOLOGY=$2
-          echo "Running with topology ${TOPOLOGY}"
+        SINGLE_CLUSTER | MULTICLUSTER | MULTIPROJECT_MULTICLUSTER )
+          CLUSTER_TOPOLOGY=$2
+          echo "Running with cluster topology ${CLUSTER_TOPOLOGY}"
           ;;
         *)
-          echo "Error: Unsupported topology ${TOPOLOGY}" >&2
+          echo "Error: Unsupported cluster topology ${CLUSTER_TOPOLOGY}" >&2
           exit 1
           ;;
       esac
@@ -102,9 +107,9 @@ done
 readonly DEPLOYER
 readonly EXTRA_DEPLOYER_FLAGS
 readonly TEST_FLAGS
-readonly TOPOLOGY
+readonly CLUSTER_TOPOLOGY
 export DEPLOYER
-export TOPOLOGY
+export CLUSTER_TOPOLOGY
 
 IFS=' ' read -r -a extra_deployer_flags <<< "$EXTRA_DEPLOYER_FLAGS"
 deployer_flags+=( "${extra_deployer_flags[@]}" )
@@ -113,15 +118,17 @@ IFS=' ' read -r -a test_flags <<< "$TEST_FLAGS"
 
 if [[ "${DEPLOYER}" == "gke" ]]; then
   deployer_flags+=( "${gke_deployer_flags[@]}" )
-  if [[ "${TOPOLOGY}" == "MULTICLUSTER"  ]]; then
+  if [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER"  ]]; then
     deployer_flags+=("--cluster-name=test1,test2" "--machine-type=e2-standard-4" "--num-nodes=3" "--region=us-central1")
-  elif [[ "${TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+    deployer_flags+=("--network=default" "--enable-workload-identity")
+  elif [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
     # A slightly hacky step to setup the environment, see the comments on the
     # function signature.
     gcp_projects=$(multiproject_multicluster_setup)
-    multi_cluster_deployer_flags=("--create-command=beta container clusters create --quiet --release-channel=regular")
-    multi_cluster_deployer_flags+=("--cluster-name=prow-test1:1,prow-test2:2" "--machine-type=e2-standard-4" "--num-nodes=1" "--region=us-central1")
+    multi_cluster_deployer_flags=("--create-command=beta container clusters create --quiet")
+    multi_cluster_deployer_flags+=("--cluster-name=prow-test1:1,prow-test2:2" "--machine-type=e2-standard-4" "--num-nodes=2" "--region=us-central1")
     multi_cluster_deployer_flags+=("--network=test-network" "--subnetwork-ranges=172.16.4.0/22 172.16.16.0/20 172.20.0.0/14,10.0.4.0/22 10.0.32.0/20 10.4.0.0/14" )
+    multi_cluster_deployer_flags+=("--release-channel=regular" "--enable-workload-identity")
     # These projects are mananged by the boskos project rental pool in
     # https://gke-internal.googlesource.com/istio/test-infra-internal/+/refs/heads/master/boskos/config/resources.yaml#105
     multi_cluster_deployer_flags+=("--project=${gcp_projects}")
