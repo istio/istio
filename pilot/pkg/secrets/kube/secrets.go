@@ -61,8 +61,7 @@ type SecretsController struct {
 	secrets informersv1.SecretInformer
 	sar     authorizationv1client.SubjectAccessReviewInterface
 
-	clusterID    string
-	remoteGetter RemoteKubeClientGetter
+	clusterID string
 
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
@@ -82,7 +81,7 @@ var _ secrets.Controller = &SecretsController{}
 
 type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
-func NewSecretsController(client kube.Client, clusterID string, remoteClientGetter RemoteKubeClientGetter) *SecretsController {
+func NewSecretsController(client kube.Client, clusterID string) *SecretsController {
 	// Informer is lazy loaded, load it now
 	_ = client.KubeInformer().Core().V1().Secrets().Informer()
 
@@ -91,7 +90,6 @@ func NewSecretsController(client kube.Client, clusterID string, remoteClientGett
 
 		sar:                client.AuthorizationV1().SubjectAccessReviews(),
 		clusterID:          clusterID,
-		remoteGetter:       remoteClientGetter,
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
 }
@@ -143,22 +141,6 @@ func (s *SecretsController) insertCache(user, clusterID string, response error) 
 	}
 }
 
-func (s *SecretsController) getAccessReviewClient(clusterID string) authorizationv1client.SubjectAccessReviewInterface {
-	// first match local/primary cluster
-	if s.clusterID == clusterID || clusterID == "" {
-		return s.sar
-	}
-
-	// secondly try other remote clusters
-	if s.remoteGetter != nil {
-		if res := s.remoteGetter(clusterID); res != nil {
-			return res.AuthorizationV1().SubjectAccessReviews()
-		}
-	}
-
-	return nil
-}
-
 // DisableAuthorizationForTest makes the authorization check always pass. Should be used only for tests.
 func DisableAuthorizationForTest(fake *fake.Clientset) {
 	fake.Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
@@ -176,11 +158,7 @@ func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID strin
 		return cached
 	}
 	resp := func() error {
-		sar := s.getAccessReviewClient(clusterID)
-		if sar == nil {
-			return fmt.Errorf("client for cluster %v is missing", clusterID)
-		}
-		resp, err := sar.Create(context.Background(), &authorizationv1.SubjectAccessReview{
+		resp, err := s.sar.Create(context.Background(), &authorizationv1.SubjectAccessReview{
 			ObjectMeta: metav1.ObjectMeta{},
 			Spec: authorizationv1.SubjectAccessReviewSpec{
 				ResourceAttributes: &authorizationv1.ResourceAttributes{

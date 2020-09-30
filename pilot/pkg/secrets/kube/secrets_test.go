@@ -22,7 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -83,7 +82,7 @@ func TestSecretsController(t *testing.T) {
 		tlsMtlsCertSplitCa,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewSecretsController(client, "", nil)
+	sc := NewSecretsController(client, "")
 	client.RunAndWait(make(chan struct{}))
 	cases := []struct {
 		name      string
@@ -142,14 +141,8 @@ func allowIdentities(c kube.Client, identities ...string) {
 func TestAuthorize(t *testing.T) {
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
-	sc := NewSecretsController(localClient, "local", func(clusterID string) kubernetes.Interface {
-		switch clusterID {
-		case "remote":
-			return remoteClient
-		}
-		return nil
-	})
-	localClient.RunAndWait(make(chan struct{}))
+	sc := NewMulticluster(localClient, "local", "")
+	sc.AddMemberCluster(remoteClient, "remote")
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
 	cases := []struct {
@@ -166,6 +159,7 @@ func TestAuthorize(t *testing.T) {
 		{"sa-allowed", "ns-remote", "local", false},
 		{"sa-denied", "ns-remote", "remote", false},
 		{"sa-allowed", "ns-remote", "remote", true},
+		{"sa-allowed", "ns-remote", "invalid", false},
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%v/%v/%v", tt.sa, tt.ns, tt.cluster), func(t *testing.T) {
@@ -192,16 +186,8 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	}
 	localClient := kube.NewFakeClient(secretsLocal...)
 	remoteClient := kube.NewFakeClient(secretsRemote...)
-	sc := NewSecretsController(localClient, "", func(clusterID string) kubernetes.Interface {
-		switch clusterID {
-		case "remote":
-			return remoteClient
-		case "local":
-			return localClient
-		}
-		return nil
-	})
-	localClient.RunAndWait(make(chan struct{}))
+	sc := NewMulticluster(localClient, "", "")
+	sc.AddMemberCluster(remoteClient, "remote")
 	cases := []struct {
 		name      string
 		namespace string
