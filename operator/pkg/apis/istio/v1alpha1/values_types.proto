@@ -466,7 +466,39 @@ message GlobalConfig {
 
   // Controls whether one central istiod is enabled.
   google.protobuf.BoolValue centralIstiod = 63;
-  // The next available key is 64
+
+  // Configuration of CustomCA integrated with the Istiod
+  message CA {
+    // Different Integration types for CA
+    enum IntegrationType {
+      // Istiod is Self signed CA. No External CA
+      ISTIOD = 0;
+      // Integration with external CA’s plugged into K8s system
+      KUBERNETES = 1;
+      // Integration with external CA’s supporting the Istio CA gRPC API
+      GRPC = 2;
+    }
+
+    message KubernetesCAConfig {
+      // Refer to https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
+      // for details regarding how signer_name is used by external CAs plugged into Kubernetes system
+      string signer_name = 1;
+    }
+
+    // Configs for integrating with Kubernetes External CA
+    // Required if type is Kubernetes
+    KubernetesCAConfig kubernetes_config = 1;
+
+    // REQUIRED: CA Integration Type
+    IntegrationType type = 2;
+  }
+  
+  // If specified, Istiod will authorize and forward the CSRs from the workloads to the specified external CA
+  // using the Istio CA gRPC API or using k8s CSR API.
+  CA ca = 64;
+  
+  // $hide_from_docs
+  // Next available field number: 65
 }
 
 // Configuration for Security Token Service (STS) server.

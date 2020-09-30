@@ -852,8 +852,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		Namespace:      sc.configOptions.WorkloadNamespace,
 		ServiceAccount: sc.configOptions.ServiceAccount,
 	}
-
-	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
+	cacheLog.Debugf("Constructed host name for CSR: %s", csrHostName.String())
 	options := pkiutil.CertOptions{
 		Host:       csrHostName.String(),
 		RSAKeySize: keySize,

@@ -104,7 +104,8 @@ func (ra *IstioRA) k8sSign(k8sCsrInterface certclient.CertificateSigningRequestI
 			cert.UsageClientAuth,
 		},
 	}
-	certChain, _, err := chiron.SignCSRK8s(k8sCsrInterface, csrName, csrSpec, "", caCertFile)
+
+	certChain, _, err := chiron.SignCSRK8s(k8sCsrInterface, csrName, csrSpec, "", caCertFile, false)
 	if err != nil {
 		return nil, caerror.NewError(caerror.CertGenError, err)
 	}

@@ -76,6 +76,11 @@ rules:
       - "signers"
     resourceNames:
     - "kubernetes.io/legacy-unknown"
+{{- if .Values.global.ca }}
+{{- if eq .Values.global.ca.type "KUBERNETES" }}
+    - {{ .Values.global.ca.kubernetesConfig.signerName }}
+{{- end }}
+{{- end }}
     verbs: ["approve"]
 
   # Used by Istiod to verify the JWT tokens
