@@ -255,18 +255,25 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 
 			// Wait for signal from receive thread
-			con.semaphore <- struct{}{}
+			if features.EnableFlowControl {
+				con.semaphore <- struct{}{}
+			}
 
 			// processRequest is calling pushXXX, accessing common structs with pushConnection.
 			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
 			err := s.processRequest(req, con)
 			if err != nil {
+				if features.EnableFlowControl {
+					<-con.semaphore
+				}
 				return err
 			}
 
 		case pushEv := <-con.pushChannel:
 			// Wait for signal from receive thread
-			con.semaphore <- struct{}{}
+			if features.EnableFlowControl {
+				con.semaphore <- struct{}{}
+			}
 
 			// TODO: possible race condition: if a config change happens while the envoy
 			// was getting the initial config, between LDS and RDS, the push will miss the
@@ -353,7 +360,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	// Signal waiting semaphore in push operations that a valid
 	// ACK has been processed as determined by matched nonce
-	<-con.semaphore
+	if features.EnableFlowControl {
+		<-con.semaphore
+	}
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.

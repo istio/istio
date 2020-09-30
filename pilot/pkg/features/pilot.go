@@ -302,6 +302,14 @@ var (
 			"to true, and then galley may push data incrementally, it depends on whether the "+
 			"resource supports incremental. By default, this is false.").Get()
 
+	EnableFlowControl = env.RegisterBoolVar(
+		"PILOT_ENABLE_FLOW_CONTROL",
+		false,
+		"If enabled, pilot will wait for the completion of a receive operation before" +
+		"executing a push operation. This is a form of flow control and is useful in" +
+		"environments with high rates of push requests to each gateway. By default," +
+		"this is false.").Get()
+
 	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
