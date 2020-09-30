@@ -1,0 +1,10 @@
+---
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 27650
+
+releaseNotes:
+  - |
+    **Fixed** CDS is not updated as destination changes in VirtualService

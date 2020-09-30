@@ -320,7 +320,6 @@ var _ model.XdsResourceGenerator = &EdsGenerator{}
 // Map of all configs that do not impact EDS
 var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.Gateway:               {},
-	gvk.VirtualService:        {},
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
