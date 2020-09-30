@@ -72,6 +72,8 @@ type Resource struct {
 	ClusterScoped bool   `json:"clusterScoped"`
 	Proto         string `json:"proto"`
 	ProtoPackage  string `json:"protoPackage"`
+	StatusProto string `json:"statusProto"`
+	StatusProtoPackage string `json:"statusProtoPackage"`
 	Validate      string `json:"validate"`
 	Description   string `json:"description"`
 }

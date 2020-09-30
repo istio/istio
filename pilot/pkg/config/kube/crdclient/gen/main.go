@@ -25,7 +25,6 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
-	"strings"
 	"text/template"
 
 	"istio.io/istio/pkg/config/schema/collection"
@@ -36,13 +35,14 @@ import (
 // ConfigData is data struct to feed to types.go template.
 type ConfigData struct {
 	Namespaced      bool
-	IstioStatus     bool
 	VariableName    string
 	APIImport       string
 	ClientImport    string
 	ClientGroupPath string
 	ClientTypePath  string
 	Kind            string
+	StatusAPIImport string
+	StatusKind 		string
 
 	// Support service-apis, which require a custom client and the Spec suffix
 	Client     string
@@ -53,7 +53,6 @@ type ConfigData struct {
 func MakeConfigData(schema collection.Schema) ConfigData {
 	out := ConfigData{
 		Namespaced:      !schema.Resource().IsClusterScoped(),
-		IstioStatus:     !strings.Contains(schema.VariableName(), "K8S"),
 		VariableName:    schema.VariableName(),
 		APIImport:       apiImport[schema.Resource().ProtoPackage()],
 		ClientImport:    clientGoImport[schema.Resource().ProtoPackage()],
@@ -61,6 +60,8 @@ func MakeConfigData(schema collection.Schema) ConfigData {
 		ClientTypePath:  clientGoTypePath[schema.Resource().Plural()],
 		Kind:            schema.Resource().Kind(),
 		Client:          "ic",
+		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
+		StatusKind: 	 schema.Resource().StatusKind(),
 	}
 	if schema.Resource().Group() == "networking.x-k8s.io" {
 		out.Client = "sc"
@@ -76,6 +77,7 @@ var (
 		"istio.io/api/networking/v1alpha3":       "networkingv1alpha3",
 		"istio.io/api/security/v1beta1":          "securityv1beta1",
 		"sigs.k8s.io/service-apis/apis/v1alpha1": "servicev1alpha1",
+		"istio.io/api/meta/v1alpha1": "metav1alpha1",
 	}
 	// Mapping from istio/api path import to client go import path
 	clientGoImport = map[string]string{
@@ -129,7 +131,7 @@ func main() {
 	// Format source code.
 	out, err := format.Source(buffer.Bytes())
 	if err != nil {
-		log.Fatal(err)
+		log.Print(buffer.String())
 	}
 	// Output
 	if outputFile == nil || *outputFile == "" {
@@ -138,3 +140,4 @@ func main() {
 		panic(err)
 	}
 }
+// 			Status:     *(cfg.Status.(*{{ .APIImport }}.IstioStatus)),{{else}}*(cfg.Status.(*{{ .APIImport }}.{{ .Kind }}Status)),

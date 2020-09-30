@@ -24,7 +24,7 @@ package crdclient
 import (
 	"context"
 	"fmt"
-	"istio.io/api/meta/v1alpha1"
+	metav1alpha1 "istio.io/api/meta/v1alpha1"
 
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +64,7 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
-			Status:     {{if .IstioStatus}}*(cfg.Status.(*v1alpha1.IstioStatus)),{{else}}*(cfg.Status.(*{{ .APIImport }}.{{ .Kind }}Status)),{{end}}
+			Status:     *(cfg.Status.(*{{ .StatusAPIImport }}.{{ .StatusKind }})),
 		}, metav1.UpdateOptions{})
 {{- end }}
 	default:

@@ -125,7 +125,7 @@ func TestClient(t *testing.T) {
 
 			pb, err := r.NewInstance()
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			if _, err := store.Create(config.Config{
@@ -213,17 +213,21 @@ func TestClient(t *testing.T) {
 	}
 
 	// test just workloadgroup for now
+	res := collections.IstioNetworkingV1Alpha3Workloadgroups.Resource()
+	gvk := res.GroupVersionKind()
 	wgConfigMeta := config.Meta{
-		GroupVersionKind: collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(),
+		GroupVersionKind: gvk,
 		Name:             "foo",
-		Namespace:        "bar",
+	}
+	if !res.IsClusterScoped() {
+		wgConfigMeta.Namespace = "namespace"
 	}
 
-	spec, err := collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().NewInstance()
+	spec, err := res.NewInstance()
 	if err != nil {
 		t.Error(err)
 	}
-	stat, err := collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Status()
+	_, err = res.Status()
 	if err != nil {
 		t.Error(err)
 	}
@@ -233,19 +237,31 @@ func TestClient(t *testing.T) {
 		Spec: spec,
 	})
 	if err != nil {
-		t.Errorf("fail: %v", err)
+		t.Fatalf("fail: %v", err)
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
-		_, err := store.Update(config.Config{
-			Meta:   wgConfigMeta,
-			Spec:   spec,
-			Status: stat,
-		})
-		if err != nil {
-			t.Errorf("err: %v", err)
-			return err
-		}
+		cfg := store.Get(gvk, "foo", wgConfigMeta.Namespace)
+		t.Errorf("%v", cfg == nil)
 		return nil
 	}, timeout)
+
+	//retry.UntilSuccessOrFail(t, func() error {
+	//	r, err := store.Update(config.Config{
+	//		Meta:   wgConfigMeta,
+	//		Spec:   spec,
+	//		Status: stat,
+	//	})
+	//	if err != nil {
+	//		t.Errorf("err: %v", err)
+	//		return err
+	//	}
+	//	log.Println(r)
+	//	return nil
+	//}, timeout)
+	//retry.UntilSuccessOrFail(t, func() error {
+	//	cfg := store.Get(gvk, "foo", "bar")
+	//	log.Println(cfg.Spec)
+	//	return nil
+	//}, timeout)
 }
