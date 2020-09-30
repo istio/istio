@@ -83,7 +83,6 @@ features:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
-      install-revision:
     multicluster:
       central-istiod:
       multimaster:
