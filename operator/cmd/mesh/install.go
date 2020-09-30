@@ -104,7 +104,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			errs := validation.IsQualifiedName(iArgs.revision)
 			if len(errs) != 0 && cmd.PersistentFlags().Changed("revision") {
-				return fmt.Errorf("invali revision specified: %v", errs)
+				return fmt.Errorf("invalid revision specified:\n%v", strings.Join(errs, "\n"))
 			}
 			return nil
 		},
