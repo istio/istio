@@ -362,17 +362,6 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 	}
 	return val
 }
-func TestInstallEmptyRevision(t *testing.T) {
-	framework.NewTest(t).Features("installation.istioctl.install-revision").
-		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
-
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			args := []string{"install", "--revision", ""}
-			_, _, err := istioCtl.Invoke(args)
-			gomega.Expect(err).To(gomega.HaveOccurred())
-	})
-}
 
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
