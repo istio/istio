@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -32,7 +34,11 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	pkgversion "istio.io/istio/operator/pkg/version"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
+	buildversion "istio.io/pkg/version"
 )
 
 const (
@@ -120,9 +126,22 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
+	var opts clioptions.ControlPlaneOptions
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
+	if err != nil {
+		return err
+	}
+	tag, err := GetTagVersion(buildversion.DockerInfo.Tag)
+	if err != nil {
+		return err
+	}
+	// Ignore the err because we don't want to show
+	// "no running Istio pods in istio-system" for the first time
+	_ = DetectIstioVersionDiff(cmd, tag, kubeClient)
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
-		if !confirm("This will install the Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+		prompt := fmt.Sprintf("This will install the Istio %s profile into the cluster. Proceed? (y/N)", tag)
+		if !confirm(prompt, cmd.OutOrStdout()) {
 			cmd.Print("Cancelled.\n")
 			os.Exit(1)
 		}
@@ -198,4 +217,42 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 		ret += "-" + iop.Spec.Revision
 	}
 	return ret
+}
+
+// DetectIstioVersionDiff will show warning if istioctl version and control plane version are different
+// nolint: interfacer
+func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.ExtendedClient) error {
+	icps, err := kubeClient.GetIstioVersions(context.TODO(), controller.IstioNamespace)
+	if err != nil {
+		return err
+	}
+	if len(*icps) != 0 {
+		var icpTag string
+		for _, icp := range *icps {
+			tagVer, err := GetTagVersion(icp.Info.GitTag)
+			if err != nil {
+				return err
+			}
+			if tagVer != "" && tag != tagVer {
+				icpTag = tagVer
+			}
+		}
+		if icpTag != "" && tag != icpTag {
+			cmd.Printf("! istioctl version %s and the control plane version %s are different.\n"+
+				"! Proceed with caution because after installation you might experience problems.\n", tag, icpTag)
+		}
+	}
+	return nil
+}
+
+// GetTagVersion returns istio tag version
+func GetTagVersion(tagInfo string) (string, error) {
+	if pkgversion.IsVersionString(tagInfo) {
+		tagInfo = pkgversion.TagToVersionStringGrace(tagInfo)
+	}
+	tag, err := pkgversion.NewVersionFromString(tagInfo)
+	if err != nil {
+		return "", err
+	}
+	return tag.String(), nil
 }
