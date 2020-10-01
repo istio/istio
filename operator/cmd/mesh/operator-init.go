@@ -82,6 +82,13 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	if err != nil {
 		l.LogAndFatal(err)
 	}
+
+	// Create operatorNamespace if it does not exist.
+	l.LogAndPrintf("Creating operator namespace %s if it is not created", oiArgs.common.operatorNamespace)
+
+	if err := createNamespace(clientset, oiArgs.common.operatorNamespace); err != nil {
+		l.LogAndFatal(err)
+	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
 	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace, oiArgs.common.revision)
 	if already {
