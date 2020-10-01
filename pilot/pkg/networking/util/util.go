@@ -503,32 +503,9 @@ func BuildLbEndpointMetadata(network string, tlsMode string) *core.Metadata {
 
 	metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
 		Fields: map[string]*pstruct.Value{
-			"name": {
+			"workload": {
 				Kind: &pstruct.Value_StringValue{
-					StringValue: "some-workload-name",
-				},
-			},
-			"namespace": {
-				Kind: &pstruct.Value_StringValue{
-					StringValue: "some-workload-namespace",
-				},
-			},
-			"labels": {
-				Kind: &pstruct.Value_StructValue{
-					StructValue: &pstruct.Struct{
-						Fields: map[string]*pstruct.Value{
-							"service.istio.io/canonical-service": {
-								Kind: &pstruct.Value_StringValue{
-									StringValue: "some-canonical-service-name",
-								},
-							},
-							"service.istio.io/canonical-revision": {
-								Kind: &pstruct.Value_StringValue{
-									StringValue: "revision-123",
-								},
-							},
-						},
-					},
+					StringValue: "some-workload-name|some-workload-namespace|some-canonical-service-name|revision-123",
 				},
 			},
 		},
