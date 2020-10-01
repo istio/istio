@@ -478,7 +478,7 @@ type NodeMetadata struct {
 	CertBaseDir string `json:"BASE,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
-	// If not set, no timeout is set.
+	// If not set, default timeout is 1 hour.
 	IdleTimeout string `json:"IDLE_TIMEOUT,omitempty"`
 
 	// HTTP10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
