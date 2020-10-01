@@ -103,6 +103,15 @@ func LightstepToken(value string) Instance {
 	return newOption("lightstepToken", value)
 }
 
+func OpenCensusAgentAddress(value string) Instance {
+	return newOptionOrSkipIfZero("openCensusAgent", value)
+}
+
+func OpenCensusAgentContexts(value []meshAPI.Tracing_OpenCensusAgent_TraceContext) Instance {
+	return newOption("openCensusAgentContexts", value).
+		withConvert(openCensusAgentContextConverter(value))
+}
+
 func StackDriverEnabled(value bool) Instance {
 	return newOption("stackdriver", value)
 }

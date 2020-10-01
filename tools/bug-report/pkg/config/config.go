@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -63,12 +64,51 @@ import (
 //        */*/*/*/*/istio-proxy
 //
 type SelectionSpec struct {
-	Namespaces  []string
-	Deployments []string
-	Pods        []string
-	Containers  []string
-	Labels      map[string]string
-	Annotations map[string]string
+	Namespaces  []string          `json:"namespaces,omitempty"`
+	Deployments []string          `json:"deployments,omitempty"`
+	Pods        []string          `json:"pods,omitempty"`
+	Containers  []string          `json:"containers,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+type SelectionSpecs []*SelectionSpec
+
+func (s SelectionSpecs) String() string {
+	var out []string
+	for _, ss := range s {
+		st := ""
+		if !defaultListSetting(ss.Namespaces) {
+			st += fmt.Sprintf("Namespaces:%s", strings.Join(ss.Namespaces, ","))
+		}
+		if !defaultListSetting(ss.Deployments) {
+			st += fmt.Sprintf("/Deployments:%s", strings.Join(ss.Deployments, ","))
+		}
+		if !defaultListSetting(ss.Pods) {
+			st += fmt.Sprintf("/Pods:%s", strings.Join(ss.Pods, ","))
+		}
+		if !defaultListSetting(ss.Containers) {
+			st += fmt.Sprintf("/Containers:%s", strings.Join(ss.Containers, ","))
+		}
+		if len(ss.Labels) > 0 {
+			st += fmt.Sprintf("/Labels:%v", ss.Labels)
+		}
+		if len(ss.Annotations) > 0 {
+			st += fmt.Sprintf("/Annotations:%v", ss.Annotations)
+		}
+		out = append(out, "{ "+st+" }")
+	}
+	return strings.Join(out, " AND ")
+}
+
+func defaultListSetting(s []string) bool {
+	if len(s) < 1 {
+		return true
+	}
+	if len(s) == 1 {
+		return strings.TrimSpace(s[0]) == "" || s[0] == "*"
+	}
+	return false
 }
 
 // BugReportConfig controls what is captured and Include in the kube-capture tool
@@ -92,15 +132,11 @@ type BugReportConfig struct {
 	// before giving up, even if not all logs are captured. Upon timeout,
 	// the command creates an archive with only the logs captured so far.
 	CommandTimeout Duration `json:"commandTimeout,omitempty"`
-	// MaxArchiveSizeMb is the maximum size of the archive in Mb. When
-	// the maximum size is reached, logs are selectively discarded based
-	// on importance metrics.
-	MaxArchiveSizeMb int32 `json:"maxArchiveSizeMb,omitempty"`
 
 	// Include is a list of SelectionSpec entries for resources to include.
-	Include []*SelectionSpec `json:"include,omitempty"`
+	Include SelectionSpecs `json:"include,omitempty"`
 	// Exclude is a list of SelectionSpec entries for resources t0 exclude.
-	Exclude []*SelectionSpec `json:"exclude,omitempty"`
+	Exclude SelectionSpecs `json:"exclude,omitempty"`
 
 	// StartTime is the start time the the log capture time range.
 	// If set, Since must be unset.
@@ -120,12 +156,29 @@ type BugReportConfig struct {
 	// IgnoredErrors are glob error patterns which are ignored when
 	// calculating the error heuristic for a log.
 	IgnoredErrors []string `json:"ignoredErrors,omitempty"`
+}
 
-	// GCSURL is an URL to the GCS bucket where the archive is uploaded.
-	GCSURL string `json:"gcsURL,omitempty"`
-	// UploadToGCS uploads the archive to a GCS bucket. If no bucket
-	// address is given, it creates one.
-	UploadToGCS bool `json:"uploadToGCS,omitempty"`
+func (b *BugReportConfig) String() string {
+	out := ""
+	if b.KubeConfigPath != "" {
+		out += fmt.Sprintf("kubeconfig: %s\n", b.KubeConfigPath)
+	}
+	if b.Context != "" {
+		out += fmt.Sprintf("context: %s\n", b.Context)
+	}
+	out += fmt.Sprintf("istio-namespace: %s\n", b.IstioNamespace)
+	out += fmt.Sprintf("full-secrets: %v\n", b.FullSecrets)
+	out += fmt.Sprintf("timeout (mins): %v\n", math.Round(float64(int(b.CommandTimeout))/float64(time.Minute)))
+	out += fmt.Sprintf("include: %s\n", b.Include)
+	out += fmt.Sprintf("exclude: %s\n", b.Exclude)
+	if !b.StartTime.Equal(time.Time{}) {
+		out += fmt.Sprintf("start-time: %v\n", b.StartTime)
+	}
+	out += fmt.Sprintf("end-time: %v\n", b.EndTime)
+	if b.Since != 0 {
+		out += fmt.Sprintf("since: %v\n", b.Since)
+	}
+	return out
 }
 
 func parseToIncludeTypeSlice(s string) []string {
@@ -147,6 +200,9 @@ func parseToIncludeTypeMap(s string) (map[string]string, error) {
 		kv := strings.Split(ss, "=")
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("bad label/annotation selection %s, must have format key=value", ss)
+		}
+		if strings.Contains(kv[0], "*") {
+			return nil, fmt.Errorf("bad label/annotation selection %s, key cannot have '*' wildcards", ss)
 		}
 		out[kv[0]] = kv[1]
 	}
@@ -194,6 +250,24 @@ func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
 	}
 
 	return nil
+}
+
+func (s *SelectionSpec) MarshalJSON() ([]byte, error) {
+	out := fmt.Sprint(strings.Join(s.Namespaces, ","))
+	out += fmt.Sprintf("/%s", strings.Join(s.Deployments, ","))
+	out += fmt.Sprintf("/%s", strings.Join(s.Pods, ","))
+	out += fmt.Sprintf("/%s", strings.Join(s.Containers, ","))
+	tmp := "/"
+	for k, v := range s.Labels {
+		tmp += fmt.Sprintf("%s=%s", k, v)
+	}
+	out += tmp
+	tmp = "/"
+	for k, v := range s.Annotations {
+		tmp += fmt.Sprintf("%s=%s", k, v)
+	}
+	out += tmp
+	return []byte(`"` + out + `"`), nil
 }
 
 type Duration time.Duration

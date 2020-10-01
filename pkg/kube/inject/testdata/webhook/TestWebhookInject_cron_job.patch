@@ -1,0 +1,83 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/initContainers",
+    "value": [
+      {
+        "name": "istio-init",
+        "image": "example.com/init:latest",
+        "resources": {}
+      }
+    ]
+  },
+  {
+    "op": "add",
+    "path": "/spec/containers/-",
+    "value": {
+      "name": "istio-proxy",
+      "image": "example.com/proxy:latest",
+      "env": [
+        {
+          "name": "ISTIO_META_WORKLOAD_NAME",
+          "value": "hello"
+        },
+        {
+          "name": "ISTIO_META_OWNER",
+          "value": "kubernetes://apis/batch/v1beta1/namespaces/default/cronjobs/hello"
+        }
+      ],
+      "resources": {}
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/securityContext",
+    "value": {
+      "fsGroup": 1337
+    }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/annotations",
+    "value": {
+      "prometheus.io/path": "/stats/prometheus"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/annotations/prometheus.io~1port",
+    "value": "15020"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/annotations/prometheus.io~1scrape",
+    "value": "true"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/annotations/sidecar.istio.io~1status",
+    "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":null,\"imagePullSecrets\":null}"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels",
+    "value": {
+      "istio.io/rev": ""
+    }
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/security.istio.io~1tlsMode",
+    "value": "istio"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-name",
+    "value": "hello"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels/service.istio.io~1canonical-revision",
+    "value": "latest"
+  }
+]

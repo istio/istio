@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/pilot/common"
@@ -31,8 +30,6 @@ import (
 
 var (
 	i istio.Instance
-
-	ingr ingress.Instance
 
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
@@ -88,11 +85,7 @@ values:
       PILOT_ENABLED_SERVICE_APIS: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
-			return common.SetupApps(ctx, apps)
-		}).
-		Setup(func(ctx resource.Context) (err error) {
-			ingr = i.IngressFor(ctx.Clusters().Default())
-			return nil
+			return common.SetupApps(ctx, i, apps)
 		}).
 		Run()
 }

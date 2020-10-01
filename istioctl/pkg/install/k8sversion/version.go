@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgVersion "istio.io/pkg/version"
@@ -30,7 +31,7 @@ import (
 const (
 	// MinK8SVersion is the minimum k8s version required to run this version of Istio
 	// https://istio.io/docs/setup/platform-setup/
-	MinK8SVersion = "1.17"
+	MinK8SVersion = 17
 )
 
 // CheckKubernetesVersion checks if this Istio version is supported in the k8s version
@@ -39,37 +40,39 @@ func CheckKubernetesVersion(versionInfo *version.Info) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return parseVersion(MinK8SVersion, 4) <= parseVersion(v, 4), nil
+	return MinK8SVersion <= v, nil
 }
 
-func extractKubernetesVersion(versionInfo *version.Info) (string, error) {
+// extractKubernetesVersion returns the Kubernetes minor version. For example, `v1.19.1` will return `19`
+func extractKubernetesVersion(versionInfo *version.Info) (int, error) {
 	versionMatchRE := regexp.MustCompile(`^\s*v?([0-9]+(?:\.[0-9]+)*)(.*)*$`)
 	parts := versionMatchRE.FindStringSubmatch(versionInfo.GitVersion)
 	if parts == nil {
-		return "", fmt.Errorf("could not parse %q as version", versionInfo.GitVersion)
+		return 0, fmt.Errorf("could not parse %q as version", versionInfo.GitVersion)
 	}
 	numbers := parts[1]
 	components := strings.Split(numbers, ".")
 	if len(components) <= 1 {
-		return "", fmt.Errorf("the version %q is invalid", versionInfo.GitVersion)
+		return 0, fmt.Errorf("the version %q is invalid", versionInfo.GitVersion)
 	}
-	v := strings.Join([]string{components[0], components[1]}, ".")
-	return v, nil
+	num, err := strconv.Atoi(components[1])
+	if err != nil {
+		return 0, fmt.Errorf("the version %q is invalid: %v", versionInfo.GitVersion, err)
+	}
+	return num, nil
 }
 
-func parseVersion(s string, width int) int64 {
-	strList := strings.Split(s, ".")
-	format := fmt.Sprintf("%%s%%0%ds", width)
-	v := ""
-	for _, value := range strList {
-		v = fmt.Sprintf(format, v, value)
+// GetKubernetesVersion fetches the Kubernetes minor version. For example, `v1.19.1` will return `19`
+func GetKubernetesVersion(restConfig *rest.Config) (int, error) {
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return 0, fmt.Errorf("error creating Kubernetes client: %w", err)
 	}
-	var result int64
-	var err error
-	if result, err = strconv.ParseInt(v, 10, 64); err != nil {
-		return 0
+	serverVersion, err := client.Discovery().ServerVersion()
+	if err != nil {
+		return 0, fmt.Errorf("error getting Kubernetes version: %w", err)
 	}
-	return result
+	return extractKubernetesVersion(serverVersion)
 }
 
 // IsK8VersionSupported checks minimum supported Kubernetes version for istio
@@ -83,7 +86,7 @@ func IsK8VersionSupported(clientset kubernetes.Interface, l clog.Logger) error {
 		return fmt.Errorf("error checking if Kubernetes version is supported: %w", err)
 	}
 	if !ok {
-		l.LogAndPrintf("\nThe Kubernetes version %s is not supported by Istio %s. The minimum supported Kubernetes version is %s.\n"+
+		l.LogAndPrintf("\nThe Kubernetes version %s is not supported by Istio %s. The minimum supported Kubernetes version is 1.%d.\n"+
 			"Proceeding with the installation, but you might experience problems. "+
 			"See https://istio.io/latest/docs/setup/platform-setup/ for a list of supported versions.\n",
 			serverVersion.GitVersion, pkgVersion.Info.Version, MinK8SVersion)

@@ -209,6 +209,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		)
 	}
 
+	// used for both initKubeRegistry and initClusterRegistreis
+	if features.EnableEndpointSliceController {
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
+	} else {
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
+	}
+
 	prometheus.EnableHandlingTimeHistogram()
 
 	// TODO: revert to watching k8s (and merge with the file)
@@ -218,8 +225,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-
-	s.initSDSServer()
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -293,6 +298,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
 	}
+
+	// Must occur after we set up multicluster
+	s.initSDSServer()
 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
@@ -428,7 +436,7 @@ func (s *Server) initSDSServer() {
 				"PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
 			log.Infof("initializing Kubernetes credential reader")
-			sc := kubesecrets.NewSecretsController(s.kubeClient.KubeInformer().Core().V1().Secrets())
+			sc := kubesecrets.NewSecretsController(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient)
 			sc.AddEventHandler(func(name, namespace string) {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full: false,

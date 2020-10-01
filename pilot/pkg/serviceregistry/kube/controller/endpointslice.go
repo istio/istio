@@ -150,6 +150,9 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
 			esc.c.pods.endpointDeleted(key, a)
 		}
 	}
+	host, _, _ := esc.getServiceInfo(slice)
+	// endpointSlice cache update
+	esc.endpointCache.Delete(host, slice.Name)
 }
 
 func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
@@ -310,6 +313,16 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 		e.endpointsByServiceAndSlice[hostname] = make(map[string][]*model.IstioEndpoint)
 	}
 	e.endpointsByServiceAndSlice[hostname][slice] = endpoints
+}
+
+func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	delete(e.endpointsByServiceAndSlice[hostname], slice)
+	if len(e.endpointsByServiceAndSlice[hostname]) == 0 {
+		delete(e.endpointsByServiceAndSlice, hostname)
+	}
 }
 
 func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {

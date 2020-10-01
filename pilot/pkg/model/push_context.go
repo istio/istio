@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -140,11 +142,6 @@ type PushContext struct {
 	// by the ID.
 	ProxyStatus map[string]map[string]ProxyPushStatus
 
-	// Mutex is used to protect the below store.
-	// All data is set when the PushContext object is populated in `InitContext`,
-	// data should not be changed by plugins.
-	Mutex sync.Mutex `json:"-"`
-
 	// Synthesized from env.Mesh
 	exportToDefaults exportToDefaults
 
@@ -154,9 +151,14 @@ type PushContext struct {
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
-	// ClusterVIPs contains a map service and its cluster addresses. It is stored here
+	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
 	// to avoid locking each service for every proxy during push.
 	ClusterVIPs map[*Service]map[string]string
+
+	// instancesByPort contains a map of service and instances by port. It is stored here
+	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
+	// Call InstancesByPort directly when instances need to be filtered by actual labels.
+	instancesByPort map[*Service]map[int][]*ServiceInstance
 
 	// virtualServiceIndex is the index of virtual services by various fields.
 	virtualServiceIndex virtualServiceIndex
@@ -198,13 +200,13 @@ type PushContext struct {
 	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
 	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
-	initDone bool
-
 	Version string
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkGateways map[string][]*Gateway
+
+	initDone atomic.Bool
 }
 
 // Gateway is the gateway of a network
@@ -518,6 +520,7 @@ func NewPushContext() *PushContext {
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
 		ClusterVIPs:             map[*Service]map[string]string{},
+		instancesByPort:         map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -701,7 +704,6 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
-		var defaultSidecar *SidecarScope
 		for _, wrapper := range sidecars {
 			if wrapper.Config != nil && wrapper.Config.Spec != nil {
 				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
@@ -709,22 +711,19 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
 					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
+					// exclude workload selector that not match
 					if !workloadLabels.IsSupersetOf(workloadSelector) {
 						continue
 					}
-					return wrapper
 				}
-				defaultSidecar = wrapper
-				continue
+
+				// it is guaranteed sidecars with selectors are put in front
+				// and the sidecars are sorted by creation timestamp,
+				// return exact/wildcard matching one directly
+				return wrapper
 			}
-			// Not sure when this can happen (Config = nil ?)
-			if defaultSidecar != nil {
-				return defaultSidecar // still return the valid one
-			}
+			// this happens at last, it is the default sidecar scope
 			return wrapper
-		}
-		if defaultSidecar != nil {
-			return defaultSidecar // still return the valid one
 		}
 	}
 
@@ -854,9 +853,7 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
-	ps.Mutex.Lock()
-	defer ps.Mutex.Unlock()
-	if ps.initDone {
+	if ps.initDone.Load() {
 		return nil
 	}
 
@@ -872,7 +869,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigsUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
@@ -887,7 +884,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.initClusterLocalHosts(env)
 
-	ps.initDone = true
+	ps.initDone.Store(true)
 	return nil
 }
 
@@ -970,8 +967,11 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
+		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+		// TODO should this be a deep copy, or is the old push context discarded?
+		ps.ClusterVIPs = oldPushContext.ClusterVIPs
 	}
 
 	if virtualServicesChanged {
@@ -1046,6 +1046,13 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
+		s.Mutex.RLock()
+		ps.ClusterVIPs[s] = make(map[string]string)
+		for k, v := range s.ClusterVIPs {
+			ps.ClusterVIPs[s][k] = v
+		}
+		s.Mutex.RUnlock()
+
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
 			if ps.exportToDefaults.service[visibility.Private] {
@@ -1080,12 +1087,14 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		}
 		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 		ps.ServiceIndex.Hostname[s.Hostname] = s
-		s.Mutex.RLock()
-		ps.ClusterVIPs[s] = make(map[string]string)
-		for k, v := range s.ClusterVIPs {
-			ps.ClusterVIPs[s][k] = v
+		for _, port := range s.Ports {
+			if _, ok := ps.instancesByPort[s]; !ok {
+				ps.instancesByPort[s] = make(map[int][]*ServiceInstance)
+			}
+			instances := make([]*ServiceInstance, 0)
+			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
+			ps.instancesByPort[s][port.Port] = instances
 		}
-		s.Mutex.RUnlock()
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -1738,7 +1747,7 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
 // policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
-// The resulst is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
+// The result is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
@@ -1748,12 +1757,40 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 		return MTLSUnknown
 	}
 
-	// First , check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// 1. Check service instances' tls mode, mainly used for headless service.
+	if service.Resolution == Passthrough {
+		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
+		if len(instances) == 0 {
+			return MTLSDisable
+		}
+		for _, i := range instances {
+			// Infer mTls disabled if any of the endpoint is with tls disabled
+			if i.Endpoint.TLSMode == DisabledTLSModeLabel {
+				return MTLSDisable
+			}
+		}
+	}
+
+	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
 	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
 	}
 
-	// When all are failed, default to permissive.
+	// Fallback to permissive.
 	return MTLSPermissive
+}
+
+// ServiceInstancesByPort returns the cached instances by port if it exists, otherwise queries the discovery and returns.
+func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
+	// Use cached version of instances by port when labels are empty. If there are labels,
+	// we will have to make actual call and filter instances by pod labels.
+	if len(labels) == 0 {
+		if instances, exists := ps.instancesByPort[svc][port]; exists {
+			return instances
+		}
+	}
+
+	// Fallback to discovery call.
+	return ps.InstancesByPort(svc, port, labels)
 }

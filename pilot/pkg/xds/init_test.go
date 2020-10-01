@@ -58,6 +58,15 @@ func testIP(id uint32) string {
 	return net.IP(ipb).String()
 }
 
+func adsReceiveChannel(ads AdsClient, c chan *discovery.DiscoveryResponse) {
+	for {
+		resp, err := ads.Recv()
+		if err != nil {
+			return
+		}
+		c <- resp
+	}
+}
 func adsReceive(ads AdsClient, to time.Duration) (*discovery.DiscoveryResponse, error) {
 	done := make(chan int, 1)
 	t := time.NewTimer(to)

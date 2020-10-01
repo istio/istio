@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -25,12 +26,19 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
+)
+
+const (
+	defaultKubeConfig = "~/.kube/config"
 )
 
 var (
+	// The KUBECONFIG value from the environment.
+	kubeConfigsFromEnv = getKubeConfigsFromEnvironmentOrDefault()
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		KubeConfig:            requireKubeConfigs(env.ISTIO_TEST_KUBE_CONFIG.Value()),
+		KubeConfig:            kubeConfigsFromEnv,
 		LoadBalancerSupported: true,
 	}
 	// hold kubeconfigs from command line to split later
@@ -53,9 +61,12 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	s := settingsFromCommandLine.clone()
 
 	var err error
-	s.KubeConfig, err = parseKubeConfigs(kubeConfigs)
+	s.KubeConfig, err = parseKubeConfigs(kubeConfigs, ",")
 	if err != nil {
 		return nil, fmt.Errorf("kubeconfig: %v", err)
+	}
+	if len(s.KubeConfig) == 0 {
+		s.KubeConfig = kubeConfigsFromEnv
 	}
 
 	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
@@ -76,20 +87,36 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	return s, nil
 }
 
-func requireKubeConfigs(value string) []string {
-	out, err := parseKubeConfigs(value)
+func getKubeConfigsFromEnvironmentOrDefault() []string {
+	// Normalize KUBECONFIG so that it is separated by the OS path list separator.
+	// The framework currently supports comma as a separator, but that violates the
+	// KUBECONFIG spec.
+	value := env.KUBECONFIG.Value()
+	if strings.Contains(value, ",") {
+		updatedValue := strings.ReplaceAll(value, ",", string(filepath.ListSeparator))
+		_ = os.Setenv(env.KUBECONFIG.Name(), updatedValue)
+		scopes.Framework.Warnf("KUBECONFIG contains commas: %s.\nReplacing with %s: %s", value,
+			filepath.ListSeparator, updatedValue)
+		value = updatedValue
+	}
+	scopes.Framework.Infof("KUBECONFIG: %s", value)
+	out, err := parseKubeConfigs(value, string(filepath.ListSeparator))
 	if err != nil {
 		panic(err)
 	}
+	if len(out) == 0 {
+		out = []string{defaultKubeConfig}
+	}
+	scopes.Framework.Infof("Using KUBECONFIG array: %v", out)
 	return out
 }
 
-func parseKubeConfigs(value string) ([]string, error) {
+func parseKubeConfigs(value, separator string) ([]string, error) {
 	if len(value) == 0 {
-		return []string{defaultKubeConfig()}, nil
+		return make([]string, 0), nil
 	}
 
-	parts := strings.Split(value, ",")
+	parts := strings.Split(value, separator)
 	out := make([]string, 0, len(parts))
 	for _, f := range parts {
 		if f != "" {
@@ -212,7 +239,10 @@ func parseConfigTopology() (clusterTopology, error) {
 
 func parseNetworkTopology(kubeConfigs []string) (map[resource.ClusterIndex]string, error) {
 	out := make(map[resource.ClusterIndex]string)
-	if networkTopology == "" {
+	if controlPlaneTopology == "" {
+		for index := range kubeConfigs {
+			out[resource.ClusterIndex(index)] = "network-0"
+		}
 		return out, nil
 	}
 	numClusters := len(kubeConfigs)
@@ -250,18 +280,10 @@ func normalizeFile(path *string) error {
 	return nil
 }
 
-func defaultKubeConfig() string {
-	v := os.Getenv("KUBECONFIG")
-	if len(v) > 0 {
-		return v
-	}
-	return "~/.kube/config"
-}
-
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
-	flag.StringVar(&kubeConfigs, "istio.test.kube.config", strings.Join(settingsFromCommandLine.KubeConfig, ":"),
-		"A comma-separated list of paths to kube config files for cluster environments (default is current kube context)")
+	flag.StringVar(&kubeConfigs, "istio.test.kube.config", "",
+		"A comma-separated list of paths to kube config files for cluster environments.")
 	flag.BoolVar(&settingsFromCommandLine.Minikube, "istio.test.kube.minikube", settingsFromCommandLine.Minikube,
 		"Deprecated. See istio.test.kube.loadbalancer. Setting this flag will fail tests.")
 	flag.BoolVar(&settingsFromCommandLine.LoadBalancerSupported, "istio.test.kube.loadbalancer", settingsFromCommandLine.LoadBalancerSupported,

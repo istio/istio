@@ -29,3 +29,26 @@ rules:
   resources: ["events"]
   verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
 {{- end }}
+---
+  {{- if .Values.cni.taint.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-cni-taint-role
+  labels:
+    app: istio-cni
+    release: {{ .Release.Name }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "create", "update"]
+  {{- end }}

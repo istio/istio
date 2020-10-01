@@ -169,7 +169,7 @@ func (c *controller) Apply(change *sink.Change) error {
 			Spec: obj.Body,
 		}
 
-		if err := s.Resource().ValidateConfig(*conf); err != nil {
+		if _, err := s.Resource().ValidateConfig(*conf); err != nil {
 			// Do not return an error, instead discard the resources so that Pilot can process the rest.
 			log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 			continue

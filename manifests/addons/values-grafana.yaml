@@ -11,6 +11,9 @@ testFramework:
 podLabels:
   app: grafana
 
+podAnnotations:
+  sidecar.istio.io/inject: "false"
+
 # Demo only, so we will have no authentication
 admin:
   existingSecret: true

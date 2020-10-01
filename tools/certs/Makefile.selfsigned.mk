@@ -39,10 +39,10 @@ root-key.pem:
 ##<name>-cacerts: generate self signed intermediate certificates for <name> and store them under <name> directory.
 .PHONY: %-cacerts
 
-%-cacerts: %/ca-cert-chain.pem root-cert.pem
+%-cacerts: %/cert-chain.pem
 	@echo "done"
 
-%/ca-cert-chain.pem: %/ca-cert.pem root-cert.pem
+%/cert-chain.pem: %/ca-cert.pem root-cert.pem
 	@echo "generating $@"
 	@cat $^ > $@
 	@echo "Intermediate inputs stored in $(dir $<)"

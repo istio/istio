@@ -19,14 +19,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	ca2 "istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/uds"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/pkg/version"
@@ -171,7 +170,7 @@ func (s *Server) initWorkloadSdsService(options *ca2.Options) error { //nolint: 
 	s.workloadSds.register(s.grpcWorkloadServer)
 
 	var err error
-	s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
+	s.grpcWorkloadListener, err = uds.NewListener(options.WorkloadUDSPath)
 	if err != nil {
 		sdsServiceLog.Errorf("Failed to set up UDS path: %v", err)
 	}
@@ -190,7 +189,7 @@ func (s *Server) initWorkloadSdsService(options *ca2.Options) error { //nolint: 
 				}
 			}
 			if s.grpcWorkloadListener == nil {
-				if s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath); err != nil {
+				if s.grpcWorkloadListener, err = uds.NewListener(options.WorkloadUDSPath); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
 					setUpUdsOK = false
 				}
@@ -211,7 +210,7 @@ func (s *Server) initGatewaySdsService(options *ca2.Options) error {
 	s.gatewaySds.register(s.grpcGatewayServer)
 
 	var err error
-	s.grpcGatewayListener, err = setUpUds(options.GatewayUDSPath)
+	s.grpcGatewayListener, err = uds.NewListener(options.GatewayUDSPath)
 	if err != nil {
 		sdsServiceLog.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 		return fmt.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
@@ -231,7 +230,7 @@ func (s *Server) initGatewaySdsService(options *ca2.Options) error {
 				}
 			}
 			if s.grpcGatewayListener == nil {
-				if s.grpcGatewayListener, err = setUpUds(options.GatewayUDSPath); err != nil {
+				if s.grpcGatewayListener, err = uds.NewListener(options.GatewayUDSPath); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for ingress gateway proxy failed to set up UDS: %v", err)
 					setUpUdsOK = false
 				}
@@ -245,40 +244,6 @@ func (s *Server) initGatewaySdsService(options *ca2.Options) error {
 	}()
 
 	return nil
-}
-
-func setUpUds(udsPath string) (net.Listener, error) {
-	// Remove unix socket before use.
-	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
-		// Anything other than "file not found" is an error.
-		sdsServiceLog.Errorf("Failed to remove unix://%s: %v", udsPath, err)
-		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
-	}
-
-	// Attempt to create the folder in case it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(udsPath), 0750); err != nil {
-		// If we cannot create it, just warn here - we will fail later if there is a real error
-		sdsServiceLog.Warnf("Failed to create directory for %v: %v", udsPath, err)
-	}
-
-	var err error
-	udsListener, err := net.Listen("unix", udsPath)
-	if err != nil {
-		sdsServiceLog.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
-		return nil, err
-	}
-
-	// Update SDS UDS file permission so that istio-proxy has permission to access it.
-	if _, err := os.Stat(udsPath); err != nil {
-		sdsServiceLog.Errorf("SDS uds file %q doesn't exist", udsPath)
-		return nil, fmt.Errorf("sds uds file %q doesn't exist", udsPath)
-	}
-	if err := os.Chmod(udsPath, 0666); err != nil {
-		sdsServiceLog.Errorf("Failed to update %q permission", udsPath)
-		return nil, fmt.Errorf("failed to update %q permission", udsPath)
-	}
-
-	return udsListener, nil
 }
 
 func (s *Server) grpcServerOptions(options *ca2.Options) []grpc.ServerOption {

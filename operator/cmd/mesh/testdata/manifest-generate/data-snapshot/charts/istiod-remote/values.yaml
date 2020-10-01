@@ -76,6 +76,11 @@ telemetry:
       enabled: true
       # Indicates whether to enable WebAssembly runtime for stats filter.
       wasmEnabled: false
+      # overrides stats EnvoyFilter configuration. 
+      configOverride:
+        gateway: {}
+        inboundSidecar: {}
+        outboundSidecar: {}
     # stackdriver filter settings.
     stackdriver:
       enabled: false

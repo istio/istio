@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
@@ -38,7 +38,7 @@ func TestReachability(t *testing.T) {
 		Features("security.reachability").
 		Run(func(ctx framework.TestContext) {
 			rctx := reachability.CreateContext(ctx, true)
-			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
+			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
 				{
@@ -104,11 +104,6 @@ func TestReachability(t *testing.T) {
 						if rctx.IsNaked(src) {
 							return rctx.IsNaked(opts.Target)
 						}
-						// headless service with sidecar injected, global mTLS enabled,
-						// no client side transport socket or transport_socket_matches since it's headless service.
-						if src != rctx.Headless && opts.Target == rctx.Headless {
-							return false
-						}
 						return true
 					},
 				},
@@ -124,10 +119,6 @@ func TestReachability(t *testing.T) {
 						if rctx.IsNaked(src) {
 							return rctx.IsNaked(opts.Target) || (opts.Target == rctx.B && opts.PortName != "http")
 
-						}
-						// headless with sidecar injected, global mTLS enabled, no client side transport socket or transport_socket_matches since it's headless service.
-						if src != rctx.Headless && opts.Target == rctx.Headless {
-							return false
 						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.

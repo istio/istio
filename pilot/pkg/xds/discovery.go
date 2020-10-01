@@ -238,8 +238,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			push := s.globalPushContext()
-			push.Mutex.Lock()
-
 			model.LastPushMutex.Lock()
 			if model.LastPushStatus != push {
 				model.LastPushStatus = push
@@ -248,8 +246,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 				adsLog.Infof("Push Status: %s", string(out))
 			}
 			model.LastPushMutex.Unlock()
-
-			push.Mutex.Unlock()
 		case <-stopCh:
 			return
 		}

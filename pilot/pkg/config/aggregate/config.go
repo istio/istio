@@ -64,7 +64,7 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 		} else {
 			err := store.SetLedger(l)
 			if err != nil {
-				log.Warnf("Config Store %v cannot track distribution in aggregate: %v", store, err)
+				log.Debugf("Config Store %v cannot track distribution in aggregate: %v", store, err)
 			}
 		}
 	}

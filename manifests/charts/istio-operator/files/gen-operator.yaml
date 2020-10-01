@@ -117,6 +117,7 @@ rules:
   - events
   - namespaces
   - pods
+  - pods/proxy
   - persistentvolumeclaims
   - secrets
   - services

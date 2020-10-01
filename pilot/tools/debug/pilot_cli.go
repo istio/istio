@@ -21,7 +21,7 @@
 //
 // * By port-forward existing pilot:
 // ```bash
-// kubectl port-forward $(kubectl get pod -l istio=pilot -o jsonpath={.items[0].metadata.name} -n istio-system) -n istio-system 15010
+// kubectl port-forward $(kubectl get pod -l app=istiod -o jsonpath={.items[0].metadata.name} -n istio-system) -n istio-system 15010
 // ```
 // * Or run local pilot using the same k8s config.
 // ```bash

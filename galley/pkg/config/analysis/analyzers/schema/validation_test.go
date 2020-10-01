@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/validation"
 )
 
 func TestCorrectArgs(t *testing.T) {
@@ -35,11 +36,11 @@ func TestCorrectArgs(t *testing.T) {
 
 	m1 := &v1alpha3.VirtualService{}
 
-	testSchema := schemaWithValidateFn(func(cfg config.Config) (errs error) {
+	testSchema := schemaWithValidateFn(func(cfg config.Config) (warnings validation.Warning, errs error) {
 		g.Expect(cfg.Name).To(Equal("name"))
 		g.Expect(cfg.Namespace).To(Equal("ns"))
 		g.Expect(cfg.Spec).To(Equal(m1))
-		return nil
+		return nil, nil
 	})
 	ctx := &fixtures.Context{
 		Resources: []*resource.Instance{
@@ -63,17 +64,17 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	m2 := &v1alpha3.VirtualService{}
 	m3 := &v1alpha3.VirtualService{}
 
-	testSchema := schemaWithValidateFn(func(cfg config.Config) (errs error) {
+	testSchema := schemaWithValidateFn(func(cfg config.Config) (warnings validation.Warning, errs error) {
 		if cfg.Spec == m1 {
-			return nil
+			return nil, nil
 		}
 		if cfg.Spec == m2 {
-			return fmt.Errorf("")
+			return nil, fmt.Errorf("")
 		}
 		if cfg.Spec == m3 {
-			return multierror.Append(fmt.Errorf(""), fmt.Errorf(""))
+			return nil, multierror.Append(fmt.Errorf(""), fmt.Errorf(""))
 		}
-		return nil
+		return nil, nil
 	})
 
 	a := ValidationAnalyzer{s: testSchema}
@@ -129,7 +130,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 }
 
-func schemaWithValidateFn(validateFn func(cfg config.Config) error) collection.Schema {
+func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) collection.Schema {
 	original := collections.IstioNetworkingV1Alpha3Virtualservices
 	return collection.Builder{
 		Name: original.Name().String(),

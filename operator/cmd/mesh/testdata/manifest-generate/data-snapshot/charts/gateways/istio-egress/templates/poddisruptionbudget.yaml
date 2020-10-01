@@ -6,12 +6,11 @@ metadata:
   name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $gateway.labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | trim | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-{{ $gateway.labels | toYaml | indent 6 }}
-      release: {{ .Release.Name }}
+{{ $gateway.labels | toYaml | trim | indent 6 }}
 {{- end }}

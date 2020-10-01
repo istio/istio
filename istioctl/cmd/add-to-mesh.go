@@ -71,12 +71,9 @@ func addToMeshCmd() *cobra.Command {
 		Aliases: []string{"add"},
 		Short:   "Add workloads into Istio service mesh",
 		Long: `'istioctl experimental add-to-mesh' restarts pods with an Istio sidecar or configures meshed pod access to external services.
-
 Use 'add-to-mesh' as an alternate to namespace-wide auto injection for troubleshooting compatibility.
 
-The 'remove-from-mesh' command can be used to restart with the sidecar removed.
-
-THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
+The 'remove-from-mesh' command can be used to restart with the sidecar removed.`,
 		Example: `  # Restart all productpage pods with an Istio sidecar
   istioctl experimental add-to-mesh service productpage
 
@@ -114,6 +111,8 @@ THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 	addToMeshCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
+
+	addToMeshCmd.Long += "\n\n" + ExperimentalMsg
 	return addToMeshCmd
 }
 
@@ -131,10 +130,7 @@ to test deployments for compatibility with Istio.  It can be used instead of nam
 If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
 See ` + url.DeploymentRequirements + `
 
-See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.`,
 		Example: `  # Restart pods from the productpage-v1 deployment with Istio sidecar
   istioctl experimental add-to-mesh deployment productpage-v1
 
@@ -171,7 +167,7 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				})
 		},
 	}
-
+	cmd.Long += "\n\n" + ExperimentalMsg
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
@@ -190,10 +186,7 @@ to test deployments for compatibility with Istio.  It can be used instead of nam
 If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
 See ` + url.DeploymentRequirements + `
 
-See also 'istioctl experimental remove-from-mesh service' which does the reverse.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+See also 'istioctl experimental remove-from-mesh service' which does the reverse.`,
 		Example: `  # Restart all productpage pods with an Istio sidecar
   istioctl experimental add-to-mesh service productpage
 
@@ -232,7 +225,7 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				})
 		},
 	}
-
+	cmd.Long += "\n\n" + ExperimentalMsg
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
@@ -246,10 +239,7 @@ func externalSvcMeshifyCmd() *cobra.Command {
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
 
-See also 'istioctl experimental remove-from-mesh external-service' which does the reverse.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+See also 'istioctl experimental remove-from-mesh external-service' which does the reverse.`,
 		Example: ` # Control how meshed pods contact 172.12.23.125 and .126
   istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126 \
    http:9080 tcp:8888 --labels app=test,version=v1 --annotations env=stage --serviceaccount stageAdmin`,
@@ -280,6 +270,8 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 		nil, "List of string annotations to apply if creating a service/endpoint; e.g. -a foo=bar,x=y")
 	cmd.PersistentFlags().StringVarP(&svcAcctAnn, "serviceaccount", "s",
 		"default", "Service account to link to the service")
+
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
