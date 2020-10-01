@@ -78,6 +78,9 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 	// within a route might have a different order.  Sort those too.
 	for i := range drc {
 		route := &route.RouteConfiguration{}
+		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+		// (This is done in the sort, but the sort skip this if the slice has length 1!)
+		drc[i].RouteConfig.TypeUrl = v3.RouteType
 		err = ptypes.UnmarshalAny(drc[i].RouteConfig, route)
 		if err != nil {
 			return nil, err
