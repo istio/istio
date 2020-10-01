@@ -295,8 +295,8 @@ func TestInitPushContext(t *testing.T) {
 
 	// Create a new one, copying from the old one
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
-	new := NewPushContext()
-	if err := new.InitContext(env, old, &PushRequest{
+	newPush := NewPushContext()
+	if err := newPush.InitContext(env, old, &PushRequest{
 		ConfigsUpdated: map[ConfigKey]struct{}{
 			{Kind: gvk.Secret}: {},
 		},
@@ -306,7 +306,7 @@ func TestInitPushContext(t *testing.T) {
 
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
-	diff := cmp.Diff(old, new,
+	diff := cmp.Diff(old, newPush,
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{}, AuthenticationPolicies{}),
