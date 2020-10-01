@@ -267,7 +267,15 @@ func TestInitPushContext(t *testing.T) {
 			Attributes: ServiceAttributes{
 				Namespace: "test1",
 			},
-		}},
+		},
+			{
+				Hostname: "svc2",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+				},
+			}},
 		serviceInstances: []*ServiceInstance{{
 			Endpoint: &IstioEndpoint{
 				Address:      "192.168.1.2",
