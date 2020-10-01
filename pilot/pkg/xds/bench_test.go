@@ -190,7 +190,7 @@ func BenchmarkNameTableGeneration(b *testing.B) {
 }
 
 func BenchmarkSecretGeneration(b *testing.B) {
-	disableLogging()
+	//disableLogging()
 	cases := []ConfigInput{
 		{
 			Name:     "secrets",

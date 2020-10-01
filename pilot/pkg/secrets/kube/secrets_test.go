@@ -138,13 +138,38 @@ func allowIdentities(c kube.Client, identities ...string) {
 	})
 }
 
+func TestForCluster(t *testing.T) {
+	localClient := kube.NewFakeClient()
+	remoteClient := kube.NewFakeClient()
+	sc := NewMulticluster(localClient, "local", "")
+	sc.addMemberCluster(remoteClient, "remote")
+	sc.addMemberCluster(remoteClient, "remote2")
+	cases := []struct {
+		cluster string
+		allowed bool
+	}{
+		{"local", true},
+		{"remote", true},
+		{"remote2", true},
+		{"invalid", false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.cluster, func(t *testing.T) {
+			_, err := sc.ForCluster(tt.cluster)
+			if (err == nil) != tt.allowed {
+				t.Fatalf("expected allowed=%v, got err=%v", tt.allowed, err)
+			}
+		})
+	}
+}
+
 func TestAuthorize(t *testing.T) {
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
 	sc := NewMulticluster(localClient, "local", "")
-	sc.AddMemberCluster(remoteClient, "remote")
+	sc.addMemberCluster(remoteClient, "remote")
 	cases := []struct {
 		sa      string
 		ns      string
@@ -159,11 +184,14 @@ func TestAuthorize(t *testing.T) {
 		{"sa-allowed", "ns-remote", "local", false},
 		{"sa-denied", "ns-remote", "remote", false},
 		{"sa-allowed", "ns-remote", "remote", true},
-		{"sa-allowed", "ns-remote", "invalid", false},
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%v/%v/%v", tt.sa, tt.ns, tt.cluster), func(t *testing.T) {
-			got := sc.Authorize(tt.sa, tt.ns, tt.cluster)
+			con, err := sc.ForCluster(tt.cluster)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := con.Authorize(tt.sa, tt.ns)
 			if (got == nil) != tt.allowed {
 				t.Fatalf("expected allowed=%v, got error=%v", tt.allowed, got)
 			}
@@ -178,43 +206,83 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 		tlsMtlsCertSplit,
 		tlsMtlsCertSplitCa,
 	}
+	tlsCertModified := makeSecret("tls", map[string]string{
+		TLSSecretCert: "tls-cert-mod", TLSSecretKey: "tls-key",
+	})
 	secretsRemote := []runtime.Object{
+		tlsCertModified,
 		genericCert,
 		genericMtlsCert,
 		genericMtlsCertSplit,
 		genericMtlsCertSplitCa,
 	}
+
 	localClient := kube.NewFakeClient(secretsLocal...)
 	remoteClient := kube.NewFakeClient(secretsRemote...)
-	sc := NewMulticluster(localClient, "", "")
-	sc.AddMemberCluster(remoteClient, "remote")
+	otherRemoteClient := kube.NewFakeClient()
+	sc := NewMulticluster(localClient, "local", "")
+	sc.addMemberCluster(remoteClient, "remote")
+	sc.addMemberCluster(otherRemoteClient, "other")
 	cases := []struct {
 		name      string
 		namespace string
+		cluster   string
 		cert      string
 		key       string
 		caCert    string
 	}{
-		{"generic", "default", "generic-cert", "generic-key", ""},
-		{"generic-mtls", "default", "generic-mtls-cert", "generic-mtls-key", "generic-mtls-ca"},
-		{"generic-mtls-split", "default", "generic-mtls-split-cert", "generic-mtls-split-key", ""},
-		{"generic-mtls-split-cacert", "default", "", "", "generic-mtls-split-ca"},
-		{"tls", "default", "tls-cert", "tls-key", ""},
-		{"tls-mtls", "default", "tls-mtls-cert", "tls-mtls-key", "tls-mtls-ca"},
-		{"tls-mtls-split", "default", "tls-mtls-split-cert", "tls-mtls-split-key", ""},
-		{"tls-mtls-split-cacert", "default", "", "", "tls-mtls-split-ca"},
-		{"generic", "wrong-namespace", "", "", ""},
+		// From local cluster
+		// These are only in remote cluster, we do not have access
+		{"generic", "default", "local", "", "", ""},
+		{"generic-mtls", "default", "local", "", "", ""},
+		{"generic-mtls-split", "default", "local", "", "", ""},
+		{"generic-mtls-split-cacert", "default", "local", "", "", ""},
+		// These are in local cluster, we can access
+		{"tls", "default", "local", "tls-cert", "tls-key", ""},
+		{"tls-mtls", "default", "local", "tls-mtls-cert", "tls-mtls-key", "tls-mtls-ca"},
+		{"tls-mtls-split", "default", "local", "tls-mtls-split-cert", "tls-mtls-split-key", ""},
+		{"tls-mtls-split-cacert", "default", "local", "", "", "tls-mtls-split-ca"},
+		{"generic", "wrong-namespace", "local", "", "", ""},
+
+		// From remote cluster
+		// We can access all credentials - local and remote
+		{"generic", "default", "remote", "generic-cert", "generic-key", ""},
+		{"generic-mtls", "default", "remote", "generic-mtls-cert", "generic-mtls-key", "generic-mtls-ca"},
+		{"generic-mtls-split", "default", "remote", "generic-mtls-split-cert", "generic-mtls-split-key", ""},
+		{"generic-mtls-split-cacert", "default", "remote", "", "", "generic-mtls-split-ca"},
+		// This is present in local and remote, but with a different value. We have the remote.
+		{"tls", "default", "remote", "tls-cert-mod", "tls-key", ""},
+		{"tls-mtls", "default", "remote", "tls-mtls-cert", "tls-mtls-key", "tls-mtls-ca"},
+		{"tls-mtls-split", "default", "remote", "tls-mtls-split-cert", "tls-mtls-split-key", ""},
+		{"tls-mtls-split-cacert", "default", "remote", "", "", "tls-mtls-split-ca"},
+		{"generic", "wrong-namespace", "remote", "", "", ""},
+
+		// From other remote cluster
+		// We have no in cluster credentials; can only access those in config cluster
+		{"generic", "default", "other", "", "", ""},
+		{"generic-mtls", "default", "other", "", "", ""},
+		{"generic-mtls-split", "default", "other", "", "", ""},
+		{"generic-mtls-split-cacert", "default", "other", "", "", ""},
+		{"tls", "default", "other", "tls-cert", "tls-key", ""},
+		{"tls-mtls", "default", "other", "tls-mtls-cert", "tls-mtls-key", "tls-mtls-ca"},
+		{"tls-mtls-split", "default", "other", "tls-mtls-split-cert", "tls-mtls-split-key", ""},
+		{"tls-mtls-split-cacert", "default", "other", "", "", "tls-mtls-split-ca"},
+		{"generic", "wrong-namespace", "other", "", "", ""},
 	}
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			key, cert := sc.GetKeyAndCert(tt.name, tt.namespace)
+		t.Run(fmt.Sprintf("%s-%v", tt.name, tt.cluster), func(t *testing.T) {
+			con, err := sc.ForCluster(tt.cluster)
+			if err != nil {
+				t.Fatal(err)
+			}
+			key, cert := con.GetKeyAndCert(tt.name, tt.namespace)
 			if tt.key != string(key) {
 				t.Errorf("got key %q, wanted %q", string(key), tt.key)
 			}
 			if tt.cert != string(cert) {
 				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
 			}
-			caCert := sc.GetCaCert(tt.name, tt.namespace)
+			caCert := con.GetCaCert(tt.name, tt.namespace)
 			if tt.caCert != string(caCert) {
 				t.Errorf("got caCert %q, wanted %q", string(caCert), tt.caCert)
 			}

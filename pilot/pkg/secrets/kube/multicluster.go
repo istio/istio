@@ -32,7 +32,7 @@ type Multicluster struct {
 	localCluster          string
 }
 
-var _ secrets.Controller = &Multicluster{}
+var _ secrets.MulticlusterController = &Multicluster{}
 
 func NewMulticluster(client kube.Client, localCluster, secretNamespace string) *Multicluster {
 	m := &Multicluster{
@@ -40,19 +40,17 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string) *
 		localCluster:          localCluster,
 	}
 	// Add the local cluster
-	if err := m.AddMemberCluster(client, localCluster); err != nil {
-		return nil
-	}
+	m.addMemberCluster(client, localCluster)
 	sc := secretcontroller.StartSecretController(client,
-		m.AddMemberCluster,
-		m.UpdateMemberCluster,
-		m.DeleteMemberCluster,
+		func(c kube.Client, k string) error { m.addMemberCluster(c, k); return nil },
+		func(c kube.Client, k string) error { m.updateMemberCluster(c, k); return nil },
+		func(k string) error { m.deleteMemberCluster(k); return nil },
 		secretNamespace)
 	m.secretController = sc
 	return m
 }
 
-func (m *Multicluster) AddMemberCluster(clients kube.Client, key string) error {
+func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
 	stopCh := make(chan struct{})
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
 	sc := NewSecretsController(clients, key)
@@ -60,30 +58,57 @@ func (m *Multicluster) AddMemberCluster(clients kube.Client, key string) error {
 	m.remoteKubeControllers[key] = sc
 	m.m.Unlock()
 	clients.RunAndWait(stopCh)
-	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clients kube.Client, key string) error {
-	if err := m.DeleteMemberCluster(key); err != nil {
-		return err
-	}
-	return m.AddMemberCluster(clients, key)
+func (m *Multicluster) updateMemberCluster(clients kube.Client, key string) {
+	m.deleteMemberCluster(key)
+	m.addMemberCluster(clients, key)
 }
 
-func (m *Multicluster) DeleteMemberCluster(key string) error {
+func (m *Multicluster) deleteMemberCluster(key string) {
 	m.m.Lock()
 	delete(m.remoteKubeControllers, key)
 	m.m.Unlock()
-	return nil
 }
 
-func (m *Multicluster) GetKeyAndCert(name, namespace string) (key []byte, cert []byte) {
-	// Prefer local cluster
-	if lk, lc := m.remoteKubeControllers[m.localCluster].GetKeyAndCert(name, namespace); lk != nil && lc != nil {
-		return lk, lc
+func (m *Multicluster) ForCluster(clusterID string) (secrets.Controller, error) {
+	if _, f := m.remoteKubeControllers[clusterID]; !f {
+		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
 	}
-	// Search through all clusters
+	agg := &AggregateController{}
+	agg.controllers = []*SecretsController{}
+
+	if clusterID != m.localCluster {
+		// If the request cluster is not the local cluster, we will append it and use it for auth
+		// This means we will prioritize the proxy cluster, then the local cluster for credential lookup
+		// Authorization will always use the proxy cluster.
+		agg.controllers = append(agg.controllers, m.remoteKubeControllers[clusterID])
+		agg.authController = m.remoteKubeControllers[clusterID]
+	} else {
+		agg.authController = m.remoteKubeControllers[m.localCluster]
+	}
+	agg.controllers = append(agg.controllers, m.remoteKubeControllers[m.localCluster])
+	return agg, nil
+}
+
+func (m *Multicluster) AddEventHandler(f func(name string, namespace string)) {
 	for _, c := range m.remoteKubeControllers {
+		c.AddEventHandler(f)
+	}
+}
+
+type AggregateController struct {
+	// controllers to use to look up certs. Generally this will consistent of the local (config) cluster
+	// and a single remote cluster where the proxy resides
+	controllers    []*SecretsController
+	authController *SecretsController
+}
+
+var _ secrets.Controller = &AggregateController{}
+
+func (a *AggregateController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte) {
+	// Search through all clusters, find first non-empty result
+	for _, c := range a.controllers {
 		k, c := c.GetKeyAndCert(name, namespace)
 		if k != nil && c != nil {
 			return k, c
@@ -92,13 +117,9 @@ func (m *Multicluster) GetKeyAndCert(name, namespace string) (key []byte, cert [
 	return nil, nil
 }
 
-func (m *Multicluster) GetCaCert(name, namespace string) (cert []byte) {
-	// Prefer local cluster
-	if lk := m.remoteKubeControllers[m.localCluster].GetCaCert(name, namespace); lk != nil {
-		return lk
-	}
-	// Search through all clusters
-	for _, c := range m.remoteKubeControllers {
+func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte) {
+	// Search through all clusters, find first non-empty result
+	for _, c := range a.controllers {
 		k := c.GetCaCert(name, namespace)
 		if k != nil {
 			return k
@@ -107,16 +128,12 @@ func (m *Multicluster) GetCaCert(name, namespace string) (cert []byte) {
 	return nil
 }
 
-func (m *Multicluster) Authorize(serviceAccount, namespace, clusterID string) error {
-	if c, f := m.remoteKubeControllers[clusterID]; f {
-		// For auth, we always lookup in the same namespace as the proxy is running
-		return c.Authorize(serviceAccount, namespace, clusterID)
-	}
-	return fmt.Errorf("client for cluster %q not found", clusterID)
+func (a *AggregateController) Authorize(serviceAccount, namespace string) error {
+	return a.authController.Authorize(serviceAccount, namespace)
 }
 
-func (m *Multicluster) AddEventHandler(f func(name string, namespace string)) {
-	for _, c := range m.remoteKubeControllers {
+func (a *AggregateController) AddEventHandler(f func(name string, namespace string)) {
+	for _, c := range a.controllers {
 		c.AddEventHandler(f)
 	}
 }

@@ -104,7 +104,12 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 		adsLog.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil
 	}
-	if err := s.secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID); err != nil {
+	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
+	if err != nil {
+		adsLog.Warnf("proxy %v is from and unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		return nil
+	}
+	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
 		adsLog.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
 		return nil
 	}
@@ -142,7 +147,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 
 		isCAOnlySecret := strings.HasSuffix(sr.Name, GatewaySdsCaSuffix)
 		if isCAOnlySecret {
-			secret := s.secrets.GetCaCert(sr.Name, sr.Namespace)
+			secret := secrets.GetCaCert(sr.Name, sr.Namespace)
 			if secret != nil {
 				res := toEnvoyCaSecret(sr.ResourceName, secret)
 				results = append(results, res)
@@ -151,7 +156,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 				adsLog.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
 			}
 		} else {
-			key, cert := s.secrets.GetKeyAndCert(sr.Name, sr.Namespace)
+			key, cert := secrets.GetKeyAndCert(sr.Name, sr.Namespace)
 			if key != nil && cert != nil {
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 				results = append(results, res)
@@ -200,14 +205,14 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte) *any.Any {
 }
 
 type SecretGen struct {
-	secrets secrets.Controller
+	secrets secrets.MulticlusterController
 	// Cache for XDS resources
 	cache model.XdsCache
 }
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
-func NewSecretGen(sc secrets.Controller, cache model.XdsCache) *SecretGen {
+func NewSecretGen(sc secrets.MulticlusterController, cache model.XdsCache) *SecretGen {
 	// TODO: Currently we only have a single secrets controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)
 	return &SecretGen{

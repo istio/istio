@@ -67,10 +67,7 @@ type SecretsController struct {
 	authorizationCache map[authorizationKey]authorizationResponse
 }
 
-type authorizationKey struct {
-	cluster string
-	user    string
-}
+type authorizationKey string
 
 type authorizationResponse struct {
 	expiration time.Time
@@ -111,8 +108,8 @@ func (s *SecretsController) clearExpiredCache() {
 
 // cachedAuthorization checks the authorization cache
 // nolint
-func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, bool) {
-	key := authorizationKey{cluster: clusterID, user: user}
+func (s *SecretsController) cachedAuthorization(user string) (error, bool) {
+	key := authorizationKey(user)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.clearExpiredCache()
@@ -125,10 +122,10 @@ func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, 
 }
 
 // cachedAuthorization checks the authorization cache
-func (s *SecretsController) insertCache(user, clusterID string, response error) {
+func (s *SecretsController) insertCache(user string, response error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	key := authorizationKey{cluster: clusterID, user: user}
+	key := authorizationKey(user)
 	expDelta := cacheTTL
 	if response == nil {
 		// Cache success a bit longer, there is no need to quickly revoke access
@@ -152,9 +149,9 @@ func DisableAuthorizationForTest(fake *fake.Clientset) {
 	})
 }
 
-func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID string) error {
+func (s *SecretsController) Authorize(serviceAccount, namespace string) error {
 	user := toUser(serviceAccount, namespace)
-	if cached, f := s.cachedAuthorization(user, clusterID); f {
+	if cached, f := s.cachedAuthorization(user); f {
 		return cached
 	}
 	resp := func() error {
@@ -177,7 +174,7 @@ func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID strin
 		}
 		return nil
 	}()
-	s.insertCache(user, clusterID, resp)
+	s.insertCache(user, resp)
 	return resp
 }
 
