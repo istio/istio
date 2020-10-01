@@ -16,7 +16,7 @@ package multicluster
 
 import (
 	"bytes"
-	context2 "context"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -223,8 +223,8 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, clusterName, s
 	return createRemoteServiceAccountSecret(kubeconfig, clusterName, secName)
 }
 
-func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace string) (*v1.Secret, error) {
-	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(context2.TODO(), saName, metav1.GetOptions{})
+func getServiceAccountSecret(kube kubernetes.Interface, saName, saNamespace string) (*v1.Secret, error) {
+	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(context.TODO(), saName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace
 	if secretNamespace == "" {
 		secretNamespace = saNamespace
 	}
-	return kube.CoreV1().Secrets(secretNamespace).Get(context2.TODO(), secretName, metav1.GetOptions{})
+	return kube.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 }
 
 func getServerFromKubeconfig(context string, config *api.Config) (string, error) {
@@ -332,11 +332,11 @@ type RemoteSecretOptions struct {
 
 	// Authentication method for the remote Kubernetes cluster.
 	AuthType RemoteSecretAuthType
-
 	// Authenticator plugin configuration
 	AuthPluginName   string
 	AuthPluginConfig map[string]string
-	// Type of the generate secret
+
+	// Type of the generated secret
 	Type SecretType
 }
 
@@ -389,7 +389,7 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 		opt.ClusterName = string(uid)
 	}
 
-	tokenSecret, err := getServiceAccountSecretToken(client, opt.ServiceAccountName, opt.Namespace)
+	tokenSecret, err := getServiceAccountSecret(client, opt.ServiceAccountName, opt.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
 	}
@@ -404,14 +404,10 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
 	case SecretTypeConfig:
 		secretName = configSecretName
-	case "":
-		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
 	default:
-		err = fmt.Errorf("unsupported type: %v", opt.Type)
+		return nil, fmt.Errorf("unsupported type: %v", opt.Type)
 	}
-	if err != nil {
-		return nil, err
-	}
+
 	var remoteSecret *v1.Secret
 	switch opt.AuthType {
 	case RemoteSecretAuthTypeBearerToken:

@@ -336,7 +336,7 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
 			kube := fake.NewSimpleClientset(c.objs...)
 
-			got, err := getServiceAccountSecretToken(kube, c.saName, c.saNamespace)
+			got, err := getServiceAccountSecret(kube, c.saName, c.saNamespace)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
