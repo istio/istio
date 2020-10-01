@@ -102,7 +102,9 @@ data:
         "mountMtlsCerts": false,
         "multiCluster": {
           "clusterName": "",
-          "enabled": false
+          "enabled": false,
+          "globalDomainSuffix": "global",
+          "includeEnvoyFilter": true
         },
         "network": "",
         "omitSidecarInjectorConfigMap": false,
