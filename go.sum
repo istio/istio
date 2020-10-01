@@ -1237,8 +1237,8 @@ honnef.co/go/tools v0.0.1-2020.1.4 h1:UoveltGrhghAA7ePc+e+QYDHXrBps2PqFZiHkGR/xK
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/api v0.0.0-20200812202721-24be265d41c3/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
-istio.io/api v0.0.0-20200929211520-11df83b4d252 h1:V0mDpcZktZOhMJOX2Olnz/Ae3HGDv9dF1eskMkrRpBM=
-istio.io/api v0.0.0-20200929211520-11df83b4d252/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
+istio.io/api v0.0.0-20200930233241-455f0dfbedcb h1:a47o7O6hjD+iCp2nHLm8aJS6v2rVTPSE44ns2+H/P04=
+istio.io/api v0.0.0-20200930233241-455f0dfbedcb/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
 istio.io/client-go v0.0.0-20200908160912-f99162621a1a h1:clPn0fz+rXq5Ytj6Ppb1ygUKeU0RImT4ZbT1oMd1G04=
 istio.io/client-go v0.0.0-20200908160912-f99162621a1a/go.mod h1:SO65MWt7I45dvUwuDowoiB0SVcGpfWZfUTlopvYpbZc=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
