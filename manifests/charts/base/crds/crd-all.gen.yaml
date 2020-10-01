@@ -1225,6 +1225,7 @@ spec:
                     - VIRTUAL_HOST
                     - HTTP_ROUTE
                     - CLUSTER
+                    - EXTENSION_CONFIG
                     type: string
                   match:
                     description: Match on listener/route configuration/cluster.
