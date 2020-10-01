@@ -378,7 +378,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 	retry.UntilSuccessOrFail(t, func() error {
 		_, err = r.GetPublicKey(mockCertURL)
 		if err == nil {
-			return fmt.Errorf("GetPublicKey(%+v) fails: expected error, got no error", mockCertURL)
+			return fmt.Errorf("getPublicKey(%+v) fails: expected error, got no error", mockCertURL)
 		}
 		return nil
 	})
@@ -406,7 +406,6 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 	t.Logf("%v: %v", time.Now(), 0)
 	ms := startMockServer(t)
 	defer ms.Stop()
-	return
 
 	// Configures the mock server to return error after the first request.
 	ms.ReturnErrorAfterFirstNumHits = 1
