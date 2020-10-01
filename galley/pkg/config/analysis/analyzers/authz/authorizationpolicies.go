@@ -175,18 +175,17 @@ func matchNamespace(exp string, c analysis.Context) bool {
 }
 
 func namespaceMatch(ns, exp string) bool {
-	match := false
 	if strings.EqualFold(exp, "*") {
-		match = true
-	} else if strings.HasPrefix(exp, "*") {
-		match = strings.HasSuffix(ns, strings.TrimPrefix(exp, "*"))
-	} else if strings.HasSuffix(exp, "*") {
-		match = strings.HasPrefix(ns, strings.TrimSuffix(exp, "*"))
-	} else {
-		match = strings.EqualFold(ns, exp)
+		return true
+	}
+	if strings.HasPrefix(exp, "*") {
+		return strings.HasSuffix(ns, strings.TrimPrefix(exp, "*"))
+	}
+	if strings.HasSuffix(exp, "*") {
+		return strings.HasPrefix(ns, strings.TrimSuffix(exp, "*"))
 	}
 
-	return match
+	return strings.EqualFold(ns, exp)
 }
 
 // Build a map indexed by namespace with in-mesh Pod's labels
