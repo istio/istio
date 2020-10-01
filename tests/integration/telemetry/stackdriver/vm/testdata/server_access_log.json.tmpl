@@ -12,6 +12,7 @@
         "destination_namespace": "{{ .EchoNamespace }}",
         "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
         "destination_service_host": "server.{{ .EchoNamespace }}.svc.cluster.local",
+        "destination_service_name": "server",
         "destination_workload": "vm-server-v1",
         "mesh_uid": "proj-test-mesh",
         "response_flag": "-",
