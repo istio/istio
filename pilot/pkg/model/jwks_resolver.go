@@ -59,9 +59,9 @@ const (
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = time.Minute * 20
 
-	// getRemoteContentRetryInSec is the retry interval between the attempt to retry getting the remote
+	// JwtPubKeyRetryInterval is the retry interval between the attempt to retry getting the remote
 	// content from network.
-	getRemoteContentRetryInSec = 1
+	JwtPubKeyRetryInterval = time.Second
 
 	// How many times should we retry the failed network fetch on main flow. The main flow
 	// means it's called when Pilot is pushing configs. Do not retry to make sure not to block Pilot
@@ -130,6 +130,8 @@ type JwksResolver struct {
 	// Refresher job running interval.
 	refreshInterval time.Duration
 
+	retryInterval time.Duration
+
 	// How many times refresh job has detected JWT public key change happened, used in unit test.
 	refreshJobKeyChangedCount uint64
 
@@ -142,10 +144,11 @@ func init() {
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
-func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResolver {
+func NewJwksResolver(evictionDuration, refreshInterval, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
 		evictionDuration,
 		refreshInterval,
+		retryInterval,
 		[]string{jwksPublicRootCABundlePath, jwksExtraRootCABundlePath},
 	)
 }
@@ -153,16 +156,17 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 // GetJwtKeyResolver lazy-creates JwtKeyResolver resolves JWT public key and JwksURI.
 func GetJwtKeyResolver() *JwksResolver {
 	jwtKeyResolverOnce.Do(func() {
-		jwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+		jwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRetryInterval)
 	})
 	return jwtKeyResolver
 }
 
-func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Duration, caBundlePaths []string) *JwksResolver {
+func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval, retryInterval time.Duration, caBundlePaths []string) *JwksResolver {
 	ret := &JwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
 		evictionDuration: evictionDuration,
 		refreshInterval:  refreshInterval,
+		retryInterval:    retryInterval,
 		httpClient: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
@@ -317,8 +321,8 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		if err == nil {
 			return body, nil
 		}
-		log.Warnf("Failed to GET from %q: %s. Retry in %d seconds", uri, err, getRemoteContentRetryInSec)
-		time.Sleep(getRemoteContentRetryInSec * time.Second)
+		log.Warnf("Failed to GET from %q: %s. Retry in %v", uri, err, r.retryInterval)
+		time.Sleep(r.retryInterval)
 	}
 
 	// Return the last fetch directly, reaching here means we have tried `retry` times, this will be
