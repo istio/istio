@@ -216,7 +216,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			if !ok {
 				return nil
 			}
-			proxyLog.Debug("request for type url %s", req.TypeUrl)
+			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
@@ -225,7 +225,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			if !ok {
 				return nil
 			}
-			proxyLog.Debug("request for type url %s", req.TypeUrl)
+			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
@@ -234,7 +234,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			if !ok {
 				return nil
 			}
-			proxyLog.Debug("request for type url %s", health.HealthInfoTypeURL)
+			proxyLog.Debugf("request for type url %s", health.HealthInfoTypeURL)
 			var req *discovery.DiscoveryRequest
 			if healthEvent.Healthy {
 				req = &discovery.DiscoveryRequest{TypeUrl: health.HealthInfoTypeURL}
@@ -256,7 +256,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			if !ok {
 				return nil
 			}
-			proxyLog.Debug("response for type url %s", resp.TypeUrl)
+			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			switch resp.TypeUrl {
 			case v3.NameTableType:
 				// intercept. This is for the dns server
