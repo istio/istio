@@ -146,6 +146,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				*errP = err
 				return
 			}
+			adsLog.Infof("ADS: new connection for node:%s", con.ConID)
 			defer func() {
 				s.removeCon(con.ConID)
 				if s.InternalGen != nil {
@@ -177,21 +178,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	push := s.globalPushContext()
 
-	// XdsResourceGenerator is the default generator for this connection. We want to allow
-	// some types to use custom generators - for example EDS.
-	g := con.proxy.XdsResourceGenerator
-	if cg, f := s.Generators[con.proxy.Metadata.Generator+"/"+req.TypeUrl]; f {
-		g = cg
-	}
-	if cg, f := s.Generators[req.TypeUrl]; f {
-		g = cg
-	}
-	if g == nil {
-		// TODO move this to just directly using the resource TypeUrl
-		g = s.Generators["api"] // default to "MCP" generators - any type supported by store
-	}
-
-	return s.pushXds(con, push, g, versionInfo(), con.Watched(req.TypeUrl), &model.PushRequest{Full: true})
+	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), &model.PushRequest{Full: true})
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -288,7 +275,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
-	// If there is an error in request that means previous response is errorneous.
+	// If there is an error in request that means previous response is erroneous.
 	// We do not have to respond in that case. In this case request's version info
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
@@ -301,8 +288,17 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return false
 	}
 
+	if shouldUnsubscribe(request) {
+		adsLog.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		con.proxy.Lock()
+		delete(con.proxy.WatchedResources, request.TypeUrl)
+		con.proxy.Unlock()
+		return false
+	}
+
 	// This is first request - initialize typeUrl watches.
 	if request.ResponseNonce == "" {
+		adsLog.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
@@ -356,6 +352,36 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	return true
 }
 
+// shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is
+// no longer watching. For example, we remove all RDS references, we will
+// unsubscribe from RDS. NOTE: This may happen as part of the initial request. If
+// there are no routes needed, Envoy will send an empty request, which this
+// properly handles by not adding it to the watched resource list.
+func shouldUnsubscribe(request *discovery.DiscoveryRequest) bool {
+	return len(request.ResourceNames) == 0 && !isWildcardTypeURL(request.TypeUrl)
+}
+
+// isWildcardTypeURL checks whether a given type is a wildcard type
+// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#how-the-client-specifies-what-resources-to-return
+// If the list of resource names becomes empty, that means that the client is no
+// longer interested in any resources of the specified type. For Listener and
+// Cluster resource types, there is also a “wildcard” mode, which is triggered
+// when the initial request on the stream for that resource type contains no
+// resource names.
+func isWildcardTypeURL(typeURL string) bool {
+	switch typeURL {
+	case v3.SecretType, v3.EndpointType, v3.RouteType:
+		// By XDS spec, these are not wildcard
+		return false
+	case v3.ClusterType, v3.ListenerType:
+		// By XDS spec, these are wildcard
+		return true
+	default:
+		// All of our internal types use wildcard semantics
+		return true
+	}
+}
+
 // listEqualUnordered checks that two lists contain all the same elements
 func listEqualUnordered(a []string, b []string) bool {
 	if len(a) != len(b) {
@@ -397,10 +423,12 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
-		if err := checkConnectionIdentity(con); err != nil {
+		id, err := checkConnectionIdentity(con)
+		if err != nil {
 			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
 			return fmt.Errorf("authorization failed: %v", err)
 		}
+		con.proxy.VerifiedIdentity = id
 	}
 
 	s.addCon(con.ConID, con)
@@ -411,7 +439,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	return nil
 }
 
-func checkConnectionIdentity(con *Connection) error {
+func checkConnectionIdentity(con *Connection) (*spiffe.Identity, error) {
 	for _, rawID := range con.Identities {
 		spiffeID, err := spiffe.ParseIdentity(rawID)
 		if err != nil {
@@ -423,9 +451,9 @@ func checkConnectionIdentity(con *Connection) error {
 		if con.proxy.Metadata.ServiceAccount != "" && spiffeID.ServiceAccount != con.proxy.Metadata.ServiceAccount {
 			continue
 		}
-		return nil
+		return &spiffeID, nil
 	}
-	return fmt.Errorf("no identities (%v) matched %v/%v", con.Identities, con.proxy.ConfigNamespace, con.proxy.Metadata.ServiceAccount)
+	return nil, fmt.Errorf("no identities (%v) matched %v/%v", con.Identities, con.proxy.ConfigNamespace, con.proxy.Metadata.ServiceAccount)
 }
 
 func connectionID(node string) string {
@@ -525,7 +553,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
 	if pushRequest.Full {
-		adsLog.Infof("Pushing %v", con.ConID)
 		// Update Proxy with current information.
 		if err := s.updateProxy(con.proxy, pushRequest.Push); err != nil {
 			return nil
@@ -546,7 +573,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	for _, w := range getPushResources(con.proxy.WatchedResources) {
-		err := s.pushXds(con, pushRequest.Push, s.Generators[w.TypeUrl], currentVersion, w, pushRequest)
+		err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest)
 		if err != nil {
 			return err
 		}
@@ -562,12 +589,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 // PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
 // order after the types listed here
-var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
+var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
 var KnownPushOrder = map[string]struct{}{
 	v3.ClusterType:  {},
 	v3.EndpointType: {},
 	v3.ListenerType: {},
 	v3.RouteType:    {},
+	v3.SecretType:   {},
 }
 
 func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
@@ -655,10 +683,10 @@ func AdsPushAll(s *DiscoveryServer) {
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	// If we don't know what updated, cannot safely cache. Clear the whole cache
 	if len(req.ConfigsUpdated) == 0 {
-		s.cache.ClearAll()
+		s.Cache.ClearAll()
 	} else {
 		// Otherwise, just clear the updated configs
-		s.cache.Clear(req.ConfigsUpdated)
+		s.Cache.Clear(req.ConfigsUpdated)
 	}
 	if !req.Full {
 		adsLog.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d",

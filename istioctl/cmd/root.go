@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/tools/bug-report/pkg/bugreport"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -49,6 +50,12 @@ func (c CommandParseError) Error() string {
 const (
 	// Location to read istioctl defaults from
 	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
+
+	//deprection messages to be suffixed to the deprecated commands
+	deprecatedMsg = "[Deprecated, it will be removed in Istio 1.9]"
+
+	// ExperimentalMsg indicate active development and not for production use warning.
+	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
 )
 
 var (
@@ -86,6 +93,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("translator", log.WarnLevel)
 	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
+	o.SetOutputLevel("klog", log.WarnLevel)
 
 	return o
 }
@@ -159,8 +167,10 @@ debug and diagnose their Istio mesh.
 	}
 
 	cmd.AddFlags(rootCmd)
-
-	rootCmd.AddCommand(register())
+	registerCmd := register()
+	deprecate(registerCmd)
+	rootCmd.AddCommand(registerCmd)
+	deprecate(deregisterCmd)
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())
 
@@ -206,6 +216,7 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
+	rootCmd.AddCommand(istiodConfig())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(install.NewPrecheckCommand())
@@ -216,13 +227,16 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
-
-	experimentalCmd.AddCommand(vmBootstrapCommand())
+	vmBootstrapCmd := vmBootstrapCommand()
+	deprecate(vmBootstrapCmd)
+	experimentalCmd.AddCommand(vmBootstrapCmd)
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(configCmd())
-
-	postInstallCmd.AddCommand(Webhook())
+	postInstallWebhookCmd := Webhook()
+	deprecate(postInstallWebhookCmd)
+	postInstallCmd.AddCommand(postInstallWebhookCmd)
+	experimentalCmd.AddCommand(workloadCommands())
 	experimentalCmd.AddCommand(postInstallCmd)
 
 	analyzeCmd := Analyze()
@@ -230,6 +244,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(analyzeCmd)
 
 	convertIngressCmd := convertIngress()
+	deprecate(convertIngressCmd)
 	hideInheritedFlags(convertIngressCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(convertIngressCmd)
 
@@ -238,24 +253,33 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(dashboardCmd)
 
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
-	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(manifestCmd)
+
 	operatorCmd := mesh.OperatorCmd()
+	hideInheritedFlags(operatorCmd, "charts")
 	rootCmd.AddCommand(operatorCmd)
+
 	installCmd := mesh.InstallCmd(loggingOptions)
-	hideInheritedFlags(installCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(installCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd()
-	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(profileCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(profileCmd)
 
 	upgradeCmd := mesh.UpgradeCmd()
-	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(upgradeCmd)
 
+	bugReportCmd := bugreport.Cmd(loggingOptions)
+	hideInheritedFlags(bugReportCmd, "namespace", "istioNamespace")
+	rootCmd.AddCommand(bugReportCmd)
+
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
-	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())
+	multiclusterCmd := multicluster.NewMulticlusterCommand()
+	deprecate(multiclusterCmd)
+	experimentalCmd.AddCommand(multiclusterCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -263,7 +287,10 @@ debug and diagnose their Istio mesh.
 		Manual:  "Istio Control",
 	}))
 
-	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
+	validateCmd := validate.NewValidateCommand(&istioNamespace)
+	hideInheritedFlags(validateCmd, "kubeconfig")
+	rootCmd.AddCommand(validateCmd)
+
 	rootCmd.AddCommand(optionsCommand(rootCmd))
 
 	// BFS apply the flag error function to all subcommands
@@ -354,4 +381,9 @@ func seeExperimentalCmd(name string) *cobra.Command {
 			return errors.New(msg)
 		},
 	}
+}
+
+// deprecate adds a suffix to command to indicate the command as Deprecated.
+func deprecate(cmd *cobra.Command) {
+	cmd.Short += " " + deprecatedMsg
 }

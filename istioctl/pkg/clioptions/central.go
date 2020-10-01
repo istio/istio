@@ -45,6 +45,9 @@ type CentralControlPlaneOptions struct {
 
 	// XDSSAN is the expected Subject Alternative Name of the XDS server
 	XDSSAN string
+
+	// Plaintext forces plain text communication (for talking to port 15010)
+	Plaintext bool
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
@@ -60,17 +63,22 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 	cmd.PersistentFlags().IntVar(&o.XdsPodPort, "xds-port", viper.GetInt("XDS-PORT"),
 		"Istiod pod port")
 	cmd.PersistentFlags().DurationVar(&o.Timeout, "timeout", time.Second*30,
-		"the duration to wait before failing")
+		"The duration to wait before failing")
 	cmd.PersistentFlags().StringVar(&o.XDSSAN, "authority", viper.GetString("AUTHORITY"),
 		"XDS Subject Alternative Name (for example istiod.istio-system.svc)")
 	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure", viper.GetBool("INSECURE"),
 		"Skip server certificate and domain verification. (NOT SECURE!)")
+	cmd.PersistentFlags().BoolVar(&o.Plaintext, "plaintext", viper.GetBool("PLAINTEXT"),
+		"Use plain-text HTTP/2 when connecting to server (no TLS).")
 }
 
 // ValidateControlPlaneFlags checks arguments for valid values and combinations
 func (o *CentralControlPlaneOptions) ValidateControlPlaneFlags() error {
 	if o.Xds != "" && o.XdsPodLabel != "" {
 		return fmt.Errorf("either --xds-address or --xds-label, not both")
+	}
+	if o.Plaintext && o.CertDir != "" {
+		return fmt.Errorf("either --plaintext or --cert-dir, not both")
 	}
 	return nil
 }

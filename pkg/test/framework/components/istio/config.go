@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -56,18 +57,17 @@ var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		SystemNamespace:                DefaultSystemNamespace,
-		IstioNamespace:                 DefaultSystemNamespace,
-		ConfigNamespace:                DefaultSystemNamespace,
-		TelemetryNamespace:             DefaultSystemNamespace,
-		PolicyNamespace:                DefaultSystemNamespace,
-		IngressNamespace:               DefaultSystemNamespace,
-		EgressNamespace:                DefaultSystemNamespace,
-		DeployIstio:                    true,
-		DeployTimeout:                  0,
-		UndeployTimeout:                0,
-		IOPFile:                        IntegrationTestDefaultsIOP,
-		CustomSidecarInjectorNamespace: "",
+		SystemNamespace:    DefaultSystemNamespace,
+		IstioNamespace:     DefaultSystemNamespace,
+		ConfigNamespace:    DefaultSystemNamespace,
+		TelemetryNamespace: DefaultSystemNamespace,
+		PolicyNamespace:    DefaultSystemNamespace,
+		IngressNamespace:   DefaultSystemNamespace,
+		EgressNamespace:    DefaultSystemNamespace,
+		DeployIstio:        true,
+		DeployTimeout:      0,
+		UndeployTimeout:    0,
+		IOPFile:            IntegrationTestDefaultsIOP,
 	}
 )
 
@@ -114,6 +114,12 @@ type Config struct {
 	// Default value will be ControlPlaneValues if no remote values provided
 	RemoteClusterValues string
 
+	// Override values specifically for the ICP crd
+	// This is mostly required for cases where --set cannot be used
+	// These values are only applied to config clusters
+	// Default value will be ControlPlaneValues if no remote values provided
+	ConfigClusterValues string
+
 	// Overrides for the Helm values file.
 	Values map[string]string
 
@@ -123,10 +129,6 @@ type Config struct {
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
 	SkipWaitForValidationWebhook bool
-
-	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
-	// if the value is "", use the default sidecar injection instead.
-	CustomSidecarInjectorNamespace string
 }
 
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
@@ -283,7 +285,24 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)
 	result += fmt.Sprintf("IOPFile:                        %s\n", c.IOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
-	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
-
 	return result
+}
+
+// ClaimSystemNamespace retrieves the namespace for the Istio system components from the environment.
+func ClaimSystemNamespace(ctx resource.Context) (namespace.Instance, error) {
+	istioCfg, err := DefaultConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return namespace.Claim(ctx, istioCfg.SystemNamespace, false)
+}
+
+// ClaimSystemNamespaceOrFail calls ClaimSystemNamespace, failing the test if an error occurs.
+func ClaimSystemNamespaceOrFail(t test.Failer, ctx resource.Context) namespace.Instance {
+	t.Helper()
+	i, err := ClaimSystemNamespace(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return i
 }

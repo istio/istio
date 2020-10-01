@@ -124,13 +124,9 @@ are enabled, unless they are individually disabled. For example:
 ```yaml
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
-        enabled: true
+        enabled: false
 ```
-
-will enable telemetry v2 but disable telemetry v1.
 
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L131) package.
@@ -155,6 +151,7 @@ priorityClassName | [priority class name](https://kubernetes.io/docs/concepts/co
 nodeSelector| [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
 affinity | [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
 serviceAnnotations | [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+securityContext | [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
 
 These K8s setting are available for each component under the `k8s` field, for example:
 

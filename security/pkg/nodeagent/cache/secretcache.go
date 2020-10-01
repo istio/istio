@@ -352,7 +352,7 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 func (sc *SecretCache) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
 	// If node agent works as workload agent, node agent does not expect any gateway secret.
 	// If workload is using file mounted certs, we should not wait for ingress secret.
-	if sc.fetcher.UseCaClient || fileMountedCertsOnly {
+	if sc.fetcher.CaClient != nil || fileMountedCertsOnly {
 		return false
 	}
 
@@ -520,7 +520,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns security.SecretItem
 
 func (sc *SecretCache) rotate(updateRootFlag bool) {
 	// Skip secret rotation for kubernetes secrets.
-	if !sc.fetcher.UseCaClient {
+	if sc.fetcher.CaClient == nil {
 		return
 	}
 
@@ -699,7 +699,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 }
 
 // Generate a root certificate item from the passed in rootCertPath
-func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*security.SecretItem, error) {
+func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey, workload bool) (*security.SecretItem, error) {
 	rootCert, err := readFileWithTimeout(rootCertPath)
 	if err != nil {
 		return nil, err
@@ -712,8 +712,10 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 		return nil, fmt.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
 	}
 
-	// Set the rootCert
-	sc.setRootCert(rootCert, certExpireTime)
+	// Set the rootCert only if it is workload root cert.
+	if workload {
+		sc.setRootCert(rootCert, certExpireTime)
+	}
 	return &security.SecretItem{
 		ResourceName: connKey.ResourceName,
 		RootCert:     rootCert,
@@ -785,7 +787,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	// Default root certificate.
 	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
 		sdsFromFile = true
-		if sitem, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey); err == nil {
+		if sitem, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey, true); err == nil {
 			sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
 		}
 	// Default workload certificate.
@@ -803,7 +805,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate():
-			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey); err == nil {
+			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey, false); err == nil {
 				sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
 			}
 		case ok && cfg.IsKeyCertificate():
@@ -830,7 +832,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*security.SecretItem, error) {
 	// If node agent works as gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
-	if !sc.fetcher.UseCaClient {
+	if sc.fetcher.CaClient == nil {
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
 

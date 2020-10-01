@@ -104,7 +104,7 @@ spec:
 // - Secure naming information is respected in the mTLS handshake.
 func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.peer.secure-naming", "security.control-plane.plugin-cert").
+		Features("security.peer.secure-naming").
 		Run(func(ctx framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{

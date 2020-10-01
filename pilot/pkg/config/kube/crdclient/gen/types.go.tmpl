@@ -30,9 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 
-	"istio.io/istio/pilot/pkg/model"
+	config "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	securityv1beta1 "istio.io/api/security/v1beta1"
@@ -42,35 +41,35 @@ import (
 	servicev1alpha1 "sigs.k8s.io/service-apis/apis/v1alpha1"
 )
 
-func create(ic versionedclient.Interface, sc serviceapisclient.Interface, config model.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
-	switch config.GroupVersionKind {
+func create(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
+	switch cfg.GroupVersionKind {
 {{- range . }}
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
-		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}config.Namespace{{end}}).Create(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
+		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Create(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
 		}, metav1.CreateOptions{})
 {{- end }}
 	default:
-		return nil, fmt.Errorf("unsupported type: %v", config.GroupVersionKind)
+		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
 	}
 }
 
-func update(ic versionedclient.Interface, sc serviceapisclient.Interface, config model.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
-	switch config.GroupVersionKind {
+func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
+	switch cfg.GroupVersionKind {
 {{- range . }}
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
-		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}config.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
+		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
+			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
 		}, metav1.UpdateOptions{})
 {{- end }}
 	default:
-		return nil, fmt.Errorf("unsupported type: %v", config.GroupVersionKind)
+		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
 	}
 }
 
-func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ resource.GroupVersionKind, name, namespace string) error {
+func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ config.GroupVersionKind, name, namespace string) error {
 	switch typ {
 {{- range . }}
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
@@ -81,12 +80,12 @@ func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ re
 	}
 }
 
-var translationMap = map[resource.GroupVersionKind]func(r runtime.Object) *model.Config{
+var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.Config{
 {{- range . }}
-	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
+	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*{{ .ClientImport }}.{{ .Kind }})
-		return &model.Config{
-		ConfigMeta: model.ConfigMeta{
+		return &config.Config{
+		Meta: config.Meta{
 			GroupVersionKind:  collections.{{ .VariableName }}.Resource().GroupVersionKind(),
 			Name:              obj.Name,
 			Namespace:         obj.Namespace,

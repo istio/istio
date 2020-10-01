@@ -19,7 +19,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-cni-repair-rolebinding
-  namespace: {{ .Release.Namespace}}
   labels:
     k8s-app: istio-cni-repair
 subjects:
@@ -53,7 +52,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-cni-taint-rolebinding
-  namespace: {{ .Release.Namespace}}
   labels:
     k8s-app: istio-cni-taint
 subjects:

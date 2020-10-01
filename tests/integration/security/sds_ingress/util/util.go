@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -209,6 +210,8 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 	t.Helper()
 	endpointAddress := ing.HTTPSAddress()
 	return retry.UntilSuccess(func() error {
+		// Close clients to ensure we don't reuse TLS connections
+		ing.CloseClients()
 		response, err := ing.Call(ingress.CallOptions{
 			Host:       host,
 			Path:       fmt.Sprintf("/%s", path),

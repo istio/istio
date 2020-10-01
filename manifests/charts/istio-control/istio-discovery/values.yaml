@@ -475,5 +475,5 @@ global:
   #   else:  default dns domain
   trustDomain: "cluster.local"
 
-  # Use the Mesh Control Protocol (MCP) for configuring Mixer and Pilot. Requires an MCP source.
+  # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false

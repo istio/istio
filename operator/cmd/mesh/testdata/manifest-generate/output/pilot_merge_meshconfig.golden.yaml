@@ -17,6 +17,7 @@ data:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
       drainDuration: 12s
+      meshId: cluster.local
       proxyMetadata:
         DNS_AGENT: ""
         TERMINATION_DRAIN_DURATION_SECONDS: "120"

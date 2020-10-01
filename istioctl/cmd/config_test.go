@@ -36,6 +36,7 @@ authority                                default
 cert-dir                                 default
 insecure                                 default
 istioNamespace          istio-system     default
+plaintext                                default
 prefer-experimental                      default
 xds-address                              default
 xds-port                15012            default

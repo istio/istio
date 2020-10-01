@@ -346,21 +346,17 @@ func uninjectCommand() *cobra.Command {
 		Use:   "kube-uninject",
 		Short: "Uninject Envoy sidecar from Kubernetes pod resources",
 		Long: `
-
 kube-uninject is used to prevent Istio from adding a sidecar and
 also provides the inverse of "istioctl kube-inject -f".
-
 `,
-		Example: `
-# Update resources before applying.
-kubectl apply -f <(istioctl experimental kube-uninject -f <resource.yaml>)
+		Example: `  # Update resources before applying.
+  kubectl apply -f <(istioctl experimental kube-uninject -f <resource.yaml>)
 
-# Create a persistent version of the deployment by removing Envoy sidecar.
-istioctl experimental kube-uninject -f deployment.yaml -o deployment-uninjected.yaml
+  # Create a persistent version of the deployment by removing Envoy sidecar.
+  istioctl experimental kube-uninject -f deployment.yaml -o deployment-uninjected.yaml
 
-# Update an existing deployment.
-kubectl get deployment -o yaml | istioctl experimental kube-uninject -f - | kubectl apply -f -
-`,
+  # Update an existing deployment.
+  kubectl get deployment -o yaml | istioctl experimental kube-uninject -f - | kubectl apply -f -`,
 		RunE: func(c *cobra.Command, _ []string) (err error) {
 
 			if err = validateUninjectFlags(); err != nil {

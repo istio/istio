@@ -1,7 +1,7 @@
 # Global and common settings for installing Istio.
 
 # This file is configured for a small scale production cluster.
-# Use user-values-medium or custom settings to tune up the CPU and scaling.
+# Use custom settings to tune up the CPU and scaling.
 # Additional values overrides can be used.
 
 # Each individual component will use values from this file, with defaults and 'advanced' settings included in
@@ -13,15 +13,8 @@
 # This doesn't match istio defaults, which are more geared towards tests and bookinfo.
 
 global:
-  # Used to locate istio-pilot.
-  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
-  # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
-  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
-  # used (citadel generating the secrets).
+  # Used to locate istiod.
   istioNamespace: istio-system
-
-  ## End new settings
-  ## After this line we have the old Istio settings.
 
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
@@ -249,7 +242,7 @@ global:
   # for more detail.
   priorityClassName: ""
 
-  # Use the Mesh Control Protocol (MCP) for configuring Mixer and Pilot. Requires an MCP source.
+  # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
 
   # The trust domain corresponds to the trust root of a system

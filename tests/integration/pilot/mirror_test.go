@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
@@ -103,15 +104,19 @@ func TestMirroring(t *testing.T) {
 // Thus when "a" tries to mirror to the external service, it is actually connecting to "external" (which is not part of the
 // mesh because of the Sidecar), then we can inspect "external" logs to verify the requests were properly mirrored.
 func TestMirroringExternalService(t *testing.T) {
+	header := ""
+	if len(apps.External) > 0 {
+		header = apps.External[0].Config().HostHeader()
+	}
 	runMirrorTest(t, mirrorTestOptions{
-		mirrorHost: apps.externalHost,
+		mirrorHost: header,
 		cases: []testCaseMirror{
 			{
 				name:                "mirror-external",
 				absent:              true,
 				percentage:          100.0,
 				threshold:           0.0,
-				expectedDestination: apps.external,
+				expectedDestination: apps.External,
 			},
 		},
 	})
@@ -126,7 +131,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
 					mirrorHost := options.mirrorHost
 					if len(mirrorHost) == 0 {
-						mirrorHost = podCSvc
+						mirrorHost = common.PodCSvc
 					}
 					vsc := VirtualServiceMirrorConfig{
 						c.name,
@@ -137,27 +142,27 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 
 					deployment := tmpl.EvaluateOrFail(ctx,
 						file.AsStringOrFail(ctx, "testdata/traffic-mirroring-template.yaml"), vsc)
-					ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), deployment)
+					ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), deployment)
 					ctx.WhenDone(func() error {
-						return ctx.Config().DeleteYAML(apps.namespace.Name(), deployment)
+						return ctx.Config().DeleteYAML(apps.Namespace.Name(), deployment)
 					})
 
-					for _, podA := range apps.podA {
+					for _, podA := range apps.PodA {
 						podA := podA
 						ctx.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
 							for _, proto := range mirrorProtocols {
 								ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
 									retry.UntilSuccessOrFail(ctx, func() error {
 										testID := util.RandomString(16)
-										if err := sendTrafficMirror(podA, apps.podB[0], proto, testID); err != nil {
+										if err := sendTrafficMirror(podA, apps.PodB[0], proto, testID); err != nil {
 											return err
 										}
 										expected := c.expectedDestination
 										if expected == nil {
-											expected = apps.podC
+											expected = apps.PodC
 										}
 
-										return verifyTrafficMirror(apps.podB, expected, c, testID)
+										return verifyTrafficMirror(apps.PodB, expected, c, testID)
 									}, retry.Delay(time.Second))
 								})
 							}
@@ -216,7 +221,6 @@ func verifyTrafficMirror(dest, mirror echo.Instances, tc testCaseMirror, testID 
 			tc.percentage, actualPercent, tc.threshold, testID)
 	}
 
-	// TODO(landow) fix cross-network weighting issues
 	//if tc.percentage < 100 {
 	//	if len(countsB) < len(dest.Clusters()) {
 	//		merr = multierror.Append(merr, fmt.Errorf("expected original destination in all clusters to be reached, but got: %v", countsB))
@@ -254,6 +258,6 @@ func logCount(instances echo.Instances, testID string) (float64, error) {
 	for _, c := range counts {
 		total += c
 	}
-	// TODO(landow) return counts for cross-cluster load balancing validation
+	// TODO(landow) mirorr split does not always hit all clusters
 	return total, nil
 }

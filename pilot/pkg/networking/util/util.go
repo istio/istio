@@ -36,12 +36,14 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
@@ -264,12 +266,6 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
 }
 
-// IsIstioVersionGE17 checks whether the given Istio version is greater than or equals 1.7.
-func IsIstioVersionGE17(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 7, Patch: -1}) >= 0
-}
-
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
 	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
@@ -393,7 +389,7 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc.
-func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
+func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
 		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
 	return &core.Metadata{
@@ -628,4 +624,23 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
 func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
 	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
+}
+
+// MultiErrorFormat provides a format for multierrors. This matches the default format, but if there
+// is only one error we will not expand to multiple lines.
+func MultiErrorFormat() multierror.ErrorFormatFunc {
+	return func(es []error) string {
+		if len(es) == 1 {
+			return es[0].Error()
+		}
+
+		points := make([]string, len(es))
+		for i, err := range es {
+			points[i] = fmt.Sprintf("* %s", err)
+		}
+
+		return fmt.Sprintf(
+			"%d errors occurred:\n\t%s\n\n",
+			len(es), strings.Join(points, "\n\t"))
+	}
 }

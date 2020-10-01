@@ -58,6 +58,15 @@ func testIP(id uint32) string {
 	return net.IP(ipb).String()
 }
 
+func adsReceiveChannel(ads AdsClient, c chan *discovery.DiscoveryResponse) {
+	for {
+		resp, err := ads.Recv()
+		if err != nil {
+			return
+		}
+		c <- resp
+	}
+}
 func adsReceive(ads AdsClient, to time.Duration) (*discovery.DiscoveryResponse, error) {
 	done := make(chan int, 1)
 	t := time.NewTimer(to)
@@ -179,6 +188,19 @@ func sendCDSReq(node string, client AdsClient) error {
 
 func sendCDSNack(node string, client AdsClient) error {
 	return sendXds(node, client, v3.ClusterType, "NOPE!")
+}
+
+func sendNDSReq(node, namespace string, client AdsClient) error {
+	return client.Send(&discovery.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &corev3.Node{
+			Id: node,
+			Metadata: model.NodeMetadata{
+				Namespace:  namespace,
+				DNSCapture: "agent",
+			}.ToStruct(),
+		},
+		TypeUrl: v3.NameTableType})
 }
 
 func sendXds(node string, client AdsClient, typeURL string, errMsg string) error {

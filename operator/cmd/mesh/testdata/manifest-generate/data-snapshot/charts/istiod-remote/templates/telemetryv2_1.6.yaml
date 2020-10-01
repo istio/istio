@@ -142,6 +142,7 @@ spec:
               config:
                 root_id: stats_outbound
                 configuration: |
+                  {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                   {
                     "debug": "false",
                     "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -155,6 +156,9 @@ spec:
                     ]
                     {{- end }}
                   }
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+                  {{- end }}
                 vm_config:
                   vm_id: stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -190,6 +194,7 @@ spec:
               config:
                 root_id: stats_inbound
                 configuration: |
+                  {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                   {
                     "debug": "false",
                     "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -203,6 +208,9 @@ spec:
                     ]
                     {{- end }}
                   }
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+                  {{- end }}
                 vm_config:
                   vm_id: stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -238,6 +246,7 @@ spec:
               config:
                 root_id: stats_outbound
                 configuration: |
+                  {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
@@ -252,6 +261,9 @@ spec:
                     ]
                     {{- end }}
                   }
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+                  {{- end }}
                 vm_config:
                   vm_id: stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -299,6 +311,7 @@ spec:
               config:
                 root_id: stats_inbound
                 configuration: |
+                  {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                   {
                     "debug": "false",
                     "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -312,6 +325,9 @@ spec:
                     ]
                     {{- end }}
                   }
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+                  {{- end }}
                 vm_config:
                   vm_id: tcp_stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -345,6 +361,7 @@ spec:
               config:
                 root_id: stats_outbound
                 configuration: |
+                  {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                   {
                     "debug": "false",
                     "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -358,6 +375,9 @@ spec:
                     ]
                     {{- end }}
                   }
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+                  {{- end }}
                 vm_config:
                   vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -391,6 +411,7 @@ spec:
               config:
                 root_id: stats_outbound
                 configuration: |
+                  {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                   {
                     "debug": "false",
                     "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -404,6 +425,9 @@ spec:
                     ]
                     {{- end }}
                   }
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+                  {{- end }}
                 vm_config:
                   vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -533,6 +557,49 @@ spec:
                   runtime: envoy.wasm.runtime.null
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
+---
+{{- if .Values.telemetry.v2.accessLogPolicy.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stackdriver-sampling-accesslog-filter-1.6{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  {{- if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        proxy:
+          proxyVersion: '1\.6.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "istio.stackdriver"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.access_log
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                configuration: |
+                  {
+                    "log_window_duration": "{{ .Values.telemetry.v2.accessLogPolicy.logWindowDuration }}"
+                  }
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: "envoy.wasm.access_log_policy" }
 ---
 {{- end}}
 {{- end}}

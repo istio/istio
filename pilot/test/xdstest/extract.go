@@ -15,16 +15,20 @@
 package xdstest
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcpproxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -72,16 +76,47 @@ func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 	return nil
 }
 
+func ExtractRouteConfigurations(rc []*route.RouteConfiguration) map[string]*route.RouteConfiguration {
+	res := map[string]*route.RouteConfiguration{}
+	for _, l := range rc {
+		res[l.Name] = l
+	}
+	return res
+}
+
+func ExtractListenerFilters(l *listener.Listener) map[string]*listener.ListenerFilter {
+	res := map[string]*listener.ListenerFilter{}
+	for _, lf := range l.ListenerFilters {
+		res[lf.Name] = lf
+	}
+	return res
+}
+
 func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProxy {
 	for _, fc := range fcs.Filters {
 		if fc.Name == wellknown.TCPProxy {
 			tcpProxy := &tcpproxy.TcpProxy{}
 			if fc.GetTypedConfig() != nil {
 				if err := ptypes.UnmarshalAny(fc.GetTypedConfig(), tcpProxy); err != nil {
-					t.Fatalf("failed to unmarshal tcp proxy")
+					t.Fatalf("failed to unmarshal tcp proxy: %v", err)
 				}
 			}
 			return tcpProxy
+		}
+	}
+	return nil
+}
+
+func ExtractHTTPConnectionManager(t test.Failer, fcs *listener.FilterChain) *hcm.HttpConnectionManager {
+	for _, fc := range fcs.Filters {
+		if fc.Name == wellknown.HTTPConnectionManager {
+			h := &hcm.HttpConnectionManager{}
+			if fc.GetTypedConfig() != nil {
+				if err := ptypes.UnmarshalAny(fc.GetTypedConfig(), h); err != nil {
+					t.Fatalf("failed to unmarshal hcm: %v", err)
+				}
+			}
+			return h
 		}
 	}
 	return nil
@@ -106,7 +141,7 @@ func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
 			if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-				got = append(got, lb.GetEndpoint().Address.GetSocketAddress().Address)
+				got = append(got, fmt.Sprintf("%s:%d", lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
 			} else {
 				got = append(got, lb.GetEndpoint().Address.GetPipe().Path)
 			}
@@ -149,6 +184,18 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 	return res
 }
 
+func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret {
+	res := map[string]*tls.Secret{}
+	for _, a := range secrets {
+		scrt := &tls.Secret{}
+		if err := ptypes.UnmarshalAny(a, scrt); err != nil {
+			t.Fatal(err)
+		}
+		res[scrt.Name] = scrt
+	}
+	return res
+}
+
 func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*cluster.Cluster {
 	res := make([]*cluster.Cluster, 0, len(cl))
 	for _, c := range cl {
@@ -187,6 +234,31 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	}
 
 	return ret
+}
+
+// DumpList will dump a list of protos. To workaround go type issues, call DumpList(t, InterfaceSlice([]proto.Message))
+func DumpList(t test.Failer, protoList []interface{}) []string {
+	res := []string{}
+	for _, i := range protoList {
+		p, ok := i.(proto.Message)
+		if !ok {
+			t.Fatalf("expected proto, got %T", i)
+		}
+		res = append(res, Dump(t, p))
+	}
+	return res
+}
+
+func Dump(t test.Failer, p proto.Message) string {
+	v := reflect.ValueOf(p)
+	if p == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+		return "nil"
+	}
+	s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
 }
 
 func MapKeys(mp interface{}) []string {

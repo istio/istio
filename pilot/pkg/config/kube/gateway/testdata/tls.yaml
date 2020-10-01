@@ -11,7 +11,7 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
-  class: istio
+  gatewayClassName: istio
   listeners:
     - hostname:
         match: Domain
@@ -19,7 +19,8 @@ spec:
       port: 80
       protocol: TLS
       tls:
-        certificateRefs:
-          - name: my-cert
+        certificateRef:
+          name: my-cert
         options: {}
-        minimumVersion: TLS1_2
+      routes:
+        resource: httproutes

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
@@ -155,7 +157,7 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 					Schema:   s.Resource(),
 					FullName: name,
 				},
-				Message: s.Resource().MustNewProtoInstance(),
+				Message: s.Resource().MustNewInstance().(proto.Message),
 				Origin:  &origin{friendlyName: name.String()},
 			}
 			set.Collection(s.Name()).Set(r)

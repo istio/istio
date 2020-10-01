@@ -74,31 +74,3 @@ func (c *Controller) reloadNetworkLookup() {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 }
-
-// return the mesh network for the endpoint IP. Empty string if not found.
-func (c *Controller) endpointNetwork(endpointIP string) string {
-	// If networkForRegistry is set then all endpoints discovered by this registry
-	// belong to the configured network so simply return it
-	if len(c.networkForRegistry) != 0 {
-		return c.networkForRegistry
-	}
-
-	// Try to determine the network by checking whether the endpoint IP belongs
-	// to any of the configure networks' CIDR ranges
-	if c.ranger == nil {
-		return ""
-	}
-	entries, err := c.ranger.ContainingNetworks(net.ParseIP(endpointIP))
-	if err != nil {
-		log.Errora(err)
-		return ""
-	}
-	if len(entries) == 0 {
-		return ""
-	}
-	if len(entries) > 1 {
-		log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
-	}
-
-	return (entries[0].(namedRangerEntry)).name
-}

@@ -34,9 +34,6 @@ func TestEnvoyArgs(t *testing.T) {
 		LogLevel:          "trace",
 		ComponentLogLevel: "misc:error",
 		NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},
-		PodName:           "",
-		PodNamespace:      "",
-		PodIP:             nil,
 	}
 
 	test := &envoy{

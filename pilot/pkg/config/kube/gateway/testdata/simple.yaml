@@ -11,7 +11,7 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
-  class: istio
+  gatewayClassName: istio
   listeners:
   - hostname:
       match: Domain
@@ -47,27 +47,32 @@ spec:
   hosts:
   - hostnames: ["first.domain.example", "another.domain.example"]
     rules:
-    - match:
-        pathMatchType: Prefix
-        path: /get
+    - matches:
+      - path:
+          type: Prefix
+          value: /get
         headers:
-          my-header: some-value
-      filter:
-        headers:
+          type: Exact
+          values:
+            my-header: some-value
+      filters:
+      - type: RequestHeader
+        requestHeader:
           add:
             my-added-header: added-value
           remove: [my-removed-header]
-      action:
-        forwardTo:
+      forward:
+        to:
         - targetRef:
             name: httpbin
   - hostnames: ["second.domain.example"]
     rules:
-    - match:
-        pathMatchType: Prefix
-        path: /second
-      action:
-        forwardTo:
+    - matches:
+      - path:
+          type: Prefix
+          value: /second
+      forward:
+        to:
         - targetRef:
             name: httpbin-second
 ---
@@ -82,11 +87,12 @@ spec:
   hosts:
   - hostnames: ["should.not.select"]
     rules:
-    - match:
-        pathMatchType: Prefix
-        path: /get
-      action:
-        forwardTo:
+    - matches:
+      - path:
+          type: Prefix
+          value: /get
+      forward:
+        to:
         - targetRef:
             name: httpbin
 ---
@@ -101,5 +107,5 @@ spec:
   rules:
   - action:
       forwardTo:
-        targetRef:
+      - targetRef:
           name: httpbin

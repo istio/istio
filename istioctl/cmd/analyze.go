@@ -85,29 +85,27 @@ func Analyze() *cobra.Command {
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
-		Example: `
-# Analyze the current live cluster
-istioctl analyze
+		Example: `  # Analyze the current live cluster
+  istioctl analyze
 
-# Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl analyze a.yaml b.yaml my-app-config/
+  # Analyze the current live cluster, simulating the effect of applying additional yaml files
+  istioctl analyze a.yaml b.yaml my-app-config/
 
-# Analyze the current live cluster, simulating the effect of applying a directory of config recursively
-istioctl analyze --recursive my-istio-config/
+  # Analyze the current live cluster, simulating the effect of applying a directory of config recursively
+  istioctl analyze --recursive my-istio-config/
 
-# Analyze yaml files without connecting to a live cluster
-istioctl analyze --use-kube=false a.yaml b.yaml my-app-config/
+  # Analyze yaml files without connecting to a live cluster
+  istioctl analyze --use-kube=false a.yaml b.yaml my-app-config/
 
-# Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
-istioctl analyze -S "IST0103=Pod mypod.testing"
+  # Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
+  istioctl analyze -S "IST0103=Pod mypod.testing"
 
-# Analyze the current live cluster and suppress PodMissingProxy for all pods in namespace 'testing',
-# and suppress MisplacedAnnotation on deployment foobar in namespace default.
-istioctl analyze -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
+  # Analyze the current live cluster and suppress PodMissingProxy for all pods in namespace 'testing',
+  # and suppress MisplacedAnnotation on deployment foobar in namespace default.
+  istioctl analyze -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
 
-# List available analyzers
-istioctl analyze -L
-`,
+  # List available analyzers
+  istioctl analyze -L`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
 			_, ok := formatting.MsgOutputFormats[msgOutputFormat]
@@ -292,7 +290,7 @@ istioctl analyze -L
 			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated. `+
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
-		"the duration to wait before failing")
+		"The duration to wait before failing")
 	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	return analysisCmd

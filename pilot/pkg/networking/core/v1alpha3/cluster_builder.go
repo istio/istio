@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
 )
@@ -85,7 +86,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
-		clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+		clusterMetadata = util.BuildConfigInfoMetadata(destRule.Meta)
 		c.Metadata = clusterMetadata
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
@@ -195,16 +196,16 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 	}
-
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
+		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
 		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
-			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy,
+			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
 				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
 			return nil
 		}
@@ -259,7 +260,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.Servic
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
-			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
+			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.Meta)
 		}
 	}
 	return localCluster
@@ -271,7 +272,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		return nil
 	}
 
-	instances := cb.push.InstancesByPort(service, port, labels)
+	instances := cb.push.ServiceInstancesByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
@@ -280,9 +281,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
-		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
-		// the default network assigned to endpoints that don't have an explicit network
-		if !proxyNetworkView[instance.Endpoint.Network] {
+		// The default network view assigned to the Proxy is nil, in that case match any network.
+		if proxyNetworkView != nil && !proxyNetworkView[instance.Endpoint.Network] {
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
@@ -414,7 +414,7 @@ func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_Dis
 
 // castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
 // Otherwise, return default (empty) DR.
-func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationRule {
+func castDestinationRuleOrDefault(config *config.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
 	}

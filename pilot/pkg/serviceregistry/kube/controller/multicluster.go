@@ -57,6 +57,7 @@ type Multicluster struct {
 	serviceController *aggregate.Controller
 	XDSUpdater        model.XDSUpdater
 	metrics           model.Metrics
+	endpointMode      EndpointMode
 
 	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
@@ -92,6 +93,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		fetchCaRoot:           opts.FetchCaRoot,
 		caBundlePath:          opts.CABundlePath,
 		secretNamespace:       secretNamespace,
+		endpointMode:          opts.EndpointMode,
 	}
 	mc.initSecretController(kc)
 
@@ -115,6 +117,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 		ClusterID:         clusterID,
 		NetworksWatcher:   m.networksWatcher,
 		Metrics:           m.metrics,
+		EndpointMode:      m.endpointMode,
 	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubectl := NewController(clients, options)
@@ -161,9 +164,13 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID)
-	if _, ok := m.remoteKubeControllers[clusterID]; !ok {
+	kc, ok := m.remoteKubeControllers[clusterID]
+	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
 		return nil
+	}
+	if err := kc.Cleanup(); err != nil {
+		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)

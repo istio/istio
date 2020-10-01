@@ -93,7 +93,6 @@ serviceSettings:
     host:
       - "*.myns.svc.cluster.local"
 ingressClass: foo
-reportBatchMaxTime: 10s
 enableTracing: false
 defaultServiceExportTo: 
 - "foo"

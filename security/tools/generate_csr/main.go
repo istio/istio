@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"os"
 
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
@@ -35,20 +34,15 @@ var (
 	ec      = flag.String("ec-sig-alg", "", "Generate an elliptical curve private key with the specified algorithm")
 )
 
-func fatalf(template string, args ...interface{}) {
-	log.Errorf(template, args...)
-	os.Exit(-1)
-}
-
 func saveCreds(csrPem []byte, privPem []byte) {
 	err := ioutil.WriteFile(*outCsr, csrPem, 0644)
 	if err != nil {
-		fatalf("Could not write output certificate request: %s.", err)
+		log.Fatalf("Could not write output certificate request: %s.", err)
 	}
 
 	err = ioutil.WriteFile(*outPriv, privPem, 0600)
 	if err != nil {
-		fatalf("Could not write output private key: %s.", err)
+		log.Fatalf("Could not write output private key: %s.", err)
 	}
 }
 
@@ -63,7 +57,7 @@ func main() {
 	})
 
 	if err != nil {
-		fatalf("Failed to generate CSR: %s.", err)
+		log.Fatalf("Failed to generate CSR: %s.", err)
 	}
 
 	saveCreds(csrPem, privPem)

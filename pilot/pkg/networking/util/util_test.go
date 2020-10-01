@@ -36,6 +36,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	proto2 "istio.io/istio/pkg/proto"
 )
@@ -348,12 +349,12 @@ func TestIsLocalityEmpty(t *testing.T) {
 func TestBuildConfigInfoMetadata(t *testing.T) {
 	cases := []struct {
 		name string
-		in   model.ConfigMeta
+		in   config.Meta
 		want *core.Metadata
 	}{
 		{
 			"destination-rule",
-			model.ConfigMeta{
+			config.Meta{
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",

@@ -15,13 +15,13 @@
 package validate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -33,15 +33,12 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	operator_validate "istio.io/istio/operator/pkg/validate"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/url"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -78,8 +75,8 @@ func checkFields(un *unstructured.Unstructured) error {
 	return errs
 }
 
-func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	gvk := resource.GroupVersionKind{
+func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured, writer io.Writer) error {
+	gvk := config.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
 		Kind:    un.GroupVersionKind().Kind,
@@ -98,7 +95,9 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 		if err = checkFields(un); err != nil {
 			return err
 		}
-		return schema.Resource().ValidateProto(obj.Name, obj.Namespace, obj.Spec)
+		// TODO expose warnings
+		_, err = schema.Resource().ValidateConfig(*obj)
+		return err
 	}
 
 	var errs error
@@ -112,7 +111,10 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 				}
 			}
 			if castItem.GetKind() == name.DeploymentStr {
-				v.validateDeploymentLabel(istioNamespace, castItem)
+				err := v.validateDeploymentLabel(istioNamespace, castItem, writer)
+				if err != nil {
+					errs = multierror.Append(errs, err)
+				}
 			}
 			return nil
 		})
@@ -126,7 +128,10 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 
 	if un.GetKind() == name.DeploymentStr {
-		v.validateDeploymentLabel(istioNamespace, un)
+		err := v.validateDeploymentLabel(istioNamespace, un, writer)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -184,20 +189,39 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 	return nil
 }
 
-func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructured.Unstructured) {
+func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructured.Unstructured, writer io.Writer) error {
 	if un.GetNamespace() == handleNamespace(istioNamespace) {
-		return
+		return nil
 	}
-	labels := un.GetLabels()
+	labels, err := GetTemplateLabels(un)
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("See %s\n", url.DeploymentRequirements)
 	for _, l := range istioDeploymentLabel {
 		if _, ok := labels[l]; !ok {
-			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
-				" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
+			fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry without label %q. "+url,
+				fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
 		}
 	}
+	return nil
 }
 
-func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error {
+// GetTemplateLabels returns spec.template.metadata.labels from Deployment
+func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) {
+	if spec, ok := u.Object["spec"].(map[string]interface{}); ok {
+		if template, ok := spec["template"].(map[string]interface{}); ok {
+			m, _, err := unstructured.NestedStringMap(template, "metadata", "labels")
+			if err != nil {
+				return nil, err
+			}
+			return m, nil
+		}
+	}
+	return nil, nil
+}
+
+func (v *validator) validateFile(istioNamespace *string, reader io.Reader, writer io.Writer) error {
 	decoder := yaml.NewDecoder(reader)
 	decoder.SetStrict(true)
 	var errs error
@@ -217,7 +241,7 @@ func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error
 		}
 		out := transformInterfaceMap(raw)
 		un := unstructured.Unstructured{Object: out}
-		err = v.validateResource(*istioNamespace, &un)
+		err = v.validateResource(*istioNamespace, &un, writer)
 		if err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%s/%s/%s:",
 				un.GetKind(), un.GetNamespace(), un.GetName())))
@@ -244,7 +268,7 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
 			continue
 		}
-		err = v.validateFile(istioNamespace, reader)
+		err = v.validateFile(istioNamespace, reader, writer)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -270,20 +294,23 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 	var referential bool
 
 	c := &cobra.Command{
-		Use:   "validate -f FILENAME [options]",
-		Short: "Validate Istio policy and rules files",
-		Example: `
-		# Validate bookinfo-gateway.yaml
-		istioctl validate -f bookinfo-gateway.yaml
-		
-		# Validate current deployments under 'default' namespace within the cluster
-		kubectl get deployments -o yaml |istioctl validate -f -
+		Use:     "validate -f FILENAME [options]",
+		Aliases: []string{"v"},
+		Short:   "Validate Istio policy and rules files",
+		Example: `  # Validate bookinfo-gateway.yaml
+  istioctl validate -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
-		# Validate current services under 'default' namespace within the cluster
-		kubectl get services -o yaml |istioctl validate -f -
+  # Validate bookinfo-gateway.yaml with shorthand syntax
+  istioctl v -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
-		# Also see the related command 'istioctl analyze'
-		istioctl analyze samples/bookinfo/networking/bookinfo-gateway.yaml
+  # Validate current deployments under 'default' namespace within the cluster
+  kubectl get deployments -o yaml | istioctl validate -f -
+
+  # Validate current services under 'default' namespace within the cluster
+  kubectl get services -o yaml | istioctl validate -f -
+
+  # Also see the related command 'istioctl analyze'
+  istioctl analyze samples/bookinfo/networking/bookinfo-gateway.yaml
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -342,14 +369,14 @@ func handleNamespace(istioNamespace string) string {
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*model.Config, error) {
+func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*config.Config, error) {
 	data, err := fromSchemaAndJSONMap(schema, un.Object["spec"])
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	return &config.Config{
+		Meta: config.Meta{
 			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),
@@ -364,27 +391,18 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndYAML(schema collection.Schema, yml string) (proto.Message, error) {
-	pb, err := schema.Resource().NewProtoInstance()
+func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (config.Spec, error) {
+	// Marshal to json bytes
+	str, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyYAMLStrict(yml, pb); err != nil {
-		return nil, err
-	}
-	return pb, nil
-}
-
-// TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (proto.Message, error) {
-	// Marshal to YAML bytes
-	str, err := yaml.Marshal(data)
+	out, err := schema.Resource().NewInstance()
 	if err != nil {
 		return nil, err
 	}
-	out, err := fromSchemaAndYAML(schema, string(str))
-	if err != nil {
-		return nil, multierror.Prefix(err, fmt.Sprintf("YAML decoding error: %v", string(str)))
+	if err = config.ApplyJSONStrict(out, string(str)); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

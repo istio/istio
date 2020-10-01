@@ -253,7 +253,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			// Call with goroutine to test fsnotify watcher
 			parent, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			resultChan, errChan := make(chan string), make(chan error)
+			resultChan, errChan := make(chan string, 1), make(chan error, 1)
 			go func(resultChan chan string, errChan chan error, ctx context.Context, cfg pluginConfig) {
 				result, err := getCNIConfigFilepath(ctx, cfg)
 				if err != nil {

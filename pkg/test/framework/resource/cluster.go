@@ -45,6 +45,16 @@ func (c Clusters) GetOrDefault(cluster Cluster) Cluster {
 	return c.Default()
 }
 
+// GetByName returns the Cluster with the given name or nil if it is not in the list.
+func (c Clusters) GetByName(name string) Cluster {
+	for _, cc := range c {
+		if cc.Name() == name {
+			return cc
+		}
+	}
+	return nil
+}
+
 // Names returns the deduped list of names of the clusters.
 func (c Clusters) Names() []string {
 	dedup := map[string]struct{}{}

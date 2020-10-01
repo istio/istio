@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -180,6 +181,26 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "destination rule with use client protocol traffic policy",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[string]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
 	}
 
 	for _, tt := range cases {
@@ -200,10 +221,10 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			}
 
-			var cfg *model.Config
+			var cfg *config.Config
 			if tt.destRule != nil {
-				cfg = &model.Config{
-					ConfigMeta: model.ConfigMeta{
+				cfg = &config.Config{
+					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
 						Namespace:        "default",
@@ -212,7 +233,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				}
 			}
 			cg := NewConfigGenTest(t, TestOptions{
-				ConfigPointers: []*model.Config{cfg},
+				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
@@ -224,6 +245,15 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 			if len(tt.expectedSubsetClusters) > 0 {
 				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
+			}
+			// Validate that use client protocol configures cluster correctly.
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
+				if tt.cluster.ProtocolSelection != cluster.Cluster_USE_DOWNSTREAM_PROTOCOL {
+					t.Errorf("Expected cluster to have USE_DOWNSTREAM_PROTOCOL but has %v", tt.cluster.ProtocolSelection)
+				}
+				if tt.cluster.Http2ProtocolOptions == nil {
+					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				}
 			}
 		})
 	}
@@ -694,6 +724,14 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		FilterMetadata: make(map[string]*structpb.Struct),
 	}
 
+	nwMetadata := func(nw string) *core.Metadata {
+		return &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{"istio": {Fields: map[string]*structpb.Value{
+				"network": {Kind: &structpb.Value_StringValue{StringValue: nw}},
+			}}},
+		}
+	}
+
 	cases := []struct {
 		name      string
 		mesh      meshconfig.MeshConfig
@@ -715,6 +753,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							Label:     "region1/zone1/subzone1",
 						},
 						LbWeight: 30,
+						Network:  "nw-0",
 					},
 				},
 				{
@@ -728,6 +767,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							Label:     "region1/zone1/subzone1",
 						},
 						LbWeight: 30,
+						Network:  "nw-1",
 					},
 				},
 				{
@@ -741,6 +781,21 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							Label:     "region2/zone1/subzone1",
 						},
 						LbWeight: 40,
+						Network:  "",
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.4",
+						EndpointPort: 10001,
+						Locality: model.Locality{
+							ClusterID: "cluster-1",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "filtered-out",
 					},
 				},
 			},
@@ -770,7 +825,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: emptyMetadata,
+							Metadata: nwMetadata("nw-0"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -790,7 +845,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: emptyMetadata,
+							Metadata: nwMetadata("nw-1"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -916,13 +971,16 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				MeshConfig: &tt.mesh,
 				Services:   []*model.Service{service},
+				Instances:  tt.instances,
 			})
-			for _, i := range tt.instances {
-				cg.MemRegistry.AddInstance(i.Service.Hostname, i)
-			}
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
-			actual := cb.buildLocalityLbEndpoints(model.GetNetworkView(nil), service, 8080, nil)
+			nv := map[string]bool{
+				"nw-0":               true,
+				"nw-1":               true,
+				model.UnnamedNetwork: true,
+			}
+			actual := cb.buildLocalityLbEndpoints(nv, service, 8080, nil)
 			sortEndpoints(actual)
 			if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
 				t.Fatalf("Expected (-) != actual (+):\n%s", v)

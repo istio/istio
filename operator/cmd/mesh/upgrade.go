@@ -30,7 +30,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -135,13 +134,13 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
+	targetIOPYaml, targetIOP, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
 
 	// Get the target version from the tag in the IOPS
-	targetTag := targetIOPS.Tag
+	targetTag := targetIOP.Spec.Tag
 	targetVersion, err := pkgversion.TagToVersionString(fmt.Sprint(targetTag))
 	if err != nil {
 		if !args.force {
@@ -152,7 +151,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 	// Get Istio control plane namespace
 	//TODO(elfinhe): support components distributed in multiple namespaces
-	istioNamespace := iop.Namespace(targetIOPS)
+	istioNamespace := targetIOP.Namespace
 
 	// Read the current Istio version from the the cluster
 	currentVersion, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
@@ -168,39 +167,39 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 	l.LogAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
-	// Read the overridden IOPS from args.inFilenames
-	overrideIOPSYaml := ""
+	// Read the overridden IOP from args.inFilenames
+	overrideIOPYaml := ""
 	if args.inFilenames != nil {
-		overrideIOPSYaml, err = manifest.ReadLayeredYAMLs(args.inFilenames)
+		overrideIOPYaml, err = manifest.ReadLayeredYAMLs(args.inFilenames)
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
-		if overrideIOPSYaml != "" {
+		if overrideIOPYaml != "" {
 			// Grab the IstioOperatorSpec subtree.
-			overrideIOPSYaml, err = tpath.GetSpecSubtree(overrideIOPSYaml)
+			overrideIOPYaml, err = tpath.GetSpecSubtree(overrideIOPYaml)
 			if err != nil {
 				return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
 			}
 		}
 	}
 
-	// Read the current installation's profile IOPS yaml to check the changed profile settings between versions.
+	// Read the current installation's profile IOP yaml to check the changed profile settings between versions.
 	currentSets := args.set
 	if currentVersion != "" {
 		currentSets = append(currentSets, "installPackagePath="+releaseURLFromVersion(currentVersion))
 	}
-	profile := targetIOPS.Profile
+	profile := targetIOP.Spec.Profile
 	if profile == "" {
 		profile = name.DefaultProfileName
 	} else {
-		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
+		currentSets = append(currentSets, "profile="+targetIOP.Spec.Profile)
 	}
-	currentProfileIOPSYaml, _, err := manifest.GenIOPSFromProfile(profile, "", currentSets, true, true, nil, l)
+	currentProfileIOPSYaml, _, err := manifest.GenIOPFromProfile(profile, "", currentSets, true, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
 	}
-	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
+	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPYaml, overrideIOPYaml, l)
 
 	waitForConfirmation(args.skipConfirmation && !rootArgs.dryRun, l)
 

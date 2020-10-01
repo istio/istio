@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
@@ -67,19 +68,19 @@ func TestClientNoCRDs(t *testing.T) {
 		return nil
 	}, retry.Timeout(time.Second))
 	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
-	configMeta := model.ConfigMeta{
+	configMeta := config.Meta{
 		Name:             "name",
 		Namespace:        "ns",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
-	pb, err := r.NewProtoInstance()
+	pb, err := r.NewInstance()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := store.Create(model.Config{
-		ConfigMeta: configMeta,
-		Spec:       pb,
+	if _, err := store.Create(config.Config{
+		Meta: configMeta,
+		Spec: pb,
 	}); err != nil {
 		t.Fatalf("Create => got %v", err)
 	}
@@ -114,7 +115,7 @@ func TestClient(t *testing.T) {
 		name := c.Resource().Kind()
 		t.Run(name, func(t *testing.T) {
 			r := c.Resource()
-			configMeta := model.ConfigMeta{
+			configMeta := config.Meta{
 				GroupVersionKind: r.GroupVersionKind(),
 				Name:             configName,
 			}
@@ -122,21 +123,21 @@ func TestClient(t *testing.T) {
 				configMeta.Namespace = configNamespace
 			}
 
-			pb, err := r.NewProtoInstance()
+			pb, err := r.NewInstance()
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if _, err := store.Create(model.Config{
-				ConfigMeta: configMeta,
-				Spec:       pb,
+			if _, err := store.Create(config.Config{
+				Meta: configMeta,
+				Spec: pb,
 			}); err != nil {
 				t.Fatalf("Create(%v) => got %v", name, err)
 			}
 			// Kubernetes is eventually consistent, so we allow a short time to pass before we get
 			retry.UntilSuccessOrFail(t, func() error {
 				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
-				if cfg == nil || !reflect.DeepEqual(cfg.ConfigMeta, configMeta) {
+				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
 					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
 				}
 				return nil
@@ -152,7 +153,7 @@ func TestClient(t *testing.T) {
 					return fmt.Errorf("expected 1 config, got %v", len(cfgs))
 				}
 				for _, cfg := range cfgs {
-					if !reflect.DeepEqual(cfg.ConfigMeta, configMeta) {
+					if !reflect.DeepEqual(cfg.Meta, configMeta) {
 						return fmt.Errorf("get(%v) => got %v", name, cfg)
 					}
 				}

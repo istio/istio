@@ -49,8 +49,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
@@ -90,6 +90,14 @@ type Config struct {
 
 	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
 	XDSSAN string
+
+	// XDSRootCAFile explicitly set the root CA to be used for the XDS connection.
+	// Mirrors Envoy file.
+	XDSRootCAFile string
+
+	// RootCert contains the XDS root certificate. Used mainly for tests, apps will normally use
+	// XDSRootCAFile
+	RootCert []byte
 
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
@@ -292,10 +300,12 @@ func getPrivateIPIfAvailable() net.IP {
 
 func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var clientCert tls.Certificate
+	var clientCerts []tls.Certificate
 	var serverCABytes []byte
 	var err error
 	var certName string
 
+	// If we need MTLS - CertDir or Secrets provider is set.
 	if a.cfg.Secrets != nil {
 		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
 		if err != nil {
@@ -313,21 +323,31 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+		clientCerts = []tls.Certificate{clientCert}
+	} else if a.cfg.CertDir != "" {
+		certName = a.cfg.CertDir + "/cert-chain.pem"
+		clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")
+		if err != nil {
+			return nil, err
+		}
+		clientCerts = []tls.Certificate{clientCert}
+	}
+
+	// Load the root CAs
+	if a.cfg.RootCert != nil {
+		serverCABytes = a.cfg.RootCert
+	} else if a.cfg.XDSRootCAFile != "" {
+		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
+	} else if a.cfg.Secrets != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
-			cache.RootCertReqResourceName, string(tok))
+			cache.RootCertReqResourceName, "")
 		if err != nil {
 			return nil, err
 		}
 
 		serverCABytes = rootCA.RootCert
-	} else {
-		certName = a.cfg.CertDir + "/cert-chain.pem"
-		clientCert, err = tls.LoadX509KeyPair(certName,
-			a.cfg.CertDir+"/key.pem")
-		if err != nil {
-			return nil, err
-		}
+	} else if a.cfg.CertDir != "" {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.CertDir + "/root-cert.pem")
 		if err != nil {
 			return nil, err
@@ -355,15 +375,18 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	if a.cfg.XDSSAN != "" {
 		shost = a.cfg.XDSSAN
 	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
+
+	tc := &tls.Config{
+		Certificates: clientCerts,
 		RootCAs:      serverCAs,
 		ServerName:   shost,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
 		InsecureSkipVerify: a.cfg.InsecureSkipVerify,
-	}, nil
+	}
+
+	return tc, nil
 }
 
 // Close the stream.
@@ -386,7 +409,8 @@ func (a *ADSC) Run() error {
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
+	} else if len(opts) == 0 {
+		// Only disable transport security if the user didn't supply custom dial options
 		opts = append(opts, grpc.WithInsecure())
 	}
 	a.conn, err = grpc.Dial(a.url, opts...)
@@ -541,7 +565,7 @@ func (a *ADSC) handleRecv() {
 
 		a.mutex.Lock()
 		if len(gvk) == 3 {
-			gt := resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+			gt := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 			a.sync[gt.String()] = time.Now()
 			a.syncCh <- gt.String()
 		}
@@ -556,12 +580,12 @@ func (a *ADSC) handleRecv() {
 	}
 }
 
-func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
+func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	if m == nil || m.Metadata == nil {
-		return &model.Config{}, nil
+		return &config.Config{}, nil
 	}
-	c := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	c := &config.Config{
+		Meta: config.Meta{
 			ResourceVersion: m.Metadata.Version,
 			Labels:          m.Metadata.Labels,
 			Annotations:     m.Metadata.Annotations,
@@ -874,8 +898,13 @@ func (a *ADSC) WaitClear() {
 	}
 }
 
-// WaitSingle waits for a single resource, and fails if any other are returned
-func (a *ADSC) WaitSingle(to time.Duration, want string) error {
+// WaitSingle waits for a single resource, and fails if the rejected type is
+// returned. We avoid rejecting all other types to avoid race conditions. For
+// example, a test asserting an incremental update of EDS may fail if a previous
+// push's RDS response comes in later. Instead, we can reject events coming
+// before (ie CDS). The only real alternative is to wait which introduces its own
+// issues.
+func (a *ADSC) WaitSingle(to time.Duration, want string, reject string) error {
 	t := time.NewTimer(to)
 	for {
 		select {
@@ -883,22 +912,17 @@ func (a *ADSC) WaitSingle(to time.Duration, want string) error {
 			if t == "" {
 				return fmt.Errorf("closed")
 			}
-			if t != want && shortTypeMap[t] != want {
-				return fmt.Errorf("wanted update for %v got %v/%v", want, t, shortTypeMap[t])
+			if t != want && t == reject {
+				return fmt.Errorf("wanted update for %v got %v", want, t)
 			}
-			return nil
+			if t == want {
+				return nil
+			}
+			continue
 		case <-t.C:
 			return fmt.Errorf("timeout, still waiting for update for %v", want)
 		}
 	}
-}
-
-// TODO stop using short types
-var shortTypeMap = map[string]string{
-	"cds": v3.ClusterType,
-	"lds": v3.ListenerType,
-	"rds": v3.RouteType,
-	"eds": v3.EndpointType,
 }
 
 // Wait for an updates for all the specified types
@@ -1115,7 +1139,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 		return err
 	}
-	val.GroupVersionKind = resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+	val.GroupVersionKind = config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 	if cfg == nil {
 		_, err = a.Store.Create(*val)

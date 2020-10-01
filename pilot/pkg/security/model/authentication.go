@@ -65,6 +65,20 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
+
+	// KubernetesSecretType is the name of a SDS secret stored in Kubernetes
+	KubernetesSecretType    = "kubernetes"
+	KubernetesSecretTypeURI = KubernetesSecretType + "://"
+)
+
+var (
+	SDSAdsConfig = &core.ConfigSource{
+		ConfigSourceSpecifier: &core.ConfigSource_Ads{
+			Ads: &core.AggregatedConfigSource{},
+		},
+		ResourceApiVersion:  core.ApiVersion_V3,
+		InitialFetchTimeout: features.InitialFetchTimeout,
+	}
 )
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
@@ -76,12 +90,19 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 		return nil
 	}
 
+	if features.EnableSDSServer && features.EnableXDSIdentityCheck {
+		return &tls.SdsSecretConfig{
+			Name:      KubernetesSecretTypeURI + name,
+			SdsConfig: SDSAdsConfig,
+		}
+	}
+
 	gRPCConfig := &core.GrpcService_GoogleGrpc{
 		TargetUri:  CredentialNameSDSUdsPath,
 		StatPrefix: SDSStatPrefix,
 	}
 
-	cfg := &tls.SdsSecretConfig{
+	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -101,8 +122,6 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
-
-	return cfg
 }
 
 // Preconfigured SDS configs to avoid excessive memory allocations

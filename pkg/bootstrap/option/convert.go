@@ -15,7 +15,6 @@
 package option
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -30,6 +29,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -181,9 +181,30 @@ func durationConverter(value *types.Duration) convertFunc {
 	}
 }
 
-func podIPConverter(value net.IP) convertFunc {
+// openCensusAgentContextConverter returns a converter that returns the list of
+// distributed trace contexts to propagate with envoy.
+func openCensusAgentContextConverter(contexts []meshAPI.Tracing_OpenCensusAgent_TraceContext) convertFunc {
+	allContexts := `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`
 	return func(*instance) (interface{}, error) {
-		return base64.StdEncoding.EncodeToString(value), nil
+		if len(contexts) == 0 {
+			return allContexts, nil
+		}
+
+		var envoyContexts []string
+		for _, c := range contexts {
+			switch c {
+			// Ignore UNSPECIFIED
+			case meshAPI.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT:
+				envoyContexts = append(envoyContexts, "TRACE_CONTEXT")
+			case meshAPI.Tracing_OpenCensusAgent_GRPC_BIN:
+				envoyContexts = append(envoyContexts, "GRPC_TRACE_BIN")
+			case meshAPI.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT:
+				envoyContexts = append(envoyContexts, "CLOUD_TRACE_CONTEXT")
+			case meshAPI.Tracing_OpenCensusAgent_B3:
+				envoyContexts = append(envoyContexts, "B3")
+			}
+		}
+		return convertToJSON(envoyContexts), nil
 	}
 }
 

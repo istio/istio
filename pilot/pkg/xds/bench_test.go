@@ -33,7 +33,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -67,8 +69,9 @@ var testCases = []ConfigInput{
 		ProxyType: model.Router,
 	},
 	{
-		Name:     "empty",
-		Services: 100,
+		Name:      "empty",
+		Services:  100,
+		ProxyType: model.SidecarProxy,
 	},
 	{
 		Name:     "tls",
@@ -166,6 +169,66 @@ func BenchmarkListenerGeneration(b *testing.B) {
 	}
 }
 
+func BenchmarkNameTableGeneration(b *testing.B) {
+	disableLogging()
+	for _, tt := range testCases {
+		b.Run(tt.Name, func(b *testing.B) {
+			s, proxy := setupAndInitializeTest(b, tt)
+			b.ResetTimer()
+			var c model.Resources
+			for n := 0; n < b.N; n++ {
+				c = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
+				if len(c) == 0 && tt.ProxyType != model.Router {
+					b.Fatal("Got no name tables!")
+				}
+			}
+			logDebug(b, c)
+		})
+	}
+}
+
+func BenchmarkSecretGeneration(b *testing.B) {
+	disableLogging()
+	cases := []ConfigInput{
+		{
+			Name:     "secrets",
+			Services: 10,
+		},
+		{
+			Name:     "secrets",
+			Services: 1000,
+		},
+	}
+	for _, tt := range cases {
+		b.Run(fmt.Sprintf("%s-%d", tt.Name, tt.Services), func(b *testing.B) {
+			tmpl := template.Must(template.New("").Funcs(sprig.TxtFuncMap()).ParseFiles(path.Join("testdata", "benchmarks", tt.Name+".yaml")))
+			var buf bytes.Buffer
+			if err := tmpl.ExecuteTemplate(&buf, tt.Name+".yaml", tt); err != nil {
+				b.Fatalf("failed to execute template: %v", err)
+			}
+			s := NewFakeDiscoveryServer(b, FakeOptions{
+				KubernetesObjectString: buf.String(),
+			})
+			watchedResources := []string{}
+			for i := 0; i < tt.Services; i++ {
+				watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://istio-system/sds-credential-%d", i))
+			}
+			proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "istio-system", VerifiedIdentity: &spiffe.Identity{}})
+			gen := s.Discovery.Generators[v3.SecretType]
+			res := &model.WatchedResource{ResourceNames: watchedResources}
+			b.ResetTimer()
+			var c model.Resources
+			for n := 0; n < b.N; n++ {
+				c = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true})
+				if len(c) == 0 {
+					b.Fatal("Got no secrets!")
+				}
+			}
+			logDebug(b, c)
+		})
+	}
+}
+
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
 func BenchmarkEndpointGeneration(b *testing.B) {
@@ -241,10 +304,10 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	return s, proxy
 }
 
-var configCache = map[ConfigInput][]model.Config{}
+var configCache = map[ConfigInput][]config.Config{}
 
-func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
-	// Config setup is slow for large tests. Cache this and return from cache.
+func getConfigsWithCache(t testing.TB, input ConfigInput) []config.Config {
+	// Config setup is slow for large tests. Cache this and return from Cache.
 	// This improves even running a single test, as go will run the full test (including setup) at least twice.
 	if cached, f := configCache[input]; f {
 		return cached
@@ -317,15 +380,15 @@ func logDebug(b *testing.B, m model.Resources) {
 	b.StartTimer()
 }
 
-func createEndpoints(numEndpoints int, numServices int) []model.Config {
-	result := make([]model.Config, 0, numServices)
+func createEndpoints(numEndpoints int, numServices int) []config.Config {
+	result := make([]config.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
 		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
 			endpoints = append(endpoints, &networking.WorkloadEntry{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
 		}
-		result = append(result, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		result = append(result, config.Config{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",

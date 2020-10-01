@@ -20,6 +20,7 @@ import (
 	_ "github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 )
@@ -160,7 +161,7 @@ func TestSchema_FindByGroupVersionKind(t *testing.T) {
 
 	schemas := collection.SchemasFor(s)
 
-	s2, found := schemas.FindByGroupVersionKind(resource.GroupVersionKind{
+	s2, found := schemas.FindByGroupVersionKind(config.GroupVersionKind{
 		Group:   "mygroup",
 		Version: "v1",
 		Kind:    "Empty",
@@ -168,7 +169,7 @@ func TestSchema_FindByGroupVersionKind(t *testing.T) {
 	g.Expect(found).To(BeTrue())
 	g.Expect(s2).To(Equal(s))
 
-	_, found = schemas.FindByGroupVersionKind(resource.GroupVersionKind{
+	_, found = schemas.FindByGroupVersionKind(config.GroupVersionKind{
 		Group:   "fake",
 		Version: "v1",
 		Kind:    "Empty",
@@ -195,7 +196,7 @@ func TestSchema_MustFindByGroupVersionKind(t *testing.T) {
 	b.MustAdd(s)
 	schemas := b.Build()
 
-	got := schemas.MustFindByGroupVersionKind(resource.GroupVersionKind{
+	got := schemas.MustFindByGroupVersionKind(config.GroupVersionKind{
 		Group:   "mygroup",
 		Version: "v1",
 		Kind:    "Empty",
@@ -212,7 +213,7 @@ func TestSchema_MustFindByGroupVersionKind_Panic(t *testing.T) {
 	}()
 
 	schemas := collection.NewSchemasBuilder().Build()
-	_ = schemas.MustFindByGroupVersionKind(resource.GroupVersionKind{
+	_ = schemas.MustFindByGroupVersionKind(config.GroupVersionKind{
 		Group:   "mygroup",
 		Version: "v1",
 		Kind:    "Empty",
