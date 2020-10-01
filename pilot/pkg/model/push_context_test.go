@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -231,6 +232,98 @@ func TestEnvoyFilters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServiceIndex(t *testing.T) {
+	g := NewWithT(t)
+	env := &Environment{}
+	store := istioConfigStore{ConfigStore: NewFakeStore()}
+
+	env.IstioConfigStore = &store
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname: "svc-unset",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+				},
+			},
+			{
+				Hostname: "svc-public",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+				},
+			},
+			{
+				Hostname: "svc-private",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+				},
+			},
+			{
+				Hostname: "svc-none",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+				},
+			},
+			{
+				Hostname: "svc-namespace",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{"namespace": true},
+				},
+			},
+		},
+		serviceInstances: []*ServiceInstance{{
+			Endpoint: &IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 8000,
+				TLSMode:      DisabledTLSModeLabel,
+			},
+		}},
+	}
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(&m)
+
+	// Init a new push context
+	pc := NewPushContext()
+	if err := pc.InitContext(env, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	si := pc.ServiceIndex
+
+	// Should have all 5 services
+	g.Expect(si.instancesByPort).To(HaveLen(5))
+	g.Expect(si.ClusterVIPs).To(HaveLen(5))
+	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
+	g.Expect(si.Hostname).To(HaveLen(5))
+
+	// Should just have "namespace"
+	g.Expect(si.exportedToNamespace).To(HaveLen(1))
+	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
+
+	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
+
+	// Should just have "test1"
+	g.Expect(si.privateByNamespace).To(HaveLen(1))
+	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
+}
+
+func serviceNames(svcs []*Service) []string {
+	s := []string{}
+	for _, ss := range svcs {
+		s = append(s, string(ss.Hostname))
+	}
+	sort.Strings(s)
+	return s
 }
 
 func TestInitPushContext(t *testing.T) {

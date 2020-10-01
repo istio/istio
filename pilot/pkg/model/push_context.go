@@ -1051,6 +1051,22 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		}
 		s.Mutex.RUnlock()
 
+		// Precache instances
+		for _, port := range s.Ports {
+			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
+				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
+			}
+			instances := make([]*ServiceInstance, 0)
+			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
+			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
+		}
+
+		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		}
+		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		ps.ServiceIndex.Hostname[s.Hostname] = s
+
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
 			if ps.exportToDefaults.service[visibility.Private] {
@@ -1079,19 +1095,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 					}
 				}
 			}
-		}
-		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
-			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
-		}
-		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
-		ps.ServiceIndex.Hostname[s.Hostname] = s
-		for _, port := range s.Ports {
-			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
-				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
-			}
-			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
-			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
 		}
 	}
 
