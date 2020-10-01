@@ -27,6 +27,69 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 )
 
+func TestHeadlessServices(t *testing.T) {
+	ports := `
+  - name: http
+    port: 80
+  - name: auto
+    port: 81
+  - name: tcp
+    port: 82
+  - name: tls
+    port: 83
+  - name: https
+    port: 84`
+
+	calls := []simulation.Expect{}
+	for _, call := range []simulation.Call{
+		{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "headless.default.svc.cluster.local"},
+
+		// Auto port should support any protocol
+		{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "headless.default.svc.cluster.local"},
+		{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTPS, HostHeader: "headless.default.svc.cluster.local"},
+		{Address: "1.2.3.4", Port: 81, Protocol: simulation.TCP, HostHeader: "headless.default.svc.cluster.local"},
+
+		{Address: "1.2.3.4", Port: 82, Protocol: simulation.TCP, HostHeader: "headless.default.svc.cluster.local"},
+
+		// TODO: https://github.com/istio/istio/issues/27677 use short host name
+		{Address: "1.2.3.4", Port: 83, Protocol: simulation.TLS, HostHeader: "headless.default.svc.cluster.local"},
+		{Address: "1.2.3.4", Port: 84, Protocol: simulation.HTTPS, HostHeader: "headless.default.svc.cluster.local"},
+	} {
+		calls = append(calls, simulation.Expect{
+			Name: fmt.Sprintf("%s-%d", call.Protocol, call.Port),
+			Call: call,
+			Result: simulation.Result{
+				ClusterMatched: fmt.Sprintf("outbound|%d||headless.default.svc.cluster.local", call.Port),
+			},
+		})
+	}
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		kubeConfig: `apiVersion: v1
+kind: Service
+metadata:
+  name: headless
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    app: headless
+  ports:` + ports + `
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: headless
+  namespace: default
+subsets:
+- addresses:
+  - ip: 1.2.3.4
+  ports:
+` + ports,
+		calls: calls,
+	},
+	)
+}
+
 func TestPassthroughTraffic(t *testing.T) {
 	calls := map[string]simulation.Call{}
 	for port := 80; port < 87; port++ {
@@ -73,7 +136,7 @@ func TestPassthroughTraffic(t *testing.T) {
 		"https-85-http/1.1",
 		"https-86-http/1.1",
 	)
-	isHttpPort := func(p int) bool {
+	isHTTPPort := func(p int) bool {
 		switch p {
 		case 80, 85, 86:
 			return true
@@ -89,7 +152,10 @@ func TestPassthroughTraffic(t *testing.T) {
 			return false
 		}
 	}
-	for _, tp := range []meshconfig.MeshConfig_OutboundTrafficPolicy_Mode{meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY, meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY} {
+	for _, tp := range []meshconfig.MeshConfig_OutboundTrafficPolicy_Mode{
+		meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY,
+		meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY,
+	} {
 		t.Run(tp.String(), func(t *testing.T) {
 			o := xds.FakeOptions{
 				MeshConfig: func() *meshconfig.MeshConfig {
@@ -114,7 +180,7 @@ func TestPassthroughTraffic(t *testing.T) {
 					}
 					// For blackhole, we will 502 where possible instead of blackhole cluster
 					// This only works for HTTP on HTTP
-					if expectedCluster == util.BlackHoleCluster && call.Protocol.IsHttp() && isHttpPort(call.Port) {
+					if expectedCluster == util.BlackHoleCluster && call.Protocol.IsHTTP() && isHTTPPort(call.Port) {
 						e.Result.ClusterMatched = ""
 						e.Result.VirtualHostMatched = util.BlackHole
 					}
@@ -127,7 +193,7 @@ func TestPassthroughTraffic(t *testing.T) {
 				sort.Slice(testCalls, func(i, j int) bool {
 					return testCalls[i].Name < testCalls[j].Name
 				})
-				runSimulationTest(t, nil,
+				runSimulationTest(t, nil, o,
 					simulationTest{
 						config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -141,7 +207,7 @@ spec:
   location: MESH_EXTERNAL
   resolution: DNS` + ports,
 						calls: testCalls,
-					}, o)
+					})
 			})
 			t.Run("without VIP", func(t *testing.T) {
 				testCalls := []simulation.Expect{}
@@ -155,13 +221,13 @@ spec:
 					}
 					// For blackhole, we will 502 where possible instead of blackhole cluster
 					// This only works for HTTP on HTTP
-					if expectedCluster == util.BlackHoleCluster && call.Protocol.IsHttp() && (isHttpPort(call.Port) || isAutoPort(call.Port)) {
+					if expectedCluster == util.BlackHoleCluster && call.Protocol.IsHTTP() && (isHTTPPort(call.Port) || isAutoPort(call.Port)) {
 						e.Result.ClusterMatched = ""
 						e.Result.VirtualHostMatched = util.BlackHole
 					}
 					// TCP without a VIP will capture everything.
 					// Auto without a VIP is similar, but HTTP happens to work because routing is done on header
-					if call.Port == 82 || (call.Port == 81 && !call.Protocol.IsHttp()) {
+					if call.Port == 82 || (call.Port == 81 && !call.Protocol.IsHTTP()) {
 						e.Result.Error = nil
 						e.Result.ClusterMatched = ""
 					}
@@ -174,7 +240,7 @@ spec:
 				sort.Slice(testCalls, func(i, j int) bool {
 					return testCalls[i].Name < testCalls[j].Name
 				})
-				runSimulationTest(t, nil,
+				runSimulationTest(t, nil, o,
 					simulationTest{
 						config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -187,7 +253,7 @@ spec:
   location: MESH_EXTERNAL
   resolution: DNS` + ports,
 						calls: testCalls,
-					}, o)
+					})
 			})
 		})
 	}

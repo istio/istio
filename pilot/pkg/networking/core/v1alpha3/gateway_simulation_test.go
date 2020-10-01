@@ -580,7 +580,7 @@ type simulationTest struct {
 	calls          []simulation.Expect
 }
 
-var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", false, "if enabled, will dump verbose output").Get()
+var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", true, "if enabled, will dump verbose output").Get()
 
 func runGatewayTest(t *testing.T, cases ...simulationTest) {
 	for _, tt := range cases {
@@ -589,22 +589,24 @@ func runGatewayTest(t *testing.T, cases ...simulationTest) {
 				Metadata: &model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
 				Type:     model.Router,
 			}
-			runSimulationTest(t, proxy, tt, xds.FakeOptions{})
+			runSimulationTest(t, proxy, xds.FakeOptions{}, tt)
 		})
 	}
 }
 
-func runSimulationTest(t *testing.T, proxy *model.Proxy, tt simulationTest, o xds.FakeOptions) {
+func runSimulationTest(t *testing.T, proxy *model.Proxy, o xds.FakeOptions, tt simulationTest) {
 	o.ConfigString = tt.config
 	o.KubernetesObjectString = tt.kubeConfig
 	s := xds.NewFakeDiscoveryServer(t, o)
 	sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
 	sim.RunExpectations(tt.calls)
 	if t.Failed() && debugMode {
-		t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Clusters)))
+		t.Log(xdstest.MapKeys(xdstest.ExtractClusters(sim.Clusters)))
+		t.Log(xdstest.ExtractListenerNames(sim.Listeners))
 		t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Listeners)))
 		t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Routes)))
 		t.Log(tt.config)
+		t.Log(tt.kubeConfig)
 	}
 	if !tt.skipValidation {
 		xdstest.ValidateClusters(t, sim.Clusters)

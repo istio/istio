@@ -52,7 +52,7 @@ const (
 	TLS   Protocol = "tls"
 )
 
-func (p Protocol) IsHttp() bool {
+func (p Protocol) IsHTTP() bool {
 	return httpProtocols.Contains(string(p))
 }
 
@@ -66,7 +66,7 @@ var (
 	ErrNoRoute             = errors.New("no route matched")
 	ErrNoVirtualHost       = errors.New("no virtual host matched")
 	ErrMultipleFilterChain = errors.New("multiple filter chains matched")
-	// Sending TLS/TCP request to HCM, for example
+	// ErrProtocolError happens when sending TLS/TCP request to HCM, for example
 	ErrProtocolError = errors.New("protocol error")
 )
 
@@ -97,7 +97,7 @@ func (c Call) FillDefaults() Call {
 	if c.HostHeader != "" {
 		c.Headers["Host"] = []string{c.HostHeader}
 	}
-	if c.Sni == "" && c.Protocol == HTTPS {
+	if c.Sni == "" && (c.Protocol == HTTPS || c.Protocol == TLS) {
 		c.Sni = c.HostHeader
 	}
 	if c.Path == "" {
@@ -207,7 +207,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	result.FilterChainMatched = fc.Name
 
 	if hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc); hcm != nil {
-		if !input.Protocol.IsHttp() && fc.TransportSocket == nil {
+		if !input.Protocol.IsHTTP() && fc.TransportSocket == nil {
 			result.Error = ErrProtocolError
 			return
 		}
