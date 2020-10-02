@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
