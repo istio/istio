@@ -4506,7 +4506,8 @@ spec:
                       description: Retry policy for HTTP requests.
                       properties:
                         attempts:
-                          description: Number of retries for a given request.
+                          description: Number of retries to be allowed for a given
+                            request.
                           format: int32
                           type: integer
                         perTryTimeout:
@@ -5298,7 +5299,8 @@ spec:
                       description: Retry policy for HTTP requests.
                       properties:
                         attempts:
-                          description: Number of retries for a given request.
+                          description: Number of retries to be allowed for a given
+                            request.
                           format: int32
                           type: integer
                         perTryTimeout:
