@@ -98,7 +98,6 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
 		Setup(testsetup).
