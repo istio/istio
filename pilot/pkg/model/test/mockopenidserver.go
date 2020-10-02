@@ -168,14 +168,14 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
-	wait := 300 * time.Millisecond
-	for try := 0; try < 5; try++ {
-		time.Sleep(wait)
+	wait := 10 * time.Millisecond
+	for try := 0; try < 10; try++ {
 		// Try to call the server
 		if _, err := httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {
 			log.Infof("Server not yet serving: %v", err)
 			// Retry after some sleep.
 			wait *= 2
+			time.Sleep(wait)
 			continue
 		}
 
