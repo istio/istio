@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 27421
+
+releaseNotes:
+- |
+  **Added** `istioctl proxy-status` and other commands attempt to contact the control plane
+  using both port-foward and exec before giving up, restoring functionality on clusters that
+  do not offer port-forwarding to the control plane.
