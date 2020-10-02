@@ -929,22 +929,6 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	return rotate
 }
 
-func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
-	// Skip check if the token should not be parsed in proxy.
-	// Parsing token may not always be possible because token may not be a JWT.
-	// If SkipParseToken is true, we should assume token is valid and leave token validation to CA.
-	if sc.configOptions.SkipParseToken {
-		return false
-	}
-
-	expired, err := util.IsJwtExpired(secret.Token, time.Now())
-	if err != nil {
-		cacheLog.Errorf("JWT expiration checking error: %v. Consider as expired.", err)
-		return true
-	}
-	return expired
-}
-
 // sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,

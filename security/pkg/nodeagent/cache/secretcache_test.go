@@ -760,23 +760,6 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 	}
 }
 
-func TestParseTokenFlag(t *testing.T) {
-	sc := createSecretCache()
-	defer sc.Close()
-	sc.configOptions.SkipParseToken = true
-	secret := security.SecretItem{}
-	checkBool(t, "isTokenExpired", sc.isTokenExpired(&secret), false)
-}
-
-func TestExpiredToken(t *testing.T) {
-	sc := createSecretCache()
-	defer sc.Close()
-	sc.configOptions.SkipParseToken = false
-	secret := security.SecretItem{}
-	secret.Token = fakeExpiredToken
-	checkBool(t, "isTokenExpired", sc.isTokenExpired(&secret), true)
-}
-
 func TestRootCertificateExists(t *testing.T) {
 	testCases := map[string]struct {
 		certPath     string
