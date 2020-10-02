@@ -708,7 +708,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(req *model.PushRequest) {
-
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	s.adsClientsMutex.RLock()
@@ -730,6 +729,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	for _, p := range pending {
 		s.pushQueue.Enqueue(p, req)
 	}
+	s.extensionServer.Update(req)
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *Connection) {

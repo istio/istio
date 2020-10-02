@@ -1486,6 +1486,11 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	return nil
 }
 
+// AllEnvoyFilters returns all EnvoyFilterWrappers
+func (ps *PushContext) AllEnvoyFilters() map[string][]*EnvoyFilterWrapper {
+	return ps.envoyFiltersByNamespace
+}
+
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
 func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	// this should never happen

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	extensionservice "github.com/envoyproxy/go-control-plane/envoy/service/extension/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -125,6 +126,9 @@ type DiscoveryServer struct {
 
 	// Cache for XDS resources
 	Cache model.XdsCache
+
+	// extensionServer is an embedded ECDS server
+	extensionServer *ExtensionServer
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -164,7 +168,8 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
-		Cache: model.DisabledCache{},
+		Cache:           model.DisabledCache{},
+		extensionServer: NewExtensionServer(),
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -187,6 +192,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// Register v3 server
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	extensionservice.RegisterExtensionConfigDiscoveryServiceServer(rpcs, s.extensionServer)
 }
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
