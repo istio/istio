@@ -299,8 +299,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
 	}
 
-	// Must occur after we set up multicluster
-	s.initSDSServer()
+	s.initSDSServer(args)
 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
@@ -428,15 +427,14 @@ func (s *Server) WaitUntilCompletion() {
 }
 
 // initSDSServer starts the SDS server
-func (s *Server) initSDSServer() {
+func (s *Server) initSDSServer(args *PilotArgs) {
 	if features.EnableSDSServer && s.kubeClient != nil {
 		if !features.EnableXDSIdentityCheck {
 			// Make sure we have security
 			log.Warnf("skipping Kubernetes credential reader, which was enabled by ISTIOD_ENABLE_SDS_SERVER. " +
 				"PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
-			log.Infof("initializing Kubernetes credential reader")
-			sc := kubesecrets.NewSecretsController(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient)
+			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace)
 			sc.AddEventHandler(func(name, namespace string) {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full: false,
