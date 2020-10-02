@@ -232,6 +232,17 @@ func (cl *Client) Update(cfg config.Config) (string, error) {
 	return meta.GetResourceVersion(), nil
 }
 
+func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
+	if cfg.Spec == nil {
+		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
+	}
+	meta, err := updateStatus(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
+	if err != nil {
+		return "", err
+	}
+	return meta.GetResourceVersion(), nil
+}
+
 // PatchFunc provides the cached config as a base for modification. The diff between the input value and the modified
 // return will be used to apply a patch in Kubrenetes.
 type PatchFunc func(cfg config.Config) config.Config

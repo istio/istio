@@ -312,6 +312,11 @@ func (c *controller) Update(config.Config) (newRevision string, err error) {
 	return "", errUnsupported
 }
 
+func (c *controller) UpdateStatus(config.Config) (string, error) {
+	log.Warnf("updateStatus: %s", errUnsupported)
+	return "", errUnsupported
+}
+
 // Create is not implemented
 func (c *controller) Create(config.Config) (revision string, err error) {
 	log.Warnf("create %s", errUnsupported)

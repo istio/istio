@@ -16,6 +16,7 @@ package memory
 
 import (
 	"errors"
+	"fmt"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -105,6 +106,10 @@ func (c *controller) Update(config config.Config) (newRevision string, err error
 		})
 	}
 	return
+}
+
+func (c *controller) UpdateStatus(config.Config) (string, error) {
+	return "", fmt.Errorf("not implemented")
 }
 
 func (c *controller) Delete(kind config.GroupVersionKind, key, namespace string) (err error) {

@@ -71,6 +71,8 @@ func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {
 
 func (*FakeStore) Update(config config.Config) (newRevision string, err error) { return "", nil }
 
+func (*FakeStore) UpdateStatus(config config.Config) (string, error) {return "", nil}
+
 func (*FakeStore) Delete(typ config.GroupVersionKind, name, namespace string) error { return nil }
 
 func (s *FakeStore) Version() string {

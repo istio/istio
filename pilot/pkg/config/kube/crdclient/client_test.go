@@ -16,7 +16,10 @@ package crdclient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"istio.io/api/networking/v1alpha3"
+	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -212,56 +215,121 @@ func TestClient(t *testing.T) {
 		})
 	}
 
-	// test just workloadgroup for now
-	res := collections.IstioNetworkingV1Alpha3Workloadgroups.Resource()
-	gvk := res.GroupVersionKind()
-	wgConfigMeta := config.Meta{
-		GroupVersionKind: gvk,
-		Name:             "foo",
-	}
-	if !res.IsClusterScoped() {
-		wgConfigMeta.Namespace = "namespace"
-	}
+	t.Run("Fuck you if this doesnt work", func(t *testing.T) {
+		c := collections.IstioNetworkingV1Alpha3Workloadgroups
+		r := c.Resource()
+		name := "name1"
+		namespace := "bar"
+		cfgMeta := config.Meta{
+			GroupVersionKind: r.GroupVersionKind(),
+			Name: name,
+		}
+		if !r.IsClusterScoped() {
+			cfgMeta.Namespace = namespace
+		}
+		pb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 6}}
+		if _, err := store.Create(config.Config{
+			Meta: cfgMeta,
+			Spec: config.Spec(pb),
+		}); err != nil {
+			t.Fatalf("Create bad: %v", err)
 
-	spec, err := res.NewInstance()
-	if err != nil {
-		t.Error(err)
-	}
-	_, err = res.Status()
-	if err != nil {
-		t.Error(err)
-	}
+		}
 
-	_, err = store.Create(config.Config{
-		Meta: wgConfigMeta,
-		Spec: spec,
+		retry.UntilSuccessOrFail(t, func() error {
+			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
+			if cfg == nil {
+				return fmt.Errorf("BADANFEI")
+			}
+			return nil
+		})
+
+		ann := map[string]string{
+			"update": "better work",
+		}
+
+
+		retry.UntilSuccessOrFail(t, func() error {
+			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
+			if cfg == nil {
+				return fmt.Errorf("cfg shouldnt be nil :(")
+			}
+			p, _ := json.Marshal(cfg)
+			log.Println(string(p))
+			z, _ := json.Marshal(cfgMeta)
+			log.Println(string(z))
+			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
+				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
+			}
+			t.Fail()
+			return nil
+		})
+
+		cfgMeta.Annotations = ann
+		updatedPb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 7}}
+
+		_, err := store.Update(config.Config{
+			Meta: cfgMeta,
+			Spec: updatedPb,
+		})
+
+		retry.UntilSuccessOrFail(t, func() error {
+			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
+			if cfg == nil {
+				return fmt.Errorf("cfg shouldnt be nil :(")
+			}
+			p, _ := json.Marshal(cfg)
+			log.Println(string(p))
+			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
+				//return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
+				return nil
+			}
+			t.Fail()
+			return nil
+		})
+
+		if err != nil {
+			t.Errorf("couldnt update: %v", err)
+		}
+
+		//stat := &v1alpha1.IstioStatus{
+		//	Conditions:           []*v1alpha1.IstioCondition{
+		//		{Type: "Health",
+		//		Message: "screwing up the codebase 24/7"},
+		//	},
+		//}
+		//
+		//// TODO WHY THE FUCK ISNT UPDATE WORKING
+		//_, err = store.UpdateStatus(config.Config{
+		//	Meta: cfgMeta,
+		//	Spec: pb,
+		//	Status: config.Status(stat),
+		//})
+		//if err != nil {
+		//	t.Errorf("bad: %v", err)
+		//}
+		//
+		//retry.UntilSuccessOrFail(t, func() error {
+		//	cfgs, err := store.List(r.GroupVersionKind(), namespace)
+		//	if err != nil {
+		//		return err
+		//	}
+		//	if len(cfgs) != 1 {
+		//		return fmt.Errorf("expected 1 config, got %v", len(cfgs))
+		//	}
+		//	for _, cfg := range cfgs {
+		//		f, _ := json.Marshal(cfg.Meta)
+		//		log.Println(string(f))
+		//
+		//		g, _ := json.Marshal(cfg)
+		//		log.Println(string(g))
+		//
+		//		if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
+		//			return fmt.Errorf("get(%v) => got %v", name, cfg)
+		//		}
+		//		t.Fail()
+		//	}
+		//	return nil
+		//}, timeout)
 	})
-	if err != nil {
-		t.Fatalf("fail: %v", err)
-	}
-
-	retry.UntilSuccessOrFail(t, func() error {
-		cfg := store.Get(gvk, "foo", wgConfigMeta.Namespace)
-		t.Errorf("%v", cfg == nil)
-		return nil
-	}, timeout)
-
-	//retry.UntilSuccessOrFail(t, func() error {
-	//	r, err := store.Update(config.Config{
-	//		Meta:   wgConfigMeta,
-	//		Spec:   spec,
-	//		Status: stat,
-	//	})
-	//	if err != nil {
-	//		t.Errorf("err: %v", err)
-	//		return err
-	//	}
-	//	log.Println(r)
-	//	return nil
-	//}, timeout)
-	//retry.UntilSuccessOrFail(t, func() error {
-	//	cfg := store.Get(gvk, "foo", "bar")
-	//	log.Println(cfg.Spec)
-	//	return nil
-	//}, timeout)
 }

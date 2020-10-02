@@ -15,6 +15,7 @@
 package codegen
 
 import (
+	"log"
 	"strings"
 	"testing"
 
@@ -85,6 +86,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+    "reflect"
 	githubcomgogoprotobuftypes "github.com/gogo/protobuf/types"
 )
 
@@ -101,8 +103,11 @@ var (
 			Plural: "barkinds",
 			Version: "v1",
 			Proto: "google.protobuf.Struct",
+			
 			ReflectType: reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
+			
 			ProtoPackage: "github.com/gogo/protobuf/types",
+			
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -119,8 +124,11 @@ var (
 			Plural: "fookinds",
 			Version: "v1",
 			Proto: "google.protobuf.Struct",
+			
 			ReflectType: reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
+			
 			ProtoPackage: "github.com/gogo/protobuf/types",
+			
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -168,6 +176,7 @@ var (
 			} else {
 				g.Expect(err).To(BeNil())
 				if diff := cmp.Diff(strings.TrimSpace(s), strings.TrimSpace(c.output)); diff != "" {
+					log.Println(s)
 					t.Fatal(diff)
 				}
 			}
