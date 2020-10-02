@@ -16,7 +16,6 @@ package xds
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -119,7 +118,6 @@ func (es *ExtensionServer) Update(req *model.PushRequest) {
 		delete(es.configs, qualifier)
 	}
 	for qualifier := range es.configs {
-		fmt.Printf("deleting %v\n", qualifier)
 		es.cache.DeleteResource(qualifier)
 	}
 	es.configs = staged
