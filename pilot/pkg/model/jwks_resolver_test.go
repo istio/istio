@@ -403,18 +403,14 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, time.Second /*RefreshInterval*/, testRetryInterval)
 	defer r.Close()
 
-	t.Logf("%v: %v", time.Now(), 0)
 	ms := startMockServer(t)
 	defer ms.Stop()
 
 	// Configures the mock server to return error after the first request.
 	ms.ReturnErrorAfterFirstNumHits = 1
-
-	t.Logf("%v: %v", time.Now(), 1)
-
+s
 	// The refresh job should continue using the previously fetched public key (JwtPubKey1).
 	verifyKeyRefresh(t, r, ms, test.JwtPubKey1)
-	t.Logf("%v: %v", time.Now(), 2)
 
 	// The lastRefreshedTime should not change the refresh failed due to network error.
 	verifyKeyLastRefreshedTime(t, r, ms, false /* wantChanged */)
