@@ -34,11 +34,8 @@ const (
 )
 
 var (
-	// The KUBECONFIG value from the environment.
-	kubeConfigsFromEnv = getKubeConfigsFromEnvironmentOrDefault()
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		KubeConfig:            kubeConfigsFromEnv,
 		LoadBalancerSupported: true,
 	}
 	// hold kubeconfigs from command line to split later
@@ -60,13 +57,28 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 
 	s := settingsFromCommandLine.clone()
 
+	// Process the kube configs.
 	var err error
 	s.KubeConfig, err = parseKubeConfigs(kubeConfigs, ",")
 	if err != nil {
-		return nil, fmt.Errorf("kubeconfig: %v", err)
+		return nil, fmt.Errorf("error parsing KubeConfigs from command-line: %v", err)
 	}
 	if len(s.KubeConfig) == 0 {
-		s.KubeConfig = kubeConfigsFromEnv
+		scopes.Framework.Info("Flag istio.test.kube.config not specified.")
+		s.KubeConfig, err = getKubeConfigsFromEnvironment()
+		if err != nil {
+			return nil, fmt.Errorf("error parsing KubeConfigs from environment: %v", err)
+		}
+		if len(s.KubeConfig) == 0 {
+			scopes.Framework.Info("Environment variable KUBECONFIG unspecified.")
+			normalizedDefaultKubeConfig, err := normalizeFile(defaultKubeConfig)
+			if err != nil {
+				return nil, fmt.Errorf("error normalizing default kube config file %s: %v",
+					defaultKubeConfig, err)
+			}
+			s.KubeConfig = []string{normalizedDefaultKubeConfig}
+		}
+		scopes.Framework.Infof("Using KubeConfigs: %v.", s.KubeConfig)
 	}
 
 	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
@@ -87,7 +99,7 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	return s, nil
 }
 
-func getKubeConfigsFromEnvironmentOrDefault() []string {
+func getKubeConfigsFromEnvironment() ([]string, error) {
 	// Normalize KUBECONFIG so that it is separated by the OS path list separator.
 	// The framework currently supports comma as a separator, but that violates the
 	// KUBECONFIG spec.
@@ -99,16 +111,11 @@ func getKubeConfigsFromEnvironmentOrDefault() []string {
 			filepath.ListSeparator, updatedValue)
 		value = updatedValue
 	}
-	scopes.Framework.Infof("KUBECONFIG: %s", value)
 	out, err := parseKubeConfigs(value, string(filepath.ListSeparator))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	if len(out) == 0 {
-		out = []string{defaultKubeConfig}
-	}
-	scopes.Framework.Infof("Using KUBECONFIG array: %v", out)
-	return out
+	return out, nil
 }
 
 func parseKubeConfigs(value, separator string) ([]string, error) {
@@ -119,8 +126,10 @@ func parseKubeConfigs(value, separator string) ([]string, error) {
 	parts := strings.Split(value, separator)
 	out := make([]string, 0, len(parts))
 	for _, f := range parts {
-		if f != "" {
-			if err := normalizeFile(&f); err != nil {
+		f := strings.TrimSpace(f)
+		if len(f) != 0 {
+			var err error
+			if f, err = normalizeFile(f); err != nil {
 				return nil, err
 			}
 			out = append(out, f)
@@ -268,16 +277,21 @@ func parseNetworkTopology(kubeConfigs []string) (map[resource.ClusterIndex]strin
 	return out, nil
 }
 
-func normalizeFile(path *string) error {
+func normalizeFile(originalPath string) (string, error) {
 	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
 	var err error
-	*path = strings.TrimSpace(*path)
-	*path, err = homedir.Expand(*path)
+	out := strings.TrimSpace(originalPath)
+	out, err = homedir.Expand(out)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	// Verify that the file exists.
+	if _, err := os.Stat(out); os.IsNotExist(err) {
+		return "", fmt.Errorf("failed normalizing file %s: %v", originalPath, err)
+	}
+
+	return out, nil
 }
 
 // init registers the command-line flags that we can exposed for "go test".
