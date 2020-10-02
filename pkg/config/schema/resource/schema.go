@@ -180,7 +180,7 @@ type schemaImpl struct {
 	validateConfig validation.ValidateFunc
 	reflectType    reflect.Type
 	statusType     reflect.Type
-	statusPackage string
+	statusPackage  string
 }
 
 func (s *schemaImpl) GroupVersionKind() config.GroupVersionKind {
@@ -230,7 +230,6 @@ func (s *schemaImpl) ProtoPackage() string {
 func (s *schemaImpl) StatusPackage() string {
 	return s.statusPackage
 }
-
 
 func (s *schemaImpl) Validate() (err error) {
 	if !labels.IsDNS1123Label(s.Kind()) {

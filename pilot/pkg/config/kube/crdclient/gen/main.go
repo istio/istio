@@ -42,7 +42,7 @@ type ConfigData struct {
 	ClientTypePath  string
 	Kind            string
 	StatusAPIImport string
-	StatusKind 		string
+	StatusKind      string
 
 	// Support service-apis, which require a custom client and the Spec suffix
 	Client     string
@@ -61,7 +61,7 @@ func MakeConfigData(schema collection.Schema) ConfigData {
 		Kind:            schema.Resource().Kind(),
 		Client:          "ic",
 		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
-		StatusKind: 	 schema.Resource().StatusKind(),
+		StatusKind:      schema.Resource().StatusKind(),
 	}
 	if schema.Resource().Group() == "networking.x-k8s.io" {
 		out.Client = "sc"
@@ -77,7 +77,7 @@ var (
 		"istio.io/api/networking/v1alpha3":       "networkingv1alpha3",
 		"istio.io/api/security/v1beta1":          "securityv1beta1",
 		"sigs.k8s.io/service-apis/apis/v1alpha1": "servicev1alpha1",
-		"istio.io/api/meta/v1alpha1": "metav1alpha1",
+		"istio.io/api/meta/v1alpha1":             "metav1alpha1",
 	}
 	// Mapping from istio/api path import to client go import path
 	clientGoImport = map[string]string{

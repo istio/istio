@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"istio.io/api/networking/v1alpha3"
 	"log"
 	"reflect"
 	"testing"
@@ -28,6 +27,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -215,14 +218,14 @@ func TestClient(t *testing.T) {
 		})
 	}
 
-	t.Run("bad you if this doesnt work", func(t *testing.T) {
+	t.Run("update status", func(t *testing.T) {
 		c := collections.IstioNetworkingV1Alpha3Workloadgroups
 		r := c.Resource()
 		name := "name1"
 		namespace := "bar"
 		cfgMeta := config.Meta{
 			GroupVersionKind: r.GroupVersionKind(),
-			Name: name,
+			Name:             name,
 		}
 		if !r.IsClusterScoped() {
 			cfgMeta.Namespace = namespace
@@ -245,91 +248,36 @@ func TestClient(t *testing.T) {
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
 				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
 			}
-			t.Fail()
 			return nil
 		})
 
-		updatedPb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 7}}
+		stat := &v1alpha1.IstioStatus{
+			Conditions: []*v1alpha1.IstioCondition{
+				{
+					Type:    "Health",
+					Message: "heath is badd",
+				},
+			},
+		}
 
-		_, err := store.Update(config.Config{
-			Meta: cfgMeta,
-			Spec: config.Spec(updatedPb),
-		})
-
-		if err != nil {
-			t.Error(err)
+		if _, err := store.UpdateStatus(config.Config{
+			Meta:   cfgMeta,
+			Spec:   config.Spec(pb),
+			Status: config.Status(stat),
+		}); err != nil {
+			t.Errorf("bad: %v", err)
 		}
 
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg shouldnt be nil :(")
+				return fmt.Errorf("cfg cant be nil")
 			}
-			p, _ := json.Marshal(cfg)
-			log.Println(string(p))
-			if !reflect.DeepEqual(updatedPb, cfg.Spec.(*v1alpha3.WorkloadGroup)) {
-				return fmt.Errorf("specs dont match: %v", cfg.Meta)
+			if !reflect.DeepEqual(cfg.Status, stat) {
+				return fmt.Errorf("status %v does not match %v", cfg.Status, stat)
 			}
 			return nil
 		})
 
-		//if err != nil {
-		//	t.Errorf("couldnt update: %v", err)
-		//}
-		//
-		//stat := &v1alpha1.IstioStatus{
-		//	Conditions:           []*v1alpha1.IstioCondition{
-		//		{Type: "Health",
-		//		Message: "screwing up the codebase 24/7"},
-		//	},
-		//}
-		//
-		//wg, err := store.UpdateStatus(config.Config{
-		//	Meta: cfgMeta,
-		//	Spec: pb,
-		//	Status: config.Status(stat),
-		//})
-		//
-		//if err != nil {
-		//	t.Errorf("bad: %v", err)
-		//}
-		//
-		//retry.UntilSuccessOrFail(t, func() error {
-		//	cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
-		//	if cfg == nil {
-		//		return fmt.Errorf("cfg shouldnt be nil :(")
-		//	}
-		//	p, _ := json.Marshal(cfg)
-		//	log.Println(string(p))
-		//	if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
-		//		return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
-		//	}
-		//	t.Fail()
-		//	return nil
-		//})
-
-		//
-		//retry.UntilSuccessOrFail(t, func() error {
-		//	cfgs, err := store.List(r.GroupVersionKind(), namespace)
-		//	if err != nil {
-		//		return err
-		//	}
-		//	if len(cfgs) != 1 {
-		//		return fmt.Errorf("expected 1 config, got %v", len(cfgs))
-		//	}
-		//	for _, cfg := range cfgs {
-		//		f, _ := json.Marshal(cfg.Meta)
-		//		log.Println(string(f))
-		//
-		//		g, _ := json.Marshal(cfg)
-		//		log.Println(string(g))
-		//
-		//		if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
-		//			return fmt.Errorf("get(%v) => got %v", name, cfg)
-		//		}
-		//		t.Fail()
-		//	}
-		//	return nil
-		//}, timeout) v
 	})
 }

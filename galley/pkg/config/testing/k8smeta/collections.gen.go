@@ -23,13 +23,16 @@ var (
 		VariableName: "K8SAppsV1Deployments",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "apps",
-			Kind:          "Deployment",
-			Plural:        "deployments",
-			Version:       "v1",
-			Proto:         "k8s.io.api.apps.v1.Deployment",
-			ReflectType:   reflect.TypeOf(&k8sioapiappsv1.Deployment{}).Elem(),
-			ProtoPackage:  "k8s.io/api/apps/v1",
+			Group:   "apps",
+			Kind:    "Deployment",
+			Plural:  "deployments",
+			Version: "v1",
+			Proto:   "k8s.io.api.apps.v1.Deployment",
+
+			ReflectType: reflect.TypeOf(&k8sioapiappsv1.Deployment{}).Elem(),
+
+			ProtoPackage: "k8s.io/api/apps/v1",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -41,13 +44,16 @@ var (
 		VariableName: "K8SCoreV1Endpoints",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "",
-			Kind:          "Endpoints",
-			Plural:        "endpoints",
-			Version:       "v1",
-			Proto:         "k8s.io.api.core.v1.Endpoints",
-			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Endpoints{}).Elem(),
-			ProtoPackage:  "k8s.io/api/core/v1",
+			Group:   "",
+			Kind:    "Endpoints",
+			Plural:  "endpoints",
+			Version: "v1",
+			Proto:   "k8s.io.api.core.v1.Endpoints",
+
+			ReflectType: reflect.TypeOf(&k8sioapicorev1.Endpoints{}).Elem(),
+
+			ProtoPackage: "k8s.io/api/core/v1",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -59,13 +65,16 @@ var (
 		VariableName: "K8SCoreV1Namespaces",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "",
-			Kind:          "Namespace",
-			Plural:        "namespaces",
-			Version:       "v1",
-			Proto:         "k8s.io.api.core.v1.NamespaceSpec",
-			ReflectType:   reflect.TypeOf(&k8sioapicorev1.NamespaceSpec{}).Elem(),
-			ProtoPackage:  "k8s.io/api/core/v1",
+			Group:   "",
+			Kind:    "Namespace",
+			Plural:  "namespaces",
+			Version: "v1",
+			Proto:   "k8s.io.api.core.v1.NamespaceSpec",
+
+			ReflectType: reflect.TypeOf(&k8sioapicorev1.NamespaceSpec{}).Elem(),
+
+			ProtoPackage: "k8s.io/api/core/v1",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -77,13 +86,16 @@ var (
 		VariableName: "K8SCoreV1Nodes",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "",
-			Kind:          "Node",
-			Plural:        "nodes",
-			Version:       "v1",
-			Proto:         "k8s.io.api.core.v1.NodeSpec",
-			ReflectType:   reflect.TypeOf(&k8sioapicorev1.NodeSpec{}).Elem(),
-			ProtoPackage:  "k8s.io/api/core/v1",
+			Group:   "",
+			Kind:    "Node",
+			Plural:  "nodes",
+			Version: "v1",
+			Proto:   "k8s.io.api.core.v1.NodeSpec",
+
+			ReflectType: reflect.TypeOf(&k8sioapicorev1.NodeSpec{}).Elem(),
+
+			ProtoPackage: "k8s.io/api/core/v1",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -95,13 +107,16 @@ var (
 		VariableName: "K8SCoreV1Pods",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "",
-			Kind:          "Pod",
-			Plural:        "pods",
-			Version:       "v1",
-			Proto:         "k8s.io.api.core.v1.Pod",
-			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Pod{}).Elem(),
-			ProtoPackage:  "k8s.io/api/core/v1",
+			Group:   "",
+			Kind:    "Pod",
+			Plural:  "pods",
+			Version: "v1",
+			Proto:   "k8s.io.api.core.v1.Pod",
+
+			ReflectType: reflect.TypeOf(&k8sioapicorev1.Pod{}).Elem(),
+
+			ProtoPackage: "k8s.io/api/core/v1",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -113,13 +128,16 @@ var (
 		VariableName: "K8SCoreV1Services",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "",
-			Kind:          "Service",
-			Plural:        "services",
-			Version:       "v1",
-			Proto:         "k8s.io.api.core.v1.ServiceSpec",
-			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
-			ProtoPackage:  "k8s.io/api/core/v1",
+			Group:   "",
+			Kind:    "Service",
+			Plural:  "services",
+			Version: "v1",
+			Proto:   "k8s.io.api.core.v1.ServiceSpec",
+
+			ReflectType: reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
+
+			ProtoPackage: "k8s.io/api/core/v1",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -132,13 +150,16 @@ var (
 		VariableName: "K8SExtensionsV1Beta1Ingresses",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "extensions",
-			Kind:          "Ingress",
-			Plural:        "ingresses",
-			Version:       "v1beta1",
-			Proto:         "k8s.io.api.extensions.v1beta1.IngressSpec",
-			ReflectType:   reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressSpec{}).Elem(),
-			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
+			Group:   "extensions",
+			Kind:    "Ingress",
+			Plural:  "ingresses",
+			Version: "v1beta1",
+			Proto:   "k8s.io.api.extensions.v1beta1.IngressSpec",
+
+			ReflectType: reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressSpec{}).Elem(),
+
+			ProtoPackage: "k8s.io/api/extensions/v1beta1",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),

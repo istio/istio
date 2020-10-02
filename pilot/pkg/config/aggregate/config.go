@@ -195,6 +195,7 @@ func (cr *store) Update(c config.Config) (string, error) {
 func (cr *store) UpdateStatus(c config.Config) (string, error) {
 	return "", fmt.Errorf("lol no")
 }
+
 type storeCache struct {
 	model.ConfigStore
 	caches []model.ConfigStoreCache

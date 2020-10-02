@@ -190,7 +190,7 @@ func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
 		spl := strings.Split(r.Proto, ".")
 		tname := spl[len(spl)-1]
 		stat := strings.Split(r.StatusProto, ".")
-		statName := stat[len(stat) - 1]
+		statName := stat[len(stat)-1]
 		e := colEntry{
 			Collection: c,
 			Resource:   r,

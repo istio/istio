@@ -21,13 +21,16 @@ var (
 		VariableName: "Collection2",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "testdata.istio.io",
-			Kind:          "Kind1",
-			Plural:        "Kind1s",
-			Version:       "v1alpha1",
-			Proto:         "google.protobuf.Struct",
-			ReflectType:   reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
-			ProtoPackage:  "github.com/gogo/protobuf/types",
+			Group:   "testdata.istio.io",
+			Kind:    "Kind1",
+			Plural:  "Kind1s",
+			Version: "v1alpha1",
+			Proto:   "google.protobuf.Struct",
+
+			ReflectType: reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
+
+			ProtoPackage: "github.com/gogo/protobuf/types",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -39,13 +42,16 @@ var (
 		VariableName: "K8SCollection1",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "testdata.istio.io",
-			Kind:          "Kind1",
-			Plural:        "Kind1s",
-			Version:       "v1alpha1",
-			Proto:         "google.protobuf.Struct",
-			ReflectType:   reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
-			ProtoPackage:  "github.com/gogo/protobuf/types",
+			Group:   "testdata.istio.io",
+			Kind:    "Kind1",
+			Plural:  "Kind1s",
+			Version: "v1alpha1",
+			Proto:   "google.protobuf.Struct",
+
+			ReflectType: reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
+
+			ProtoPackage: "github.com/gogo/protobuf/types",
+
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
