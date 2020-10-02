@@ -75,7 +75,7 @@ func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, 
     switch cfg.GroupVersionKind {
     {{- range . }}
     	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
-    		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
+    		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).UpdateStatus(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
     			ObjectMeta: objMeta,
     			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
     			Status:     *(cfg.Status.(*{{ .StatusAPIImport }}.{{ .StatusKind }})),

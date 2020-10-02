@@ -210,91 +210,91 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
 	case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
-		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
+		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.DestinationRule)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
-		return ic.NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.EnvoyFilter{
+		return ic.NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.EnvoyFilter{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.EnvoyFilter)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
-		return ic.NetworkingV1alpha3().Gateways(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.Gateway{
+		return ic.NetworkingV1alpha3().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Gateway)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
-		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
+		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.ServiceEntry)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
-		return ic.NetworkingV1alpha3().Sidecars(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.Sidecar{
+		return ic.NetworkingV1alpha3().Sidecars(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.Sidecar{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Sidecar)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
-		return ic.NetworkingV1alpha3().VirtualServices(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.VirtualService{
+		return ic.NetworkingV1alpha3().VirtualServices(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.VirtualService)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind():
-		return ic.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.WorkloadEntry{
+		return ic.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.WorkloadEntry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadEntry)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
-		return ic.NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
+		return ic.NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadGroup)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
-		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
+		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.AuthorizationPolicy)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
-		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
+		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.PeerAuthentication)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
-		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
+		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().GatewayClasses().Update(context.TODO(), &servicev1alpha1.GatewayClass{
+		return sc.NetworkingV1alpha1().GatewayClasses().UpdateStatus(context.TODO(), &servicev1alpha1.GatewayClass{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.GatewayClassSpec)),
 			Status:     *(cfg.Status.(*servicev1alpha1.GatewayClassStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().Gateways(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.Gateway{
+		return sc.NetworkingV1alpha1().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &servicev1alpha1.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.GatewaySpec)),
 			Status:     *(cfg.Status.(*servicev1alpha1.GatewayStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().HTTPRoutes(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.HTTPRoute{
+		return sc.NetworkingV1alpha1().HTTPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &servicev1alpha1.HTTPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.HTTPRouteSpec)),
 			Status:     *(cfg.Status.(*servicev1alpha1.HTTPRouteStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TCPRoutes(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.TCPRoute{
+		return sc.NetworkingV1alpha1().TCPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &servicev1alpha1.TCPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.TCPRouteSpec)),
 			Status:     *(cfg.Status.(*servicev1alpha1.TCPRouteStatus)),

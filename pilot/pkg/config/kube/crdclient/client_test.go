@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"log"
 	"reflect"
@@ -233,21 +234,7 @@ func TestClient(t *testing.T) {
 			Spec: config.Spec(pb),
 		}); err != nil {
 			t.Fatalf("Create bad: %v", err)
-
 		}
-
-		retry.UntilSuccessOrFail(t, func() error {
-			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
-			if cfg == nil {
-				return fmt.Errorf("BADANFEI")
-			}
-			return nil
-		})
-
-		ann := map[string]string{
-			"update": "better work",
-		}
-
 
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
@@ -256,8 +243,6 @@ func TestClient(t *testing.T) {
 			}
 			p, _ := json.Marshal(cfg)
 			log.Println(string(p))
-			z, _ := json.Marshal(cfgMeta)
-			log.Println(string(z))
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
 				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
 			}
@@ -265,13 +250,49 @@ func TestClient(t *testing.T) {
 			return nil
 		})
 
-		cfgMeta.Annotations = ann
-		updatedPb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 7}}
+		//cfgMeta.Annotations = ann
+		//updatedPb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 7}}
+		//
+		//_, err := store.Update(config.Config{
+		//	Meta: cfgMeta,
+		//	Spec: config.Spec(updatedPb),
+		//})
+		//
+		//retry.UntilSuccessOrFail(t, func() error {
+		//	cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
+		//	if cfg == nil {
+		//		return fmt.Errorf("cfg shouldnt be nil :(")
+		//	}
+		//	p, _ := json.Marshal(cfg)
+		//	log.Println(string(p))
+		//	if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
+		//		//return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
+		//		return nil
+		//	}
+		//	t.Fail()
+		//	return nil
+		//})
+		//
+		//if err != nil {
+		//	t.Errorf("couldnt update: %v", err)
+		//}
 
-		_, err := store.Update(config.Config{
+		stat := &v1alpha1.IstioStatus{
+			Conditions:           []*v1alpha1.IstioCondition{
+				{Type: "Health",
+				Message: "screwing up the codebase 24/7"},
+			},
+		}
+
+		wg, err := store.UpdateStatus(config.Config{
 			Meta: cfgMeta,
-			Spec: updatedPb,
+			Spec: pb,
+			Status: config.Status(stat),
 		})
+
+		if err != nil {
+			t.Errorf("bad: %v", err)
+		}
 
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
@@ -281,33 +302,12 @@ func TestClient(t *testing.T) {
 			p, _ := json.Marshal(cfg)
 			log.Println(string(p))
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
-				//return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
-				return nil
+				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
 			}
 			t.Fail()
 			return nil
 		})
 
-		if err != nil {
-			t.Errorf("couldnt update: %v", err)
-		}
-
-		//stat := &v1alpha1.IstioStatus{
-		//	Conditions:           []*v1alpha1.IstioCondition{
-		//		{Type: "Health",
-		//		Message: "screwing up the codebase 24/7"},
-		//	},
-		//}
-		//
-		//// TODO WHY THE heck ISNT UPDATE WORKING
-		//_, err = store.UpdateStatus(config.Config{
-		//	Meta: cfgMeta,
-		//	Spec: pb,
-		//	Status: config.Status(stat),
-		//})
-		//if err != nil {
-		//	t.Errorf("bad: %v", err)
-		//}
 		//
 		//retry.UntilSuccessOrFail(t, func() error {
 		//	cfgs, err := store.List(r.GroupVersionKind(), namespace)
