@@ -278,6 +278,11 @@ docker.app_sidecar_base_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_ba
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
+docker.app_sidecar_base_centos_7: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base_centos
+docker.app_sidecar_base_centos_7: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
 docker.distroless: docker/Dockerfile.distroless
 	$(DOCKER_RULE)
 
