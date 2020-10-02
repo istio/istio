@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Improved** TLS configuration on sidecar server side inbound paths to enforce TLSv2 version along with recommended cipher suites.
+               This is disabled by default and can enabled by setting env variable "PILOT_SIDECAR_ENABLE_INBOUND_TLS_V2" to true.

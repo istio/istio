@@ -328,4 +328,7 @@ var (
 			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
 			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
 			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
+
+	EnableTLSv2OnInboundPath = env.RegisterBoolVar("PILOT_SIDECAR_ENABLE_INBOUND_TLS_V2", false,
+		"If true, Pilot will set the TLS version on server side as TLSv1_2 and also enforce strong cipher suites").Get()
 )
