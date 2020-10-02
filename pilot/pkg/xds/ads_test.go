@@ -467,18 +467,21 @@ func TestAdsPushScoping(t *testing.T) {
 		}})
 	}
 
-	addVirtualService := func(i int, hosts ...string) {
+	addVirtualService := func(i int, hosts []string, dest string) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
 				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
-				Http: []*networking.HTTPRoute{{Redirect: &networking.HTTPRedirect{
-					Uri:          "example.org",
-					Authority:    "some-authority.default.svc.cluster.local",
-					RedirectCode: 308,
-				}}},
+				Http: []*networking.HTTPRoute{{
+					Name: "dest-foo",
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{
+							Host: dest,
+						},
+					}},
+				}},
 				ExportTo: nil,
 			},
 		}); err != nil {
@@ -538,6 +541,7 @@ func TestAdsPushScoping(t *testing.T) {
 		vsIndexes []struct {
 			index int
 			hosts []string
+			dest  string
 		}
 		drIndexes []struct {
 			index int
@@ -571,7 +575,8 @@ func TestAdsPushScoping(t *testing.T) {
 			vsIndexes: []struct {
 				index int
 				hosts []string
-			}{{4, []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}}},
+				dest  string
+			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "unknown-svc"}},
 			expectUpdates: []string{v3.ListenerType},
 		},
 		{
@@ -580,6 +585,7 @@ func TestAdsPushScoping(t *testing.T) {
 			vsIndexes: []struct {
 				index int
 				hosts []string
+				dest  string
 			}{{index: 4}},
 			expectUpdates: []string{v3.ListenerType},
 		},
@@ -631,7 +637,8 @@ func TestAdsPushScoping(t *testing.T) {
 			vsIndexes: []struct {
 				index int
 				hosts []string
-			}{{0, []string{"foo.com"}}},
+				dest  string
+			}{{index: 0, hosts: []string{"foo.com"}, dest: "unknown-service"}},
 			unexpectUpdates: []string{v3.ClusterType},
 		},
 		{
@@ -640,6 +647,7 @@ func TestAdsPushScoping(t *testing.T) {
 			vsIndexes: []struct {
 				index int
 				hosts []string
+				dest  string
 			}{{index: 0}},
 			unexpectUpdates: []string{v3.ClusterType},
 		},
@@ -660,6 +668,36 @@ func TestAdsPushScoping(t *testing.T) {
 				host  string
 			}{{index: 0}},
 			unexpectUpdates: []string{v3.ClusterType},
+		},
+		{
+			desc: "Add virtual service for scoped service with transitively scoped dest svc",
+			ev:   model.EventAdd,
+			vsIndexes: []struct {
+				index int
+				hosts []string
+				dest  string
+			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "foo.com"}},
+			expectUpdates: []string{v3.ClusterType, v3.EndpointType},
+		},
+		{
+			desc: "Add instances for transitively scoped svc",
+			ev:   model.EventAdd,
+			instIndexes: []struct {
+				name    string
+				indexes []int
+			}{{"foo.com", []int{1, 2}}},
+			ns:            model.IstioDefaultConfigNamespace,
+			expectUpdates: []string{v3.EndpointType},
+		},
+		{
+			desc: "Delete virtual service for scoped service with transitively scoped dest svc",
+			ev:   model.EventDelete,
+			vsIndexes: []struct {
+				index int
+				hosts []string
+				dest  string
+			}{{index: 4}},
+			expectUpdates: []string{v3.ClusterType},
 		},
 		{
 			desc:          "Remove a scoped service",
@@ -708,7 +746,7 @@ func TestAdsPushScoping(t *testing.T) {
 				}
 				if len(c.vsIndexes) > 0 {
 					for _, vsIndex := range c.vsIndexes {
-						addVirtualService(vsIndex.index, vsIndex.hosts...)
+						addVirtualService(vsIndex.index, vsIndex.hosts, vsIndex.dest)
 					}
 				}
 				if len(c.drIndexes) > 0 {
