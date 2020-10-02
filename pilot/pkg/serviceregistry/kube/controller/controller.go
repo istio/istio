@@ -559,6 +559,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
 	}
+	// TODO(https://github.com/kubernetes/kubernetes/issues/95262) remove this
+	time.Sleep(time.Millisecond * 5)
 	cache.WaitForCacheSync(stop, c.HasSynced)
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
