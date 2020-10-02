@@ -42,7 +42,7 @@ var (
 
 	// sendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
-	sendTimeout = 5 * time.Second
+	sendTimeout = features.XdsPushSendTimeout
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
