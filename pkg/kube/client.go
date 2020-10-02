@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc/credentials"
@@ -372,6 +373,14 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.serviceapisInformers.Start(stop)
+	// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
+	// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
+	// Injecting an extremely small wait gives the tests some time to catch up in most cases, while having a trivial
+	// impact on non-test cases.
+	// Ideally, in the fake client we would just aggressively poll, but the informer neither exposes tuning for this
+	// nor gives us insight into which informers we need to wait for ourselves.
+	// https://github.com/kubernetes/kubernetes/issues/95262 tracks first class support
+	time.Sleep(time.Millisecond * 5)
 	c.kubeInformer.WaitForCacheSync(stop)
 	c.dynamicInformer.WaitForCacheSync(stop)
 	c.metadataInformer.WaitForCacheSync(stop)
