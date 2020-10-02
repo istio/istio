@@ -233,7 +233,7 @@ spec:
       meshNetworks: {}
       mountMtlsCerts: false
     base:
-      enableCRDTemplates: false
+      enableCRDTemplates: true
       validationURL: ""
     pilot:
       autoscaleEnabled: true

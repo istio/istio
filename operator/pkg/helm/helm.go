@@ -115,7 +115,6 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	}
 
 	files, err := engine.Render(chrt, vals)
-	crdFiles := chrt.CRDObjects()
 	if err != nil {
 		return "", err
 	}
@@ -133,18 +132,6 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	var sb strings.Builder
 	for i := 0; i < len(keys); i++ {
 		f := files[keys[i]]
-		// add yaml separator if the rendered file doesn't have one at the end
-		f = strings.TrimSpace(f) + "\n"
-		if !strings.HasSuffix(f, YAMLSeparator) {
-			f += YAMLSeparator
-		}
-		_, err := sb.WriteString(f)
-		if err != nil {
-			return "", err
-		}
-	}
-	for _, crdFile := range crdFiles {
-		f := string(crdFile.File.Data)
 		// add yaml separator if the rendered file doesn't have one at the end
 		f = strings.TrimSpace(f) + "\n"
 		if !strings.HasSuffix(f, YAMLSeparator) {
