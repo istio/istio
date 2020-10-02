@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"log"
 	"reflect"
@@ -250,48 +249,15 @@ func TestClient(t *testing.T) {
 			return nil
 		})
 
-		//cfgMeta.Annotations = ann
-		//updatedPb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 7}}
-		//
-		//_, err := store.Update(config.Config{
-		//	Meta: cfgMeta,
-		//	Spec: config.Spec(updatedPb),
-		//})
-		//
-		//retry.UntilSuccessOrFail(t, func() error {
-		//	cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
-		//	if cfg == nil {
-		//		return fmt.Errorf("cfg shouldnt be nil :(")
-		//	}
-		//	p, _ := json.Marshal(cfg)
-		//	log.Println(string(p))
-		//	if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
-		//		//return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
-		//		return nil
-		//	}
-		//	t.Fail()
-		//	return nil
-		//})
-		//
-		//if err != nil {
-		//	t.Errorf("couldnt update: %v", err)
-		//}
+		updatedPb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 7}}
 
-		stat := &v1alpha1.IstioStatus{
-			Conditions:           []*v1alpha1.IstioCondition{
-				{Type: "Health",
-				Message: "screwing up the codebase 24/7"},
-			},
-		}
-
-		wg, err := store.UpdateStatus(config.Config{
+		_, err := store.Update(config.Config{
 			Meta: cfgMeta,
-			Spec: pb,
-			Status: config.Status(stat),
+			Spec: config.Spec(updatedPb),
 		})
 
 		if err != nil {
-			t.Errorf("bad: %v", err)
+			t.Error(err)
 		}
 
 		retry.UntilSuccessOrFail(t, func() error {
@@ -301,12 +267,46 @@ func TestClient(t *testing.T) {
 			}
 			p, _ := json.Marshal(cfg)
 			log.Println(string(p))
-			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
-				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
+			if !reflect.DeepEqual(updatedPb, cfg.Spec.(*v1alpha3.WorkloadGroup)) {
+				return fmt.Errorf("specs dont match: %v", cfg.Meta)
 			}
-			t.Fail()
 			return nil
 		})
+
+		//if err != nil {
+		//	t.Errorf("couldnt update: %v", err)
+		//}
+		//
+		//stat := &v1alpha1.IstioStatus{
+		//	Conditions:           []*v1alpha1.IstioCondition{
+		//		{Type: "Health",
+		//		Message: "screwing up the codebase 24/7"},
+		//	},
+		//}
+		//
+		//wg, err := store.UpdateStatus(config.Config{
+		//	Meta: cfgMeta,
+		//	Spec: pb,
+		//	Status: config.Status(stat),
+		//})
+		//
+		//if err != nil {
+		//	t.Errorf("bad: %v", err)
+		//}
+		//
+		//retry.UntilSuccessOrFail(t, func() error {
+		//	cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
+		//	if cfg == nil {
+		//		return fmt.Errorf("cfg shouldnt be nil :(")
+		//	}
+		//	p, _ := json.Marshal(cfg)
+		//	log.Println(string(p))
+		//	if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
+		//		return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
+		//	}
+		//	t.Fail()
+		//	return nil
+		//})
 
 		//
 		//retry.UntilSuccessOrFail(t, func() error {
