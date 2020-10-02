@@ -51,8 +51,11 @@ import (
 
 const (
 	// DefaultLbType set to round robin
-	DefaultLbType          = networking.LoadBalancerSettings_ROUND_ROBIN
-	InboundClusterHostname = "localhost"
+	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
+	// ManagementClusterHostname indicates the hostname used for building
+	// inbound clusters for management ports
+	// PATCH: not actually used, included to minimize diffs
+	ManagementClusterHostname = "mgmtCluster"
 )
 
 var (
@@ -378,7 +381,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 				continue
 			}
 			have[port.Port] = true
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", InboundClusterHostname, port.Port)
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, port.Name, ManagementClusterHostname, port.Port)
 			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, uint32(port.Port))
 			mgmtCluster := cb.buildDefaultCluster(clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 				model.TrafficDirectionInbound, nil, false)
@@ -467,7 +470,8 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams) *apiv2.Cluster {
 	cb := NewClusterBuilder(pluginParams.Node, pluginParams.Push)
 	instance := pluginParams.ServiceInstance
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", "localhost", instance.ServicePort.Port)
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
+		instance.Service.Hostname, instance.ServicePort.Port)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, nil, false)

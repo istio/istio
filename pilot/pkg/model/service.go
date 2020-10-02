@@ -560,6 +560,11 @@ func ParseServiceKey(s string) (hostname host.Name, ports PortList, lc labels.Co
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
+	// Patch to ensure that all inbound clusters have a constant name to prevent
+	// cluster creation + deletion that causes transient 503 NR in envoy.
+	if direction == TrafficDirectionInbound {
+		return string(direction) + "|" + strconv.Itoa(port) + "||localhost"
+	}
 	return string(direction) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname)
 }
 
