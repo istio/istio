@@ -33,10 +33,10 @@ func TestProxySDS(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			code, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", setup.OutboundListenerPort))
 			if err != nil {
-				return fmt.Errorf("Failed in request: %v", err)
+				return fmt.Errorf("failed in request: %v", err)
 			}
 			if code != 200 {
-				return fmt.Errorf("Unexpected status code: %d", code)
+				return fmt.Errorf("unexpected status code: %d", code)
 			}
 		}
 		return nil
