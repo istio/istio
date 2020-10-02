@@ -16,6 +16,7 @@ package xds
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -37,6 +39,7 @@ const (
 
 // ExtensionServer is the main server instance.
 type ExtensionServer struct {
+	sync.Mutex
 	server.Server
 	server.CallbackFuncs
 	cache   *cache.LinearCache
@@ -80,8 +83,12 @@ func (es *ExtensionServer) OnStreamRequest(streamID int64, req *discovery.Discov
 	return nil
 }
 
-// Update scans through all EnvoyFilters, identifies ECDS, and reconciles the serving cache
+// Update scans through all EnvoyFilters, identifies ECDS, and reconciles the serving cache.
+// This can be invoked from multiple go-routines executng AdsPushAll.
 func (es *ExtensionServer) Update(req *model.PushRequest) {
+	es.Lock()
+	defer es.Unlock()
+
 	staged := make(map[string]*core.TypedExtensionConfig)
 	allEnvoyFilters := req.Push.AllEnvoyFilters()
 	for ns, configs := range allEnvoyFilters {
@@ -113,12 +120,12 @@ func (es *ExtensionServer) Update(req *model.PushRequest) {
 	for qualifier, config := range staged {
 		prev := es.configs[qualifier]
 		if !proto.Equal(prev, config) {
-			es.cache.UpdateResource(qualifier, config)
+			_ = es.cache.UpdateResource(qualifier, config) // nolint: errcheck
 		}
 		delete(es.configs, qualifier)
 	}
 	for qualifier := range es.configs {
-		es.cache.DeleteResource(qualifier)
+		_ = es.cache.DeleteResource(qualifier) // nolint: errcheck
 	}
 	es.configs = staged
 }
