@@ -17,8 +17,10 @@ package successsds
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/retry"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 
@@ -27,13 +29,16 @@ func TestProxySDS(t *testing.T) {
 	defer setup.TearDown()
 
 	setup.StartProxy(t)
-	for i := 0; i < 10; i++ {
-		code, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", setup.OutboundListenerPort))
-		if err != nil {
-			t.Errorf("Failed in request: %v", err)
+	retry.UntilSuccessOrFail(t, func() error {
+		for i := 0; i < 10; i++ {
+			code, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", setup.OutboundListenerPort))
+			if err != nil {
+				return fmt.Errorf("Failed in request: %v", err)
+			}
+			if code != 200 {
+				return fmt.Errorf("Unexpected status code: %d", code)
+			}
 		}
-		if code != 200 {
-			t.Errorf("Unexpected status code: %d", code)
-		}
-	}
+		return nil
+	}, retry.Delay(1*time.Second), retry.Timeout(20*time.Second))
 }
