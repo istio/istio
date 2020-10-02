@@ -257,11 +257,14 @@ func TestGenerate(t *testing.T) {
 				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
+
+			cc.Fake.Lock()
 			if tt.accessReviewResponse != nil {
 				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
 			} else {
 				kubesecrets.DisableAuthorizationForTest(cc)
 			}
+			cc.Fake.Unlock()
 
 			gen := s.Discovery.Generators[v3.SecretType]
 
