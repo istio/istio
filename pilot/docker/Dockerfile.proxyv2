@@ -14,12 +14,11 @@ COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 RUN chown -R istio-proxy /var/lib/istio
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/cc@sha256:f81e5db8287d66b012d874a6f7fea8da5b96d9cc509aa5a9b5d095a604d4bca1 as distroless
+FROM gcr.io/distroless/cc@sha256:ac75dbf0b249e5e3758134458d447bfd6a85d74c262ecb7cd88df68a3f53c6e3 as distroless
 
 # TODO(https://github.com/istio/istio/issues/17656) clean up this hack
 COPY --from=default /sbin/xtables-multi /sbin/iptables* /sbin/ip6tables* /sbin/ip /sbin/
-COPY --from=default /usr/lib/x86_64-linux-gnu/xtables/ /usr/lib/x86_64-linux-gnu/xtables
-COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
+COPY --from=default /usr/lib/*-linux-gnu/ /usr/lib/
 COPY --from=default /etc/iproute2 /etc/iproute2
 
 # Copy Envoy bootstrap templates used by pilot-agent
