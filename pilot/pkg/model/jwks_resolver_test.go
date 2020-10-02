@@ -408,7 +408,7 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 
 	// Configures the mock server to return error after the first request.
 	ms.ReturnErrorAfterFirstNumHits = 1
-s
+
 	// The refresh job should continue using the previously fetched public key (JwtPubKey1).
 	verifyKeyRefresh(t, r, ms, test.JwtPubKey1)
 
