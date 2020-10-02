@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -254,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				} else {
 					newVHost := &route.VirtualHost{
 						Name:    domainName(string(hostname), port),
-						Domains: buildGatewayVirtualHostDomains(string(hostname)),
+						Domains: buildGatewayVirtualHostDomains(string(hostname), port),
 						Routes:  routes,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -753,12 +754,22 @@ func getSNIHostsForServer(server *networking.Server) []string {
 	return sniHostsSlice
 }
 
-func buildGatewayVirtualHostDomains(hostname string) []string {
+func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 	domains := []string{hostname}
 	if hostname == "*" {
 		return domains
 	}
-	// To support gateway behind a LB with unknown port.
-	domains = append(domains, hostname+":*")
+
+	// Per https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/route/route_components.proto#route-virtualhost
+	// we can only have one wildcard. Ideally, we want to match any port, as the host
+	// header may have a different port (behind a LB, nodeport, etc). However, if we
+	// have a wildcard domain we cannot do that since we would need two wildcards.
+	// Therefore, we will preserve the original port if there is a wildcard host.
+	// TODO(https://github.com/envoyproxy/envoy/issues/12647) support wildcard host with wildcard port.
+	if len(hostname) > 0 && hostname[0] == '*' {
+		domains = append(domains, hostname+":"+strconv.Itoa(port))
+	} else {
+		domains = append(domains, hostname+":*")
+	}
 	return domains
 }
