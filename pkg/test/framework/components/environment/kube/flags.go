@@ -78,8 +78,8 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 			}
 			s.KubeConfig = []string{normalizedDefaultKubeConfig}
 		}
-		scopes.Framework.Infof("Using KubeConfigs: %v.", s.KubeConfig)
 	}
+	scopes.Framework.Infof("Using KubeConfigs: %v.", s.KubeConfig)
 
 	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
 	if err != nil {
