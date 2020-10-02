@@ -215,7 +215,7 @@ func TestClient(t *testing.T) {
 		})
 	}
 
-	t.Run("Fuck you if this doesnt work", func(t *testing.T) {
+	t.Run("bad you if this doesnt work", func(t *testing.T) {
 		c := collections.IstioNetworkingV1Alpha3Workloadgroups
 		r := c.Resource()
 		name := "name1"
@@ -299,7 +299,7 @@ func TestClient(t *testing.T) {
 		//	},
 		//}
 		//
-		//// TODO WHY THE FUCK ISNT UPDATE WORKING
+		//// TODO WHY THE heck ISNT UPDATE WORKING
 		//_, err = store.UpdateStatus(config.Config{
 		//	Meta: cfgMeta,
 		//	Spec: pb,
