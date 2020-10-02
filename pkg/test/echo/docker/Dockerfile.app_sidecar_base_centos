@@ -1,4 +1,5 @@
-FROM centos:8
+ARG VM_IMAGE_VERSION=8
+FROM centos:${VM_IMAGE_VERSION}
 
 # hadolint ignore=DL3005,DL3008
 RUN yum upgrade -y && \

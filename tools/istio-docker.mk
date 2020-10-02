@@ -278,6 +278,11 @@ docker.app_sidecar_base_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_ba
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
+docker.app_sidecar_base_centos_7: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base_centos
+docker.app_sidecar_base_centos_7: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
+	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
 docker.distroless: docker/Dockerfile.distroless
 	$(DOCKER_RULE)
 
@@ -321,10 +326,14 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
 dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 	$(foreach TGT,$(DOCKER_TARGETS), \
-	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
-		 docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
-		 gzip -f ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar \
-		   ); \
+	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), \
+	   if ! ./tools/skip-image.sh $(TGT) $(VARIANT); then \
+	   time ( \
+		 echo $(TGT)-$(VARIANT); \
+		 docker save $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) |\
+		 gzip --fast > ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar.gz \
+	   ); \
+	   fi; \
 	 ))
 
 docker.save: dockerx.save
