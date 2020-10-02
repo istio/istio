@@ -420,7 +420,7 @@ func generateYAMLWithSettings(
 	}
 	params := map[string]interface{}{
 		"Hub":                settings.Hub,
-		"Tag":                settings.Tag,
+		"Tag":                strings.TrimSuffix(settings.Tag, "-distroless"),
 		"PullPolicy":         settings.PullPolicy,
 		"Service":            cfg.Service,
 		"Version":            cfg.Version,
