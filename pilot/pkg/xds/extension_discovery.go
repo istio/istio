@@ -84,7 +84,7 @@ func (es *ExtensionServer) OnStreamRequest(streamID int64, req *discovery.Discov
 }
 
 // Update scans through all EnvoyFilters, identifies ECDS, and reconciles the serving cache.
-// This can be invoked from multiple go-routines executng AdsPushAll.
+// This can be invoked from multiple go-routines executing AdsPushAll.
 func (es *ExtensionServer) Update(req *model.PushRequest) {
 	es.Lock()
 	defer es.Unlock()
