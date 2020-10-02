@@ -39,6 +39,7 @@ func FlushObjectCaches() {
 	objectCachesMu.Lock()
 	defer objectCachesMu.Unlock()
 	objectCaches = make(map[string]*ObjectCache)
+	metricOperatorCacheFlushes.Increment()
 }
 
 // GetCache returns the object Cache for the given name, creating one in the global Cache if needed.
