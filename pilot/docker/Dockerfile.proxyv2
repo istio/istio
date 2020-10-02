@@ -18,7 +18,7 @@ FROM gcr.io/distroless/cc@sha256:ac75dbf0b249e5e3758134458d447bfd6a85d74c262ecb7
 
 # TODO(https://github.com/istio/istio/issues/17656) clean up this hack
 COPY --from=default /sbin/xtables-multi /sbin/iptables* /sbin/ip6tables* /sbin/ip /sbin/
-COPY --from=default /usr/lib/*-linux-gnu/ /usr/lib/
+COPY --from=default /usr/lib/*-linux-gnu /usr/lib/
 COPY --from=default /etc/iproute2 /etc/iproute2
 
 # Copy Envoy bootstrap templates used by pilot-agent
