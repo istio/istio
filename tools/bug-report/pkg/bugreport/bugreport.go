@@ -28,11 +28,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/common"
@@ -48,6 +50,7 @@ import (
 
 const (
 	bugReportDefaultTimeout = 30 * time.Minute
+	istioRevisionLabel      = "istio.io/rev"
 )
 
 var (
@@ -131,13 +134,15 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
+	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace)
+
 	log.Infof("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := filter.GetMatchingPaths(config, resources)
 	if err != nil {
 		return err
 	}
 
-	common.LogAndPrintf("Fetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(client, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -172,6 +177,67 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	}
 	common.LogAndPrintf("Done.\n")
 	return nil
+}
+
+func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
+	text := ""
+	revisions := getIstioRevisions(resources)
+	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
+	text += fmt.Sprintf("The following Istio control plane revisions/versions were found in the cluster:\n")
+	for rev, ver := range istioVersions {
+		text += fmt.Sprintf("Revision %s:\n%s\n\n", rev, ver)
+	}
+	text += fmt.Sprintf("The following proxy revisions/versions were found in the cluster:\n")
+	for rev, ver := range proxyVersions {
+		text += fmt.Sprintf("Revision %s: Versions {%s}\n", rev, strings.Join(ver, ", "))
+	}
+	common.LogAndPrintf(text)
+	writeFile(filepath.Join(archive.OutputRootDir(tempDir), "versions"), text)
+}
+
+// getIstioRevisions returns a slice with all Istio revisions detected in the cluster.
+func getIstioRevisions(resources *cluster2.Resources) []string {
+	var out []string
+	for _, podLabels := range resources.Labels {
+		for label, value := range podLabels {
+			if label == istioRevisionLabel {
+				out = append(out, value)
+			}
+		}
+	}
+	return out
+}
+
+// getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
+// slice of versions for proxies. Any errors are embedded in the revision strings.
+func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
+	istioVersions := make(map[string]string)
+	proxyVersions := make(map[string][]string)
+	for _, revision := range revisions {
+		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
+		proxyInfo, err := proxy.GetProxyInfo(kubeconfig, configContext, revision, istioNamespace)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		for _, pi := range *proxyInfo {
+			proxyVersions[revision] = append(proxyVersions[revision], pi.IstioVersion)
+		}
+	}
+	return istioVersions, proxyVersions
+}
+
+func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string) string {
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	if err != nil {
+		return err.Error()
+	}
+
+	versions, err := kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
+	if err != nil {
+		return err.Error()
+	}
+	return pretty.Sprint(versions)
 }
 
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.
