@@ -166,6 +166,7 @@ func TestStreamSecretsInvalidResourceName(t *testing.T) {
 }
 
 type secretCallback func(string, *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
+
 func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidResourceNames bool) {
 	resetEnvironments()
 	var wst, gst ca2.SecretManager
