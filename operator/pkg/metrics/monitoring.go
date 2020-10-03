@@ -62,6 +62,13 @@ var (
 		"Number of IstioOperator CR deleted",
 	)
 
+	// CRValidationFailure counts the number of CR
+	// validation failures
+	CRValidationFailure = monitoring.NewSum(
+		"operator_cr_validation_errors",
+		"Number of IstioOperator CR validation failures",
+	)
+
 	// CacheFlushes counts number of cache flushes
 	CacheFlushes = monitoring.NewSum(
 		"operator_cache_flushes",
@@ -72,6 +79,7 @@ var (
 func init() {
 	monitoring.MustRegister(
 		CRMergeFailures,
+		CRValidationFailure,
 		CRDeletions,
 		CacheFlushes,
 	)
