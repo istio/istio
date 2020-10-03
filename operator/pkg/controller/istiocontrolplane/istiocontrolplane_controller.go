@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
@@ -319,7 +320,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperatorSpec, error) {
 	profileYAML, err := helm.GetProfileYAML(iop.Spec.InstallPackagePath, iop.Spec.Profile)
 	if err != nil {
-		countCRMergeFail(cannotFindProfileError)
+		metrics.CountCRMergeFail(metrics.CannotFindProfileError)
 		return nil, err
 	}
 
@@ -330,43 +331,43 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 	if hub != "" && hub != "unknown" && tag != "" && tag != "unknown" {
 		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
-			countCRMergeFail(cannotMergeProfileWithHubTagError)
+			metrics.CountCRMergeFail(metrics.CannotMergeProfileWithHubTagError)
 			return nil, err
 		}
 		profileYAML, err = util.OverlayYAML(profileYAML, buildHubTagOverlayYAML)
 		if err != nil {
-			countCRMergeFail(cannotMergeProfileWithHubTagError)
+			metrics.CountCRMergeFail(metrics.CannotMergeProfileWithHubTagError)
 			return nil, err
 		}
 	}
 
 	overlayYAML, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
-		countCRMergeFail(cannotMarshalUserIOPError)
+		metrics.CountCRMergeFail(metrics.CannotMarshalUserIOPError)
 		return nil, err
 	}
 	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {
-		countCRMergeFail(cannotMergeFileOverlayWithProfileError)
+		metrics.CountCRMergeFail(metrics.CannotMergeFileOverlayWithProfileError)
 		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
 
 	mergedYAML, err := util.OverlayIOP(profileYAML, overlayYAML)
 	if err != nil {
-		countCRMergeFail(cannotMergeFileOverlayWithProfileError)
+		metrics.CountCRMergeFail(metrics.CannotMergeFileOverlayWithProfileError)
 		return nil, err
 	}
 
 	mergedYAML, err = translate.OverlayValuesEnablement(mergedYAML, overlayYAML, "")
 	if err != nil {
-		countCRMergeFail(cannotMergeFileOverlayWithProfileError)
+		metrics.CountCRMergeFail(metrics.CannotMergeFileOverlayWithProfileError)
 		return nil, err
 	}
 
 	mergedYAMLSpec, err := tpath.GetSpecSubtree(mergedYAML)
 	if err != nil {
-		countCRMergeFail(cannotGetSpecSubtreeError)
+		metrics.CountCRMergeFail(metrics.CannotGetSpecSubtreeError)
 		return nil, err
 	}
 

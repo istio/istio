@@ -19,9 +19,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
-	"go.opencensus.io/stats/view"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -32,10 +30,9 @@ import (
 
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/controller"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
-
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 )
 
 // Should match deploy/service.yaml
@@ -139,7 +136,7 @@ func run() {
 	}
 
 	log.Info("Registering operator metrics server")
-	if err := registerOperatorMetricsServer(mgr); err != nil {
+	if err := metrics.RegisterOperatorMetricsServer(mgr); err != nil {
 		log.Fatalf("Could not register operator metrics server")
 	}
 
@@ -161,16 +158,4 @@ func run() {
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		log.Fatalf("Manager exited non-zero: %v", err)
 	}
-}
-
-func registerOperatorMetricsServer(mgr manager.Manager) error {
-	exporter, err := ocprom.NewExporter(ocprom.Options{
-		Registry: prometheus.DefaultRegisterer.(*prometheus.Registry),
-	})
-	if err != nil {
-		return fmt.Errorf("could not set up prometheus exporter: %v", err)
-	}
-	view.RegisterExporter(exporter)
-	mgr.AddMetricsExtraHandler("/op-metrics", exporter)
-	return nil
 }
