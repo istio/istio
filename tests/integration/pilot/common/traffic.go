@@ -90,7 +90,7 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase, namespace
 					return e
 				}
 				return nil
-			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10), retry.Converge(3))
+			}, retry.Delay(1000*time.Millisecond), retry.Timeout(time.Second*15), retry.Converge(3))
 		}
 	})
 }
