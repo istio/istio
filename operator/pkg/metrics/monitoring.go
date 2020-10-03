@@ -48,15 +48,22 @@ const (
 )
 
 var (
-	// OperatorCRMergeFailures Counts number of CR merge failures
-	OperatorCRMergeFailures = monitoring.NewSum(
+	// CRMergeFailures counts number of CR merge failures
+	CRMergeFailures = monitoring.NewSum(
 		"operator_cr_merge_failures",
 		"Number of IstioOperator CR merge failures",
 		monitoring.WithLabels(MergeErrorLabel),
 	)
 
-	// OperatorCacheFlushes counts number of cache flushes
-	OperatorCacheFlushes = monitoring.NewSum(
+	// CRDeletions counts the number of times
+	// IstioOperator CR was deleted
+	CRDeletions = monitoring.NewSum(
+		"operator_cr_deletions",
+		"Number of IstioOperator CR deleted",
+	)
+
+	// CacheFlushes counts number of cache flushes
+	CacheFlushes = monitoring.NewSum(
 		"operator_cache_flushes",
 		"number of times operator cache was flushed",
 	)
@@ -64,15 +71,16 @@ var (
 
 func init() {
 	monitoring.MustRegister(
-		OperatorCRMergeFailures,
-		OperatorCacheFlushes,
+		CRMergeFailures,
+		CRDeletions,
+		CacheFlushes,
 	)
 }
 
 // CountCRMergeFail increments the count of CR merge failure
 // for the given merge error type
 func CountCRMergeFail(reason MergeErrorType) {
-	OperatorCRMergeFailures.
+	CRMergeFailures.
 		With(MergeErrorLabel.Value(string(reason))).
 		Increment()
 }

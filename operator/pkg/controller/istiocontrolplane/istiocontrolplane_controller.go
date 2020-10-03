@@ -203,6 +203,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			metrics.CRDeletions.Increment()
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -217,6 +218,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	if deleted {
 		if !finalizers.Has(finalizer) {
 			scope.Infof("IstioOperator %s deleted", iopName)
+			metrics.CRDeletions.Increment()
 			return reconcile.Result{}, nil
 		}
 		scope.Infof("Deleting IstioOperator %s", iopName)
@@ -242,6 +244,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		if finalizerError != nil {
 			if errors.IsNotFound(finalizerError) {
 				scope.Infof("Did not remove finalizer from %s: the object was previously deleted.", iopName)
+				metrics.CRDeletions.Increment()
 				return reconcile.Result{}, nil
 			} else if errors.IsConflict(finalizerError) {
 				scope.Infof("Could not remove finalizer from %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
@@ -259,6 +262,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		if err != nil {
 			if errors.IsNotFound(err) {
 				scope.Infof("Could not add finalizer to %s: the object was deleted.", iopName)
+				metrics.CRDeletions.Increment()
 				return reconcile.Result{}, nil
 			} else if errors.IsConflict(err) {
 				scope.Infof("Could not add finalizer to %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
