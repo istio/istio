@@ -16,9 +16,6 @@ package metrics
 
 import (
 	"istio.io/pkg/monitoring"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
@@ -33,6 +30,12 @@ var (
 
 	// CRFetchNamespacedNameLabel describes the name with namespace
 	CRFetchNamespacedNameLabel = monitoring.MustCreateLabel("name")
+)
+
+var (
+	// ComponentNameLabel represents istio component name - like
+	// core, pilot, istio-cni etc.
+	ComponentNameLabel = monitoring.MustCreateLabel("component")
 )
 
 // MergeErrorType describes the class of errors that could
@@ -91,6 +94,14 @@ var (
 		"Number of IstioOperator CR validation failures",
 	)
 
+	// RenderManifestCount counts the number of manifest
+	// renders at each component level
+	RenderManifestCount = monitoring.NewSum(
+		"operator_render_manifest_count",
+		"Number of component manifests rendered",
+		monitoring.WithLabels(ComponentNameLabel),
+	)
+
 	// CacheFlushes counts number of cache flushes
 	CacheFlushes = monitoring.NewSum(
 		"operator_cache_flushes",
@@ -104,27 +115,7 @@ func init() {
 		CRMergeFailures,
 		CRValidationFailure,
 		CRDeletions,
+		RenderManifestCount,
 		CacheFlushes,
 	)
-}
-
-// CountCRMergeFail increments the count of CR merge failure
-// for the given merge error type
-func CountCRMergeFail(reason MergeErrorType) {
-	CRMergeFailures.
-		With(MergeErrorLabel.Value(string(reason))).
-		Increment()
-}
-
-// CountCRFetchFail increments the count of CR fetch failure
-// for a given name and the error status
-func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
-	errorReason := string(reason)
-	if reason == metav1.StatusReasonUnknown {
-		errorReason = "unknown"
-	}
-	FetchCRError.
-		With(CRFetchErrorReasonLabel.Value(errorReason)).
-		With(CRFetchNamespacedNameLabel.Value(name.String())).
-		Increment()
 }
