@@ -33,6 +33,7 @@ var (
 		"reconcile time distribution in seconds",
 		[]float64{0.0},
 		monitoring.WithUnit(monitoring.Seconds),
+		monitoring.WithLabels(monitoring.MustCreateLabel("result")),
 	)
 )
 
