@@ -107,7 +107,7 @@ func waitForSecretCacheCleanUp(t *testing.T, secretsStore *mockIngressGatewaySec
 // waitForSecretCacheCheck wait until cache hit or cache miss meets expected value and return. Or
 // return directly on timeout.
 func waitForStreamSecretCacheCheck(t *testing.T, mss *mockIngressGatewaySecretStore, expectCacheHit bool, expectValue int) {
-	waitTimeout := 5 * time.Second
+	waitTimeout := 10 * time.Second
 	checkMetric := "cache hit"
 	if !expectCacheHit {
 		checkMetric = "cache miss"
