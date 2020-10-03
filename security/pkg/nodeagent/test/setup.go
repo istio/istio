@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/grpc"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
+	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -151,11 +152,14 @@ func (e *Env) DumpPortMap(t *testing.T) {
 }
 
 // StartProxy starts proxy.
-func (e *Env) StartProxy(t *testing.T) {
-	if err := e.ProxySetup.SetUp(); err != nil {
-		t.Fatalf("failed to start proxy: %v", err)
-	}
-	t.Log("proxy is running...")
+func (e *Env) StartProxy(t *testing.T)  {
+	retry.UntilSuccessOrFail(t, func() error {
+		if err := e.ProxySetup.SetUp(); err != nil {
+			return fmt.Errorf("failed to start proxy: %v", err)
+		}
+		t.Log("proxy is running...")
+		return nil
+	}, retry.Delay(1 *time.Second), retry.Timeout(20*time.Second))
 }
 
 // StartSDSServer starts SDS server
