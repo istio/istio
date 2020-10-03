@@ -235,7 +235,7 @@ func testPodCache(t *testing.T) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
 	defer c.Stop()
 
 	ns := "default"
@@ -248,9 +248,6 @@ func TestPodCacheEvents(t *testing.T) {
 	if err := f(&v1.Pod{ObjectMeta: pod1}, model.EventAdd); err != nil {
 		t.Error(err)
 	}
-
-	// The first time pod occur
-	fx.Wait("xds")
 
 	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodPending}}, model.EventUpdate); err != nil {
 		t.Error(err)

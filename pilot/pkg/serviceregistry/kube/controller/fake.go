@@ -154,7 +154,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	}
 	options := Options{
 		WatchedNamespaces: opts.WatchedNamespaces, // default is all namespaces
-		ResyncPeriod:      1 * time.Second,
 		DomainSuffix:      domainSuffix,
 		XDSUpdater:        xdsUpdater,
 		Metrics:           &model.Environment{},

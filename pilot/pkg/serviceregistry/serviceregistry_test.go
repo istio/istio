@@ -80,12 +80,14 @@ func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ mode
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
-func (fx *FakeXdsUpdater) Wait(et string) *Event {
+func (fx *FakeXdsUpdater) Wait(types ...string) *Event {
 	for {
 		select {
 		case e := <-fx.Events:
-			if e.kind == et {
-				return &e
+			for _, et := range types {
+				if e.kind == et {
+					return &e
+				}
 			}
 			continue
 		case <-time.After(5 * time.Second):
@@ -265,23 +267,11 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
-		event := xdsUpdater.Wait("eds")
-		if event == nil {
-			t.Fatalf("expecting eds event")
-		}
-		if event.endpoints != 1 {
-			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
-		}
+		waitForEdsUpdate(t, xdsUpdater, 1)
 
 		// make service populated later than endpoint
 		makeService(t, kube, service)
-		event = xdsUpdater.Wait("edscache")
-		if event == nil {
-			t.Fatalf("expecting edscache event")
-		}
-		if event.endpoints != 1 {
-			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
-		}
+		waitForEdsUpdate(t, xdsUpdater, 1)
 
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
@@ -389,7 +379,7 @@ func TestWorkloadInstances(t *testing.T) {
 		select {
 		case ev := <-xdsUpdater.Events:
 			t.Fatalf("Got %s event, expect none", ev.kind)
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(20 * time.Millisecond):
 		}
 
 		makeService(t, kube, service)
@@ -426,13 +416,7 @@ func TestWorkloadInstances(t *testing.T) {
 
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
-		event = xdsUpdater.Wait("eds")
-		if event == nil {
-			t.Fatalf("expecting eds event")
-		}
-		if event.endpoints != 2 {
-			t.Errorf("expecting 2 endpoints, but got %d ", event.endpoints)
-		}
+		waitForEdsUpdate(t, xdsUpdater, 2)
 
 		instances := []ServiceInstanceResponse{
 			{
@@ -464,22 +448,10 @@ func TestWorkloadInstances(t *testing.T) {
 
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
-		event := xdsUpdater.Wait("eds")
-		if event == nil {
-			t.Fatalf("expecting eds event")
-		}
-		if event.endpoints != 1 {
-			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
-		}
+		waitForEdsUpdate(t, xdsUpdater, 1)
 
 		makeService(t, kube, service)
-		event = xdsUpdater.Wait("edscache")
-		if event == nil {
-			t.Fatalf("expecting edscache event")
-		}
-		if event.endpoints != 2 {
-			t.Errorf("expecting 2 endpoints, but got %d ", event.endpoints)
-		}
+		waitForEdsUpdate(t, xdsUpdater, 2)
 
 		instances := []ServiceInstanceResponse{
 			{
@@ -779,6 +751,20 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 }
 
+func waitForEdsUpdate(t *testing.T, xdsUpdater *FakeXdsUpdater, expected int) {
+	t.Helper()
+	retry.UntilSuccessOrFail(t, func() error {
+		event := xdsUpdater.Wait("eds", "edscache")
+		if event == nil {
+			return fmt.Errorf("expecting eds event")
+		}
+		if event.endpoints != expected {
+			return fmt.Errorf("expecting %d endpoints, but got %d", expected, event.endpoints)
+		}
+		return nil
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second))
+}
+
 type ServiceInstanceResponse struct {
 	Hostname   host.Name
 	Namestring string
@@ -794,7 +780,7 @@ func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, e
 			return fmt.Errorf("wanted %v got %v. All endpoints: %+v", expected, got[cluster], got)
 		}
 		return nil
-	}, retry.Converge(2), retry.Timeout(time.Second*2))
+	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 }
 
 // nolint: unparam
@@ -818,7 +804,7 @@ func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *mode
 			return fmt.Errorf("%v", err)
 		}
 		return nil
-	}, retry.Converge(2), retry.Timeout(time.Second*2))
+	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 }
 
 func compare(t *testing.T, actual, expected interface{}) error {
@@ -859,7 +845,6 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(100 * time.Millisecond)
 }
 
 func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
@@ -871,7 +856,6 @@ func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(100 * time.Millisecond)
 }
 
 func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
