@@ -183,11 +183,11 @@ func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configC
 	text := ""
 	revisions := getIstioRevisions(resources)
 	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
-	text += fmt.Sprintf("The following Istio control plane revisions/versions were found in the cluster:\n")
+	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
 	for rev, ver := range istioVersions {
 		text += fmt.Sprintf("Revision %s:\n%s\n\n", rev, ver)
 	}
-	text += fmt.Sprintf("The following proxy revisions/versions were found in the cluster:\n")
+	text += "The following proxy revisions/versions were found in the cluster:\n"
 	for rev, ver := range proxyVersions {
 		text += fmt.Sprintf("Revision %s: Versions {%s}\n", rev, strings.Join(ver, ", "))
 	}
