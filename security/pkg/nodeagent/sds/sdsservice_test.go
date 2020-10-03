@@ -167,7 +167,11 @@ func TestStreamSecretsInvalidResourceName(t *testing.T) {
 
 type secretCallback func(string, *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
 func resetEnvironments() {
-	totalStaleConnCounts.Record(1)
+	totalPushCounts.Record(0)
+	totalPushErrorCounts.Record(0)
+	totalActiveConnCounts.Record(0)
+	totalStaleConnCounts.Record(0)
+	totalSecretUpdateFailureCounts.Record(0)
 }
 func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidResourceNames bool) {
 	resetEnvironments()
