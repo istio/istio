@@ -18,10 +18,15 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
+	"go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -226,6 +231,184 @@ func TestEnvoyFilters(t *testing.T) {
 				t.Errorf("Expect %d envoy filter listener patches, but got %d", tt.expectedListenerPatches, len(filter.Patches[networking.EnvoyFilter_LISTENER]))
 			}
 		})
+	}
+}
+
+func TestServiceIndex(t *testing.T) {
+	g := NewWithT(t)
+	env := &Environment{}
+	store := istioConfigStore{ConfigStore: NewFakeStore()}
+
+	env.IstioConfigStore = &store
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname: "svc-unset",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+				},
+			},
+			{
+				Hostname: "svc-public",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+				},
+			},
+			{
+				Hostname: "svc-private",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+				},
+			},
+			{
+				Hostname: "svc-none",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+				},
+			},
+			{
+				Hostname: "svc-namespace",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{"namespace": true},
+				},
+			},
+		},
+		serviceInstances: []*ServiceInstance{{
+			Endpoint: &IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 8000,
+				TLSMode:      DisabledTLSModeLabel,
+			},
+		}},
+	}
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(&m)
+
+	// Init a new push context
+	pc := NewPushContext()
+	if err := pc.InitContext(env, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	si := pc.ServiceIndex
+
+	// Should have all 5 services
+	g.Expect(si.instancesByPort).To(HaveLen(5))
+	g.Expect(si.ClusterVIPs).To(HaveLen(5))
+	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
+	g.Expect(si.Hostname).To(HaveLen(5))
+
+	// Should just have "namespace"
+	g.Expect(si.exportedToNamespace).To(HaveLen(1))
+	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
+
+	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
+
+	// Should just have "test1"
+	g.Expect(si.privateByNamespace).To(HaveLen(1))
+	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
+}
+
+func serviceNames(svcs []*Service) []string {
+	s := []string{}
+	for _, ss := range svcs {
+		s = append(s, string(ss.Hostname))
+	}
+	sort.Strings(s)
+	return s
+}
+
+func TestInitPushContext(t *testing.T) {
+	env := &Environment{}
+	configStore := NewFakeStore()
+	configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "rule1",
+			Namespace:        "test1",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"rule1.com"},
+			ExportTo: []string{".", "ns1"},
+		},
+	})
+	configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "rule1",
+			Namespace:        "test1",
+			GroupVersionKind: gvk.DestinationRule,
+		},
+		Spec: &networking.DestinationRule{
+			ExportTo: []string{".", "ns1"},
+		},
+	})
+	store := istioConfigStore{ConfigStore: configStore}
+
+	env.IstioConfigStore = &store
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{{
+			Hostname: "svc1",
+			Ports:    allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+			},
+		},
+			{
+				Hostname: "svc2",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+				},
+			}},
+		serviceInstances: []*ServiceInstance{{
+			Endpoint: &IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 8000,
+				TLSMode:      DisabledTLSModeLabel,
+			},
+		}},
+	}
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(&m)
+
+	// Init a new push context
+	old := NewPushContext()
+	if err := old.InitContext(env, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a new one, copying from the old one
+	// Pass a ConfigsUpdated otherwise we would just copy it directly
+	newPush := NewPushContext()
+	if err := newPush.InitContext(env, old, &PushRequest{
+		ConfigsUpdated: map[ConfigKey]struct{}{
+			{Kind: gvk.Secret}: {},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check to ensure the update is identical to the old one
+	// There is probably a better way to do this.
+	diff := cmp.Diff(old, newPush,
+		// Allow looking into exported fields for parts of push context
+		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
+			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{}, AuthenticationPolicies{}),
+		// These are not feasible/worth comparing
+		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}),
+		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
+	)
+	if diff != "" {
+		t.Fatalf("Push context had a diff after update: %v", diff)
 	}
 }
 
@@ -999,6 +1182,8 @@ type localServiceDiscovery struct {
 	serviceInstances []*ServiceInstance
 }
 
+var _ ServiceDiscovery = &localServiceDiscovery{}
+
 func (l *localServiceDiscovery) Services() ([]*Service, error) {
 	return l.services, nil
 }
@@ -1019,14 +1204,6 @@ func (l *localServiceDiscovery) GetProxyWorkloadLabels(proxy *Proxy) (labels.Col
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) ManagementPorts(addr string) PortList {
-	panic("implement me")
-}
-
-func (l *localServiceDiscovery) WorkloadHealthCheckInfo(addr string) ProbeList {
-	panic("implement me")
-}
-
 func (l *localServiceDiscovery) GetIstioServiceAccounts(svc *Service, ports []int) []string {
-	panic("implement me")
+	return nil
 }
