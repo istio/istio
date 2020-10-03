@@ -64,6 +64,15 @@ type serviceIndex struct {
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 	Hostname             map[host.Name]*Service            `json:"-"`
+
+	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
+	// to avoid locking each service for every proxy during push.
+	ClusterVIPs map[*Service]map[string]string
+
+	// instancesByPort contains a map of service and instances by port. It is stored here
+	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
+	// Call InstancesByPort directly when instances need to be filtered by actual labels.
+	instancesByPort map[*Service]map[int][]*ServiceInstance
 }
 
 func newServiceIndex() serviceIndex {
@@ -73,6 +82,8 @@ func newServiceIndex() serviceIndex {
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		Hostname:             map[host.Name]*Service{},
+		ClusterVIPs:          map[*Service]map[string]string{},
+		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -150,15 +161,6 @@ type PushContext struct {
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
-
-	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
-	// to avoid locking each service for every proxy during push.
-	ClusterVIPs map[*Service]map[string]string
-
-	// instancesByPort contains a map of service and instances by port. It is stored here
-	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
-	// Call InstancesByPort directly when instances need to be filtered by actual labels.
-	instancesByPort map[*Service]map[int][]*ServiceInstance
 
 	// virtualServiceIndex is the index of virtual services by various fields.
 	virtualServiceIndex virtualServiceIndex
@@ -519,8 +521,6 @@ func NewPushContext() *PushContext {
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
-		ClusterVIPs:             map[*Service]map[string]string{},
-		instancesByPort:         map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -970,9 +970,6 @@ func (ps *PushContext) updateContext(
 		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
-		// TODO should this be a deep copy, or is the old push context discarded?
-		ps.ClusterVIPs = oldPushContext.ClusterVIPs
-		ps.instancesByPort = oldPushContext.instancesByPort
 	}
 
 	if virtualServicesChanged {
@@ -1048,11 +1045,27 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
 		s.Mutex.RLock()
-		ps.ClusterVIPs[s] = make(map[string]string)
+		ps.ServiceIndex.ClusterVIPs[s] = make(map[string]string)
 		for k, v := range s.ClusterVIPs {
-			ps.ClusterVIPs[s][k] = v
+			ps.ServiceIndex.ClusterVIPs[s][k] = v
 		}
 		s.Mutex.RUnlock()
+
+		// Precache instances
+		for _, port := range s.Ports {
+			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
+				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
+			}
+			instances := make([]*ServiceInstance, 0)
+			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
+			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
+		}
+
+		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		}
+		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		ps.ServiceIndex.Hostname[s.Hostname] = s
 
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
@@ -1082,19 +1095,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 					}
 				}
 			}
-		}
-		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
-			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
-		}
-		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
-		ps.ServiceIndex.Hostname[s.Hostname] = s
-		for _, port := range s.Ports {
-			if _, ok := ps.instancesByPort[s]; !ok {
-				ps.instancesByPort[s] = make(map[int][]*ServiceInstance)
-			}
-			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
-			ps.instancesByPort[s][port.Port] = instances
 		}
 	}
 
@@ -1787,7 +1787,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	// Use cached version of instances by port when labels are empty. If there are labels,
 	// we will have to make actual call and filter instances by pod labels.
 	if len(labels) == 0 {
-		if instances, exists := ps.instancesByPort[svc][port]; exists {
+		if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
 			return instances
 		}
 	}
