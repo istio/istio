@@ -171,7 +171,7 @@ func resetEnvironments() {
 	totalStaleConnCounts.Record(0)
 }
 func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidResourceNames bool) {
-	resetEnvironments()
+	//resetEnvironments()
 	var wst, gst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
