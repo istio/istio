@@ -14,11 +14,25 @@
 
 package metrics
 
-import "istio.io/pkg/monitoring"
+import (
+	"istio.io/pkg/monitoring"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+)
 
 var (
 	// MergeErrorLabel describes the type of merge error
 	MergeErrorLabel = monitoring.MustCreateLabel("error_type")
+)
+
+var (
+	// CRFetchErrorReasonLabel describes the reason/HTTP code
+	// for failing to fetch CR
+	CRFetchErrorReasonLabel = monitoring.MustCreateLabel("reason")
+
+	// CRFetchNamespacedNameLabel describes the name with namespace
+	CRFetchNamespacedNameLabel = monitoring.MustCreateLabel("name")
 )
 
 // MergeErrorType describes the class of errors that could
@@ -48,6 +62,14 @@ const (
 )
 
 var (
+	// FetchCRError counts the number of times fetching
+	// CR fails from API server
+	FetchCRError = monitoring.NewSum(
+		"operator_get_cr_errors",
+		"Number of times fetching CR from apiserver failed",
+		monitoring.WithLabels(CRFetchErrorReasonLabel, CRFetchNamespacedNameLabel),
+	)
+
 	// CRMergeFailures counts number of CR merge failures
 	CRMergeFailures = monitoring.NewSum(
 		"operator_cr_merge_failures",
@@ -78,6 +100,7 @@ var (
 
 func init() {
 	monitoring.MustRegister(
+		FetchCRError,
 		CRMergeFailures,
 		CRValidationFailure,
 		CRDeletions,
@@ -90,5 +113,18 @@ func init() {
 func CountCRMergeFail(reason MergeErrorType) {
 	CRMergeFailures.
 		With(MergeErrorLabel.Value(string(reason))).
+		Increment()
+}
+
+// CountCRFetchFail increments the count of CR fetch failure
+// for a given name and the error status
+func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
+	errorReason := string(reason)
+	if reason == metav1.StatusReasonUnknown {
+		errorReason = "unknown"
+	}
+	FetchCRError.
+		With(CRFetchErrorReasonLabel.Value(errorReason)).
+		With(CRFetchNamespacedNameLabel.Value(name.String())).
 		Increment()
 }
