@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/pkg/monitoring"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +39,7 @@ func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
 	}
 	FetchCRError.
 		With(CRFetchErrorReasonLabel.Value(errorReason)).
-		With(CRFetchNamespacedNameLabel.Value(name.String())).
+		With(CRNamespacedNameLabel.Value(name.String())).
 		Increment()
 }
 
@@ -47,5 +48,47 @@ func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
 func CountManifestRender(name name.ComponentName) {
 	RenderManifestCount.
 		With(ComponentNameLabel.Value(string(name))).
+		Increment()
+}
+
+// RecordResourcesOwnedByOperator records the number of resources of a given
+// kind owned by CR with given name and revision
+func RecordResourcesOwnedByOperator(name, revision, resourceKind string, ownedCount int) {
+	OperatorResourceCount.
+		With(CRNamespacedNameLabel.Value(name)).
+		With(CRRevisionLabel.Value(revision)).
+		With(ResourceKindLabel.Value(resourceKind)).
+		Record(float64(ownedCount))
+}
+
+// CountResourceCreations increments the number of K8S resources
+// of a particular kind created by Operator for a CR and revision
+func CountResourceCreations(name, revision, resourceKind string) {
+	incrementCount(name, revision, resourceKind, OperatorResourceCreations)
+}
+
+// CountResourceDeletions increments the number of K8S resources
+// of a particular kind deleted by Operator for a CR and revision
+func CountResourceDeletions(name, revision, resourceKind string) {
+	incrementCount(name, revision, resourceKind, OperatorResourceDeletions)
+}
+
+// CountResourceUpdates increments the number of K8S resources
+// of a particular kind updated by Operator for a CR and revision
+func CountResourceUpdates(name, revision, resourceKind string) {
+	incrementCount(name, revision, resourceKind, OperatorResourceUpdates)
+}
+
+// CountResourcePrunes increments the number of K8S resources
+// of a particular kind pruned by Operator
+func CountResourcePrunes(name, revision, resourceKind string) {
+	incrementCount(name, revision, resourceKind, OperatorResourcePrunes)
+}
+
+func incrementCount(name, revision, resourceKind string, metric monitoring.Metric) {
+	metric.
+		With(CRNamespacedNameLabel.Value(name)).
+		With(CRRevisionLabel.Value(revision)).
+		With(ResourceKindLabel.Value(resourceKind)).
 		Increment()
 }

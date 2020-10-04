@@ -28,14 +28,21 @@ var (
 	// for failing to fetch CR
 	CRFetchErrorReasonLabel = monitoring.MustCreateLabel("reason")
 
-	// CRFetchNamespacedNameLabel describes the name with namespace
-	CRFetchNamespacedNameLabel = monitoring.MustCreateLabel("name")
+	// CRNamespacedNameLabel describes the name with namespace
+	CRNamespacedNameLabel = monitoring.MustCreateLabel("name")
 )
 
 var (
 	// ComponentNameLabel represents istio component name - like
 	// core, pilot, istio-cni etc.
 	ComponentNameLabel = monitoring.MustCreateLabel("component")
+
+	// ResourceKindLabel indicates the kind of resource owned
+	// or created or updated or deleted or pruned by operator
+	ResourceKindLabel = monitoring.MustCreateLabel("kind")
+
+	// CRRevisionLabel indicates the revision in the CR
+	CRRevisionLabel = monitoring.MustCreateLabel("revision")
 )
 
 // MergeErrorType describes the class of errors that could
@@ -70,7 +77,7 @@ var (
 	FetchCRError = monitoring.NewSum(
 		"operator_get_cr_errors",
 		"Number of times fetching CR from apiserver failed",
-		monitoring.WithLabels(CRFetchErrorReasonLabel, CRFetchNamespacedNameLabel),
+		monitoring.WithLabels(CRFetchErrorReasonLabel, CRNamespacedNameLabel),
 	)
 
 	// CRMergeFailures counts number of CR merge failures
@@ -102,6 +109,47 @@ var (
 		monitoring.WithLabels(ComponentNameLabel),
 	)
 
+	// OperatorResourceCount indicates the number of resources
+	// currently owned by the CR with given name and revision
+	OperatorResourceCount = monitoring.NewGauge(
+		"operator_resource_count",
+		"Number of resources currently owned by the operator",
+		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
+	)
+
+	// OperatorResourceCreations indicates the number of resources
+	// created by the operator for a CR and revision
+	OperatorResourceCreations = monitoring.NewSum(
+		"operator_resource_creations",
+		"Number of resources created by the operator",
+		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
+	)
+
+	// OperatorResourceUpdates indicates the number of resources updated by
+	// the operator in response to CR updates for a revision
+	OperatorResourceUpdates = monitoring.NewSum(
+		"operator_resource_updates",
+		"Number of resources updated by the operator",
+		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
+	)
+
+	// OperatorResourceDeletions indicates the number of resources deleted
+	// by the operator in response to CR update or delete operation (like
+	// ingress-gateway which was enabled could be disabled and this requires
+	// deleting ingress-gateway deployment)
+	OperatorResourceDeletions = monitoring.NewSum(
+		"operator_resource_deletions",
+		"Number of resources deleted by the operator",
+		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
+	)
+
+	// OperatorResourcePrunes indicates the resources pruned as a result of update
+	OperatorResourcePrunes = monitoring.NewSum(
+		"operator_resource_prunes",
+		"Number of resources pruned by the operator",
+		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
+	)
+
 	// CacheFlushes counts number of cache flushes
 	CacheFlushes = monitoring.NewSum(
 		"operator_cache_flushes",
@@ -116,6 +164,13 @@ func init() {
 		CRValidationFailure,
 		CRDeletions,
 		RenderManifestCount,
+
+		OperatorResourceCount,
+		OperatorResourceCreations,
+		OperatorResourceUpdates,
+		OperatorResourceDeletions,
+		OperatorResourcePrunes,
+
 		CacheFlushes,
 	)
 }

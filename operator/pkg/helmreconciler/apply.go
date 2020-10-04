@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -163,8 +164,13 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		scope.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
+	objGvk := obj.GetObjectKind().GroupVersionKind()
+	gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
+	revision := h.iop.Spec.Revision
+	iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
+
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	receiver.SetGroupVersionKind(objGvk)
 	objectKey, _ := client.ObjectKeyFromObject(obj)
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
@@ -177,6 +183,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
 		err := h.client.Get(context.TODO(), objectKey, receiver)
+
 		switch {
 		case errors2.IsNotFound(err):
 			scope.Infof("creating resource: %s", objectStr)
@@ -184,6 +191,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err != nil {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
 			}
+			metrics.CountResourceCreations(iopName, revision, gvkStr)
 			return nil
 		case err == nil:
 			scope.Infof("updating resource: %s", objectStr)
@@ -193,7 +201,11 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err := applyOverlay(receiver, obj); err != nil {
 				return err
 			}
-			return h.client.Update(context.TODO(), receiver)
+			if err := h.client.Update(context.TODO(), receiver); err != nil {
+				return fmt.Errorf("failed to update %q: %w", objectStr, err)
+			}
+			metrics.CountResourceUpdates(iopName, revision, gvkStr)
+			return nil
 		}
 		return nil
 	})
