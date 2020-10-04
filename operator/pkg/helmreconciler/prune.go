@@ -29,6 +29,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -139,14 +140,23 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 			}
 
 			err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+			deleteErrored := false
 			if err != nil {
 				if !strings.Contains(err.Error(), "not found") {
 					errs = util.AppendErr(errs, err)
+					deleteErrored = true
 				} else {
 					// do not return error if resources are not found
 					h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists",
 						obj.Hash())
 				}
+			}
+			if !deleteErrored {
+				objGvk := o.GroupVersionKind()
+				gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
+				revision := h.iop.Spec.Revision
+				iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
+				metrics.CountResourceDeletions(iopName, revision, gvkStr)
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 		}
@@ -304,11 +314,16 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			continue
 		}
 		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		objGvk := o.GroupVersionKind()
+		gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
+		revision := h.iop.Spec.Revision
+		iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
 		if err != nil {
 			if !strings.Contains(err.Error(), "not found") {
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found
+				metrics.CountResourceDeletions(iopName, revision, gvkStr)
 				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exist", obj.Hash())
 				continue
 			}
@@ -316,6 +331,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		if !all {
 			h.removeFromObjectCache(componentName, oh)
 		}
+		metrics.CountResourceDeletions(iopName, revision, gvkStr)
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
 	if all {
