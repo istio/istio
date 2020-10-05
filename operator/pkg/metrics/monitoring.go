@@ -150,6 +150,12 @@ var (
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
+	// K8SPatchOverlayErrors counts the total number of K8S patch errors
+	K8SPatchOverlayErrors = monitoring.NewSum(
+		"operator_patch_errors",
+		"Number of times K8S patch overlays failed",
+	)
+
 	// CacheFlushes counts number of cache flushes
 	CacheFlushes = monitoring.NewSum(
 		"operator_cache_flushes",
@@ -171,6 +177,7 @@ func init() {
 		OperatorResourceDeletions,
 		OperatorResourcePrunes,
 
+		K8SPatchOverlayErrors,
 		CacheFlushes,
 	)
 }

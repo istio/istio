@@ -166,11 +166,11 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 
 	objGvk := obj.GetObjectKind().GroupVersionKind()
 	gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
+	iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
 	revision := ""
 	if h.iop != nil && h.iop.Spec != nil {
 		revision = h.iop.Spec.Revision
 	}
-	iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
 
 	receiver := &unstructured.Unstructured{}
 	receiver.SetGroupVersionKind(objGvk)

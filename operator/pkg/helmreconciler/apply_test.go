@@ -20,10 +20,12 @@ import (
 	"reflect"
 	"testing"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 )
 
@@ -52,7 +54,16 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 			cl := fake.NewFakeClient(loadData(t, tt.input).UnstructuredObject())
 			obj := loadData(t, tt.input)
 
-			h := &HelmReconciler{client: cl, opts: &Options{}}
+			h := &HelmReconciler{
+				client: cl,
+				opts:   &Options{},
+				iop: &v1alpha1.IstioOperator{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test-operator",
+						Namespace: "istio-operator-test",
+					},
+				},
+			}
 			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v, wantErr %v", err, tt.wantErr)
 			}
