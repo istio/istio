@@ -47,7 +47,7 @@ func (sr SecretResource) Key() string {
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigKey {
-	return []model.ConfigKey{{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}}
+	return relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})
 }
 
 func (sr SecretResource) Cacheable() bool {
@@ -129,7 +129,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 		}
 
 		if updatedSecrets != nil {
-			if _, f := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; !f {
+			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
 				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}
@@ -202,6 +202,35 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte) *any.Any {
 			},
 		},
 	})
+}
+
+func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
+	for _, k := range keys {
+		if _, f := mp[k]; f {
+			return true
+		}
+	}
+	return false
+}
+
+// relatedConfigs maps a single resource to a list of relevant resources. This is used for cache invalidation
+// and push skipping. This is because an secret potentially has a dependency on the same secret with or without
+// the -cacert suffix. By including this dependency we ensure we do not miss any updates.
+func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
+	related := []model.ConfigKey{k}
+	// For secrets without -cacert suffix, add the suffix
+	if !strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
+		withSuffix := k
+		withSuffix.Name = withSuffix.Name + GatewaySdsCaSuffix
+		related = append(related, withSuffix)
+	}
+	// For secrets with -cacert suffix, remove the suffix
+	if strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
+		withoutSuffix := k
+		withoutSuffix.Name = strings.TrimSuffix(withoutSuffix.Name, GatewaySdsCaSuffix)
+		related = append(related, withoutSuffix)
+	}
+	return related
 }
 
 type SecretGen struct {
