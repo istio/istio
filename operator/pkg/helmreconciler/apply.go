@@ -166,7 +166,10 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 
 	objGvk := obj.GetObjectKind().GroupVersionKind()
 	gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
-	revision := h.iop.Spec.Revision
+	revision := ""
+	if h.iop != nil && h.iop.Spec != nil {
+		revision = h.iop.Spec.Revision
+	}
 	iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
 
 	receiver := &unstructured.Unstructured{}
@@ -191,6 +194,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err != nil {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
 			}
+			metrics.IncrementResourcesOwned(iopName, revision, gvkStr)
 			metrics.CountResourceCreations(iopName, revision, gvkStr)
 			return nil
 		case err == nil:

@@ -111,7 +111,7 @@ var (
 
 	// OperatorResourceCount indicates the number of resources
 	// currently owned by the CR with given name and revision
-	OperatorResourceCount = monitoring.NewGauge(
+	OperatorResourceCount = monitoring.NewSum(
 		"operator_resource_count",
 		"Number of resources currently owned by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),

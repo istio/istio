@@ -140,22 +140,21 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 			}
 
 			err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
-			deleteErrored := false
 			if err != nil {
 				if !strings.Contains(err.Error(), "not found") {
 					errs = util.AppendErr(errs, err)
-					deleteErrored = true
 				} else {
 					// do not return error if resources are not found
 					h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists",
 						obj.Hash())
 				}
-			}
-			if !deleteErrored {
+			} else {
 				objGvk := o.GroupVersionKind()
 				gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
 				revision := h.iop.Spec.Revision
 				iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
+				// Does increment/decrement approach really work?
+				metrics.DecrementResourceOwned(iopName, revision, gvkStr)
 				metrics.CountResourceDeletions(iopName, revision, gvkStr)
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
@@ -331,6 +330,10 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		if !all {
 			h.removeFromObjectCache(componentName, oh)
 		}
+		// Not sure how reliable incrementing and decrementing owned
+		// resource count is. What if it was deleted and not found, but
+		// we failed to decrement resource count accordingly?
+		metrics.DecrementResourceOwned(iopName, revision, gvkStr)
 		metrics.CountResourceDeletions(iopName, revision, gvkStr)
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
