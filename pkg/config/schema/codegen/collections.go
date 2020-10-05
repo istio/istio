@@ -68,11 +68,11 @@ var (
 			Plural: "{{ .Resource.Plural }}",
 			Version: "{{ .Resource.Version }}",
 			Proto: "{{ .Resource.Proto }}",
-			{{ if ne .Resource.StatusProto "" }}StatusProto: "{{ .Resource.StatusProto }}",{{end}}
+			{{- if ne .Resource.StatusProto "" }}StatusProto: "{{ .Resource.StatusProto }}",{{end}}
 			ReflectType: {{ .Type }},
-			{{ if ne .StatusType "" }}StatusType: {{ .StatusType }}, {{end}}
+			{{- if ne .StatusType "" }}StatusType: {{ .StatusType }}, {{end}}
 			ProtoPackage: "{{ .Resource.ProtoPackage }}",
-			{{ if ne "" .Resource.StatusProtoPackage}}StatusPackage: "{{ .Resource.StatusProtoPackage }}", {{end}}
+			{{- if ne "" .Resource.StatusProtoPackage}}StatusPackage: "{{ .Resource.StatusProtoPackage }}", {{end}}
 			ClusterScoped: {{ .Resource.ClusterScoped }},
 			ValidateProto: validation.{{ .Resource.Validate }},
 		}.MustBuild(),

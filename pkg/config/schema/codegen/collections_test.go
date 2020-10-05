@@ -15,7 +15,6 @@
 package codegen
 
 import (
-	"log"
 	"strings"
 	"testing"
 
@@ -176,7 +175,6 @@ var (
 			} else {
 				g.Expect(err).To(BeNil())
 				if diff := cmp.Diff(strings.TrimSpace(s), strings.TrimSpace(c.output)); diff != "" {
-					log.Println(s)
 					t.Fatal(diff)
 				}
 			}

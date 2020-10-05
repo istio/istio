@@ -129,7 +129,7 @@ func TestClient(t *testing.T) {
 
 			pb, err := r.NewInstance()
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 
 			if _, err := store.Create(config.Config{

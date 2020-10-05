@@ -233,9 +233,10 @@ func (cl *Client) Update(cfg config.Config) (string, error) {
 }
 
 func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
-	if cfg.Spec == nil {
-		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
+	if cfg.Status == nil {
+		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
 	}
+
 	meta, err := updateStatus(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err

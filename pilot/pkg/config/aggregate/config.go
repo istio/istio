@@ -17,7 +17,6 @@ package aggregate
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -193,7 +192,10 @@ func (cr *store) Update(c config.Config) (string, error) {
 }
 
 func (cr *store) UpdateStatus(c config.Config) (string, error) {
-	return "", fmt.Errorf("lol no")
+	if cr.writer == nil {
+		return "", errorUnsupported
+	}
+	return cr.writer.UpdateStatus(c)
 }
 
 type storeCache struct {

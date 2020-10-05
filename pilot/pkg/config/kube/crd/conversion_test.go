@@ -48,8 +48,7 @@ func TestConvert(t *testing.T) {
 
 	obj, err := ConvertConfig(config)
 	if err != nil {
-		t.Errorf("Conv"+
-			"ertConfig() => unexpected error %v", err)
+		t.Errorf("ConvertConfig() => unexpected error %v", err)
 	}
 	got, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, obj, "cluster")
 	if err != nil {
