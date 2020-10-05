@@ -73,8 +73,6 @@ const (
 	// as it's running separately from the main flow.
 	networkFetchRetryCountOnRefreshFlow = 3
 
-	// jwksPublicRootCABundlePath is the path of public root CA bundle in pilot container.
-	jwksPublicRootCABundlePath = "/cacert.pem"
 	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
 	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
 )
@@ -149,7 +147,7 @@ func NewJwksResolver(evictionDuration, refreshInterval, retryInterval time.Durat
 		evictionDuration,
 		refreshInterval,
 		retryInterval,
-		[]string{jwksPublicRootCABundlePath, jwksExtraRootCABundlePath},
+		[]string{jwksExtraRootCABundlePath},
 	)
 }
 
@@ -176,8 +174,12 @@ func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval, retryIn
 		},
 	}
 
-	caCertPool := x509.NewCertPool()
-	caCertsFound := false
+	caCertPool, err := x509.SystemCertPool()
+	caCertsFound := true
+	if err != nil {
+		caCertsFound = false
+		log.Errorf("Failed to fetch Cert from SystemCertPool: %v", err)
+	}
 	for _, pemFile := range caBundlePaths {
 		caCert, err := ioutil.ReadFile(pemFile)
 		if err == nil {
