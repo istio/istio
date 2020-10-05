@@ -961,15 +961,8 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	}
 }
 
+// nolint: unparam
 func createEndpointSlice(t *testing.T, c kubernetes.Interface, name, serviceName, namespace string, ports []v1.EndpointPort, ips []string) {
-	eas := make([]v1.EndpointAddress, 0)
-	for _, ip := range ips {
-		eas = append(eas, v1.EndpointAddress{IP: ip, TargetRef: &v1.ObjectReference{
-			Kind:      "Pod",
-			Name:      name,
-			Namespace: namespace,
-		}})
-	}
 	esps := make([]discovery.EndpointPort, 0)
 	for _, name := range ports {
 		n := name // Create a stable reference to take the pointer from
