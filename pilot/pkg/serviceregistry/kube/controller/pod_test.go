@@ -158,7 +158,7 @@ func TestIPReuse(t *testing.T) {
 }
 
 func waitForPod(c *FakeController, ip string) error {
-	return wait.Poll(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+	return wait.Poll(5*time.Millisecond, 1*time.Second, func() (bool, error) {
 		c.pods.RLock()
 		defer c.pods.RUnlock()
 		if _, ok := c.pods.podsByIP[ip]; ok {
@@ -172,7 +172,7 @@ func waitForNode(c *FakeController, name string) error {
 	return retry.UntilSuccess(func() error {
 		_, err := c.nodeLister.Get(name)
 		return err
-	}, retry.Timeout(time.Second*1), retry.Delay(time.Millisecond*500))
+	}, retry.Timeout(time.Second*1), retry.Delay(time.Millisecond*5))
 }
 
 func testPodCache(t *testing.T) {
