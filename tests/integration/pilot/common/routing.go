@@ -324,7 +324,7 @@ spec:
 							return strings.HasPrefix(r.Hostname, host+"-")
 						})
 						if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
-							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hostResponses)
+							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
 						}
 
 						hostDestinations := apps.All.Match(echo.Service(host))
