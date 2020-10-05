@@ -1270,9 +1270,6 @@ func deleteExternalNameService(controller *FakeController, name, namespace strin
 }
 
 func addPods(t *testing.T, controller *FakeController, fx *FakeXdsUpdater, pods ...*coreV1.Pod) {
-	// Ideally we would fail here, instead of retry but there is a bug in Kubernetes fake client where
-	// it occasionally just does not update informer at all.
-	t.Skip("https://github.com/kubernetes/kubernetes/issues/88508")
 	retry.UntilSuccessOrFail(t, func() error {
 		for _, pod := range pods {
 			p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
