@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/configmapwatcher"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -46,6 +49,8 @@ type watcher struct {
 	mutex    sync.Mutex
 	handlers []func()
 	mesh     *meshconfig.MeshConfig
+
+	configMapWatcher *configmapwatcher.Controller
 }
 
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
@@ -76,29 +81,28 @@ func NewWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, 
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 			return
 		}
-
-		var handlers []func()
-
-		w.mutex.Lock()
-		if !reflect.DeepEqual(meshConfig, w.mesh) {
-			log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
-			if !reflect.DeepEqual(meshConfig.ConfigSources, w.mesh.ConfigSources) {
-				log.Infof("mesh configuration sources have changed")
-				//TODO Need to re-create or reload initConfigController()
-			}
-
-			// Store the new mesh.
-			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.mesh)), unsafe.Pointer(meshConfig))
-			handlers = append([]func(){}, w.handlers...)
-		}
-		w.mutex.Unlock()
-
-		// Notify the handlers of the change.
-		for _, h := range handlers {
-			h()
-		}
+		w.handleMeshConfig(meshConfig)
 	})
 	return w, nil
+}
+
+// NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
+func NewConfigMapWatcher(client kube.Client, namespace, name, key string) Watcher {
+	defaultMesh := DefaultMeshConfig()
+	w := &watcher{mesh: &defaultMesh}
+	c := configmapwatcher.NewController(client, namespace, name, func() {
+		meshConfig, err := w.readConfigMap(key)
+		if err != nil {
+			log.Warnf("failed to read mesh config from ConfigMap, using default: %v", err)
+			meshConfig = &defaultMesh
+		}
+		w.handleMeshConfig(meshConfig)
+	})
+	w.configMapWatcher = c
+
+	stop := make(chan struct{})
+	go c.Run(stop)
+	return w
 }
 
 // Mesh returns the latest mesh config.
@@ -111,4 +115,49 @@ func (w *watcher) AddMeshHandler(h func()) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.handlers = append(w.handlers, h)
+}
+
+func (w *watcher) handleMeshConfig(meshConfig *meshconfig.MeshConfig) {
+	var handlers []func()
+
+	w.mutex.Lock()
+	if !reflect.DeepEqual(meshConfig, w.mesh) {
+		log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
+		if !reflect.DeepEqual(meshConfig.ConfigSources, w.mesh.ConfigSources) {
+			log.Info("mesh configuration sources have changed")
+			// TODO Need to recreate or reload initConfigController()
+		}
+
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.mesh)), unsafe.Pointer(meshConfig))
+		handlers = append(handlers, w.handlers...)
+	}
+	w.mutex.Unlock()
+
+	for _, h := range handlers {
+		h()
+	}
+}
+
+func (w *watcher) readConfigMap(key string) (*meshconfig.MeshConfig, error) {
+	// TODO(tbarrella): Refactor so that the ConfigMap is passed to the callback
+	cm, err := w.configMapWatcher.Get()
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get ConfigMap: %v", err)
+	}
+	if cm == nil {
+		return nil, fmt.Errorf("no ConfigMap found")
+	}
+
+	cfgYaml, exists := cm.Data[key]
+	if !exists {
+		return nil, fmt.Errorf("missing ConfigMap key %q", key)
+	}
+
+	meshConfig, err := ApplyMeshConfigDefaults(cfgYaml)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading mesh config: %v. YAML:\n%s", err, cfgYaml)
+	}
+
+	log.Info("Loaded mesh config from Kubernetes API server.")
+	return meshConfig, nil
 }

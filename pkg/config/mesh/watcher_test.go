@@ -15,18 +15,24 @@
 package mesh_test
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/filewatcher"
 )
@@ -138,5 +144,95 @@ func BenchmarkGetMesh(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		handler(w.Mesh())
+	}
+}
+
+const (
+	namespace string = "istio-system"
+	name      string = "istio"
+	key       string = "mesh"
+)
+
+func makeConfigMap(resourceVersion string, data map[string]string) *v1.ConfigMap {
+	return &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:       namespace,
+			Name:            name,
+			ResourceVersion: resourceVersion,
+		},
+		Data: data,
+	}
+}
+
+func TestNewConfigMapWatcher(t *testing.T) {
+	yaml := "trustDomain: something.new"
+	m, err := mesh.ApplyMeshConfigDefaults(yaml)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cm1 := makeConfigMap("1", map[string]string{
+		key: yaml,
+	})
+	cm2 := makeConfigMap("2", map[string]string{
+		"other-key": yaml,
+	})
+	cm3 := makeConfigMap("3", map[string]string{
+		key: "bad yaml",
+	})
+
+	client := kube.NewFakeClient()
+	cms := client.Kube().CoreV1().ConfigMaps(namespace)
+	w := mesh.NewConfigMapWatcher(client, namespace, name, key)
+
+	defaultMesh := mesh.DefaultMeshConfig()
+
+	var mu sync.Mutex
+	newM := &defaultMesh
+	w.AddMeshHandler(func() {
+		mu.Lock()
+		defer mu.Unlock()
+		newM = w.Mesh()
+	})
+
+	steps := []struct {
+		added   *v1.ConfigMap
+		updated *v1.ConfigMap
+		deleted *v1.ConfigMap
+
+		expect *meshconfig.MeshConfig
+	}{
+		{expect: &defaultMesh},
+		{added: cm1, expect: m},
+		{updated: cm2, expect: &defaultMesh},
+		{updated: cm1, expect: m},
+		{updated: cm3, expect: &defaultMesh},
+		{updated: cm1, expect: m},
+		{deleted: cm1, expect: &defaultMesh},
+	}
+
+	for i, step := range steps {
+		t.Run(fmt.Sprintf("[%v]", i), func(t *testing.T) {
+			g := NewWithT(t)
+
+			switch {
+			case step.added != nil:
+				_, err := cms.Create(context.TODO(), step.added, metav1.CreateOptions{})
+				g.Expect(err).Should(BeNil())
+			case step.updated != nil:
+				_, err := cms.Update(context.TODO(), step.updated, metav1.UpdateOptions{})
+				g.Expect(err).Should(BeNil())
+			case step.deleted != nil:
+				g.Expect(cms.Delete(context.TODO(), step.deleted.Name, metav1.DeleteOptions{})).
+					Should(Succeed())
+			}
+
+			g.Eventually(w.Mesh).Should(Equal(step.expect))
+			g.Eventually(func() *meshconfig.MeshConfig {
+				mu.Lock()
+				defer mu.Unlock()
+				return newM
+			}, time.Second).Should(Equal(step.expect))
+		})
 	}
 }
