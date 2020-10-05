@@ -19,14 +19,19 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"text/tabwriter"
+	"time"
 
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/spf13/cobra"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/duration"
 
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -71,6 +76,9 @@ func manifestListCmd(listArgs *manifestListArgs, logOpts *log.Options) *cobra.Co
 
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := configLogs(logOpts); err != nil {
+				return fmt.Errorf("could not configure logs: %s", err)
+			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			return manifestList(cmd.OutOrStdout(), listArgs, l)
 		}}
@@ -94,14 +102,21 @@ func printIOPs(writer io.Writer, iops []*iopv1alpha1.IstioOperator, manifestsPat
 		_, err := fmt.Fprintf(writer, "No IstioOperators present.\n")
 		return err
 	}
-	podCount := "1"         // @@@ TODO Lookup using restConfig
-	deploymentAge := "2d7h" // @@@ TODO Lookup using restConfig
 
-	// @@@ TODO sort
+	sort.Slice(iops, func(i, j int) bool {
+		return iops[i].Spec.Revision < iops[j].Spec.Revision
+	})
+
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "REVISION\tPROFILE\tCUSTOMIZATIONS\tPODS\tAGE")
 	for _, iop := range iops {
-		diffs, err := getDiffs(iop, manifestsPath, effectiveProfile(iop.Spec.Profile), restConfig, l)
+		podCount, deploymentAge, err := getControlPlaneDeployment(iop, manifestsPath, restConfig)
+		if err != nil {
+			podCount = "<error>"
+			deploymentAge = "<error>"
+		}
+
+		diffs, err := getDiffs(iop, manifestsPath, effectiveProfile(iop.Spec.Profile), l)
 		if err != nil {
 			return err
 		}
@@ -129,7 +144,7 @@ func getIOPs(restConfig *rest.Config) ([]*iopv1alpha1.IstioOperator, error) {
 	}
 	ul, err := client.
 		Resource(istioOperatorGVR).
-		Namespace(istioDefaultNamespace). // @@@ TODO make a flag
+		Namespace(istioDefaultNamespace). // @@@ TODO make a flag?
 		List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -147,7 +162,7 @@ func getIOPs(restConfig *rest.Config) ([]*iopv1alpha1.IstioOperator, error) {
 	return iops, nil
 }
 
-func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile string, restConfig *rest.Config, l clog.Logger) ([]string, error) {
+func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile string, l clog.Logger) ([]string, error) {
 	setFlags := applyFlagAliases(make([]string, 0), manifestsPath, "")
 	setFlags = append(setFlags, "profile="+profile)
 
@@ -232,4 +247,54 @@ func effectiveProfile(profile string) string {
 		return profile
 	}
 	return "default"
+}
+
+func getControlPlaneDeployment(iop *iopv1alpha1.IstioOperator, manifestsPath string, restConfig *rest.Config) (string, string, error) {
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return "", "", err
+	}
+	deploymentName := getDeploymentName(iop, manifestsPath)
+	if err != nil {
+		return "", "", err
+	}
+	deployment, err := client.AppsV1().
+		Deployments(istioDefaultNamespace). // @@@ TODO make a flag?)
+		Get(context.TODO(), deploymentName, meta_v1.GetOptions{})
+	if err != nil {
+		return "", "", err
+	}
+	pods, err := client.CoreV1().
+		Pods(istioDefaultNamespace). // @@@ TODO make a flag?)
+		List(context.TODO(), meta_v1.ListOptions{
+			LabelSelector: labels.Set(deployment.Spec.Selector.MatchLabels).AsSelector().String(),
+		})
+	if err != nil {
+		return "", "", err
+	}
+
+	podCount := strconv.Itoa(len(pods.Items))
+	deploymentAge := translateTimestampSince(deployment.CreationTimestamp)
+	return podCount, deploymentAge, nil
+}
+
+// Human-readable age.  (This is from kubectl pkg/describe/describe.go)
+func translateTimestampSince(timestamp meta_v1.Time) string {
+	if timestamp.IsZero() {
+		return "<unknown>"
+	}
+
+	return duration.HumanDuration(time.Since(timestamp.Time))
+}
+
+func getDeploymentName(iop *iopv1alpha1.IstioOperator, manifestsPath string) string {
+	// It would be difficult but perhaps better to render the manifest, extract the PilotComponentName manifest,
+	// parse the yaml, and scrape it for the deployment name.  Instead we take a shortcut, as we know
+	// the naming convention.
+	_ = manifestsPath
+
+	if iop.Spec.Revision == "" {
+		return "istiod"
+	}
+	return fmt.Sprintf("istiod-%s", iop.Spec.Revision)
 }
