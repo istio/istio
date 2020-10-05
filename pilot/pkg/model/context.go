@@ -492,6 +492,9 @@ type NodeMetadata struct {
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
 
+	// AutoRegister will enable auto registration of the connected endpoint to the service registry
+	AutoRegister StringBool `json:"AUTO_REGISTER,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`

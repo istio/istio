@@ -152,6 +152,9 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				if s.InternalGen != nil {
 					s.InternalGen.OnDisconnect(con)
 				}
+				if s.wleController != nil {
+					s.wleController.UnregisterWorkload(con.proxy)
+				}
 			}()
 		}
 
@@ -435,6 +438,9 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	if s.InternalGen != nil {
 		s.InternalGen.OnConnect(con)
+	}
+	if s.wleController != nil {
+		s.wleController.RegisterWorkload(proxy)
 	}
 	return nil
 }

@@ -133,7 +133,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		}
 	}
 
-	if cfg.DeployAsVM {
+	if cfg.DeployAsVM && !cfg.AutoRegisterVM {
 		var pods *kubeCore.PodList
 		if err := retry.UntilSuccess(func() error {
 			pods, err = c.cluster.PodsForSelector(context.TODO(), cfg.Namespace.Name(),

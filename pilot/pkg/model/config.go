@@ -186,6 +186,7 @@ type IstioConfigStore interface {
 
 	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
 	AuthorizationPolicies(namespace string) []config.Config
+
 }
 
 const (
