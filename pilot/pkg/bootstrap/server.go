@@ -239,6 +239,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
+	s.XDSServer.InternalGen.Store = s.configController
+
 	s.initJwtPolicy()
 
 	// Options based on the current 'defaults' in istio.

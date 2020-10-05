@@ -3500,6 +3500,9 @@ rules:
   - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
+  - apiGroups: ["networking.istio.io"]
+    verbs: [ "get", "watch", "list", "update", "create", "delete" ]
+    resources: [ "workloadgroups" ]
 
   # auto-detect installed CRD definitions
   - apiGroups: ["apiextensions.k8s.io"]
