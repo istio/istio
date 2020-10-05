@@ -35,6 +35,5 @@ func RegisterOperatorMetricsServer(mgr manager.Manager) error {
 		return fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
-	mgr.AddMetricsExtraHandler("/op-metrics", exporter)
-	return nil
+	return mgr.AddMetricsExtraHandler("/op-metrics", exporter)
 }

@@ -47,7 +47,7 @@ var (
 
 // MergeErrorType describes the class of errors that could
 // occur while merging profile, user supplied YAML, values
-// overriden by --set and so on
+// overridden by --set and so on
 type MergeErrorType string
 
 const (
