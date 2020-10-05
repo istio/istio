@@ -221,7 +221,7 @@ func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 	// For secrets without -cacert suffix, add the suffix
 	if !strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
 		withSuffix := k
-		withSuffix.Name = withSuffix.Name + GatewaySdsCaSuffix
+		withSuffix.Name += GatewaySdsCaSuffix
 		related = append(related, withSuffix)
 	}
 	// For secrets with -cacert suffix, remove the suffix
