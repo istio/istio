@@ -152,9 +152,6 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				if s.InternalGen != nil {
 					s.InternalGen.OnDisconnect(con)
 				}
-				if s.wleController != nil {
-					s.wleController.UnregisterWorkload(con.proxy)
-				}
 			}()
 		}
 
@@ -439,9 +436,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	if s.InternalGen != nil {
 		s.InternalGen.OnConnect(con)
 	}
-	if s.wleController != nil {
-		s.wleController.RegisterWorkload(proxy)
-	}
+
 	return nil
 }
 
@@ -527,6 +522,9 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
+
+	// this should be done before we look for service instances
+	s.InternalGen.RegisterWorkload(proxy)
 
 	if err := proxy.SetServiceInstances(push.ServiceDiscovery); err != nil {
 		return err

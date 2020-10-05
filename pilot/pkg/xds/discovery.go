@@ -125,8 +125,6 @@ type DiscoveryServer struct {
 
 	// Cache for XDS resources
 	Cache model.XdsCache
-
-	wleController *workloadController
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -166,8 +164,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
-		Cache:         model.DisabledCache{},
-		wleController: &workloadController{store: env},
+		Cache: model.DisabledCache{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.

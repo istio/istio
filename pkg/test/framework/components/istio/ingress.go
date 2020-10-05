@@ -132,6 +132,7 @@ func (c *ingressImpl) HTTPSAddress() net.TCPAddr {
 func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
 	address, err := c.getAddressInner(discoveryPort)
 	if err != nil {
+		scopes.Framework.Errorf(err)
 		return net.TCPAddr{}
 	}
 	return address

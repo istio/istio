@@ -16,6 +16,9 @@ package xds
 
 import (
 	"fmt"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -75,6 +78,8 @@ func (sg *InternalGen) OnConnect(con *Connection) {
 }
 
 func (sg *InternalGen) OnDisconnect(con *Connection) {
+	sg.QueueUnregisterWorkload(con.proxy)
+
 	sg.startPush(TypeURLDisconnect, []proto.Message{con.node})
 
 	if con.node.Metadata != nil && con.node.Metadata.Fields != nil {
@@ -186,6 +191,61 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		}
 	}
 	return res
+}
+
+func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
+	adsLog.Infof("trying to auto register")
+	if !proxy.Metadata.AutoRegister {
+		adsLog.Infof("autoreg var not set")
+		return
+	}
+	if len(proxy.IPAddresses) == 0 {
+		adsLog.Errorf("auto registration of %v failed: missing IP addresses", proxy.ID)
+		return
+	}
+	if len(proxy.Metadata.Namespace) == 0 {
+		adsLog.Errorf("auto registration of %v failed: missing namespace", proxy.ID)
+		return
+	}
+
+	// TODO from meta
+	name := proxy.IPAddresses[0]
+
+	wle := sg.Store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
+	if wle != nil {
+		// TODO set correct pilot and connected time
+		//c.store.Update(*wle)
+	}
+
+	_, err := sg.Store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadEntry,
+			Name:             name,
+			Namespace:        proxy.Metadata.Namespace,
+			// TODO include workloadgroup info
+			Labels: proxy.Metadata.Labels,
+		},
+		Spec: &networking.WorkloadEntry{
+			Address:        proxy.IPAddresses[0],
+			Network:        proxy.Metadata.Network,
+			Locality:       util.LocalityToString(proxy.Locality),
+			ServiceAccount: proxy.Metadata.ServiceAccount,
+			// TODO dedupe/reconcile with WLG?
+			Labels: proxy.Metadata.Labels,
+			// TODO from WLG
+			Ports:  nil,
+			Weight: 0,
+		},
+		// TODO status fields used for garbage collection
+		Status: nil,
+	})
+	if err != nil {
+		adsLog.Errorf("failed creating WLE for %s: %v", name, err)
+	}
+}
+
+func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
+	// TODO cleanup with grace period
 }
 
 // isSidecar ad-hoc method to see if connection represents a sidecar
