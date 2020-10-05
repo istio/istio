@@ -102,11 +102,8 @@ var (
 			Plural: "barkinds",
 			Version: "v1",
 			Proto: "google.protobuf.Struct",
-			
 			ReflectType: reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
-			
 			ProtoPackage: "github.com/gogo/protobuf/types",
-			
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -123,11 +120,8 @@ var (
 			Plural: "fookinds",
 			Version: "v1",
 			Proto: "google.protobuf.Struct",
-			
 			ReflectType: reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
-			
 			ProtoPackage: "github.com/gogo/protobuf/types",
-			
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
