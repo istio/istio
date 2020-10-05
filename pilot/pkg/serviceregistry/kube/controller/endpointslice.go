@@ -360,13 +360,3 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	}
 	return endpoints
 }
-
-func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	delete(e.endpointIPsByServiceAndSlice[hostname], slice)
-	if len(e.endpointIPsByServiceAndSlice[hostname]) == 0 {
-		delete(e.endpointIPsByServiceAndSlice, hostname)
-	}
-}
