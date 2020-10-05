@@ -57,11 +57,12 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 		return nil, err
 	}
 	drc := routeDump.GetDynamicRouteConfigs()
-	sort.Slice(drc, func(i, j int) bool {
-		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
-		r := &route.RouteConfiguration{}
+	// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+	for i := range drc {
 		drc[i].RouteConfig.TypeUrl = v3.RouteType
-		drc[j].RouteConfig.TypeUrl = v3.RouteType
+	}
+	sort.Slice(drc, func(i, j int) bool {
+		r := &route.RouteConfiguration{}
 		err = ptypes.UnmarshalAny(drc[i].RouteConfig, r)
 		if err != nil {
 			return false
@@ -78,9 +79,6 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 	// within a route might have a different order.  Sort those too.
 	for i := range drc {
 		route := &route.RouteConfiguration{}
-		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
-		// (This is done in the sort, but the sort skip this if the slice has length 1!)
-		drc[i].RouteConfig.TypeUrl = v3.RouteType
 		err = ptypes.UnmarshalAny(drc[i].RouteConfig, route)
 		if err != nil {
 			return nil, err
