@@ -52,7 +52,7 @@ spec:
       securityContext:
         runAsGroup: 1337
         fsGroup: 1337
-      {{- if $gateway.runAsNonRoot }}
+      {{- if not $gateway.runAsRoot }}
         runAsUser: 1337
         runAsNonRoot: true
       {{- else }}
@@ -80,7 +80,7 @@ spec:
             - -c
             - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
           securityContext:
-          {{- if $gateway.runAsNonRoot }}
+          {{- if not $gateway.runAsRoot }}
             runAsUser: 1337
             runAsNonRoot: true
           {{- else }}
@@ -144,7 +144,7 @@ spec:
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
           securityContext:
-          {{- if $gateway.runAsNonRoot }}
+          {{- if not $gateway.runAsRoot }}
             runAsUser: 1337
             runAsNonRoot: true
           {{- else }}

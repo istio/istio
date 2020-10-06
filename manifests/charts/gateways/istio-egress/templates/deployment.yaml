@@ -49,7 +49,7 @@ spec:
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
     spec:
-{{- if $gateway.runAsNonRoot }}
+{{- if not $gateway.runAsRoot }}
       securityContext:
         runAsUser: 1337
         runAsGroup: 1337
@@ -125,7 +125,7 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
-        {{- if $gateway.runAsNonRoot }}
+        {{- if not $gateway.runAsRoot }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
