@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- https://github.com/istio/istio/issues/27756
+releaseNotes:
+  - |
+    **Fixed** Make `istioctl version` work on the revision based istiod.
