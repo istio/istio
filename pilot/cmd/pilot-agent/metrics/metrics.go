@@ -43,7 +43,7 @@ var (
 
 	// ScrapeTotals records total number of scrapes.
 	ScrapeTotals = monitoring.NewSum(
-		"scrapes_total",
+		"startup_duration_seconds",
 		"The total number of scrapes.",
 	)
 )
