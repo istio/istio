@@ -195,9 +195,7 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 }
 
 func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
-	adsLog.Infof("trying to auto register")
 	if !proxy.Metadata.AutoRegister {
-		adsLog.Infof("autoreg var not set")
 		return
 	}
 	if len(proxy.IPAddresses) == 0 {
@@ -208,40 +206,41 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
 		adsLog.Errorf("auto registration of %v failed: missing namespace", proxy.ID)
 		return
 	}
+	if len(proxy.Metadata.WorkloadName) == 0 {
+		adsLog.Errorf("auto registration of %v failed: missing workload name", proxy.ID)
+		return
+	}
 
-	// TODO from meta
-	name := proxy.IPAddresses[0]
+	// TODO check if the WLE already exists
 
-	wle := sg.Store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
-	if wle != nil {
-		// TODO set correct pilot and connected time
-		//c.store.Update(*wle)
+	wgc := sg.Store.Get(gvk.WorkloadGroup, proxy.Metadata.WorkloadName, proxy.Metadata.Namespace)
+	if wgc == nil {
+		adsLog.Warnf("auto registration of %v failed: cannot find WorkloadGroup %s/%s", proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.WorkloadName)
+		return
+	}
+	wg := wgc.Spec.(*networking.WorkloadGroup)
+	wle := wg.Template
+	wle.Address = proxy.IPAddresses[0]
+	if proxy.Metadata.Network != "" {
+		wle.Network = proxy.Metadata.Network
+	}
+	if proxy.Locality != nil {
+		wle.Locality = util.LocalityToString(proxy.Locality)
 	}
 
 	_, err := sg.Store.Create(config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.WorkloadEntry,
-			Name:             name,
+			Name:             proxy.IPAddresses[0], // TODO gen name
 			Namespace:        proxy.Metadata.Namespace,
-			// TODO include workloadgroup info
-			Labels: proxy.Metadata.Labels,
+			Labels:           proxy.Metadata.Labels,
 		},
-		Spec: &networking.WorkloadEntry{
-			Address:        proxy.IPAddresses[0],
-			Network:        proxy.Metadata.Network,
-			Locality:       util.LocalityToString(proxy.Locality),
-			ServiceAccount: proxy.Metadata.ServiceAccount,
-			// TODO dedupe/reconcile with WLG?
-			Labels: proxy.Metadata.Labels,
-			// TODO from WLG
-			Ports:  nil,
-			Weight: 0,
-		},
+		Spec: wle,
 		// TODO status fields used for garbage collection
 		Status: nil,
 	})
 	if err != nil {
-		adsLog.Errorf("failed creating WLE for %s: %v", name, err)
+		adsLog.Errorf("failed creating WLE for %s: %v", proxy.ID, err)
 	}
 }
 
