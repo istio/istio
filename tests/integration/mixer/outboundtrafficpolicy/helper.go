@@ -366,7 +366,7 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			},
 			TLSSettings: &common.TLSSettings{
 				// Echo has these test certs baked into the docker image
-				RootCert:   mustReadCert(t, "cacert.pem"),
+				RootCert:   "",
 				ClientCert: mustReadCert(t, "cert.crt"),
 				Key:        mustReadCert(t, "cert.key"),
 			},
