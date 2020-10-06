@@ -112,3 +112,12 @@ func deploymentExists(cs kubernetes.Interface, namespace, name string) (bool, er
 	}
 	return d != nil, nil
 }
+
+// namespaceExists returns true if the given namespace exists.
+func namespaceExists(cs kubernetes.Interface, namespace string) (bool, error) {
+	d, err := cs.AppsV1().Namespaces().Get(context.TODO(), namespace, v12.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return d != nil, nil
+}
