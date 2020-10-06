@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"os"
 	"os/exec"
 	"path"
@@ -28,6 +27,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -99,7 +99,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	}
 
 	// cleanup using operator yaml later
-	i.saveManifestForCleanup(cluster.Name(), string(gwYaml))
+	i.saveManifestForCleanup(cluster.Name(), gwYaml)
 
 	// wait for a ready pod
 	if err := retry.UntilSuccess(func() error {
