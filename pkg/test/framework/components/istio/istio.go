@@ -75,6 +75,10 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 			return err
 		}
 		if cfn != nil {
+			if !cfg.DeployIstio {
+				ctx.Skip("Custom setup cannot be applied to pre-installed Istio")
+				return nil
+			}
 			cfn(ctx, &cfg)
 		}
 		for _, ctxFn := range ctxFns {

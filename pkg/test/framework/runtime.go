@@ -29,8 +29,8 @@ type runtime struct {
 }
 
 // newRuntime returns a new runtime instance.
-func newRuntime(s *resource.Settings, fn resource.EnvironmentFactory, labels label.Set) (*runtime, error) {
-	ctx, err := newSuiteContext(s, fn, labels)
+func newRuntime(suite Suite, settings *resource.Settings, fn resource.EnvironmentFactory, labels label.Set) (*runtime, error) {
+	ctx, err := newSuiteContext(suite, settings, fn, labels)
 	if err != nil {
 		return nil, err
 	}

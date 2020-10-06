@@ -39,6 +39,7 @@ var _ SuiteContext = &suiteContext{}
 
 // suiteContext contains suite-level items used during runtime.
 type suiteContext struct {
+	suite       Suite
 	settings    *resource.Settings
 	environment resource.Environment
 
@@ -59,15 +60,17 @@ type suiteContext struct {
 	testOutcomes []TestOutcome
 }
 
-func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, labels label.Set) (*suiteContext, error) {
-	scopeID := fmt.Sprintf("[suite(%s)]", s.TestID)
+func newSuiteContext(suite Suite, settings *resource.Settings, envFn resource.EnvironmentFactory,
+	labels label.Set) (*suiteContext, error) {
+	scopeID := fmt.Sprintf("[suite(%s)]", settings.TestID)
 
-	workDir := path.Join(s.RunDir(), "_suite_context")
+	workDir := path.Join(settings.RunDir(), "_suite_context")
 	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
 		return nil, err
 	}
 	c := &suiteContext{
-		settings:     s,
+		suite:        suite,
+		settings:     settings,
 		globalScope:  newScope(scopeID, nil),
 		workDir:      workDir,
 		FileWriter:   yml.NewFileWriter(workDir),
@@ -83,6 +86,12 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 	c.globalScope.add(env, &resourceID{id: scopeID})
 
 	return c, nil
+}
+
+// Skip the suite.
+func (s *suiteContext) Skip(args ...interface{}) {
+	s.skipped = true
+	s.suite.Skip(fmt.Sprint(args...))
 }
 
 // allocateContextID allocates a unique context id for TestContexts. Useful for creating unique names to help with

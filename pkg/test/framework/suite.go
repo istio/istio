@@ -466,7 +466,7 @@ func initRuntime(s *suiteImpl) error {
 	}
 	scopes.Framework.Infof("Test run dir: %v", settings.RunDir())
 
-	rt, err = newRuntime(settings, environmentFactory, s.labels)
+	rt, err = newRuntime(s, settings, environmentFactory, s.labels)
 	return err
 }
 

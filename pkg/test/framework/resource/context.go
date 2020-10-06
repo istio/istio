@@ -76,4 +76,7 @@ type Context interface {
 	// Config returns a ConfigManager that writes config to the provide clusers. If
 	// no clusters are provided, writes to all clusters.
 	Config(clusters ...Cluster) ConfigManager
+
+	// Skip the tests associated with this context with the given message.
+	Skip(args ...interface{})
 }
