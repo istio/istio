@@ -50,12 +50,14 @@ func makeConfigMap(name, resourceVersion string) *v1.ConfigMap {
 var (
 	mu     sync.Mutex
 	called bool
+	newCM  *v1.ConfigMap
 )
 
-func callback() {
+func callback(cm *v1.ConfigMap) {
 	mu.Lock()
 	defer mu.Unlock()
 	called = true
+	newCM = cm
 }
 
 func getCalled() bool {
@@ -64,8 +66,15 @@ func getCalled() bool {
 	return called
 }
 
+func getCM() *v1.ConfigMap {
+	mu.Lock()
+	defer mu.Unlock()
+	return newCM
+}
+
 func resetCalled() {
 	called = false
+	newCM = nil
 }
 
 func Test_ConfigMapWatcher(t *testing.T) {
@@ -82,7 +91,7 @@ func Test_ConfigMapWatcher(t *testing.T) {
 	}{
 		{added: cm2},
 		{added: cm, expectCalled: true, expectCM: cm},
-		{updated: cm, expectCM: cm},
+		{updated: cm},
 		{updated: cm1, expectCalled: true, expectCM: cm1},
 		{deleted: cm1, expectCalled: true},
 		{deleted: cm2},
@@ -115,12 +124,10 @@ func Test_ConfigMapWatcher(t *testing.T) {
 
 			if step.expectCalled {
 				g.Eventually(getCalled, time.Second).Should(Equal(true))
+				g.Eventually(getCM, time.Second).Should(Equal(newCM))
 			} else {
 				g.Consistently(getCalled).Should(Equal(false))
 			}
-			got, err := c.Get()
-			g.Expect(err).Should(BeNil())
-			g.Expect(got).Should(Equal(step.expectCM))
 		})
 	}
 }
