@@ -5,7 +5,7 @@ issue:
 - 27749
 releaseNotes:
 - |
-  **Enhanced** the default installation of gateways to not configure clusters for `AUTO_PASSTHROUGH`, reducing memory costs.
+  **Updated** the default installation of gateways to not configure clusters for `AUTO_PASSTHROUGH`, reducing memory costs.
 
 upgradeNotes:
 - title: "`AUTO_PASSTHROUGH` Gateway mode"
