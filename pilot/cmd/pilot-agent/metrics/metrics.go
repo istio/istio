@@ -27,7 +27,7 @@ var (
 	// is dependant on readiness probes. This means our granularity is correlated to
 	// the probing interval.
 	startupTime = monitoring.NewGauge(
-		"startup_time",
+		"startup_duration_seconds",
 		"The time from the process starting to being marked ready.",
 	)
 
@@ -43,7 +43,7 @@ var (
 
 	// ScrapeTotals records total number of scrapes.
 	ScrapeTotals = monitoring.NewSum(
-		"startup_duration_seconds",
+		"scrapes_total",
 		"The total number of scrapes.",
 	)
 )
