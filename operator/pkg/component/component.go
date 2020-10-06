@@ -26,6 +26,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
@@ -508,6 +509,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	}
 	if !found {
 		scope.Debugf("Manifest after resources: \n%s\n", my)
+		metrics.CountManifestRender(cf.ComponentName)
 		return my, nil
 	}
 	kyo, err := yaml.Marshal(overlays)
@@ -521,6 +523,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	}
 
 	scope.Debugf("Manifest after resources and overlay: \n%s\n", ret)
+	metrics.CountManifestRender(cf.ComponentName)
 	return ret, nil
 }
 

@@ -21,7 +21,6 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/component"
-	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
@@ -114,9 +113,6 @@ func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOu
 	manifests = make(name.ManifestMap)
 	for _, c := range i.components {
 		ms, err := c.RenderManifest()
-		if err == nil {
-			metrics.CountManifestRender(c.ComponentName())
-		}
 		errsOut = util.AppendErr(errsOut, err)
 		manifests[c.ComponentName()] = append(manifests[c.ComponentName()], ms)
 	}

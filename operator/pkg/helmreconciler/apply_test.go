@@ -18,10 +18,12 @@ import (
 	"context"
 	"io/ioutil"
 	"reflect"
+	"sync"
 	"testing"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -63,6 +65,8 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 						Namespace: "istio-operator-test",
 					},
 				},
+				countLock:         sync.Mutex{},
+				ownedObjectsCount: map[schema.GroupVersionKind]int{},
 			}
 			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v, wantErr %v", err, tt.wantErr)
