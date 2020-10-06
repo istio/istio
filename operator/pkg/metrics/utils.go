@@ -51,21 +51,6 @@ func CountManifestRender(name name.ComponentName) {
 		Increment()
 }
 
-// IncrementResourcesOwned increments count of resources owned
-// by the operator for a particular CR/revision.
-func IncrementResourcesOwned(name, revision, resourceKind string) {
-	incrementCount(name, revision, resourceKind, OperatorResourceCount)
-}
-
-// DecrementResourceOwned is opposite of IncrementResourcesOwned
-func DecrementResourceOwned(name, revision, resourceKind string) {
-	OperatorResourceCount.
-		With(CRNamespacedNameLabel.Value(name)).
-		With(CRRevisionLabel.Value(revision)).
-		With(ResourceKindLabel.Value(resourceKind)).
-		Decrement()
-}
-
 // CountResourceCreations increments the number of K8S resources
 // of a particular kind created by Operator for a CR and revision
 func CountResourceCreations(name, revision, resourceKind string) {

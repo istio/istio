@@ -153,9 +153,8 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 				gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
 				revision := h.iop.Spec.Revision
 				iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
-				// Does increment/decrement approach really work?
-				metrics.DecrementResourceOwned(iopName, revision, gvkStr)
 				metrics.CountResourceDeletions(iopName, revision, gvkStr)
+				h.changeResourceOwnedCount(o.GroupVersionKind(), -1)
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 		}
@@ -202,6 +201,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		if err != nil {
 			continue
 		}
+		h.changeResourceOwnedCount(gvk, len(objects.Items))
 		usList = append(usList, objects)
 	}
 	return usList, nil
@@ -282,7 +282,7 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
 		}
-
+		h.changeResourceOwnedCount(gvk, len(objects.Items))
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
 	return errs.ToError()
@@ -322,7 +322,6 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found
-				metrics.CountResourceDeletions(iopName, revision, gvkStr)
 				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exist", obj.Hash())
 				continue
 			}
@@ -330,11 +329,8 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		if !all {
 			h.removeFromObjectCache(componentName, oh)
 		}
-		// Not sure how reliable incrementing and decrementing owned
-		// resource count is. What if it was deleted and not found, but
-		// we failed to decrement resource count accordingly?
-		metrics.DecrementResourceOwned(iopName, revision, gvkStr)
 		metrics.CountResourceDeletions(iopName, revision, gvkStr)
+		h.changeResourceOwnedCount(objGvk, -1)
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
 	if all {

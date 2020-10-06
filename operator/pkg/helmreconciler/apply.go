@@ -71,6 +71,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		allObjectsMap[oh] = true
 		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
+			h.changeResourceOwnedCount(obj.GroupVersionKind(), 1)
 			deployedObjects++
 			continue
 		}
@@ -104,6 +105,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 				continue
 			}
 			plog.ReportProgress()
+			h.changeResourceOwnedCount(obj.GroupVersionKind(), 1)
 			processedObjects = append(processedObjects, obj)
 			// Update the cache with the latest object.
 			objectCache.Cache[obj.Hash()] = obj
@@ -164,13 +166,10 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		scope.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
-	objGvk := obj.GetObjectKind().GroupVersionKind()
-	gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
-	iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
-	revision := ""
-	if h.iop != nil && h.iop.Spec != nil {
-		revision = h.iop.Spec.Revision
-	}
+	objGvk := obj.GroupVersionKind()
+	gvkStr := util.GetGvkString(objGvk)
+	iopName := util.GetNamespacedIOPName(h.iop)
+	revision := util.ExtractIOPRevision(h.iop)
 
 	receiver := &unstructured.Unstructured{}
 	receiver.SetGroupVersionKind(objGvk)
@@ -194,7 +193,6 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err != nil {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
 			}
-			metrics.IncrementResourcesOwned(iopName, revision, gvkStr)
 			metrics.CountResourceCreations(iopName, revision, gvkStr)
 			return nil
 		case err == nil:

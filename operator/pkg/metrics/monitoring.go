@@ -111,7 +111,7 @@ var (
 
 	// OperatorResourceCount indicates the number of resources
 	// currently owned by the CR with given name and revision
-	OperatorResourceCount = monitoring.NewSum(
+	OperatorResourceCount = monitoring.NewGauge(
 		"operator_resource_count",
 		"Number of resources currently owned by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
@@ -154,6 +154,13 @@ var (
 	K8SPatchOverlayErrors = monitoring.NewSum(
 		"operator_patch_errors",
 		"Number of times K8S patch overlays failed",
+	)
+
+	// OperatorPathTranslations counts the translations from legacy API to new one
+	OperatorPathTranslations = monitoring.NewSum(
+		"operator_path_translations",
+		"Number of times a legacy API path is translated",
+		monitoring.WithLabels(ResourceKindLabel),
 	)
 
 	// CacheFlushes counts number of cache flushes

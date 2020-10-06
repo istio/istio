@@ -15,6 +15,9 @@
 package util
 
 import (
+	"fmt"
+
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -60,4 +63,26 @@ func DetectSupportedJWTPolicy(config *rest.Config) (JWTPolicy, error) {
 		}
 	}
 	return FirstPartyJWT, nil
+}
+
+// GetGvkString differs from default representation. Each one
+// is separated by slashes.
+func GetGvkString(gvk schema.GroupVersionKind) string {
+	return fmt.Sprintf("%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind)
+}
+
+// GetNamespacedIOPName returns name of the IstioOperator CR with namespace
+func GetNamespacedIOPName(iop *v1alpha1.IstioOperator) string {
+	if iop == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
+}
+
+// ExtractIOPRevision returns the revision in IstioOperatorSpec if any
+func ExtractIOPRevision(iop *v1alpha1.IstioOperator) string {
+	if iop == nil || iop.Spec == nil {
+		return ""
+	}
+	return iop.Spec.Revision
 }

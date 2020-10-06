@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -32,6 +33,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -52,6 +54,9 @@ type HelmReconciler struct {
 	// dependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
 	// dependencyWaitCh[ch1]...dependencyWaitCh[chN] when it's completely installed.
 	dependencyWaitCh map[name.ComponentName]chan struct{}
+	// ownedObjectsCount counts objects owned by GVK
+	countLock         sync.Mutex
+	ownedObjectsCount map[schema.GroupVersionKind]int
 }
 
 // Options are options for HelmReconciler.
@@ -113,12 +118,14 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		return nil, err
 	}
 	return &HelmReconciler{
-		client:           client,
-		restConfig:       restConfig,
-		clientSet:        cs,
-		iop:              iop,
-		opts:             opts,
-		dependencyWaitCh: initDependencies(),
+		client:            client,
+		restConfig:        restConfig,
+		clientSet:         cs,
+		iop:               iop,
+		opts:              opts,
+		dependencyWaitCh:  initDependencies(),
+		countLock:         sync.Mutex{},
+		ownedObjectsCount: make(map[schema.GroupVersionKind]int),
 	}, nil
 }
 
@@ -204,6 +211,8 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	}
 	wg.Wait()
 
+	h.reportOwnedObjectCountMetrics()
+
 	out := &v1alpha1.InstallStatus{
 		Status:          overallStatus(componentStatus),
 		ComponentStatus: componentStatus,
@@ -216,15 +225,19 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 func (h *HelmReconciler) Delete() error {
 	iop := h.iop
 	if iop.Spec.Revision == "" {
-		return h.Prune(nil, true)
+		err := h.Prune(nil, true)
+		h.reportOwnedObjectCountMetrics()
+		return err
 	}
 	// Delete IOP with revision:
 	// for this case we update the status field to pending if there are still proxies pointing to this revision
 	// and we do not prune shared resources, same effect as `istioctl uninstall --revision foo` command.
 	status, err := h.PruneControlPlaneByRevisionWithController(iop.Spec.Namespace, iop.Spec.Revision)
+	h.reportOwnedObjectCountMetrics()
 	if err != nil {
 		return err
 	}
+
 	if err := h.SetStatusComplete(status); err != nil {
 		return err
 	}
@@ -437,4 +450,22 @@ func (h *HelmReconciler) getCRNamespace() (string, error) {
 // getClient returns the kubernetes client associated with this HelmReconciler
 func (h *HelmReconciler) getClient() client.Client {
 	return h.client
+}
+
+func (h *HelmReconciler) changeResourceOwnedCount(gvk schema.GroupVersionKind, by int) {
+	h.countLock.Lock()
+	defer h.countLock.Unlock()
+	h.ownedObjectsCount[gvk] += by
+}
+
+func (h *HelmReconciler) reportOwnedObjectCountMetrics() {
+	h.countLock.Lock()
+	defer h.countLock.Unlock()
+	for gvk, cnt := range h.ownedObjectsCount {
+		metrics.OperatorResourceCount.
+			With(metrics.ResourceKindLabel.Value(util.GetGvkString(gvk))).
+			With(metrics.CRNamespacedNameLabel.Value(util.GetNamespacedIOPName(h.iop))).
+			With(metrics.CRRevisionLabel.Value(util.ExtractIOPRevision(h.iop))).
+			Record(float64(cnt))
+	}
 }
