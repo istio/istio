@@ -20,6 +20,8 @@ set -euo pipefail
 IOP=$(cat <<EOF
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  name: eastwest
 spec:
   # Only generate a gateway component defined below.
   # Using this with "istioctl install" will reconcile and remove existing control-plane components.
