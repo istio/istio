@@ -155,6 +155,10 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			}()
 		}
 
+		if s.StatusReporter != nil {
+			s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
+		}
+
 		if !s.shouldRespond(con, req) {
 			continue
 		}
@@ -172,9 +176,6 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
-	}
 
 	push := s.globalPushContext()
 
