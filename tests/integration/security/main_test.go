@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -30,12 +31,11 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Setup(istio.Setup(&ist, setupConfig)).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}

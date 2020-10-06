@@ -21,16 +21,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
 
 	networking "istio.io/api/networking/v1alpha3"
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
+	config2 "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	pkgtest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/config"
 	"istio.io/pkg/log"
@@ -96,10 +95,10 @@ var (
 )
 
 // Make creates a mock config indexed by a number
-func Make(namespace string, i int) model.Config {
+func Make(namespace string, i int) config2.Config {
 	name := fmt.Sprintf("%s%d", "mock-config", i)
-	return model.Config{
-		ConfigMeta: model.ConfigMeta{
+	return config2.Config{
+		Meta: config2.Meta{
 			GroupVersionKind: mockGvk,
 			Name:             name,
 			Namespace:        namespace,
@@ -120,7 +119,7 @@ func Make(namespace string, i int) model.Config {
 }
 
 // Compare checks two configs ignoring revisions and creation time
-func Compare(a, b model.Config) bool {
+func Compare(a, b config2.Config) bool {
 	a.ResourceVersion = ""
 	b.ResourceVersion = ""
 	a.CreationTimestamp = time.Time{}
@@ -138,7 +137,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	log.Info("Created mock descriptor")
 
 	// create configuration objects
-	elts := make(map[int]model.Config)
+	elts := make(map[int]config2.Config)
 	for i := 0; i < n; i++ {
 		elts[i] = Make(namespace, i)
 	}
@@ -170,8 +169,8 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 		t.Error("expected error posting twice")
 	}
 
-	invalid := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	invalid := config2.Config{
+		Meta: config2.Meta{
 			GroupVersionKind: mockGvk,
 			Name:             "invalid",
 			ResourceVersion:  revs[0],
@@ -179,8 +178,8 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 		Spec: &config.MockConfig{},
 	}
 
-	missing := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	missing := config2.Config{
+		Meta: config2.Meta{
 			GroupVersionKind: mockGvk,
 			Name:             "missing",
 			ResourceVersion:  revs[0],
@@ -188,7 +187,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 		Spec: &config.MockConfig{Key: "missing"},
 	}
 
-	if _, err := r.Create(model.Config{}); err == nil {
+	if _, err := r.Create(config2.Config{}); err == nil {
 		t.Error("expected error posting empty object")
 	}
 
@@ -196,7 +195,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 		t.Error("expected error posting invalid object")
 	}
 
-	if _, err := r.Update(model.Config{}); err == nil {
+	if _, err := r.Update(config2.Config{}); err == nil {
 		t.Error("expected error updating empty object")
 	}
 
@@ -209,7 +208,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// check for missing type
-	if l, _ := r.List(resource.GroupVersionKind{}, namespace); len(l) > 0 {
+	if l, _ := r.List(config2.GroupVersionKind{}, namespace); len(l) > 0 {
 		t.Errorf("unexpected objects for missing type")
 	}
 
@@ -219,12 +218,12 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// check for missing element
-	if cfg := r.Get(resource.GroupVersionKind{}, "missing", ""); cfg != nil {
+	if cfg := r.Get(config2.GroupVersionKind{}, "missing", ""); cfg != nil {
 		t.Error("unexpected configuration object found")
 	}
 
 	// delete missing elements
-	if err := r.Delete(resource.GroupVersionKind{}, "missing", ""); err == nil {
+	if err := r.Delete(config2.GroupVersionKind{}, "missing", ""); err == nil {
 		t.Error("expected error on deletion of missing type")
 	}
 
@@ -294,7 +293,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		name       string
 		configName string
 		schema     collection.Schema
-		spec       proto.Message
+		spec       config2.Spec
 	}{
 		{"VirtualService", configName, collections.IstioNetworkingV1Alpha3Virtualservices, ExampleVirtualService},
 		{"DestinationRule", configName, collections.IstioNetworkingV1Alpha3Destinationrules, ExampleDestinationRule},
@@ -305,7 +304,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configMeta := model.ConfigMeta{
+			configMeta := config2.Meta{
 				GroupVersionKind: c.schema.Resource().GroupVersionKind(),
 				Name:             c.configName,
 			}
@@ -313,9 +312,9 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 				configMeta.Namespace = namespace
 			}
 
-			if _, err := store.Create(model.Config{
-				ConfigMeta: configMeta,
-				Spec:       c.spec,
+			if _, err := store.Create(config2.Config{
+				Meta: configMeta,
+				Spec: c.spec,
 			}); err != nil {
 				t.Errorf("Post(%v) => got %v", c.name, err)
 			}
@@ -329,7 +328,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
-	cache.RegisterEventHandler(mockGvk, func(_, _ model.Config, ev model.Event) {
+	cache.RegisterEventHandler(mockGvk, func(_, _ config2.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted.Load() != 0 {
@@ -362,7 +361,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	o := Make(namespace, 0)
 
 	// validate cache consistency
-	cache.RegisterEventHandler(mockGvk, func(_, config model.Config, ev model.Event) {
+	cache.RegisterEventHandler(mockGvk, func(_, config config2.Config, ev model.Event) {
 		elts, _ := cache.List(mockGvk, namespace)
 		elt := cache.Get(o.GroupVersionKind, o.Name, o.Namespace)
 		switch ev {
@@ -376,7 +375,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 
 			log.Infof("Calling Update(%s)", config.Key())
 			revised := Make(namespace, 1)
-			revised.ConfigMeta = elt.ConfigMeta
+			revised.Meta = elt.Meta
 			if _, err := cache.Update(revised); err != nil {
 				t.Error(err)
 			}
@@ -405,7 +404,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	go cache.Run(stop)
 
 	// try warm-up with empty Get
-	if cfg := cache.Get(resource.GroupVersionKind{}, "example", namespace); cfg != nil {
+	if cfg := cache.Get(config2.GroupVersionKind{}, "example", namespace); cfg != nil {
 		t.Error("unexpected result for unknown type")
 	}
 
@@ -427,7 +426,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 // CheckCacheSync validates operational invariants of a cache against the
 // non-cached client.
 func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
-	keys := make(map[int]model.Config)
+	keys := make(map[int]config2.Config)
 	// add elements directly through client
 	for i := 0; i < n; i++ {
 		keys[i] = Make(namespace, i)

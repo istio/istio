@@ -15,10 +15,12 @@ package xds
 
 import (
 	"sync"
+	"time"
 
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/monitoring"
 )
@@ -90,17 +92,10 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
-	cdsPushes        = pushes.With(typeTag.Value("cds"))
 	cdsSendErrPushes = pushes.With(typeTag.Value("cds_senderr"))
-	edsPushes        = pushes.With(typeTag.Value("eds"))
 	edsSendErrPushes = pushes.With(typeTag.Value("eds_senderr"))
-	ldsPushes        = pushes.With(typeTag.Value("lds"))
 	ldsSendErrPushes = pushes.With(typeTag.Value("lds_senderr"))
-	rdsPushes        = pushes.With(typeTag.Value("rds"))
 	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
-
-	apiPushes        = pushes.With(typeTag.Value("api"))
-	apiSendErrPushes = pushes.With(typeTag.Value("api_senderr"))
 
 	pushTime = monitoring.NewDistribution(
 		"pilot_xds_push_time",
@@ -108,11 +103,6 @@ var (
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 		monitoring.WithLabels(typeTag),
 	)
-
-	cdsPushTime = pushTime.With(typeTag.Value("cds"))
-	edsPushTime = pushTime.With(typeTag.Value("eds"))
-	ldsPushTime = pushTime.With(typeTag.Value("lds"))
-	rdsPushTime = pushTime.With(typeTag.Value("rds"))
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(
@@ -169,22 +159,45 @@ func recordPushTriggers(reasons ...model.TriggerReason) {
 	}
 }
 
-func recordSendError(xdsType string, conID string, metric monitoring.Metric, err error) {
+func recordSendError(xdsType string, conID string, err error) {
 	s, ok := status.FromError(err)
 	// Unavailable or canceled code will be sent when a connection is closing down. This is very normal,
 	// due to the XDS connection being dropped every 30 minutes, or a pod shutting down.
 	isError := s.Code() != codes.Unavailable && s.Code() != codes.Canceled
 	if !ok || isError {
 		adsLog.Warnf("%s: Send failure %s: %v", xdsType, conID, err)
-		metric.Increment()
+		// TODO use a single metric with a type tag
+		switch xdsType {
+		case v3.ListenerType:
+			ldsSendErrPushes.Increment()
+		case v3.ClusterType:
+			cdsSendErrPushes.Increment()
+		case v3.EndpointType:
+			edsSendErrPushes.Increment()
+		case v3.RouteType:
+			rdsSendErrPushes.Increment()
+		}
 	}
 }
 
-func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
-	if metric != nil {
-		metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
-	}
+func incrementXDSRejects(xdsType string, node, errCode string) {
 	totalXDSRejects.Increment()
+	// TODO in the future we should have a single metric with a type tag
+	switch xdsType {
+	case v3.ListenerType:
+		ldsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	case v3.ClusterType:
+		cdsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	case v3.EndpointType:
+		edsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	case v3.RouteType:
+		rdsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	}
+}
+
+func recordPushTime(xdsType string, duration time.Duration) {
+	pushTime.With(typeTag.Value(v3.GetMetricType(xdsType))).Record(duration.Seconds())
+	pushes.With(typeTag.Value(v3.GetMetricType(xdsType))).Increment()
 }
 
 func init() {

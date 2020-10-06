@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/controlplane"
@@ -51,19 +52,19 @@ var (
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
 func GenManifests(inFilename []string, setFlags []string, force bool,
-	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err
 	}
-	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, false, l)
+	mergedIOPS, err := unmarshalAndValidateIOP(mergedYAML, force, false, l)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	t := translate.NewTranslator()
 
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS, t)
+	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -90,7 +91,7 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeConfig *rest.Config,
-	l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+	l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
 	if err := validateSetFlags(setFlags); err != nil {
 		return "", nil, err
 	}
@@ -100,13 +101,13 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 		return "", nil, err
 	}
 
-	iopsString, iops, err := GenIOPSFromProfile(profile, fy, setFlags, force, false, kubeConfig, l)
+	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, kubeConfig, l)
 
 	if err != nil {
 		return "", nil, err
 	}
 
-	errs, warning := validation.ValidateConfig(false, iops)
+	errs, warning := validation.ValidateConfig(false, iops.Spec)
 	if warning != "" {
 		l.LogAndError(warning)
 	}
@@ -117,10 +118,10 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 	return iopsString, iops, nil
 }
 
-// GenIOPSFromProfile generates an IstioOperatorSpec from the given profile name or path, and overlay YAMLs from user
-// files and the --set flag. If successful, it returns an IstioOperatorSpec string and struct.
-func GenIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
-	kubeConfig *rest.Config, l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+// GenIOPFromProfile generates an IstioOperator from the given profile name or path, and overlay YAMLs from user
+// files and the --set flag. If successful, it returns an IstioOperator string and struct.
+func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
+	kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
 
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
 	if err != nil {
@@ -190,19 +191,13 @@ func GenIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string
 		return "", nil, err
 	}
 
-	// Grab just the IstioOperatorSpec subtree.
-	outYAML, err = tpath.GetSpecSubtree(outYAML)
-	if err != nil {
-		return "", nil, err
-	}
-
-	finalIOPS, err := unmarshalAndValidateIOPS(outYAML, skipValidation, allowUnknownField, l)
+	finalIOP, err := unmarshalAndValidateIOP(outYAML, skipValidation, allowUnknownField, l)
 	if err != nil {
 		return "", nil, err
 	}
 	// InstallPackagePath may have been a URL, change to extracted to local file path.
-	finalIOPS.InstallPackagePath = installPackagePath
-	return util.ToYAMLWithJSONPB(finalIOPS), finalIOPS, nil
+	finalIOP.Spec.InstallPackagePath = installPackagePath
+	return util.ToYAMLWithJSONPB(finalIOP), finalIOP, nil
 }
 
 // ReadYamlProfile gets the overlay yaml file from list of files and return profile value from file overlay and set overlay.
@@ -356,6 +351,16 @@ func overlayHubAndTag(yml string) (string, error) {
 func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
+	fsgroup, err := getFSGroupOverlay(config)
+	if err != nil {
+		if force {
+			l.LogAndPrint(err)
+		} else {
+			return "", err
+		}
+	} else if fsgroup != "" {
+		overlays = append(overlays, fsgroup)
+	}
 	jwt, err := getJwtTypeOverlay(config, l)
 	if err != nil {
 		if force {
@@ -369,6 +374,17 @@ func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (s
 
 	return makeTreeFromSetList(overlays)
 
+}
+
+func getFSGroupOverlay(config *rest.Config) (string, error) {
+	version, err := k8sversion.GetKubernetesVersion(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+	}
+	if version >= 19 {
+		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=false", nil
+	}
+	return "", nil
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
@@ -394,7 +410,7 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 		}
 		iops := &v1alpha1.IstioOperatorSpec{}
 		if err := util.UnmarshalWithJSONPB(string(testTree), iops, false); err != nil {
-			return "", fmt.Errorf("bad path=value: %s", kv)
+			return "", fmt.Errorf("bad path=value %s: %v", kv, err)
 		}
 	}
 	out, err := yaml.Marshal(tree)
@@ -417,19 +433,19 @@ func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
 	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }
 
-// unmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
+// unmarshalAndValidateIOP unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
-func unmarshalAndValidateIOPS(iopsYAML string, force, allowUnknownField bool, l clog.Logger) (*v1alpha1.IstioOperatorSpec, error) {
-	iops := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, allowUnknownField); err != nil {
+func unmarshalAndValidateIOP(iopsYAML string, force, allowUnknownField bool, l clog.Logger) (*iopv1alpha1.IstioOperator, error) {
+	iop := &iopv1alpha1.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(iopsYAML, iop, allowUnknownField); err != nil {
 		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
-	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 && !force {
+	if errs := validate.CheckIstioOperatorSpec(iop.Spec, true); len(errs) != 0 && !force {
 		l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-		return iops, fmt.Errorf(errs.Error())
+		return iop, fmt.Errorf(errs.Error())
 	}
-	return iops, nil
+	return iop, nil
 }
 
 // getInstallPackagePath returns the installPackagePath in the given IstioOperator YAML string.

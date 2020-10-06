@@ -70,7 +70,7 @@ func TestMetrics(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
 			args:           strings.Split("experimental metrics details", " "),
-			expectedRegexp: regexp.MustCompile("Error: could not build port forwarder for prometheus"),
+			expectedRegexp: regexp.MustCompile("could not build metrics for workload"),
 			wantException:  true,
 		},
 	}

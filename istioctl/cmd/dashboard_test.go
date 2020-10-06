@@ -45,8 +45,8 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 3
 			args:           strings.Split("dashboard controlz pod-123456-7890", " "),
-			expectedRegexp: regexp.MustCompile(".*MockClient doesn't implement port forwarding"),
-			wantException:  true,
+			expectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
+			wantException:  false,
 		},
 		{ // case 4
 			args:           strings.Split("dashboard envoy", " "),
@@ -55,8 +55,8 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 5
 			args:           strings.Split("dashboard envoy pod-123456-7890", " "),
-			expectedRegexp: regexp.MustCompile(".*MockClient doesn't implement port forwarding"),
-			wantException:  true,
+			expectedRegexp: regexp.MustCompile("http://localhost:3456"),
+			wantException:  false,
 		},
 		{ // case 6
 			args:           strings.Split("dashboard grafana", " "),

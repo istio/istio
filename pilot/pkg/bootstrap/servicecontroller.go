@@ -84,11 +84,6 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
-	if features.EnableEndpointSliceController {
-		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
-	} else {
-		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
-	}
 
 	log.Infof("Initializing Kubernetes service registry %q", args.RegistryOptions.KubeOptions.ClusterID)
 	kubeRegistry := kubecontroller.NewController(s.kubeClient, args.RegistryOptions.KubeOptions)

@@ -17,14 +17,12 @@ package validation
 import (
 	"encoding/binary"
 	"testing"
-
-	"github.com/coreos/etcd/pkg/cpuutil"
 )
 
 func TestNtohs(t *testing.T) {
 	hostValue := ntohs(0xbeef)
 	expectValue := 0xbeef
-	if cpuutil.ByteOrder().String() == binary.LittleEndian.String() {
+	if nativeByteOrder == binary.LittleEndian {
 		expectValue = 0xefbe
 	}
 	if hostValue != uint16(expectValue) {

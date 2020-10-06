@@ -26,6 +26,9 @@ rules:
     # TODO: should be on just */status but wildcard is not supported
     resources: ["*"]
 {{- end }}
+  - apiGroups: ["networking.istio.io"]
+    verbs: [ "get", "watch", "list", "update", "create", "delete" ]
+    resources: [ "workloadentries/status" ]
 
   # auto-detect installed CRD definitions
   - apiGroups: ["apiextensions.k8s.io"]
@@ -80,6 +83,11 @@ rules:
     resources: ["tokenreviews"]
     verbs: ["create"]
 
+  # Used by Istiod to verify gateway SDS
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+
   # Use for Kubernetes Service APIs
   - apiGroups: ["networking.x-k8s.io"]
     resources: ["*"]
@@ -109,13 +117,19 @@ rules:
   - apiGroups: [""]
     resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["replicasets"]
     verbs: ["get", "list", "watch"]
-{{- if .Values.global.centralIstiod }}
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
     verbs: ["create"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+{{- if .Values.global.centralIstiod }}
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]

@@ -78,7 +78,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedErrMsg: "failed to validate the JWT: the token is not authenticated",
+			expectedErrMsg: "failed to validate the JWT from cluster Kubernetes: the token is not authenticated",
 		},
 		"token authenticated": {
 			token: "bearer-token",
@@ -92,7 +92,7 @@ func TestAuthenticate(t *testing.T) {
 			expectedID:     fmt.Sprintf(identityTemplate, "example.com", "default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
-		"not found remote cluster fallback to primary cluster": {
+		"not found remote cluster results in error": {
 			remoteCluster: false,
 			token:         "bearer-token",
 			metadata: metadata.MD{
@@ -102,8 +102,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedID:     fmt.Sprintf(identityTemplate, "example.com", "default", "example-pod-sa"),
-			expectedErrMsg: "",
+			expectedErrMsg: "could not get cluster non-exist's kube client",
 		},
 	}
 

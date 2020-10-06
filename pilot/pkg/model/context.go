@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/monitoring"
 )
 
@@ -123,9 +124,9 @@ func (e *Environment) AddNetworksHandler(h func()) {
 	}
 }
 
-func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
 	if e != nil && e.PushContext != nil {
-		e.PushContext.AddMetric(metric, key, proxy, msg)
+		e.PushContext.AddMetric(metric, key, proxyID, msg)
 	}
 }
 
@@ -141,7 +142,7 @@ type XdsUpdates = map[ConfigKey]struct{}
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates XdsUpdates) Resources
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) Resources
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -196,6 +197,13 @@ type Proxy struct {
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
+
+	// VerifiedIdentity determines whether a proxy had its identity verified. This
+	// generally occurs by JWT or mTLS authentication. This can be false when
+	// connecting over plaintext. If this is set to true, we can verify the proxy has
+	// access to ConfigNamespace namespace. However, other options such as node type
+	// are not part of an Istio identity and thus are not verified.
+	VerifiedIdentity *spiffe.Identity
 
 	// Indicates whether proxy supports IPv6 addresses
 	ipv6Support bool
@@ -468,11 +476,9 @@ type NodeMetadata struct {
 	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
 
 	CertBaseDir string `json:"BASE,omitempty"`
-	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
-	SdsEnabled StringBool `json:"SDS,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
-	// If not set, no timeout is set.
+	// If not set, default timeout is 1 hour.
 	IdleTimeout string `json:"IDLE_TIMEOUT,omitempty"`
 
 	// HTTP10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
@@ -485,6 +491,9 @@ type NodeMetadata struct {
 
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
+
+	// ProxyXDSViaAgent indicates that xds data is being proxied via the agent
+	ProxyXDSViaAgent string `json:"PROXY_XDS_VIA_AGENT,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
@@ -747,22 +756,18 @@ const UnnamedNetwork = ""
 // GetNetworkView returns the networks that the proxy requested.
 // When sending EDS/CDS-with-dns-endpoints, Pilot will only send
 // endpoints corresponding to the networks that the proxy wants to see.
-// If not set, we assume that the proxy wants to see endpoints from the default
-// unnamed network.
+// If not set, we assume that the proxy wants to see endpoints in any network.
 func GetNetworkView(node *Proxy) map[string]bool {
-	if node == nil {
-		return map[string]bool{UnnamedNetwork: true}
+	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
+		return nil
 	}
 
 	nmap := make(map[string]bool)
 	for _, n := range node.Metadata.RequestedNetworkView {
 		nmap[n] = true
 	}
+	nmap[UnnamedNetwork] = true
 
-	if len(nmap) == 0 {
-		// Proxy sees endpoints from the default unnamed network only
-		nmap[UnnamedNetwork] = true
-	}
 	return nmap
 }
 

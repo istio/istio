@@ -30,7 +30,7 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), `
+			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -43,7 +43,7 @@ kind: Gateway
 metadata:
   name: gateway
 spec:
-  class: istio
+  gatewayClassName: istio
   listeners:
   - hostname:
       match: Domain
@@ -67,11 +67,12 @@ spec:
   hosts:
   - hostnames: ["my.domain.example"]
     rules:
-    - match:
-        pathMatchType: Prefix
-        path: /get
-      action:
-        forwardTo:
+    - matches:
+      - path:
+          type: Prefix
+          value: /get
+      forward:
+        to:
         - targetRef:
             name: b
 ---
@@ -83,18 +84,18 @@ spec:
   rules:
   - action:
       forwardTo:
-        targetPort: 80
+      - targetPort: 80
         targetRef:
           name: b
 `)
 
 			ctx.NewSubTest("http").Run(func(ctx framework.TestContext) {
 				if err := retry.UntilSuccess(func() error {
-					resp, err := ingr.Call(ingress.CallOptions{
+					resp, err := apps.Ingress.Call(ingress.CallOptions{
 						Host:     "my.domain.example",
 						Path:     "/get",
 						CallType: ingress.PlainText,
-						Address:  ingr.HTTPAddress(),
+						Address:  apps.Ingress.HTTPAddress(),
 					})
 					if err != nil {
 						return err
@@ -109,11 +110,11 @@ spec:
 			})
 			ctx.NewSubTest("tcp").Run(func(ctx framework.TestContext) {
 				if err := retry.UntilSuccess(func() error {
-					resp, err := ingr.Call(ingress.CallOptions{
+					resp, err := apps.Ingress.Call(ingress.CallOptions{
 						Host:     "my.domain.example",
 						Path:     "/",
 						CallType: ingress.PlainText,
-						Address:  ingr.TCPAddress(),
+						Address:  apps.Ingress.TCPAddress(),
 					})
 					if err != nil {
 						return err
@@ -161,7 +162,7 @@ func TestIngress(t *testing.T) {
 				return nil
 			})
 
-			if err := ctx.Config().ApplyYAML(apps.namespace.Name(), `
+			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), `
 apiVersion: networking.k8s.io/v1beta1
 kind: IngressClass
 metadata:
@@ -205,7 +206,7 @@ spec:
 						Host:     "server",
 						Path:     "/test",
 						CallType: ingress.PlainText,
-						Address:  ingr.HTTPAddress(),
+						Address:  apps.Ingress.HTTPAddress(),
 					},
 				},
 				{
@@ -215,7 +216,7 @@ spec:
 						Host:     "foo.example.com",
 						Path:     "/test",
 						CallType: ingress.TLS,
-						Address:  ingr.HTTPSAddress(),
+						Address:  apps.Ingress.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialA.CaCert,
 					},
 				},
@@ -226,7 +227,7 @@ spec:
 						Host:     "bar.example.com",
 						Path:     "/test",
 						CallType: ingress.TLS,
-						Address:  ingr.HTTPSAddress(),
+						Address:  apps.Ingress.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialB.CaCert,
 					},
 				},
@@ -237,7 +238,7 @@ spec:
 						Host:     "bar.example.com",
 						Path:     "/test/namedport",
 						CallType: ingress.TLS,
-						Address:  ingr.HTTPSAddress(),
+						Address:  apps.Ingress.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialB.CaCert,
 					},
 				},
@@ -245,7 +246,7 @@ spec:
 			for _, tt := range cases {
 				ctx.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := ingr.Call(tt.call)
+						resp, err := apps.Ingress.Call(tt.call)
 						// TODO check all clusters were hit
 						if err != nil {
 							return err

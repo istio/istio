@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+- |
+  **Added** an experimental option to server Gateway certificates from Istiod, rather than in the gateway pods.
+  This reduces the permissions required in the gateways and can be enabled by setting the ISTIOD_ENABLE_SDS_SERVER
+  environment variable in Istiod.

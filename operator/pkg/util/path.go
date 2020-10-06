@@ -137,7 +137,7 @@ func IsNPathElement(pe string) bool {
 	}
 
 	n, err := strconv.Atoi(pe)
-	return err == nil && n > InsertIndex
+	return err == nil && n >= InsertIndex
 }
 
 // PathKV returns the key and value string parts of the entire key/value path element.

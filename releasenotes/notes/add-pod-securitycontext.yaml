@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 26275 
+releaseNotes:
+- |
+  **Added** support for securityContext in the k8s settings for the operator API.

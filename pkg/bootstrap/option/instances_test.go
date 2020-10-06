@@ -15,8 +15,6 @@
 package option_test
 
 import (
-	"encoding/base64"
-	"net"
 	"testing"
 	"time"
 
@@ -159,48 +157,6 @@ func TestOptions(t *testing.T) {
 			expected: option.DNSLookupFamilyValue("AUTO"),
 		},
 		{
-			testName: "pod name",
-			key:      "PodName",
-			option:   option.PodName("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "pod namespace",
-			key:      "PodNamespace",
-			option:   option.PodNamespace("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "pod ip",
-			key:      "PodIP",
-			option:   option.PodIP(net.IPv4(127, 0, 0, 1)),
-			expected: base64.StdEncoding.EncodeToString(net.IPv4(127, 0, 0, 1)),
-		},
-		{
-			testName: "control plane auth true",
-			key:      "ControlPlaneAuth",
-			option:   option.ControlPlaneAuth(true),
-			expected: "enable",
-		},
-		{
-			testName: "control plane auth false",
-			key:      "ControlPlaneAuth",
-			option:   option.ControlPlaneAuth(false),
-			expected: nil,
-		},
-		{
-			testName: "disable report calls true",
-			key:      "DisableReportCalls",
-			option:   option.DisableReportCalls(true),
-			expected: "true",
-		},
-		{
-			testName: "disable report calls false",
-			key:      "DisableReportCalls",
-			option:   option.DisableReportCalls(false),
-			expected: nil,
-		},
-		{
 			testName: "lightstep address empty",
 			key:      "lightstep",
 			option:   option.LightstepAddress(""),
@@ -247,6 +203,37 @@ func TestOptions(t *testing.T) {
 			key:      "lightstepToken",
 			option:   option.LightstepToken("fake"),
 			expected: "fake",
+		},
+		{
+			testName: "openCensusAgent address",
+			key:      "openCensusAgent",
+			option:   option.OpenCensusAgentAddress("fake-ocagent"),
+			expected: "fake-ocagent",
+		},
+		{
+			testName: "openCensusAgent empty context",
+			key:      "openCensusAgentContexts",
+			option:   option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{}),
+			expected: `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`,
+		},
+		{
+			testName: "openCensusAgent order context",
+			key:      "openCensusAgentContexts",
+			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
+				meshAPI.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT,
+				meshAPI.Tracing_OpenCensusAgent_B3,
+				meshAPI.Tracing_OpenCensusAgent_GRPC_BIN,
+				meshAPI.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT,
+			}),
+			expected: `["CLOUD_TRACE_CONTEXT","B3","GRPC_TRACE_BIN","TRACE_CONTEXT"]`,
+		},
+		{
+			testName: "openCensusAgent one context",
+			key:      "openCensusAgentContexts",
+			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
+				meshAPI.Tracing_OpenCensusAgent_B3,
+			}),
+			expected: `["B3"]`,
 		},
 		{
 			testName: "stackdriver enabled",

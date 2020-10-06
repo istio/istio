@@ -149,7 +149,6 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 	}
 	gs := grpc.NewServer()
 	s.DiscoveryServer.Register(gs)
-	s.DiscoveryServer.RegisterLegacyv2(gs)
 	reflection.Register(gs)
 	s.GRPCListener = lis
 	go func() {
@@ -200,7 +199,7 @@ func (p *ProxyGen) Close() {
 // Responses will be forwarded back to the client.
 //
 // TODO: allow clients to indicate which requests they handle ( similar with topic )
-func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
 	if p.adsc == nil {
 		return nil
 	}

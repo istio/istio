@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +50,7 @@ func TelemetryTest(t *testing.T, apps AppContext, features ...features.Feature) 
 									src := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(src))
 									dest := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(dest))
 
-									_ = callOrFail(ctx, src, dest)
+									callOrFail(ctx, src, dest)
 									validateClusterLabelsInStats(src, t)
 									validateClusterLabelsInStats(dest, t)
 								})

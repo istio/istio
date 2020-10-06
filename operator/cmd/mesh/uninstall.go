@@ -101,8 +101,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
   istioctl x uninstall -f iop.yaml
   
   # Uninstall all control planes and shared resources
-  istioctl x uninstall --purge
-`,
+  istioctl x uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if uiArgs.revision == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision, --filename or --purge flags must be set")
@@ -157,12 +156,8 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		opts.ProgressLog.SetState(progress.StateUninstallComplete)
 		return nil
 	}
-	manifestMap, iops, err := manifest.GenManifests([]string{uiArgs.filename},
+	manifestMap, iop, err := manifest.GenManifests([]string{uiArgs.filename},
 		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, restConfig, l)
-	if err != nil {
-		return err
-	}
-	iop, err := translate.IOPStoIOP(iops, "removed", iopv1alpha1.Namespace(iops))
 	if err != nil {
 		return err
 	}
@@ -171,12 +166,12 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
-	preCheckWarnings(cmd, uiArgs, iops.Revision, nil, cpObjects, l)
+	preCheckWarnings(cmd, uiArgs, iop.Spec.Revision, nil, cpObjects, l)
 	h, err = helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
 	}
-	if err := h.DeleteControlPlaneByManifests(manifestMap, iops.Revision, uiArgs.purge); err != nil {
+	if err := h.DeleteControlPlaneByManifests(manifestMap, iop.Spec.Revision, uiArgs.purge); err != nil {
 		return fmt.Errorf("failed to delete control plane by manifests: %v", err)
 	}
 	opts.ProgressLog.SetState(progress.StateUninstallComplete)

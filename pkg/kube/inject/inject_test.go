@@ -186,6 +186,14 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			// Verifies that HoldApplicationUntilProxyStarts in MeshConfig puts sidecar in front
+			in:   "hello-probes.yaml",
+			want: "hello-probes.proxyHoldsApplication.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
+		{
 			// A test with no pods is not relevant for webhook
 			in:          "hello-service.yaml",
 			want:        "hello-service.yaml.injected",
@@ -363,18 +371,22 @@ func TestInjection(t *testing.T) {
 								Namespace: jsonToUnstructured(inputYAML, t).GetNamespace(),
 							},
 						}, "")
-
+						var gotPod *corev1.Pod
 						// Apply the generated patch to the template.
 						if got.Patch != nil {
+							patchedPod := &corev1.Pod{}
 							patch := prettyJSON(got.Patch, t)
 							patchedTemplateJSON := applyJSONPatch(templateJSON, patch, t)
-							if err := json.Unmarshal(patchedTemplateJSON, inputPod); err != nil {
+							if err := json.Unmarshal(patchedTemplateJSON, patchedPod); err != nil {
 								t.Fatal(err)
 							}
+							gotPod = patchedPod
+						} else {
+							gotPod = inputPod
 						}
 
 						// normalize and compare the patched deployment with the one we expected.
-						if err := normalizeAndCompareDeployments(inputPod, wantPod, t); err != nil {
+						if err := normalizeAndCompareDeployments(gotPod, wantPod, t); err != nil {
 							t.Fatal(err)
 						}
 					})

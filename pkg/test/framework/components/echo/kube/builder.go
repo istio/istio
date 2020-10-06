@@ -61,11 +61,6 @@ func (b *builder) Build() (echo.Instances, error) {
 	}
 	scopes.Framework.Debugf("initialized echo deployments in %v", time.Since(t0))
 
-	if err := b.waitUntilAllCallable(instances); err != nil {
-		return nil, fmt.Errorf("wait until callable: %v", err)
-	}
-	scopes.Framework.Debugf("echo deployments ready in %v", time.Since(t0))
-
 	// Success... update the caller's references.
 	for i, inst := range instances {
 		if b.references[i] != nil {
@@ -141,28 +136,4 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 	}
 
 	return nil
-}
-
-func (b *builder) waitUntilAllCallable(instances []echo.Instance) error {
-	// Now wait for each endpoint to be callable from all others.
-	wg := sync.WaitGroup{}
-	aggregateErrMux := &sync.Mutex{}
-	var aggregateErr error
-	for _, inst := range instances {
-		wg.Add(1)
-
-		source := inst
-		go func() {
-			defer wg.Done()
-
-			if err := source.WaitUntilCallable(instances...); err != nil {
-				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, err)
-				aggregateErrMux.Unlock()
-			}
-		}()
-	}
-	wg.Wait()
-
-	return aggregateErr
 }

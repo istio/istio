@@ -14,11 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
 set -eu
 
 out="${1}"
 config="${out}/docker-bake.hcl"
 shift
+
 
 variants=\"$(for i in ${DOCKER_ALL_VARIANTS}; do echo "\"${i}\""; done | xargs | sed -e 's/ /\", \"/g')\"
 cat <<EOF > "${config}"
@@ -30,7 +34,9 @@ EOF
 # Generate the top header. This defines a group to build all images for each variant
 for variant in ${DOCKER_ALL_VARIANTS}; do
   # Get all images. Transform from `docker.target` to `"target"` as a comma seperated list
-  images=\"$(for i in "$@"; do echo "\"${i#docker.}-${variant}\""; done | xargs | sed -e 's/ /\", \"/g')\"
+  images=\"$(for i in "$@"; do
+    if ! "${WD}/skip-image.sh" "$i" "$variant"; then echo "\"${i#docker.}-${variant}\""; fi
+  done | xargs | sed -e 's/ /\", \"/g')\"
   cat <<EOF >> "${config}"
 group "${variant}" {
     targets = [${images}]

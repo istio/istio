@@ -59,7 +59,6 @@ var (
 				"pilot_total_xds_internal_errors",
 				"pilot_xds_push_context_errors",
 				`pilot_xds_pushes{type!~"lds|cds|rds|eds"}`,
-				"pilot_xds_eds_instances",
 				"_timeout",
 				"_rejects",
 				// We do not simulate injection errors

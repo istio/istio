@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -119,14 +120,27 @@ spec:
         port: 80
       route:
       - destination:
-          host: destination.{{.AppNamespace}}.svc.cluster.local
-          port:
-            number: 80
-        weight: 100
+          host: some-external-site.com
       headers:
         request:
           add:
             handled-by-egress-gateway: "true"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: ext-service-entry
+spec:
+  hosts:
+  - "some-external-site.com"
+  location: MESH_EXTERNAL
+  endpoints:
+  - address: destination.{{.AppNamespace}}.svc.cluster.local
+    network: external
+  ports:
+  - number: 80
+    name: http
+  resolution: DNS
 `
 )
 
@@ -360,7 +374,6 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			},
 			TLSSettings: &common.TLSSettings{
 				// Echo has these test certs baked into the docker image
-				RootCert:   mustReadCert(t, "cacert.pem"),
 				ClientCert: mustReadCert(t, "cert.crt"),
 				Key:        mustReadCert(t, "cert.key"),
 			},

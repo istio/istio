@@ -22,7 +22,10 @@ import (
 	"os"
 
 	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/pkg/log"
 )
+
+var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
 
 func listenOnPort(port int) (net.Listener, int, error) {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))

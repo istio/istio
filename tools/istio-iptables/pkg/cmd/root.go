@@ -36,14 +36,8 @@ import (
 var (
 	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
 	// Enable interception of DNS.
-	// Will be moved to mesh config after it's stable.
-	// TODO: this captures everything, if we want to split cluster.local to TLS and
-	// keep using plain UDP for the rest - we'll need to add another rule to allow
-	// istio-proxy to send.
-	dnsCaptureByEnvoy = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
-		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to envoy on :15013")
-	dnsCaptureByAgent = env.RegisterStringVar("DNS_AGENT", "",
-		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
+	dnsCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
+		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
 )
 
 var rootCmd = &cobra.Command{
@@ -71,8 +65,8 @@ var rootCmd = &cobra.Command{
 			}
 			validator := validation.NewValidator(cfg, hostIP)
 
-			if validator.Run() != nil {
-				os.Exit(constants.ValidationErrorCode)
+			if err := validator.Run(); err != nil {
+				handleErrorWithCode(err, constants.ValidationErrorCode)
 			}
 		}
 	},
@@ -146,8 +140,12 @@ func getLocalIP() (net.IP, error) {
 }
 
 func handleError(err error) {
+	handleErrorWithCode(err, 1)
+}
+
+func handleErrorWithCode(err error, code int) {
 	log.Errora(err)
-	os.Exit(1)
+	os.Exit(code)
 }
 
 func init() {
@@ -309,7 +307,6 @@ func GetCommand() *cobra.Command {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
-		os.Exit(1)
+		handleError(err)
 	}
 }

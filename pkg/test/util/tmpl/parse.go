@@ -17,13 +17,15 @@ package tmpl
 import (
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
+
 	"istio.io/istio/pkg/test"
 )
 
 // Parse the given template content.
 func Parse(tpl string) (*template.Template, error) {
 	t := template.New("test template")
-	return t.Parse(tpl)
+	return t.Funcs(sprig.TxtFuncMap()).Parse(tpl)
 }
 
 // ParseOrFail calls Parse and fails tests if it returns error.

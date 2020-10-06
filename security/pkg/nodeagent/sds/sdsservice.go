@@ -45,7 +45,6 @@ import (
 
 const (
 	// SecretType is used for secret discovery service to construct response.
-	SecretTypeV2 = "type.googleapis.com/envoy.api.v2.auth.Secret"
 	SecretTypeV3 = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret"
 
 	// credentialTokenHeaderKey is the header key in gPRC header which is used to
@@ -152,7 +151,7 @@ type Debug struct {
 	Clients []ClientDebug `json:"clients"`
 }
 
-// newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
+// newSDSService creates Secret Discovery Service which implements envoy SDS API.
 func newSDSService(st security.SecretManager,
 	secOpt *security.Options,
 	skipTokenVerification bool) *sdsservice {

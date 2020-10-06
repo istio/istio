@@ -16,13 +16,14 @@ package xds
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // configKindAffectedProxyTypes contains known config types which will affect certain node types.
-var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeType{
+var configKindAffectedProxyTypes = map[config.GroupVersionKind][]model.NodeType{
 	gvk.Gateway: {model.Router},
+	gvk.Secret:  {model.Router},
 	gvk.Sidecar: {model.SidecarProxy},
 }
 
@@ -92,121 +93,4 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *Event) bool {
 	}
 
 	return false
-}
-
-type Type int
-
-const (
-	CDS Type = iota
-	EDS
-	LDS
-	RDS
-)
-
-// TODO: merge with ProxyNeedsPush
-func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
-	pushRequest := pushEv.pushRequest
-	out := map[Type]bool{}
-
-	// In case configTypes is not set, for example mesh configuration updated.
-	// If push scoping is not enabled, we push all xds
-	if len(pushRequest.ConfigsUpdated) == 0 {
-		out[EDS] = true
-		out[CDS] = true
-		out[LDS] = true
-		out[RDS] = true
-		return out
-	}
-
-	// Note: CDS push must be followed by EDS, otherwise after Cluster is warmed, no ClusterLoadAssignment is retained.
-
-	if proxy.Type == model.SidecarProxy {
-		for config := range pushRequest.ConfigsUpdated {
-			switch config.Kind {
-			case gvk.VirtualService:
-				out[LDS] = true
-				out[RDS] = true
-			case gvk.Gateway:
-				// Do not push
-			case gvk.ServiceEntry:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			case gvk.DestinationRule:
-				out[CDS] = true
-				out[EDS] = true
-				out[RDS] = true
-			case gvk.EnvoyFilter:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			case gvk.Sidecar:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			case gvk.AuthorizationPolicy,
-				gvk.RequestAuthentication:
-				out[LDS] = true
-			case gvk.PeerAuthentication:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-			default:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			}
-			// To return asap
-			if len(out) == 4 {
-				return out
-			}
-		}
-	} else {
-		for config := range pushRequest.ConfigsUpdated {
-			switch config.Kind {
-			case gvk.VirtualService:
-				out[LDS] = true
-				out[RDS] = true
-			case gvk.Gateway:
-				out[LDS] = true
-				out[RDS] = true
-			case gvk.ServiceEntry:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			case gvk.DestinationRule:
-				out[CDS] = true
-				out[EDS] = true
-			case gvk.EnvoyFilter:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			case gvk.Sidecar:
-				// do not push for gateway
-			case gvk.AuthorizationPolicy,
-				gvk.RequestAuthentication:
-				out[LDS] = true
-			case gvk.PeerAuthentication:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-			default:
-				out[CDS] = true
-				out[EDS] = true
-				out[LDS] = true
-				out[RDS] = true
-			}
-			// To return asap
-			if len(out) == 4 {
-				return out
-			}
-		}
-	}
-	return out
 }

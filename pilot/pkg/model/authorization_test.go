@@ -24,11 +24,11 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/ledger"
 )
 
@@ -70,7 +70,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		name           string
 		ns             string
 		workloadLabels map[string]string
-		configs        []Config
+		configs        []config.Config
 		wantDeny       []AuthorizationPolicy
 		wantAllow      []AuthorizationPolicy
 		wantAudit      []AuthorizationPolicy
@@ -83,7 +83,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "no policies in namespace foo",
 			ns:   "foo",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
 			},
@@ -92,7 +92,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "one allow policy",
 			ns:   "bar",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
 			},
 			wantAllow: []AuthorizationPolicy{
@@ -106,7 +106,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "one deny policy",
 			ns:   "bar",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", denyPolicy),
 			},
 			wantDeny: []AuthorizationPolicy{
@@ -120,7 +120,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "one audit policy",
 			ns:   "bar",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", auditPolicy),
 			},
 			wantAudit: []AuthorizationPolicy{
@@ -134,7 +134,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "two policies",
 			ns:   "bar",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "foo", policy),
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
@@ -155,7 +155,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "mixing allow, deny, and audit policies",
 			ns:   "bar",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", denyPolicy),
 				newConfig("authz-3", "bar", auditPolicy),
@@ -195,7 +195,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				"app":     "httpbin",
 				"version": "v1",
 			},
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
 			wantAllow: []AuthorizationPolicy{
@@ -214,7 +214,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				"version": "v1",
 				"env":     "dev",
 			},
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
 			wantAllow: []AuthorizationPolicy{
@@ -232,7 +232,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				"app":     "httpbin",
 				"version": "v2",
 			},
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
 			wantAllow: nil,
@@ -244,7 +244,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				"app":     "httpbin",
 				"version": "v1",
 			},
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
 			wantAllow: nil,
@@ -252,7 +252,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "root namespace",
 			ns:   "bar",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
 			wantAllow: []AuthorizationPolicy{
@@ -266,7 +266,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "root namespace equals config namespace",
 			ns:   "istio-config",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
 			wantAllow: []AuthorizationPolicy{
@@ -280,7 +280,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "root namespace and config namespace",
 			ns:   "bar",
-			configs: []Config{
+			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
 				newConfig("authz-2", "bar", policy),
 			},
@@ -318,7 +318,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	}
 }
 
-func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *AuthorizationPolicies {
+func createFakeAuthorizationPolicies(configs []config.Config, t *testing.T) *AuthorizationPolicies {
 	store := &authzFakeStore{}
 	for _, cfg := range configs {
 		store.add(cfg)
@@ -334,9 +334,9 @@ func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *Authorizat
 	return authzPolicies
 }
 
-func newConfig(name, ns string, spec proto.Message) Config {
-	return Config{
-		ConfigMeta: ConfigMeta{
+func newConfig(name, ns string, spec config.Spec) config.Config {
+	return config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
 			Name:             name,
 			Namespace:        ns,
@@ -347,9 +347,9 @@ func newConfig(name, ns string, spec proto.Message) Config {
 
 type authzFakeStore struct {
 	data []struct {
-		typ resource.GroupVersionKind
+		typ config.GroupVersionKind
 		ns  string
-		cfg Config
+		cfg config.Config
 	}
 }
 
@@ -361,15 +361,15 @@ func (fs *authzFakeStore) SetLedger(ledger.Ledger) error {
 	panic("implement me")
 }
 
-func (fs *authzFakeStore) add(config Config) {
+func (fs *authzFakeStore) add(cfg config.Config) {
 	fs.data = append(fs.data, struct {
-		typ resource.GroupVersionKind
+		typ config.GroupVersionKind
 		ns  string
-		cfg Config
+		cfg config.Config
 	}{
-		typ: config.GroupVersionKind,
-		ns:  config.Namespace,
-		cfg: config,
+		typ: cfg.GroupVersionKind,
+		ns:  cfg.Namespace,
+		cfg: cfg,
 	})
 }
 
@@ -377,12 +377,12 @@ func (fs *authzFakeStore) Schemas() collection.Schemas {
 	return collection.SchemasFor()
 }
 
-func (fs *authzFakeStore) Get(_ resource.GroupVersionKind, _, _ string) *Config {
+func (fs *authzFakeStore) Get(_ config.GroupVersionKind, _, _ string) *config.Config {
 	return nil
 }
 
-func (fs *authzFakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
-	var configs []Config
+func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+	var configs []config.Config
 	for _, data := range fs.data {
 		if data.typ == typ {
 			if namespace != "" && data.ns == namespace {
@@ -394,14 +394,14 @@ func (fs *authzFakeStore) List(typ resource.GroupVersionKind, namespace string) 
 	return configs, nil
 }
 
-func (fs *authzFakeStore) Delete(_ resource.GroupVersionKind, _, _ string) error {
+func (fs *authzFakeStore) Delete(_ config.GroupVersionKind, _, _ string) error {
 	return fmt.Errorf("not implemented")
 }
-func (fs *authzFakeStore) Create(Config) (string, error) {
+func (fs *authzFakeStore) Create(config.Config) (string, error) {
 	return "not implemented", nil
 }
 
-func (fs *authzFakeStore) Update(Config) (string, error) {
+func (fs *authzFakeStore) Update(config.Config) (string, error) {
 	return "not implemented", nil
 }
 

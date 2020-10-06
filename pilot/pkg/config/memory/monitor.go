@@ -16,7 +16,7 @@ package memory
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/resource"
+	config2 "istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
 )
 
@@ -26,25 +26,25 @@ const (
 )
 
 // Handler specifies a function to apply on a Config for a given event type
-type Handler func(model.Config, model.Config, model.Event)
+type Handler func(config2.Config, config2.Config, model.Event)
 
 // Monitor provides methods of manipulating changes in the config store
 type Monitor interface {
 	Run(<-chan struct{})
-	AppendEventHandler(resource.GroupVersionKind, Handler)
+	AppendEventHandler(config2.GroupVersionKind, Handler)
 	ScheduleProcessEvent(ConfigEvent)
 }
 
 // ConfigEvent defines the event to be processed
 type ConfigEvent struct {
-	config model.Config
-	old    model.Config
+	config config2.Config
+	old    config2.Config
 	event  model.Event
 }
 
 type configstoreMonitor struct {
 	store    model.ConfigStore
-	handlers map[resource.GroupVersionKind][]Handler
+	handlers map[config2.GroupVersionKind][]Handler
 	eventCh  chan ConfigEvent
 	// If enabled, events will be handled synchronously
 	sync bool
@@ -62,7 +62,7 @@ func NewSyncMonitor(store model.ConfigStore) Monitor {
 
 // NewBufferedMonitor returns new Monitor implementation with the specified event buffer size
 func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Monitor {
-	handlers := make(map[resource.GroupVersionKind][]Handler)
+	handlers := make(map[config2.GroupVersionKind][]Handler)
 
 	for _, s := range store.Schemas().All() {
 		handlers[s.Resource().GroupVersionKind()] = make([]Handler, 0)
@@ -109,11 +109,11 @@ func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
 	m.applyHandlers(ce.old, ce.config, ce.event)
 }
 
-func (m *configstoreMonitor) AppendEventHandler(typ resource.GroupVersionKind, h Handler) {
+func (m *configstoreMonitor) AppendEventHandler(typ config2.GroupVersionKind, h Handler) {
 	m.handlers[typ] = append(m.handlers[typ], h)
 }
 
-func (m *configstoreMonitor) applyHandlers(old model.Config, config model.Config, e model.Event) {
+func (m *configstoreMonitor) applyHandlers(old config2.Config, config config2.Config, e model.Event) {
 	for _, f := range m.handlers[config.GroupVersionKind] {
 		f(old, config, e)
 	}

@@ -52,6 +52,8 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
+	Store model.ConfigStore
+
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
 }
@@ -154,7 +156,7 @@ func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 // - NACKs
 //
 // We can also expose ACKS.
-func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
 	res := []*any.Any{}
 
 	switch w.TypeUrl {

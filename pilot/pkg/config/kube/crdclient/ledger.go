@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 )
@@ -63,7 +63,7 @@ func (cl *Client) tryLedgerPut(obj interface{}, kind string) {
 		log.Errora(err)
 		return
 	}
-	key := model.Key(kind, iobj.GetName(), iobj.GetNamespace())
+	key := config.Key(kind, iobj.GetName(), iobj.GetNamespace())
 	if _, err := cl.configLedger.Put(key, iobj.GetResourceVersion()); err != nil {
 		scope.Errorf("Failed to update %s in ledger, status will be out of date.", key)
 	}
@@ -75,7 +75,7 @@ func (cl *Client) tryLedgerDelete(obj interface{}, kind string) {
 		log.Errora(err)
 		return
 	}
-	key := model.Key(kind, iobj.GetName(), iobj.GetNamespace())
+	key := config.Key(kind, iobj.GetName(), iobj.GetNamespace())
 	if err := cl.configLedger.Delete(key); err != nil {
 		scope.Errorf("Failed to delete %s in ledger, status will be out of date.", key)
 	}

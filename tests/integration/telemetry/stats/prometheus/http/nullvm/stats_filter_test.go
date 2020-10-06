@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus/http"
 )
 
@@ -35,14 +36,13 @@ func TestStatsFilter(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}

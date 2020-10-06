@@ -12,7 +12,5 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
-  class: something-else
+  gatewayClassName: something-else
   listeners: []
-  routes:
-    resources: httproutes

@@ -18,65 +18,10 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 
-	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 )
-
-// Copies file by reading the file then writing atomically into the target directory
-func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
-	info, err := os.Stat(srcFilepath)
-	if err != nil {
-		return err
-	}
-
-	input, err := ioutil.ReadFile(srcFilepath)
-	if err != nil {
-		return err
-	}
-
-	return AtomicWrite(filepath.Join(targetDir, targetFilename), input, info.Mode())
-}
-
-// Write atomically by writing to a temporary file in the same directory then renaming
-func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
-	tmpFile, err := ioutil.TempFile(filepath.Dir(path), filepath.Base(path)+".tmp.")
-	if err != nil {
-		return
-	}
-	defer func() {
-		if fileutil.Exist(tmpFile.Name()) {
-			if rmErr := os.Remove(tmpFile.Name()); rmErr != nil {
-				if err != nil {
-					err = errors.Wrap(err, rmErr.Error())
-				} else {
-					err = rmErr
-				}
-			}
-		}
-	}()
-
-	if err = os.Chmod(tmpFile.Name(), mode); err != nil {
-		return
-	}
-
-	_, err = tmpFile.Write(data)
-	if err != nil {
-		if closeErr := tmpFile.Close(); closeErr != nil {
-			err = errors.Wrap(err, closeErr.Error())
-		}
-		return
-	}
-	if err = tmpFile.Close(); err != nil {
-		return
-	}
-
-	err = os.Rename(tmpFile.Name(), path)
-	return
-}
 
 // Creates a file watcher that watches for any changes to the directory
 func CreateFileWatcher(dir string) (watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error, err error) {

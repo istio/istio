@@ -28,6 +28,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -115,6 +116,35 @@ func TestValidateWildcardDomain(t *testing.T) {
 				t.Fatalf("ValidateWildcardDomain(%v) = %v, wanted nil", tt.in, err)
 			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
 				t.Fatalf("ValidateWildcardDomain(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
+func TestValidateTrustDomain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		err  string
+	}{
+		{"empty", "", "empty"},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"multi-segment", "foo.bar.com", ""},
+		{"middle dash", "f-oo.bar.com", ""},
+		{"trailing dot", "foo.bar.com.", ""},
+		{"prefix dash", "-foo.bar.com", "invalid"},
+		{"forward slash separated", "foo/bar/com", "invalid"},
+		{"colon separated", "foo:bar:com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTrustDomain(tt.in)
+			if err == nil && tt.err != "" {
+				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.err)
+			} else if err != nil && tt.err == "" {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.err) {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.err)
 			}
 		})
 	}
@@ -318,9 +348,11 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		ProxyListenPort: 0,
-		ConnectTimeout:  types.DurationProto(-1 * time.Second),
-		DefaultConfig:   &meshconfig.ProxyConfig{},
+		ProxyListenPort:    0,
+		ConnectTimeout:     types.DurationProto(-1 * time.Second),
+		DefaultConfig:      &meshconfig.ProxyConfig{},
+		TrustDomain:        "",
+		TrustDomainAliases: []string{"a.$b", "a/b", ""},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -330,7 +362,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 6 {
+			if len(err.Errors) < 7 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -718,7 +750,13 @@ func TestValidateGateway(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGateway(someName, someNamespace, tt.in)
+			_, err := ValidateGateway(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
 			if err == nil && tt.out != "" {
 				t.Fatalf("ValidateGateway(%v) = nil, wanted %q", tt.in, tt.out)
 			} else if err != nil && tt.out == "" {
@@ -1855,6 +1893,78 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "envoy escaped % set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"i-love-istio": "100%%",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "envoy variable set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"name": "%HOSTNAME%",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "envoy unescaped % set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"name": "abcd%oijasodifj",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "envoy escaped % add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"i-love-istio": "100%% and more",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "envoy variable add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "hello %HOSTNAME%",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "envoy unescaped % add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "abcd%oijasodifj",
+						},
+					},
+				},
+			}},
+		}, valid: false},
 		{name: "null header match", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
@@ -2034,14 +2144,14 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
-		{name: "no hosts", in: &networking.VirtualService{
+		{name: "delegate with no hosts", in: &networking.VirtualService{
 			Hosts: nil,
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "bad host", in: &networking.VirtualService{
 			Hosts: []string{"foo.ba!r"},
 			Http: []*networking.HTTPRoute{{
@@ -2138,7 +2248,7 @@ func TestValidateVirtualService(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidateVirtualService("", "", tc.in); (err == nil) != tc.valid {
+			if _, err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -2297,7 +2407,13 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 	}
 	for _, c := range cases {
-		if got := ValidateDestinationRule(someName, someNamespace, c.in); (got == nil) != c.valid {
+		if _, got := ValidateDestinationRule(config.Config{
+			Meta: config.Meta{
+				Name:      someName,
+				Namespace: someNamespace,
+			},
+			Spec: c.in,
+		}); (got == nil) != c.valid {
 			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -2374,9 +2490,18 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "invalid traffic policy, both upgrade and use client protocol set", in: networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy:   networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+					UseClientProtocol: true,
+				},
+			},
+		},
+			valid: false},
 	}
 	for _, c := range cases {
-		if got := validateTrafficPolicy(&c.in); (got == nil) != c.valid {
+		if got := validateTrafficPolicy(&c.in).Err; (got == nil) != c.valid {
 			t.Errorf("ValidateTrafficPolicy failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -2544,6 +2669,7 @@ func TestValidateOutlierDetection(t *testing.T) {
 		name  string
 		in    networking.OutlierDetection
 		valid bool
+		warn  bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
 			Interval:           &types.Duration{Seconds: 2},
@@ -2570,12 +2696,22 @@ func TestValidateOutlierDetection(t *testing.T) {
 			MinHealthPercent: 101,
 		},
 			valid: false},
+		{name: "deprecated outlier detection, ConsecutiveErrors", in: networking.OutlierDetection{
+			ConsecutiveErrors: 101,
+		},
+			valid: true,
+			warn:  true},
 	}
 
 	for _, c := range cases {
-		if got := validateOutlierDetection(&c.in); (got == nil) != c.valid {
+		got := validateOutlierDetection(&c.in)
+		if (got.Err == nil) != c.valid {
 			t.Errorf("ValidateOutlierDetection failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
+				c.name, got.Err == nil, c.valid, got.Err)
+		}
+		if (got.Warning == nil) == c.warn {
+			t.Errorf("ValidateOutlierDetection failed on %v: got warn=%v but wanted warn=%v: %v",
+				c.name, got.Warning == nil, c.warn, got.Warning)
 		}
 	}
 }
@@ -2889,7 +3025,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateEnvoyFilter(someName, someNamespace, tt.in)
+			_, err := ValidateEnvoyFilter(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
 			if err == nil && tt.error != "" {
 				t.Fatalf("ValidateEnvoyFilter(%v) = nil, wanted %q", tt.in, tt.error)
 			} else if err != nil && tt.error == "" {
@@ -3269,7 +3411,13 @@ func TestValidateServiceEntries(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateServiceEntry(someName, someNamespace, &c.in); (got == nil) != c.valid {
+			if _, got := ValidateServiceEntry(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: &c.in,
+			}); (got == nil) != c.valid {
 				t.Errorf("ValidateServiceEntry got valid=%v but wanted valid=%v: %v",
 					got == nil, c.valid, got)
 			}
@@ -3903,7 +4051,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateAuthorizationPolicy("", "", c.in); (got == nil) != c.valid {
+			if _, got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
 				t.Errorf("got: %v\nwant: %v", got, c.valid)
 			}
 		})
@@ -4372,7 +4520,13 @@ func TestValidateSidecar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSidecar("foo", "bar", tt.in)
+			_, err := ValidateSidecar(config.Config{
+				Meta: config.Meta{
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Spec: tt.in,
+			})
 			if err == nil && !tt.valid {
 				t.Fatalf("ValidateSidecar(%v) = true, wanted false", tt.in)
 			} else if err != nil && tt.valid {
@@ -4811,7 +4965,13 @@ func TestValidateRequestAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateRequestAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+			if _, got := ValidateRequestAuthentication(config.Config{
+				Meta: config.Meta{
+					Name:      c.configName,
+					Namespace: someNamespace,
+				},
+				Spec: c.in,
+			}); (got == nil) != c.valid {
 				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
 			}
 		})
@@ -4925,7 +5085,13 @@ func TestValidatePeerAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidatePeerAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+			if _, got := ValidatePeerAuthentication(config.Config{
+				Meta: config.Meta{
+					Name:      c.configName,
+					Namespace: someNamespace,
+				},
+				Spec: c.in,
+			}); (got == nil) != c.valid {
 				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
 			}
 		})

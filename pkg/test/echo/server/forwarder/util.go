@@ -19,11 +19,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/textproto"
+
+	"istio.io/pkg/log"
 )
 
 const (
 	hostHeader = "Host"
 )
+
+var fwLog = log.RegisterScope("forwarder", "echo clientside", 0)
 
 func writeHeaders(requestID int, header http.Header, outBuffer bytes.Buffer, addFn func(string, string)) {
 	for key, values := range header {

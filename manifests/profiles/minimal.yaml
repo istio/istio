@@ -4,3 +4,5 @@ kind: IstioOperator
 spec:
   components:
     ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false

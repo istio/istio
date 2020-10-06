@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
 // CallType defines ingress gateway type
@@ -89,11 +91,19 @@ type Instance interface {
 	Call(options CallOptions) (CallResponse, error)
 	CallOrFail(t test.Failer, options CallOptions) CallResponse
 
+	// CallEcho makes a call through ingress using the echo call and response types. This is recommended
+	// and the other method will likely be removed in the future.
+	CallEcho(options echo.CallOptions) (client.ParsedResponses, error)
+
 	// ProxyStats returns proxy stats, or error if failure happens.
 	ProxyStats() (map[string]int, error)
 
 	// CloseClients closes all clients the ingress has created. The object can still be used with new clients.
 	CloseClients()
+
+	// PodID returns the name of the ingress gateway pod of index i. Returns error if failed to get the pod
+	// or the index is out of boundary.
+	PodID(i int) (string, error)
 }
 
 // CallResponse is the result of a call made through Istio Instance.

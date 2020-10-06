@@ -94,7 +94,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 
 					if hasProxyIP(ss.NotReadyAddresses, ip) {
 						if c.metrics != nil {
-							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
 						}
 					}
 				}
@@ -206,6 +206,16 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 		}
 	}
 	return endpoints
+}
+
+func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+	ep, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(namespace).Get(name)
+	if err != nil || ep == nil {
+		log.Debugf("endpoints(%s, %s) not found => error %v", name, namespace, err)
+		return nil
+	}
+
+	return e.buildIstioEndpoints(ep, host)
 }
 
 func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {

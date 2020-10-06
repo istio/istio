@@ -33,10 +33,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 var (
@@ -44,7 +42,7 @@ var (
 
 	// sendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
-	sendTimeout = 5 * time.Second
+	sendTimeout = features.XdsPushSendTimeout
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
@@ -148,6 +146,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				*errP = err
 				return
 			}
+			adsLog.Infof("ADS: new connection for node:%s", con.ConID)
 			defer func() {
 				s.removeCon(con.ConID)
 				if s.InternalGen != nil {
@@ -168,37 +167,18 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // processRequest is handling one request. This is currently called from the 'main' thread, which also
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
-func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, con *Connection) error {
+func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
+		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
 
-	switch discReq.TypeUrl {
-	case v3.ClusterType:
-		if err := s.handleCds(con, discReq); err != nil {
-			return err
-		}
-	case v3.ListenerType:
-		if err := s.handleLds(con, discReq); err != nil {
-			return err
-		}
-	case v3.RouteType:
-		if err := s.handleRds(con, discReq); err != nil {
-			return err
-		}
-	case v3.EndpointType:
-		if err := s.handleEds(con, discReq); err != nil {
-			return err
-		}
-	default:
-		// Allow custom generators to work without 'generator' metadata.
-		// It would be an error/warn for normal XDS - so nothing to lose.
-		err := s.handleCustomGenerator(con, discReq)
-		if err != nil {
-			return err
-		}
+	if !s.shouldRespond(con, req) {
+		return nil
 	}
-	return nil
+
+	push := s.globalPushContext()
+
+	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), &model.PushRequest{Full: true})
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -290,80 +270,35 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	}
 }
 
-func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.Watching(v3.ListenerType) {
-		if !s.shouldRespond(con, ldsReject, discReq) {
-			return nil
-		}
-	}
-	adsLog.Debugf("ADS:LDS: REQ %s", con.ConID)
-	err := s.pushLds(con, s.globalPushContext(), versionInfo())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.Watching(v3.ClusterType) {
-		if !s.shouldRespond(con, cdsReject, discReq) {
-			return nil
-		}
-	}
-	adsLog.Infof("ADS:CDS: REQ %v version:%s", con.ConID, discReq.VersionInfo)
-	err := s.pushCds(con, s.globalPushContext(), versionInfo())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, edsReject, discReq) {
-		return nil
-	}
-	con.proxy.WatchedResources[v3.EndpointType].ResourceNames = discReq.ResourceNames
-	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
-	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, rdsReject, discReq) {
-		return nil
-	}
-
-	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes()))
-	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring.Metric, request *discovery.DiscoveryRequest) bool {
+func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
-	// If there is an error in request that means previous response is errorneous.
+	// If there is an error in request that means previous response is erroneous.
 	// We do not have to respond in that case. In this case request's version info
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
 		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
-		incrementXDSRejects(rejectMetric, con.proxy.ID, errCode.String())
+		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
 		if s.InternalGen != nil {
 			s.InternalGen.OnNack(con.proxy, request)
 		}
 		return false
 	}
 
+	if shouldUnsubscribe(request) {
+		adsLog.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		con.proxy.Lock()
+		delete(con.proxy.WatchedResources, request.TypeUrl)
+		con.proxy.Unlock()
+		return false
+	}
+
 	// This is first request - initialize typeUrl watches.
 	if request.ResponseNonce == "" {
+		adsLog.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
@@ -417,6 +352,36 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	return true
 }
 
+// shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is
+// no longer watching. For example, we remove all RDS references, we will
+// unsubscribe from RDS. NOTE: This may happen as part of the initial request. If
+// there are no routes needed, Envoy will send an empty request, which this
+// properly handles by not adding it to the watched resource list.
+func shouldUnsubscribe(request *discovery.DiscoveryRequest) bool {
+	return len(request.ResourceNames) == 0 && !isWildcardTypeURL(request.TypeUrl)
+}
+
+// isWildcardTypeURL checks whether a given type is a wildcard type
+// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#how-the-client-specifies-what-resources-to-return
+// If the list of resource names becomes empty, that means that the client is no
+// longer interested in any resources of the specified type. For Listener and
+// Cluster resource types, there is also a “wildcard” mode, which is triggered
+// when the initial request on the stream for that resource type contains no
+// resource names.
+func isWildcardTypeURL(typeURL string) bool {
+	switch typeURL {
+	case v3.SecretType, v3.EndpointType, v3.RouteType:
+		// By XDS spec, these are not wildcard
+		return false
+	case v3.ClusterType, v3.ListenerType:
+		// By XDS spec, these are wildcard
+		return true
+	default:
+		// All of our internal types use wildcard semantics
+		return true
+	}
+}
+
 // listEqualUnordered checks that two lists contain all the same elements
 func listEqualUnordered(a []string, b []string) bool {
 	if len(a) != len(b) {
@@ -458,10 +423,12 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
-		if err := checkConnectionIdentity(con); err != nil {
+		id, err := checkConnectionIdentity(con)
+		if err != nil {
 			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
 			return fmt.Errorf("authorization failed: %v", err)
 		}
+		con.proxy.VerifiedIdentity = id
 	}
 
 	s.addCon(con.ConID, con)
@@ -472,7 +439,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	return nil
 }
 
-func checkConnectionIdentity(con *Connection) error {
+func checkConnectionIdentity(con *Connection) (*spiffe.Identity, error) {
 	for _, rawID := range con.Identities {
 		spiffeID, err := spiffe.ParseIdentity(rawID)
 		if err != nil {
@@ -484,9 +451,9 @@ func checkConnectionIdentity(con *Connection) error {
 		if con.proxy.Metadata.ServiceAccount != "" && spiffeID.ServiceAccount != con.proxy.Metadata.ServiceAccount {
 			continue
 		}
-		return nil
+		return &spiffeID, nil
 	}
-	return fmt.Errorf("no identities (%v) matched %v/%v", con.Identities, con.proxy.ConfigNamespace, con.proxy.Metadata.ServiceAccount)
+	return nil, fmt.Errorf("no identities (%v) matched %v/%v", con.Identities, con.proxy.ConfigNamespace, con.proxy.Metadata.ServiceAccount)
 }
 
 func connectionID(node string) string {
@@ -584,102 +551,83 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
-	// TODO: update the service deps based on NetworkScope
-	if !pushRequest.Full {
-		if !ProxyNeedsPush(con.proxy, pushEv) {
-			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
+
+	if pushRequest.Full {
+		// Update Proxy with current information.
+		if err := s.updateProxy(con.proxy, pushRequest.Push); err != nil {
 			return nil
 		}
-		edsUpdatedServices := model.ConfigNamesOfKind(pushRequest.ConfigsUpdated, gvk.ServiceEntry)
-		// Push only EDS. This is indexed already - push immediately
-		// (may need a throttle)
-		if len(con.Clusters()) > 0 && len(edsUpdatedServices) > 0 {
-			if err := s.pushEds(pushRequest.Push, con, versionInfo(), edsUpdatedServices); err != nil {
-				return err
-			}
-		}
-		return nil
 	}
 
-	// Update Proxy with current information.
-	if err := s.updateProxy(con.proxy, pushRequest.Push); err != nil {
-		return nil
-	}
-
-	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.proxy, pushEv) {
-		if con.proxy.XdsResourceGenerator != nil {
-			// to verify if logic works on generator
-			adsLog.Infof("Skipping generator push to %v, no updates required", con.ConID)
-		} else {
-			adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
-		}
-
-		if s.StatusReporter != nil {
-			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
-			// inform distribution status reporter that this connection has been updated, because it effectively has
-			for _, distributionType := range AllEventTypes {
-				s.StatusReporter.RegisterEvent(con.ConID, distributionType, pushRequest.Push.Version)
-			}
+		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
+		if pushRequest.Full {
+			// Only report for full versions, incremental pushes do not have a new version
+			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, nil)
 		}
 		return nil
 	}
 
-	adsLog.Infof("Pushing %v", con.ConID)
-
-	// check version, suppress if changed.
 	currentVersion := versionInfo()
 
-	// When using Generator, the generic WatchedResource is used instead of the individual
-	// 'LDSWatch', etc.
-	// Each Generator is responsible for determining if the push event requires a push -
-	// returning nil if the push is not needed.
-	if con.proxy.XdsResourceGenerator != nil {
-		for _, w := range con.proxy.WatchedResources {
-			err := s.pushGeneratorV2(con, pushRequest.Push, currentVersion, w, pushRequest.ConfigsUpdated)
-			if err != nil {
-				return err
-			}
+	// Send pushes to all generators
+	// Each Generator is responsible for determining if the push event requires a push
+	for _, w := range getPushResources(con.proxy.WatchedResources) {
+		err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest)
+		if err != nil {
+			return err
 		}
+	}
+	if pushRequest.Full {
+		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, con.proxy.WatchedResources)
 	}
 
-	pushTypes := PushTypeFor(con.proxy, pushEv)
-
-	if con.Watching(v3.ClusterType) && pushTypes[CDS] {
-		err := s.pushCds(con, pushRequest.Push, currentVersion)
-		if err != nil {
-			return err
-		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.ClusterType, pushRequest.Push.Version)
-	}
-
-	if len(con.Clusters()) > 0 && pushTypes[EDS] {
-		err := s.pushEds(pushRequest.Push, con, currentVersion, nil)
-		if err != nil {
-			return err
-		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.EndpointType, pushRequest.Push.Version)
-	}
-	if con.Watching(v3.ListenerType) && pushTypes[LDS] {
-		err := s.pushLds(con, pushRequest.Push, currentVersion)
-		if err != nil {
-			return err
-		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.ListenerType, pushRequest.Push.Version)
-	}
-	if len(con.Routes()) > 0 && pushTypes[RDS] {
-		err := s.pushRoute(con, pushRequest.Push, currentVersion)
-		if err != nil {
-			return err
-		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.RouteType, pushRequest.Push.Version)
-	}
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
+}
+
+// PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
+// order after the types listed here
+var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
+var KnownPushOrder = map[string]struct{}{
+	v3.ClusterType:  {},
+	v3.EndpointType: {},
+	v3.ListenerType: {},
+	v3.RouteType:    {},
+	v3.SecretType:   {},
+}
+
+func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+	wr := make([]*model.WatchedResource, 0, len(resources))
+	// first add all known types, in order
+	for _, tp := range PushOrder {
+		if w, f := resources[tp]; f {
+			wr = append(wr, w)
+		}
+	}
+	// Then add any undeclared types
+	for tp, w := range resources {
+		if _, f := KnownPushOrder[tp]; !f {
+			wr = append(wr, w)
+		}
+	}
+	return wr
+}
+
+func reportAllEvents(s DistributionStatusCache, id, version string, ignored map[string]*model.WatchedResource) {
+	if s == nil {
+		return
+	}
+	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
+	// inform distribution status reporter that this connection has been updated, because it effectively has
+	for _, distributionType := range AllEventTypes {
+		if _, f := ignored[distributionType]; f {
+			// Skip this type
+			continue
+		}
+		s.RegisterEvent(id, distributionType, version)
+	}
 }
 
 func (s *DiscoveryServer) adsClientCount() int {
@@ -735,14 +683,14 @@ func AdsPushAll(s *DiscoveryServer) {
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	// If we don't know what updated, cannot safely cache. Clear the whole cache
 	if len(req.ConfigsUpdated) == 0 {
-		s.cache.ClearAll()
+		s.Cache.ClearAll()
 	} else {
 		// Otherwise, just clear the updated configs
-		s.cache.Clear(req.ConfigsUpdated)
+		s.Cache.Clear(req.ConfigsUpdated)
 	}
 	if !req.Full {
-		adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-			version, model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry), s.adsClientCount())
+		adsLog.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d",
+			version, s.adsClientCount())
 	} else {
 		totalService := len(req.Push.Services(nil))
 		adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
@@ -817,6 +765,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		errChan <- conn.stream.Send(res)
 		close(errChan)
 	}()
+
 	select {
 	case <-t.C:
 		// TODO: wait for ACK

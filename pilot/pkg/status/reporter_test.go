@@ -22,8 +22,8 @@ import (
 	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/ledger"
 )
@@ -65,23 +65,23 @@ func TestBuildReport(t *testing.T) {
 	r := initReporterWithoutStarting()
 	r.store = memory.Make(collections.All)
 	l := ledger.Make(time.Minute)
-	resources := []*model.Config{
+	resources := []*config.Config{
 		{
-			ConfigMeta: model.ConfigMeta{
+			Meta: config.Meta{
 				Namespace:       "default",
 				Name:            "foo",
 				ResourceVersion: "1",
 			},
 		},
 		{
-			ConfigMeta: model.ConfigMeta{
+			Meta: config.Meta{
 				Namespace:       "default",
 				Name:            "bar",
 				ResourceVersion: "1",
 			},
 		},
 		{
-			ConfigMeta: model.ConfigMeta{
+			Meta: config.Meta{
 				Namespace:       "alternate",
 				Name:            "boo",
 				ResourceVersion: "1",

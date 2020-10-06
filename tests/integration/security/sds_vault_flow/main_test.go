@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const (
@@ -53,12 +54,11 @@ func TestMain(m *testing.M) {
 		Skip("https://github.com/istio/istio/issues/17572").
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
-		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}

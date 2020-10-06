@@ -64,7 +64,7 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
 
-			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
+			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 			cleanup, err := file.AsString(cleanupFilterConfig)
 			if err != nil {
 				t.Errorf("unable to load config %s, err:%v", cleanupFilterConfig, err)
@@ -98,7 +98,6 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
 		Setup(testsetup).

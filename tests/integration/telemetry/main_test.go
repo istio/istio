@@ -33,9 +33,8 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&i, func(cfg *istio.Config) {
+		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 # Add an additional TCP port, 31400
 components:

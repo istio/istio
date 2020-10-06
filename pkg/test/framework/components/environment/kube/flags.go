@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -25,12 +26,16 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
+)
+
+const (
+	defaultKubeConfig = "~/.kube/config"
 )
 
 var (
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		KubeConfig:            requireKubeConfigs(env.ISTIO_TEST_KUBE_CONFIG.Value()),
 		LoadBalancerSupported: true,
 	}
 	// hold kubeconfigs from command line to split later
@@ -39,6 +44,8 @@ var (
 	controlPlaneTopology string
 	// hold networkTopology from command line to parse later
 	networkTopology string
+	// hold configTopology from command line to parse later
+	configTopology string
 )
 
 // NewSettingsFromCommandLine returns Settings obtained from command-line flags.
@@ -50,11 +57,29 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 
 	s := settingsFromCommandLine.clone()
 
+	// Process the kube configs.
 	var err error
-	s.KubeConfig, err = parseKubeConfigs(kubeConfigs)
+	s.KubeConfig, err = parseKubeConfigs(kubeConfigs, ",")
 	if err != nil {
-		return nil, fmt.Errorf("kubeconfig: %v", err)
+		return nil, fmt.Errorf("error parsing KubeConfigs from command-line: %v", err)
 	}
+	if len(s.KubeConfig) == 0 {
+		scopes.Framework.Info("Flag istio.test.kube.config not specified.")
+		s.KubeConfig, err = getKubeConfigsFromEnvironment()
+		if err != nil {
+			return nil, fmt.Errorf("error parsing KubeConfigs from environment: %v", err)
+		}
+		if len(s.KubeConfig) == 0 {
+			scopes.Framework.Info("Environment variable KUBECONFIG unspecified.")
+			normalizedDefaultKubeConfig, err := normalizeFile(defaultKubeConfig)
+			if err != nil {
+				return nil, fmt.Errorf("error normalizing default kube config file %s: %v",
+					defaultKubeConfig, err)
+			}
+			s.KubeConfig = []string{normalizedDefaultKubeConfig}
+		}
+	}
+	scopes.Framework.Infof("Using KubeConfigs: %v.", s.KubeConfig)
 
 	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
 	if err != nil {
@@ -66,27 +91,45 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 		return nil, err
 	}
 
+	s.ConfigTopology, err = newConfigTopology(s.KubeConfig, s.ControlPlaneTopology)
+	if err != nil {
+		return nil, err
+	}
+
 	return s, nil
 }
 
-func requireKubeConfigs(value string) []string {
-	out, err := parseKubeConfigs(value)
-	if err != nil {
-		panic(err)
+func getKubeConfigsFromEnvironment() ([]string, error) {
+	// Normalize KUBECONFIG so that it is separated by the OS path list separator.
+	// The framework currently supports comma as a separator, but that violates the
+	// KUBECONFIG spec.
+	value := env.KUBECONFIG.Value()
+	if strings.Contains(value, ",") {
+		updatedValue := strings.ReplaceAll(value, ",", string(filepath.ListSeparator))
+		_ = os.Setenv(env.KUBECONFIG.Name(), updatedValue)
+		scopes.Framework.Warnf("KUBECONFIG contains commas: %s.\nReplacing with %s: %s", value,
+			filepath.ListSeparator, updatedValue)
+		value = updatedValue
 	}
-	return out
+	out, err := parseKubeConfigs(value, string(filepath.ListSeparator))
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func parseKubeConfigs(value string) ([]string, error) {
+func parseKubeConfigs(value, separator string) ([]string, error) {
 	if len(value) == 0 {
-		return []string{defaultKubeConfig()}, nil
+		return make([]string, 0), nil
 	}
 
-	parts := strings.Split(value, ",")
+	parts := strings.Split(value, separator)
 	out := make([]string, 0, len(parts))
 	for _, f := range parts {
-		if f != "" {
-			if err := normalizeFile(&f); err != nil {
+		f := strings.TrimSpace(f)
+		if len(f) != 0 {
+			var err error
+			if f, err = normalizeFile(f); err != nil {
 				return nil, err
 			}
 			out = append(out, f)
@@ -95,7 +138,7 @@ func parseKubeConfigs(value string) ([]string, error) {
 	return out, nil
 }
 
-func newControlPlaneTopology(kubeConfigs []string) (map[resource.ClusterIndex]resource.ClusterIndex, error) {
+func newControlPlaneTopology(kubeConfigs []string) (clusterTopology, error) {
 	topology, err := parseControlPlaneTopology()
 	if err != nil {
 		return nil, err
@@ -124,8 +167,8 @@ func newControlPlaneTopology(kubeConfigs []string) (map[resource.ClusterIndex]re
 	return topology, nil
 }
 
-func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterIndex, error) {
-	out := make(map[resource.ClusterIndex]resource.ClusterIndex)
+func parseControlPlaneTopology() (clusterTopology, error) {
+	out := make(clusterTopology)
 	if controlPlaneTopology == "" {
 		return out, nil
 	}
@@ -149,9 +192,66 @@ func parseControlPlaneTopology() (map[resource.ClusterIndex]resource.ClusterInde
 	return out, nil
 }
 
+func newConfigTopology(kubeConfigs []string, fallback clusterTopology) (clusterTopology, error) {
+	topology, err := parseConfigTopology()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(topology) == 0 {
+		// Default to every cluster using config from it's control plane cluster.
+		for k, v := range fallback {
+			topology[k] = v
+		}
+		return topology, nil
+	}
+
+	// Verify that all of the specified clusters are valid.
+	numClusters := len(kubeConfigs)
+	for cIndex, cfIndex := range topology {
+		if int(cIndex) >= numClusters {
+			return nil, fmt.Errorf("failed parsing config topology: cluster index %d "+
+				"exceeds number of available clusters %d", cIndex, numClusters)
+		}
+		if int(cfIndex) >= numClusters {
+			return nil, fmt.Errorf("failed parsing config topology: config cluster index %d "+""+
+				"exceeds number of available clusters %d", cfIndex, numClusters)
+		}
+	}
+	return topology, nil
+}
+
+func parseConfigTopology() (clusterTopology, error) {
+	out := make(clusterTopology)
+	if configTopology == "" {
+		return out, nil
+	}
+
+	values := strings.Split(configTopology, ",")
+	for _, v := range values {
+		parts := strings.Split(v, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("failed parsing config mapping entry %s", v)
+		}
+		clusterIndex, err := strconv.Atoi(parts[0])
+		if err != nil || clusterIndex < 0 {
+			return nil, fmt.Errorf("failed parsing config mapping entry %s: failed parsing cluster index", v)
+		}
+		configClusterIndex, err := strconv.Atoi(parts[1])
+		if err != nil || clusterIndex < 0 {
+			return nil, fmt.Errorf("failed parsing config mapping entry %s: failed parsing config cluster index", v)
+		}
+		out[resource.ClusterIndex(clusterIndex)] = resource.ClusterIndex(configClusterIndex)
+	}
+	return out, nil
+}
+
 func parseNetworkTopology(kubeConfigs []string) (map[resource.ClusterIndex]string, error) {
 	out := make(map[resource.ClusterIndex]string)
-	if networkTopology == "" {
+	if controlPlaneTopology == "" {
+		for index := range kubeConfigs {
+			out[resource.ClusterIndex(index)] = "network-0"
+		}
 		return out, nil
 	}
 	numClusters := len(kubeConfigs)
@@ -177,30 +277,27 @@ func parseNetworkTopology(kubeConfigs []string) (map[resource.ClusterIndex]strin
 	return out, nil
 }
 
-func normalizeFile(path *string) error {
+func normalizeFile(originalPath string) (string, error) {
 	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
 	var err error
-	*path = strings.TrimSpace(*path)
-	*path, err = homedir.Expand(*path)
+	out := strings.TrimSpace(originalPath)
+	out, err = homedir.Expand(out)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
-}
-
-func defaultKubeConfig() string {
-	v := os.Getenv("KUBECONFIG")
-	if len(v) > 0 {
-		return v
+	// Verify that the file exists.
+	if _, err := os.Stat(out); os.IsNotExist(err) {
+		return "", fmt.Errorf("failed normalizing file %s: %v", originalPath, err)
 	}
-	return "~/.kube/config"
+
+	return out, nil
 }
 
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
-	flag.StringVar(&kubeConfigs, "istio.test.kube.config", strings.Join(settingsFromCommandLine.KubeConfig, ":"),
-		"A comma-separated list of paths to kube config files for cluster environments (default is current kube context)")
+	flag.StringVar(&kubeConfigs, "istio.test.kube.config", "",
+		"A comma-separated list of paths to kube config files for cluster environments.")
 	flag.BoolVar(&settingsFromCommandLine.Minikube, "istio.test.kube.minikube", settingsFromCommandLine.Minikube,
 		"Deprecated. See istio.test.kube.loadbalancer. Setting this flag will fail tests.")
 	flag.BoolVar(&settingsFromCommandLine.LoadBalancerSupported, "istio.test.kube.loadbalancer", settingsFromCommandLine.LoadBalancerSupported,
@@ -217,4 +314,8 @@ func init() {
 		"", "Specifies the mapping for each cluster to it's network name, for multi-network scenarios. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<networkName>, where the indexes refer to the order in which "+
 			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, network name will be left unset")
+	flag.StringVar(&configTopology, "istio.test.kube.configTopology",
+		"", "Specifies the mapping for each cluster to the cluster hosting its config. The value is a "+
+			"comma-separated list of the form <clusterIndex>:<configClusterIndex>, where the indexes refer to the order in which "+
+			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, the default is every cluster maps to itself(e.g. 0:0,1:1,...).")
 }

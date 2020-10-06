@@ -112,14 +112,13 @@ func TestStackdriverMonitoring(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(getIstioInstance(), setupConfig)).
 		Setup(testSetup).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
@@ -140,6 +139,7 @@ values:
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
+	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {
@@ -160,8 +160,8 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
-		"StackdriverNamespace": sdInst.GetStackdriverNamespace(),
-		"EchoNamespace":        getEchoNamespaceInstance().Name(),
+		"StackdriverAddress": sdInst.Address(),
+		"EchoNamespace":      getEchoNamespaceInstance().Name(),
 	})
 	if err != nil {
 		return

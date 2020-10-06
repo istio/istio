@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 25276
+releaseNotes:
+ - |
+   **Added** New command `istioctl istiod-config log` to enable managing logging levels
+   of `istiod` components.
+

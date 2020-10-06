@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
@@ -33,13 +33,13 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.control-plane.k8s-certs").
+		Features("security.control-plane.k8s-certs.k8sca").
 		Run(func(ctx framework.TestContext) {
 
 			// TODO: due to issue https://github.com/istio/istio/issues/25286,
 			// currently VM does not work in this test
 			rctx := reachability.CreateContext(ctx, false)
-			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
+			systemNM := istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
 				{

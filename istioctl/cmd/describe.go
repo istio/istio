@@ -50,6 +50,7 @@ import (
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -80,11 +81,8 @@ func podDescribeCmd() *cobra.Command {
 		Use:   "pod <pod>",
 		Short: "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
-the configuration objects that affect that pod.
-
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
-		Example: `istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
+the configuration objects that affect that pod.`,
+		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting pod name")
@@ -155,7 +153,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
@@ -293,7 +291,7 @@ func httpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.HTTPR
 	mismatchNotes := []string{}
 	match := false
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, model.ConfigMeta{Namespace: vs.Namespace}))
+		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
 				if contains(nonmatchingSubsets, dest.Destination.Subset) {
@@ -354,7 +352,7 @@ func tcpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.TCPRou
 	facts := []string{}
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, model.ConfigMeta{Namespace: vs.Namespace}))
+		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			match = true
 		}
@@ -679,8 +677,8 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 }
 
 // routeDestinationMatchesSvc determines whether or not to use this service as a destination
-func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
-	if route == nil {
+func routeDestinationMatchesSvc(vhRoute *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
+	if vhRoute == nil {
 		return false
 	}
 
@@ -695,11 +693,20 @@ func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.Vi
 		}
 	}
 
+	clusterName := ""
+	switch cs := vhRoute.GetRoute().GetClusterSpecifier().(type) {
+	case *route.RouteAction_Cluster:
+		clusterName = cs.Cluster
+	case *route.RouteAction_WeightedClusters:
+		clusterName = cs.WeightedClusters.Clusters[0].GetName()
+	}
+
 	// If this is an ingress gateway, the Domains will be something like *:80, so check routes
 	// which will look like "outbound|9080||productpage.default.svc.cluster.local"
 	res := fmt.Sprintf(`outbound\|%d\|[^\|]*\|(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`, port)
 	re = regexp.MustCompile(res)
-	ss := re.FindStringSubmatch(route.GetRoute().GetCluster())
+
+	ss := re.FindStringSubmatch(clusterName)
 	if ss != nil {
 		if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
 			return true
@@ -990,11 +997,8 @@ func svcDescribeCmd() *cobra.Command {
 		Aliases: []string{"svc"},
 		Short:   "Describe services and their Istio configuration [kube-only]",
 		Long: `Analyzes service, pods, DestinationRules, and VirtualServices and reports
-the configuration objects that affect that service.
-
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
-		Example: `istioctl experimental describe service productpage`,
+the configuration objects that affect that service.`,
+		Example: `  istioctl experimental describe service productpage`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				cmd.Println(cmd.UsageString())
@@ -1094,7 +1098,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 

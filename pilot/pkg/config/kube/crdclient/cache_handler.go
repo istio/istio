@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/pkg/log"
 )
@@ -37,7 +38,7 @@ import (
 type cacheHandler struct {
 	client   *Client
 	informer cache.SharedIndexInformer
-	handlers []func(model.Config, model.Config, model.Event)
+	handlers []func(config.Config, config.Config, model.Event)
 	schema   collection.Schema
 	lister   func(namespace string) cache.GenericNamespaceLister
 }
@@ -54,7 +55,7 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 	}
 	currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 
-	var oldConfig model.Config
+	var oldConfig config.Config
 	if old != nil {
 		oldItem, ok := old.(runtime.Object)
 		if !ok {

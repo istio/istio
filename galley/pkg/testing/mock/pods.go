@@ -155,3 +155,7 @@ func (p *podImpl) UpdateEphemeralContainers(_ context.Context, podName string, e
 	opts metav1.UpdateOptions) (*apicorev1.EphemeralContainers, error) {
 	panic("not implemented")
 }
+
+func (p *podImpl) ProxyGet(scheme, name, port, path string, params map[string]string) rest.ResponseWrapper {
+	panic("implement me")
+}
