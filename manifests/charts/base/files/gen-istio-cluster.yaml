@@ -3587,6 +3587,9 @@ rules:
     resources: ["*"]
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list", "update", "create", "delete" ]
+    resources: [ "workloadentries" ]
+  - apiGroups: ["networking.istio.io"]
+    verbs: [ "get", "watch", "list", "update", "create", "delete" ]
     resources: [ "workloadentries/status" ]
 
   # auto-detect installed CRD definitions
