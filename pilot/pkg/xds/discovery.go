@@ -123,6 +123,8 @@ type DiscoveryServer struct {
 
 	debounceOptions debounceOptions
 
+	instanceID string
+
 	// Cache for XDS resources
 	Cache model.XdsCache
 }
@@ -148,7 +150,7 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
@@ -164,7 +166,8 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
-		Cache: model.DisabledCache{},
+		Cache:      model.DisabledCache{},
+		instanceID: instanceID,
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.

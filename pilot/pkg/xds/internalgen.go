@@ -16,10 +16,6 @@ package xds
 
 import (
 	"fmt"
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
@@ -192,57 +188,6 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		}
 	}
 	return res
-}
-
-func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
-	if proxy.Metadata.AutoRegisterGroup == "" {
-		return
-	}
-	if len(proxy.IPAddresses) == 0 {
-		adsLog.Errorf("auto registration of %v failed: missing IP addresses", proxy.ID)
-		return
-	}
-	if len(proxy.Metadata.Namespace) == 0 {
-		adsLog.Errorf("auto registration of %v failed: missing namespace", proxy.ID)
-		return
-	}
-
-	// check if the WE already exists, update the controller
-
-	// create WorkloadEntry from WorkloadGroup
-	wgc := sg.Store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
-	if wgc == nil {
-		adsLog.Warnf("auto registration of %v failed: cannot find WorkloadGroup %s/%s", proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
-		return
-	}
-	wg := wgc.Spec.(*networking.WorkloadGroup)
-	wle := wg.Template
-	wle.Address = proxy.IPAddresses[0]
-	if proxy.Metadata.Network != "" {
-		wle.Network = proxy.Metadata.Network
-	}
-	if proxy.Locality != nil {
-		wle.Locality = util.LocalityToString(proxy.Locality)
-	}
-
-	_, err := sg.Store.Create(config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.WorkloadEntry,
-			Name:             proxy.IPAddresses[0], // TODO gen name
-			Namespace:        proxy.Metadata.Namespace,
-			Labels:           proxy.Metadata.Labels,
-		},
-		Spec: wle,
-		// TODO status fields used for garbage collection
-		Status: nil,
-	})
-	if err != nil {
-		adsLog.Errorf("failed creating WLE for %s: %v", proxy.ID, err)
-	}
-}
-
-func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
-	// TODO cleanup with grace period
 }
 
 // isSidecar ad-hoc method to see if connection represents a sidecar
