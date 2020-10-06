@@ -61,6 +61,9 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	}
 	cmd.Env = append(cmd.Env, customEnv...)
 	gwIOP, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed generating eastwestgateway operator yaml: %v", err)
+	}
 	iopFile := path.Join(i.workDir, fmt.Sprintf("eastwest-%s.yaml", cluster.Name()))
 	if err := ioutil.WriteFile(iopFile, gwIOP, os.ModePerm); err != nil {
 		return err
@@ -94,7 +97,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	if err := i.ctx.Config(cluster).ApplyYAML(i.settings.SystemNamespace, gwYaml); err != nil {
 		return err
 	}
-	
+
 	// cleanup using operator yaml later
 	i.saveManifestForCleanup(cluster.Name(), string(gwYaml))
 
