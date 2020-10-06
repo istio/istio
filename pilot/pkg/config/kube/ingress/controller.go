@@ -338,7 +338,7 @@ func (c *controller) Update(_ config.Config) (string, error) {
 }
 
 func (c *controller) UpdateStatus(config.Config) (string, error) {
-	return "", nil
+	return "", errUnsupportedOp
 }
 
 func (c *controller) Delete(_ config.GroupVersionKind, _, _ string) error {
