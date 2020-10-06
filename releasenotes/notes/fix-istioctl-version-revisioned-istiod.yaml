@@ -3,4 +3,4 @@ kind: bug-fix
 area: installation
 releaseNotes:
   - |
-    **Fixed** `istioctl version` cannot work on the revision based istiod.
+    **Fixed** Make `istioctl version` work on the revision based istiod, fix https://github.com/istio/istio/issues/27756 in 1.7.2 and 1.7.3.
