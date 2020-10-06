@@ -155,6 +155,10 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			}()
 		}
 
+		if !s.shouldRespond(con, req) {
+			continue
+		}
+
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
@@ -170,10 +174,6 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
-	}
-
-	if !s.shouldRespond(con, req) {
-		return nil
 	}
 
 	push := s.globalPushContext()
