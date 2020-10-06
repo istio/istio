@@ -27,7 +27,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
@@ -292,16 +291,23 @@ func getLocalityFromTopology(topology map[string]string) string {
 	return locality
 }
 
+// endpointKey unique identifies an endpoint by IP and port name
+// This is used for deduping endpoints accros slices.
+type endpointKey struct {
+	ip   string
+	port string
+}
+
 type endpointSliceCache struct {
-	mu                           sync.RWMutex
-	endpointIPsByServiceAndSlice map[host.Name]map[string][]string
-	endpointByIP                 map[string]*model.IstioEndpoint
+	mu                            sync.RWMutex
+	endpointKeysByServiceAndSlice map[host.Name]map[string][]endpointKey
+	endpointByKey                 map[endpointKey]*model.IstioEndpoint
 }
 
 func newEndpointSliceCache() *endpointSliceCache {
 	out := &endpointSliceCache{
-		endpointIPsByServiceAndSlice: make(map[host.Name]map[string][]string),
-		endpointByIP:                 make(map[string]*model.IstioEndpoint),
+		endpointKeysByServiceAndSlice: make(map[host.Name]map[string][]endpointKey),
+		endpointByKey:                 make(map[endpointKey]*model.IstioEndpoint),
 	}
 	return out
 }
@@ -310,35 +316,36 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if len(endpoints) == 0 {
-		for _, ip := range e.endpointIPsByServiceAndSlice[hostname][slice] {
-			delete(e.endpointByIP, ip)
+		for _, ip := range e.endpointKeysByServiceAndSlice[hostname][slice] {
+			delete(e.endpointByKey, ip)
 		}
-		delete(e.endpointIPsByServiceAndSlice[hostname], slice)
+		delete(e.endpointKeysByServiceAndSlice[hostname], slice)
 	}
-	if _, f := e.endpointIPsByServiceAndSlice[hostname]; !f {
-		e.endpointIPsByServiceAndSlice[hostname] = make(map[string][]string)
+	if _, f := e.endpointKeysByServiceAndSlice[hostname]; !f {
+		e.endpointKeysByServiceAndSlice[hostname] = make(map[string][]endpointKey)
 	}
-	ips := make([]string, 0, len(endpoints))
+	keys := make([]endpointKey, 0, len(endpoints))
 	for _, ep := range endpoints {
-		ips = append(ips, ep.Address)
+		key := endpointKey{ep.Address, ep.ServicePortName}
+		keys = append(keys, key)
 		// We will always overwrite. A conflict here means an endpoint is transitioning
 		// from one slice to another See
 		// https://github.com/kubernetes/website/blob/master/content/en/docs/concepts/services-networking/endpoint-slices.md#duplicate-endpoints
 		// In this case, we can always assume and update is fresh, although older slices
 		// we have not gotten updates may be stale; therefor we always take the new
 		// update.
-		e.endpointByIP[ep.Address] = ep
+		e.endpointByKey[key] = ep
 	}
-	e.endpointIPsByServiceAndSlice[hostname][slice] = ips
+	e.endpointKeysByServiceAndSlice[hostname][slice] = keys
 }
 
 func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	delete(e.endpointIPsByServiceAndSlice[hostname], slice)
-	if len(e.endpointIPsByServiceAndSlice[hostname]) == 0 {
-		delete(e.endpointIPsByServiceAndSlice, hostname)
+	delete(e.endpointKeysByServiceAndSlice[hostname], slice)
+	if len(e.endpointKeysByServiceAndSlice[hostname]) == 0 {
+		delete(e.endpointKeysByServiceAndSlice, hostname)
 	}
 }
 
@@ -346,16 +353,16 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	var endpoints []*model.IstioEndpoint
-	found := sets.NewSet()
-	for _, ips := range e.endpointIPsByServiceAndSlice[hostname] {
-		for _, ip := range ips {
-			if found.Contains(ip) {
+	found := map[endpointKey]struct{}{}
+	for _, keys := range e.endpointKeysByServiceAndSlice[hostname] {
+		for _, key := range keys {
+			if _, f := found[key]; f {
 				// This a duplicate. Update() already handles conflict resolution, so we don't
 				// need to pick the "right" one here.
 				continue
 			}
-			found.Insert(ip)
-			endpoints = append(endpoints, e.endpointByIP[ip])
+			found[key] = struct{}{}
+			endpoints = append(endpoints, e.endpointByKey[key])
 		}
 	}
 	return endpoints

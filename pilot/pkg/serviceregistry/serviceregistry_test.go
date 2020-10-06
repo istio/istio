@@ -783,6 +783,9 @@ func TestEndpointsDeduping(t *testing.T) {
 			Ports: []v1.ServicePort{{
 				Name: "http",
 				Port: 80,
+			}, {
+				Name: "http-other",
+				Port: 90,
 			}},
 			Selector:  labels,
 			ClusterIP: "9.9.9.9",
@@ -792,9 +795,10 @@ func TestEndpointsDeduping(t *testing.T) {
 	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
 	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
 
-	// Add another endpoint
-	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4", "2.3.4.5"})
+	// Add another port endpoint
+	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http-other", Port: 90}, {Name: "http", Port: 80}}, []string{"1.2.3.4", "2.3.4.5"})
 	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80", "2.3.4.5:80"})
+	expectEndpoints(t, s, "outbound|90||service.namespace.svc.cluster.local", []string{"1.2.3.4:90", "2.3.4.5:90"})
 
 	// Move the endpoint to another slice - transition phase where its duplicated
 	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.5", "2.3.4.5"})
