@@ -171,13 +171,13 @@ func TestNewConfigMapWatcher(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cm1 := makeConfigMap("1", map[string]string{
+	cm := makeConfigMap("1", map[string]string{
 		key: yaml,
 	})
-	cm2 := makeConfigMap("2", map[string]string{
+	badCM := makeConfigMap("2", map[string]string{
 		"other-key": yaml,
 	})
-	cm3 := makeConfigMap("3", map[string]string{
+	badCM2 := makeConfigMap("3", map[string]string{
 		key: "bad yaml",
 	})
 
@@ -203,12 +203,17 @@ func TestNewConfigMapWatcher(t *testing.T) {
 		expect *meshconfig.MeshConfig
 	}{
 		{expect: &defaultMesh},
-		{added: cm1, expect: m},
-		{updated: cm2, expect: &defaultMesh},
-		{updated: cm1, expect: m},
-		{updated: cm3, expect: &defaultMesh},
-		{updated: cm1, expect: m},
-		{deleted: cm1, expect: &defaultMesh},
+		{added: cm, expect: m},
+
+		// Handle misconfiguration errors.
+		{updated: badCM, expect: m},
+		{updated: cm, expect: m},
+		{updated: badCM2, expect: m},
+		{updated: badCM, expect: m},
+		{updated: cm, expect: m},
+
+		{deleted: cm, expect: &defaultMesh},
+		{added: badCM, expect: &defaultMesh},
 	}
 
 	for i, step := range steps {

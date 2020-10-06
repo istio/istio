@@ -22,6 +22,8 @@ import (
 	"unsafe"
 
 	"github.com/davecgh/go-spew/spew"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/kube"
@@ -49,8 +51,6 @@ type watcher struct {
 	mutex    sync.Mutex
 	handlers []func()
 	mesh     *meshconfig.MeshConfig
-
-	configMapWatcher *configmapwatcher.Controller
 }
 
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
@@ -90,18 +90,20 @@ func NewWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, 
 func NewConfigMapWatcher(client kube.Client, namespace, name, key string) Watcher {
 	defaultMesh := DefaultMeshConfig()
 	w := &watcher{mesh: &defaultMesh}
-	c := configmapwatcher.NewController(client, namespace, name, func() {
-		meshConfig, err := w.readConfigMap(key)
+	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
+		meshConfig, err := readConfigMap(cm, key)
 		if err != nil {
-			log.Warnf("failed to read mesh config from ConfigMap, using default: %v", err)
-			meshConfig = &defaultMesh
+			// Keep the last known config in case there's a misconfiguration issue.
+			log.Warnf("failed to read mesh config from ConfigMap: %v", err)
+			return
 		}
 		w.handleMeshConfig(meshConfig)
 	})
-	w.configMapWatcher = c
 
 	stop := make(chan struct{})
 	go c.Run(stop)
+	// Ensure the ConfigMap is initially loaded if present.
+	cache.WaitForCacheSync(stop, c.HasSynced)
 	return w
 }
 
@@ -138,14 +140,11 @@ func (w *watcher) handleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 	}
 }
 
-func (w *watcher) readConfigMap(key string) (*meshconfig.MeshConfig, error) {
-	// TODO(tbarrella): Refactor so that the ConfigMap is passed to the callback
-	cm, err := w.configMapWatcher.Get()
-	if err != nil {
-		return nil, fmt.Errorf("couldn't get ConfigMap: %v", err)
-	}
+func readConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error) {
 	if cm == nil {
-		return nil, fmt.Errorf("no ConfigMap found")
+		log.Info("no ConfigMap found, using default mesh config")
+		defaultMesh := DefaultMeshConfig()
+		return &defaultMesh, nil
 	}
 
 	cfgYaml, exists := cm.Data[key]
