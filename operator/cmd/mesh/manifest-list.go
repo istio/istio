@@ -108,7 +108,7 @@ func printIOPs(writer io.Writer, iops []*iopv1alpha1.IstioOperator, manifestsPat
 	})
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
-	fmt.Fprintln(w, "REVISION\tPROFILE\tCUSTOMIZATIONS\tPODS\tAGE")
+	fmt.Fprintln(w, "VERSION\tREVISION\tPROFILE\tCUSTOMIZATIONS\tPODS\tAGE")
 	for _, iop := range iops {
 		podCount, deploymentAge, err := getControlPlaneDeployment(iop, manifestsPath, restConfig)
 		if err != nil {
@@ -122,12 +122,14 @@ func printIOPs(writer io.Writer, iops []*iopv1alpha1.IstioOperator, manifestsPat
 		}
 		for i, diff := range diffs {
 			if i == 0 {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+					iop.Spec.Tag,
 					renderWithDefault(iop.Spec.Revision, "master"),
 					renderWithDefault(iop.Spec.Profile, "default"),
 					diff, podCount, deploymentAge)
 			} else {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+					"",
 					"",
 					"",
 					diff, "", "")
@@ -224,11 +226,11 @@ func diffWalk(path, separator string, obj interface{}, orig interface{}) ([]stri
 		}
 		return accum, nil
 	case string:
-		if v != orig {
+		if v != orig && orig != nil {
 			return []string{fmt.Sprintf("%s=%q", path, v)}, nil
 		}
 	default:
-		if v != orig {
+		if v != orig && orig != nil {
 			return []string{fmt.Sprintf("%s=%v", path, v)}, nil
 		}
 	}
