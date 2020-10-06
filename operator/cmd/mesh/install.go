@@ -238,8 +238,8 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.Exte
 			}
 		}
 		if icpTag != "" && tag != icpTag {
-			cmd.Printf("! istioctl version %s and the control plane version %s are different.\n"+
-				"! Proceed with caution because after installation you might experience problems.\n", tag, icpTag)
+			cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
+				"! Before upgrading, you may wish to 'istioctl analyze' to check for IST0002 deprecation warnings.\n", icpTag, tag)
 		}
 	}
 	return nil
