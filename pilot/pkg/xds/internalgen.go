@@ -195,7 +195,7 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 }
 
 func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
-	if !proxy.Metadata.AutoRegister {
+	if proxy.Metadata.AutoRegisterGroup == "" {
 		return
 	}
 	if len(proxy.IPAddresses) == 0 {
@@ -206,16 +206,13 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
 		adsLog.Errorf("auto registration of %v failed: missing namespace", proxy.ID)
 		return
 	}
-	if len(proxy.Metadata.WorkloadName) == 0 {
-		adsLog.Errorf("auto registration of %v failed: missing workload name", proxy.ID)
-		return
-	}
 
-	// TODO check if the WLE already exists
+	// check if the WE already exists, update the controller
 
-	wgc := sg.Store.Get(gvk.WorkloadGroup, proxy.Metadata.WorkloadName, proxy.Metadata.Namespace)
+	// create WorkloadEntry from WorkloadGroup
+	wgc := sg.Store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if wgc == nil {
-		adsLog.Warnf("auto registration of %v failed: cannot find WorkloadGroup %s/%s", proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.WorkloadName)
+		adsLog.Warnf("auto registration of %v failed: cannot find WorkloadGroup %s/%s", proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 		return
 	}
 	wg := wgc.Spec.(*networking.WorkloadGroup)

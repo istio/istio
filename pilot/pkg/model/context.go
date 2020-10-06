@@ -390,6 +390,9 @@ type BootstrapNodeMetadata struct {
 	// replaces POD_NAME
 	InstanceName string `json:"NAME,omitempty"`
 
+	// WorkloadName specifies the name of the workload represented by this node.
+	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
+
 	// Owner specifies the workload owner (opaque string). Typically, this is the owning controller of
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
@@ -489,11 +492,8 @@ type NodeMetadata struct {
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
 
-	// AutoRegister will enable auto registration of the connected endpoint to the service registry
-	AutoRegister StringBool `json:"AUTO_REGISTER,omitempty"`
-
-	// WorkloadName specifies the name of the workload represented by this node.
-	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
+	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
+	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
