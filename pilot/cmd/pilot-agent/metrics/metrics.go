@@ -41,7 +41,7 @@ var (
 	AppScrapeErrors   = scrapeErrors.With(typeTag.Value(ScrapeTypeApp))
 	AgentScrapeErrors = scrapeErrors.With(typeTag.Value(ScrapeTypeAgent))
 
-	// scrapeErrors records total number of scrapes.
+	// ScrapeTotals records total number of scrapes.
 	ScrapeTotals = monitoring.NewSum(
 		"scrapes_total",
 		"The total number of scrapes.",
