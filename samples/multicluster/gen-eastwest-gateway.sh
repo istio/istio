@@ -14,8 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-ARGS=("${@:-}")
-
 set -euo pipefail
 
 # single-cluster installations may need this gateway to allow VMs to get discovery
@@ -82,12 +80,4 @@ EOF
 )
 fi
 
-if [[ "${#}" -gt 0 ]]; then
-  GEN_PARAMS=("${ARGS[@]}")
-fi
-GEN_PARAMS+=("-f" "-")
-
-# Generate the YAML for the east-west gateway.
-istioctl manifest generate "${GEN_PARAMS[@]}" <<EOF
-$IOP
-EOF
+echo "$IOP"

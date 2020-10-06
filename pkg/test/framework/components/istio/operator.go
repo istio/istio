@@ -76,6 +76,7 @@ type operatorComponent struct {
 	// The key is the cluster name
 	installManifest map[string][]string
 	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
+	workDir         string
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -225,6 +226,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if err != nil {
 		return nil, err
 	}
+	i.workDir = workDir
 
 	//generate istioctl config files for config, control plane(primary) and remote clusters
 	istioctlConfigFiles, err := createIstioctlConfigFile(workDir, cfg, env)
