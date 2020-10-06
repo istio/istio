@@ -241,7 +241,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
-	s.XDSServer.InternalGen.Store = s.configController
+	// TODO handle no kube store
+	s.XDSServer.InternalGen.Store = s.kubeConfigStore()
 
 	s.initJwtPolicy()
 

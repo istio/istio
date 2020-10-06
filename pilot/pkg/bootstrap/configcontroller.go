@@ -426,6 +426,15 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	return c, nil
 }
 
+func (s *Server) kubeConfigStore() model.ConfigStore {
+	for _, cs := range s.ConfigStores {
+		if kc, ok := cs.(*crdclient.Client); ok {
+			return kc
+		}
+	}
+	return nil
+}
+
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {
 	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot, domainSuffix)
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)

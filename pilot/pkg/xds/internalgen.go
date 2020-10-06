@@ -55,6 +55,7 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
+	// Store only tracks things in k8s since we don't handle writing to MCP based stores or reconciling across different store types.
 	Store model.ConfigStore
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
