@@ -62,8 +62,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	cmd.Env = append(cmd.Env, customEnv...)
 	gwIOP, err := cmd.CombinedOutput()
 	iopFile := path.Join(i.workDir, fmt.Sprintf("eastwest-%s.yaml", cluster.Name()))
-	err = ioutil.WriteFile(iopFile, gwIOP, os.ModePerm)
-	if err != nil {
+	if err := ioutil.WriteFile(iopFile, gwIOP, os.ModePerm); err != nil {
 		return err
 	}
 
@@ -83,8 +82,10 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 		"-f", iopFile,
 	}
 	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
-	_, _, err = istioCtl.Invoke(installSettings)
-	if err != nil {
+	if stdout, stderr, err := istioCtl.Invoke(installSettings); err != nil {
+		scopes.Framework.Error(stdout)
+		scopes.Framework.Error(stderr)
+		scopes.Framework.Error(err)
 		return fmt.Errorf("failed installing eastwestgateway via IstioOperator: %v", err)
 	}
 
