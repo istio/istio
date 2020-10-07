@@ -1,0 +1,8 @@
+kind: bug-fix
+area: operator
+issue:
+  - 27494
+
+releaseNotes:
+- |
+  **Removed** deprecated outboundTrafficPolicy from global values. 

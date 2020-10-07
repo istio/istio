@@ -309,8 +309,6 @@ spec:
       priorityClassName: ""
       useMCP: true
       trustDomain: "cluster.local"
-      outboundTrafficPolicy:
-        mode: ALLOW_ANY
       sds:
         enabled: false
         udsPath: ""

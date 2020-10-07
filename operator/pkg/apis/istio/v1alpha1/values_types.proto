@@ -449,9 +449,6 @@ message GlobalConfig {
 
   google.protobuf.BoolValue operatorManageWebhooks = 41;
 
-  // Controls the default behavior of the sidecar for handling outbound traffic from the application.
-  OutboundTrafficPolicyConfig outboundTrafficPolicy = 24;
-
   // Controls whether to allow traffic in cases when the mixer policy service cannot be reached.
   google.protobuf.BoolValue policyCheckFailOpen = 25;
 
