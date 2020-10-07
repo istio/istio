@@ -1201,3 +1201,42 @@ func TestShouldRotate(t *testing.T) {
 		}
 	}
 }
+
+func TestConcatCerts(t *testing.T) {
+	cases := []struct {
+		name     string
+		certs    []string
+		expected string
+	}{
+		{
+			name:     "no certs",
+			certs:    []string{},
+			expected: "",
+		},
+		{
+			name:     "single cert",
+			certs:    []string{"a"},
+			expected: "a",
+		},
+		{
+			name:     "multiple certs",
+			certs:    []string{"a", "b"},
+			expected: "a\nb",
+		},
+		{
+			name:     "existing newline",
+			certs:    []string{"a\n", "b"},
+			expected: "a\nb",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result := string(concatCerts(c.certs))
+			if result != c.expected {
+				t.Fatalf("expected %q, got %q", c.expected, result)
+			}
+		})
+
+	}
+}
