@@ -102,7 +102,11 @@ spec:
 {{- end }}
       containers:
       - name: app
+{{- if ne $.OverrideK8SImage "" }}
+        image: {{ $.OverrideK8SImage }}
+{{- else }}
         image: {{ $.Hub }}/app:{{ $.Tag }}
+{{- end }}
         imagePullPolicy: {{ $.PullPolicy }}
         args:
           - --metrics=15014
@@ -440,7 +444,8 @@ func generateYAMLWithSettings(
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},
-		"Environment": cfg.VMEnvironment,
+		"Environment":      cfg.VMEnvironment,
+		"OverrideK8SImage": cfg.OverrideK8SImage,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)

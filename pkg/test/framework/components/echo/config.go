@@ -85,6 +85,9 @@ type Config struct {
 
 	// The set of environment variables to set for `DeployAsVM` instances.
 	VMEnvironment map[string]string
+
+	// Used to supply a non default echo image for some testing and debugging situations
+	OverrideK8SImage string
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
