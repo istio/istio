@@ -26,6 +26,7 @@ metadata:
   name: sleep
   labels:
     app: sleep
+    service: sleep
 spec:
   ports:
   - port: 80
