@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 27574
+
+releaseNotes:
+- |
+  **Fixed** an issue that Istiod's cacert.pem is under testdata directory
