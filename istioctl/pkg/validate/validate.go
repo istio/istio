@@ -286,7 +286,7 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 		for _, fname := range filenames {
 			if w := warningsByFilename[fname]; w != nil {
 				if fname == "-" {
-					_, _ = fmt.Fprintf(writer, warningToString(w))
+					_, _ = fmt.Fprint(writer, warningToString(w))
 					break
 				} else {
 					_, _ = fmt.Fprintf(writer, "%q has warnings: %v\n", fname, warningToString(w))
@@ -298,7 +298,7 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 	for _, fname := range filenames {
 		if fname == "-" {
 			if w := warningsByFilename[fname]; w != nil {
-				_, _ = fmt.Fprintf(writer, warningToString(w))
+				_, _ = fmt.Fprint(writer, warningToString(w))
 			} else {
 				_, _ = fmt.Fprintf(writer, "validation succeed\n")
 			}
