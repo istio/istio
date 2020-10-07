@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 27730
+releaseNotes:
+  - |
+    **Fixed** PodDisruptionBudget of istio-egressgateway does not match any pods.
