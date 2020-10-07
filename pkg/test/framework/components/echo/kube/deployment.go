@@ -265,10 +265,8 @@ spec:
           # Proxy XDS via agent first
           sudo sh -c 'echo PROXY_XDS_VIA_AGENT=true >> /var/lib/istio/envoy/cluster.env'
           {{- if $.VM.AutoRegister }}
-          sudo sh -c 'echo ISTIO_META_AUTO_REGISTER=true >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_META_AUTO_REGISTER_GROUP={{$.Service}} >> /var/lib/istio/envoy/cluster.env'
           {{- end }}
-          # TODO dont use Service as workload name
-          sudo sh -c 'echo ISTIO_META_WORKLOAD_NAME={{$.Service}} >> /var/lib/istio/envoy/cluster.env'
           # Capture all DNS traffic in the VM and forward to Envoy
           sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=true >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'

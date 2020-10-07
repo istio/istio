@@ -372,4 +372,8 @@ var (
 	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", false,
 		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()
+
+	WorkloadEntryCleanupGracePeriod = env.RegisterDurationVar("PILOT_WORKLOAD_ENTRY_GRACE_PERIOD", 10*time.Second,
+		"The amount of time an auto-registered workload can remain disconnected from all Pilot instances before the "+
+			"associated WorkloadEntry is cleaned up.").Get()
 )

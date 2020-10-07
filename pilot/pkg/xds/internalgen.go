@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -52,7 +53,7 @@ type InternalGen struct {
 	Server *DiscoveryServer
 
 	// Store only tracks things in k8s since we don't handle writing to MCP based stores or reconciling across different store types.
-	Store model.ConfigStore
+	Store *crdclient.Client
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
@@ -88,6 +89,10 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 	}
 
 	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
+}
+
+func (sg *InternalGen) Run(stop <-chan struct{}) {
+	go sg.periodicWorkloadEntryCleanup(stop)
 }
 
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {

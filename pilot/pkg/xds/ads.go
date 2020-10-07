@@ -475,6 +475,9 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
+	// this should be done before we look for service instances
+	s.InternalGen.RegisterWorkload(proxy)
+
 	if err = s.setProxyState(proxy, s.globalPushContext()); err != nil {
 		return nil, err
 	}
@@ -522,9 +525,6 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
 		return err
 	}
-
-	// this should be done before we look for service instances
-	s.InternalGen.RegisterWorkload(proxy)
 
 	if err := proxy.SetServiceInstances(push.ServiceDiscovery); err != nil {
 		return err

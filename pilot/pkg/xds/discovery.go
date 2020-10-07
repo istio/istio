@@ -211,6 +211,9 @@ func (s *DiscoveryServer) IsServerReady() bool {
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
+	if s.InternalGen != nil {
+		s.InternalGen.Run(stopCh)
+	}
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)

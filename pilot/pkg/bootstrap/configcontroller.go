@@ -426,7 +426,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	return c, nil
 }
 
-func (s *Server) kubeConfigStore() model.ConfigStore {
+func (s *Server) kubeConfigStore() *crdclient.Client {
 	for _, cs := range s.ConfigStores {
 		if kc, ok := cs.(*crdclient.Client); ok {
 			return kc
