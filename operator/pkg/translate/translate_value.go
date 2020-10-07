@@ -21,6 +21,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -522,6 +523,8 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			if err := translateHPASpec(inPath, v.OutPath, valueTree, cpSpecTree); err != nil {
 				return fmt.Errorf("error in translating K8s HPA spec: %s", err)
 			}
+			metrics.OperatorPathTranslations.
+				With(metrics.PathLabel.Value(inPath)).Increment()
 			continue
 		}
 		m, found, err := tpath.Find(valueTree, util.ToYAMLPath(inPath))
@@ -565,6 +568,8 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 				return err
 			}
 		}
+		metrics.OperatorPathTranslations.
+			With(metrics.PathLabel.Value(inPath)).Increment()
 
 		if _, err := tpath.Delete(valueTree, util.ToYAMLPath(inPath)); err != nil {
 			return err
@@ -631,6 +636,8 @@ func (t *ReverseTranslator) translateAPI(valueTree map[string]interface{},
 
 		path := util.ToYAMLPath(v.OutPath)
 		scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", path)
+		metrics.OperatorPathTranslations.
+			With(metrics.ResourceKindLabel.Value(inPath)).Increment()
 
 		if err := tpath.WriteNode(cpSpecTree, path, m); err != nil {
 			return err

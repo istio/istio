@@ -24,6 +24,9 @@ var OperatorVersionLabel = monitoring.MustCreateLabel("v")
 // MergeErrorLabel describes the type of merge error
 var MergeErrorLabel = monitoring.MustCreateLabel("error_type")
 
+// PathLabel describes translated path
+var PathLabel = monitoring.MustCreateLabel("path")
+
 var (
 	// CRFetchErrorReasonLabel describes the reason/HTTP code
 	// for failing to fetch CR
@@ -170,7 +173,7 @@ var (
 	OperatorPathTranslations = monitoring.NewSum(
 		"operator_path_translations",
 		"Number of times a legacy API path is translated",
-		monitoring.WithLabels(ResourceKindLabel),
+		monitoring.WithLabels(PathLabel),
 	)
 
 	// CacheFlushes counts number of cache flushes
@@ -197,6 +200,7 @@ func init() {
 		OperatorResourcePrunes,
 
 		K8SPatchOverlayErrors,
+		OperatorPathTranslations,
 		CacheFlushes,
 	)
 }
