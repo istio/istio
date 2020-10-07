@@ -198,7 +198,7 @@ var (
 	// ManifestRenderErrors counts errors occurred while rendering manifest
 	ManifestRenderErrors = monitoring.NewSum(
 		"operator_render_errors",
-		"Number of times error occured during rendering output manifest",
+		"Number of times error occurred during rendering output manifest",
 		monitoring.WithLabels(ComponentNameLabel, RenderErrorLabel),
 	)
 
