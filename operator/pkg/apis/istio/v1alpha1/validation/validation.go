@@ -106,6 +106,7 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0},
 		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
 		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/istiod-gateway/", false},
+		{"Values.global.trustDomain", "meshConfig.trustDomain", false},
 		{"Values.gateways.istio-ingressgateway.meshExpansionPorts", "components.ingressGateways[name=istio-ingressgateway].k8s.service.ports", nil},
 		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
