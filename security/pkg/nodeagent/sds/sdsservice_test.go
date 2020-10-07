@@ -38,6 +38,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/testing/protocmp"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	ca2 "istio.io/istio/pkg/security"
@@ -68,6 +70,62 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
+}
+
+func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
+	testCases := map[string]struct {
+		fetcherType   string
+		trustdomain   string
+		jwtPath       string
+		expectedErr   string
+		expectedToken string
+		expectedIdp   string
+	}{
+		"gce test": {
+			fetcherType:   security.GCE,
+			trustdomain:   "abc.svc.id.goog",
+			jwtPath:       "/var/run/secrets/tokens/istio-token",
+			expectedErr:   "", // No error when ID token auth is enabled.
+			expectedToken: "",
+			expectedIdp:   "GoogleComputeEngine",
+		},
+	}
+
+	for id, tc := range testCases {
+		cf, err := NewMockCredFetcher(
+			tc.fetcherType, tc.trustdomain, tc.jwtPath)
+		if err != nil {
+			t.Errorf("%s: unexpected Error: %v", id, err)
+		}
+
+		arg := ca2.Options{
+			EnableWorkloadSDS: true,
+			RecycleInterval:   30 * time.Second,
+			GatewayUDSPath:    "",
+			WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+			UseLocalJWT:       true,
+			CredFetcher: cf,
+		}
+
+		wst := &mockSecretStore{
+			checkToken: false,
+		}
+
+		server, err := NewServer(&arg, wst, nil)
+		defer server.Stop()
+		if err != nil {
+			t.Fatalf("failed to start grpc server for sds: %v", err)
+		}
+
+		proxyID := "sidecar~127.0.0.1~id1~local"
+
+		// Request for root certificate from file and verify response.
+		rootResourceName := sendRequestForFileRootCertAndVerifyResponse(t, sdsRequestStream, arg.WorkloadUDSPath, proxyID)
+
+		recycleConnection(getClientConID(proxyID), rootResourceName)
+		// Check to make sure number of staled connections is 0.
+		checkStaledConnCount(t)
+	}
 }
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
