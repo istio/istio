@@ -96,6 +96,9 @@ spec:
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
+            - containerPort: 15020
+              protocol: TCP
+              name: http-agent-prom
           args:
           - proxy
           - router
