@@ -4,6 +4,7 @@ metadata:
   name: my-nginx
   labels:
     app: nginx
+    service: nginx
 spec:
   type: NodePort
   ports:

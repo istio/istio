@@ -21,6 +21,7 @@ metadata:
   name: httpbin
   labels:
     app: httpbin
+    service: httpbin
 spec:
   ports:
   - name: http
