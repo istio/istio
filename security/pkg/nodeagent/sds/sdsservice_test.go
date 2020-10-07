@@ -39,7 +39,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	ca2 "istio.io/istio/pkg/security"
