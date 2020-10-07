@@ -16,6 +16,7 @@
 package pilot
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -37,6 +38,15 @@ var (
 	apps = &common.EchoDeployments{}
 )
 
+func supportsCRDv1(ctx resource.Context) bool {
+	ver, err := ctx.Clusters()[0].GetKubernetesVersion()
+	if err != nil {
+		return true
+	}
+	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+	return serverVersion >= "1.16"
+}
+
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
@@ -44,11 +54,14 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(func(ctx resource.Context) (err error) {
-			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
-			if err != nil {
-				return err
+			if supportsCRDv1(ctx) {
+				crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+				if err != nil {
+					return err
+				}
+				return ctx.Config().ApplyYAML("", string(crd))
 			}
-			return ctx.Config().ApplyYAML("", string(crd))
+			return nil
 		}).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
