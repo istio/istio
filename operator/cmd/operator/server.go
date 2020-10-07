@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 // Should match deploy/service.yaml
@@ -151,6 +152,11 @@ func run() {
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Fatalf("Could not add all controllers to operator manager: %v", err)
 	}
+
+	// Record version of operator in metrics
+	metrics.OperatorVersion.
+		With(metrics.OperatorVersionLabel.Value(version.Info.String())).
+		Increment()
 
 	log.Info("Starting the Cmd.")
 

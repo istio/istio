@@ -18,10 +18,11 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-var (
-	// MergeErrorLabel describes the type of merge error
-	MergeErrorLabel = monitoring.MustCreateLabel("error_type")
-)
+// OperatorVersionLabel describes version of running binary
+var OperatorVersionLabel = monitoring.MustCreateLabel("v")
+
+// MergeErrorLabel describes the type of merge error
+var MergeErrorLabel = monitoring.MustCreateLabel("error_type")
 
 var (
 	// CRFetchErrorReasonLabel describes the reason/HTTP code
@@ -72,6 +73,15 @@ const (
 )
 
 var (
+	// OperatorVersion is the version of the operator binary running currently.
+	// This is required for fleet level metrics although it is available from
+	// ControlZ (more precisely versionz endpoint)
+	OperatorVersion = monitoring.NewGauge(
+		"operator_version",
+		"Version of operator binary",
+		monitoring.WithLabels(OperatorVersionLabel),
+	)
+
 	// FetchCRError counts the number of times fetching
 	// CR fails from API server
 	FetchCRError = monitoring.NewSum(
@@ -172,6 +182,8 @@ var (
 
 func init() {
 	monitoring.MustRegister(
+		OperatorVersion,
+
 		FetchCRError,
 		CRMergeFailures,
 		CRValidationFailure,
