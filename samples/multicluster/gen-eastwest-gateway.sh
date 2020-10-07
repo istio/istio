@@ -35,6 +35,10 @@ spec:
           app: istio-eastwestgateway
         enabled: true
         k8s:
+          env:
+            # sni-dnat adds the clusters required for AUTO_PASSTHROUGH mode
+            - name: ISTIO_META_ROUTER_MODE
+              value: "sni-dnat"
           service:
             ports:
               - name: status-port
