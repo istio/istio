@@ -40,12 +40,7 @@ type operatorInitArgs struct {
 
 func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
-	if hub == "" {
-		hub = "gcr.io/istio-testing"
-	}
-	if tag == "" {
-		tag = "latest"
-	}
+
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
