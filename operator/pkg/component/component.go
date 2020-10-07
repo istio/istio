@@ -457,6 +457,7 @@ func runComponent(c *CommonComponentFields) error {
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
 func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error) {
 	if !cf.started {
+		metrics.CountManifestRenderError(c.ComponentName(), metrics.RenderNotStartedError)
 		return "", fmt.Errorf("component %s not started in RenderManifest", cf.ComponentName)
 	}
 
@@ -466,6 +467,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 
 	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.ComponentName)
 	if err != nil {
+		metrics.CountManifestRenderError(c.ComponentName(), metrics.HelmTranslateIOPToValuesError)
 		return "", err
 	}
 
@@ -474,6 +476,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	my, err := cf.renderer.RenderManifest(mergedYAML)
 	if err != nil {
 		log.Errorf("Error rendering the manifest: %s", err)
+		metrics.CountManifestRenderError(c.ComponentName(), metrics.HelmChartRenderError)
 		return "", err
 	}
 	my += helm.YAMLSeparator + "\n"
@@ -482,6 +485,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	// Add the k8s resources from IstioOperatorSpec.
 	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.ComponentName, cf.ResourceName, cf.addonName, cf.index)
 	if err != nil {
+		metrics.CountManifestRenderError(c.ComponentName(), metrics.K8SSettingsOverlayError)
 		return "", err
 	}
 	cnOutput := string(cf.ComponentName)
@@ -519,6 +523,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	scope.Infof("Applying Kubernetes overlay: \n%s\n", kyo)
 	ret, err := patch.YAMLManifestPatch(my, cf.Namespace, overlays)
 	if err != nil {
+		metrics.CountManifestRenderError(c.ComponentName(), metrics.K8SManifestPatchError)
 		return "", err
 	}
 

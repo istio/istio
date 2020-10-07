@@ -27,6 +27,9 @@ var MergeErrorLabel = monitoring.MustCreateLabel("error_type")
 // PathLabel describes translated path
 var PathLabel = monitoring.MustCreateLabel("path")
 
+// RenderErrorLabel describes the type of the error while rendering
+var RenderErrorLabel = monitoring.MustCreateLabel("render_error")
+
 var (
 	// CRFetchErrorReasonLabel describes the reason/HTTP code
 	// for failing to fetch CR
@@ -73,6 +76,29 @@ const (
 	// CannotGetSpecSubtreeError occurs when spec section in merged CR
 	// cannot be accessed for some reason (either missing or multiple)
 	CannotGetSpecSubtreeError MergeErrorType = "spec_subtree"
+)
+
+// RenderErrorType describes the class of errors that could
+// occur while rendering Kubernetes manifest from given CR
+type RenderErrorType string
+
+const (
+	RenderNotStartedError RenderErrorType = "not_started"
+
+	// HelmTranslateIOPToValuesError describes render error where renderer for
+	// a component cannot create values.yaml tree from given CR.
+	HelmTranslateIOPToValuesError RenderErrorType = "helm_translate_iop"
+
+	// HelmChartRenderError describes error where Helm charts cannot be rendered
+	// for the generated values.yaml tree
+	HelmChartRenderError RenderErrorType = "helm_render"
+
+	// K8SSettingsOverlayError describes the K8s overlay error after
+	// rendering Helm charts successfully.
+	K8SSettingsOverlayError RenderErrorType = "k8s_settings_overlay"
+
+	// K8SManifestPatchError describes errors while patching generated manifest
+	K8SManifestPatchError RenderErrorType = "k8s_manifest_patch"
 )
 
 var (
@@ -169,6 +195,13 @@ var (
 		"Number of times K8S patch overlays failed",
 	)
 
+	// ManifestRenderErrors counts errors occurred while rendering manifest
+	ManifestRenderErrors = monitoring.NewSum(
+		"operator_render_errors",
+		"Number of times error occured during rendering output manifest",
+		monitoring.WithLabels(ComponentNameLabel, RenderErrorLabel),
+	)
+
 	// OperatorPathTranslations counts the translations from legacy API to new one
 	OperatorPathTranslations = monitoring.NewSum(
 		"operator_path_translations",
@@ -200,6 +233,7 @@ func init() {
 		OperatorResourcePrunes,
 
 		K8SPatchOverlayErrors,
+		ManifestRenderErrors,
 		OperatorPathTranslations,
 		CacheFlushes,
 	)

@@ -30,6 +30,15 @@ func CountCRMergeFail(reason MergeErrorType) {
 		Increment()
 }
 
+// CountManifestRenderError increments the count of manifest
+// render errors
+func CountManifestRenderError(cn name.ComponentName, reason RenderErrorType) {
+	ManifestRenderErrors.
+		With(ComponentNameLabel.Value(string(cn))).
+		With(RenderErrorLabel.Value(string(reason))).
+		Increment()
+}
+
 // CountCRFetchFail increments the count of CR fetch failure
 // for a given name and the error status
 func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
