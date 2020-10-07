@@ -138,7 +138,7 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 		UseLocalJWT:       false,
 	}
 	wst := &mockSecretStore{
-		checkToken: false,
+		checkToken: true,
 	}
 	server, err := NewServer(&arg, wst, nil)
 	defer server.Stop()
