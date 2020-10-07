@@ -21,6 +21,7 @@ metadata:
   name: ratings
   labels:
     app: ratings
+    service: ratings
 spec:
   ports:
   - port: 9080
