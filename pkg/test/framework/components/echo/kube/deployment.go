@@ -164,11 +164,13 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
+{{- if $.StartupProbe }}
         startupProbe:
           tcpSocket:
             port: tcp-health-port
           periodSeconds: 10
           failureThreshold: 10
+{{- end }}
 {{- if $.TLSSettings }}
         volumeMounts:
         - mountPath: /etc/certs/custom
@@ -378,6 +380,15 @@ const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 func generateYAMLWithSettings(
 	ctx resource.Context, cfg echo.Config,
 	settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+	ver, err := cluster.GetKubernetesVersion()
+	if err != nil {
+		return "", "", err
+	}
+	supportStartupProbe := true
+	if ver.Minor < "16" {
+		// Added in Kubernetes 1.16
+		supportStartupProbe = false
+	}
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -440,7 +451,8 @@ func generateYAMLWithSettings(
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},
-		"Environment": cfg.VMEnvironment,
+		"Environment":  cfg.VMEnvironment,
+		"StartupProbe": supportStartupProbe,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
