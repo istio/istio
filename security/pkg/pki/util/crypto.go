@@ -26,7 +26,7 @@ import (
 
 const (
 	blockTypeECPrivateKey    = "EC PRIVATE KEY"
-	blockTypeRSAPrivateKey   = "RSA PRIVATE KEY" // PKCS#5 private key
+	blockTypeRSAPrivateKey   = "RSA PRIVATE KEY" // PKCS#1 private key
 	blockTypePKCS8PrivateKey = "PRIVATE KEY"     // PKCS#8 plain private key
 )
 
