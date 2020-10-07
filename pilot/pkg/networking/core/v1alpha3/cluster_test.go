@@ -29,6 +29,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
@@ -3273,6 +3274,337 @@ func TestEnvoyFilterPatching(t *testing.T) {
 			sort.Strings(tt.want)
 			if !cmp.Equal(clusterNames, tt.want) {
 				t.Fatalf("want %v got %v", tt.want, clusterNames)
+			}
+		})
+	}
+}
+
+func TestTelemetryMetadata(t *testing.T) {
+	cases := []struct {
+		name     string
+		cluster  *cluster.Cluster
+		svcInsts []*model.ServiceInstance
+		want     *core.Metadata
+	}{
+		{
+			name:    "no cluster",
+			cluster: nil,
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name:     "no service",
+			cluster:  &cluster.Cluster{},
+			svcInsts: []*model.ServiceInstance{},
+			want:     nil,
+		},
+		{
+			name: "existing metadata",
+			cluster: &cluster.Cluster{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						"some-metadata": {
+							Fields: map[string]*structpb.Value{
+								"some-key": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+							},
+						},
+					},
+				},
+			},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"some-metadata": {
+						Fields: map[string]*structpb.Value{
+							"some-key": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+						},
+					},
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "existing istio metadata",
+			cluster: &cluster.Cluster{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								"some-key": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+							},
+						},
+					},
+				},
+			},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"some-key": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "multiple services",
+			cluster: &cluster.Cluster{},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+				},
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "b",
+							Namespace: "default",
+						},
+						Hostname: "b.default",
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "b.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "b",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "existing services metadata",
+			cluster: &cluster.Cluster{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								"services": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+							},
+						},
+					},
+				},
+			},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := buildClusterOpts{
+				cluster: tt.cluster,
+				proxy: &model.Proxy{
+					ServiceInstances: tt.svcInsts,
+				},
+			}
+			addTelemetryMetadata(opt)
+			if opt.cluster != nil && !reflect.DeepEqual(opt.cluster.Metadata, tt.want) {
+				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.cluster.Metadata)
 			}
 		})
 	}

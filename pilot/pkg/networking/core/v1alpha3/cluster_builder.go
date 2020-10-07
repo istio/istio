@@ -230,6 +230,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		meshExternal:    meshExternal,
 	}
 	applyTrafficPolicy(opts)
+	addTelemetryMetadata(opts)
 
 	return c
 }

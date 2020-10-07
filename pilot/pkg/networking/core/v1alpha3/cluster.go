@@ -1064,3 +1064,67 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 		c.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
 }
+
+func addTelemetryMetadata(opts buildClusterOpts) {
+	if opts.cluster == nil || opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
+		len(opts.proxy.ServiceInstances) <= 0 {
+		return
+	}
+	if opts.cluster.Metadata == nil {
+		opts.cluster.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+
+	// Create Istio metadata if does not exist yet
+	if _, ok := opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey]; !ok {
+		opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+
+	im := opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
+
+	// If services already exist in cluster metadata, delete it and recreate the field,
+	// since service metadata should only be added only in this function.
+	if _, ok := im.Fields["services"]; ok {
+		delete(im.Fields, "services")
+	}
+
+	// Add services field into istio metadata
+	im.Fields["services"] = &structpb.Value{
+		Kind: &structpb.Value_ListValue{
+			ListValue: &structpb.ListValue{
+				Values: []*structpb.Value{},
+			},
+		},
+	}
+
+	svcMetaList := im.Fields["services"].GetListValue()
+	// Add servie related metadata. This will be consumed by telemetry v2 filter for metric labels.
+	for _, svc := range opts.proxy.ServiceInstances {
+		svcMetaList.Values = append(svcMetaList.Values, &structpb.Value{
+			Kind: &structpb.Value_StructValue{
+				StructValue: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"host": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: string(svc.Service.Hostname),
+							},
+						},
+						"name": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: string(svc.Service.Attributes.Name),
+							},
+						},
+						"namespace": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: string(svc.Service.Attributes.Namespace),
+							},
+						},
+					},
+				},
+			},
+		})
+	}
+}
