@@ -378,7 +378,7 @@ func istiodLogCmd() *cobra.Command {
   istioctl experimental istiod log
 
   # Retrieve information about istiod logging levels on a specific control plane pod.
-  istioctl experimental istiod log istiod-5c868d8bdd-pmvgg
+  istioctl experimental istiod l istiod-5c868d8bdd-pmvgg
 
   # Update levels of the specified loggers.
   istioctl x istiod log --level ads:debug,authorization:debug
