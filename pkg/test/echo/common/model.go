@@ -18,6 +18,7 @@ import "istio.io/istio/pkg/config/protocol"
 
 // TLSSettings defines TLS configuration for Echo server
 type TLSSettings struct {
+	// If not empty, RootCert supplies the extra root cert that will be appended to the system cert pool.
 	RootCert   string
 	ClientCert string
 	Key        string

@@ -15,7 +15,6 @@ FROM docker.io/istio/distroless:${BASE_VERSION} as distroless
 FROM ${BASE_DISTRIBUTION}
 
 COPY pilot-discovery /usr/local/bin/
-COPY cacert.pem /cacert.pem
 
 USER 1337:1337
 
