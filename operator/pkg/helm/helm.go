@@ -45,7 +45,8 @@ const (
 	// DefaultProfileString is the name of the default profile.
 	DefaultProfileString = "default"
 
-	// notes file name suffix for the helm chart.
+	// NotesFileNameSuffix is the file name suffix for helm notes.
+	// see https://helm.sh/docs/chart_template_guide/notes_files/
 	NotesFileNameSuffix = ".txt"
 )
 
@@ -145,6 +146,9 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 			return "", err
 		}
 	}
+
+	// Sort crd files by name to ensure stable manifest output
+	sort.Slice(crdFiles, func(i, j int) bool { return crdFiles[i].Name < crdFiles[j].Name })
 	for _, crdFile := range crdFiles {
 		f := string(crdFile.File.Data)
 		// add yaml separator if the rendered file doesn't have one at the end
