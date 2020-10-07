@@ -154,6 +154,7 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 				revision := h.iop.Spec.Revision
 				iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
 				metrics.CountResourceDeletions(iopName, revision, gvkStr)
+				h.addPrunedKind(objGvk)
 				h.changeResourceOwnedCount(o.GroupVersionKind(), -1)
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
@@ -330,6 +331,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			h.removeFromObjectCache(componentName, oh)
 		}
 		metrics.CountResourceDeletions(iopName, revision, gvkStr)
+		h.addPrunedKind(objGvk)
 		h.changeResourceOwnedCount(objGvk, -1)
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}

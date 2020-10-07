@@ -54,9 +54,11 @@ type HelmReconciler struct {
 	// dependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
 	// dependencyWaitCh[ch1]...dependencyWaitCh[chN] when it's completely installed.
 	dependencyWaitCh map[name.ComponentName]chan struct{}
-	// ownedObjectsCount counts objects owned by GVK
+
+	// The fields below are for metrics and reporting
 	countLock         sync.Mutex
 	ownedObjectsCount map[schema.GroupVersionKind]int
+	prunedKindSet     map[schema.GroupVersionKind]struct{}
 }
 
 // Options are options for HelmReconciler.
@@ -126,6 +128,7 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		dependencyWaitCh:  initDependencies(),
 		countLock:         sync.Mutex{},
 		ownedObjectsCount: make(map[schema.GroupVersionKind]int),
+		prunedKindSet:     make(map[schema.GroupVersionKind]struct{}),
 	}, nil
 }
 
@@ -151,6 +154,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
 	pruneErr := h.Prune(manifestMap, false)
+	h.reportPrunedObjectKind()
 	return status, pruneErr
 }
 
@@ -227,6 +231,7 @@ func (h *HelmReconciler) Delete() error {
 	if iop.Spec.Revision == "" {
 		err := h.Prune(nil, true)
 		h.reportOwnedObjectCountMetrics()
+		h.reportPrunedObjectKind()
 		return err
 	}
 	// Delete IOP with revision:
@@ -234,6 +239,7 @@ func (h *HelmReconciler) Delete() error {
 	// and we do not prune shared resources, same effect as `istioctl uninstall --revision foo` command.
 	status, err := h.PruneControlPlaneByRevisionWithController(iop.Spec.Namespace, iop.Spec.Revision)
 	h.reportOwnedObjectCountMetrics()
+	h.reportPrunedObjectKind()
 	if err != nil {
 		return err
 	}
@@ -458,6 +464,12 @@ func (h *HelmReconciler) changeResourceOwnedCount(gvk schema.GroupVersionKind, b
 	h.ownedObjectsCount[gvk] += by
 }
 
+func (h *HelmReconciler) addPrunedKind(gvk schema.GroupVersionKind) {
+	h.countLock.Lock()
+	defer h.countLock.Unlock()
+	h.prunedKindSet[gvk] = struct{}{}
+}
+
 func (h *HelmReconciler) reportOwnedObjectCountMetrics() {
 	h.countLock.Lock()
 	defer h.countLock.Unlock()
@@ -467,5 +479,17 @@ func (h *HelmReconciler) reportOwnedObjectCountMetrics() {
 			With(metrics.CRNamespacedNameLabel.Value(util.GetNamespacedIOPName(h.iop))).
 			With(metrics.CRRevisionLabel.Value(util.ExtractIOPRevision(h.iop))).
 			Record(float64(cnt))
+	}
+}
+
+func (h *HelmReconciler) reportPrunedObjectKind() {
+	h.countLock.Lock()
+	defer h.countLock.Unlock()
+	for gvk := range h.prunedKindSet {
+		metrics.OperatorResourcePrunes.
+			With(metrics.ResourceKindLabel.Value(util.GetGvkString(gvk))).
+			With(metrics.CRNamespacedNameLabel.Value(util.GetNamespacedIOPName(h.iop))).
+			With(metrics.CRRevisionLabel.Value(util.ExtractIOPRevision(h.iop))).
+			Increment()
 	}
 }
