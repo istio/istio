@@ -1067,7 +1067,7 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 
 func addTelemetryMetadata(opts buildClusterOpts) {
 	if opts.cluster == nil || opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
-		len(opts.proxy.ServiceInstances) <= 0 {
+		len(opts.proxy.ServiceInstances) == 0 {
 		return
 	}
 	if opts.cluster.Metadata == nil {
@@ -1087,9 +1087,7 @@ func addTelemetryMetadata(opts buildClusterOpts) {
 
 	// If services already exist in cluster metadata, delete it and recreate the field,
 	// since service metadata should only be added only in this function.
-	if _, ok := im.Fields["services"]; ok {
-		delete(im.Fields, "services")
-	}
+	delete(im.Fields, "services")
 
 	// Add services field into istio metadata
 	im.Fields["services"] = &structpb.Value{
@@ -1114,12 +1112,12 @@ func addTelemetryMetadata(opts buildClusterOpts) {
 						},
 						"name": {
 							Kind: &structpb.Value_StringValue{
-								StringValue: string(svc.Service.Attributes.Name),
+								StringValue: svc.Service.Attributes.Name,
 							},
 						},
 						"namespace": {
 							Kind: &structpb.Value_StringValue{
-								StringValue: string(svc.Service.Attributes.Namespace),
+								StringValue: svc.Service.Attributes.Namespace,
 							},
 						},
 					},
