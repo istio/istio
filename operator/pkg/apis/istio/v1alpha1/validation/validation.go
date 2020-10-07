@@ -111,6 +111,8 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.istiocoredns.Enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
+		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		{"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
 			false},
 	}
