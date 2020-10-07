@@ -17,10 +17,11 @@ package util
 import (
 	"fmt"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 type JWTPolicy string
