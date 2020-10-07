@@ -57,6 +57,9 @@ const (
 	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
 	localHostIPv4      = "127.0.0.1"
 	localHostIPv6      = "[::1]"
+
+	// Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
+	xdsHeaderPrefix = "XDS_HEADER_"
 )
 
 // TODO: Move most of this to pkg.
@@ -312,7 +315,9 @@ var (
 			agentConfig := &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
 				CARootCerts:  caRootCA,
+				XDSHeaders:   map[string]string{},
 			}
+			extractXDSHeadersFromEnv(agentConfig)
 			if proxyXDSViaAgent {
 				agentConfig.ProxyXDSViaAgent = true
 				agentConfig.DNSCapture = dnsCaptureByAgent
@@ -404,6 +409,21 @@ var (
 		},
 	}
 )
+
+// Simplified extraction of gRPC headers from environment.
+// Unlike ISTIO_META, where we need JSON and advanced features - this is just for small string headers.
+func extractXDSHeadersFromEnv(config *istio_agent.AgentConfig) {
+		envs := os.Environ()
+		for _, e := range envs {
+			if strings.HasPrefix(e, xdsHeaderPrefix) {
+				parts := strings.SplitN(e, "=", 2)
+				if len(parts) != 2 {
+					continue
+				}
+				config.XDSHeaders[parts[0][len(xdsHeaderPrefix):]] = parts[1]
+			}
+		}
+}
 
 func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfig.ProxyConfig) error {
 	localHostAddr := localHostIPv4
