@@ -199,7 +199,6 @@ func (sc *SecretCache) setRootCert(rootCert []byte, rootCertExpr time.Time) {
 // and SDS.FetchSecret. Since credential passing from client may change, regenerate secret every time
 // instead of reading from cache.
 func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*security.SecretItem, error) {
-	cacheLog.Infof("GenerateSecret in secret cache!!!")
 	connKey := ConnKey{
 		ConnectionID: connectionID,
 		ResourceName: resourceName,
@@ -214,15 +213,12 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 
 	// First try to generate secret from file.
 	sdsFromFile, ns, err := sc.generateFileSecret(connKey, token)
-	cacheLog.Infof("111111")
-	cacheLog.Infof("%v",sdsFromFile)
 	if sdsFromFile {
 		if err != nil {
 			return nil, err
 		}
 		return ns, nil
 	}
-	cacheLog.Infof("222222")
 	if resourceName != RootCertReqResourceName {
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
@@ -238,7 +234,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
-	cacheLog.Infof("333333")
 	// If request is for root certificate,
 	// retry since rootCert may be empty until there is CSR response returned from CA.
 	rootCert, rootCertExpr := sc.getRootCert()
@@ -255,7 +250,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 			wait *= 2
 		}
 	}
-	cacheLog.Infof("444444")
 	if rootCert == nil {
 		cacheLog.Errorf("%s failed to get root cert for proxy", logPrefix)
 		return nil, errors.New("failed to get root cert")
