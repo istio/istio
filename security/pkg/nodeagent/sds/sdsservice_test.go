@@ -110,9 +110,8 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testHelper(t, arg, sdsRequestStream, false)
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, false)
 }
-
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
@@ -268,6 +267,41 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	checkStaledConnCount(t)
 }
 
+func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, testEmptyToken bool) {
+	resetEnvironments()
+	var wst, gst ca2.SecretManager
+	if arg.EnableWorkloadSDS {
+		wst = &mockSecretStore {
+			checkToken: true,
+		}
+	} else {
+		wst = nil
+	}
+
+	server, err := NewServer(&arg, wst, nil)
+	defer server.Stop()
+	if err != nil {
+		t.Fatalf("failed to start grpc server for sds: %v", err)
+	}
+
+	proxyID := "sidecar~127.0.0.1~id1~local"
+	if testEmptyToken && arg.EnableWorkloadSDS {
+		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, testEmptyToken)
+		return
+	}
+
+	if arg.EnableWorkloadSDS {
+		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, testEmptyToken)
+		// Request for root certificate.
+		sendRequestForRootCertAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID)
+
+		recycleConnection(getClientConID(proxyID), testResourceName)
+		recycleConnection(getClientConID(proxyID), "ROOTCA")
+	}
+	// Check to make sure number of staled connections is 0.
+	checkStaledConnCount(t)
+}
+
 func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) {
 	rootCertReq := &discovery.DiscoveryRequest{
 		TypeUrl:       SecretTypeV3,
@@ -301,6 +335,7 @@ func sendRequestForFileRootCertAndVerifyResponse(t *testing.T, cb secretCallback
 	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
 	return rootResource
 }
+
 
 func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string, testInvalidResourceNames bool) {
 	rn := []string{testResourceName}
@@ -343,8 +378,50 @@ func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxy
 	}
 }
 
+func sendRequestAndVerifyResponseWithCredentialFetcher(t *testing.T, cb secretCallback, socket, proxyID string, testEmptyToken bool) {
+	req := &discovery.DiscoveryRequest{
+		ResourceNames: rn,
+		TypeUrl:       SecretTypeV3,
+		Node: &core.Node{
+			Id: proxyID,
+		},
+	}
+
+	wait := 300 * time.Millisecond
+	retry := 0
+	for ; retry < 5; retry++ {
+		time.Sleep(wait)
+		// Try to call the server
+		resp, err := cb(socket, req)
+		if testEmptyToken {
+			if ok := verifyResponseForEmptyToken(err); ok {
+				return
+			}
+		} else {
+			if err == nil {
+				//Verify secret.
+				if err := verifySDSSResponse(resp, fakePrivateKey, fakeCertificateChain); err != nil {
+					t.Errorf("failed to verify SDS response %v", err)
+				}
+				return
+			}
+		}
+		wait *= 2
+	}
+
+	if retry == 5 {
+		t.Fatal("failed to start grpc server for SDS")
+	}
+}
+
 func verifyResponseForInvalidResourceNames(err error) bool {
 	s := fmt.Sprintf("has more than one resourceNames [%s %s]", testResourceName, extraResourceName)
+	return strings.Contains(err.Error(), s)
+}
+
+func verifyResponseForEmptyToken(err error) bool {
+	fmt.Printf("%v\n",err)
+	s := fmt.Sprintf("the token is empty the error is: [%s]", )
 	return strings.Contains(err.Error(), s)
 }
 
