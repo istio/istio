@@ -213,7 +213,7 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	var wst, gst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
-			checkToken: true,
+			checkToken:    true,
 			expectedToken: fakeToken1,
 		}
 	} else {
@@ -260,7 +260,7 @@ func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallbac
 	var wst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
-			checkToken: true,
+			checkToken:    true,
 			expectedToken: expectedToken,
 		}
 	} else {
@@ -1057,7 +1057,7 @@ type mockSecretStore struct {
 	secretCacheHit  int
 	secretCacheMiss int
 	mutex           sync.RWMutex
-	expectedToken 					string
+	expectedToken   string
 }
 
 func (ms *mockSecretStore) SecretCacheHit() int {
@@ -1175,7 +1175,7 @@ func TestDebugEndpoints(t *testing.T) {
 			WorkloadUDSPath:   socket,
 		}
 		st := &mockSecretStore{
-			checkToken: true,
+			checkToken:    true,
 			expectedToken: fakeToken1,
 		}
 		sdsClientsMutex.Lock()
