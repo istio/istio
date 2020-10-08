@@ -31,7 +31,6 @@ import (
 )
 
 const (
-	jwtPath            = "../signingapi/testdata/jwt-token.txt"
 	customServerCert   = "../signingapi/testdata/custom-certs/server-cert.pem"
 	customServerKey    = "../signingapi/testdata/custom-certs/server-key.pem"
 	customClientCert   = "../signingapi/testdata/custom-certs/client-cert.pem"
