@@ -504,7 +504,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if i.environment.IsConfigCluster(cluster) {
-		errGroup, _ := errgroup.WithContext(context.Background())
+		errGroup := &errgroup.Group{}
 
 		// Deploy the east-west gateway and expose istiod through it.
 		errGroup.Go(func() error {

@@ -88,7 +88,7 @@ func (i *operatorComponent) deployEgress(cluster resource.Cluster) error {
 		scopes.Framework.Error(gwYaml)
 		scopes.Framework.Error(stderr)
 		scopes.Framework.Error(err)
-		return fmt.Errorf("failed installing eastwestgateway via IstioOperator: %v", err)
+		return fmt.Errorf("failed installing egressgateway via IstioOperator: %v", err)
 	}
 
 	// apply k8s resources
