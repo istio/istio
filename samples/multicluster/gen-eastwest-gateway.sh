@@ -14,14 +14,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-ARGS=("${@:-}")
-
 set -euo pipefail
 
 # single-cluster installations may need this gateway to allow VMs to get discovery
 IOP=$(cat <<EOF
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  name: eastwest
 spec:
   # Only generate a gateway component defined below.
   # Using this with "istioctl install" will reconcile and remove existing control-plane components.
@@ -35,6 +35,10 @@ spec:
           app: istio-eastwestgateway
         enabled: true
         k8s:
+          env:
+            # sni-dnat adds the clusters required for AUTO_PASSTHROUGH mode
+            - name: ISTIO_META_ROUTER_MODE
+              value: "sni-dnat"
           service:
             ports:
               - name: status-port
@@ -82,12 +86,4 @@ EOF
 )
 fi
 
-if [[ "${#}" -gt 0 ]]; then
-  GEN_PARAMS=("${ARGS[@]}")
-fi
-GEN_PARAMS+=("-f" "-")
-
-# Generate the YAML for the east-west gateway.
-istioctl manifest generate "${GEN_PARAMS[@]}" <<EOF
-$IOP
-EOF
+echo "$IOP"

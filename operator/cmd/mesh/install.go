@@ -87,7 +87,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 	ic := &cobra.Command{
 		Use:   "install",
 		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
-		Long:  "The install generates an Istio install manifest and applies it to a cluster.",
+		Long:  "The install command generates an Istio install manifest and applies it to a cluster.",
 		// nolint: lll
 		Example: `  # Apply a default Istio installation
   istioctl install

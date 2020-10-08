@@ -52,7 +52,7 @@ spec:
       k8s:
         env:
           - name: ISTIO_META_ROUTER_MODE
-            value: "sni-dnat"
+            value: "standard"
         service:
           ports:
             - port: 15021
@@ -100,7 +100,7 @@ spec:
       k8s:
         env:
           - name: ISTIO_META_ROUTER_MODE
-            value: "sni-dnat"
+            value: "standard"
         service:
           ports:
             - port: 80
