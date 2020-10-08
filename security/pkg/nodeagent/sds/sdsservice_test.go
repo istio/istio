@@ -1186,6 +1186,7 @@ func TestDebugEndpoints(t *testing.T) {
 		}
 		st := &mockSecretStore{
 			checkToken: true,
+			expectedToken: fakeToken1,
 		}
 		sdsClientsMutex.Lock()
 		sdsClients = map[cache.ConnKey]*sdsConnection{}
