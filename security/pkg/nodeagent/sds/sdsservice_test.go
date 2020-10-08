@@ -110,7 +110,7 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testCredentialFetcherHelper(t, arg, sdsRequestStream, false)
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, true)
 }
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
