@@ -403,7 +403,7 @@ func listEqualUnordered(a []string, b []string) bool {
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
-	proxy, err := s.initProxy(node)
+	proxy, err := s.initProxy(node, con)
 	if err != nil {
 		return err
 	}
@@ -463,7 +463,7 @@ func connectionID(node string) string {
 }
 
 // initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
+func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -476,7 +476,7 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
 	// this should be done before we look for service instances
-	s.InternalGen.RegisterWorkload(proxy)
+	s.InternalGen.RegisterWorkload(proxy, con)
 
 	if err = s.setProxyState(proxy, s.globalPushContext()); err != nil {
 		return nil, err

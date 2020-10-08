@@ -1,3 +1,17 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package xds
 
 import (
@@ -7,25 +21,43 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"strconv"
 	"strings"
 	"time"
 )
 
-func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
+const (
+	// AutoRegistrationGroupAnnotation on a WorkloadEntry stores the associated WorkloadGroup.
+	AutoRegistrationGroupAnnotation = "istio.io/autoRegistrationGroup"
+	// WorkloadControllerAnnotation on a WorkloadEntry should store the current/last pilot instance connected to the workload for XDS.
+	WorkloadControllerAnnotation = "istio.io/workloadController"
+	// ConnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload connected to a Pilot instance.
+	ConnectedAtAnnotation = "istio.io/connectedAt"
+	// DisconnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload disconnected from a Pilot instance.
+	DisconnectedAtAnnotation = "istio.io/disconnectedAt"
+)
+
+func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
 	// check if the WE already exists, update the status
 	entryName := autoregisteredWorkloadEntryName(proxy)
 	if entryName == "" {
-		adsLog.Infof("skipping WLE creation for %s", proxy.ID)
 		return
 	}
-	entryCfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
-	if entryCfg != nil {
-		setWorkloadController(entryCfg, sg.Server.instanceID)
-		_, err := sg.Store.Update(*entryCfg)
+	cachedEntry := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	if cachedEntry != nil {
+		entry := cachedEntry.DeepCopy()
+		// copy it so we don't modify the cache
+		setConnectMeta(&entry, sg.Server.instanceID, con)
+		_, err := sg.Store.Update(entry)
 		if err != nil {
-			adsLog.Warn("failed to update auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+			adsLog.Warnf("err updating %s with new instance id %s; res ver %s; cached ver; %v", entry.Name, sg.Server.instanceID, entry.ResourceVersion, cachedEntry.ResourceVersion, err)
 		}
-		return
+		if err == nil || !errors.IsNotFound(err) {
+			// stop here for success or other errors besides "not-found"
+			return
+		}
+		// fallthrough to the WE creation if it was deleted between the above Get/Update
 	}
 
 	// create WorkloadEntry from WorkloadGroup
@@ -35,7 +67,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy) {
 		return
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
-	setWorkloadController(entry, sg.Server.instanceID)
+	setConnectMeta(entry, sg.Server.instanceID, con)
 	_, err := sg.Store.Create(*entry)
 	if err != nil {
 		adsLog.Errorf("failed creating WLE for %s: %v", proxy.ID, err)
@@ -49,24 +81,25 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 		return
 	}
 
-	entryCfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
-	if entryCfg == nil || entryCfg.Meta.Annotations["workload-controller"] != sg.Server.instanceID {
+	cachedEntry := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	if cachedEntry == nil || cachedEntry.Meta.Annotations[WorkloadControllerAnnotation] != sg.Server.instanceID {
 		// the WLE is deleted or another contorller has taken ownership
+		adsLog.Infof("skipping WLE disconnect %v", cachedEntry == nil)
 		return
 	}
+	entry := cachedEntry.DeepCopy()
 
-	// unset the controller
-	// TODO use managed fields or PATCH
-	setWorkloadController(entryCfg, "disconnected")
-	_, err := sg.Store.Update(*entryCfg)
+	adsLog.Infof("disconnecteing WLE %s", entryName)
+
+	// unset controller and set disconnect timestamp, used in cleanup process
+	setDisconnectMeta(&entry)
+	_, err := sg.Store.Update(entry)
 	if err != nil {
-		adsLog.Warn("failed to update auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+		adsLog.Warnf("failed to update auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 	}
 }
 
 func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
-	// TODO this could fire right after a disconnect and we may not wait the full Grace period.
-	// TODO we need to set disconnect timestamp
 	ticker := time.NewTicker(features.WorkloadEntryCleanupGracePeriod)
 	defer ticker.Stop()
 	for {
@@ -80,11 +113,21 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 				}
 				for _, wle := range wles {
 					// don't cleanup connected or non-autoregistered entries
-					if wle.Annotations["istio.io/autoRegistrationGroup"] == "" || wle.Annotations["istio.io/workloadController"] != "disconnected" {
+					if wle.Annotations[AutoRegistrationGroupAnnotation] == "" || wle.Annotations[WorkloadControllerAnnotation] != "disconnected" {
 						continue
 					}
-					if err := sg.Store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
-						adsLog.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
+					// if we haven't passed the grace period, don't cleanup
+					disconnUnixTime, err := strconv.ParseInt(wle.Annotations[DisconnectedAtAnnotation], 10, 64)
+					if err != nil {
+						// agressively cleanup workload entries with invalid disconnect times - they need to be re-registered and fixed.
+						adsLog.Warnf("invalid disconnect time for WorkloadEntry %s/%s: %s", wle.Annotations[DisconnectedAtAnnotation])
+					}
+					disconnat := time.Unix(0, disconnUnixTime)
+					if err != nil || time.Since(disconnat) > features.WorkloadEntryCleanupGracePeriod {
+						adsLog.Infof("cleaning up %s; diconn time: %v", wle.Name, disconnat)
+						if err := sg.Store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
+							adsLog.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
+						}
 					}
 				}
 			}
@@ -94,14 +137,21 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 	}
 }
 
-func setWorkloadController(c *config.Config, controller string) {
+func setConnectMeta(c *config.Config, controller string, con *Connection) {
 	// TODO proper names, or put this in status, timestamps etc.
-	c.Annotations["istio.io/workloadController"] = controller
+	c.Annotations[WorkloadControllerAnnotation] = controller
+	c.Annotations[ConnectedAtAnnotation] = strconv.FormatInt(con.Connect.UnixNano(), 10)
+}
+
+func setDisconnectMeta(c *config.Config) {
+	// TODO proper names, or put this in status, timestamps etc.
+	c.Annotations[WorkloadControllerAnnotation] = "disconnected"
+	c.Annotations[DisconnectedAtAnnotation] = strconv.FormatInt(time.Now().UnixNano(), 10)
 }
 
 func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Config) *config.Config {
 	group := groupCfg.Spec.(*v1alpha3.WorkloadGroup)
-	entry := group.Template
+	entry := group.Template.DeepCopy()
 	entry.Address = proxy.IPAddresses[0]
 	if proxy.Metadata.Network != "" {
 		entry.Network = proxy.Metadata.Network
@@ -115,7 +165,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 			Name:             name,
 			Namespace:        proxy.Metadata.Namespace,
 			Labels:           mergeLabels(entry.Labels, proxy.Metadata.Labels),
-			Annotations:      map[string]string{"istio.io/autoRegistrationGroup": groupCfg.Name},
+			Annotations:      map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name},
 		},
 		Spec: entry,
 		// TODO status fields used for garbage collection
@@ -153,4 +203,8 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 		p = append(p, proxy.Metadata.Network)
 	}
 	return strings.Join(p, "-")
+}
+
+func copyConfig(c *config.Config) {
+
 }

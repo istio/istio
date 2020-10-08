@@ -366,10 +366,11 @@ func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix
 
 func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
-		Name:        config.Name,
-		Namespace:   config.Namespace,
-		Labels:      config.Labels,
-		Annotations: config.Annotations,
+		Name:            config.Name,
+		Namespace:       config.Namespace,
+		Labels:          config.Labels,
+		Annotations:     config.Annotations,
+		ResourceVersion: config.ResourceVersion,
 	}
 }
 
