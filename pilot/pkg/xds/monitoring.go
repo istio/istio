@@ -31,38 +31,44 @@ var (
 	typeTag    = monitoring.MustCreateLabel("type")
 	versionTag = monitoring.MustCreateLabel("version")
 
+	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
 		"Pilot rejected CDS configs.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
+	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	edsReject = monitoring.NewGauge(
 		"pilot_xds_eds_reject",
 		"Pilot rejected EDS.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
+	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	ldsReject = monitoring.NewGauge(
 		"pilot_xds_lds_reject",
 		"Pilot rejected LDS.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
+	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	rdsReject = monitoring.NewGauge(
 		"pilot_xds_rds_reject",
 		"Pilot rejected RDS.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
-	xdsExpiredNonce = monitoring.NewSum(
-		"pilot_xds_expired_nonce",
-		"Total number of XDS requests with an expired nonce.",
-	)
-
 	totalXDSRejects = monitoring.NewSum(
 		"pilot_total_xds_rejects",
 		"Total number of XDS responses from pilot rejected by proxy.",
+		monitoring.WithLabels(typeTag),
+	)
+
+	xdsExpiredNonce = monitoring.NewSum(
+		"pilot_xds_expired_nonce",
+		"Total number of XDS requests with an expired nonce.",
+		monitoring.WithLabels(typeTag),
 	)
 
 	monServices = monitoring.NewGauge(
@@ -77,8 +83,8 @@ var (
 		"Number of endpoints connected to this pilot using XDS.",
 		monitoring.WithLabels(versionTag),
 	)
-	xdsClientTrackerMutex                    = &sync.Mutex{}
-	xdsClientTracker      map[string]float64 = make(map[string]float64)
+	xdsClientTrackerMutex = &sync.Mutex{}
+	xdsClientTracker      = make(map[string]float64)
 
 	xdsResponseWriteTimeouts = monitoring.NewSum(
 		"pilot_xds_write_timeout",
@@ -181,8 +187,7 @@ func recordSendError(xdsType string, conID string, err error) {
 }
 
 func incrementXDSRejects(xdsType string, node, errCode string) {
-	totalXDSRejects.Increment()
-	// TODO in the future we should have a single metric with a type tag
+	totalXDSRejects.With(typeTag.Value(v3.GetMetricType(xdsType))).Increment()
 	switch xdsType {
 	case v3.ListenerType:
 		ldsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()

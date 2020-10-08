@@ -326,7 +326,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if request.ResponseNonce != previousInfo.NonceSent {
 		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
-		xdsExpiredNonce.Increment()
+		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		return false
 	}
 
