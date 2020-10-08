@@ -61,9 +61,9 @@ func NewFixedWatcher(mesh *meshconfig.MeshConfig) Watcher {
 	}
 }
 
-// NewWatcher creates a new Watcher for changes to the given mesh config file. Returns an error
+// NewFileWatcher creates a new Watcher for changes to the given mesh config file. Returns an error
 // if the given file does not exist or failed during parsing.
-func NewWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, error) {
+func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, error) {
 	meshConfig, err := ReadMeshConfig(filename)
 	if err != nil {
 		return nil, err
