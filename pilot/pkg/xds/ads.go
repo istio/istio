@@ -82,6 +82,9 @@ type Connection struct {
 	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
 	node *core.Node
+
+	// forceClose can be used to end the connection manually via debug endpoints. Only to be used for testing.
+	forceClose chan struct{}
 }
 
 // Event represents a config or registry event that results in a push.
@@ -96,6 +99,7 @@ type Event struct {
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
 		pushChannel: make(chan *Event),
+		forceClose:  make(chan struct{}),
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
@@ -218,7 +222,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
-
 	con := newConnection(peerAddr, stream)
 	con.Identities = ids
 
@@ -266,6 +269,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			if err != nil {
 				return nil
 			}
+		case <-con.forceClose:
+			return nil
 		}
 	}
 }
@@ -861,4 +866,8 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 		return conn.proxy.WatchedResources[typeUrl]
 	}
 	return nil
+}
+
+func (conn *Connection) ForceClose() {
+	conn.forceClose <- struct{}{}
 }
