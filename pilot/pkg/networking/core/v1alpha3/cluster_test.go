@@ -3335,6 +3335,9 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
 				},
 			},
 			want: &core.Metadata{
@@ -3405,6 +3408,9 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
 				},
 			},
 			want: &core.Metadata{
@@ -3461,6 +3467,9 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
 				},
 				{
 					Service: &model.Service{
@@ -3469,6 +3478,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Namespace: "default",
 						},
 						Hostname: "b.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
 					},
 				},
 			},
@@ -3557,6 +3569,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Namespace: "default",
 						},
 						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
 					},
 				},
 			},
@@ -3657,6 +3672,7 @@ func TestTelemetryMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
 				cluster: tt.cluster,
+				port:    &model.Port{Port: 80},
 				proxy: &model.Proxy{
 					ServiceInstances: tt.svcInsts,
 				},

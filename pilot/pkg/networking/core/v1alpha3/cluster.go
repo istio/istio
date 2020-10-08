@@ -1066,8 +1066,16 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 }
 
 func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
-	if opts.cluster == nil || opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
-		len(opts.proxy.ServiceInstances) == 0 {
+	if opts.cluster == nil {
+		return
+	}
+	if direction == model.TrafficDirectionInbound && (opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
+		len(opts.proxy.ServiceInstances) == 0 || opts.port == nil) {
+		// At inbound, port and local service instance has to be provided
+		return
+	}
+	if direction == model.TrafficDirectionOutbound && service == nil {
+		// At outbound, the service corresponding to the cluster has to be provided.
 		return
 	}
 	if opts.cluster.Metadata == nil {
@@ -1095,11 +1103,12 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	}
 
 	svcMetaList := im.Fields["services"].GetListValue()
+
 	// Add servie related metadata. This will be consumed by telemetry v2 filter for metric labels.
-	if direction == model.TrafficDirectionInbound && opts.port != nil {
+	if direction == model.TrafficDirectionInbound {
 		// For inbound cluster, add all services on the cluster port
 		for _, svc := range opts.proxy.ServiceInstances {
-			if _, found := svc.Service.Ports.GetByPort(opts.port.Port); !found {
+			if svc.ServicePort.Port != opts.port.Port {
 				continue
 			}
 			svcMetaList.Values = append(svcMetaList.Values, &structpb.Value{
@@ -1126,7 +1135,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 				},
 			})
 		}
-	} else if service != nil {
+	} else if direction == model.TrafficDirectionOutbound {
 		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
 		svcMetaList.Values = append(svcMetaList.Values, &structpb.Value{
 			Kind: &structpb.Value_StructValue{
