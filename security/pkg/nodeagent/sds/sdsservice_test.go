@@ -88,7 +88,7 @@ func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt)
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt, FirstPartyJwt)
 }
 
 //The purpose of adding these tests is to verify that SDS agent
@@ -108,7 +108,7 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt)
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt, emptyToken)
 }
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
@@ -255,7 +255,7 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	checkStaledConnCount(t)
 }
 
-func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, expectedToken string) {
+func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, expectedToken, token string) {
 	resetEnvironments()
 	var wst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
@@ -274,7 +274,7 @@ func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallbac
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
-	if expectedToken == emptyToken && arg.EnableWorkloadSDS {
+	if token == emptyToken && arg.EnableWorkloadSDS {
 		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, token)
 		return
 	}
