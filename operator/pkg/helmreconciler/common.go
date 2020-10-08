@@ -21,6 +21,8 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/kubectl/pkg/scheme"
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/pkg/log"
@@ -110,18 +112,45 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 }
 
 // applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
-func applyOverlay(current, overlay runtime.Object) error {
-	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
-	if err != nil {
-		return err
+func applyOverlay(current, overlay *unstructured.Unstructured) (err error) {
+	var overlayByte, currentByte, patchByte, result []byte
+	var schema strategicpatch.LookupPatchMeta
+
+	if currentByte, err = current.MarshalJSON(); err != nil {
+		return
 	}
-	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlay)
-	if err != nil {
-		return err
+	if overlayByte, err = overlay.MarshalJSON(); err != nil {
+		return
 	}
-	merged, err := jsonpatch.MergePatch(cj, uj)
-	if err != nil {
-		return err
+
+	if patchByte, schema, err = createPatchSchema(currentByte, overlayByte, overlay); err != nil {
+		return
 	}
-	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
+
+	if schema == nil {
+		result, err = jsonpatch.MergePatch(currentByte, patchByte)
+	} else {
+		result, err = strategicpatch.StrategicMergePatchUsingLookupPatchMeta(currentByte, patchByte, schema)
+	}
+
+	if err != nil {
+		return
+	}
+
+	return current.UnmarshalJSON(result)
+}
+
+// createPatchSchema creates the patch based on the current & overlay bytes and the schema for the target unstructured.Unstructured
+func createPatchSchema(currentByte, overlayByte []byte, mod *unstructured.Unstructured) (patchByte []byte, schema strategicpatch.LookupPatchMeta, err error) {
+	var obj runtime.Object
+	if obj, err = scheme.Scheme.New(mod.GroupVersionKind()); err != nil {
+		return
+	}
+	if schema, err = strategicpatch.NewPatchMetaFromStruct(obj); err != nil {
+		return
+	}
+	if patchByte, err = strategicpatch.CreateTwoWayMergePatch(currentByte, overlayByte, obj); err != nil {
+		return
+	}
+	return
 }
