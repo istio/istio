@@ -269,7 +269,7 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 
 func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, testEmptyToken bool) {
 	resetEnvironments()
-	var wst, gst ca2.SecretManager
+	var wst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore {
 			checkToken: true,
