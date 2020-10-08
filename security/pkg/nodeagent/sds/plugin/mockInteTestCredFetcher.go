@@ -54,7 +54,7 @@ func CreateMockInteTestPlugin() *MockInteTestPlugin {
 // GetPlatformCredential returns a constant token string.
 func (p *MockInteTestPlugin) GetPlatformCredential() (string, error) {
 	mockInteTestPluginLog.Debugf("mock plugin returns a constant token.")
-	return firstPartyJwt, nil
+	return thirdPartyJwt, nil
 }
 
 // GetType returns credential fetcher type.
