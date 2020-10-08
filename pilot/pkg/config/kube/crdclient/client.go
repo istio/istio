@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"gomodules.xyz/jsonpatch/v2"
-
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -350,16 +349,16 @@ func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 }
 
 func genPatchBytes(oldRes, modRes runtime.Object) ([]byte, error) {
-	oldJson, err := json.Marshal(oldRes)
+	oldJSON, err := json.Marshal(oldRes)
 	if err != nil {
 		return nil, err
 	}
-	newJson, err := json.Marshal(modRes)
+	newJSON, err := json.Marshal(modRes)
 	if err != nil {
 		return nil, err
 	}
 	// TODO apply requires a "merge" style patch; see CreateTwoWayMerge patch or CreateMergePatch
-	ops, err := jsonpatch.CreatePatch(oldJson, newJson)
+	ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
 	if err != nil {
 		return nil, err
 	}

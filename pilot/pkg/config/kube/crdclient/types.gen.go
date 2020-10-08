@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 
-	config "istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
