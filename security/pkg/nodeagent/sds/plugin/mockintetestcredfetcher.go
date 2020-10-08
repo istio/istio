@@ -12,7 +12,6 @@ var (
 // The plugin object.
 type MockInteTestPlugin struct {
 	token string
-
 }
 
 // CreateMockPlugin creates a mock credential fetcher plugin. Return the pointer to the created plugin.

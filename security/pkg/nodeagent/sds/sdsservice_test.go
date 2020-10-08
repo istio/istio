@@ -39,7 +39,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
-
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	ca2 "istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -57,10 +56,9 @@ var (
 
 	fakeToken1        = "faketoken1"
 	fakeToken2        = "faketoken2"
-	emptyToken 				= ""
+	emptyToken        = ""
 	testResourceName  = "default"
 	extraResourceName = "extra-resource-name"
-
 )
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
@@ -94,6 +92,7 @@ func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
+
 //The purpose of adding these tests is to verify that SDS agent
 // is using the empty token returned by credential fetcher and request fails .
 func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T) {
@@ -273,7 +272,7 @@ func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallbac
 	resetEnvironments()
 	var wst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
-		wst = &mockSecretStore {
+		wst = &mockSecretStore{
 			checkToken: true,
 		}
 	} else {
@@ -337,7 +336,6 @@ func sendRequestForFileRootCertAndVerifyResponse(t *testing.T, cb secretCallback
 	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
 	return rootResource
 }
-
 
 func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string, testInvalidResourceNames bool) {
 	rn := []string{testResourceName}
