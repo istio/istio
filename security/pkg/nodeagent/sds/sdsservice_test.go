@@ -390,6 +390,7 @@ func sendRequestAndVerifyResponseWithCredentialFetcher(t *testing.T, cb secretCa
 
 	wait := 300 * time.Millisecond
 	retry := 0
+	t.Logf("SSSSSS=========SSSSSSSS")
 	for ; retry < 5; retry++ {
 		time.Sleep(wait)
 		// Try to call the server
