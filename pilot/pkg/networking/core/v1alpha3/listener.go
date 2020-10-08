@@ -1938,6 +1938,8 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
+	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener)
+
 	if opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
 		if listener.ListenerFiltersTimeout != nil {

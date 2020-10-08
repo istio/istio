@@ -20,6 +20,7 @@ import (
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -45,8 +46,9 @@ const (
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
 
-	httpEnvoyAccessLogFriendlyName = "http_envoy_accesslog"
-	tcpEnvoyAccessLogFriendlyName  = "tcp_envoy_accesslog"
+	httpEnvoyAccessLogFriendlyName     = "http_envoy_accesslog"
+	tcpEnvoyAccessLogFriendlyName      = "tcp_envoy_accesslog"
+	listenerEnvoyAccessLogFriendlyName = "listener_envoy_accesslog"
 
 	tcpEnvoyALSName = "envoy.tcp_grpc_access_log"
 
@@ -100,16 +102,20 @@ type AccessLogBuilder struct {
 	tcpGrpcAccessLog *accesslog.AccessLog
 	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
 	httpGrpcAccessLog *accesslog.AccessLog
+	// tcpGrpcListenerAccessLog is used when access log service is enabled in mesh config.
+	tcpGrpcListenerAccessLog *accesslog.AccessLog
 
 	// file accessLog which is cached and reset on MeshConfig change.
-	mutex         sync.RWMutex
-	fileAccessLog *accesslog.AccessLog
+	mutex                 sync.RWMutex
+	fileAccessLog         *accesslog.AccessLog
+	listenerFileAccessLog *accesslog.AccessLog
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
 	return &AccessLogBuilder{
-		tcpGrpcAccessLog:  buildTCPGrpcAccessLog(),
-		httpGrpcAccessLog: buildHTTPGrpcAccessLog(),
+		tcpGrpcAccessLog:         buildTCPGrpcAccessLog(false),
+		httpGrpcAccessLog:        buildHTTPGrpcAccessLog(),
+		tcpGrpcListenerAccessLog: buildTCPGrpcAccessLog(true),
 	}
 }
 
@@ -133,11 +139,18 @@ func (b *AccessLogBuilder) setHTTPAccessLog(mesh *meshconfig.MeshConfig, connect
 	}
 }
 
-func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
-	// Check if cached config is available, and return immediately.
-	if cal := b.cachedFileAccessLog(); cal != nil {
-		return cal
+func (b *AccessLogBuilder) setListenerAccessLog(mesh *meshconfig.MeshConfig, listener *listener.Listener) {
+	if mesh.AccessLogFile != "" {
+		listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
 	}
+
+	if mesh.EnableEnvoyAccessLogService {
+		// Setting it to TCP as the low level one.
+		listener.AccessLog = append(listener.AccessLog, b.tcpGrpcListenerAccessLog)
+	}
+}
+
+func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
 	fl := &fileaccesslog.FileAccessLog{
@@ -192,11 +205,50 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 	}
 
+	return al
+}
+
+func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	// Check if cached config is available, and return immediately.
+	if cal := b.cachedFileAccessLog(); cal != nil {
+		return cal
+	}
+
+	// We need to build access log. This is needed either on first access or when mesh config changes.
+	al := buildFileAccessLogHelper(mesh)
+
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	b.fileAccessLog = al
 
 	return al
+}
+
+func addAccessLogFiler() *accesslog.AccessLogFilter {
+	return &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
+			ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
+		},
+	}
+}
+
+func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	// Check if cached config is available, and return immediately.
+	if cal := b.cachedListenerFileAccessLog(); cal != nil {
+		return cal
+	}
+
+	// We need to build access log. This is needed either on first access or when mesh config changes.
+	lal := buildFileAccessLogHelper(mesh)
+	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
+	// not get filter Access Logs like in cases like NR to upstream.
+	lal.Filter = addAccessLogFiler()
+
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	b.listenerFileAccessLog = lal
+
+	return lal
 }
 
 func (b *AccessLogBuilder) cachedFileAccessLog() *accesslog.AccessLog {
@@ -205,10 +257,20 @@ func (b *AccessLogBuilder) cachedFileAccessLog() *accesslog.AccessLog {
 	return b.fileAccessLog
 }
 
-func buildTCPGrpcAccessLog() *accesslog.AccessLog {
+func (b *AccessLogBuilder) cachedListenerFileAccessLog() *accesslog.AccessLog {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	return b.listenerFileAccessLog
+}
+
+func buildTCPGrpcAccessLog(isListener bool) *accesslog.AccessLog {
+	accessLogFriendlyName := tcpEnvoyAccessLogFriendlyName
+	if isListener {
+		accessLogFriendlyName = listenerEnvoyAccessLogFriendlyName
+	}
 	fl := &grpcaccesslog.TcpGrpcAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-			LogName: tcpEnvoyAccessLogFriendlyName,
+			LogName: accessLogFriendlyName,
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
@@ -220,9 +282,14 @@ func buildTCPGrpcAccessLog() *accesslog.AccessLog {
 		},
 	}
 
+	filter := &accesslog.AccessLogFilter{}
+	if isListener {
+		filter = addAccessLogFiler()
+	}
 	return &accesslog.AccessLog{
 		Name:       tcpEnvoyALSName,
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+		Filter:     filter,
 	}
 }
 
@@ -250,5 +317,6 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 func (b *AccessLogBuilder) reset() {
 	b.mutex.Lock()
 	b.fileAccessLog = nil
+	b.listenerFileAccessLog = nil
 	b.mutex.Unlock()
 }
