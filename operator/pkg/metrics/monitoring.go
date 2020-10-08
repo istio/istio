@@ -24,9 +24,6 @@ var OperatorVersionLabel = monitoring.MustCreateLabel("v")
 // MergeErrorLabel describes the type of merge error
 var MergeErrorLabel = monitoring.MustCreateLabel("error_type")
 
-// PathLabel describes translated path
-var PathLabel = monitoring.MustCreateLabel("path")
-
 // RenderErrorLabel describes the type of the error while rendering
 var RenderErrorLabel = monitoring.MustCreateLabel("render_error")
 
@@ -206,7 +203,6 @@ var (
 	OperatorPathTranslations = monitoring.NewSum(
 		"operator_path_translations",
 		"Number of times a legacy API path is translated",
-		monitoring.WithLabels(PathLabel),
 	)
 
 	// CacheFlushes counts number of cache flushes

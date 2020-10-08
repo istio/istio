@@ -523,8 +523,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			if err := translateHPASpec(inPath, v.OutPath, valueTree, cpSpecTree); err != nil {
 				return fmt.Errorf("error in translating K8s HPA spec: %s", err)
 			}
-			metrics.OperatorPathTranslations.
-				With(metrics.PathLabel.Value(inPath)).Increment()
+			metrics.OperatorPathTranslations.Increment()
 			continue
 		}
 		m, found, err := tpath.Find(valueTree, util.ToYAMLPath(inPath))
@@ -568,8 +567,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 				return err
 			}
 		}
-		metrics.OperatorPathTranslations.
-			With(metrics.PathLabel.Value(inPath)).Increment()
+		metrics.OperatorPathTranslations.Increment()
 
 		if _, err := tpath.Delete(valueTree, util.ToYAMLPath(inPath)); err != nil {
 			return err
