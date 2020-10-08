@@ -42,7 +42,6 @@ import (
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	ca2 "istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/sds/plugin"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
 
@@ -75,8 +74,7 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 //The purpose of adding these tests is to verify that SDS agent
 // is using the valid token returned by credential fetcher and request success.
 func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
-	cf, err := plugin.NewMockCredFetcher(
-		ca2.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token", plugin.FirstPartyJwt)
+	cf, err := NewMockCredFetcher(FirstPartyJwt)
 
 	if err != nil {
 		t.Errorf("unexpected Error: %v", err)
@@ -90,14 +88,13 @@ func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testCredentialFetcherHelper(t, arg, sdsRequestStream, false)
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt)
 }
 
 //The purpose of adding these tests is to verify that SDS agent
 // is using the empty token returned by credential fetcher and request fails .
 func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T) {
-	cf, err := plugin.NewMockCredFetcher(
-		ca2.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token", emptyToken)
+	cf, err := NewMockCredFetcher(emptyToken)
 
 	if err != nil {
 		t.Errorf("unexpected Error: %v", err)
@@ -111,7 +108,7 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testCredentialFetcherHelper(t, arg, sdsRequestStream, true)
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, "")
 }
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
@@ -150,17 +147,6 @@ func TestStreamSecretsForGatewaySds(t *testing.T) {
 		RecycleInterval:   30 * time.Second,
 		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
 		WorkloadUDSPath:   "",
-	}
-	testHelper(t, arg, sdsRequestStream, false)
-}
-
-func TestStreamSecretsForLocalBothSds(t *testing.T) {
-	arg := ca2.Options{
-		EnableGatewaySDS:  true,
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
@@ -228,6 +214,7 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
 			checkToken: true,
+			expectedToken: fakeToken1,
 		}
 	} else {
 		wst = nil
@@ -268,12 +255,13 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	checkStaledConnCount(t)
 }
 
-func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, testEmptyToken bool) {
+func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, token string) {
 	resetEnvironments()
 	var wst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
 			checkToken: true,
+			expectedToken: token,
 		}
 	} else {
 		wst = nil
@@ -286,13 +274,13 @@ func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallbac
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
-	if testEmptyToken && arg.EnableWorkloadSDS {
-		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, testEmptyToken)
+	if token == emptyToken && arg.EnableWorkloadSDS {
+		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, token)
 		return
 	}
 
 	if arg.EnableWorkloadSDS {
-		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, testEmptyToken)
+		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, token)
 		// Request for root certificate.
 		sendRequestForRootCertAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID)
 
@@ -378,7 +366,7 @@ func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxy
 	}
 }
 
-func sendRequestAndVerifyResponseWithCredentialFetcher(t *testing.T, cb secretCallback, socket, proxyID string, testEmptyToken bool) {
+func sendRequestAndVerifyResponseWithCredentialFetcher(t *testing.T, cb secretCallback, socket, proxyID string, token string) {
 	rn := []string{testResourceName}
 	req := &discovery.DiscoveryRequest{
 		ResourceNames: rn,
@@ -394,7 +382,7 @@ func sendRequestAndVerifyResponseWithCredentialFetcher(t *testing.T, cb secretCa
 		time.Sleep(wait)
 		// Try to call the server
 		resp, err := cb(socket, req)
-		if testEmptyToken {
+		if token == emptyToken {
 			if ok := verifyResponseForEmptyToken(err); ok {
 				return
 			}
@@ -1069,6 +1057,7 @@ type mockSecretStore struct {
 	secretCacheHit  int
 	secretCacheMiss int
 	mutex           sync.RWMutex
+	expectedToken 					string
 }
 
 func (ms *mockSecretStore) SecretCacheHit() int {
@@ -1084,7 +1073,7 @@ func (ms *mockSecretStore) SecretCacheMiss() int {
 }
 
 func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*ca2.SecretItem, error) {
-	if ms.checkToken && token != fakeToken1 && token != fakeToken2 && token != plugin.FirstPartyJwt {
+	if ms.checkToken && ms.expectedToken != token {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 

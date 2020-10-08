@@ -1,7 +1,8 @@
-package plugin
+package sds
 
 import (
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 )
 
 const (
@@ -20,6 +21,6 @@ const (
 		"65xiNg"
 )
 
-func NewMockCredFetcher(credtype, trustdomain, jwtPath, token string) (security.CredFetcher, error) {
-	return CreateMockInteTestPlugin(token), nil
+func NewMockCredFetcher(token string) (security.CredFetcher, error) {
+	return plugin.CreateMockInteTestPlugin(token), nil
 }
