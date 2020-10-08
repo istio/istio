@@ -17,6 +17,8 @@ package vmregistration
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/protocol"
@@ -26,7 +28,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
 )
@@ -75,38 +79,75 @@ func TestAutoRegistrationLifecycle(t *testing.T) {
 			client.CallOrFail(ctx, echo.CallOptions{Target: vm, Port: &vm.Config().Ports[0]})
 		})
 		ctx.NewSubTest("reconnect resuses WorkloadEntry").Run(func(ctx framework.TestContext) {
-			pilotRes, err := ctx.Clusters().Default().CoreV1().Pods("istio-system").List(context.TODO(), metav1.ListOptions{LabelSelector: "istio=pilot"})
-			if err != nil {
-				ctx.Fatal(err)
-			}
-			if len(pilotRes.Items) != 2 {
-				ctx.Fatal("expected 2 pilots")
-			}
-
-			wles := wlesOrFail(ctx)
-			if len(wles) != 1 {
-				ctx.Fatal("expected exactly 1 workload entry that is more than 40 seconds old")
-			}
-			currentPilot := wles[0].Annotations[xds.WorkloadControllerAnnotation]
-			nextPilot := ""
-			for _, p := range pilotRes.Items {
-				if p.Name != currentPilot {
-					nextPilot = p.Name
-					break
+			var nextPilot string
+			var originalWE types.UID
+			retry.UntilSuccessOrFail(ctx, func() error {
+				// TODO this "switches pilot" check would likely be flaky
+				pilotRes, err := ctx.Clusters().Default().CoreV1().Pods("istio-system").List(context.TODO(), metav1.ListOptions{LabelSelector: "istio=pilot"})
+				if err != nil {
+					return err
 				}
-			}
+				if len(pilotRes.Items) != 2 {
+					return errors.New("expected 2 pilots")
+				}
 
-			<-time.After(40 * time.Second)
-			wles = wlesOrFail(ctx)
-			if len(wles) != 1 || time.Since(wles[0].CreationTimestamp.Time) < 40*time.Second {
-				ctx.Fatal("expected exactly 1 workload entry that is more than 40 seconds old")
-			}
-			if wles[0].Annotations[xds.WorkloadControllerAnnotation] != nextPilot {
-				ctx.Fatal("expected WorkloadEntry to be updated by other pilot")
-			}
+				wles := wlesOrFail(ctx)
+				if len(wles) != 1 {
+					ctx.Fatal("expected exactly 1 workload entry that is more than 40 seconds old")
+				}
+				originalWE = wles[0].UID
+				currentPilot := wles[0].Annotations[xds.WorkloadControllerAnnotation]
+				nextPilot = ""
+				for _, p := range pilotRes.Items {
+					if p.Name != currentPilot {
+						nextPilot = p.Name
+						return nil
+					}
+				}
+				return nil
+			})
+
+			// timeout is 2 * (grace period + connection age) should allow for 2 disconnect/re-connect cycles.
+			retry.UntilSuccessOrFail(ctx, func() error {
+				wles := wlesOrFail(ctx)
+				if len(wles) != 1 {
+					return errors.New("expected exactly 1 workload entry")
+				}
+				if wles[0].UID != originalWE {
+					return errors.New("expected original WorkloadEntry but a different one was created")
+				}
+				if wles[0].Annotations[xds.WorkloadControllerAnnotation] != nextPilot {
+					return errors.New("expected WorkloadEntry to be updated by other pilot")
+				}
+				return nil
+			}, retry.Timeout(90*time.Second))
 		})
-
+		ctx.NewSubTest("disconnect deletes WorkloadEntry").Run(func(ctx framework.TestContext) {
+			scaleDepOrFail(ctx, 0)
+			// it should take at most 2*grace period to trigger removal
+			retry.UntilSuccessOrFail(ctx, func() error {
+				if len(wlesOrFail(ctx)) > 0 {
+					return errors.New("expected 0 WorkloadEntries")
+				}
+				return nil
+			}, retry.Timeout(25*time.Second))
+		})
 	})
+}
+
+func scaleDepOrFail(ctx framework.TestContext, scale int32) {
+	depName := fmt.Sprintf("%s-%s", vm.Config().Service, "v1")
+	s, err := ctx.Clusters().Default().AppsV1().Deployments(vm.Config().Namespace.Name()).
+		GetScale(context.TODO(), depName, metav1.GetOptions{})
+	if err != nil {
+		ctx.Fatal(err)
+	}
+	s.Spec.Replicas = scale
+	_, err = ctx.Clusters().Default().AppsV1().Deployments(vm.Config().Namespace.Name()).
+		UpdateScale(context.TODO(), depName, s, metav1.UpdateOptions{})
+	if err != nil {
+		ctx.Fatal(err)
+	}
 }
 
 func wlesOrFail(ctx framework.TestContext) []v1alpha3.WorkloadEntry {
