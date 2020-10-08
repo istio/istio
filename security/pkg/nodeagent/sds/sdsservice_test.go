@@ -422,7 +422,7 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 
 func verifyResponseForEmptyToken(err error) bool {
 	fmt.Printf("%v\n",err)
-	s := fmt.Sprintf("the token is empty the error is: [%s]", )
+	s := fmt.Sprintf("the token is empty the error is: [%s]", err)
 	return strings.Contains(err.Error(), s)
 }
 
