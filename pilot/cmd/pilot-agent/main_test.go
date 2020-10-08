@@ -20,39 +20,16 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	g := gomega.NewWithT(t)
 	role = &model.Proxy{}
 	role.DNSDomain = ""
-	registryID = serviceregistry.Kubernetes
 
 	domain := getDNSDomain("default", role.DNSDomain)
 
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
-}
-
-func TestPilotDefaultDomainOthers(t *testing.T) {
-	g := gomega.NewWithT(t)
-	role = &model.Proxy{}
-	role.DNSDomain = ""
-	registryID = serviceregistry.Mock
-
-	domain := getDNSDomain("", role.DNSDomain)
-
-	g.Expect(domain).To(gomega.Equal(""))
-}
-
-func TestPilotDomain(t *testing.T) {
-	g := gomega.NewWithT(t)
-	role.DNSDomain = "my.domain"
-	registryID = serviceregistry.Mock
-
-	domain := getDNSDomain("", role.DNSDomain)
-
-	g.Expect(domain).To(gomega.Equal("my.domain"))
 }
 
 func TestIsIPv6Proxy(t *testing.T) {

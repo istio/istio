@@ -374,6 +374,21 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 			},
 		})
 	}
+	cases = append(cases, TrafficTestCase{
+		name:   "404",
+		config: httpGateway("*"),
+		call: func() (echoclient.ParsedResponses, error) {
+			return apps.Ingress.CallEcho(echo.CallOptions{Port: &echo.Port{Protocol: protocol.HTTP}, Host: "foo.bar"})
+		},
+		validator: func(responses echoclient.ParsedResponses) error {
+			return responses.Check(func(i int, response *echoclient.ParsedResponse) error {
+				if response.Code != "404" {
+					return fmt.Errorf("expected 404 got %q", response.Code)
+				}
+				return nil
+			})
+		},
+	})
 	return cases
 }
 
