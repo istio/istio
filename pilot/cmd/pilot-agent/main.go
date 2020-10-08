@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
@@ -63,8 +62,6 @@ const (
 
 var (
 	role               = &model.Proxy{}
-	proxyIP            string
-	registryID         serviceregistry.ProviderID
 	trustDomain        string
 	stsPort            int
 	tokenManagerPlugin string
@@ -197,9 +194,7 @@ var (
 				}
 			}
 
-			if len(proxyIP) != 0 {
-				role.IPAddresses = []string{proxyIP}
-			} else if podIP != nil {
+			if podIP != nil {
 				role.IPAddresses = []string{podIP.String()}
 			}
 
@@ -224,17 +219,11 @@ var (
 				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 				role.IPAddresses = append(role.IPAddresses, "::1")
 			}
+			role.ID = podName + "." + podNamespace
 
 			// Check if proxy runs in ipv4 or ipv6 environment to set Envoy's
 			// operational parameters correctly.
 			proxyIPv6 := isIPv6Proxy(role.IPAddresses)
-			if len(role.ID) == 0 {
-				if registryID == serviceregistry.Kubernetes {
-					role.ID = podName + "." + podNamespace
-				} else {
-					role.ID = role.IPAddresses[0]
-				}
-			}
 
 			proxyConfig, err := constructProxyConfig()
 			if err != nil {
@@ -427,24 +416,12 @@ func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfi
 
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
-		if registryID == serviceregistry.Kubernetes {
-			domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
-		} else {
-			domain = ""
-		}
+		domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
 	}
 	return domain
 }
 
 func init() {
-	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
-		string(serviceregistry.Kubernetes),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
-			serviceregistry.Kubernetes, serviceregistry.Mock))
-	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
-		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
-	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
-		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
