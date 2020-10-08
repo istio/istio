@@ -37,13 +37,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/testing/protocmp"
-	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/sds/plugin"
 	"k8s.io/apimachinery/pkg/util/uuid"
+
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	ca2 "istio.io/istio/pkg/security"
+	ca2 "istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/istio/security/pkg/nodeagent/sds/plugin"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
 
@@ -73,28 +74,28 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 }
 
 func TestStreamSecretsForLocalJWTGatewaySds(t *testing.T) {
-		cf, err := plugin.NewMockCredFetcher(
-			security.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token")
-		if err != nil {
-			t.Errorf("unexpected Error: %v",err)
-		}
-		arg := ca2.Options{
-			EnableGatewaySDS:  true,
-			EnableWorkloadSDS: false,
-			RecycleInterval:   30 * time.Second,
-			GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-			WorkloadUDSPath:   "",
-			UseLocalJWT:       true,
-			CredFetcher: cf,
-		}
-		testHelper(t, arg, sdsRequestStream, false)
+	cf, err := plugin.NewMockCredFetcher(
+		security.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token")
+	if err != nil {
+		t.Errorf("unexpected Error: %v", err)
+	}
+	arg := ca2.Options{
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: false,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   "",
+		UseLocalJWT:       true,
+		CredFetcher:       cf,
+	}
+	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
 	cf, err := plugin.NewMockCredFetcher(
 		security.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token")
 	if err != nil {
-		t.Errorf("unexpected Error: %v",err)
+		t.Errorf("unexpected Error: %v", err)
 	}
 	arg := ca2.Options{
 		EnableGatewaySDS:  false,
@@ -103,7 +104,7 @@ func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
 		GatewayUDSPath:    "",
 		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 		UseLocalJWT:       true,
-		CredFetcher: cf,
+		CredFetcher:       cf,
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
@@ -112,7 +113,7 @@ func TestStreamSecretsForLocalJWTBothSds(t *testing.T) {
 	cf, err := plugin.NewMockCredFetcher(
 		security.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token")
 	if err != nil {
-		t.Errorf("unexpected Error: %v",err)
+		t.Errorf("unexpected Error: %v", err)
 	}
 	arg := ca2.Options{
 		EnableGatewaySDS:  true,
@@ -121,7 +122,7 @@ func TestStreamSecretsForLocalJWTBothSds(t *testing.T) {
 		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
 		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 		UseLocalJWT:       true,
-		CredFetcher: cf,
+		CredFetcher:       cf,
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
@@ -176,7 +177,6 @@ func TestStreamSecretsForLocalBothSds(t *testing.T) {
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
-
 
 func TestStreamSecretsForBothSds(t *testing.T) {
 	arg := ca2.Options{
