@@ -90,7 +90,7 @@ func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testHelper(t, arg, sdsRequestStream, false)
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, false)
 }
 
 //The purpose of adding these tests is to verify that SDS agent
