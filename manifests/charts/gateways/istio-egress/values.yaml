@@ -102,7 +102,10 @@ gateways:
     podAntiAffinityTermLabelSelector: []
 
     # whether to run the gateway in a privileged container
-    runAsRoot: false
+    # At this time, because of several crash related issues, the Istio community strongly recommends
+    # running the gateway as root. See:
+    # https://github.com/istio/istio/issues/27566 and https://github.com/istio/istio/issues/26690
+    runAsRoot: true
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
