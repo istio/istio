@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -77,6 +79,7 @@ type operatorComponent struct {
 	installManifest map[string][]string
 	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
 	workDir         string
+	egressDeployed  *atomic.Bool
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -213,6 +216,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		ctx:             ctx,
 		installManifest: map[string][]string{},
 		ingress:         map[resource.ClusterIndex]map[string]ingress.Instance{},
+		egressDeployed:  atomic.NewBool(false),
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -500,14 +504,32 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if i.environment.IsConfigCluster(cluster) {
-		if err := i.deployEastWestGateway(cluster); err != nil {
-			return err
+		errGroup, _ := errgroup.WithContext(context.Background())
+
+		// Deploy the east-west gateway and expose istiod through it.
+		errGroup.Go(func() error {
+			if err := i.deployEastWestGateway(cluster); err != nil {
+				return err
+			}
+			// Other clusters should only use this for discovery if its a config cluster.
+			if err := i.applyIstiodGateway(cluster); err != nil {
+				return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
+			}
+			if err := waitForIstioReady(i.ctx, cluster, cfg); err != nil {
+				return err
+			}
+			return nil
+		})
+
+		// If we haven't already, deploy egress for the mesh now.
+		if i.egressDeployed.CAS(false, true) {
+			errGroup.Go(func() error {
+				return i.deployEgress(cluster)
+			})
 		}
-		// Other clusters should only use this for discovery if its a config cluster.
-		if err := i.applyIstiodGateway(cluster); err != nil {
-			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
-		}
-		if err := waitForIstioReady(i.ctx, cluster, cfg); err != nil {
+
+		// Wait for the concurrent deployments to complete.
+		if err := errGroup.Wait(); err != nil {
 			return err
 		}
 	}
