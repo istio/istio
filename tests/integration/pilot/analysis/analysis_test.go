@@ -128,6 +128,66 @@ metadata:
 					},
 				},
 			}
+			ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(ctx, stat)
+			retry.UntilSuccessOrFail(t, func() error {
+				// should update
+				return expectWorkloadEntryStatus(t, ctx, ns, stat.Conditions)
+			}, retry.Timeout(time.Minute*5))
+
+			// replacing the condition
+			for i, cond := range stat.Conditions {
+				if cond.Type == "Health" {
+					stat.Conditions[i] = &v1alpha1.IstioCondition{
+						Type: "Health",
+						Reason: "LooksLikeIHavebeenReplaced",
+						Status: "False",
+					}
+				}
+			}
+
+			// update this new status
+			ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(ctx, stat)
+			retry.UntilSuccessOrFail(t, func() error {
+				// should update
+				return expectWorkloadEntryStatus(t, ctx, ns, stat.Conditions)
+			}, retry.Timeout(time.Minute*5))
+				return expectVirtualServiceStatus(t, ctx, ns, false)
+			})
+		})
+}
+
+func TestWorkloadEntryUpdatesStatus(t *testing.T) {
+	framework.NewTest(t).
+		Features(features.Usability_Observability_Status).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix:   "default",
+				Inject:   true,
+				Revision: "",
+				Labels:   nil,
+			})
+			// Make a workloadentry
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: vm-1
+`)
+			// Test adding one condition
+			stat := &v1alpha1.IstioStatus{
+				Conditions: []*v1alpha1.IstioCondition{
+					{
+						Type: "Health",
+						Reason: "DontTellAnyoneButImNotARealReason",
+						Status: "True",
+					},
+					{
+						Type: "SomeRandomType",
+						Reason: "ImNotHealthSoDontTouchMe",
+						Status: "True",
+					},
+				},
+			}
 			ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.WorkloadEntry{
 				Status:  *stat,
 
