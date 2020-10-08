@@ -57,8 +57,10 @@ var (
 
 	fakeToken1        = "faketoken1"
 	fakeToken2        = "faketoken2"
+	emptyToken 				= ""
 	testResourceName  = "default"
 	extraResourceName = "extra-resource-name"
+
 )
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
@@ -96,7 +98,7 @@ func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 // is using the empty token returned by credential fetcher and request fails .
 func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T) {
 	cf, err := plugin.NewMockCredFetcher(
-		ca2.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token", "")
+		ca2.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token", emptyToken)
 
 	if err != nil {
 		t.Errorf("unexpected Error: %v", err)
@@ -421,7 +423,7 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 }
 
 func verifyResponseForEmptyToken(err error) bool {
-	s := fmt.Sprintf("rpc error: code = Unknown desc = unexpected token %s", err)
+	s := fmt.Sprintf("rpc error: code = Unknown desc = unexpected token %s", emptyToken)
 	fmt.Printf("=======ssss=== \n")
 	fmt.Printf("%s",s)
 	fmt.Printf("=======ssss===111111\n")
