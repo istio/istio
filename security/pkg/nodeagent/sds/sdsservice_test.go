@@ -37,8 +37,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/testing/protocmp"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/sds/plugin"
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	ca2 "istio.io/istio/pkg/security"
@@ -105,7 +106,7 @@ func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		cf, err := NewMockCredFetcher(
+		cf, err := plugin.NewMockCredFetcher(
 			tc.fetcherType, tc.trustdomain, tc.jwtPath)
 		if err != nil {
 			t.Errorf("%s: unexpected Error: %v", id, err)
