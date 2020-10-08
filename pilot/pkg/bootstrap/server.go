@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -974,15 +973,12 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 	}
 
 	if len(rootCertBytes) != 0 {
-		block, _ := pem.Decode(rootCertBytes)
-		if block == nil {
-			return fmt.Errorf("failed to decode root cert PEM")
-		}
-		rootCert, err := x509.ParseCertificate(block.Bytes)
+		// Supported case multiple root CAs
+		err := s.peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
 		if err != nil {
-			return fmt.Errorf("failed to parse certificate: %v", err)
+			log.Errorf("add root CAs into peerCertVerifier failed: %v", err)
+			return fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
-		s.peerCertVerifier.AddMapping(spiffe.GetTrustDomain(), []*x509.Certificate{rootCert})
 	}
 
 	if features.SpiffeBundleEndpoints != "" {

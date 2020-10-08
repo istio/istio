@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	gomega "github.com/onsi/gomega"
 )
 
 var (
@@ -786,6 +788,50 @@ func TestIdentity(t *testing.T) {
 			if roundTrip != tt.input {
 				t.Fatalf("round trip failed, expected %q got %q", tt.input, roundTrip)
 			}
+		})
+	}
+}
+
+func TestAddMappingFromPEM(t *testing.T) {
+	mixRootCAsBytes, err := ioutil.ReadFile("../../security/pkg/pki/signingapi/testdata/mixing-custom-ecc-root.pem")
+	gRoot := gomega.NewWithT(t)
+	gRoot.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	testCases := map[string]struct {
+		rootCertPEM    []byte
+		expectLenRoots int
+	}{
+		"Multi RootCAs": {
+			rootCertPEM:    append([]byte(validRootCert), validRootCert2...),
+			expectLenRoots: 2,
+		},
+		"Empty RootCAs": {
+			rootCertPEM:    []byte{},
+			expectLenRoots: 0,
+		},
+		"One RootCA": {
+			rootCertPEM:    []byte(validRootCert),
+			expectLenRoots: 1,
+		},
+		"Invalid RootCA": {
+			rootCertPEM:    append([]byte(validRootCert), []byte("ivaliddddd CErt")...),
+			expectLenRoots: 1,
+		},
+		"Mixing 2 type rootCAs, RSA and ECC": {
+			rootCertPEM:    mixRootCAsBytes,
+			expectLenRoots: 2,
+		},
+	}
+
+	for id, tc := range testCases {
+		t.Run(id, func(tsub *testing.T) {
+			g := gomega.NewWithT(tsub)
+			v := NewPeerCertVerifier()
+			v.AddMappingFromPEM("trust.local", tc.rootCertPEM)
+
+			g.Expect(v.certPools["trust.local"].Subjects()).To(gomega.HaveLen(tc.expectLenRoots))
+			g.Expect(v.generalCertPool.Subjects()).To(gomega.HaveLen(tc.expectLenRoots))
+
 		})
 	}
 }

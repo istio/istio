@@ -21,16 +21,25 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
+	gomega "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"k8s.io/client-go/kubernetes/fake"
 
+	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/spiffe"
+	ca "istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
+	customca "istio.io/istio/security/pkg/pki/custom"
 	caerror "istio.io/istio/security/pkg/pki/error"
+	"istio.io/istio/security/pkg/pki/signingapi/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -261,5 +270,119 @@ func TestCreateCertificate(t *testing.T) {
 			}
 
 		}
+	}
+}
+
+func TestGetServerCertificateWhenCustomCAIsSetted(t *testing.T) {
+	cases := map[string]struct {
+		rootCert     string
+		serverCert   string
+		serverKey    string
+		clientCert   string
+		clientKey    string
+		workloadCert string
+	}{
+		"RSA cert": {
+			rootCert:     "../../pki/signingapi/testdata/custom-certs/root-cert.pem",
+			serverCert:   "../../pki/signingapi/testdata/custom-certs/server-cert.pem",
+			serverKey:    "../../pki/signingapi/testdata/custom-certs/server-key.pem",
+			clientCert:   "../../pki/signingapi/testdata/custom-certs/client-cert.pem",
+			clientKey:    "../../pki/signingapi/testdata/custom-certs/client-key.pem",
+			workloadCert: "../../pki/signingapi/testdata/custom-ecc-certs/workload-cert-chain.pem",
+		},
+		"ECC cert": {
+			rootCert:     "../../pki/signingapi/testdata/custom-ecc-certs/root-cert.pem",
+			serverCert:   "../../pki/signingapi/testdata/custom-ecc-certs/server-cert.pem",
+			serverKey:    "../../pki/signingapi/testdata/custom-ecc-certs/server-key.pem",
+			clientCert:   "../../pki/signingapi/testdata/custom-ecc-certs/client-cert.pem",
+			clientKey:    "../../pki/signingapi/testdata/custom-ecc-certs/client-key.pem",
+			workloadCert: "../../pki/signingapi/testdata/custom-ecc-certs/workload-cert-chain.pem",
+		},
+	}
+
+	caCertTTL := time.Hour
+	defaultCertTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+	org := "custom.ca.Org"
+	const caNamespace = "default"
+	client := fake.NewSimpleClientset()
+	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
+
+	for id, tc := range cases {
+		t.Run(id, func(tsub *testing.T) {
+			g := gomega.NewWithT(tsub)
+
+			fakeServer, err := mock.NewFakeExternalCA(true, tc.serverCert, tc.serverKey, tc.rootCert, tc.workloadCert)
+			g.Expect(err).To(gomega.BeNil())
+
+			addr, err := fakeServer.Serve()
+			g.Expect(err).To(gomega.BeNil())
+			defer fakeServer.Stop()
+
+			caopts, err := ca.NewSelfSignedIstioCAOptions(context.Background(),
+				0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
+				maxCertTTL, org, false, caNamespace, -1, client.CoreV1(),
+				tc.rootCert, false, rsaKeySize)
+
+			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "should NewSelfSignedIstio successful")
+
+			istioCA, err := ca.NewIstioCA(caopts)
+			g.Expect(err).To(gomega.BeNil())
+
+			rootCertPool := x509.NewCertPool()
+			ok := rootCertPool.AppendCertsFromPEM(caopts.KeyCertBundle.GetRootCertPem())
+			g.Expect(ok).To(gomega.Equal(true))
+			// Expect KeyCertBundle should contains 2 rootCAs: one from Custom RootCert, one self generate
+			g.Expect(rootCertPool.Subjects()).To(gomega.HaveLen(2), "expect KeyCertBundle should contains 2 rootCAs")
+			spiffeURI, err := spiffe.GenSpiffeURI("test-namespace", "test-service-account")
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+			signerOpts := util.CertOptions{
+				Host:       spiffeURI,
+				NotBefore:  time.Now(),
+				IsCA:       false,
+				RSAKeySize: 2048,
+			}
+
+			fakeCSR, _, err := util.GenCSR(signerOpts)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+			server := &Server{
+				ca: istioCA,
+				Authenticators: []authenticate.Authenticator{&mockAuthenticator{
+					identities: []string{spiffeURI},
+				}},
+				monitoring: newMonitoringMetrics(),
+			}
+
+			g.Expect(err).To(gomega.BeNil())
+			customCAOpts := &mesh.MeshConfig_CA{
+				Address: addr.String(),
+				TlsSettings: &v1alpha3.ClientTLSSettings{
+					Mode:              v1alpha3.ClientTLSSettings_MUTUAL,
+					CaCertificates:    tc.rootCert,
+					ClientCertificate: tc.clientCert,
+					PrivateKey:        tc.clientKey,
+				},
+			}
+			c, err := customca.NewCAClient(customCAOpts, caopts.KeyCertBundle)
+			g.Expect(err).To(gomega.BeNil())
+			server.CustomCAClient = c
+
+			// -------------------
+			// CREATE CERTIFICATES
+			// -------------------
+			certChain, err := server.CreateCertificate(context.TODO(), &pb.IstioCertificateRequest{
+				Csr:              string(fakeCSR),
+				ValidityDuration: 10000,
+			})
+			g.Expect(err).To(gomega.BeNil(), "should create certificate successful")
+			g.Expect(certChain.GetCertChain()).To(gomega.HaveLen(2), "create certificate should response 2 certs")
+
+			rootCerts := string(caopts.KeyCertBundle.GetRootCertPem())
+			g.Expect(certChain.GetCertChain()[len(certChain.GetCertChain())-1]).To(gomega.Equal(rootCerts),
+				"expect root-certs response should contains 2 rootCAs")
+		})
+
 	}
 }

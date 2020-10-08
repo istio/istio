@@ -83,6 +83,7 @@ var (
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
@@ -260,6 +261,10 @@ var (
 				ProvCert:           provCert,
 				JWTPath:            jwtPath,
 				ClusterID:          clusterIDVar.Get(),
+				WorkloadIPs:        role.IPAddresses,
+				WorkloadName:       podName,
+				WorkloadNamespace:  podNamespace,
+				ServiceAccount:     serviceAccountVar.Get(),
 				FileMountedCerts:   fileMountedCertsEnv,
 				CAEndpoint:         caEndpointEnv,
 				UseTokenForCSR:     useTokenForCSREnv,

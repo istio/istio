@@ -1,0 +1,33 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: demo
+  meshConfig:
+    ca:
+      # Use istiod_side to specify CA Server integrate to Istiod side or Agent side
+      istiodSide: true
+      # Address of the CA server implementing the Istio CA gRPC API.
+      # Can be IP address or a fully qualified DNS name with port
+      # Eg: custom-ca.default.svc.cluster.local:8932, 192.168.23.2:9000
+      # If specified, Istio will authorize and forward the CSRs from the workloads to the specified external CA
+      # using the Istio CA gRPC API.
+      address: ""
+      # timeout for forward CSR requests from Istiod to External CA
+      # Default: 10s
+      requestTimeout: 10s
+      # Default TLS mode is MUTUAL, It's require to specific TLS client certificate files.
+      # According sistiodSide = true, TLS files could be mounted from Kubernetes Secret
+      # configurable via values.pilot.secretVolumes
+      tlsSettings:
+        mode: MUTUAL # Supported values: DISABLE, MUTUAL
+        clientCertificate: "/etc/istio/ca-custom-tls/client-cert.pem"
+        privateKey: "/etc/istio/ca-custom-tls/client-private-key.pem"
+        caCertificates: "/etc/istio/ca-custom-tls/root-cert.pem"
+        sni: "custom-external-ca.default.svc.cluster.local"
+        subjectAltNames: []
+  values:
+    pilot:
+      secretVolumes:
+        - name: ca-custom-tls
+          secretName: ca-custom-tls
+          mountPath: /etc/istio/ca-custom-tls

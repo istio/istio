@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -67,12 +68,12 @@ func TestCitadelClient(t *testing.T) {
 		"Error in response": {
 			server:       mockCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
 			expectedCert: nil,
-			expectedErr:  "rpc error: code = Unknown desc = test failure",
+			expectedErr:  "invoke CreateCertificate failed: rpc error: code = Unknown desc = test failure",
 		},
 		"Empty response": {
 			server:       mockCAServer{Certs: []string{}, Err: nil},
 			expectedCert: nil,
-			expectedErr:  "invalid response cert chain",
+			expectedErr:  "invalid CreateCertificate response: []",
 		},
 	}
 
@@ -95,7 +96,7 @@ func TestCitadelClient(t *testing.T) {
 		// The goroutine starting the server may not be ready, results in flakiness.
 		time.Sleep(1 * time.Second)
 
-		cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "")
+		cli, err := NewCitadelClient(lis.Addr().String(), false, "", &security.Options{})
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
@@ -168,13 +169,14 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 		"Empty Token": {
 			server:       mockTokenCAServer{Certs: nil},
 			expectedCert: nil,
-			expectedErr:  "rpc error: code = Unknown desc = no HTTP authorization header exists",
-			token:        "",
+			expectedErr: "invoke CreateCertificate failed: rpc error: code = Unknown desc =" +
+				" no HTTP authorization header exists",
+			token: "",
 		},
 		"InValid Token": {
 			server:       mockTokenCAServer{Certs: []string{}},
 			expectedCert: nil,
-			expectedErr:  "rpc error: code = Unknown desc = token is not valid",
+			expectedErr:  "invoke CreateCertificate failed: rpc error: code = Unknown desc = token is not valid",
 			token:        fakeToken,
 		},
 	}
@@ -195,7 +197,7 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 			}()
 
 			err = retry.UntilSuccess(func() error {
-				cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
+				cli, err := NewCitadelClient(lis.Addr().String(), false, "", &security.Options{})
 				if err != nil {
 					return fmt.Errorf("test case [%s]: failed to create ca client: %v", id, err)
 				}

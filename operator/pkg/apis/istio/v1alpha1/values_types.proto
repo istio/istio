@@ -735,6 +735,9 @@ message PilotConfig {
   string hub = 34;
 
   TypeInterface tag = 35;
+
+  // Inject custom secret volumes for Istiod
+  repeated SecretVolume secretVolumes = 36;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

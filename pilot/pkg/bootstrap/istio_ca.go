@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
+	customca "istio.io/istio/security/pkg/pki/custom"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/env"
@@ -182,6 +183,16 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
 
+	if customca.IsUsingCustomCAForWorkloadCertificate(s.environment.Mesh().GetCa()) {
+		customCA, err := customca.NewCAClient(s.environment.Mesh().GetCa(), s.CA.GetCAKeyCertBundle())
+		if err != nil {
+			log.Fatalf("failed to create an CA client for %v: %v",
+				s.environment.Mesh().GetCa().GetAddress(), err)
+			return
+		}
+		caServer.CustomCAClient = customCA
+	}
+
 	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
 	// for all tokens - no need to configure twice. The token may also include cluster info to auto-configure
 	// networking properties.
@@ -308,6 +319,15 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 		// In Citadel, normal self-signed doesn't use a root-cert.pem file for additional roots.
 		// In Istiod, it is possible to provide one via "cacerts" secret in both cases, for consistency.
 		rootCertFile = ""
+	}
+
+	if customca.IsUsingCustomCAForWorkloadCertificate(s.environment.Mesh().GetCa()) {
+		if s.environment.Mesh().GetCa().TlsSettings == nil {
+			return nil, fmt.Errorf("missing TLS setting for CustomCA: %v", err)
+		}
+		// In case: Istiod using Custom CA to signing Workload Certificates
+		// RootCAs will contains 2 rootCAs: one self signed, one from Custom CA
+		rootCertFile = s.environment.Mesh().GetCa().TlsSettings.CaCertificates
 	}
 
 	if _, err := os.Stat(signingKeyFile); err != nil && client != nil {

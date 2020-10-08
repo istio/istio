@@ -197,6 +197,12 @@ type Options struct {
 	// whether need to skip parsing token to inspect information like expiration time
 	// Default is false.
 	SkipParseToken bool
+
+	WorkloadName      string
+	WorkloadNamespace string
+	WorkloadIPs       []string
+	// ServiceAccount name of service account
+	ServiceAccount string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.

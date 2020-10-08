@@ -251,6 +251,10 @@ spec:
       enableProtocolSniffingForInbound: true
       deploymentLabels:
       configMap: true
+      secretVolumes: []
+        # - name: ca-custom-tls
+        #   secretName: ca-custom-tls
+        #   mountPath: /etc/istio/ca-custom-tls
 
     telemetry:
       enabled: true

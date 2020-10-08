@@ -183,8 +183,8 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	// If original /etc/certs or a separate 'provisioning certs' (VM) are present,
 	// add them to the tlsContext. If server asks for them and they exist - will be provided.
 	certDir := "./etc/certs"
-	if citadel.ProvCert != "" {
-		certDir = citadel.ProvCert
+	if sa.secOpts.ProvCert != "" {
+		certDir = sa.secOpts.ProvCert
 	}
 	// If the root-cert is in the old location, use it.
 	if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
@@ -421,7 +421,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-		caClient, err = citadel.NewCitadelClient(sa.secOpts.CAEndpoint, tls, rootCert, sa.secOpts.ClusterID)
+		caClient, err = citadel.NewCitadelClient(sa.secOpts.CAEndpoint, tls, sa.FindRootCAForCA(), sa.secOpts)
 		if err == nil {
 			sa.CitadelClient = caClient
 		}

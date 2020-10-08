@@ -30,7 +30,6 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
-	"golang.org/x/oauth2"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/pkg/util/tokensource"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -338,31 +338,6 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-type fileTokenSource struct {
-	path   string
-	period time.Duration
-}
-
-var _ = oauth2.TokenSource(&fileTokenSource{})
-
-func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
-	tokb, err := ioutil.ReadFile(ts.path)
-	if err != nil {
-		proxyLog.Errorf("failed to read token file %q: %v", ts.path, err)
-		return nil, fmt.Errorf("failed to read token file %q: %v", ts.path, err)
-	}
-	tok := strings.TrimSpace(string(tokb))
-	if len(tok) == 0 {
-		proxyLog.Errorf("read empty token from file %q", ts.path)
-		return nil, fmt.Errorf("read empty token from file %q", ts.path)
-	}
-
-	return &oauth2.Token{
-		AccessToken: tok,
-		Expiry:      time.Now().Add(ts.period),
-	}, nil
-}
-
 func (p *XdsProxy) initDownstreamServer() error {
 	l, err := uds.NewListener(xdsUdsPath)
 	if err != nil {
@@ -421,10 +396,11 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	// it would be ideal to keep using token plus k8s ca certs for control plane communication
 	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
 	if sa.secOpts.ProvCert == "" || !sa.secOpts.FileMountedCerts {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{
-			sa.secOpts.JWTPath,
-			time.Second * 300,
-		}}))
+		authTokenSource := oauth.TokenSource{TokenSource: &tokensource.FromFile{
+			Path:   sa.secOpts.JWTPath,
+			Period: time.Second * 300,
+		}}
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(authTokenSource))
 	}
 	return dialOptions, nil
 }
