@@ -31,7 +31,7 @@ gateways:
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
     autoscaleEnabled: true
-    autoscaleMin: 1
+    autoscaleMin: 2
     autoscaleMax: 5
 
     cpu:

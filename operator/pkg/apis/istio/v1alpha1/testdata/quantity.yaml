@@ -13,7 +13,7 @@ spec:
             apiVersion: extensions/v1beta1
             kind: Deployment
             name: istiod
-          minReplicas: 1
+          minReplicas: 2
           maxReplicas: 5
           metrics:
           - type: Resource

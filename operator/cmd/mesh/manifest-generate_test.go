@@ -162,7 +162,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 
 		for _, o := range objs.kind(name.HPAStr).objSlice {
 			ou := o.Unstructured()
-			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
+			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(2)}))
 			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
 		}
 

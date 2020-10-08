@@ -54,7 +54,7 @@ pilot:
     operator: Exists
   autoscaleEnabled: true
   autoscaleMax: 3
-  autoscaleMin: 1
+  autoscaleMin: 2
   cpu:
     targetAverageUtilization: 80
   traceSampling: 1.0
@@ -81,7 +81,7 @@ components:
          value: gctrace=1
        hpaSpec:
           maxReplicas: 3
-          minReplicas: 1
+          minReplicas: 2
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment

@@ -15,7 +15,7 @@ egressGateways:
           name: cpu
           targetAverageUtilization: 80
         type: Resource
-      minReplicas: 1
+      minReplicas: 2
       scaleTargetRef:
         apiVersion: apps/v1
         kind: Deployment
@@ -56,7 +56,7 @@ ingressGateways:
           name: cpu
           targetAverageUtilization: 80
         type: Resource
-      minReplicas: 1
+      minReplicas: 2
       scaleTargetRef:
         apiVersion: apps/v1
         kind: Deployment
