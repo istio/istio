@@ -413,16 +413,16 @@ var (
 // Simplified extraction of gRPC headers from environment.
 // Unlike ISTIO_META, where we need JSON and advanced features - this is just for small string headers.
 func extractXDSHeadersFromEnv(config *istio_agent.AgentConfig) {
-		envs := os.Environ()
-		for _, e := range envs {
-			if strings.HasPrefix(e, xdsHeaderPrefix) {
-				parts := strings.SplitN(e, "=", 2)
-				if len(parts) != 2 {
-					continue
-				}
-				config.XDSHeaders[parts[0][len(xdsHeaderPrefix):]] = parts[1]
+	envs := os.Environ()
+	for _, e := range envs {
+		if strings.HasPrefix(e, xdsHeaderPrefix) {
+			parts := strings.SplitN(e, "=", 2)
+			if len(parts) != 2 {
+				continue
 			}
+			config.XDSHeaders[parts[0][len(xdsHeaderPrefix):]] = parts[1]
 		}
+	}
 }
 
 func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfig.ProxyConfig) error {
