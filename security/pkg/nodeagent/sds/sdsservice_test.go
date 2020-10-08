@@ -382,11 +382,6 @@ func sendRequestAndVerifyResponseWithCredentialFetcher(t *testing.T, cb secretCa
 		time.Sleep(wait)
 		// Try to call the server
 		resp, err := cb(socket, req)
-		t.Logf("pppppppooooo\n")
-		t.Logf("%v",resp)
-		t.Logf("bbbbbbbbbb\n")
-		t.Logf("res\n")
-		t.Logf("%v",err)
 		if token == emptyToken {
 			if ok := verifyResponseForEmptyToken(err); ok {
 				return
@@ -414,12 +409,7 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 }
 
 func verifyResponseForEmptyToken(err error) bool {
-	fmt.Printf("11111111\n")
 	s := fmt.Sprintf("rpc error: code = Unknown desc = unexpected token %s", emptyToken)
-	fmt.Printf("errr--------\n=====")
-	fmt.Printf("%v\n",err)
-	fmt.Printf("%v\n",err.Error())
-	fmt.Printf("=======mmmmmm======\n")
 	return strings.Contains(err.Error(), s)
 }
 
