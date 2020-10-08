@@ -341,7 +341,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			} else {
 				sdsServiceLog.Infof("Skipping waiting for gateway secret")
 			}
-
+			sdsServiceLog.Infof("00000000")
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
 			if err != nil {
 				sdsServiceLog.Errorf("%s Close connection. Failed to get secret for proxy %q from "+
