@@ -35,7 +35,7 @@ const (
 	// base HTTP route for debug endpoints
 	debugBase     = "/debug"
 	maxStreams    = 100000
-	maxRetryTimes = 5
+	MaxRetryTimes = 5
 )
 
 // Server is the gPRC server that exposes SDS through UDS.
