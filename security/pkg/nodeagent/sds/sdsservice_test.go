@@ -274,7 +274,7 @@ func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallbac
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
-	if token == emptyToken && arg.EnableWorkloadSDS {
+	if expectedToken == emptyToken && arg.EnableWorkloadSDS {
 		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, token)
 		return
 	}
