@@ -108,7 +108,7 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testCredentialFetcherHelper(t, arg, sdsRequestStream, emptyToken)
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt)
 }
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
@@ -255,13 +255,13 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	checkStaledConnCount(t)
 }
 
-func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, token string) {
+func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, expectedToken string) {
 	resetEnvironments()
 	var wst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
 			checkToken: true,
-			expectedToken: token,
+			expectedToken: expectedToken,
 		}
 	} else {
 		wst = nil
