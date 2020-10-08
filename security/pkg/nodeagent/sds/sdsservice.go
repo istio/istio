@@ -343,12 +343,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 			sdsServiceLog.Infof("00000000")
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
+
+			sdsServiceLog.Infof("%v",secret)
+			sdsServiceLog.Infof("%v",err)
 			if err != nil {
 				sdsServiceLog.Errorf("%s Close connection. Failed to get secret for proxy %q from "+
 					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
-
+			sdsServiceLog.Infof("9999999999")
 			// Output the key and cert to a directory, if some applications need to read them from local file system.
 			if err = nodeagentutil.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
