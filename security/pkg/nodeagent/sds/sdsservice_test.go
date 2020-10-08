@@ -382,8 +382,11 @@ func sendRequestAndVerifyResponseWithCredentialFetcher(t *testing.T, cb secretCa
 		time.Sleep(wait)
 		// Try to call the server
 		resp, err := cb(socket, req)
-		t.Logf("pppppppooooo")
+		t.Logf("pppppppooooo\n")
 		t.Logf("%v",resp)
+		t.Logf("bbbbbbbbbb\n")
+		t.Logf("res\n")
+		t.Logf("%v",err)
 		if token == emptyToken {
 			if ok := verifyResponseForEmptyToken(err); ok {
 				return
