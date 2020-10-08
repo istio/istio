@@ -216,6 +216,8 @@ func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
 // relatedConfigs maps a single resource to a list of relevant resources. This is used for cache invalidation
 // and push skipping. This is because an secret potentially has a dependency on the same secret with or without
 // the -cacert suffix. By including this dependency we ensure we do not miss any updates.
+// This is important for cases where we have a compound secret. In this case, the `foo` secret may update,
+// but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
 func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 	related := []model.ConfigKey{k}
 	// For secrets without -cacert suffix, add the suffix
