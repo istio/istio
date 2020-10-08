@@ -199,6 +199,7 @@ func (sc *SecretCache) setRootCert(rootCert []byte, rootCertExpr time.Time) {
 // and SDS.FetchSecret. Since credential passing from client may change, regenerate secret every time
 // instead of reading from cache.
 func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*security.SecretItem, error) {
+	cacheLog.Infof("GenerateSecret in secret cache!!!")
 	connKey := ConnKey{
 		ConnectionID: connectionID,
 		ResourceName: resourceName,
