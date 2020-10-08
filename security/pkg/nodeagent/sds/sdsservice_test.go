@@ -108,7 +108,7 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 		UseLocalJWT:       true,
 		CredFetcher:       cf,
 	}
-	testCredentialFetcherHelper(t, arg, sdsRequestStream, "")
+	testCredentialFetcherHelper(t, arg, sdsRequestStream, emptyToken)
 }
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
@@ -409,7 +409,11 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 }
 
 func verifyResponseForEmptyToken(err error) bool {
+	fmt.Printf("11111111\n")
 	s := fmt.Sprintf("rpc error: code = Unknown desc = unexpected token %s", emptyToken)
+	fmt.Printf("errr--------\n")
+	fmt.Printf("%v\n",err.Error())
+	fmt.Printf("=======\n")
 	return strings.Contains(err.Error(), s)
 }
 
