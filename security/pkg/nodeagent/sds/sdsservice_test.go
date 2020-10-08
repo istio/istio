@@ -379,6 +379,7 @@ func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxy
 }
 
 func sendRequestAndVerifyResponseWithCredentialFetcher(t *testing.T, cb secretCallback, socket, proxyID string, testEmptyToken bool) {
+	rn := []string{testResourceName}
 	req := &discovery.DiscoveryRequest{
 		ResourceNames: rn,
 		TypeUrl:       SecretTypeV3,
