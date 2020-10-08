@@ -3281,14 +3281,17 @@ func TestEnvoyFilterPatching(t *testing.T) {
 
 func TestTelemetryMetadata(t *testing.T) {
 	cases := []struct {
-		name     string
-		cluster  *cluster.Cluster
-		svcInsts []*model.ServiceInstance
-		want     *core.Metadata
+		name      string
+		direction model.TrafficDirection
+		cluster   *cluster.Cluster
+		svcInsts  []*model.ServiceInstance
+		service   *model.Service
+		want      *core.Metadata
 	}{
 		{
-			name:    "no cluster",
-			cluster: nil,
+			name:      "no cluster",
+			direction: model.TrafficDirectionInbound,
+			cluster:   nil,
 			svcInsts: []*model.ServiceInstance{
 				{
 					Service: &model.Service{
@@ -3303,13 +3306,15 @@ func TestTelemetryMetadata(t *testing.T) {
 			want: nil,
 		},
 		{
-			name:     "no service",
-			cluster:  &cluster.Cluster{},
-			svcInsts: []*model.ServiceInstance{},
-			want:     nil,
+			name:      "inbound no service",
+			direction: model.TrafficDirectionInbound,
+			cluster:   &cluster.Cluster{},
+			svcInsts:  []*model.ServiceInstance{},
+			want:      nil,
 		},
 		{
-			name: "existing metadata",
+			name:      "inbound existing metadata",
+			direction: model.TrafficDirectionInbound,
 			cluster: &cluster.Cluster{
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
@@ -3378,7 +3383,8 @@ func TestTelemetryMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "existing istio metadata",
+			name:      "inbound existing istio metadata",
+			direction: model.TrafficDirectionInbound,
 			cluster: &cluster.Cluster{
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
@@ -3443,8 +3449,9 @@ func TestTelemetryMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:    "multiple services",
-			cluster: &cluster.Cluster{},
+			name:      "inbound multiple services",
+			direction: model.TrafficDirectionInbound,
+			cluster:   &cluster.Cluster{},
 			svcInsts: []*model.ServiceInstance{
 				{
 					Service: &model.Service{
@@ -3529,7 +3536,8 @@ func TestTelemetryMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "existing services metadata",
+			name:      "inbound existing services metadata",
+			direction: model.TrafficDirectionInbound,
 			cluster: &cluster.Cluster{
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
@@ -3592,6 +3600,57 @@ func TestTelemetryMetadata(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "outbound service metadata",
+			direction: model.TrafficDirectionOutbound,
+			cluster:   &cluster.Cluster{},
+			service: &model.Service{
+				Attributes: model.ServiceAttributes{
+					Name:      "a",
+					Namespace: "default",
+				},
+				Hostname: "a.default",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range cases {
@@ -3602,7 +3661,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					ServiceInstances: tt.svcInsts,
 				},
 			}
-			addTelemetryMetadata(opt)
+			addTelemetryMetadata(opt, tt.service, tt.direction)
 			if opt.cluster != nil && !reflect.DeepEqual(opt.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.cluster.Metadata)
 			}

@@ -407,6 +407,26 @@ func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
 	}
 }
 
+// AddConfigInfoMetadata adds name.namespace of the config, the type, etc
+// to the given core.Metadata struct.
+func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) {
+	if metadata == nil {
+		return
+	}
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{},
+		}
+	}
+	metadata.FilterMetadata[IstioMetadataKey].Fields["config"] = &pstruct.Value{
+		Kind: &pstruct.Value_StringValue{
+			StringValue: s,
+		},
+	}
+}
+
 // AddSubsetToMetadata will build a new core.Metadata struct containing the
 // subset name supplied. This is used for telemetry reporting. A new core.Metadata
 // is created to prevent modification to shared base Metadata across subsets, etc.

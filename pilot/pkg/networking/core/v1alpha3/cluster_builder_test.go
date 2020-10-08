@@ -688,7 +688,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery,
-				tt.endpoints, tt.direction, servicePort, tt.external)
+				tt.endpoints, tt.direction, servicePort, &model.Service{MeshExternal: false})
 
 			if diff := cmp.Diff(defaultCluster, tt.expectedCluster, protocmp.Transform()); diff != "" {
 				t.Errorf("Unexpected default cluster, diff: %v", diff)

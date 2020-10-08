@@ -169,7 +169,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service.MeshExternal)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
 			if defaultCluster == nil {
 				continue
 			}
@@ -231,7 +231,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			discoveryType := convertResolution(proxy, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, nil, service.MeshExternal)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
 			if defaultCluster == nil {
 				continue
 			}
@@ -1065,7 +1065,7 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 	}
 }
 
-func addTelemetryMetadata(opts buildClusterOpts) {
+func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
 	if opts.cluster == nil || opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
 		len(opts.proxy.ServiceInstances) == 0 {
 		return
@@ -1100,24 +1100,55 @@ func addTelemetryMetadata(opts buildClusterOpts) {
 
 	svcMetaList := im.Fields["services"].GetListValue()
 	// Add servie related metadata. This will be consumed by telemetry v2 filter for metric labels.
-	for _, svc := range opts.proxy.ServiceInstances {
+	if direction == model.TrafficDirectionInbound && opts.port != nil {
+		// For inbound cluster, add all services on the cluster port
+		for _, svc := range opts.proxy.ServiceInstances {
+			if _, found := svc.Service.Ports.GetByPort(opts.port.Port); !found {
+				continue
+			}
+			svcMetaList.Values = append(svcMetaList.Values, &structpb.Value{
+				Kind: &structpb.Value_StructValue{
+					StructValue: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"host": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(svc.Service.Hostname),
+								},
+							},
+							"name": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: svc.Service.Attributes.Name,
+								},
+							},
+							"namespace": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: svc.Service.Attributes.Namespace,
+								},
+							},
+						},
+					},
+				},
+			})
+		}
+	} else if service != nil {
+		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
 		svcMetaList.Values = append(svcMetaList.Values, &structpb.Value{
 			Kind: &structpb.Value_StructValue{
 				StructValue: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
 						"host": {
 							Kind: &structpb.Value_StringValue{
-								StringValue: string(svc.Service.Hostname),
+								StringValue: string(service.Hostname),
 							},
 						},
 						"name": {
 							Kind: &structpb.Value_StringValue{
-								StringValue: svc.Service.Attributes.Name,
+								StringValue: service.Attributes.Name,
 							},
 						},
 						"namespace": {
 							Kind: &structpb.Value_StringValue{
-								StringValue: svc.Service.Attributes.Namespace,
+								StringValue: service.Attributes.Namespace,
 							},
 						},
 					},
