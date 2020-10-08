@@ -73,29 +73,11 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 }
 
 func TestStreamSecretsForLocalJWTGatewaySds(t *testing.T) {
-	testCases := map[string]struct {
-		fetcherType   string
-		trustdomain   string
-		jwtPath       string
-		expectedErr   string
-		expectedToken string
-	}{
-		"gce test": {
-			fetcherType:   security.GCE,
-			trustdomain:   "abc.svc.id.goog",
-			jwtPath:       "/var/run/secrets/tokens/istio-token",
-			expectedErr:   "", // No error when ID token auth is enabled.
-			expectedToken: "",
-		},
-	}
-
-	for id, tc := range testCases {
 		cf, err := plugin.NewMockCredFetcher(
-			tc.fetcherType, tc.trustdomain, tc.jwtPath)
+			security.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token")
 		if err != nil {
-			t.Errorf("%s: unexpected Error: %v", id, err)
+			t.Errorf("unexpected Error: %v",err)
 		}
-
 		arg := ca2.Options{
 			EnableGatewaySDS:  true,
 			EnableWorkloadSDS: false,
@@ -106,62 +88,42 @@ func TestStreamSecretsForLocalJWTGatewaySds(t *testing.T) {
 			CredFetcher: cf,
 		}
 		testHelper(t, arg, sdsRequestStream, false)
-	}
 }
 
 func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
-	testCases := map[string]struct {
-		fetcherType   string
-		trustdomain   string
-		jwtPath       string
-		expectedErr   string
-		expectedToken string
-	}{
-		"gce test": {
-			fetcherType:   security.GCE,
-			trustdomain:   "abc.svc.id.goog",
-			jwtPath:       "/var/run/secrets/tokens/istio-token",
-			expectedErr:   "", // No error when ID token auth is enabled.
-			expectedToken: "",
-		},
+	cf, err := plugin.NewMockCredFetcher(
+		security.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token")
+	if err != nil {
+		t.Errorf("unexpected Error: %v",err)
 	}
-
-	for id, tc := range testCases {
-		cf, err := plugin.NewMockCredFetcher(
-			tc.fetcherType, tc.trustdomain, tc.jwtPath)
-		if err != nil {
-			t.Errorf("%s: unexpected Error: %v", id, err)
-		}
-
-		arg := ca2.Options{
-			EnableWorkloadSDS: true,
-			EnableGatewaySDS: false,
-			RecycleInterval:   30 * time.Second,
-			GatewayUDSPath:    "",
-			WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-			UseLocalJWT:       true,
-			CredFetcher: cf,
-		}
-
-		wst := &mockSecretStore{
-			checkToken: true,
-		}
-
-		server, err := NewServer(&arg, wst, nil)
-		defer server.Stop()
-		if err != nil {
-			t.Fatalf("failed to start grpc server for sds: %v", err)
-		}
-
-		proxyID := "sidecar~127.0.0.1~id1~local"
-
-		// Request for root certificate from file and verify response.
-		rootResourceName := sendRequestForFileRootCertAndVerifyResponse(t, sdsRequestStream, arg.WorkloadUDSPath, proxyID)
-
-		recycleConnection(getClientConID(proxyID), rootResourceName)
-		// Check to make sure number of staled connections is 0.
-		checkStaledConnCount(t)
+	arg := ca2.Options{
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		UseLocalJWT:       true,
+		CredFetcher: cf,
 	}
+	testHelper(t, arg, sdsRequestStream, false)
+}
+
+func TestStreamSecretsForLocalJWTBothSds(t *testing.T) {
+	cf, err := plugin.NewMockCredFetcher(
+		security.GCE, "abc.svc.id.goog", "/var/run/secrets/tokens/istio-token")
+	if err != nil {
+		t.Errorf("unexpected Error: %v",err)
+	}
+	arg := ca2.Options{
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		UseLocalJWT:       true,
+		CredFetcher: cf,
+	}
+	testHelper(t, arg, sdsRequestStream, false)
 }
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
@@ -203,6 +165,18 @@ func TestStreamSecretsForGatewaySds(t *testing.T) {
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
+
+func TestStreamSecretsForLocalBothSds(t *testing.T) {
+	arg := ca2.Options{
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestStream, false)
+}
+
 
 func TestStreamSecretsForBothSds(t *testing.T) {
 	arg := ca2.Options{
