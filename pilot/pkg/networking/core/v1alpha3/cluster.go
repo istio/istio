@@ -1085,10 +1085,6 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 
 	im := opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
 
-	// If services already exist in cluster metadata, delete it and recreate the field,
-	// since service metadata should only be added only in this function.
-	delete(im.Fields, "services")
-
 	// Add services field into istio metadata
 	im.Fields["services"] = &structpb.Value{
 		Kind: &structpb.Value_ListValue{
