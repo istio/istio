@@ -72,14 +72,13 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
-func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
+func TestStreamSecretsForLocalJWTGatewaySds(t *testing.T) {
 	testCases := map[string]struct {
 		fetcherType   string
 		trustdomain   string
 		jwtPath       string
 		expectedErr   string
 		expectedToken string
-		expectedIdp   string
 	}{
 		"gce test": {
 			fetcherType:   security.GCE,
@@ -87,7 +86,43 @@ func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
 			expectedErr:   "", // No error when ID token auth is enabled.
 			expectedToken: "",
-			expectedIdp:   "GoogleComputeEngine",
+		},
+	}
+
+	for id, tc := range testCases {
+		cf, err := plugin.NewMockCredFetcher(
+			tc.fetcherType, tc.trustdomain, tc.jwtPath)
+		if err != nil {
+			t.Errorf("%s: unexpected Error: %v", id, err)
+		}
+
+		arg := ca2.Options{
+			EnableGatewaySDS:  true,
+			EnableWorkloadSDS: false,
+			RecycleInterval:   30 * time.Second,
+			GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+			WorkloadUDSPath:   "",
+			UseLocalJWT:       true,
+			CredFetcher: cf,
+		}
+		testHelper(t, arg, sdsRequestStream, false)
+	}
+}
+
+func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
+	testCases := map[string]struct {
+		fetcherType   string
+		trustdomain   string
+		jwtPath       string
+		expectedErr   string
+		expectedToken string
+	}{
+		"gce test": {
+			fetcherType:   security.GCE,
+			trustdomain:   "abc.svc.id.goog",
+			jwtPath:       "/var/run/secrets/tokens/istio-token",
+			expectedErr:   "", // No error when ID token auth is enabled.
+			expectedToken: "",
 		},
 	}
 
@@ -100,6 +135,7 @@ func TestStreamSecretsForLocalJWTWorkloadSds(t *testing.T) {
 
 		arg := ca2.Options{
 			EnableWorkloadSDS: true,
+			EnableGatewaySDS: false,
 			RecycleInterval:   30 * time.Second,
 			GatewayUDSPath:    "",
 			WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
