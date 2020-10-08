@@ -1,5 +1,5 @@
 {{ $gateway := index .Values "gateways" "istio-egressgateway" }}
-{{- if and $gateway.autoscaleEnabled .Values.global.defaultPodDisruptionBudget.enabled }}
+{{- if and $gateway.autoscaleEnabled .Values.global.defaultPodDisruptionBudget.enabled (ge $gateway.autoscaleMin 2.0) }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
