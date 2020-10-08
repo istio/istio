@@ -3586,10 +3586,10 @@ rules:
     verbs: ["get", "watch", "list"]
     resources: ["*"]
   - apiGroups: ["networking.istio.io"]
-    verbs: [ "get", "watch", "list", "update", "create", "delete" ]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "workloadentries" ]
   - apiGroups: ["networking.istio.io"]
-    verbs: [ "get", "watch", "list", "update", "create", "delete" ]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "workloadentries/status" ]
 
   # auto-detect installed CRD definitions
