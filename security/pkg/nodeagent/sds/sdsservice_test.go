@@ -424,6 +424,8 @@ func verifyResponseForEmptyToken(err error) bool {
 	s := fmt.Sprintf("rpc error: code = Unknown desc = unexpected token %s", err)
 	fmt.Printf("=======ssss=== \n")
 	fmt.Printf("%s",s)
+	fmt.Printf("=======ssss===111111\n")
+	fmt.Printf("%s",err.Error())
 	return strings.Contains(err.Error(), s)
 }
 
