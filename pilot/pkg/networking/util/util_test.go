@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	proto2 "istio.io/istio/pkg/proto"
 )
@@ -948,6 +949,141 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := CidrRangeSliceEqual(tt.first, tt.second); got != tt.want {
 				t.Errorf("Unexpected CidrRangeSliceEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEndpointMetadata(t *testing.T) {
+	cases := []struct {
+		name         string
+		network      string
+		tlsMode      string
+		workloadName string
+		namespace    string
+		labels       labels.Instance
+		want         *core.Metadata
+	}{
+		{
+			name:         "all empty",
+			tlsMode:      string(model.DisabledTLSModeLabel),
+			network:      "",
+			workloadName: "",
+			want:         nil,
+		},
+		{
+			name:         "all empty",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "",
+			workloadName: "",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"tlsMode": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "network and tls mode",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "network",
+			workloadName: "",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"tlsMode": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+							"network": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "network",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "all label",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "network",
+			workloadName: "workload",
+			namespace:    "default",
+			labels: labels.Instance{
+				model.IstioCanonicalServiceLabelName:         "service",
+				model.IstioCanonicalServiceRevisionLabelName: "v1",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"tlsMode": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+							"network": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "network",
+								},
+							},
+							"telemetry": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "workload;default;service;v1",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name:         "miss pod label",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "network",
+			workloadName: "workload",
+			namespace:    "default",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"tlsMode": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+							"network": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "network",
+								},
+							},
+							"telemetry": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "workload;default;;",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.name, tt.namespace, tt.labels); reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -291,9 +291,6 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint.LbWeight != second.Endpoint.LbWeight {
 		return false
 	}
-	if first.Endpoint.UID != second.Endpoint.UID {
-		return false
-	}
 	if first.Namespace != second.Namespace {
 		return false
 	}
@@ -371,9 +368,6 @@ type IstioEndpoint struct {
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
-	// UID identifies the workload, for telemetry purpose.
-	UID string
-
 	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
 	EnvoyEndpoint *endpoint.LbEndpoint
@@ -396,6 +390,12 @@ type IstioEndpoint struct {
 
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
 	TLSMode string
+
+	// Namespace that this endpont belongs to. This is for telemetry purpose.
+	Namespace string
+
+	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
+	WorkloadName string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.

@@ -573,7 +573,6 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 				EndpointPort:    instance.Endpoint.EndpointPort,
 				ServicePortName: port.Name,
 				Labels:          instance.Endpoint.Labels,
-				UID:             instance.Endpoint.UID,
 				ServiceAccount:  instance.Endpoint.ServiceAccount,
 				Network:         instance.Endpoint.Network,
 				Locality:        instance.Endpoint.Locality,

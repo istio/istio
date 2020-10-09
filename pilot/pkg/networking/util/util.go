@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
@@ -496,8 +497,8 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network string, tlsMode string) *core.Metadata {
-	if network == "" && tlsMode == model.DisabledTLSModeLabel {
+func BuildLbEndpointMetadata(network, tlsMode, name, namespace string, labels labels.Instance) *core.Metadata {
+	if network == "" && tlsMode == model.DisabledTLSModeLabel && name == "" {
 		return nil
 	}
 
@@ -507,11 +508,9 @@ func BuildLbEndpointMetadata(network string, tlsMode string) *core.Metadata {
 
 	if network != "" {
 		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
-			Fields: map[string]*pstruct.Value{},
-		}
-
-		if network != "" {
-			metadata.FilterMetadata[IstioMetadataKey].Fields["network"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}}
+			Fields: map[string]*pstruct.Value{
+				"network": {Kind: &pstruct.Value_StringValue{StringValue: network}},
+			},
 		}
 	}
 
@@ -519,6 +518,31 @@ func BuildLbEndpointMetadata(network string, tlsMode string) *core.Metadata {
 		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{
 				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
+			},
+		}
+	}
+
+	// Add compressed telemetry metadata. Note this is a short term solution to make server workload metadata
+	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
+	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
+	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
+	// workload-name;namespace;canonical-service-name;canonical-service-revision.
+	if features.EndpointTelemetryLabel {
+		var sb strings.Builder
+		sb.WriteString(name)
+		sb.WriteString(";")
+		sb.WriteString(namespace)
+		sb.WriteString(";")
+		if csn, ok := labels[model.IstioCanonicalServiceLabelName]; ok {
+			sb.WriteString(csn)
+		}
+		sb.WriteString(";")
+		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
+			sb.WriteString(csr)
+		}
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				"workload": {Kind: &pstruct.Value_StringValue{StringValue: sb.String()}},
 			},
 		}
 	}

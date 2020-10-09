@@ -367,4 +367,8 @@ var (
 		5*time.Second,
 		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
 	).Get()
+
+	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", false,
+		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
+	).Get()
 )

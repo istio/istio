@@ -153,7 +153,6 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 			Labels:          labels.Instance{"app": "prod-app"},
 			Address:         "an-address",
 			ServicePortName: "service-port-name",
-			UID:             "UID",
 			EnvoyEndpoint:   nil,
 			ServiceAccount:  "service-account",
 			Network:         "Network",
@@ -187,7 +186,6 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 	differingLbWeight := exampleInstance.DeepCopy()
 	differingLbWeight.Endpoint.LbWeight = 0
 	differingUID := exampleInstance.DeepCopy()
-	differingUID.Endpoint.UID = "UID-TWO"
 
 	cases := []struct {
 		comparer *WorkloadInstance

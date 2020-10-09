@@ -479,7 +479,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					},
 					Labels:         labels.Instance{"app": "prod-app"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod2.nsa",
+					TLSMode:        model.DisabledTLSModeLabel,
 				},
 			}
 			if len(podServices) != 1 {
@@ -536,7 +536,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,
-					UID:            "kubernetes://pod3.nsa",
 				},
 			}
 			if len(podServices) != 1 {
