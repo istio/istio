@@ -210,7 +210,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 2
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -235,7 +235,7 @@ spec:
       name: cpu
       targetAverageUtilization: 80
     type: Resource
-  minReplicas: 2
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

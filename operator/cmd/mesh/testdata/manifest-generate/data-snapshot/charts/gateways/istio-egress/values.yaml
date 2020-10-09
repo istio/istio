@@ -35,7 +35,7 @@ gateways:
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
     autoscaleEnabled: true
-    autoscaleMin: 2
+    autoscaleMin: 1
     autoscaleMax: 5
     resources:
       requests:

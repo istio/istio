@@ -172,7 +172,7 @@ spec:
       name: cpu
       targetAverageUtilization: 444
     type: Resource
-  minReplicas: 2
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

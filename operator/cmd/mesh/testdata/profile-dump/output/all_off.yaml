@@ -22,7 +22,7 @@ spec:
               name: cpu
               targetAverageUtilization: 80
             type: Resource
-          minReplicas: 2
+          minReplicas: 1
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
@@ -63,7 +63,7 @@ spec:
               name: cpu
               targetAverageUtilization: 80
             type: Resource
-          minReplicas: 2
+          minReplicas: 1
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
@@ -254,7 +254,7 @@ spec:
     pilot:
       autoscaleEnabled: true
       autoscaleMax: 5
-      autoscaleMin: 2
+      autoscaleMin: 1
       configMap: true
       cpu:
         targetAverageUtilization: 80

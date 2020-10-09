@@ -72,7 +72,7 @@ spec:
               name: tls
         hpaSpec:
           maxReplicas: 5
-          minReplicas: 2
+          minReplicas: 1
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
@@ -114,7 +114,7 @@ spec:
               name: tls
         hpaSpec:
           maxReplicas: 5
-          minReplicas: 2
+          minReplicas: 1
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
@@ -238,7 +238,7 @@ spec:
       validationURL: ""
     pilot:
       autoscaleEnabled: true
-      autoscaleMin: 2
+      autoscaleMin: 1
       autoscaleMax: 5
       replicaCount: 1
       image: pilot

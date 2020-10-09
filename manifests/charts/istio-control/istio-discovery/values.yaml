@@ -3,7 +3,7 @@
 ## Discovery Settings
 pilot:
   autoscaleEnabled: true
-  autoscaleMin: 2
+  autoscaleMin: 1
   autoscaleMax: 5
   replicaCount: 1
   rollingMaxSurge: 100%

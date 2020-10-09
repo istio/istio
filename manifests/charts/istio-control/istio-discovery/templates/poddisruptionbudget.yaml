@@ -1,4 +1,4 @@
-{{- if and .Values.pilot.autoscaleEnabled .Values.global.defaultPodDisruptionBudget.enabled (ge .Values.pilot.autoscaleMin 2.0) }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
