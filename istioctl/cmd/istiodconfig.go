@@ -493,5 +493,7 @@ func istiodConfig() *cobra.Command {
 	istiodConfigCmd.AddCommand(istiodLog)
 	istiodConfigCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
 
+	istiodConfigCmd.AddCommand(istiodListCmd())
+
 	return istiodConfigCmd
 }

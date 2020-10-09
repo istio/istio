@@ -30,14 +30,12 @@ func ManifestCmd(logOpts *log.Options) *cobra.Command {
 
 	mgcArgs := &manifestGenerateArgs{}
 	mdcArgs := &manifestDiffArgs{}
-	mlcArgs := &manifestListArgs{}
 
 	args := &rootArgs{}
 
 	mgc := manifestGenerateCmd(args, mgcArgs, logOpts)
 	mdc := manifestDiffCmd(args, mdcArgs)
 	ic := InstallCmd(logOpts)
-	mlc := manifestListCmd(mlcArgs, logOpts)
 
 	addFlags(mc, args)
 	addFlags(mgc, args)
@@ -45,12 +43,10 @@ func ManifestCmd(logOpts *log.Options) *cobra.Command {
 
 	addManifestGenerateFlags(mgc, mgcArgs)
 	addManifestDiffFlags(mdc, mdcArgs)
-	addManifestListFlags(mlc, mlcArgs)
 
 	mc.AddCommand(mgc)
 	mc.AddCommand(mdc)
 	mc.AddCommand(ic)
-	mc.AddCommand(mlc)
 
 	return mc
 }

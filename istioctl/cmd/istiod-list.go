@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh
+package cmd
 
 import (
 	"context"
@@ -20,33 +20,31 @@ import (
 	"io"
 	"sort"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 	"time"
 
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/spf13/cobra"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
 
+	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
 )
 
-type manifestListArgs struct {
-	// kubeConfigPath is the path to kube config file.
-	kubeConfigPath string
-	// context is the cluster context in the kube config
-	context string
+type istiodListArgs struct {
 	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	manifestsPath string
 }
@@ -59,34 +57,34 @@ var (
 	}
 )
 
-func addManifestListFlags(cmd *cobra.Command, args *manifestListArgs) {
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
-}
+func istiodListCmd() *cobra.Command {
+	kubeConfigFlags := &genericclioptions.ConfigFlags{
+		Context:    strPtr(""),
+		Namespace:  strPtr(""),
+		KubeConfig: strPtr(""),
+	}
+	listArgs := &istiodListArgs{}
 
-func manifestListCmd(listArgs *manifestListArgs, logOpts *log.Options) *cobra.Command {
-	return &cobra.Command{
+	listCmd := &cobra.Command{
 		Use:   "list",
-		Short: "Lists applied Istio manifests",
+		Short: "Lists Istio control planes",
 		Long:  "The list subcommand displays installed Istio control planes to the console",
 		// nolint: lll
 		Example: `  # List Istio installations
-  istioctl manifest list
+  istioctl experimental istiod list
 
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := configLogs(logOpts); err != nil {
-				return fmt.Errorf("could not configure logs: %s", err)
-			}
-			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			return manifestList(cmd.OutOrStdout(), listArgs, l)
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
+			return istiodList(cmd.OutOrStdout(), listArgs, kubeConfigFlags, l)
 		}}
 
+	listCmd.PersistentFlags().StringVarP(&listArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	return listCmd
 }
 
-func manifestList(writer io.Writer, listArgs *manifestListArgs, l clog.Logger) error {
-	restConfig, _, _, err := K8sConfig(listArgs.kubeConfigPath, listArgs.context)
+func istiodList(writer io.Writer, listArgs *istiodListArgs, restClientGetter genericclioptions.RESTClientGetter, l clog.Logger) error {
+	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return err
 	}
@@ -146,7 +144,7 @@ func getIOPs(restConfig *rest.Config) ([]*iopv1alpha1.IstioOperator, error) {
 	}
 	ul, err := client.
 		Resource(istioOperatorGVR).
-		Namespace(istioDefaultNamespace). // @@@ TODO make a flag?
+		Namespace(istioNamespace).
 		List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -165,8 +163,10 @@ func getIOPs(restConfig *rest.Config) ([]*iopv1alpha1.IstioOperator, error) {
 }
 
 func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile string, l clog.Logger) ([]string, error) {
-	setFlags := applyFlagAliases(make([]string, 0), manifestsPath, "")
-	setFlags = append(setFlags, "profile="+profile)
+	setFlags := []string{"profile=" + profile}
+	if manifestsPath != "" {
+		setFlags = append(setFlags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
+	}
 
 	_, base, err := manifest.GenerateConfig([]string{}, setFlags, true, nil, l)
 	if err != nil {
@@ -261,15 +261,15 @@ func getControlPlaneDeployment(iop *iopv1alpha1.IstioOperator, manifestsPath str
 		return "", "", err
 	}
 	deployment, err := client.AppsV1().
-		Deployments(istioDefaultNamespace). // @@@ TODO make a flag?)
+		Deployments(istioNamespace).
 		Get(context.TODO(), deploymentName, meta_v1.GetOptions{})
 	if err != nil {
 		return "", "", err
 	}
 	pods, err := client.CoreV1().
-		Pods(istioDefaultNamespace). // @@@ TODO make a flag?)
+		Pods(istioNamespace).
 		List(context.TODO(), meta_v1.ListOptions{
-			LabelSelector: labels.Set(deployment.Spec.Selector.MatchLabels).AsSelector().String(),
+			LabelSelector: k8s_labels.Set(deployment.Spec.Selector.MatchLabels).AsSelector().String(),
 		})
 	if err != nil {
 		return "", "", err
@@ -299,4 +299,15 @@ func getDeploymentName(iop *iopv1alpha1.IstioOperator, manifestsPath string) str
 		return "istiod"
 	}
 	return fmt.Sprintf("istiod-%s", iop.Spec.Revision)
+}
+
+func strPtr(val string) *string {
+	return &val
+}
+
+func pathComponent(component string) string {
+	if !strings.Contains(component, util.PathSeparator) {
+		return component
+	}
+	return strings.ReplaceAll(component, util.PathSeparator, util.EscapedPathSeparator)
 }
