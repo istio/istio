@@ -972,7 +972,7 @@ func TestEndpointMetadata(t *testing.T) {
 			want:         nil,
 		},
 		{
-			name:         "all empty",
+			name:         "tls mode",
 			tlsMode:      string(model.IstioMutualTLSModeLabel),
 			network:      "",
 			workloadName: "",

@@ -185,7 +185,6 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 	}
 	differingLbWeight := exampleInstance.DeepCopy()
 	differingLbWeight.Endpoint.LbWeight = 0
-	differingUID := exampleInstance.DeepCopy()
 
 	cases := []struct {
 		comparer *WorkloadInstance
@@ -246,12 +245,6 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 			comparee: differingLbWeight.DeepCopy(),
 			shouldEq: false,
 			name:     "different LbWeight",
-		},
-		{
-			comparer: exampleInstance.DeepCopy(),
-			comparee: differingUID.DeepCopy(),
-			shouldEq: false,
-			name:     "different UID",
 		},
 	}
 
