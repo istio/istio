@@ -88,7 +88,7 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
-// Validate that SDS agent is using the valid token returned by credential fetcher and the request succeeds.
+// Verifies that SDS agent is using a valid token returned by credential fetcher and pushing SDS resources back successfully.
 func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 	cf := plugin.CreateMockPlugin(FirstPartyJwt)
 
@@ -104,7 +104,7 @@ func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt, FirstPartyJwt)
 }
 
-// Validate that SDS agent is using the empty token returned by credential fetcher and the connection fails.
+// Verifies that SDS agent is using an empty token returned by credential fetcher and pushing SDS resources back unsuccessfully.
 func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T) {
 	cf := plugin.CreateMockPlugin(emptyToken)
 
