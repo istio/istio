@@ -197,13 +197,17 @@ func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configC
 
 // getIstioRevisions returns a slice with all Istio revisions detected in the cluster.
 func getIstioRevisions(resources *cluster2.Resources) []string {
-	var out []string
+	revMap := make(map[string]struct{})
 	for _, podLabels := range resources.Labels {
 		for label, value := range podLabels {
 			if label == istioRevisionLabel {
-				out = append(out, value)
+				revMap[value] = struct{}{}
 			}
 		}
+	}
+	var out []string
+	for k := range revMap {
+		out = append(out, k)
 	}
 	return out
 }
