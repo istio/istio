@@ -15,15 +15,16 @@
 package xds
 
 import (
+	"strconv"
+	"strings"
+	"time"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"strconv"
-	"strings"
-	"time"
 )
 
 const (
@@ -106,7 +107,7 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 					// if we haven't passed the grace period, don't cleanup
 					disconnUnixTime, err := strconv.ParseInt(wle.Annotations[DisconnectedAtAnnotation], 10, 64)
 					if err != nil {
-						// agressively cleanup workload entries with invalid disconnect times - they need to be re-registered and fixed.
+						// remove workload entries with invalid disconnect times - they need to be re-registered and fixed.
 						adsLog.Warnf("invalid disconnect time for WorkloadEntry %s/%s: %s", wle.Annotations[DisconnectedAtAnnotation])
 					}
 					disconnat := time.Unix(0, disconnUnixTime)

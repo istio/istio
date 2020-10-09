@@ -126,3 +126,4 @@ features:
     # the testing framework
     framework:
   vms:
+    autoregistration:

@@ -83,7 +83,9 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 		RequiresSingleCluster().
 		Features("vm.autoregistration").
 		Run(func(ctx framework.TestContext) {
+			scaleDeploymentOrFail(ctx, "istiod", i.Settings().SystemNamespace, 2)
 			client := apps.PodA.GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
+			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
 			_ = echoboot.NewBuilder(ctx).
 				With(&autoVM, echo.Config{
@@ -138,7 +140,8 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}, retry.Delay(5*time.Second))
 			})
 			ctx.NewSubTest("disconnect deletes WorkloadEntry").Run(func(ctx framework.TestContext) {
-				scaleDeploymentOrFail(ctx, autoVM, 0)
+				deployment := fmt.Sprintf("%s-%s", autoVM.Config().Service, "v1")
+				scaleDeploymentOrFail(ctx, deployment, autoVM.Config().Namespace.Name(), 0)
 				// it should take at most 2*grace period to trigger removal
 				retry.UntilSuccessOrFail(ctx, func() error {
 					if len(getWorkloadEntriesOrFail(ctx, autoVM)) > 0 {
@@ -160,16 +163,15 @@ func disconnectProxy(ctx framework.TestContext, pilot string, instance echo.Inst
 	}
 }
 
-func scaleDeploymentOrFail(ctx framework.TestContext, vm echo.Instance, scale int32) {
-	depName := fmt.Sprintf("%s-%s", vm.Config().Service, "v1")
-	s, err := ctx.Clusters().Default().AppsV1().Deployments(vm.Config().Namespace.Name()).
-		GetScale(context.TODO(), depName, metav1.GetOptions{})
+func scaleDeploymentOrFail(ctx framework.TestContext, name, namespace string, scale int32) {
+	s, err := ctx.Clusters().Default().AppsV1().Deployments(namespace).
+		GetScale(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		ctx.Fatal(err)
 	}
 	s.Spec.Replicas = scale
-	_, err = ctx.Clusters().Default().AppsV1().Deployments(vm.Config().Namespace.Name()).
-		UpdateScale(context.TODO(), depName, s, metav1.UpdateOptions{})
+	_, err = ctx.Clusters().Default().AppsV1().Deployments(namespace).
+		UpdateScale(context.TODO(), name, s, metav1.UpdateOptions{})
 	if err != nil {
 		ctx.Fatal(err)
 	}
