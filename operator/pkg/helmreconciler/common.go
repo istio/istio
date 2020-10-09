@@ -19,10 +19,11 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/pkg/log"
@@ -112,36 +113,44 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 }
 
 // applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
-func applyOverlay(current, overlay *unstructured.Unstructured) (err error) {
-	var overlayByte, currentByte, patchByte, result []byte
-	var schema strategicpatch.LookupPatchMeta
-
-	if currentByte, err = current.MarshalJSON(); err != nil {
-		return
-	}
-	if overlayByte, err = overlay.MarshalJSON(); err != nil {
-		return
-	}
-
-	if patchByte, schema, err = createPatchSchema(currentByte, overlayByte, overlay); err != nil {
-		return
-	}
-
-	if schema == nil {
-		result, err = jsonpatch.MergePatch(currentByte, patchByte)
-	} else {
-		result, err = strategicpatch.StrategicMergePatchUsingLookupPatchMeta(currentByte, patchByte, schema)
-	}
-
+func applyOverlay(current, overlay *unstructured.Unstructured) error {
+	var result []byte
+	currentByte, err := current.MarshalJSON()
 	if err != nil {
-		return
+		return err
+	}
+	overlayByte, err := overlay.MarshalJSON()
+	if err != nil {
+		return err
 	}
 
+	// All the fields set by the cluster automatically is saved in the service resources.
+	// For all service resources, we leverage 2-way merging to keep the fields set by the cluster.
+	if strings.EqualFold(current.GetKind(), "service") {
+		var schema strategicpatch.LookupPatchMeta
+		originalByte := getLastAppliedConfig(current)
+		patchByte, schema, err := createPatchSchema(originalByte, overlayByte, overlay)
+		if err != nil {
+			return err
+		}
+		result, err = strategicpatch.StrategicMergePatchUsingLookupPatchMeta(currentByte, patchByte, schema)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		result, err = jsonpatch.MergePatch(currentByte, overlayByte)
+		if err != nil {
+			return err
+		}
+	}
 	return current.UnmarshalJSON(result)
 }
 
-// createPatchSchema creates the patch based on the current & overlay bytes and the schema for the target unstructured.Unstructured
-func createPatchSchema(currentByte, overlayByte []byte, mod *unstructured.Unstructured) (patchByte []byte, schema strategicpatch.LookupPatchMeta, err error) {
+// createPatchSchema creates the patch based on the current & overlay bytes and the schema for the target
+// unstructured.Unstructured
+func createPatchSchema(originalByte, overlayByte []byte, mod *unstructured.Unstructured) (patchByte []byte,
+	schema strategicpatch.LookupPatchMeta, err error) {
 	var obj runtime.Object
 	if obj, err = scheme.Scheme.New(mod.GroupVersionKind()); err != nil {
 		return
@@ -149,8 +158,15 @@ func createPatchSchema(currentByte, overlayByte []byte, mod *unstructured.Unstru
 	if schema, err = strategicpatch.NewPatchMetaFromStruct(obj); err != nil {
 		return
 	}
-	if patchByte, err = strategicpatch.CreateTwoWayMergePatch(currentByte, overlayByte, obj); err != nil {
-		return
-	}
+	patchByte, err = strategicpatch.CreateTwoWayMergePatch(originalByte, overlayByte, obj)
 	return
+}
+
+// getLastAppliedConfig returns the byte array of the content in `kubectl.kubernetes.io/last-applied-1·configuration`
+func getLastAppliedConfig(obj *unstructured.Unstructured) []byte {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+	return []byte(annotations[v1.LastAppliedConfigAnnotation])
 }
