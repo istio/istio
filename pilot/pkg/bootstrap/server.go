@@ -1068,6 +1068,11 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 		if s.kubeClient != nil {
 			corev1 = s.kubeClient.CoreV1()
 		}
+		if useRemoteCerts.Get() {
+			if err = s.loadRemoteCACerts(caOpts, LocalCertDir.Get()); err != nil {
+				return fmt.Errorf("failed to load remote CA certs: %v", err)
+			}
+		}
 		// May return nil, if the CA is missing required configs - This is not an error.
 		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
 			return fmt.Errorf("failed to create CA: %v", err)
