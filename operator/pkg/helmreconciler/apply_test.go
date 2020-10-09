@@ -65,7 +65,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 						Namespace: "istio-operator-test",
 					},
 				},
-				countLock:         sync.Mutex{},
+				countLock:         &sync.Mutex{},
 				ownedObjectsCount: map[schema.GroupVersionKind]int{},
 				prunedKindSet:     map[schema.GroupVersionKind]struct{}{},
 			}

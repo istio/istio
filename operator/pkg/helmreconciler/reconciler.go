@@ -56,7 +56,7 @@ type HelmReconciler struct {
 	dependencyWaitCh map[name.ComponentName]chan struct{}
 
 	// The fields below are for metrics and reporting
-	countLock         sync.Mutex
+	countLock         *sync.Mutex
 	ownedObjectsCount map[schema.GroupVersionKind]int
 	prunedKindSet     map[schema.GroupVersionKind]struct{}
 }
@@ -126,7 +126,7 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		iop:               iop,
 		opts:              opts,
 		dependencyWaitCh:  initDependencies(),
-		countLock:         sync.Mutex{},
+		countLock:         &sync.Mutex{},
 		ownedObjectsCount: make(map[schema.GroupVersionKind]int),
 		prunedKindSet:     make(map[schema.GroupVersionKind]struct{}),
 	}, nil
