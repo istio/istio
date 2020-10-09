@@ -63,7 +63,7 @@ EOF
 )
 fi
 
-# ports
+# env
 IOP=$(cat <<EOF
 $IOP
         enabled: true
@@ -72,6 +72,21 @@ $IOP
             # sni-dnat adds the clusters required for AUTO_PASSTHROUGH mode
             - name: ISTIO_META_ROUTER_MODE
               value: "sni-dnat"
+EOF
+)
+if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
+  IOP=$(cat <<EOF
+$IOP
+            # traffic through this gateway should be routed inside the network
+            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+              value: ${NETWORK}
+EOF
+)
+fi
+
+# Ports
+IOP=$(cat <<EOF
+$IOP
           service:
             ports:
               - name: status-port
@@ -93,10 +108,6 @@ EOF
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
   IOP=$(cat <<EOF
 $IOP
-          env:
-            # traffic through this gateway should be routed inside the network
-            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
-              value: ${NETWORK}
   values:
     global:
       meshID: ${MESH}
