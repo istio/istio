@@ -17,7 +17,6 @@ package multicluster
 
 import (
 	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -26,12 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
-)
-
-var (
-	retryTimeout = time.Second * 10
-	retryDelay   = time.Millisecond * 100
 )
 
 type AppContext struct {
@@ -152,11 +145,10 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 func callOrFail(ctx framework.TestContext, src, dest echo.Instance, validators ...echo.Validator) {
 	ctx.Helper()
 	_ = src.CallOrFail(ctx, echo.CallOptions{
-		Target:       dest,
-		PortName:     "http",
-		Scheme:       scheme.HTTP,
-		Count:        20 * len(ctx.Clusters()),
-		RetryOptions: []retry.Option{retry.Timeout(retryTimeout), retry.Delay(retryDelay)},
-		Validators:   echo.Validators(validators).WithOK(),
-	})
+		Target:     dest,
+		PortName:   "http",
+		Scheme:     scheme.HTTP,
+		Count:      20 * len(ctx.Clusters()),
+		Validators: echo.Validators(validators).WithOK(),
+	}.WithRetry())
 }

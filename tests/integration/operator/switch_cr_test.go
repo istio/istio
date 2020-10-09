@@ -319,11 +319,10 @@ func sanityCheck(t *testing.T, ctx resource.Context) {
 		}).
 		BuildOrFail(t)
 	_ = client.CallOrFail(t, echo.CallOptions{
-		Target:   server,
-		PortName: "http",
-		RetryOptions: []retry.Option{retry.Delay(time.Millisecond*100), retry.Timeout(retryTimeOut)},
+		Target:     server,
+		PortName:   "http",
 		Validators: echo.NewValidators().WithOK(),
-	})
+	}.WithRetry())
 }
 
 func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance, profileName string, revision string,
