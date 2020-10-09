@@ -777,6 +777,11 @@ func (s *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []
 	return model.GetServiceAccounts(svc, ports, s)
 }
 
+func (s *ServiceEntryStore) NetworkGateways() map[string][]*model.Gateway {
+	// TODO implement mesh networks loading logic from kube controller if needed
+	return nil
+}
+
 func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, []*model.Service, []*model.Service, []*model.Service) {
 	var added, deleted, updated, unchanged []*model.Service
 

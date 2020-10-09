@@ -48,9 +48,11 @@ import (
 )
 
 type FakeOptions struct {
-	// If provided, these objects will be used directly
+	// If provided, a service registry with the name of each map key will be created with the given objects.
+	KubernetesObjectsByCluster map[string][]runtime.Object
+	// If provided, these objects will be used directly for the default cluster ("Kubernetes")
 	KubernetesObjects []runtime.Object
-	// If provided, the yaml string will be parsed and used as objects
+	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes")
 	KubernetesObjectString string
 	// Endpoint mode for the Kubernetes service registry
 	KubernetesEndpointMode kube.EndpointMode
@@ -102,24 +104,39 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.ConfigUpdate(pushReq)
 	}
 
-	kubeClient := kubelib.NewFakeClient(getKubernetesObjects(t, opts)...)
-	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
-		ServiceHandler:  serviceHandler,
-		Client:          kubeClient,
-		ClusterID:       "Kubernetes",
-		DomainSuffix:    "cluster.local",
-		XDSUpdater:      s,
-		NetworksWatcher: opts.NetworksWatcher,
-		Mode:            opts.KubernetesEndpointMode,
-	})
+	k8sObjects := getKubernetesObjects(t, opts)
+	var defaultKubeClient kubelib.Client
+	var defaultKubeController *kube.FakeController
+	var registries []serviceregistry.Instance
+	for cluster, objs := range k8sObjects {
+		client := kubelib.NewFakeClient(objs...)
+		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
+			ServiceHandler:  serviceHandler,
+			Client:          client,
+			ClusterID:       cluster,
+			DomainSuffix:    "cluster.local",
+			XDSUpdater:      s,
+			NetworksWatcher: opts.NetworksWatcher,
+			Mode:            opts.KubernetesEndpointMode,
+		})
+		// start default client informers after creating ingress/secret controllers
+		if defaultKubeClient == nil || cluster == "Kubernetes" {
+			defaultKubeClient = client
+			defaultKubeController = k8s
+		} else {
+			client.RunAndWait(stop)
+		}
+		registries = append(registries, k8s)
+	}
 
-	sc := kubesecrets.NewMulticluster(kubeClient, "", "")
+	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "")
 	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
+	defaultKubeClient.RunAndWait(stop)
 
-	ingr := ingress.NewController(kubeClient, mesh.NewFixedWatcher(m), kube.Options{
+	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
-	kubeClient.RunAndWait(stop)
+	defaultKubeClient.RunAndWait(stop)
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 		Configs:             opts.Configs,
@@ -127,7 +144,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigTemplateInput: opts.ConfigTemplateInput,
 		MeshConfig:          opts.MeshConfig,
 		NetworksWatcher:     opts.NetworksWatcher,
-		ServiceRegistries:   []serviceregistry.Instance{k8s},
+		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
 		SkipRun:             true,
@@ -174,11 +191,17 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 		cg.Store().RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 	}
-	if err := cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
-		t.Fatal(err)
-	}
-	if err := k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler); err != nil {
-		t.Fatal(err)
+	for _, registry := range registries {
+		k8s, ok := registry.(*kube.FakeController)
+		if !ok {
+			continue
+		}
+		if err := cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
+			t.Fatal(err)
+		}
+		if err := k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// Start in memory gRPC listener
@@ -209,8 +232,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Discovery:     s,
 		Listener:      listener,
 		ConfigGenTest: cg,
-		kubeClient:    kubeClient,
-		KubeRegistry:  k8s,
+		kubeClient:    defaultKubeClient,
+		KubeRegistry:  defaultKubeController,
 	}
 
 	// currently meshNetworks gateways are stored on the push context
@@ -250,7 +273,7 @@ func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_
 	return client
 }
 
-// ConnectADS starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
+// Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
 // watch can be configured to determine the resources to watch initially, and wait can be configured to determine what
 // resources we should initially wait for.
 func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
@@ -306,12 +329,12 @@ func (f *FakeDiscoveryServer) refreshPushContext() {
 	}
 }
 
-func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
-	if len(opts.KubernetesObjects) > 0 {
-		return opts.KubernetesObjects
-	}
+func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.Object {
+	objects := map[string][]runtime.Object{}
 
-	objects := make([]runtime.Object, 0)
+	if len(opts.KubernetesObjects) > 0 {
+		objects["Kuberentes"] = append(objects["Kuberenetes"], opts.KubernetesObjects...)
+	}
 	if len(opts.KubernetesObjectString) > 0 {
 		decode := scheme.Codecs.UniversalDeserializer().Decode
 		objectStrs := strings.Split(opts.KubernetesObjectString, "---")
@@ -323,8 +346,16 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
 			if err != nil {
 				t.Fatalf("failed deserializing kubernetes object: %v", err)
 			}
-			objects = append(objects, o)
+			objects["Kubernetes"] = append(objects["Kubernetes"], o)
 		}
+	}
+
+	for cluster, clusterObjs := range opts.KubernetesObjectsByCluster {
+		objects[cluster] = append(objects[cluster], clusterObjs...)
+	}
+
+	if len(objects) == 0 {
+		return map[string][]runtime.Object{"Kubernetes": {}}
 	}
 
 	return objects

@@ -34,7 +34,6 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/multicluster"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
@@ -229,7 +228,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	i.workDir = workDir
 
 	//generate istioctl config files for config, control plane(primary) and remote clusters
-	istioctlConfigFiles, err := createIstioctlConfigFile(workDir, cfg, env)
+	istioctlConfigFiles, err := createIstioctlConfigFile(workDir, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +360,7 @@ spec:
 	return nil
 }
 
-func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml string) error {
+func initIOPFile(cfg Config, iopFile string, valuesYaml string) error {
 	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &pkgAPI.IstioOperator{}
@@ -376,24 +375,6 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 		}
 		if err := gogoprotomarshal.ApplyYAML(string(valuesYml), values); err != nil {
 			return fmt.Errorf("failed to unmarshal base values: %v", err)
-		}
-	}
-	externalControlPlane := false
-	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) && !env.IsConfigCluster(cluster) {
-			externalControlPlane = true
-		}
-	}
-	if env.IsMultinetwork() && !externalControlPlane {
-		if values.Global == nil {
-			values.Global = &pkgAPI.GlobalConfig{}
-		}
-		if values.Global.MeshNetworks == nil {
-			meshNetworks, err := gogoprotomarshal.ToJSONMap(meshNetworkSettings(cfg, env))
-			if err != nil {
-				return fmt.Errorf("failed to convert meshNetworks: %v", err)
-			}
-			values.Global.MeshNetworks = meshNetworks["networks"].(map[string]interface{})
 		}
 	}
 
@@ -626,35 +607,6 @@ func install(c *operatorComponent, installSettings []string, istioCtl istioctl.I
 		return fmt.Errorf("install failed: %v", err)
 	}
 	return nil
-}
-
-// meshNetworkSettings builds the values for meshNetworks with an endpoint in each network per-cluster.
-// Assumes that the registry service is always istio-ingressgateway.
-func meshNetworkSettings(cfg Config, environment *kube.Environment) *meshAPI.MeshNetworks {
-	meshNetworks := meshAPI.MeshNetworks{Networks: make(map[string]*meshAPI.Network)}
-	defaultGateways := []*meshAPI.Network_IstioNetworkGateway{{
-		Gw: &meshAPI.Network_IstioNetworkGateway_RegistryServiceName{
-			RegistryServiceName: eastWestIngressServiceName + "." + cfg.IngressNamespace + ".svc.cluster.local",
-		},
-		Port: 15443, // should be the mTLS port on east-west gateway (see samples/multicluster/eastwest-gateway.yaml)
-	}}
-
-	for networkName, clusters := range environment.ClustersByNetwork() {
-		network := &meshAPI.Network{
-			Endpoints: make([]*meshAPI.Network_NetworkEndpoints, len(clusters)),
-			Gateways:  defaultGateways,
-		}
-		for i, cluster := range clusters {
-			network.Endpoints[i] = &meshAPI.Network_NetworkEndpoints{
-				Ne: &meshAPI.Network_NetworkEndpoints_FromRegistry{
-					FromRegistry: cluster.Name(),
-				},
-			}
-		}
-		meshNetworks.Networks[networkName] = network
-	}
-
-	return &meshNetworks
 }
 
 func waitForIstioReady(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
@@ -927,7 +879,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resourc
 	return nil
 }
 
-func createIstioctlConfigFile(workDir string, cfg Config, env *kube.Environment) (istioctlConfigFiles, error) {
+func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, error) {
 	configFiles := istioctlConfigFiles{
 		iopFile:       "",
 		configIopFile: "",
@@ -935,7 +887,7 @@ func createIstioctlConfigFile(workDir string, cfg Config, env *kube.Environment)
 	}
 	// Generate the istioctl config file for control plane(primary) cluster
 	configFiles.iopFile = filepath.Join(workDir, "iop.yaml")
-	if err := initIOPFile(cfg, env, configFiles.iopFile, cfg.ControlPlaneValues); err != nil {
+	if err := initIOPFile(cfg, configFiles.iopFile, cfg.ControlPlaneValues); err != nil {
 		return configFiles, err
 	}
 
@@ -943,7 +895,7 @@ func createIstioctlConfigFile(workDir string, cfg Config, env *kube.Environment)
 	configFiles.remoteIopFile = configFiles.iopFile
 	if cfg.RemoteClusterValues != "" {
 		configFiles.remoteIopFile = filepath.Join(workDir, "remote.yaml")
-		if err := initIOPFile(cfg, env, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
+		if err := initIOPFile(cfg, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
 			return configFiles, err
 		}
 	}
@@ -952,7 +904,7 @@ func createIstioctlConfigFile(workDir string, cfg Config, env *kube.Environment)
 	configFiles.configIopFile = configFiles.iopFile
 	if cfg.ConfigClusterValues != "" {
 		configFiles.configIopFile = filepath.Join(workDir, "config.yaml")
-		if err := initIOPFile(cfg, env, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
+		if err := initIOPFile(cfg, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
 			return configFiles, err
 		}
 	}
