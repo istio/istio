@@ -19,7 +19,10 @@ import (
 	"os"
 	"strings"
 
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
+	"go.opencensus.io/stats/view"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -27,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/controller"
@@ -136,10 +140,14 @@ func run() {
 		log.Fatalf("Could not create a controller manager: %v", err)
 	}
 
-	log.Info("Registering operator metrics server")
-	if err := metrics.RegisterOperatorMetricsServer(mgr); err != nil {
-		log.Fatalf("Could not register operator metrics server")
+	log.Info("Creating operator metrics exporter")
+	exporter, err := ocprom.NewExporter(ocprom.Options{
+		Registry: ctrlmetrics.Registry.(*prometheus.Registry),
+	})
+	if err != nil {
+		log.Fatalf("Error while building exporter")
 	}
+	view.RegisterExporter(exporter)
 
 	log.Info("Registering Components.")
 
