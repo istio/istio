@@ -1111,54 +1111,40 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 			if svc.ServicePort.Port != opts.port.Port {
 				continue
 			}
-			svcMetaList.Values = append(svcMetaList.Values, &structpb.Value{
-				Kind: &structpb.Value_StructValue{
-					StructValue: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							"host": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: string(svc.Service.Hostname),
-								},
-							},
-							"name": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: svc.Service.Attributes.Name,
-								},
-							},
-							"namespace": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: svc.Service.Attributes.Namespace,
-								},
-							},
-						},
-					},
-				},
-			})
+			svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc.Service))
 		}
 	} else if direction == model.TrafficDirectionOutbound {
 		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
-		svcMetaList.Values = append(svcMetaList.Values, &structpb.Value{
-			Kind: &structpb.Value_StructValue{
-				StructValue: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"host": {
-							Kind: &structpb.Value_StringValue{
-								StringValue: string(service.Hostname),
-							},
+		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(service))
+	}
+}
+
+// Build a struct which contains service metadata and will be added into cluster label.
+func buildServiceMetadata(svc *model.Service) *structpb.Value {
+	return &structpb.Value{
+		Kind: &structpb.Value_StructValue{
+			StructValue: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					// serivce fqdn
+					"host": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: string(svc.Hostname),
 						},
-						"name": {
-							Kind: &structpb.Value_StringValue{
-								StringValue: service.Attributes.Name,
-							},
+					},
+					// short name of the service
+					"name": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: svc.Attributes.Name,
 						},
-						"namespace": {
-							Kind: &structpb.Value_StringValue{
-								StringValue: service.Attributes.Namespace,
-							},
+					},
+					// namespace of the service
+					"namespace": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: svc.Attributes.Namespace,
 						},
 					},
 				},
 			},
-		})
+		},
 	}
 }
