@@ -972,7 +972,7 @@ func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
 // If the proxy doesn't have enough metadata, an error is returned
 func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	if len(proxy.Metadata.Labels) == 0 {
-		return nil, fmt.Errorf("no workload labels found")
+		return nil, nil
 	}
 
 	if !c.isControllerForProxy(proxy) {
