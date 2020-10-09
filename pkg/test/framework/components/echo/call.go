@@ -15,10 +15,13 @@
 package echo
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -70,4 +73,61 @@ type CallOptions struct {
 	// Use the custom certificate to make the call. This is mostly used to make mTLS request directly
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
 	Cert, Key, CaCert string
+
+	// RetryOptions provides options for retrying the given request. If not specified, the request
+	// will not be retried.
+	RetryOptions []retry.Option
+
+	// Validators is a list of validators for server responses. If empty, only the number of responses received
+	// will be verified.
+	Validators Validators
+}
+
+// Validator validates that the given responses are expected.
+type Validator func(client.ParsedResponses) error
+
+type Validators []Validator
+
+// NewValidators creates an empty Validators array.
+func NewValidators() Validators {
+	return make(Validators, 0)
+}
+
+// Validate executes all validators in order, exiting on the first error encountered.
+func (all Validators) Validate(responses client.ParsedResponses) error {
+	for _, v := range all {
+		if err := v(responses); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// WithOK returns a copy of this Validators with ValidateOK added.
+func (all Validators) WithOK() Validators {
+	return all.With(ValidateOK)
+}
+
+// WithCount returns a copy of this Validators with validation for the given
+// expected response count.
+func (all Validators) WithCount(expectedCount int) Validators {
+	return all.With(func(responses client.ParsedResponses) error {
+		if len(responses) != expectedCount {
+			return fmt.Errorf("unexpected number of responses: expected %d, received %d",
+				expectedCount, len(responses))
+		}
+		return nil
+	})
+}
+
+// With returns a copy of this Validators with the given validator added.
+func (all Validators) With(v Validator) Validators {
+	return append(append(NewValidators(), all...), v)
+}
+
+var _ Validator = ValidateOK
+
+// ValidateOK is a Validator that calls CheckOK on the given responses.
+func ValidateOK(responses client.ParsedResponses) error {
+	return responses.CheckOK()
 }
