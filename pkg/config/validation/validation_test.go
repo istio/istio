@@ -3482,6 +3482,108 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "good-external",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_EXTERNAL,
+				ActionDetail: &security_beta.AuthorizationPolicy_External{
+					External: &security_beta.External{
+						Http: &security_beta.External_HTTPConfig{
+							Server: "http://ext-authz.svc.foo.cluster.local:8000/",
+						},
+						Tcp: &security_beta.External_TCPConfig{
+							Server: "grpc://127.0.0.1:9000",
+						},
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name: "external-other-action",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				ActionDetail: &security_beta.AuthorizationPolicy_External{
+					External: &security_beta.External{
+						Http: &security_beta.External_HTTPConfig{
+							Server: "http://ext-authz.svc.foo.cluster.local:8000/",
+						},
+						Tcp: &security_beta.External_TCPConfig{
+							Server: "grpc://127.0.0.1:9000",
+						},
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+		},
+		{
+			name: "external-no-rules",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				ActionDetail: &security_beta.AuthorizationPolicy_External{
+					External: &security_beta.External{
+						Http: &security_beta.External_HTTPConfig{
+							Server: "http://ext-authz.svc.foo.cluster.local:8000/",
+						},
+						Tcp: &security_beta.External_TCPConfig{
+							Server: "grpc://127.0.0.1:9000",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "external-no-action-details",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_EXTERNAL,
+				Rules:  []*security_beta.Rule{{}},
+			},
+		},
+		{
+			name: "external-no-server",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_EXTERNAL,
+				ActionDetail: &security_beta.AuthorizationPolicy_External{
+					External: &security_beta.External{},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+		},
+		{
+			name: "external-invalid-http-server",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_EXTERNAL,
+				ActionDetail: &security_beta.AuthorizationPolicy_External{
+					External: &security_beta.External{
+						Http: &security_beta.External_HTTPConfig{
+							Server: "httpx://ext-authz.svc.foo.cluster.local:8000/",
+						},
+						Tcp: &security_beta.External_TCPConfig{
+							Server: "grpc://127.0.0.1:9000",
+						},
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+		},
+		{
+			name: "external-invalid-tcp-server",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_EXTERNAL,
+				ActionDetail: &security_beta.AuthorizationPolicy_External{
+					External: &security_beta.External{
+						Http: &security_beta.External_HTTPConfig{
+							Server: "http://ext-authz.svc.foo.cluster.local:8000/",
+						},
+						Tcp: &security_beta.External_TCPConfig{
+							Server: "http://127.0.0.1:9000",
+						},
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+		},
+		{
 			name: "allow-rules-nil",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_ALLOW,
@@ -4051,7 +4153,13 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if _, got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
+			if _, got := ValidateAuthorizationPolicy(config.Config{
+				Meta: config.Meta{
+					Name:      "name",
+					Namespace: "namespace",
+				},
+				Spec: c.in,
+			}); (got == nil) != c.valid {
 				t.Errorf("got: %v\nwant: %v", got, c.valid)
 			}
 		})

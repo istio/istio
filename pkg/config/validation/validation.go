@@ -1405,35 +1405,88 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 		name := cfg.Name
 		namespace := cfg.Namespace
 
+		var errs error
 		if err := validateWorkloadSelector(in.Selector); err != nil {
-			return nil, err
+			errs = appendErrors(errs, err)
+		}
+
+		if in.Action == security_beta.AuthorizationPolicy_EXTERNAL {
+			if in.Rules == nil {
+				errs = appendErrors(errs, fmt.Errorf("EXTERNAL action without `rules` is meaningless as it will never be triggered, "+
+					"add an empty rule `{}` if you want it be triggered for every request"))
+			}
+			external := in.GetExternal()
+			if external == nil {
+				errs = appendErrors(errs, fmt.Errorf("the `external` field must be configued when using EXTERNAL action"))
+			} else {
+				if external.Http == nil && external.Tcp == nil {
+					errs = appendErrors(errs, fmt.Errorf("at least one of `external.http` and `external.tcp` must be configured"))
+				} else {
+					if external.Http != nil {
+						if err := security.ValidateServer(external.Http.Server, false); err != nil {
+							errs = appendErrors(errs, fmt.Errorf("invalid server URL %q: %v", external.Http.Server, err))
+						}
+					}
+					if external.Tcp != nil {
+						if err := security.ValidateServer(external.Tcp.Server, true); err != nil {
+							errs = appendErrors(errs, fmt.Errorf("invalid server URL %q: %v", external.Tcp.Server, err))
+						}
+					}
+				}
+				// TODO(yangminzhu): Add support for matching rule fields depending on istio_authn and jwt filter.
+				for _, rule := range in.GetRules() {
+					validateRule := func(invalid bool, name string) error {
+						if invalid {
+							return fmt.Errorf("%s is currently not supported with EXTERNAL action", name)
+						}
+						return nil
+					}
+					for _, from := range rule.GetFrom() {
+						if src := from.GetSource(); src != nil {
+							errs = appendErrors(errs, validateRule(len(src.Namespaces) != 0, "From.Namespaces"))
+							errs = appendErrors(errs, validateRule(len(src.NotNamespaces) != 0, "From.NotNamespaces"))
+							errs = appendErrors(errs, validateRule(len(src.Principals) != 0, "From.Principals"))
+							errs = appendErrors(errs, validateRule(len(src.NotPrincipals) != 0, "From.NotPrincipals"))
+							errs = appendErrors(errs, validateRule(len(src.RequestPrincipals) != 0, "From.RequestPrincipals"))
+							errs = appendErrors(errs, validateRule(len(src.NotRequestPrincipals) != 0, "From.NotRequestPrincipals"))
+						}
+					}
+					for _, when := range rule.GetWhen() {
+						errs = appendErrors(errs, validateRule(when.Key == "source.namespace", when.Key))
+						errs = appendErrors(errs, validateRule(when.Key == "source.principal", when.Key))
+						errs = appendErrors(errs, validateRule(strings.HasPrefix(when.Key, "request.auth."), when.Key))
+					}
+				}
+			}
+		} else if in.GetExternal() != nil {
+			errs = appendErrors(errs, fmt.Errorf("the `external` field must be used only with EXTERNAL action, found %s", in.Action))
 		}
 
 		if in.Action == security_beta.AuthorizationPolicy_DENY && in.Rules == nil {
-			return nil, fmt.Errorf("a deny policy without `rules` is meaningless and has no effect, found in %s.%s", name, namespace)
+			errs = appendErrors(errs, fmt.Errorf("DENY action without `rules` is meaningless as it will never be triggered and requests "+
+				"will never be denied"))
 		}
 
-		var errs error
 		for i, rule := range in.GetRules() {
 			if rule == nil {
-				errs = appendErrors(errs, fmt.Errorf("`rule` must not be null, found at rule %d in %s.%s", i, name, namespace))
+				errs = appendErrors(errs, fmt.Errorf("`rule` must not be nil, found at rule %d", i))
 				continue
 			}
 			if rule.From != nil && len(rule.From) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+				errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d", i))
 			}
 			for _, from := range rule.From {
 				if from == nil {
-					errs = appendErrors(errs, fmt.Errorf("`from` must not be null, found at rule %d in %s.%s", i, name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`from` must not be nil, found at rule %d", i))
 					continue
 				}
 				if from.Source == nil {
-					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d", i))
 				} else {
 					src := from.Source
 					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
 						len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 && len(src.NotIpBlocks) == 0 {
-						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d", i))
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotIpBlocks()))
@@ -1448,20 +1501,20 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				}
 			}
 			if rule.To != nil && len(rule.To) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("`to` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+				errs = appendErrors(errs, fmt.Errorf("`to` must not be empty, found at rule %d", i))
 			}
 			for _, to := range rule.To {
 				if to == nil {
-					errs = appendErrors(errs, fmt.Errorf("`to` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`to` must not be nil, found at rule %d", i))
 					continue
 				}
 				if to.Operation == nil {
-					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d", i))
 				} else {
 					op := to.Operation
 					if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 &&
 						len(op.NotPorts) == 0 && len(op.NotMethods) == 0 && len(op.NotPaths) == 0 && len(op.NotHosts) == 0 {
-						errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+						errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be empty, found at rule %d", i))
 					}
 					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetPorts()))
 					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetNotPorts()))
@@ -1478,23 +1531,23 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 			for _, condition := range rule.GetWhen() {
 				key := condition.GetKey()
 				if key == "" {
-					errs = appendErrors(errs, fmt.Errorf("`key` must not be empty, found in %s.%s", name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`key` must not be empty"))
 				} else {
 					if len(condition.GetValues()) == 0 && len(condition.GetNotValues()) == 0 {
-						errs = appendErrors(errs, fmt.Errorf("at least one of `values` or `notValues` must be set for key %s, found in %s.%s",
-							key, name, namespace))
+						errs = appendErrors(errs, fmt.Errorf("at least one of `values` or `notValues` must be set for key %s", key))
 					} else {
 						if err := security.ValidateAttribute(key, condition.GetValues()); err != nil {
-							errs = appendErrors(errs, fmt.Errorf("invalid `value` for `key` %s: %v, found in %s.%s", key, err, name, namespace))
+							errs = appendErrors(errs, fmt.Errorf("invalid `value` for `key` %s: %v", key, err))
 						}
 						if err := security.ValidateAttribute(key, condition.GetNotValues()); err != nil {
-							errs = appendErrors(errs, fmt.Errorf("invalid `notValue` for `key` %s: %v, found in %s.%s", key, err, name, namespace))
+							errs = appendErrors(errs, fmt.Errorf("invalid `notValue` for `key` %s: %v", key, err))
 						}
 					}
 				}
 			}
 		}
-		return nil, errs
+
+		return nil, multierror.Prefix(errs, fmt.Sprintf("invalid policy %s.%s:", name, namespace))
 	})
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.

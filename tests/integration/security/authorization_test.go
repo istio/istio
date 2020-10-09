@@ -1153,3 +1153,58 @@ func TestAuthorization_Audit(t *testing.T) {
 			rbacUtil.RunRBACTest(t, cases)
 		})
 }
+
+
+// TestAuthorization_External tests the authorization policy with action "EXTERNAL".
+func TestAuthorization_External(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.external-action").
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-external",
+				Inject: true,
+			})
+
+			var a, b echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				BuildOrFail(t)
+
+			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			// Currently the EXTERNAL action has no effect, will add real tests once ext_authz filter is deployed.
+			cases := []rbacUtil.TestCase{
+				newTestCase(b, "/external1", true),
+				newTestCase(b, "/external2", true),
+				newTestCase(b, "/other", true),
+			}
+
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+			}
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				return policy
+			}
+
+			policy := applyPolicy("testdata/authz/v1beta1-external.yaml.tmpl", ns)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}

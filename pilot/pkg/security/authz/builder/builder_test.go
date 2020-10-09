@@ -51,6 +51,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		name        string
 		tdBundle    trustdomain.Bundle
 		isVersion14 bool
+		isExternal  bool
 		input       string
 		want        []string
 	}{
@@ -76,6 +77,12 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "all-fields",
 			input: "all-fields-in.yaml",
 			want:  []string{"all-fields-out.yaml"},
+		},
+		{
+			name:       "action-external-HTTP-all-fields",
+			input:      "action-external-HTTP-all-fields-in.yaml",
+			isExternal: true,
+			want:       []string{"action-external-HTTP-all-fields-out.yaml"},
 		},
 		{
 			name:  "allow-all",
@@ -133,6 +140,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			option := Option{
 				IsIstioVersionGE15:     !tc.isVersion14,
 				IsOnInboundPassthrough: false,
+				IsExternal:             tc.isExternal,
 			}
 			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), option)
 			if g == nil {
@@ -146,10 +154,11 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 
 func TestGenerator_GenerateTCP(t *testing.T) {
 	testCases := []struct {
-		name     string
-		tdBundle trustdomain.Bundle
-		input    string
-		want     []string
+		name       string
+		tdBundle   trustdomain.Bundle
+		isExternal bool
+		input      string
+		want       []string
 	}{
 		{
 			name:  "action-allow-HTTP-for-TCP-filter",
@@ -166,6 +175,12 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			input: "action-audit-HTTP-for-TCP-filter-in.yaml",
 			want:  []string{"action-audit-HTTP-for-TCP-filter-out.yaml"},
 		},
+		{
+			name:       "action-external-TCP-all-fields",
+			input:      "action-external-TCP-all-fields-in.yaml",
+			isExternal: true,
+			want:       []string{"action-external-TCP-all-fields-out.yaml"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -173,6 +188,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			option := Option{
 				IsIstioVersionGE15:     true,
 				IsOnInboundPassthrough: false,
+				IsExternal:             tc.isExternal,
 			}
 			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), option)
 			if g == nil {

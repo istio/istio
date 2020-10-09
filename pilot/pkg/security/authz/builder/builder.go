@@ -39,11 +39,13 @@ var (
 type Option struct {
 	IsIstioVersionGE15     bool
 	IsOnInboundPassthrough bool
+	IsExternal             bool
 }
 
 // Builder builds Istio authorization policy to Envoy RBAC filter.
 type Builder struct {
 	trustDomainBundle trustdomain.Bundle
+	externalPolicies  []model.AuthorizationPolicy
 	denyPolicies      []model.AuthorizationPolicy
 	allowPolicies     []model.AuthorizationPolicy
 	auditPolicies     []model.AuthorizationPolicy
@@ -54,15 +56,25 @@ type Builder struct {
 // Returns nil if none of the authorization policies are enabled for the workload.
 func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, namespace string,
 	policies *model.AuthorizationPolicies, option Option) *Builder {
-	denyPolicies, allowPolicies, auditPolicies := policies.ListAuthorizationPolicies(namespace, workload)
-	if len(denyPolicies) == 0 && len(allowPolicies) == 0 && len(auditPolicies) == 0 {
+	ret := policies.ListAuthorizationPolicies(namespace, workload)
+	if option.IsExternal {
+		if len(ret.External) == 0 {
+			return nil
+		}
+		return &Builder{
+			trustDomainBundle: trustDomainBundle,
+			externalPolicies:  ret.External,
+			option:            option,
+		}
+	}
+	if len(ret.Deny) == 0 && len(ret.Allow) == 0 && len(ret.Audit) == 0 {
 		return nil
 	}
 	return &Builder{
 		trustDomainBundle: trustDomainBundle,
-		denyPolicies:      denyPolicies,
-		allowPolicies:     allowPolicies,
-		auditPolicies:     auditPolicies,
+		denyPolicies:      ret.Deny,
+		allowPolicies:     ret.Allow,
+		auditPolicies:     ret.Audit,
 		option:            option,
 	}
 }
@@ -71,14 +83,21 @@ func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, names
 func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 	var filters []*httppb.HttpFilter
 
-	if auditConfig := build(b.auditPolicies, b.trustDomainBundle, rbacpb.RBAC_LOG, false, b.option); auditConfig != nil {
-		filters = append(filters, createHTTPFilter(auditConfig))
-	}
-	if denyConfig := build(b.denyPolicies, b.trustDomainBundle, rbacpb.RBAC_DENY, false, b.option); denyConfig != nil {
-		filters = append(filters, createHTTPFilter(denyConfig))
-	}
-	if allowConfig := build(b.allowPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, false, b.option); allowConfig != nil {
-		filters = append(filters, createHTTPFilter(allowConfig))
+	if b.option.IsExternal {
+		if externalConfig := build(b.externalPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, false, b.option); externalConfig != nil {
+			filters = append(filters, createHTTPFilter(externalConfig))
+		}
+		// TODO(yangminzhu): Add ext_authz filter after Envoy is updated to latest that includes metadata matcher in ext_authz.
+	} else {
+		if auditConfig := build(b.auditPolicies, b.trustDomainBundle, rbacpb.RBAC_LOG, false, b.option); auditConfig != nil {
+			filters = append(filters, createHTTPFilter(auditConfig))
+		}
+		if denyConfig := build(b.denyPolicies, b.trustDomainBundle, rbacpb.RBAC_DENY, false, b.option); denyConfig != nil {
+			filters = append(filters, createHTTPFilter(denyConfig))
+		}
+		if allowConfig := build(b.allowPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, false, b.option); allowConfig != nil {
+			filters = append(filters, createHTTPFilter(allowConfig))
+		}
 	}
 
 	return filters
@@ -88,21 +107,27 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 func (b Builder) BuildTCP() []*tcppb.Filter {
 	var filters []*tcppb.Filter
 
-	if auditConfig := build(b.auditPolicies, b.trustDomainBundle, rbacpb.RBAC_LOG, true, b.option); auditConfig != nil {
-		filters = append(filters, createTCPFilter(auditConfig))
-	}
-	if denyConfig := build(b.denyPolicies, b.trustDomainBundle, rbacpb.RBAC_DENY, true, b.option); denyConfig != nil {
-		filters = append(filters, createTCPFilter(denyConfig))
-	}
-	if allowConfig := build(b.allowPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, true, b.option); allowConfig != nil {
-		filters = append(filters, createTCPFilter(allowConfig))
+	if b.option.IsExternal {
+		if externalConfig := build(b.externalPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, true, b.option); externalConfig != nil {
+			filters = append(filters, createTCPFilter(externalConfig))
+		}
+		// TODO(yangminzhu): Add ext_authz filter after Envoy is updated to latest that includes metadata matcher in ext_authz.
+	} else {
+		if auditConfig := build(b.auditPolicies, b.trustDomainBundle, rbacpb.RBAC_LOG, true, b.option); auditConfig != nil {
+			filters = append(filters, createTCPFilter(auditConfig))
+		}
+		if denyConfig := build(b.denyPolicies, b.trustDomainBundle, rbacpb.RBAC_DENY, true, b.option); denyConfig != nil {
+			filters = append(filters, createTCPFilter(denyConfig))
+		}
+		if allowConfig := build(b.allowPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, true, b.option); allowConfig != nil {
+			filters = append(filters, createTCPFilter(allowConfig))
+		}
 	}
 
 	return filters
 }
 
-func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle,
-	action rbacpb.RBAC_Action, forTCP bool, option Option) *rbachttppb.RBAC {
+func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle, action rbacpb.RBAC_Action, forTCP bool, option Option) *rbachttppb.RBAC {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -115,6 +140,10 @@ func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle,
 	for _, policy := range policies {
 		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", policy.Namespace, policy.Name, i)
+			if option.IsExternal {
+				// The name will later be configured in the ext_authz metadata matcher to retrieve the matching result.
+				name = fmt.Sprintf("ext-authz-matching-%s", name)
+			}
 			if rule == nil {
 				authzLog.Errorf("skipped nil rule %s", name)
 				continue
@@ -127,13 +156,11 @@ func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle,
 			m.MigrateTrustDomain(tdBundle)
 			generated, err := m.Generate(forTCP, action)
 			if err != nil {
-
 				if forTCP && option.IsOnInboundPassthrough {
-					authzLog.Debugf("On TCP Inbound Passthroush filter chain, skipped rule %s: %v", name, err)
+					authzLog.Debugf("On TCP inbound passthrough filter chain, skipped rule %s: %v", name, err)
 				} else {
 					authzLog.Errorf("skipped rule %s: %v", name, err)
 				}
-
 				continue
 			}
 			if generated != nil {
@@ -143,6 +170,12 @@ func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle,
 		}
 	}
 
+	if option.IsExternal {
+		// Add the RBAC filter in shadow mode so that it only evaluates the matching rules for EXTERNAL action and
+		// stores the matching result into the dynamic metadata (keyed by policy name). The RBAC filter in shadow mode
+		// will not allow or deny the requests.
+		return &rbachttppb.RBAC{ShadowRules: rules}
+	}
 	return &rbachttppb.RBAC{Rules: rules}
 }
 
@@ -162,8 +195,9 @@ func createTCPFilter(config *rbachttppb.RBAC) *tcppb.Filter {
 		return nil
 	}
 	rbacConfig := &rbactcppb.RBAC{
-		Rules:      config.Rules,
-		StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
+		Rules:       config.Rules,
+		ShadowRules: config.ShadowRules,
+		StatPrefix:  authzmodel.RBACTCPFilterStatPrefix,
 	}
 	return &tcppb.Filter{
 		Name:       authzmodel.RBACTCPFilterName,

@@ -1,0 +1,171 @@
+name: envoy.filters.network.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
+  shadowRules:
+    policies:
+      ext-authz-matching-ns[foo]-policy[httpbin-1]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 5.6.0.0
+                    prefixLen: 16
+            - notId:
+                orIds:
+                  ids:
+                  - sourceIp:
+                      addressPrefix: 9.0.0.1
+                      prefixLen: 32
+                  - sourceIp:
+                      addressPrefix: 9.2.0.0
+                      prefixLen: 16
+      ext-authz-matching-ns[foo]-policy[httpbin-1]-rule[1]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationIp:
+                    addressPrefix: 10.10.10.10
+                    prefixLen: 32
+                - destinationIp:
+                    addressPrefix: 192.168.10.0
+                    prefixLen: 24
+            - notRule:
+                orRules:
+                  rules:
+                  - destinationIp:
+                      addressPrefix: 90.10.10.10
+                      prefixLen: 32
+                  - destinationIp:
+                      addressPrefix: 90.168.10.0
+                      prefixLen: 24
+            - orRules:
+                rules:
+                - destinationPort: 91
+                - destinationPort: 92
+            - notRule:
+                orRules:
+                  rules:
+                  - destinationPort: 9001
+                  - destinationPort: 9002
+            - orRules:
+                rules:
+                - requestedServerName:
+                    exact: exact.com
+                - requestedServerName:
+                    suffix: .suffix.com
+                - requestedServerName:
+                    prefix: prefix.
+                - requestedServerName:
+                    safeRegex:
+                      googleRe2: {}
+                      regex: .+
+            - notRule:
+                orRules:
+                  rules:
+                  - requestedServerName:
+                      exact: not-exact.com
+                  - requestedServerName:
+                      suffix: .not-suffix.com
+                  - requestedServerName:
+                      prefix: not-prefix.
+                  - requestedServerName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
+            - orRules:
+                rules:
+                - metadata:
+                    filter: envoy.filters.a.b
+                    path:
+                    - key: c
+                    value:
+                      stringMatch:
+                        exact: exact
+                - metadata:
+                    filter: envoy.filters.a.b
+                    path:
+                    - key: c
+                    value:
+                      stringMatch:
+                        prefix: prefix-
+                - metadata:
+                    filter: envoy.filters.a.b
+                    path:
+                    - key: c
+                    value:
+                      stringMatch:
+                        suffix: -suffix
+                - metadata:
+                    filter: envoy.filters.a.b
+                    path:
+                    - key: c
+                    value:
+                      stringMatch:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
+            - notRule:
+                orRules:
+                  rules:
+                  - metadata:
+                      filter: envoy.filters.a.b
+                      path:
+                      - key: c
+                      value:
+                        stringMatch:
+                          exact: not-exact
+                  - metadata:
+                      filter: envoy.filters.a.b
+                      path:
+                      - key: c
+                      value:
+                        stringMatch:
+                          prefix: not-prefix-
+                  - metadata:
+                      filter: envoy.filters.a.b
+                      path:
+                      - key: c
+                      value:
+                        stringMatch:
+                          suffix: -not-suffix
+                  - metadata:
+                      filter: envoy.filters.a.b
+                      path:
+                      - key: c
+                      value:
+                        stringMatch:
+                          safeRegex:
+                            googleRe2: {}
+                            regex: .+
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - sourceIp:
+                    addressPrefix: 10.10.10.10
+                    prefixLen: 32
+                - sourceIp:
+                    addressPrefix: 192.168.10.0
+                    prefixLen: 24
+            - notId:
+                orIds:
+                  ids:
+                  - sourceIp:
+                      addressPrefix: 90.10.10.10
+                      prefixLen: 32
+                  - sourceIp:
+                      addressPrefix: 90.168.10.0
+                      prefixLen: 24
+  statPrefix: tcp.

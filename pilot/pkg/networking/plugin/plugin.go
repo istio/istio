@@ -20,9 +20,11 @@ import (
 )
 
 const (
+	// AuthzExternal is the name of the authorization plugin for action EXTERNAL passed through the command line
+	AuthzExternal = "authz-external"
 	// Authn is the name of the authentication plugin passed through the command line
 	Authn = "authn"
-	// Authz is the name of the rbac plugin passed through the command line
+	// Authz is the name of the authorization plugin for action ALLOW, DENY and AUDIT passed through the command line
 	Authz = "authz"
 	// Health is the name of the health plugin passed through the command line
 	Health = "health"

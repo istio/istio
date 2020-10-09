@@ -30,45 +30,54 @@ var (
 	authzLog = log.RegisterScope("authorization", "Istio Authorization Policy", 0)
 )
 
+type PluginKind int
+
+const (
+	Default PluginKind = iota
+	External
+)
+
 // Plugin implements Istio Authorization
-type Plugin struct{}
+type Plugin struct {
+	kind PluginKind
+}
 
 // NewPlugin returns an instance of the authorization plugin
-func NewPlugin() plugin.Plugin {
-	return Plugin{}
+func NewPlugin(kind PluginKind) plugin.Plugin {
+	return Plugin{kind: kind}
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
-func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+func (p Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.Router {
 		// Only care about router.
 		return nil
 	}
 
-	buildFilter(in, mutable, false)
+	p.buildFilter(in, mutable, false)
 	return nil
 }
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
+func (p Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters or add more stuff to the HTTP connection manager
 // on the inbound path
-func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+func (p Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
 	}
 
-	buildFilter(in, mutable, false)
+	p.buildFilter(in, mutable, false)
 	return nil
 }
 
-func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isOnInboundPassthrough bool) {
+func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isOnInboundPassthrough bool) {
 	if in.Push == nil || in.Push.AuthzPolicies == nil {
 		authzLog.Debugf("no authorization policy in push context")
 		return
@@ -82,6 +91,7 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isO
 	option := builder.Option{
 		IsIstioVersionGE15:     util.IsIstioVersionGE15(in.Node),
 		IsOnInboundPassthrough: isOnInboundPassthrough,
+		IsExternal:             p.kind == External,
 	}
 
 	b := builder.New(tdBundle, workload, namespace, in.Push.AuthzPolicies, option)
@@ -152,17 +162,17 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isO
 }
 
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
-func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+func (p Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
 	}
 
-	buildFilter(in, mutable, true)
+	p.buildFilter(in, mutable, true)
 	return nil
 }
 
 // OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
-func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
+func (p Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return nil
 }

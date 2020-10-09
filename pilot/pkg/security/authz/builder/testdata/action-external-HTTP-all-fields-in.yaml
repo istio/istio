@@ -1,0 +1,48 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-1
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  action: EXTERNAL
+  external:
+    http:
+      server: "http://ext-authz.foo.svc.cluster.local/"
+  rules:
+    - from:
+        - source:
+            ipBlocks: ["1.2.3.4", "5.6.0.0/16"]
+            notIpBlocks: ["9.0.0.1", "9.2.0.0/16"]
+      to:
+        - operation:
+            methods: ["method", "method-prefix-*", "*-suffix-method", "*"]
+            hosts: ["exact.com", "*.suffix.com", "prefix.*", "*"]
+            ports: ["80", "90"]
+            paths: ["/exact", "/prefix/*", "*/suffix", "*"]
+            notMethods: ["not-method", "not-method-prefix-*", "*-not-suffix-method", "*"]
+            notHosts: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*"]
+            notPorts: ["8000", "9000"]
+            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*"]
+      when:
+        - key: "request.headers[X-header]"
+          values: ["header", "header-prefix-*", "*-suffix-header", "*"]
+          notValues: ["not-header", "not-header-prefix-*", "*-not-suffix-header", "*"]
+        - key: "source.ip"
+          values: ["10.10.10.10", "192.168.10.0/24"]
+          notValues: ["90.10.10.10", "90.168.10.0/24"]
+        - key: "destination.ip"
+          values: ["10.10.10.10", "192.168.10.0/24"]
+          notValues: ["90.10.10.10", "90.168.10.0/24"]
+        - key: "destination.port"
+          values: ["91", "92"]
+          notValues: ["9001", "9002"]
+        - key: "connection.sni"
+          values: ["exact.com", "*.suffix.com", "prefix.*", "*"]
+          notValues: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*"]
+        - key: "experimental.envoy.filters.a.b[c]"
+          values: ["exact", "prefix-*", "*-suffix", "*"]
+          notValues: ["not-exact", "not-prefix-*", "*-not-suffix", "*"]

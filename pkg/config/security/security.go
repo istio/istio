@@ -178,3 +178,26 @@ func validateMapKey(key string) error {
 	}
 	return fmt.Errorf("bad key (%s): should have format a[b]", key)
 }
+
+func ValidateServer(server string, isTCP bool) error {
+	u, err := url.Parse(server)
+	if err != nil {
+		return err
+	}
+	switch u.Scheme {
+	case "grpc":
+	case "http", "https":
+		if isTCP {
+			return fmt.Errorf("scheme for TCP filter chain must be grpc, found %s", u.Scheme)
+		}
+	default:
+		return fmt.Errorf("scheme for HTTP filter chain must be http, https or grpc, found %s", u.Scheme)
+	}
+	if u.Fragment != "" {
+		return fmt.Errorf("must not include fragment, found %s", u.Fragment)
+	}
+	if u.RawQuery != "" {
+		return fmt.Errorf("must not include query, found %s", u.RawQuery)
+	}
+	return nil
+}

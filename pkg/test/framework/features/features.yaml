@@ -88,6 +88,7 @@ features:
       jwt-token:
       workload-selector:
       deny-action:
+      external-action:
       negative-match:
       ingress-gateway:
       egress-gateway:

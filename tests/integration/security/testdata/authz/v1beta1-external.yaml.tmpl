@@ -1,0 +1,21 @@
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-b-external
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "b"
+  action: EXTERNAL
+  external:
+    http:
+      server: "http://ext-authz.foo.svc.cluster.local/"
+  rules:
+  - to:
+    - operation:
+        paths: ["/external1"]
+  - to:
+    - operation:
+        paths: ["/external2"]
+---

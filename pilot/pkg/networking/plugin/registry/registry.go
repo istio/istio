@@ -24,8 +24,11 @@ import (
 )
 
 var availablePlugins = map[string]plugin.Plugin{
-	plugin.Authn: authn.NewPlugin(),
-	plugin.Authz: authz.NewPlugin(),
+	// Currently the ext_authz filter is added in front of other security filters.
+	// TODO(yangminzhu): Probably better to refactor to use a single security plugin for all security filters?
+	plugin.AuthzExternal: authz.NewPlugin(authz.External),
+	plugin.Authn:         authn.NewPlugin(),
+	plugin.Authz:         authz.NewPlugin(authz.Default),
 }
 
 // NewPlugins returns a slice of default Plugins.
