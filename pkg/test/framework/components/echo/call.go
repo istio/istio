@@ -83,6 +83,18 @@ type CallOptions struct {
 	Validators Validators
 }
 
+// CallRetryOptions returns the default call retry options as specified in command-line flags.
+func CallRetryOptions() []retry.Option {
+	return []retry.Option{retry.Timeout(callTimeout), retry.Delay(callDelay)}
+}
+
+// WithRetry returns a copy of this CallOptions with CallRetryOptions applied.
+func (o CallOptions) WithRetry() CallOptions {
+	out := o
+	out.RetryOptions = CallRetryOptions()
+	return out
+}
+
 // Validator validates that the given responses are expected.
 type Validator func(client.ParsedResponses) error
 
