@@ -1,0 +1,54 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter-update
+spec:
+  workloadSelector:
+    labels:
+      app: server
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: envoy.http_connection_manager
+              subFilter:
+                name: envoy.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.stats
+          typed_config:
+            '@type': type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                configuration:
+                  '@type': type.googleapis.com/google.protobuf.StringValue
+                  value: |
+                    {
+                      "debug": "false",
+                      "stat_prefix": "istio",
+                      "metrics": [
+                       {
+                         "name": "requests_total",
+                         "dimensions": {
+                           "response_code": "istio_responseClass"
+                         }
+                       },
+                      {
+                        "name": "requests_total",
+                        "dimensions": {
+                          "request_operation": "istio_operationId"
+                        }
+                      }]
+                    }
+                root_id: stats_inbound
+                vm_config:
+                  code:
+                    local:
+                      inline_string: envoy.wasm.stats
+                  runtime: envoy.wasm.runtime.null
+                  vm_id: stats_inbound
