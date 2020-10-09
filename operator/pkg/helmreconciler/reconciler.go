@@ -474,6 +474,15 @@ func (h *HelmReconciler) reportOwnedObjectCountMetrics() {
 	h.countLock.Lock()
 	defer h.countLock.Unlock()
 	for gvk, cnt := range h.ownedObjectsCount {
+		// CustomResourceDefinition is shared across different CRDs. So
+		// they are not "owned" by any one of them. Hence we don't need
+		// namespaced name and revision of CR.
+		if gvk.Kind == "CustomResourceDefinition" {
+			metrics.OperatorResourceCount.
+				With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
+				Record(float64(cnt))
+			continue
+		}
 		metrics.OperatorResourceCount.
 			With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
 			With(metrics.CRNamespacedNameLabel.Value(util.NamespacedIOPName(h.iop))).
