@@ -325,7 +325,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperatorSpec, error) {
 	profileYAML, err := helm.GetProfileYAML(iop.Spec.InstallPackagePath, iop.Spec.Profile)
 	if err != nil {
-		metrics.CountCRMergeFail(metrics.CannotFindProfileError)
+		metrics.CountCRMergeFail(metrics.CannotFetchProfileError)
 		return nil, err
 	}
 

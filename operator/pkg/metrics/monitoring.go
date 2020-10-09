@@ -57,8 +57,8 @@ var (
 type MergeErrorType string
 
 const (
-	// CannotFindProfileError occurs when profile cannot be found.
-	CannotFindProfileError MergeErrorType = "fetch_profile"
+	// CannotFetchProfileError occurs when profile cannot be found.
+	CannotFetchProfileError MergeErrorType = "cannot_fetch_profile"
 
 	// OverlayError overlaying YAMLs to combine profile, user
 	// defined settings in CR, Hub-tag etc fails.
@@ -69,11 +69,11 @@ const (
 	IOPFormatError MergeErrorType = "iop_format"
 
 	// TranslateValuesError occurs when translating from legacy API fails.
-	TranslateValuesError MergeErrorType = "translate"
+	TranslateValuesError MergeErrorType = "translate_values"
 
 	// InternalYAMLParseError occurs when spec section in merged CR
 	// cannot be accessed for some reason (either missing or multiple).
-	InternalYAMLParseError MergeErrorType = "yaml_parse"
+	InternalYAMLParseError MergeErrorType = "internal_yaml_parse"
 )
 
 // RenderErrorType describes the class of errors that could
@@ -81,15 +81,15 @@ const (
 type RenderErrorType string
 
 const (
-	RenderNotStartedError RenderErrorType = "not_started"
+	RenderNotStartedError RenderErrorType = "render_not_started"
 
 	// HelmTranslateIOPToValuesError describes render error where renderer for
 	// a component cannot create values.yaml tree from given CR.
-	HelmTranslateIOPToValuesError RenderErrorType = "helm_translate_iop"
+	HelmTranslateIOPToValuesError RenderErrorType = "helm_translate_iop_to_values"
 
 	// HelmChartRenderError describes error where Helm charts cannot be rendered
 	// for the generated values.yaml tree.
-	HelmChartRenderError RenderErrorType = "helm_render"
+	HelmChartRenderError RenderErrorType = "helm_chare_render"
 
 	// K8SSettingsOverlayError describes the K8s overlay error after
 	// rendering Helm charts successfully.

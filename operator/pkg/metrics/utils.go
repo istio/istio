@@ -82,7 +82,7 @@ func CountResourceUpdates(name, revision, resourceKind string) {
 }
 
 // CountResourcePrunes increments the number of K8S resources
-// of a particular kind pruned by Operator.
+// of a particular kind pruned by Operator
 func CountResourcePrunes(name, revision, resourceKind string) {
 	incrementCount(name, revision, resourceKind, OperatorResourcePrunes)
 }
