@@ -68,8 +68,11 @@ func CountResourceCreations(name, revision, resourceKind string) {
 
 // CountResourceDeletions increments the number of K8S resources
 // of a particular kind deleted by Operator for a CR and revision
-func CountResourceDeletions(name, revision, resourceKind string) {
-	incrementCount(name, revision, resourceKind, OperatorResourceDeletions)
+func CountResourceDeletions(name, revision string) {
+	OperatorResourceDeletions.
+		With(CRNamespacedNameLabel.Value(name)).
+		With(CRRevisionLabel.Value(revision)).
+		Increment()
 }
 
 // CountResourceUpdates increments the number of K8S resources

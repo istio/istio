@@ -150,10 +150,9 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 				}
 			} else {
 				objGvk := o.GroupVersionKind()
-				gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
 				revision := h.iop.Spec.Revision
 				iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
-				metrics.CountResourceDeletions(iopName, revision, gvkStr)
+				metrics.CountResourceDeletions(iopName, revision)
 				h.addPrunedKind(objGvk)
 				h.changeResourceOwnedCount(o.GroupVersionKind(), -1)
 			}
@@ -315,7 +314,6 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		}
 		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		objGvk := o.GroupVersionKind()
-		gvkStr := fmt.Sprintf("%s/%s/%s", objGvk.Group, objGvk.Version, objGvk.Kind)
 		revision := h.iop.Spec.Revision
 		iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
 		if err != nil {
@@ -330,7 +328,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		if !all {
 			h.removeFromObjectCache(componentName, oh)
 		}
-		metrics.CountResourceDeletions(iopName, revision, gvkStr)
+		metrics.CountResourceDeletions(iopName, revision)
 		h.addPrunedKind(objGvk)
 		h.changeResourceOwnedCount(objGvk, -1)
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
