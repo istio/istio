@@ -27,7 +27,7 @@ func NewCredFetcher(credtype, trustdomain, jwtPath string) (security.CredFetcher
 	case security.GCE:
 		return plugin.CreateGCEPlugin(trustdomain, jwtPath), nil
 	case security.Mock: // for test only
-		return plugin.CreateMockPlugin(), nil
+		return plugin.CreateMockPlugin("test_token"), nil
 	default:
 		return nil, fmt.Errorf("invalid credential fetcher type %s", credtype)
 	}

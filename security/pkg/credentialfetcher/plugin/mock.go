@@ -26,18 +26,21 @@ var (
 
 // The plugin object.
 type MockPlugin struct {
+	token string
 }
 
 // CreateMockPlugin creates a mock credential fetcher plugin. Return the pointer to the created plugin.
-func CreateMockPlugin() *MockPlugin {
-	p := &MockPlugin{}
+func CreateMockPlugin(token string) *MockPlugin {
+	p := &MockPlugin{
+		token: token,
+	}
 	return p
 }
 
 // GetPlatformCredential returns a constant token string.
 func (p *MockPlugin) GetPlatformCredential() (string, error) {
 	mockcredLog.Debugf("mock plugin returns a constant token.")
-	return "test_token", nil
+	return p.token, nil
 }
 
 // GetType returns credential fetcher type.
