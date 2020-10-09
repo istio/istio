@@ -28,11 +28,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/common"
@@ -48,6 +50,7 @@ import (
 
 const (
 	bugReportDefaultTimeout = 30 * time.Minute
+	istioRevisionLabel      = "istio.io/rev"
 )
 
 var (
@@ -131,13 +134,15 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
+	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace)
+
 	log.Infof("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := filter.GetMatchingPaths(config, resources)
 	if err != nil {
 		return err
 	}
 
-	common.LogAndPrintf("Fetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(client, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -172,6 +177,80 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	}
 	common.LogAndPrintf("Done.\n")
 	return nil
+}
+
+func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
+	text := ""
+	revisions := getIstioRevisions(resources)
+	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
+	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
+	for rev, ver := range istioVersions {
+		text += fmt.Sprintf("Revision %s:\n%s\n\n", rev, ver)
+	}
+	text += "The following proxy revisions/versions were found in the cluster:\n"
+	for rev, ver := range proxyVersions {
+		text += fmt.Sprintf("Revision %s: Versions {%s}\n", rev, strings.Join(ver, ", "))
+	}
+	common.LogAndPrintf(text)
+	writeFile(filepath.Join(archive.OutputRootDir(tempDir), "versions"), text)
+}
+
+// getIstioRevisions returns a slice with all Istio revisions detected in the cluster.
+func getIstioRevisions(resources *cluster2.Resources) []string {
+	revMap := make(map[string]struct{})
+	for _, podLabels := range resources.Labels {
+		for label, value := range podLabels {
+			if label == istioRevisionLabel {
+				revMap[value] = struct{}{}
+			}
+		}
+	}
+	var out []string
+	for k := range revMap {
+		out = append(out, k)
+	}
+	return out
+}
+
+// getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
+// slice of versions for proxies. Any errors are embedded in the revision strings.
+func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
+	istioVersions := make(map[string]string)
+	proxyVersionsMap := make(map[string]map[string]struct{})
+	proxyVersions := make(map[string][]string)
+	for _, revision := range revisions {
+		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
+		proxyInfo, err := proxy.GetProxyInfo(kubeconfig, configContext, revision, istioNamespace)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		for _, pi := range *proxyInfo {
+			if proxyVersionsMap[revision] == nil {
+				proxyVersionsMap[revision] = make(map[string]struct{})
+			}
+			proxyVersionsMap[revision][pi.IstioVersion] = struct{}{}
+		}
+	}
+	for revision, vmap := range proxyVersionsMap {
+		for version := range vmap {
+			proxyVersions[revision] = append(proxyVersions[revision], version)
+		}
+	}
+	return istioVersions, proxyVersions
+}
+
+func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string) string {
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	if err != nil {
+		return err.Error()
+	}
+
+	versions, err := kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
+	if err != nil {
+		return err.Error()
+	}
+	return pretty.Sprint(versions)
 }
 
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.
