@@ -51,9 +51,11 @@ func (c *Controller) reloadNetworkLookup() {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 	// also need to recompute gateways
+	c.Lock()
 	for _, svc := range c.servicesMap {
 		c.extractGatewaysFromService(svc)
 	}
+	c.Unlock()
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup
@@ -130,8 +132,6 @@ func (c *Controller) NetworkGateways() map[string][]*model.Gateway {
 // extractGatewaysFromService checks if the service is a cross-network gateway
 // and if it is, updates the controller's gateways.
 func (c *Controller) extractGatewaysFromService(svc *model.Service) {
-	c.Lock()
-	defer c.Unlock()
 	svc.Mutex.RLock()
 	defer svc.Mutex.RUnlock()
 
