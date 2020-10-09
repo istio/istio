@@ -274,6 +274,11 @@ spec:
 			},
 		)
 
+		callCount := 100
+		errorThresholdPct := 10.0
+		if apps.PodB.Clusters().IsMulticluster() {
+			callCount = 200
+		}
 		splits := []map[string]int{
 			{
 				PodBSvc:  50,
@@ -312,19 +317,20 @@ spec:
       weight: %d
 `, split[PodBSvc], split[NakedSvc], split[VMSvc]),
 				call: func() (echoclient.ParsedResponses, error) {
-					return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Count: 100})
+					return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Count: callCount})
 				},
 				validator: func(responses echoclient.ParsedResponses) error {
 					if err := responses.CheckOK(); err != nil {
 						return err
 					}
-					errorThreshold := 10
-					for host, exp := range split {
+					for host, expPct := range split {
 						hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
 							return strings.HasPrefix(r.Hostname, host+"-")
 						})
-						if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
-							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
+						expected := int(float64(expPct) / 100.0 * float64(callCount))
+						threshold := int((errorThresholdPct / 100.0) * float64(callCount))
+						if !AlmostEquals(len(hostResponses), expected, threshold) {
+							return fmt.Errorf("expected %v calls to %q, got %v", expected, host, len(hostResponses))
 						}
 
 						hostDestinations := apps.All.Match(echo.Service(host))
