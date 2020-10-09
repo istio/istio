@@ -19,7 +19,7 @@ import (
 )
 
 // OperatorVersionLabel describes version of running binary
-var OperatorVersionLabel = monitoring.MustCreateLabel("v")
+var OperatorVersionLabel = monitoring.MustCreateLabel("version")
 
 // MergeErrorLabel describes the type of merge error
 var MergeErrorLabel = monitoring.MustCreateLabel("error_type")
