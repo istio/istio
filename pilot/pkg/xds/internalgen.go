@@ -93,7 +93,9 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 }
 
 func (sg *InternalGen) Run(stop <-chan struct{}) {
-	go sg.periodicWorkloadEntryCleanup(stop)
+	if sg.Store != nil {
+		go sg.periodicWorkloadEntryCleanup(stop)
+	}
 }
 
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {

@@ -768,6 +768,7 @@ func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Reque
 		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
 		return
 	}
+	// TODO put this in agent instead of pilot
 	con.ForceClose()
 	_, _ = w.Write([]byte("OK"))
 }
