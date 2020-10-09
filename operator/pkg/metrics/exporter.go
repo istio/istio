@@ -24,9 +24,9 @@ import (
 )
 
 // RegisterOperatorMetricsServer registers HTTP endpoint to serve
-// custom operator metrics.This is different endpoint that the one
+// custom operator metrics. This is different endpoint that the one
 // provided by controller-runtime (which contains metrics like reconcile
-// time, request latency and so on)
+// time, request latency and so on).
 func RegisterOperatorMetricsServer(mgr manager.Manager) error {
 	exporter, err := ocprom.NewExporter(ocprom.Options{
 		Registry: prometheus.DefaultRegisterer.(*prometheus.Registry),

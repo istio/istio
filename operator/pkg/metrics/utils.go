@@ -23,7 +23,7 @@ import (
 )
 
 // CountCRMergeFail increments the count of CR merge failure
-// for the given merge error type
+// for the given merge error type.
 func CountCRMergeFail(reason MergeErrorType) {
 	CRMergeFailures.
 		With(MergeErrorLabel.Value(string(reason))).
@@ -31,7 +31,7 @@ func CountCRMergeFail(reason MergeErrorType) {
 }
 
 // CountManifestRenderError increments the count of manifest
-// render errors
+// render errors.
 func CountManifestRenderError(cn name.ComponentName, reason RenderErrorType) {
 	ManifestRenderErrors.
 		With(ComponentNameLabel.Value(string(cn))).
@@ -40,7 +40,7 @@ func CountManifestRenderError(cn name.ComponentName, reason RenderErrorType) {
 }
 
 // CountCRFetchFail increments the count of CR fetch failure
-// for a given name and the error status
+// for a given name and the error status.
 func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
 	errorReason := string(reason)
 	if reason == metav1.StatusReasonUnknown {
@@ -53,7 +53,7 @@ func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
 }
 
 // CountManifestRender increments the count of rendered
-// manifest from IstioOperator CR by component name
+// manifest from IstioOperator CR by component name.
 func CountManifestRender(name name.ComponentName) {
 	RenderManifestCount.
 		With(ComponentNameLabel.Value(string(name))).
@@ -61,13 +61,13 @@ func CountManifestRender(name name.ComponentName) {
 }
 
 // CountResourceCreations increments the number of K8S resources
-// of a particular kind created by Operator for a CR and revision
+// of a particular kind created by Operator for a CR and revision.
 func CountResourceCreations(name, revision, resourceKind string) {
 	incrementCount(name, revision, resourceKind, OperatorResourceCreations)
 }
 
 // CountResourceDeletions increments the number of K8S resources
-// of a particular kind deleted by Operator for a CR and revision
+// of a particular kind deleted by Operator for a CR and revision.
 func CountResourceDeletions(name, revision string) {
 	OperatorResourceDeletions.
 		With(CRNamespacedNameLabel.Value(name)).
@@ -76,13 +76,13 @@ func CountResourceDeletions(name, revision string) {
 }
 
 // CountResourceUpdates increments the number of K8S resources
-// of a particular kind updated by Operator for a CR and revision
+// of a particular kind updated by Operator for a CR and revision.
 func CountResourceUpdates(name, revision, resourceKind string) {
 	incrementCount(name, revision, resourceKind, OperatorResourceUpdates)
 }
 
 // CountResourcePrunes increments the number of K8S resources
-// of a particular kind pruned by Operator
+// of a particular kind pruned by Operator.
 func CountResourcePrunes(name, revision, resourceKind string) {
 	incrementCount(name, revision, resourceKind, OperatorResourcePrunes)
 }

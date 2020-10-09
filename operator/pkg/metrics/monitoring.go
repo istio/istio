@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package metrics defines metrics and monitoring functionality
+// used throughout operator.
 package metrics
 
 import (
