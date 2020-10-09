@@ -475,9 +475,9 @@ func (h *HelmReconciler) reportOwnedObjectCountMetrics() {
 	defer h.countLock.Unlock()
 	for gvk, cnt := range h.ownedObjectsCount {
 		metrics.OperatorResourceCount.
-			With(metrics.ResourceKindLabel.Value(util.GetGvkString(gvk))).
-			With(metrics.CRNamespacedNameLabel.Value(util.GetNamespacedIOPName(h.iop))).
-			With(metrics.CRRevisionLabel.Value(util.ExtractIOPRevision(h.iop))).
+			With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
+			With(metrics.CRNamespacedNameLabel.Value(util.NamespacedIOPName(h.iop))).
+			With(metrics.CRRevisionLabel.Value(util.Revision(h.iop))).
 			Record(float64(cnt))
 	}
 }
@@ -487,9 +487,9 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 	defer h.countLock.Unlock()
 	for gvk := range h.prunedKindSet {
 		metrics.OperatorResourcePrunes.
-			With(metrics.ResourceKindLabel.Value(util.GetGvkString(gvk))).
-			With(metrics.CRNamespacedNameLabel.Value(util.GetNamespacedIOPName(h.iop))).
-			With(metrics.CRRevisionLabel.Value(util.ExtractIOPRevision(h.iop))).
+			With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
+			With(metrics.CRNamespacedNameLabel.Value(util.NamespacedIOPName(h.iop))).
+			With(metrics.CRRevisionLabel.Value(util.Revision(h.iop))).
 			Increment()
 	}
 }

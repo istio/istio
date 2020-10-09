@@ -167,9 +167,9 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	}
 
 	objGvk := obj.GroupVersionKind()
-	gvkStr := util.GetGvkString(objGvk)
-	iopName := util.GetNamespacedIOPName(h.iop)
-	revision := util.ExtractIOPRevision(h.iop)
+	gvkStr := util.GVKString(objGvk)
+	iopName := util.NamespacedIOPName(h.iop)
+	revision := util.Revision(h.iop)
 
 	receiver := &unstructured.Unstructured{}
 	receiver.SetGroupVersionKind(objGvk)

@@ -66,22 +66,22 @@ func DetectSupportedJWTPolicy(config *rest.Config) (JWTPolicy, error) {
 	return FirstPartyJWT, nil
 }
 
-// GetGvkString differs from default representation. Each one
+// GVKString differs from default representation. Each one
 // is separated by slashes.
-func GetGvkString(gvk schema.GroupVersionKind) string {
+func GVKString(gvk schema.GroupVersionKind) string {
 	return fmt.Sprintf("%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind)
 }
 
-// GetNamespacedIOPName returns name of the IstioOperator CR with namespace
-func GetNamespacedIOPName(iop *v1alpha1.IstioOperator) string {
+// NamespacedIOPName returns name of the IstioOperator CR with namespace
+func NamespacedIOPName(iop *v1alpha1.IstioOperator) string {
 	if iop == nil {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
 }
 
-// ExtractIOPRevision returns the revision in IstioOperatorSpec if any
-func ExtractIOPRevision(iop *v1alpha1.IstioOperator) string {
+// Revision returns the revision in IstioOperatorSpec if any
+func Revision(iop *v1alpha1.IstioOperator) string {
 	if iop == nil || iop.Spec == nil {
 		return ""
 	}
