@@ -336,43 +336,43 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 	if hub != "" && hub != "unknown" && tag != "" && tag != "unknown" {
 		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
-			metrics.CountCRMergeFail(metrics.CannotMergeProfileWithHubTagError)
+			metrics.CountCRMergeFail(metrics.OverlayError)
 			return nil, err
 		}
 		profileYAML, err = util.OverlayYAML(profileYAML, buildHubTagOverlayYAML)
 		if err != nil {
-			metrics.CountCRMergeFail(metrics.CannotMergeProfileWithHubTagError)
+			metrics.CountCRMergeFail(metrics.OverlayError)
 			return nil, err
 		}
 	}
 
 	overlayYAML, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
-		metrics.CountCRMergeFail(metrics.CannotMarshalUserIOPError)
+		metrics.CountCRMergeFail(metrics.IOPFormatError)
 		return nil, err
 	}
 	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {
-		metrics.CountCRMergeFail(metrics.CannotMergeFileOverlayWithProfileError)
+		metrics.CountCRMergeFail(metrics.TranslateValuesError)
 		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
 
 	mergedYAML, err := util.OverlayIOP(profileYAML, overlayYAML)
 	if err != nil {
-		metrics.CountCRMergeFail(metrics.CannotMergeFileOverlayWithProfileError)
+		metrics.CountCRMergeFail(metrics.OverlayError)
 		return nil, err
 	}
 
 	mergedYAML, err = translate.OverlayValuesEnablement(mergedYAML, overlayYAML, "")
 	if err != nil {
-		metrics.CountCRMergeFail(metrics.CannotMergeFileOverlayWithProfileError)
+		metrics.CountCRMergeFail(metrics.OverlayError)
 		return nil, err
 	}
 
 	mergedYAMLSpec, err := tpath.GetSpecSubtree(mergedYAML)
 	if err != nil {
-		metrics.CountCRMergeFail(metrics.CannotGetSpecSubtreeError)
+		metrics.CountCRMergeFail(metrics.InternalYAMLParseError)
 		return nil, err
 	}
 

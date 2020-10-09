@@ -18,21 +18,21 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-// OperatorVersionLabel describes version of running binary
+// OperatorVersionLabel describes version of running binary.
 var OperatorVersionLabel = monitoring.MustCreateLabel("version")
 
-// MergeErrorLabel describes the type of merge error
+// MergeErrorLabel describes the type of merge error.
 var MergeErrorLabel = monitoring.MustCreateLabel("error_type")
 
-// RenderErrorLabel describes the type of the error while rendering
+// RenderErrorLabel describes the type of the error while rendering.
 var RenderErrorLabel = monitoring.MustCreateLabel("render_error")
 
 var (
 	// CRFetchErrorReasonLabel describes the reason/HTTP code
-	// for failing to fetch CR
+	// for failing to fetch CR.
 	CRFetchErrorReasonLabel = monitoring.MustCreateLabel("reason")
 
-	// CRNamespacedNameLabel describes the name with namespace
+	// CRNamespacedNameLabel describes the name with namespace.
 	CRNamespacedNameLabel = monitoring.MustCreateLabel("name")
 )
 
@@ -42,41 +42,40 @@ var (
 	ComponentNameLabel = monitoring.MustCreateLabel("component")
 
 	// ResourceKindLabel indicates the kind of resource owned
-	// or created or updated or deleted or pruned by operator
+	// or created or updated or deleted or pruned by operator.
 	ResourceKindLabel = monitoring.MustCreateLabel("kind")
 
-	// CRRevisionLabel indicates the revision in the CR
+	// CRRevisionLabel indicates the revision in the CR.
 	CRRevisionLabel = monitoring.MustCreateLabel("revision")
 )
 
 // MergeErrorType describes the class of errors that could
 // occur while merging profile, user supplied YAML, values
-// overridden by --set and so on
+// overridden by --set and so on.
 type MergeErrorType string
 
 const (
-	// CannotFindProfileError occurs when profile cannot be found
+	// CannotFindProfileError occurs when profile cannot be found.
 	CannotFindProfileError MergeErrorType = "fetch_profile"
 
-	// CannotMergeProfileWithHubTagError occurs when merging profile
-	// and Hub-Tag overlay fails
-	CannotMergeProfileWithHubTagError MergeErrorType = "overlay_hub_tag_on_profile"
+	// OverlayError overlaying YAMLs to combine profile, user
+	// defined settings in CR, Hub-tag etc fails.
+	OverlayError MergeErrorType = "overlay"
 
-	// CannotMarshalUserIOPError occurs when user supplied CR cannot
-	// be marshaled to YAML string
-	CannotMarshalUserIOPError MergeErrorType = "user_iop_marshal"
+	// IOPFormatError occurs when supplied CR cannot be marshaled
+	// or unmarshaled to/from YAML.
+	IOPFormatError MergeErrorType = "iop_format"
 
-	// CannotMergeFileOverlayWithProfileError occurs when file overlay
-	// supplied by user cannot be overlaid on profile+hub/tag overlay
-	CannotMergeFileOverlayWithProfileError MergeErrorType = "overlay_file_on_profile"
+	// TranslateValuesError occurs when translating from legacy API fails.
+	TranslateValuesError MergeErrorType = "translate"
 
-	// CannotGetSpecSubtreeError occurs when spec section in merged CR
-	// cannot be accessed for some reason (either missing or multiple)
-	CannotGetSpecSubtreeError MergeErrorType = "spec_subtree"
+	// InternalYAMLParseError occurs when spec section in merged CR
+	// cannot be accessed for some reason (either missing or multiple).
+	InternalYAMLParseError MergeErrorType = "yaml_parse"
 )
 
 // RenderErrorType describes the class of errors that could
-// occur while rendering Kubernetes manifest from given CR
+// occur while rendering Kubernetes manifest from given CR.
 type RenderErrorType string
 
 const (
@@ -87,21 +86,21 @@ const (
 	HelmTranslateIOPToValuesError RenderErrorType = "helm_translate_iop"
 
 	// HelmChartRenderError describes error where Helm charts cannot be rendered
-	// for the generated values.yaml tree
+	// for the generated values.yaml tree.
 	HelmChartRenderError RenderErrorType = "helm_render"
 
 	// K8SSettingsOverlayError describes the K8s overlay error after
 	// rendering Helm charts successfully.
 	K8SSettingsOverlayError RenderErrorType = "k8s_settings_overlay"
 
-	// K8SManifestPatchError describes errors while patching generated manifest
+	// K8SManifestPatchError describes errors while patching generated manifest.
 	K8SManifestPatchError RenderErrorType = "k8s_manifest_patch"
 )
 
 var (
 	// OperatorVersion is the version of the operator binary running currently.
 	// This is required for fleet level metrics although it is available from
-	// ControlZ (more precisely versionz endpoint)
+	// ControlZ (more precisely versionz endpoint).
 	OperatorVersion = monitoring.NewGauge(
 		"operator_version",
 		"Version of operator binary",
@@ -109,14 +108,14 @@ var (
 	)
 
 	// FetchCRError counts the number of times fetching
-	// CR fails from API server
+	// CR fails from API server.
 	FetchCRError = monitoring.NewSum(
 		"operator_get_cr_errors",
 		"Number of times fetching CR from apiserver failed",
 		monitoring.WithLabels(CRFetchErrorReasonLabel, CRNamespacedNameLabel),
 	)
 
-	// CRMergeFailures counts number of CR merge failures
+	// CRMergeFailures counts number of CR merge failures.
 	CRMergeFailures = monitoring.NewSum(
 		"operator_cr_merge_failures",
 		"Number of IstioOperator CR merge failures",
@@ -124,21 +123,21 @@ var (
 	)
 
 	// CRDeletions counts the number of times
-	// IstioOperator CR was deleted
+	// IstioOperator CR was deleted.
 	CRDeletions = monitoring.NewSum(
 		"operator_cr_deletions",
 		"Number of IstioOperator CR deleted",
 	)
 
 	// CRValidationFailure counts the number of CR
-	// validation failures
+	// validation failures.
 	CRValidationFailure = monitoring.NewSum(
 		"operator_cr_validation_errors",
 		"Number of IstioOperator CR validation failures",
 	)
 
 	// RenderManifestCount counts the number of manifest
-	// renders at each component level
+	// renders at each component level.
 	RenderManifestCount = monitoring.NewSum(
 		"operator_render_manifest_count",
 		"Number of component manifests rendered",
@@ -146,7 +145,7 @@ var (
 	)
 
 	// OperatorResourceCount indicates the number of resources
-	// currently owned by the CR with given name and revision
+	// currently owned by the CR with given name and revision.
 	OperatorResourceCount = monitoring.NewGauge(
 		"operator_resource_count",
 		"Number of resources currently owned by the operator",
@@ -154,7 +153,7 @@ var (
 	)
 
 	// OperatorResourceCreations indicates the number of resources
-	// created by the operator for a CR and revision
+	// created by the operator for a CR and revision.
 	OperatorResourceCreations = monitoring.NewSum(
 		"operator_resource_creations",
 		"Number of resources created by the operator",
@@ -162,7 +161,7 @@ var (
 	)
 
 	// OperatorResourceUpdates indicates the number of resources updated by
-	// the operator in response to CR updates for a revision
+	// the operator in response to CR updates for a revision.
 	OperatorResourceUpdates = monitoring.NewSum(
 		"operator_resource_updates",
 		"Number of resources updated by the operator",
@@ -172,40 +171,40 @@ var (
 	// OperatorResourceDeletions indicates the number of resources deleted
 	// by the operator in response to CR update or delete operation (like
 	// ingress-gateway which was enabled could be disabled and this requires
-	// deleting ingress-gateway deployment)
+	// deleting ingress-gateway deployment).
 	OperatorResourceDeletions = monitoring.NewSum(
 		"operator_resource_deletions",
 		"Number of resources deleted by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
-	// OperatorResourcePrunes indicates the resources pruned as a result of update
+	// OperatorResourcePrunes indicates the resources pruned as a result of update.
 	OperatorResourcePrunes = monitoring.NewSum(
 		"operator_resource_prunes",
 		"Number of resources pruned by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
-	// K8SPatchOverlayErrors counts the total number of K8S patch errors
+	// K8SPatchOverlayErrors counts the total number of K8S patch errors.
 	K8SPatchOverlayErrors = monitoring.NewSum(
 		"operator_patch_errors",
 		"Number of times K8S patch overlays failed",
 	)
 
-	// ManifestRenderErrors counts errors occurred while rendering manifest
+	// ManifestRenderErrors counts errors occurred while rendering manifest.
 	ManifestRenderErrors = monitoring.NewSum(
 		"operator_render_errors",
 		"Number of times error occurred during rendering output manifest",
 		monitoring.WithLabels(ComponentNameLabel, RenderErrorLabel),
 	)
 
-	// OperatorPathTranslations counts the translations from legacy API to new one
+	// OperatorPathTranslations counts the translations from legacy API to new one.
 	OperatorPathTranslations = monitoring.NewSum(
 		"operator_path_translations",
 		"Number of times a legacy API path is translated",
 	)
 
-	// CacheFlushes counts number of cache flushes
+	// CacheFlushes counts number of cache flushes.
 	CacheFlushes = monitoring.NewSum(
 		"operator_cache_flushes",
 		"number of times operator cache was flushed",
