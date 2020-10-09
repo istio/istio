@@ -8,6 +8,11 @@ spec:
       proxyMetadata:
         ISTIO_META_PROXY_XDS_VIA_AGENT: "true"
         ISTIO_META_DNS_CAPTURE: "true"
+  components:
+    # Enable the egressgateway for all tests by default.
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: true
   values:
     global:
       proxy:

@@ -20,31 +20,15 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
-	ist           istio.Instance
-	rootNamespace string
+	ist istio.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&ist, nil)).
 		Run()
-}
-
-func setupConfig(_ resource.Context, cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	rootNamespace = cfg.SystemNamespace
-
-	cfg.ControlPlaneValues = `
-components:
-  egressGateways:
-  - enabled: true
-    name: istio-egressgateway
-`
 }
