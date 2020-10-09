@@ -180,7 +180,8 @@ spec:
 	} else {
 		var pods *kubeCore.PodList
 		if err := retry.UntilSuccess(func() error {
-			pods, err := c.cluster.PodsForSelector(context.TODO(), cfg.Namespace.Name(),
+			var err error
+			pods, err = c.cluster.PodsForSelector(context.TODO(), cfg.Namespace.Name(),
 				fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
 			if err != nil {
 				return err

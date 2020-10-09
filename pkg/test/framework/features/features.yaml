@@ -125,3 +125,4 @@ features:
   infrastructure:
     # the testing framework
     framework:
+  vms:
