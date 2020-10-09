@@ -366,7 +366,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 
 	mergedYAML, err = translate.OverlayValuesEnablement(mergedYAML, overlayYAML, "")
 	if err != nil {
-		metrics.CountCRMergeFail(metrics.OverlayError)
+		metrics.CountCRMergeFail(metrics.TranslateValuesError)
 		return nil, err
 	}
 
