@@ -52,6 +52,8 @@ type FakeOptions struct {
 	KubernetesObjects []runtime.Object
 	// If provided, the yaml string will be parsed and used as objects
 	KubernetesObjectString string
+	// Endpoint mode for the Kubernetes service registry
+	KubernetesEndpointMode kube.EndpointMode
 	// If provided, these configs will be used directly
 	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -65,10 +67,11 @@ type FakeOptions struct {
 
 type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
-	t          test.Failer
-	Discovery  *DiscoveryServer
-	Listener   *bufconn.Listener
-	kubeClient kubelib.Client
+	t            test.Failer
+	Discovery    *DiscoveryServer
+	Listener     *bufconn.Listener
+	kubeClient   kubelib.Client
+	KubeRegistry *kube.FakeController
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -107,6 +110,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		DomainSuffix:    "cluster.local",
 		XDSUpdater:      s,
 		NetworksWatcher: opts.NetworksWatcher,
+		Mode:            opts.KubernetesEndpointMode,
 	})
 
 	sc := kubesecrets.NewMulticluster(kubeClient, "", "")
@@ -206,6 +210,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Listener:      listener,
 		ConfigGenTest: cg,
 		kubeClient:    kubeClient,
+		KubeRegistry:  k8s,
 	}
 
 	// currently meshNetworks gateways are stored on the push context
