@@ -164,7 +164,7 @@ func run() {
 	// Record version of operator in metrics
 	metrics.Version.
 		With(metrics.OperatorVersionLabel.Value(version.Info.String())).
-		Increment()
+		Record(1.0)
 
 	log.Info("Starting the Cmd.")
 
