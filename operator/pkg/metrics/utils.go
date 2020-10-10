@@ -46,7 +46,7 @@ func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
 	if reason == metav1.StatusReasonUnknown {
 		errorReason = "unknown"
 	}
-	FetchCRError.
+	GetCRError.
 		With(CRFetchErrorReasonLabel.Value(errorReason)).
 		With(CRNamespacedNameLabel.Value(name.String())).
 		Increment()
@@ -55,7 +55,7 @@ func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
 // CountManifestRender increments the count of rendered
 // manifest from IstioOperator CR by component name.
 func CountManifestRender(name name.ComponentName) {
-	RenderManifestCount.
+	RenderManifestTotal.
 		With(ComponentNameLabel.Value(string(name))).
 		Increment()
 }
