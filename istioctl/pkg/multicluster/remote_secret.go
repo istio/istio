@@ -335,9 +335,9 @@ type RemoteSecretOptions struct {
 }
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
-	flagset.StringVar(&o.ServiceAccountName, "service-account", o.ServiceAccountName,
+	flagset.StringVar(&o.ServiceAccountName, "service-account", "",
 		"Create a secret with this service account's credentials. Use \""+
-			constants.DefaultServiceAccountName+"\" as default value if `--type` is \"remote\", use \""+
+			constants.DefaultServiceAccountName+"\" as default value if --type is \"remote\", use \""+
 			constants.DefaultConfigServiceAccountName+"\" as default value if --type is \"config\"")
 	flagset.StringVar(&o.ClusterName, "name", "",
 		"Name of the local cluster whose credentials are stored "+
