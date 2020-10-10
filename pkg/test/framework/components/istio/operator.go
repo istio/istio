@@ -34,9 +34,9 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/istioctl/pkg/multicluster"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -650,7 +650,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster resource.Cluster) error {
 	// TODO(landow) we should not have users do this. instead this could be a part of create-remote-secret
 	sa, err := cluster.CoreV1().ServiceAccounts("istio-system").
-		Get(context.TODO(), multicluster.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
+		Get(context.TODO(), constants.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
 	if err == nil && sa != nil {
 		scopes.Framework.Infof("service account exists in %s", cluster.Name())
 		return nil

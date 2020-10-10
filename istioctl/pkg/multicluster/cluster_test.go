@@ -32,6 +32,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -81,7 +82,7 @@ var (
 	}
 	clusterDescWithDefaults = ClusterDesc{
 		Network:              testNetwork,
-		ServiceAccountReader: DefaultServiceAccountName,
+		ServiceAccountReader: constants.DefaultServiceAccountName,
 		Namespace:            defaultIstioNamespace,
 	}
 )
