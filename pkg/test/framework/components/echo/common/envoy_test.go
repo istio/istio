@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var _ echo.Instance = &testConfig{}
@@ -78,7 +79,7 @@ func (*testConfig) ID() resource.ID {
 	panic("not implemented")
 }
 
-func (*testConfig) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (*testConfig) WorkloadsOrFail(_ test.Failer) []echo.Workload {
 	panic("not implemented")
 }
 
@@ -98,11 +99,19 @@ func (*testConfig) CallOrFail(_ test.Failer, _ echo.CallOptions) client.ParsedRe
 	panic("not implemented")
 }
 
+func (e *testConfig) CallWithRetry(_ echo.CallOptions, _ ...retry.Option) (client.ParsedResponses, error) {
+	panic("implement me")
+}
+
+func (e *testConfig) CallWithRetryOrFail(_ test.Failer, _ echo.CallOptions, _ ...retry.Option) client.ParsedResponses {
+	panic("implement me")
+}
+
 func (*testConfig) Sidecar() echo.Sidecar {
 	panic("not implemented")
 }
 
-func (*testConfig) ForwardEcho(context.Context, *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+func (*testConfig) ForwardEcho(_ context.Context, _ *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 	panic("not implemented")
 }
 

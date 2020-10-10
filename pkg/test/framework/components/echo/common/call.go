@@ -35,7 +35,9 @@ import (
 
 type sendFunc func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error)
 
-func callInternal(srcName string, opts *echo.CallOptions, send sendFunc) (client.ParsedResponses, error) {
+func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
+	doRetry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
@@ -94,9 +96,10 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc) (client
 		return nil
 	}
 
-	if len(opts.RetryOptions) > 0 {
-		// Retry was enabled for this call.
-		err := formatError(retry.UntilSuccess(sendAndValidate, opts.RetryOptions...))
+	if doRetry {
+		// Add the default retry options.
+		retryOptions = append(retryOptions, echo.DefaultCallRetryOptions()...)
+		err := formatError(retry.UntilSuccess(sendAndValidate, retryOptions...))
 		return responses, err
 	}
 
@@ -105,7 +108,7 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc) (client
 	return responses, err
 }
 
-func CallEcho(opts *echo.CallOptions) (client.ParsedResponses, error) {
+func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
 	send := func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		instance, err := forwarder.New(forwarder.Config{
 			Request: req,
@@ -122,13 +125,14 @@ func CallEcho(opts *echo.CallOptions) (client.ParsedResponses, error) {
 		resp := client.ParseForwardedResponse(ret)
 		return resp, nil
 	}
-	return callInternal("TestRunner", opts, send)
+	return callInternal("TestRunner", opts, send, retry, retryOptions...)
 }
 
-func ForwardEcho(srcName string, c *client.Instance, opts *echo.CallOptions) (client.ParsedResponses, error) {
+func ForwardEcho(srcName string, c *client.Instance, opts *echo.CallOptions,
+	retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
 	return callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		return c.ForwardEcho(context.Background(), req)
-	})
+	}, retry, retryOptions...)
 }
 
 func fillInCallOptions(opts *echo.CallOptions) error {
