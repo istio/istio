@@ -79,7 +79,7 @@ core components, install artifacts, and sample programs. It includes:
 [_istioctl_](https://istio.io/latest/docs/reference/commands/istioctl/) command line utility.
 
     - [operator](operator/). This directory contains code for the standalone
-[Istio Operator](https://istio.io/latest/docs/setup/install/standalone-operator/).
+[Istio Operator](https://istio.io/latest/docs/setup/install/operator/).
 
     - [pilot](pilot/). This directory
 contains platform-specific code to populate the
