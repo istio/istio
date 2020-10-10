@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -74,25 +73,9 @@ type CallOptions struct {
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
 	Cert, Key, CaCert string
 
-	// RetryOptions provides options for retrying the given request. If not specified, the request
-	// will not be retried.
-	RetryOptions []retry.Option
-
 	// Validators is a list of validators for server responses. If empty, only the number of responses received
 	// will be verified.
 	Validators Validators
-}
-
-// CallRetryOptions returns the default call retry options as specified in command-line flags.
-func CallRetryOptions() []retry.Option {
-	return []retry.Option{retry.Timeout(callTimeout), retry.Delay(callDelay)}
-}
-
-// WithRetry returns a copy of this CallOptions with CallRetryOptions applied.
-func (o CallOptions) WithRetry() CallOptions {
-	out := o
-	out.RetryOptions = CallRetryOptions()
-	return out
 }
 
 // Validator validates that the given responses are expected.
