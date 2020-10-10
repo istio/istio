@@ -220,6 +220,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// TODO: revert to watching k8s (and merge with the file)
 	s.initMeshConfiguration(args, s.fileWatcher)
+	spiffe.SetTrustDomain(s.environment.Mesh().TrustDomain)
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {

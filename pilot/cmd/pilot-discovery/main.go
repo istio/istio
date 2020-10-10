@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -66,8 +65,6 @@ var (
 			}
 			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
-			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.RegistryOptions.KubeOptions.TrustDomain, hasKubeRegistry()))
-
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
@@ -90,16 +87,6 @@ var (
 		},
 	}
 )
-
-// when we run on k8s, the default trust domain is 'cluster.local', otherwise it is the empty string
-func hasKubeRegistry() bool {
-	for _, r := range serverArgs.RegistryOptions.Registries {
-		if serviceregistry.ProviderID(r) == serviceregistry.Kubernetes {
-			return true
-		}
-	}
-	return false
-}
 
 func init() {
 

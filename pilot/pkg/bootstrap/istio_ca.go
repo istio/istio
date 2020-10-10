@@ -29,15 +29,15 @@ import (
 	"google.golang.org/grpc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -313,7 +313,6 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 	if _, err := os.Stat(signingKeyFile); err != nil && client != nil {
 		// The user-provided certs are missing - create a self-signed cert.
 		log.Info("Use self-signed certificate as the CA certificate")
-		spiffe.SetTrustDomain(opts.TrustDomain)
 		// Abort after 20 minutes.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
 		defer cancel()
