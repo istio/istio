@@ -17,6 +17,8 @@ package echo
 import (
 	"flag"
 	"time"
+
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
@@ -30,4 +32,9 @@ func init() {
 		"Specifies the default timeout used when retrying calls to the Echo service")
 	flag.DurationVar(&callDelay, "istio.test.echo.callDelay", callDelay,
 		"Specifies the default delay between successive retry attempts when calling the Echo service")
+}
+
+// DefaultCallRetryOptions returns the default call retry options as specified in command-line flags.
+func DefaultCallRetryOptions() []retry.Option {
+	return []retry.Option{retry.Timeout(callTimeout), retry.Delay(callDelay)}
 }
