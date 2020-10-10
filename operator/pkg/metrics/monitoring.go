@@ -100,40 +100,40 @@ const (
 )
 
 var (
-	// OperatorVersion is the version of the operator binary running currently.
+	// Version is the version of the operator binary running currently.
 	// This is required for fleet level metrics although it is available from
 	// ControlZ (more precisely versionz endpoint).
-	OperatorVersion = monitoring.NewGauge(
+	Version = monitoring.NewGauge(
 		"istio_install_operator_version",
 		"Version of operator binary",
 		monitoring.WithLabels(OperatorVersionLabel),
 	)
 
-	// GetCRError counts the number of times fetching
+	// GetCRErrorTotal counts the number of times fetching
 	// CR fails from API server.
-	GetCRError = monitoring.NewSum(
+	GetCRErrorTotal = monitoring.NewSum(
 		"istio_install_operator_get_cr_error_total",
 		"Number of times fetching CR from apiserver failed",
 		monitoring.WithLabels(CRFetchErrorReasonLabel, CRNamespacedNameLabel),
 	)
 
-	// CRMergeFailures counts number of CR merge failures.
-	CRMergeFailures = monitoring.NewSum(
+	// CRMergeFailureTotal counts number of CR merge failures.
+	CRMergeFailureTotal = monitoring.NewSum(
 		"istio_install_operator_cr_merge_failure_total",
 		"Number of IstioOperator CR merge failures",
 		monitoring.WithLabels(MergeErrorLabel),
 	)
 
-	// CRDeletions counts the number of times
+	// CRDeletionTotal counts the number of times
 	// IstioOperator CR was deleted.
-	CRDeletions = monitoring.NewSum(
+	CRDeletionTotal = monitoring.NewSum(
 		"istio_install_operator_cr_deletion_total",
 		"Number of IstioOperator CR deleted",
 	)
 
-	// CRValidationFailure counts the number of CR
+	// CRValidationErrorTotal counts the number of CR
 	// validation failures.
-	CRValidationFailure = monitoring.NewSum(
+	CRValidationErrorTotal = monitoring.NewSum(
 		"istio_install_operator_cr_validation_error_total",
 		"Number of IstioOperator CR validation failures",
 	)
@@ -146,68 +146,68 @@ var (
 		monitoring.WithLabels(ComponentNameLabel),
 	)
 
-	// OperatorResourceTotal indicates the number of resources
+	// OwnedResourceTotal indicates the number of resources
 	// currently owned by the CR with given name and revision.
-	OperatorResourceTotal = monitoring.NewGauge(
+	OwnedResourceTotal = monitoring.NewGauge(
 		"istio_install_operator_owned_resource_total",
 		"Number of resources currently owned by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
-	// OperatorResourceCreations indicates the number of resources
+	// ResourceCreationTotal indicates the number of resources
 	// created by the operator for a CR and revision.
-	OperatorResourceCreations = monitoring.NewSum(
+	ResourceCreationTotal = monitoring.NewSum(
 		"istio_install_operator_resource_creation_total",
 		"Number of resources created by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
-	// OperatorResourceUpdates indicates the number of resources updated by
+	// ResourceUpdateTotal indicates the number of resources updated by
 	// the operator in response to CR updates for a revision.
-	OperatorResourceUpdates = monitoring.NewSum(
+	ResourceUpdateTotal = monitoring.NewSum(
 		"istio_install_operator_resource_update_total",
 		"Number of resources updated by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
-	// OperatorResourceDeletions indicates the number of resources deleted
+	// ResourceDeletionTotal indicates the number of resources deleted
 	// by the operator in response to CR update or delete operation (like
 	// ingress-gateway which was enabled could be disabled and this requires
 	// deleting ingress-gateway deployment).
-	OperatorResourceDeletions = monitoring.NewSum(
+	ResourceDeletionTotal = monitoring.NewSum(
 		"istio_install_operator_resource_deletion_total",
 		"Number of resources deleted by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
-	// OperatorResourcePrunes indicates the resources pruned as a result of update.
-	OperatorResourcePrunes = monitoring.NewSum(
+	// ResourcePruneTotal indicates the resources pruned as a result of update.
+	ResourcePruneTotal = monitoring.NewSum(
 		"istio_install_operator_resource_prune_total",
 		"Number of resources pruned by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
-	// K8SPatchOverlayErrors counts the total number of K8S patch errors.
-	K8SPatchOverlayErrors = monitoring.NewSum(
+	// ManifestPatchErrorTotal counts the total number of K8S patch errors.
+	ManifestPatchErrorTotal = monitoring.NewSum(
 		"istio_install_operator_manifest_patch_error_total",
 		"Number of times K8S patch overlays failed",
 	)
 
-	// ManifestRenderErrors counts errors occurred while rendering manifest.
-	ManifestRenderErrors = monitoring.NewSum(
+	// ManifestRenderErrorTotal counts errors occurred while rendering manifest.
+	ManifestRenderErrorTotal = monitoring.NewSum(
 		"istio_install_operator_manifest_render_error_total",
 		"Number of times error occurred during rendering output manifest",
 		monitoring.WithLabels(ComponentNameLabel, RenderErrorLabel),
 	)
 
-	// OperatorPathTranslations counts the translations from legacy API to new one.
-	OperatorPathTranslations = monitoring.NewSum(
+	// LegacyPathTranslationTotal counts the translations from legacy API to new one.
+	LegacyPathTranslationTotal = monitoring.NewSum(
 		"istio_install_operator_legacy_path_translation_total",
 		"Number of times a legacy API path is translated",
 	)
 
-	// CacheFlushes counts number of cache flushes.
-	CacheFlushes = monitoring.NewSum(
+	// CacheFlushTotal counts number of cache flushes.
+	CacheFlushTotal = monitoring.NewSum(
 		"istio_install_operator_cache_flush_total",
 		"number of times operator cache was flushed",
 	)
@@ -215,23 +215,23 @@ var (
 
 func init() {
 	monitoring.MustRegister(
-		OperatorVersion,
+		Version,
 
-		GetCRError,
-		CRMergeFailures,
-		CRValidationFailure,
-		CRDeletions,
+		GetCRErrorTotal,
+		CRMergeFailureTotal,
+		CRValidationErrorTotal,
+		CRDeletionTotal,
 		RenderManifestTotal,
 
-		OperatorResourceTotal,
-		OperatorResourceCreations,
-		OperatorResourceUpdates,
-		OperatorResourceDeletions,
-		OperatorResourcePrunes,
+		OwnedResourceTotal,
+		ResourceCreationTotal,
+		ResourceUpdateTotal,
+		ResourceDeletionTotal,
+		ResourcePruneTotal,
 
-		K8SPatchOverlayErrors,
-		ManifestRenderErrors,
-		OperatorPathTranslations,
-		CacheFlushes,
+		ManifestPatchErrorTotal,
+		ManifestRenderErrorTotal,
+		LegacyPathTranslationTotal,
+		CacheFlushTotal,
 	)
 }

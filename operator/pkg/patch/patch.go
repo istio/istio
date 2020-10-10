@@ -181,13 +181,13 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_P
 		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path), true)
 		if err != nil {
 			errs = util.AppendErr(errs, err)
-			metrics.K8SPatchOverlayErrors.Increment()
+			metrics.ManifestPatchErrorTotal.Increment()
 			continue
 		}
 		err = tpath.WritePathContext(inc, p.Value, false)
 		if err != nil {
 			errs = util.AppendErr(errs, err)
-			metrics.K8SPatchOverlayErrors.Increment()
+			metrics.ManifestPatchErrorTotal.Increment()
 		}
 	}
 	oy, err := yaml.Marshal(bo)

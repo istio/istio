@@ -80,12 +80,12 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 		return nil
 	}
 	if !util.IsPtr(structPtr) {
-		metrics.CRValidationFailure.Increment()
+		metrics.CRValidationErrorTotal.Increment()
 		return util.NewErrs(fmt.Errorf("validate path %s, value: %v, expected ptr, got %T", path, structPtr, structPtr))
 	}
 	structElems := reflect.ValueOf(structPtr).Elem()
 	if !util.IsStruct(structElems) {
-		metrics.CRValidationFailure.Increment()
+		metrics.CRValidationErrorTotal.Increment()
 		return util.NewErrs(fmt.Errorf("validate path %s, value: %v, expected struct, got %T", path, structElems, structElems))
 	}
 
@@ -139,7 +139,7 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 		}
 	}
 	if len(errs) > 0 {
-		metrics.CRValidationFailure.Increment()
+		metrics.CRValidationErrorTotal.Increment()
 	}
 	return errs
 }

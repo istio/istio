@@ -478,14 +478,14 @@ func (h *HelmReconciler) reportOwnedObjectCountMetrics() {
 		// they are not "owned" by any one of them. Hence we don't need
 		// namespaced name and revision of CR.
 		if gvk.Kind == "CustomResourceDefinition" {
-			metrics.OperatorResourceTotal.
+			metrics.OwnedResourceTotal.
 				With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
 				With(metrics.CRNamespacedNameLabel.Value("")).
 				With(metrics.CRRevisionLabel.Value("")).
 				Record(float64(cnt))
 			continue
 		}
-		metrics.OperatorResourceTotal.
+		metrics.OwnedResourceTotal.
 			With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
 			With(metrics.CRNamespacedNameLabel.Value(util.NamespacedIOPName(h.iop))).
 			With(metrics.CRRevisionLabel.Value(util.Revision(h.iop))).
@@ -497,7 +497,7 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 	h.countLock.Lock()
 	defer h.countLock.Unlock()
 	for gvk := range h.prunedKindSet {
-		metrics.OperatorResourcePrunes.
+		metrics.ResourcePruneTotal.
 			With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
 			With(metrics.CRNamespacedNameLabel.Value(util.NamespacedIOPName(h.iop))).
 			With(metrics.CRRevisionLabel.Value(util.Revision(h.iop))).

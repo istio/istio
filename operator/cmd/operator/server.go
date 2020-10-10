@@ -162,7 +162,7 @@ func run() {
 	}
 
 	// Record version of operator in metrics
-	metrics.OperatorVersion.
+	metrics.Version.
 		With(metrics.OperatorVersionLabel.Value(version.Info.String())).
 		Increment()
 
