@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/metrics"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
@@ -345,7 +346,19 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 // mergeIOPSWithProfile overlays the values in iop on top of the defaults for the profile given by iop.profile and
 // returns the merged result.
 func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperatorSpec, error) {
-	profileYAML, err := helm.GetProfileYAML(iop.Spec.InstallPackagePath, iop.Spec.Profile)
+	profileOrPath := iop.Spec.Profile
+	if profileOrPath == "" {
+		profileOrPath = "default"
+	}
+	// If installPackagePath is a URL, fetch and extract it and continue with the local filesystem path instead.
+	installPackagePath, profileOrPath, err := manifest.RewriteURLToLocalInstallPath(iop.Spec.InstallPackagePath, profileOrPath, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
+	// can be found, and the selected profileOrPath. Both of these can come from either the user overlay file or --set flag.
+	profileYAML, err := helm.GetProfileYAML(installPackagePath, profileOrPath)
 	if err != nil {
 		metrics.CountCRMergeFail(metrics.CannotFetchProfileError)
 		return nil, err
@@ -368,6 +381,8 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 		}
 	}
 
+	// InstallPackagePath may have been a URL, change to extracted to local file path.
+	iop.Spec.InstallPackagePath = installPackagePath
 	overlayYAML, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
 		metrics.CountCRMergeFail(metrics.IOPFormatError)

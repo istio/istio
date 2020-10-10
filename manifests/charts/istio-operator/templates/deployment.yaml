@@ -48,4 +48,10 @@ spec:
               value: {{.Values.waitForResourcesTimeout | quote}}
             - name: REVISION
               value: {{.Values.revision | quote}}
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp-dir
+      volumes:
+      - name: tmp-dir
+        emptyDir: {}
 ---
