@@ -20,8 +20,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -93,42 +94,34 @@ spec:
 `)
 
 			ctx.NewSubTest("http").Run(func(ctx framework.TestContext) {
-				if err := retry.UntilSuccess(func() error {
-					resp, err := apps.Ingress.Call(ingress.CallOptions{
-						Host:     "my.domain.example",
-						Path:     "/get",
-						CallType: ingress.PlainText,
-						Address:  apps.Ingress.HTTPAddress(),
-					})
-					if err != nil {
-						return err
-					}
-					if resp.Code != 200 {
-						return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
-					}
-					return nil
-				}); err != nil {
-					ctx.Fatal(err)
-				}
+				address := apps.Ingress.HTTPAddress()
+				_ = apps.Ingress.CallEchoWithRetryOrFail(ctx, echo.CallOptions{
+					Port: &echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: address.Port,
+					},
+					Address: address.IP.String(),
+					Path:    "/get",
+					Headers: map[string][]string{
+						"Host": {"my.domain.example"},
+					},
+					Validator: echo.ExpectOK(),
+				})
 			})
 			ctx.NewSubTest("tcp").Run(func(ctx framework.TestContext) {
-				if err := retry.UntilSuccess(func() error {
-					resp, err := apps.Ingress.Call(ingress.CallOptions{
-						Host:     "my.domain.example",
-						Path:     "/",
-						CallType: ingress.PlainText,
-						Address:  apps.Ingress.TCPAddress(),
-					})
-					if err != nil {
-						return err
-					}
-					if resp.Code != 200 {
-						return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
-					}
-					return nil
-				}); err != nil {
-					ctx.Fatal(err)
-				}
+				address := apps.Ingress.TCPAddress()
+				_ = apps.Ingress.CallEchoWithRetryOrFail(ctx, echo.CallOptions{
+					Port: &echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: address.Port,
+					},
+					Address: address.IP.String(),
+					Path:    "/",
+					Headers: map[string][]string{
+						"Host": {"my.domain.example"},
+					},
+					Validator: echo.ExpectOK(),
+				})
 			})
 		})
 }
@@ -153,15 +146,15 @@ func TestIngress(t *testing.T) {
 			// Set up secret contain some TLS certs for *.example.com
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA, false)
+			ingressutil.CreateIngressKubeSecret(ctx, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false)
 			ctx.WhenDone(func() error {
-				ingressutil.DeleteKubeSecret(t, ctx, []string{credName})
+				ingressutil.DeleteKubeSecret(ctx, []string{credName})
 				return nil
 			})
 			credName2 := "k8s-ingress-secret-bar"
-			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB, false)
+			ingressutil.CreateIngressKubeSecret(ctx, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false)
 			ctx.WhenDone(func() error {
-				ingressutil.DeleteKubeSecret(t, ctx, []string{credName2})
+				ingressutil.DeleteKubeSecret(ctx, []string{credName2})
 				return nil
 			})
 
@@ -198,67 +191,85 @@ spec:
 				t.Fatal(err)
 			}
 
+			httpAddress := apps.Ingress.HTTPAddress()
+			httpsAddress := apps.Ingress.HTTPSAddress()
+			// TODO check all clusters were hit
 			cases := []struct {
 				name string
-				call ingress.CallOptions
+				call echo.CallOptions
 			}{
 				{
 					// Basic HTTP call
 					name: "http",
-					call: ingress.CallOptions{
-						Host:     "server",
-						Path:     "/test",
-						CallType: ingress.PlainText,
-						Address:  apps.Ingress.HTTPAddress(),
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol:    protocol.HTTP,
+							ServicePort: httpAddress.Port,
+						},
+						Address: httpAddress.IP.String(),
+						Path:    "/test",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: echo.ExpectOK(),
 					},
 				},
 				{
 					// Basic HTTPS call for foo. CaCert matches the secret
 					name: "https-foo",
-					call: ingress.CallOptions{
-						Host:     "foo.example.com",
-						Path:     "/test",
-						CallType: ingress.TLS,
-						Address:  apps.Ingress.HTTPSAddress(),
-						CaCert:   ingressutil.IngressCredentialA.CaCert,
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol:    protocol.HTTPS,
+							ServicePort: httpsAddress.Port,
+						},
+						Address: httpsAddress.IP.String(),
+						Path:    "/test",
+						Headers: map[string][]string{
+							"Host": {"foo.example.com"},
+						},
+						CaCert: ingressutil.IngressCredentialA.CaCert,
+						Validator: echo.ExpectOK(),
 					},
 				},
 				{
 					// Basic HTTPS call for bar. CaCert matches the secret
 					name: "https-bar",
-					call: ingress.CallOptions{
-						Host:     "bar.example.com",
-						Path:     "/test",
-						CallType: ingress.TLS,
-						Address:  apps.Ingress.HTTPSAddress(),
-						CaCert:   ingressutil.IngressCredentialB.CaCert,
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol:    protocol.HTTPS,
+							ServicePort: httpsAddress.Port,
+						},
+						Address: httpsAddress.IP.String(),
+						Path:    "/test",
+						Headers: map[string][]string{
+							"Host": {"bar.example.com"},
+						},
+						CaCert: ingressutil.IngressCredentialB.CaCert,
+						Validator: echo.ExpectOK(),
 					},
 				},
 				{
 					// HTTPS call for bar with namedport route. CaCert matches the secret
 					name: "https-namedport",
-					call: ingress.CallOptions{
-						Host:     "bar.example.com",
-						Path:     "/test/namedport",
-						CallType: ingress.TLS,
-						Address:  apps.Ingress.HTTPSAddress(),
-						CaCert:   ingressutil.IngressCredentialB.CaCert,
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol:    protocol.HTTPS,
+							ServicePort: httpsAddress.Port,
+						},
+						Address: httpsAddress.IP.String(),
+						Path:    "/test/namedport",
+						Headers: map[string][]string{
+							"Host": {"bar.example.com"},
+						},
+						CaCert: ingressutil.IngressCredentialB.CaCert,
+						Validator: echo.ExpectOK(),
 					},
 				},
 			}
-			for _, tt := range cases {
-				ctx.NewSubTest(tt.name).Run(func(t framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := apps.Ingress.Call(tt.call)
-						// TODO check all clusters were hit
-						if err != nil {
-							return err
-						}
-						if resp.Code != 200 {
-							return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
-						}
-						return nil
-					}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Minute*2))
+			for _, c := range cases {
+				c := c
+				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
+					apps.Ingress.CallEchoWithRetryOrFail(ctx, c.call, retry.Timeout(time.Minute*2))
 				})
 			}
 		})

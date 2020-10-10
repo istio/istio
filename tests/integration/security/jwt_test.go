@@ -461,11 +461,8 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			}
 
 			for _, c := range ingTestCases {
-				t.Run(c.Name, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, func() error {
-						return authn.CheckIngress(ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
-					},
-						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+				ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
+					authn.CheckIngressOrFail(ctx, ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
 				})
 			}
 		})

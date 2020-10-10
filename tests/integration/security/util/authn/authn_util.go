@@ -17,9 +17,12 @@ package authn
 
 import (
 	"fmt"
-	"net/http"
+	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
@@ -67,26 +70,27 @@ func (c *TestCase) CheckAuthn() error {
 	return nil
 }
 
-// CheckIngress checks a request for the ingress gateway.
-func CheckIngress(ingr ingress.Instance, host string, path string, token string, expectResponseCode int) error {
+// CheckIngressOrFail checks a request for the ingress gateway.
+func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host string, path string,
+	token string, expectResponseCode int) {
 	endpointAddress := ingr.HTTPAddress()
-	opts := ingress.CallOptions{
-		Host:     host,
-		Path:     path,
-		CallType: ingress.PlainText,
-		Address:  endpointAddress,
+	opts := echo.CallOptions{
+		Port: &echo.Port{
+			Protocol:    protocol.HTTP,
+			ServicePort: endpointAddress.Port,
+		},
+		Address: endpointAddress.IP.String(),
+		Path:    path,
+		Headers: map[string][]string{
+			"Host": {host},
+		},
+		Validator: echo.ExpectCode(strconv.Itoa(expectResponseCode)),
 	}
 	if len(token) != 0 {
-		opts.Headers = http.Header{
-			"Authorization": []string{
-				fmt.Sprintf("Bearer %s", token),
-			},
+		opts.Headers["Authorization"] = []string{
+			fmt.Sprintf("Bearer %s", token),
 		}
 	}
-	response, err := ingr.Call(opts)
 
-	if response.Code != expectResponseCode {
-		return fmt.Errorf("got response code %d, err %s", response.Code, err)
-	}
-	return nil
+	ingr.CallEchoWithRetryOrFail(ctx, opts)
 }
