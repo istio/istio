@@ -346,7 +346,9 @@ global:
   # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
   caAddress: ""
 
-  # One central istiod controls all remote clusters: disabled by default
+  # External istiod controls all remote clusters: disabled by default
+  externalIstiod: false
+  # Central istiod controls all remote clusters: disabled by default
   centralIstiod: false
 
   # Configure the policy for validating JWT.

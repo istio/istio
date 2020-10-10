@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&appCtx)).
 		Setup(kube.Setup(func(s *kube.Settings, ctx resource.Context) {
-			// Make CentralIstiod run on first cluster, all others are remotes which use centralIstiod's pilot
+			// Make externalIstiod run on first cluster, all others are remotes which use externalIstiod's pilot
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
 			primaryCluster := resource.ClusterIndex(0)
 			for i := 0; i < len(s.KubeConfig); i++ {
@@ -47,13 +47,13 @@ func TestMain(m *testing.M) {
 		})).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 
-			cfg.Values["global.centralIstiod"] = "true"
+			cfg.Values["global.externalIstiod"] = "true"
 
 			// Set the control plane values on the config.
 			// For ingress, add port 15017 to the default list of ports.
 			cfg.ControlPlaneValues = appCtx.ControlPlaneValues + `
   global:
-    centralIstiod: true`
+    externalIstiod: true`
 			cfg.RemoteClusterValues = `
 components:
   base:
@@ -64,7 +64,7 @@ components:
     enabled: true
 values:
   global:
-    centralIstiod: true`
+    externalIstiod: true`
 		})).
 		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
