@@ -88,7 +88,6 @@ func injectorListCommand() *cobra.Command {
 				return err
 			}
 			pods, err := getPods(client)
-			_ = pods
 			if err != nil {
 				return err
 			}
@@ -96,7 +95,7 @@ func injectorListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println()
+			cmd.Println()
 			injectedImages, err := getInjectedImages(client)
 			if err != nil {
 				return err
