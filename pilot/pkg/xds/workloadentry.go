@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -127,7 +128,9 @@ func (sg *InternalGen) cleanupEntry(wle config.Config) {
 	if !shouldCleanupEntry(wle) {
 		return
 	}
-	sg.cleanupLimit.Wait()
+	if err := sg.cleanupLimit.Wait(context.TODO()); err != nil {
+		adsLog.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
+	}
 	if err := sg.Store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
 		adsLog.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
 	}

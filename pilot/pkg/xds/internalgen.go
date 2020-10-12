@@ -16,7 +16,6 @@ package xds
 
 import (
 	"fmt"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -24,13 +23,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"golang.org/x/time/rate"
 
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/util/ratelimit"
 	"istio.io/pkg/log"
 )
 
@@ -60,7 +59,7 @@ type InternalGen struct {
 	Store *crdclient.Client
 
 	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
-	cleanupLimit ratelimit.Limiter
+	cleanupLimit *rate.Limiter
 	// delayedCleanup is written to after GracePeriod seconds when a proxy associated to an autoregistered WorkloadEntry disconnects.
 	delayedCleanup chan config.Meta
 
@@ -72,7 +71,7 @@ func NewInternalGen(s *DiscoveryServer) *InternalGen {
 	return &InternalGen{
 		Server: s,
 		// TODO make this configurable
-		cleanupLimit:   ratelimit.NewLeakyBucket(20, time.Second),
+		cleanupLimit:   rate.NewLimiter(rate.Limit(20), 1),
 		delayedCleanup: make(chan config.Meta),
 	}
 }
