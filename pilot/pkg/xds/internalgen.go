@@ -52,6 +52,8 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
+	Store model.ConfigStore
+
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
 }

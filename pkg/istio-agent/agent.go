@@ -74,6 +74,12 @@ var (
 	LocalSDS = "./etc/istio/proxy/SDS"
 )
 
+const (
+	MetadataClientCertKey   = "ISTIO_META_TLS_CLIENT_KEY"
+	MetadataClientCertChain = "ISTIO_META_TLS_CLIENT_CERT_CHAIN"
+	MetadataClientRootCert  = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
+)
+
 // Agent contains the configuration of the agent, based on the injected
 // environment:
 // - SDS hostPath if node-agent was used
@@ -141,6 +147,9 @@ type AgentConfig struct {
 	// CARootCerts of the location of the root CA for the CA connection. Used for setting platform certs or
 	// using custom roots.
 	CARootCerts string
+
+	// Extra headers to add to the XDS connection.
+	XDSHeaders map[string]string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -329,6 +338,9 @@ func (sa *Agent) FindRootCAForXDS() string {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
 		return sa.secOpts.ProvCert + "/root-cert.pem"
+	} else if sa.secOpts.FileMountedCerts {
+		// FileMountedCerts - Load it from Proxy Metadata.
+		return sa.proxyConfig.ProxyMetadata[MetadataClientRootCert]
 	} else {
 		// PILOT_CERT_PROVIDER - default is istiod
 		// This is the default - a mounted config map on K8S

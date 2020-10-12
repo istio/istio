@@ -101,9 +101,9 @@ type AccessLogBuilder struct {
 	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
 	httpGrpcAccessLog *accesslog.AccessLog
 
-	// file accessLog
-	mutex               sync.RWMutex
-	cachedFileAccessLog *accesslog.AccessLog
+	// file accessLog which is cached and reset on MeshConfig change.
+	mutex         sync.RWMutex
+	fileAccessLog *accesslog.AccessLog
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
@@ -135,7 +135,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(mesh *meshconfig.MeshConfig, connect
 
 func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	// Check if cached config is available, and return immediately.
-	if cal := b.getCachedFileAccessLog(); cal != nil {
+	if cal := b.cachedFileAccessLog(); cal != nil {
 		return cal
 	}
 
@@ -150,8 +150,12 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 		if mesh.AccessLogFormat != "" {
 			formatString = mesh.AccessLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
-			Format: formatString,
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_TextFormat{
+					TextFormat: formatString,
+				},
+			},
 		}
 	case meshconfig.MeshConfig_JSON:
 		var jsonLog *structpb.Struct
@@ -172,8 +176,12 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 		if jsonLog == nil {
 			jsonLog = EnvoyJSONLogFormat
 		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
-			JsonFormat: jsonLog,
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: jsonLog,
+				},
+			},
 		}
 	default:
 		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
@@ -186,15 +194,15 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.cachedFileAccessLog = al
+	b.fileAccessLog = al
 
 	return al
 }
 
-func (b *AccessLogBuilder) getCachedFileAccessLog() *accesslog.AccessLog {
+func (b *AccessLogBuilder) cachedFileAccessLog() *accesslog.AccessLog {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
-	return b.cachedFileAccessLog
+	return b.fileAccessLog
 }
 
 func buildTCPGrpcAccessLog() *accesslog.AccessLog {
@@ -241,6 +249,6 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 
 func (b *AccessLogBuilder) reset() {
 	b.mutex.Lock()
-	b.cachedFileAccessLog = nil
+	b.fileAccessLog = nil
 	b.mutex.Unlock()
 }

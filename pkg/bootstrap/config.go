@@ -321,7 +321,12 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.Bootstra
 				option.StackDriverMaxAnnotations(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAnnotations, 200)),
 				option.StackDriverMaxAttributes(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAttributes, 200)),
 				option.StackDriverMaxEvents(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfMessageEvents, 200)))
+		case *meshAPI.Tracing_OpenCensusAgent_:
+			c := tracer.OpenCensusAgent.Context
+			opts = append(opts, option.OpenCensusAgentAddress(tracer.OpenCensusAgent.Address),
+				option.OpenCensusAgentContexts(c))
 		}
+
 		opts = append(opts, option.TracingTLS(config.Tracing.TlsSettings, metadata, isH2))
 	}
 

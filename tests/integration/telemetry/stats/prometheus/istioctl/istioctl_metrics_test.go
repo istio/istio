@@ -51,7 +51,6 @@ func TestIstioctlMetrics(t *testing.T) {
 // output formats is added.
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(http.GetIstioInstance(), nil)).
 		Setup(http.TestSetup).

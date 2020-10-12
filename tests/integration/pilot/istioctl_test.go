@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/url"
@@ -274,11 +275,22 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
 
-			// remove from mesh should be clean
-			// users can add it back to mesh successfully
-			if err := a.WaitUntilCallable(a); err != nil {
-				t.Fatal(err)
-			}
+			retry.UntilSuccessOrFail(t, func() error {
+				// Wait until the new pod is ready
+				fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), ns.Name(), "app=a")
+				pods, err := kubetest.WaitUntilPodsAreReady(fetch)
+				if err != nil {
+					return err
+				}
+				for _, p := range pods {
+					for _, c := range p.Spec.Containers {
+						if c.Name == "istio-proxy" {
+							return fmt.Errorf("sidecar still present in %v", p.Name)
+						}
+					}
+				}
+				return nil
+			}, retry.Delay(time.Second))
 
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
 				"x", "add-to-mesh", "service", "a"}

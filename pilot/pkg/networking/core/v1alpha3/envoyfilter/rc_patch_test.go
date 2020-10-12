@@ -316,6 +316,84 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				Value:     buildPatchStruct(`{"domains":["domain:80"]}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_ANY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						PortNumber: 9090,
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Name: "test.com",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name": "route4.0"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_ANY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						PortNumber: 9090,
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Name: "test.com",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+				Value:     buildPatchStruct(`{"name": "route0.0"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_ANY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						PortNumber: 9090,
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Name: "test.com",
+							Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+								Name: "route2.0",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_AFTER,
+				Value:     buildPatchStruct(`{"name": "route2.5"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_ANY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						PortNumber: 9090,
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Name: "test.com",
+							Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+								Name: "route2.0",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+				Value:     buildPatchStruct(`{"name": "route1.5"}`),
+			},
+		},
 	}
 
 	sidecarOutboundRC := &route.RouteConfiguration{
@@ -411,6 +489,91 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			},
 		},
 	}
+	arrayInsert := &route.RouteConfiguration{
+		Name: "9090",
+		VirtualHosts: []*route.VirtualHost{
+			{
+				Name:    "test.com",
+				Domains: []string{"domain"},
+				Routes: []*route.Route{
+					{
+						Name: "route1.0",
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								PrefixRewrite: "/",
+							},
+						},
+					},
+					{
+						Name: "route2.0",
+						Action: &route.Route_Redirect{
+							Redirect: &route.RedirectAction{
+								ResponseCode: 301,
+							},
+						},
+					},
+					{
+						Name: "route3.0",
+						Action: &route.Route_Redirect{
+							Redirect: &route.RedirectAction{
+								ResponseCode: 404,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	patchedArrayInsert := &route.RouteConfiguration{
+		Name: "9090",
+		VirtualHosts: []*route.VirtualHost{
+			{
+				Name:    "test.com",
+				Domains: []string{"domain", "domain:80"},
+				Routes: []*route.Route{
+					{
+						Name: "route0.0",
+					},
+					{
+						Name: "route1.0",
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								PrefixRewrite: "/",
+							},
+						},
+					},
+					{
+						Name: "route1.5",
+					},
+					{
+						Name: "route2.0",
+						Action: &route.Route_Redirect{
+							Redirect: &route.RedirectAction{
+								ResponseCode: 301,
+							},
+						},
+					},
+					{
+						Name: "route2.5",
+					},
+					{
+						Name: "route3.0",
+						Action: &route.Route_Redirect{
+							Redirect: &route.RedirectAction{
+								ResponseCode: 404,
+							},
+						},
+					},
+					{
+						Name: "route4.0",
+					},
+				},
+			},
+			{
+				Name: "new-vhost",
+			},
+		},
+	}
 
 	serviceDiscovery := memory.NewServiceDiscovery(nil)
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
@@ -461,13 +624,23 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			},
 			want: patchedGatewayRC,
 		},
+		{
+			name: "array insert patch",
+			args: args{
+				patchContext:       networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				proxy:              sidecarNode,
+				push:               push,
+				routeConfiguration: arrayInsert,
+			},
+			want: patchedArrayInsert,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
 				tt.args.push, tt.args.routeConfiguration)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
-				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
+				t.Errorf("ApplyRouteConfigurationPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
 	}

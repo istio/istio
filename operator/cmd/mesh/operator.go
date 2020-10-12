@@ -23,7 +23,7 @@ func OperatorCmd() *cobra.Command {
 	oc := &cobra.Command{
 		Use:   "operator",
 		Short: "Commands related to Istio operator controller.",
-		Long:  "The operator subcommand installs, removes and shows the status of the operator controller.",
+		Long:  "The operator command installs, dumps, removes and shows the status of the operator controller.",
 	}
 
 	odArgs := &operatorDumpArgs{}

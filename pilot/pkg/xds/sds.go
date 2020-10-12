@@ -47,7 +47,7 @@ func (sr SecretResource) Key() string {
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigKey {
-	return []model.ConfigKey{{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}}
+	return relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})
 }
 
 func (sr SecretResource) Cacheable() bool {
@@ -86,16 +86,33 @@ func needsUpdate(proxy *model.Proxy, updates model.XdsUpdates) bool {
 }
 
 // Currently only same namespace is allowed. In the future this will be expanded.
-func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResource) bool {
+func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResource) error {
 	// In the initial experimental mode, only istio-system will be allowed. Prior to
 	// being launched, this must be revisited, along with the authorization model for SDS.
 	if proxy.ConfigNamespace != "istio-system" {
-		return false
+		return fmt.Errorf("SDS is currently only supported in istio-system, proxy runs in %v", proxy.ConfigNamespace)
 	}
-	return proxy.ConfigNamespace == sr.Namespace
+	if proxy.ConfigNamespace != sr.Namespace {
+		return fmt.Errorf("SDS is currently only supporting accessing secret within the same namespace. Secret namespace %q does not match proxy namespace %q",
+			sr.Namespace, proxy.ConfigNamespace)
+	}
+	return nil
 }
 
 func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if proxy.VerifiedIdentity == nil {
+		adsLog.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		return nil
+	}
+	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
+	if err != nil {
+		adsLog.Warnf("proxy %v is from and unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		return nil
+	}
+	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
+		adsLog.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
+		return nil
+	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
 		return nil
 	}
@@ -112,14 +129,14 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 		}
 
 		if updatedSecrets != nil {
-			if _, f := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; !f {
+			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
 				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}
 		}
 
-		if !s.proxyAuthorizedForSecret(proxy, sr) {
-			adsLog.Warnf("requested secret %v not accessible for proxy %v", sr.ResourceName, proxy.ID)
+		if err := s.proxyAuthorizedForSecret(proxy, sr); err != nil {
+			adsLog.Warnf("requested secret %v not accessible for proxy %v: %v", sr.ResourceName, proxy.ID, err)
 			continue
 		}
 		if cached, f := s.cache.Get(sr); f {
@@ -130,7 +147,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 
 		isCAOnlySecret := strings.HasSuffix(sr.Name, GatewaySdsCaSuffix)
 		if isCAOnlySecret {
-			secret := s.secrets.GetCaCert(sr.Name, sr.Namespace)
+			secret := secrets.GetCaCert(sr.Name, sr.Namespace)
 			if secret != nil {
 				res := toEnvoyCaSecret(sr.ResourceName, secret)
 				results = append(results, res)
@@ -139,7 +156,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 				adsLog.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
 			}
 		} else {
-			key, cert := s.secrets.GetKeyAndCert(sr.Name, sr.Namespace)
+			key, cert := secrets.GetKeyAndCert(sr.Name, sr.Namespace)
 			if key != nil && cert != nil {
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 				results = append(results, res)
@@ -187,15 +204,46 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte) *any.Any {
 	})
 }
 
+func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
+	for _, k := range keys {
+		if _, f := mp[k]; f {
+			return true
+		}
+	}
+	return false
+}
+
+// relatedConfigs maps a single resource to a list of relevant resources. This is used for cache invalidation
+// and push skipping. This is because an secret potentially has a dependency on the same secret with or without
+// the -cacert suffix. By including this dependency we ensure we do not miss any updates.
+// This is important for cases where we have a compound secret. In this case, the `foo` secret may update,
+// but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
+func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
+	related := []model.ConfigKey{k}
+	// For secrets without -cacert suffix, add the suffix
+	if !strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
+		withSuffix := k
+		withSuffix.Name += GatewaySdsCaSuffix
+		related = append(related, withSuffix)
+	}
+	// For secrets with -cacert suffix, remove the suffix
+	if strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
+		withoutSuffix := k
+		withoutSuffix.Name = strings.TrimSuffix(withoutSuffix.Name, GatewaySdsCaSuffix)
+		related = append(related, withoutSuffix)
+	}
+	return related
+}
+
 type SecretGen struct {
-	secrets secrets.Controller
+	secrets secrets.MulticlusterController
 	// Cache for XDS resources
 	cache model.XdsCache
 }
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
-func NewSecretGen(sc secrets.Controller, cache model.XdsCache) *SecretGen {
+func NewSecretGen(sc secrets.MulticlusterController, cache model.XdsCache) *SecretGen {
 	// TODO: Currently we only have a single secrets controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)
 	return &SecretGen{

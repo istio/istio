@@ -95,7 +95,7 @@ func (b EndpointBuilder) Key() string {
 
 // MultiNetworkConfigured determines if we have gateways to use for building cross-network endpoints.
 func (b *EndpointBuilder) MultiNetworkConfigured() bool {
-	return b.push.NetworkGateways() != nil
+	return b.push.NetworkGateways() != nil && len(b.push.NetworkGateways()) > 0
 }
 
 func (b EndpointBuilder) Cacheable() bool {

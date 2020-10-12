@@ -61,7 +61,8 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 		ns := r.Metadata.FullName.Namespace
 		name := r.Metadata.FullName.Name
 
-		err := a.s.Resource().ValidateConfig(config.Config{
+		// TODO expose warnings
+		_, err := a.s.Resource().ValidateConfig(config.Config{
 			Meta: config.Meta{
 				Name:      string(name),
 				Namespace: string(ns),

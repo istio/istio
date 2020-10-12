@@ -196,9 +196,9 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 	}
-
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
+		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
@@ -272,7 +272,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		return nil
 	}
 
-	instances := cb.push.InstancesByPort(service, port, labels)
+	instances := cb.push.ServiceInstancesByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.

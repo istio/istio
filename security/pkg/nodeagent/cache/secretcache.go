@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -699,7 +698,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 }
 
 // Generate a root certificate item from the passed in rootCertPath
-func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*security.SecretItem, error) {
+func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey, workload bool) (*security.SecretItem, error) {
 	rootCert, err := readFileWithTimeout(rootCertPath)
 	if err != nil {
 		return nil, err
@@ -712,8 +711,10 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 		return nil, fmt.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
 	}
 
-	// Set the rootCert
-	sc.setRootCert(rootCert, certExpireTime)
+	// Set the rootCert only if it is workload root cert.
+	if workload {
+		sc.setRootCert(rootCert, certExpireTime)
+	}
 	return &security.SecretItem{
 		ResourceName: connKey.ResourceName,
 		RootCert:     rootCert,
@@ -785,7 +786,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	// Default root certificate.
 	case connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(sc.existingRootCertFile):
 		sdsFromFile = true
-		if sitem, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey); err == nil {
+		if sitem, err = sc.generateRootCertFromExistingFile(sc.existingRootCertFile, token, connKey, true); err == nil {
 			sc.addFileWatcher(sc.existingRootCertFile, token, connKey)
 		}
 	// Default workload certificate.
@@ -803,7 +804,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate():
-			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey); err == nil {
+			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, token, connKey, false); err == nil {
 				sc.addFileWatcher(cfg.CaCertificatePath, token, connKey)
 			}
 		case ok && cfg.IsKeyCertificate():
@@ -872,10 +873,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	cacheLog.Debugf("%s received CSR response with certificate chain %+v \n",
 		logPrefix, certChainPEM)
 
-	certChain := []byte{}
-	for _, c := range certChainPEM {
-		certChain = append(certChain, []byte(c)...)
-	}
+	certChain := concatCerts(certChainPEM)
 
 	var expireTime time.Time
 	// Cert expire time by default is createTime + sc.configOptions.SecretTTL.
@@ -925,22 +923,6 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	cacheLog.Debugf("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
 		secret.ResourceName, secretLifeTime, gracePeriod, secret.ExpireTime, rotate)
 	return rotate
-}
-
-func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
-	// Skip check if the token should not be parsed in proxy.
-	// Parsing token may not always be possible because token may not be a JWT.
-	// If SkipParseToken is true, we should assume token is valid and leave token validation to CA.
-	if sc.configOptions.SkipParseToken {
-		return false
-	}
-
-	expired, err := util.IsJwtExpired(secret.Token, time.Now())
-	if err != nil {
-		cacheLog.Errorf("JWT expiration checking error: %v. Consider as expired.", err)
-		return true
-	}
-	return expired
 }
 
 // sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
@@ -1059,4 +1041,19 @@ func (sc *SecretCache) useCertToRotate() bool {
 		return false
 	}
 	return true
+}
+
+// concatCerts concatenates PEM certificates, making sure each one starts on a new line
+func concatCerts(certsPEM []string) []byte {
+	if len(certsPEM) == 0 {
+		return []byte{}
+	}
+	var certChain bytes.Buffer
+	for i, c := range certsPEM {
+		certChain.WriteString(c)
+		if i < len(certsPEM)-1 && !strings.HasSuffix(c, "\n") {
+			certChain.WriteString("\n")
+		}
+	}
+	return certChain.Bytes()
 }

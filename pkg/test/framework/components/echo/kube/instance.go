@@ -291,26 +291,6 @@ func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return out
 }
 
-func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
-	// Wait for the outbound config to be received by each workload from Pilot.
-	for _, w := range c.workloads {
-		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(c, instances...)); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Instance) {
-	t.Helper()
-	if err := c.WaitUntilCallable(instances...); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // WorkloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
 func workloadHasSidecar(cfg echo.Config, podName string) bool {
 	// Match workload first.
@@ -358,7 +338,7 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	out, err := common.CallEcho(c.workloads[0].Instance, &opts, common.IdentityOutboundPortSelector)
+	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, false)
 	if err != nil {
 		if opts.Port != nil {
 			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
@@ -377,6 +357,34 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
 	t.Helper()
 	r, err := c.Call(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func (c *instance) CallWithRetry(opts echo.CallOptions,
+	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, true, retryOptions...)
+	if err != nil {
+		if opts.Port != nil {
+			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+				c.Config().Service,
+				strings.ToLower(string(opts.Port.Protocol)),
+				opts.Host,
+				opts.Port.ServicePort,
+				opts.Path,
+				err)
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
+	retryOptions ...retry.Option) appEcho.ParsedResponses {
+	t.Helper()
+	r, err := c.CallWithRetry(opts, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -127,7 +128,6 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	}
 
 	ingressInformer := client.KubeInformer().Networking().V1beta1().Ingresses().Informer()
-	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespaces)
 
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
@@ -269,6 +269,26 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 	return nil
 }
 
+// sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
+func sortIngressByCreationTime(configs []interface{}) []*ingress.Ingress {
+	ingr := make([]*ingress.Ingress, 0, len(configs))
+	for _, i := range configs {
+		ingr = append(ingr, i.(*ingress.Ingress))
+	}
+	sort.SliceStable(ingr, func(i, j int) bool {
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if ingr[i].CreationTimestamp == ingr[j].CreationTimestamp {
+			in := ingr[i].Name + "." + ingr[i].Namespace
+			jn := ingr[j].Name + "." + ingr[j].Namespace
+			return in < jn
+		}
+		return ingr[i].CreationTimestamp.Before(&ingr[j].CreationTimestamp)
+	})
+	return ingr
+}
+
 func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	if typ != gvk.Gateway &&
 		typ != gvk.VirtualService {
@@ -279,8 +299,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 
 	ingressByHost := map[string]*config.Config{}
 
-	for _, obj := range c.ingressInformer.GetStore().List() {
-		ingress := obj.(*ingress.Ingress)
+	for _, ingress := range sortIngressByCreationTime(c.ingressInformer.GetStore().List()) {
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
 		}

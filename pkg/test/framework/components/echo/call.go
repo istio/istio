@@ -15,9 +15,11 @@
 package echo
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 )
 
@@ -43,6 +45,11 @@ type CallOptions struct {
 	// default is chosen for the target Instance.
 	Host string
 
+	// HostHeader specifies the "Host" header to be used on a request. This will override the Host
+	// field if set, in which case Host will be used for DNS resolution while HostHeader will be set
+	// as a header.
+	HostHeader string
+
 	// Path specifies the URL path for the HTTP(s) request.
 	Path string
 
@@ -64,5 +71,58 @@ type CallOptions struct {
 
 	// Use the custom certificate to make the call. This is mostly used to make mTLS request directly
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
-	Cert, Key string
+	Cert, Key, CaCert string
+
+	// Validators is a list of validators for server responses. If empty, only the number of responses received
+	// will be verified.
+	Validators Validators
+}
+
+// Validator validates that the given responses are expected.
+type Validator func(client.ParsedResponses) error
+
+type Validators []Validator
+
+// NewValidators creates an empty Validators array.
+func NewValidators() Validators {
+	return make(Validators, 0)
+}
+
+// Validate executes all validators in order, exiting on the first error encountered.
+func (all Validators) Validate(responses client.ParsedResponses) error {
+	for _, v := range all {
+		if err := v(responses); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// WithOK returns a copy of this Validators with ValidateOK added.
+func (all Validators) WithOK() Validators {
+	return all.With(ValidateOK)
+}
+
+// WithCount returns a copy of this Validators with validation for the given
+// expected response count.
+func (all Validators) WithCount(expectedCount int) Validators {
+	return all.With(func(responses client.ParsedResponses) error {
+		if len(responses) != expectedCount {
+			return fmt.Errorf("unexpected number of responses: expected %d, received %d",
+				expectedCount, len(responses))
+		}
+		return nil
+	})
+}
+
+// With returns a copy of this Validators with the given validator added.
+func (all Validators) With(v Validator) Validators {
+	return append(append(NewValidators(), all...), v)
+}
+
+var _ Validator = ValidateOK
+
+// ValidateOK is a Validator that calls CheckOK on the given responses.
+func ValidateOK(responses client.ParsedResponses) error {
+	return responses.CheckOK()
 }

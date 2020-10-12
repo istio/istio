@@ -22,7 +22,10 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
+
+type clusterTopology = map[resource.ClusterIndex]resource.ClusterIndex
 
 // ClientFactoryFunc is a transformation function that creates k8s clients
 // from the provided k8s config files.
@@ -48,7 +51,7 @@ type Settings struct {
 
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
-	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
+	ControlPlaneTopology clusterTopology
 
 	// networkTopology is used for the initial assignment of networks to each cluster.
 	// The source of truth clusters' networks is the Cluster instances themselves, rather than this field.
@@ -56,7 +59,8 @@ type Settings struct {
 
 	// ConfigTopology maps each cluster to the cluster that runs it's config.
 	// If the cluster runs its own config, the cluster will map to itself (e.g. 0->0)
-	ConfigTopology map[resource.ClusterIndex]resource.ClusterIndex
+	// By default, we use the ControlPlaneTopology as the config topology.
+	ConfigTopology clusterTopology
 }
 
 type SetupSettingsFunc func(s *Settings, ctx resource.Context)
@@ -64,7 +68,9 @@ type SetupSettingsFunc func(s *Settings, ctx resource.Context)
 // Setup is a setup function that allows overriding values in the Kube environment settings.
 func Setup(sfn SetupSettingsFunc) resource.SetupFn {
 	return func(ctx resource.Context) error {
-		sfn(ctx.Environment().(*Environment).s, ctx)
+		s := ctx.Environment().(*Environment).s
+		sfn(s, ctx)
+		scopes.Framework.Infof("Overridden Kubernetes environment Settings:\n%s", s.String())
 		return nil
 	}
 }

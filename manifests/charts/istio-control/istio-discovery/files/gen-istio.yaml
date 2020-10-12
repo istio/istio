@@ -99,7 +99,9 @@ data:
         "mountMtlsCerts": false,
         "multiCluster": {
           "clusterName": "",
-          "enabled": false
+          "enabled": false,
+          "globalDomainSuffix": "global",
+          "includeEnvoyFilter": true
         },
         "network": "",
         "omitSidecarInjectorConfigMap": false,
@@ -498,6 +500,7 @@ data:
             port: 15021
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
+          timeoutSeconds: 3
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
         {{ end -}}
         securityContext:
@@ -690,10 +693,6 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
-    - name: dns-tls
-      port: 853
-      targetPort: 15053
-      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.

@@ -99,6 +99,7 @@ func apply(mesh *Mesh, env Environment) error {
 			},
 			ServiceAccountName: cluster.ServiceAccountReader,
 			AuthType:           RemoteSecretAuthTypeBearerToken,
+			Type:               SecretTypeRemote,
 			// TODO add auth provider option (e.g. gcp)
 		}
 		secret, err := createRemoteSecret(opt, cluster.client, env)

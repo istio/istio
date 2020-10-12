@@ -160,6 +160,26 @@ func TestClient(t *testing.T) {
 				return nil
 			}, timeout)
 
+			// check we can update object metadata
+			annotations := map[string]string{
+				"foo": "bar",
+			}
+			configMeta.Annotations = annotations
+			if _, err := store.Update(config.Config{
+				Meta: configMeta,
+				Spec: pb,
+			}); err != nil {
+				t.Errorf("Unexpected Error in Update -> %v", err)
+			}
+			// validate it is updated
+			retry.UntilSuccessOrFail(t, func() error {
+				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
+					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
+				}
+				return nil
+			})
+
 			// Check we can remove items
 			if err := store.Delete(r.GroupVersionKind(), configName, configNamespace); err != nil {
 				t.Fatalf("failed to delete: %v", err)

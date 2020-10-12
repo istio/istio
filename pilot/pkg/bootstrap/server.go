@@ -209,6 +209,13 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		)
 	}
 
+	// used for both initKubeRegistry and initClusterRegistreis
+	if features.EnableEndpointSliceController {
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
+	} else {
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
+	}
+
 	prometheus.EnableHandlingTimeHistogram()
 
 	// TODO: revert to watching k8s (and merge with the file)
@@ -218,8 +225,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-
-	s.initSDSServer()
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -233,6 +238,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
+
+	s.XDSServer.InternalGen.Store = s.configController
 
 	s.initJwtPolicy()
 
@@ -293,6 +300,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
 	}
+
+	s.initSDSServer(args)
 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
@@ -420,15 +429,14 @@ func (s *Server) WaitUntilCompletion() {
 }
 
 // initSDSServer starts the SDS server
-func (s *Server) initSDSServer() {
+func (s *Server) initSDSServer(args *PilotArgs) {
 	if features.EnableSDSServer && s.kubeClient != nil {
 		if !features.EnableXDSIdentityCheck {
 			// Make sure we have security
 			log.Warnf("skipping Kubernetes credential reader, which was enabled by ISTIOD_ENABLE_SDS_SERVER. " +
 				"PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
-			log.Infof("initializing Kubernetes credential reader")
-			sc := kubesecrets.NewSecretsController(s.kubeClient.KubeInformer().Core().V1().Secrets())
+			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace)
 			sc.AddEventHandler(func(name, namespace string) {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full: false,

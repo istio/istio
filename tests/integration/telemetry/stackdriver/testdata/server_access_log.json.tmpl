@@ -1,7 +1,7 @@
 {
     "http_request": {
         "request_method": "POST",
-        "request_url": "http://srv.{{ .EchoNamespace }}.svc.cluster.local:7070/proto.EchoTestService/Echo",
+        "request_url": "http://srv.{{ .EchoNamespace }}.svc.cluster.local/proto.EchoTestService/Echo",
         "protocol": "grpc",
         "status": "200"
     },
@@ -12,6 +12,7 @@
         "destination_namespace": "{{ .EchoNamespace }}",
         "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
         "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "destination_service_name": "srv",
         "destination_version": "v1",
         "destination_workload": "srv-v1",
         "mesh_uid": "proj-test-mesh",

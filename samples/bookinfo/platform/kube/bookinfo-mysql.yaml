@@ -30,6 +30,7 @@ metadata:
   name: mysqldb
   labels:
     app: mysqldb
+    service: mysqldb
 spec:
   ports:
   - port: 3306

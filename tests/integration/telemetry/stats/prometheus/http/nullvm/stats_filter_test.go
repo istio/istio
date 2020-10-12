@@ -36,7 +36,6 @@ func TestStatsFilter(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).

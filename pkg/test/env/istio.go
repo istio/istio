@@ -54,10 +54,10 @@ var (
 	// nolint: golint, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
 
-	// ISTIO_TEST_KUBE_CONFIG is the Kubernetes configuration file to use for testing. If a configuration file
-	// is specified on the command-line, that takes precedence.
+	// KUBECONFIG is the list of Kubernetes configuration files. If configuration files are specified on
+	// the command-line, that takes precedence.
 	// nolint: golint, stylecheck
-	ISTIO_TEST_KUBE_CONFIG Variable = "ISTIO_TEST_KUBE_CONFIG"
+	KUBECONFIG Variable = "KUBECONFIG"
 
 	// IstioSrc is the location of istio source ($TOP/src/istio.io/istio
 	IstioSrc = REPO_ROOT.ValueOrDefaultFunc(getDefaultIstioSrc)
@@ -83,6 +83,8 @@ var (
 	// ServiceAccountFilePath is the helm service account file.
 	ServiceAccountFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/service_account.yaml")
 
+	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
+	OtelCollectorInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/opentelemetry/opentelemetry-collector.yaml")
 	// RedisInstallFilePath is the redis installation file.
 	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
 

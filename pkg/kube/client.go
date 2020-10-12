@@ -17,14 +17,15 @@ package kube
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc/credentials"
@@ -62,13 +63,14 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
 const (
 	defaultLocalAddress = "localhost"
 	fieldManager        = "istio-kube-client"
+	discoveryContainer  = "discovery"
+	pilotDiscoveryPath  = "/usr/local/bin/pilot-discovery"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -171,6 +173,9 @@ type ExtendedClient interface {
 	// CreatePerRPCCredentials creates a gRPC bearer token provider that can create (and renew!) Istio tokens
 	CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
 		expirationSeconds int64) (credentials.PerRPCCredentials, error)
+
+	// UtilFactory returns a kubectl factory
+	UtilFactory() util.Factory
 }
 
 var _ Client = &client{}
@@ -178,6 +183,7 @@ var _ ExtendedClient = &client{}
 
 const resyncInterval = 0
 
+// NewFakeClient creates a new, fake, client
 func NewFakeClient(objects ...runtime.Object) Client {
 	var c client
 	c.Interface = fake.NewSimpleClientset(objects...)
@@ -367,6 +373,14 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.serviceapisInformers.Start(stop)
+	// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
+	// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
+	// Injecting an extremely small wait gives the tests some time to catch up in most cases, while having a trivial
+	// impact on non-test cases.
+	// Ideally, in the fake client we would just aggressively poll, but the informer neither exposes tuning for this
+	// nor gives us insight into which informers we need to wait for ourselves.
+	// https://github.com/kubernetes/kubernetes/issues/95262 tracks first class support
+	time.Sleep(time.Millisecond * 5)
 	c.kubeInformer.WaitForCacheSync(stop)
 	c.dynamicInformer.WaitForCacheSync(stop)
 	c.metadataInformer.WaitForCacheSync(stop)
@@ -451,28 +465,6 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 	return builder.String(), nil
 }
 
-// proxyGet returns a response of the pod by calling it through the proxy.
-// Not a part of client-go https://github.com/kubernetes/kubernetes/issues/90768
-func (c *client) proxyGet(name, namespace, path string, port int) rest.ResponseWrapper {
-	pathURL, err := url.Parse(path)
-	if err != nil {
-		log.Errorf("failed to parse path %s: %v", path, err)
-		pathURL = &url.URL{Path: path}
-	}
-	request := c.restClient.Get().
-		Namespace(namespace).
-		Resource("pods").
-		SubResource("proxy").
-		Name(fmt.Sprintf("%s:%d", name, port)).
-		Suffix(pathURL.Path)
-	for key, vals := range pathURL.Query() {
-		for _, val := range vals {
-			request = request.Param(key, val)
-		}
-	}
-	return request
-}
-
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
 	istiods, err := c.GetIstioPods(ctx, istiodNamespace, map[string]string{
 		"labelSelector": "app=istiod",
@@ -487,10 +479,20 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
+		res, err := c.CoreV1().Pods(istiod.Namespace).ProxyGet("", istiod.Name, "15014", path, nil).DoRaw(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Problem forwarding to %s.%s: %v; skipping.", istiod.Name, istiod.Namespace, err)
-			errs = multierror.Append(errs, err)
+			execRes, execErr := c.extractExecResult(istiod.Name, istiod.Namespace, discoveryContainer,
+				fmt.Sprintf("%s request GET %s", pilotDiscoveryPath, path))
+			if execErr != nil {
+				errs = multierror.Append(errs,
+					fmt.Errorf("error port-forwarding into %s.%s: %v", istiod.Name, istiod.Namespace, err),
+					execErr,
+				)
+				continue
+			}
+			if len(execRes) > 0 {
+				result[istiod.Name] = []byte(execRes)
+			}
 			continue
 		}
 		if len(res) > 0 {
@@ -562,9 +564,21 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 	return list.Items, nil
 }
 
+// ExtractExecResult wraps PodExec and return the execution result and error if has any.
+func (c *client) extractExecResult(podName, podNamespace, container, cmd string) (string, error) {
+	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
+	if err != nil {
+		if stderr != "" {
+			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podName, podNamespace, container, err, stderr)
+		}
+		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podName, podNamespace, container, err)
+	}
+	return stdout, nil
+}
+
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
-		"labelSelector": "istio,istio!=ingressgateway,istio!=egressgateway,istio!=ilbgateway",
+		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
@@ -582,9 +596,18 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 
 		// :15014/version returns something like
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
-		result, err := c.proxyGet(pod.Name, pod.Namespace, "/version", 15014).DoRaw(ctx)
+		result, err := c.CoreV1().Pods(pod.Namespace).ProxyGet("", pod.Name, "15014", "/version", nil).DoRaw(ctx)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error port-forwarding into %s : %v", pod.Name, err))
+			bi, execErr := c.getIstioVersionUsingExec(&pod)
+			if execErr != nil {
+				errs = multierror.Append(errs,
+					fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Name, pod.Namespace, err),
+					execErr,
+				)
+				continue
+			}
+			server.Info = *bi
+			res = append(res, server)
 			continue
 		}
 		if len(result) > 0 {
@@ -604,6 +627,53 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		}
 	}
 	return &res, errs
+}
+
+func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
+
+	// exclude data plane components from control plane list
+	labelToPodDetail := map[string]struct {
+		binary    string
+		container string
+	}{
+		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
+		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
+		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
+		"galley":           {"/usr/local/bin/galley", "galley"},
+		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
+		"policy":           {"/usr/local/bin/mixs", "mixer"},
+		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},
+	}
+
+	component := pod.Labels["istio"]
+
+	// Special cases
+	switch component {
+	case "statsd-prom-bridge":
+		// statsd-prom-bridge doesn't support version
+		return nil, fmt.Errorf("statsd-prom-bridge doesn't support version")
+	case "mixer":
+		component = pod.Labels["istio-mixer-type"]
+	}
+
+	detail, ok := labelToPodDetail[component]
+	if !ok {
+		return nil, fmt.Errorf("unknown Istio component %q", component)
+	}
+
+	stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, detail.container,
+		fmt.Sprintf("%s version -o json", detail.binary))
+	if err != nil {
+		return nil, fmt.Errorf("error exec'ing into %s %s container: %w", pod.Name, detail.container, err)
+	}
+
+	var v version.Version
+	err = json.Unmarshal([]byte(stdout), &v)
+	if err == nil && v.ClientVersion.Version != "" {
+		return v.ClientVersion, nil
+	}
+
+	return nil, fmt.Errorf("error reading %s %s container version: %v", pod.Name, detail.container, stderr)
 }
 
 func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort int, podPort int) (PortForwarder, error) {
@@ -637,6 +707,10 @@ func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) err
 func (c *client) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
 	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
 	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds)
+}
+
+func (c *client) UtilFactory() util.Factory {
+	return c.clientFactory
 }
 
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {

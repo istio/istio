@@ -42,6 +42,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -731,12 +732,21 @@ func getDeployMetaFromPod(pod *corev1.Pod) (*metav1.ObjectMeta, *metav1.TypeMeta
 			typeMetadata.Kind = controllerRef.Kind
 
 			// heuristic for deployment detection
+			deployMeta.Name = controllerRef.Name
 			if typeMetadata.Kind == "ReplicaSet" && pod.Labels["pod-template-hash"] != "" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
 				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
 				deployMeta.Name = name
 				typeMetadata.Kind = "Deployment"
-			} else {
-				deployMeta.Name = controllerRef.Name
+			} else if typeMetadata.Kind == "Job" && len(controllerRef.Name) > 11 {
+				// If job name suffixed with `-<ten-digit-timestamp>`, trim the suffix and set kind to cron job.
+				l := len(controllerRef.Name)
+				if _, err := strconv.Atoi(controllerRef.Name[l-10:]); err == nil && string(controllerRef.Name[l-11]) == "-" {
+					deployMeta.Name = controllerRef.Name[:l-11]
+					typeMetadata.Kind = "CronJob"
+					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
+					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
+					typeMetadata.APIVersion = "batch/v1beta1"
+				}
 			}
 		}
 	}
@@ -752,16 +762,18 @@ func getDeployMetaFromPod(pod *corev1.Pod) (*metav1.ObjectMeta, *metav1.TypeMeta
 func injectPod(req InjectionParameters) ([]byte, error) {
 	pod := req.pod
 
-	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
-	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
-	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	var grp = int64(1337)
-	if pod.Spec.SecurityContext == nil {
-		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
+	if features.EnableLegacyFSGroupInjection {
+		// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
+		// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
+		// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+		var grp = int64(1337)
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+				FSGroup: &grp,
+			}
+		} else {
+			pod.Spec.SecurityContext.FSGroup = &grp
 		}
-	} else {
-		pod.Spec.SecurityContext.FSGroup = &grp
 	}
 
 	spec, iStatus, err := InjectionData(req, req.typeMeta, req.deployMeta)

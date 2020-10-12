@@ -31,38 +31,44 @@ var (
 	typeTag    = monitoring.MustCreateLabel("type")
 	versionTag = monitoring.MustCreateLabel("version")
 
+	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
 		"Pilot rejected CDS configs.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
+	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	edsReject = monitoring.NewGauge(
 		"pilot_xds_eds_reject",
 		"Pilot rejected EDS.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
+	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	ldsReject = monitoring.NewGauge(
 		"pilot_xds_lds_reject",
 		"Pilot rejected LDS.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
+	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	rdsReject = monitoring.NewGauge(
 		"pilot_xds_rds_reject",
 		"Pilot rejected RDS.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
-	xdsExpiredNonce = monitoring.NewSum(
-		"pilot_xds_expired_nonce",
-		"Total number of XDS requests with an expired nonce.",
-	)
-
 	totalXDSRejects = monitoring.NewSum(
 		"pilot_total_xds_rejects",
 		"Total number of XDS responses from pilot rejected by proxy.",
+		monitoring.WithLabels(typeTag),
+	)
+
+	xdsExpiredNonce = monitoring.NewSum(
+		"pilot_xds_expired_nonce",
+		"Total number of XDS requests with an expired nonce.",
+		monitoring.WithLabels(typeTag),
 	)
 
 	monServices = monitoring.NewGauge(
@@ -77,8 +83,8 @@ var (
 		"Number of endpoints connected to this pilot using XDS.",
 		monitoring.WithLabels(versionTag),
 	)
-	xdsClientTrackerMutex                    = &sync.Mutex{}
-	xdsClientTracker      map[string]float64 = make(map[string]float64)
+	xdsClientTrackerMutex = &sync.Mutex{}
+	xdsClientTracker      = make(map[string]float64)
 
 	xdsResponseWriteTimeouts = monitoring.NewSum(
 		"pilot_xds_write_timeout",
@@ -102,6 +108,12 @@ var (
 		"Total time in seconds Pilot takes to push lds, rds, cds and eds.",
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 		monitoring.WithLabels(typeTag),
+	)
+
+	sendTime = monitoring.NewDistribution(
+		"pilot_xds_send_time",
+		"Total time in seconds Pilot takes to send generated configuration.",
+		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 	)
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
@@ -181,8 +193,7 @@ func recordSendError(xdsType string, conID string, err error) {
 }
 
 func incrementXDSRejects(xdsType string, node, errCode string) {
-	totalXDSRejects.Increment()
-	// TODO in the future we should have a single metric with a type tag
+	totalXDSRejects.With(typeTag.Value(v3.GetMetricType(xdsType))).Increment()
 	switch xdsType {
 	case v3.ListenerType:
 		ldsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
@@ -193,6 +204,10 @@ func incrementXDSRejects(xdsType string, node, errCode string) {
 	case v3.RouteType:
 		rdsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
 	}
+}
+
+func recordSendTime(duration time.Duration) {
+	sendTime.Record(duration.Seconds())
 }
 
 func recordPushTime(xdsType string, duration time.Duration) {
@@ -219,5 +234,6 @@ func init() {
 		totalXDSInternalErrors,
 		inboundUpdates,
 		pushTriggers,
+		sendTime,
 	)
 }

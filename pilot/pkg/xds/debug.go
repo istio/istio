@@ -89,9 +89,10 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 
 // AdsClient defines the data that is displayed on "/adsz" endpoint.
 type AdsClient struct {
-	ConnectionID string    `json:"connectionId"`
-	ConnectedAt  time.Time `json:"connectedAt"`
-	PeerAddress  string    `json:"address"`
+	ConnectionID string              `json:"connectionId"`
+	ConnectedAt  time.Time           `json:"connectedAt"`
+	PeerAddress  string              `json:"address"`
+	Watches      map[string][]string `json:"watches"`
 }
 
 // AdsClients is collection of AdsClient connected to this Istiod.
@@ -156,6 +157,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	mux.HandleFunc("/debug", s.Debug)
 
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
+	s.addDebugHandler(mux, "/debug/ndsz", "Status and debug interface for NDS", s.Ndsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
@@ -458,7 +460,17 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 			ConnectionID: c.ConID,
 			ConnectedAt:  c.Connect,
 			PeerAddress:  c.PeerAddr,
+			Watches:      map[string][]string{},
 		}
+		c.proxy.RLock()
+		for k, wr := range c.proxy.WatchedResources {
+			r := wr.ResourceNames
+			if r == nil {
+				r = []string{}
+			}
+			adsClient.Watches[k] = r
+		}
+		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
 	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {
@@ -651,6 +663,43 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(500)
 	}
 	w.WriteHeader(200)
+}
+
+// Ndsz implements a status and debug interface for NDS.
+// It is mapped to /debug/Ndsz on the monitor port (15014).
+func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	if req.Form.Get("push") != "" {
+		AdsPushAll(s)
+	}
+	var con *Connection
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		con = s.getProxyConnection(proxyID)
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		if con == nil {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+		return
+	}
+	if _, err := w.Write([]byte("[")); err != nil {
+		return
+	}
+
+	if s.Generators[v3.NameTableType] != nil {
+		nds := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil)
+		if len(nds) == 0 {
+			return
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		_ = jsonm.Marshal(w, nds[0])
+	}
 }
 
 // Edsz implements a status and debug interface for EDS.

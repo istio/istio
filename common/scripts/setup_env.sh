@@ -59,14 +59,14 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-09-04T21-07-25
+  export IMAGE_VERSION=master-2020-10-02T20-42-01
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
 fi
 
 export UID
-DOCKER_GID=$(grep '^docker:' /etc/group | cut -f3 -d:)
+DOCKER_GID="${DOCKER_GID:-$(grep '^docker:' /etc/group | cut -f3 -d:)}"
 export DOCKER_GID
 
 TIMEZONE=$(readlink "$readlink_flags" /etc/localtime | sed -e 's/^.*zoneinfo\///')

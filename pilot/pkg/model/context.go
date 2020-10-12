@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/monitoring"
 )
 
@@ -196,6 +197,13 @@ type Proxy struct {
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
+
+	// VerifiedIdentity determines whether a proxy had its identity verified. This
+	// generally occurs by JWT or mTLS authentication. This can be false when
+	// connecting over plaintext. If this is set to true, we can verify the proxy has
+	// access to ConfigNamespace namespace. However, other options such as node type
+	// are not part of an Istio identity and thus are not verified.
+	VerifiedIdentity *spiffe.Identity
 
 	// Indicates whether proxy supports IPv6 addresses
 	ipv6Support bool
@@ -470,7 +478,7 @@ type NodeMetadata struct {
 	CertBaseDir string `json:"BASE,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
-	// If not set, no timeout is set.
+	// If not set, default timeout is 1 hour.
 	IdleTimeout string `json:"IDLE_TIMEOUT,omitempty"`
 
 	// HTTP10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
