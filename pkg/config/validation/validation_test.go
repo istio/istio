@@ -3756,6 +3756,40 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "RemoteIpBlocks-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									RemoteIpBlocks: []string{"1.2.3.4", ""},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "RemoteNotIpBlocks-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									NotRemoteIpBlocks: []string{"1.2.3.4", ""},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "Hosts-empty",
 			in: &security_beta.AuthorizationPolicy{
 				Rules: []*security_beta.Rule{

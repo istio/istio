@@ -1432,19 +1432,24 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				} else {
 					src := from.Source
 					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
-						len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 && len(src.NotIpBlocks) == 0 {
+						len(src.RemoteIpBlocks) == 0 && len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 && 
+            len(src.NotIpBlocks) == 0 && len(src.NotRemoteIpBlocks) == 0 {
 						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotIpBlocks()))
+					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetRemoteIpBlocks()))
+					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotRemoteIpBlocks()))
 					errs = appendErrors(errs, security.CheckEmptyValues("Principals", src.Principals))
 					errs = appendErrors(errs, security.CheckEmptyValues("RequestPrincipals", src.RequestPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("Namespaces", src.Namespaces))
 					errs = appendErrors(errs, security.CheckEmptyValues("IpBlocks", src.IpBlocks))
+					errs = appendErrors(errs, security.CheckEmptyValues("RemoteIpBlocks", src.RemoteIpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotPrincipals", src.NotPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotRequestPrincipals", src.NotRequestPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotNamespaces", src.NotNamespaces))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotIpBlocks", src.NotIpBlocks))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotRemoteIpBlocks", src.NotRemoteIpBlocks))
 				}
 			}
 			if rule.To != nil && len(rule.To) == 0 {

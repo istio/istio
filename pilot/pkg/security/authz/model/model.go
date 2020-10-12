@@ -34,6 +34,7 @@ const (
 
 	attrRequestHeader    = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 	attrSrcIP            = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+  attrRemoteIP         = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol
 	attrSrcNamespace     = "source.namespace"            // e.g. "default".
 	attrSrcPrincipal     = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal = "request.auth.principal"      // authenticated principal of the request.
@@ -90,6 +91,8 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 			basePermission.appendLast(envoyFilterGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcIP:
 			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues)
+		case k == attrRemoteIP:
+			basePrincipal.appendLast(remoteIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcNamespace:
 			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcPrincipal:
@@ -113,6 +116,7 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 		merged := basePrincipal.copy()
 		if s := from.Source; s != nil {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
+			merged.insertFront(remoteIPGenerator{}, attrSrcIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
 			merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
