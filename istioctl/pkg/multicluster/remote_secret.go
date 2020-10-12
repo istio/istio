@@ -389,10 +389,14 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 	switch opt.Type {
 	case SecretTypeRemote:
 		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
-		opt.ServiceAccountName = constants.DefaultServiceAccountName
+		if opt.ServiceAccountName == "" {
+			opt.ServiceAccountName = constants.DefaultServiceAccountName
+		}
 	case SecretTypeConfig:
 		secretName = configSecretName
-		opt.ServiceAccountName = constants.DefaultConfigServiceAccountName
+		if opt.ServiceAccountName == "" {
+			opt.ServiceAccountName = constants.DefaultConfigServiceAccountName
+		}
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", opt.Type)
 	}
