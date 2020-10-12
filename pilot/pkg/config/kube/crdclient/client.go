@@ -28,11 +28,13 @@ import (
 	"fmt"
 	"time"
 
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/informers"
 
 	//  import GKE cluster authentication plugin
@@ -109,7 +111,7 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler fun
 	h.handlers = append(h.handlers, handler)
 }
 
-// Start the queue and all informers. Callers should  wait for HasSynced() before depending on results.
+// Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	scope.Infoa("Starting Pilot K8S CRD controller")
@@ -230,6 +232,29 @@ func (cl *Client) Update(config config.Config) (string, error) {
 	return meta.GetResourceVersion(), nil
 }
 
+// PatchFunc provides the cached config as a base for modification. The diff between the input value and the modified
+// return will be used to apply a patch in Kubrenetes.
+type PatchFunc func(cfg config.Config) config.Config
+
+// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
+// read-modify-write conflicts when there are many concurrent-writers to the same resource.
+func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn PatchFunc) (string, error) {
+	// it is okay if orig is stale - we just care about the diff
+	orig := cl.Get(typ, name, namespace)
+	if orig == nil {
+		// TODO error from GET
+		return "", fmt.Errorf("failed getting base config")
+	}
+	modified := patchFn(orig.DeepCopy())
+
+	oo := *orig
+	meta, err := patch(cl.istioClient, cl.serviceApisClient, oo, getObjectMetadata(oo), modified, getObjectMetadata(modified))
+	if err != nil {
+		return "", err
+	}
+	return meta.GetResourceVersion(), nil
+}
+
 // Delete implements store interface
 func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string) error {
 	return delete(cl.istioClient, cl.serviceApisClient, typ, name, namespace)
@@ -322,4 +347,22 @@ func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 		Labels:      config.Labels,
 		Annotations: config.Annotations,
 	}
+}
+
+func genPatchBytes(oldRes, modRes runtime.Object) ([]byte, error) {
+	oldJSON, err := json.Marshal(oldRes)
+	if err != nil {
+		return nil, err
+	}
+	newJSON, err := json.Marshal(modRes)
+	if err != nil {
+		return nil, err
+	}
+	// TODO apply requires a "merge" style patch; see CreateTwoWayMerge patch or CreateMergePatch
+	ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
+	if err != nil {
+		return nil, err
+	}
+	// TODO apply may require setting gvk ourselves on the patch payload
+	return json.Marshal(ops)
 }

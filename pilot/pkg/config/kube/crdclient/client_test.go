@@ -180,6 +180,24 @@ func TestClient(t *testing.T) {
 				return nil
 			})
 
+			// check we can patch items
+			var patchedCfg config.Config
+			if _, err := store.(*Client).Patch(r.GroupVersionKind(), configName, configNamespace, func(cfg config.Config) config.Config {
+				cfg.Annotations["fizz"] = "buzz"
+				patchedCfg = cfg
+				return cfg
+			}); err != nil {
+				t.Errorf("unexpected err in Patch: %v", err)
+			}
+			// validate it is updated
+			retry.UntilSuccessOrFail(t, func() error {
+				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+				if cfg == nil || !reflect.DeepEqual(cfg.Meta, patchedCfg.Meta) {
+					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
+				}
+				return nil
+			})
+
 			// Check we can remove items
 			if err := store.Delete(r.GroupVersionKind(), configName, configNamespace); err != nil {
 				t.Fatalf("failed to delete: %v", err)
