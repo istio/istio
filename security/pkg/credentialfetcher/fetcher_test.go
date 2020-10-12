@@ -57,7 +57,7 @@ func TestNewCredFetcher(t *testing.T) {
 
 	for id, tc := range testCases {
 		cf, err := NewCredFetcher(
-			tc.fetcherType, tc.trustdomain, tc.jwtPath)
+			tc.fetcherType, tc.trustdomain, tc.jwtPath, security.GCE)
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: succeeded. Error expected: %v", id, err)
