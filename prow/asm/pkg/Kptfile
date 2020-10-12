@@ -1,0 +1,26 @@
+apiVersion: kpt.dev/v1alpha1
+kind: Kptfile
+metadata:
+  name: asm
+openAPI:
+  definitions:
+    io.k8s.cli.setters.anthos.servicemesh.spiffe-bundle-endpoints:
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.spiffe-bundle-endpoints
+          value: ""
+    io.k8s.cli.setters.anthos.servicemesh.token-audiences:
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.token-audiences
+          value: ""
+    io.k8s.cli.setters.anthos.servicemesh.trustDomainAliases:
+      items:
+        pattern: '[a-z0-9\-].svc.id.goog'
+        type: string
+      minItems: 1
+      type: array
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.trustDomainAliases
+          listValues:

@@ -1,0 +1,16 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: SPIFFE_BUNDLE_ENDPOINTS
+          value: "" # {"$ref":"#/definitions/io.k8s.cli.setters.anthos.servicemesh.spiffe-bundle-endpoints"}
+        - name: ENABLE_STACKDRIVER_MONITORING
+          value: "true"
+        - name: TOKEN_AUDIENCES
+          value: "" # {"$ref":"#/definitions/io.k8s.cli.setters.anthos.servicemesh.token-audiences"}
+  meshConfig:
+    trustDomainAliases: # {"$ref":"#/definitions/io.k8s.cli.setters.anthos.servicemesh.trustDomainAliases"}
+    - ""
