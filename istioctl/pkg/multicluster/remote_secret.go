@@ -385,15 +385,6 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 		opt.ClusterName = string(uid)
 	}
 
-	tokenSecret, err := getServiceAccountSecret(client, opt.ServiceAccountName, opt.Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
-	}
-
-	server, err := getServerFromKubeconfig(opt.Context, env.GetConfig())
-	if err != nil {
-		return nil, err
-	}
 	var secretName string
 	switch opt.Type {
 	case SecretTypeRemote:
@@ -404,6 +395,15 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 		opt.ServiceAccountName = constants.DefaultConfigServiceAccountName
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", opt.Type)
+	}
+	tokenSecret, err := getServiceAccountSecret(client, opt.ServiceAccountName, opt.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
+	}
+
+	server, err := getServerFromKubeconfig(opt.Context, env.GetConfig())
+	if err != nil {
+		return nil, err
 	}
 
 	var remoteSecret *v1.Secret
