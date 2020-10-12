@@ -193,6 +193,9 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # Used to locate istiod.
+  istioNamespace: istio-system
+
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io
