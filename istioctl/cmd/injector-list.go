@@ -82,7 +82,7 @@ func injectorListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			hooks, err := getHooks(client)
+			hooks, err := getWebhooks(client)
 			if err != nil {
 				return err
 			}
@@ -96,7 +96,7 @@ func injectorListCommand() *cobra.Command {
 				return err
 			}
 			fmt.Println()
-			injectedImages, err := getInjectionImages(client)
+			injectedImages, err := getInjectedImages(client)
 			if err != nil {
 				return err
 			}
@@ -132,8 +132,8 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 		}
 
 		revision := getInjectedRevision(&namespace, hooks)
-		podcounts := podcountByRevision(allPods[resource.Namespace(namespace.Name)], revision)
-		for injectedRevision, count := range podcounts {
+		podCount := podCountByRevision(allPods[resource.Namespace(namespace.Name)], revision)
+		for injectedRevision, count := range podCount {
 			fmt.Fprintf(w, "%s\t%s\t%s\n", namespace.Name, revision,
 				fmt.Sprintf("%s: %s", injectedRevision, renderCounts(count)))
 		}
@@ -141,7 +141,7 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 	return w.Flush()
 }
 
-func getHooks(client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
+func getWebhooks(client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	hooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return []admit_v1.MutatingWebhookConfiguration{}, err
@@ -158,16 +158,16 @@ func printHooks(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mu
 	// TODO sort
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
-	fmt.Fprintln(w, "INJECTOR-HOOK\tISTIO-REVISION\tNAMESPACES\tSIDECAR-IMAGE")
+	fmt.Fprintln(w, "NAMESPACES\tINJECTOR-HOOK\tISTIO-REVISION\tSIDECAR-IMAGE")
 	for _, hook := range hooks {
 		revision := hook.ObjectMeta.GetLabels()[label.IstioRev]
 		namespaces := getMatchingNamespaces(&hook, namespaces)
 		if len(namespaces) == 0 {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", hook.Name, revision, "DOES NOT AUTOINJECT", injectedImages[revision])
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "DOES NOT AUTOINJECT", hook.Name, revision, injectedImages[revision])
 			continue
 		}
 		for _, namespace := range namespaces {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", hook.Name, revision, namespace.Name, injectedImages[revision])
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", namespace.Name, hook.Name, revision, injectedImages[revision])
 		}
 	}
 	return w.Flush()
@@ -244,8 +244,8 @@ func getPods(client kube.ExtendedClient) (map[resource.Namespace][]v1.Pod, error
 	return retval, nil
 }
 
-// getInjectionImages() returns a map of revision->dockerimage
-func getInjectionImages(client kube.ExtendedClient) (map[string]string, error) {
+// getInjectedImages() returns a map of revision->dockerimage
+func getInjectedImages(client kube.ExtendedClient) (map[string]string, error) {
 	retval := map[string]string{}
 
 	// All configs in all namespaces that are Istio revisioned
@@ -264,7 +264,7 @@ func getInjectionImages(client kube.ExtendedClient) (map[string]string, error) {
 	return retval, nil
 }
 
-func podcountByRevision(pods []v1.Pod, expectedRevision string) map[string]revisionCount {
+func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revisionCount {
 	retval := map[string]revisionCount{}
 	for _, pod := range pods {
 		revision := pod.ObjectMeta.GetLabels()[label.IstioRev]
