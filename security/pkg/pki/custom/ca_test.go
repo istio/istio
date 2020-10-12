@@ -142,46 +142,73 @@ func TestVerifyCSR(t *testing.T) {
 		RSAKeySize: 2048,
 	})
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	fakeIdentity, _, err := util.GenCSR(util.CertOptions{
+		Host:       "spiffe://admin/ns/admin/sa/admin",
+		NotBefore:  time.Now(),
+		IsCA:       false,
+		RSAKeySize: 2048,
+	})
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	testCase := map[string]struct {
-		csr       []byte
-		expectErr string
+		callerIdentities []string
+		csr              []byte
+		expectErr        string
 	}{
 		"valid CSR: should success": {
-			csr:       validCSR,
-			expectErr: "",
+			callerIdentities: []string{spiffeURI},
+			csr:              validCSR,
+			expectErr:        "",
 		},
 		"unmatched CSR Host: should failed with error": {
-			csr: unmatchCSR,
+			callerIdentities: []string{spiffeURI},
+			csr:              unmatchCSR,
 			expectErr: "csr's host ([spiffe://unmatch]) doesn't match with request identities " +
 				"([spiffe://cluster.local/ns/test-namespace/sa/test-service-account])",
 		},
 		"empty CSR Host: should failed with error": {
-			csr:       emptyHostCSR,
-			expectErr: "cannot extract identities from CSR: the SAN extension does not exist",
+			callerIdentities: []string{spiffeURI},
+			csr:              emptyHostCSR,
+			expectErr:        "cannot extract identities from CSR: the SAN extension does not exist",
 		},
 		"received unsupported CSR, contains DNSNames: should failed with error": {
-			csr:       containDNS,
-			expectErr: "received unsupported CSR, contains DNSNames: [fake.dns.com]",
+			callerIdentities: []string{spiffeURI},
+			csr:              containDNS,
+			expectErr:        "received unsupported CSR, contains DNSNames: [fake.dns.com]",
 		},
 		"received unsupported CSR, contains IPs: should failed with error": {
-			csr:       containIPs,
-			expectErr: "received unsupported CSR, contains IPAddresses: [192.168.2.1 127.0.0.1 123.123.32.32]",
+			callerIdentities: []string{spiffeURI},
+			csr:              containIPs,
+			expectErr:        "received unsupported CSR, contains IPAddresses: [192.168.2.1 127.0.0.1 123.123.32.32]",
 		},
 		"received unsupported CSR, contains CommonName: should failed with error": {
-			csr:       containCommonName,
-			expectErr: "received unsupported CSR, contains Subject.CommonName: \"FakeCommonName\"",
+			callerIdentities: []string{spiffeURI},
+			csr:              containCommonName,
+			expectErr:        "received unsupported CSR, contains Subject.CommonName: \"FakeCommonName\"",
 		},
-		"received unsupported CSR, contains : should failed with error": {
-			csr: multiIdentitiesCSR,
-			expectErr: "received unsupported CSR, contains more than 1 identity: " +
-				"[spiffe://cluster.local/ns/test-namespace/sa/test-service-account spiffe://admin/ns/admin/sa/admin]",
+		"received unmatched multi CSR identities: should failed with error": {
+			callerIdentities: []string{spiffeURI},
+			csr:              multiIdentitiesCSR,
+			expectErr: "csr's host ([spiffe://cluster.local/ns/test-namespace/sa/test-service-account " +
+				"spiffe://admin/ns/admin/sa/admin]) doesn't match with request identities " +
+				"([spiffe://cluster.local/ns/test-namespace/sa/test-service-account])",
+		},
+		"received unmatched single CSR identity: should failed with error": {
+			callerIdentities: []string{spiffeURI},
+			csr:              fakeIdentity,
+			expectErr: "csr's host ([spiffe://admin/ns/admin/sa/admin]) doesn't match with request identities " +
+				"([spiffe://cluster.local/ns/test-namespace/sa/test-service-account])",
+		},
+		"empty caller's identities: should bypass without error": {
+			callerIdentities: []string{},
+			csr:              fakeIdentity,
 		},
 	}
 
 	for id, tc := range testCase {
 		t.Run(id, func(tsub *testing.T) {
 			gsub := gomega.NewGomegaWithT(tsub)
-			err := verifyCSRIdentities([]string{spiffeURI}, string(tc.csr))
+			err := validateCSR(tc.callerIdentities, string(tc.csr))
 			if tc.expectErr != "" {
 				gsub.Expect(err).To(gomega.MatchError(tc.expectErr))
 				return

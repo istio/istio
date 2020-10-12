@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strings"
 	"time"
 
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -79,7 +80,7 @@ func responseTimeTrack(start time.Time, name string) {
 // CreateCertificate is similar to Sign but returns the leaf cert and the entire cert chain.
 func (c *CAClient) CreateCertificate(ctx context.Context,
 	req *pb.IstioCertificateRequest, identities []string) (*pb.IstioCertificateResponse, error) {
-	if err := verifyCSRIdentities(identities, req.GetCsr()); err != nil {
+	if err := validateCSR(identities, req.GetCsr()); err != nil {
 		return nil, fmt.Errorf("verify CSR Identities failed: %v", err)
 	}
 	cLog.Debugf("forwarding Workload's CSR to Custom CA server...")
@@ -127,7 +128,7 @@ func validateAndParseCert(cert string) (string, error) {
 	return string(c), nil
 }
 
-func verifyCSRIdentities(identities []string, csrPEM string) error {
+func validateCSR(identities []string, csrPEM string) error {
 	if len(identities) == 0 {
 		return nil
 	}
@@ -165,18 +166,15 @@ func verifyCSRIdentities(identities []string, csrPEM string) error {
 	if len(idsFromCSR) == 0 {
 		return fmt.Errorf("missing spiffe identities in CSR")
 	}
+	identitiesAsStr := strings.Join(identities, ",")
 
-	if len(idsFromCSR) > 1 {
-		return fmt.Errorf("received unsupported CSR, contains more than 1 identity: %v", idsFromCSR)
-	}
-
-	matched := false
-	for _, identity := range identities {
-		if identity == idsFromCSR[0] {
-			matched = true
+	unmatched := false
+	for _, csrID := range idsFromCSR {
+		if !strings.Contains(identitiesAsStr, csrID) {
+			unmatched = true
 		}
 	}
-	if !matched {
+	if unmatched {
 		return fmt.Errorf("csr's host (%s) doesn't match with request identities (%s)", idsFromCSR, identities)
 	}
 	return nil
