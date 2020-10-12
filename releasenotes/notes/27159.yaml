@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Added** `io` as shortname for Istio Operator resources in adddition to `iop`.
+  **Added** `io` as shortname for Istio Operator resources in addition to `iop`.
