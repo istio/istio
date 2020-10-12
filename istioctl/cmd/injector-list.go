@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -117,15 +118,14 @@ func getNamespaces(client kube.ExtendedClient) ([]v1.Namespace, error) {
 
 func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration,
 	allPods map[resource.Namespace][]v1.Pod) error {
-	if len(namespaces) == 0 {
-		_, err := fmt.Fprintf(writer, "No namespaces present.\n")
-		return err
-	}
 
-	// TODO sort
+	sort.Slice(namespaces, func(i, j int) bool {
+		return namespaces[i].Name < namespaces[j].Name
+	})
+
+	outputCount := 0
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
-	fmt.Fprintln(w, "NAMESPACE\tISTIO-REVISION\tPOD-REVISIONS")
 	for _, namespace := range namespaces {
 		if hideFromOutput(resource.Namespace(namespace.Name)) {
 			continue
@@ -134,10 +134,19 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 		revision := getInjectedRevision(&namespace, hooks)
 		podCount := podCountByRevision(allPods[resource.Namespace(namespace.Name)], revision)
 		for injectedRevision, count := range podCount {
+			if outputCount == 0 {
+				fmt.Fprintln(w, "NAMESPACE\tISTIO-REVISION\tPOD-REVISIONS")
+			}
+			outputCount++
+
 			fmt.Fprintf(w, "%s\t%s\t%s\n", namespace.Name, revision,
 				fmt.Sprintf("%s: %s", injectedRevision, renderCounts(count)))
 		}
 	}
+	if outputCount == 0 {
+		fmt.Fprintf(writer, "No Istio injected namespaces present.\n")
+	}
+
 	return w.Flush()
 }
 
@@ -155,7 +164,9 @@ func printHooks(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mu
 		return err
 	}
 
-	// TODO sort
+	sort.Slice(hooks, func(i, j int) bool {
+		return hooks[i].Name < hooks[j].Name
+	})
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "NAMESPACES\tINJECTOR-HOOK\tISTIO-REVISION\tSIDECAR-IMAGE")
@@ -181,9 +192,7 @@ func getInjector(namespace *v1.Namespace, hooks []admit_v1.MutatingWebhookConfig
 			if err != nil {
 				continue
 			}
-			// @@@ nsSelector := api_pkg_labels.SelectorFromSet(webhook.NamespaceSelector)
 			if nsSelector.Matches(api_pkg_labels.Set(namespace.ObjectMeta.Labels)) {
-				// @@@ TODO verify the meaning of Webhooks is "OR" not "AND"
 				return &hook
 			}
 		}
@@ -218,7 +227,6 @@ func getMatchingNamespaces(hook *admit_v1.MutatingWebhookConfiguration, namespac
 
 		for _, namespace := range namespaces {
 			if nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
-				// @@@ TODO Verify "OR" not "AND" on Webhooks
 				retval = append(retval, namespace)
 			}
 		}
