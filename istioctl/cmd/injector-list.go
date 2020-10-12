@@ -55,7 +55,7 @@ func injectorCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
-				return fmt.Errorf("unknown dashboard %q", args[0])
+				return fmt.Errorf("unknown subcommand %q", args[0])
 			}
 
 			return nil
