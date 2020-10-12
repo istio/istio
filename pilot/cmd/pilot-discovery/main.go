@@ -56,14 +56,12 @@ var (
 	}
 
 	discoveryCmd = &cobra.Command{
-		Use:   "discovery",
-		Short: "Start Istio proxy discovery service.",
-		Args:  cobra.ExactArgs(0),
+		Use:               "discovery",
+		Short:             "Start Istio proxy discovery service.",
+		Args:              cobra.ExactArgs(0),
+		PersistentPreRunE: configureLogging,
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
 			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.RegistryOptions.KubeOptions.TrustDomain, hasKubeRegistry()))
@@ -99,6 +97,13 @@ func hasKubeRegistry() bool {
 		}
 	}
 	return false
+}
+
+func configureLogging(_ *cobra.Command, _ []string) error {
+	if err := log.Configure(loggingOptions); err != nil {
+		return err
+	}
+	return nil
 }
 
 func init() {
