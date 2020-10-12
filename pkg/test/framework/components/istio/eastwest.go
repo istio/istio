@@ -123,11 +123,11 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 }
 
 func (i *operatorComponent) applyCrossNetworkGateway(cluster resource.Cluster) error {
-	scopes.Framework.Infof("Exposing services via eastwestgateway in ", cluster.Name())
+	scopes.Framework.Infof("Exposing services via eastwestgateway in %v", cluster.Name())
 	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeServicesGateway)
 }
 
 func (i *operatorComponent) applyIstiodGateway(cluster resource.Cluster) error {
-	scopes.Framework.Infof("Exposing istiod via eastwestgateway in ", cluster.Name())
+	scopes.Framework.Infof("Exposing istiod via eastwestgateway in %v", cluster.Name())
 	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeIstiodGateway)
 }
