@@ -38,13 +38,6 @@ const (
 	ControllerName = "istio.io/gateway-controller"
 )
 
-var (
-	istioVsResource = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
-	istioGwResource = collections.IstioNetworkingV1Alpha3Gateways.Resource()
-
-	k8sServiceResource = collections.K8SCoreV1Services.Resource()
-)
-
 type KubernetesResources struct {
 	GatewayClass []config.Config
 	Gateway      []config.Config
@@ -204,7 +197,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	}
 	vsConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: istioVsResource.GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             name,
 			Namespace:        obj.Namespace,
 			Domain:           domain,
@@ -240,7 +233,7 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 
 	vsConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: istioVsResource.GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
 			Namespace:        obj.Namespace,
 			Domain:           domain,
@@ -510,7 +503,7 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 		}
 		gatewayConfig := config.Config{
 			Meta: config.Meta{
-				GroupVersionKind: istioGwResource.GroupVersionKind(),
+				GroupVersionKind: gvk.Gateway,
 				Name:             name,
 				Namespace:        obj.Namespace,
 				Domain:           r.Domain,
