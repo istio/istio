@@ -175,11 +175,9 @@ var (
 			// Allow unknown flags for backward-compatibility.
 			UnknownFlags: true,
 		},
+		PersistentPreRunE: configureLogging,
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
 			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Extract pod variables.
@@ -439,6 +437,13 @@ func getDNSDomain(podNamespace, domain string) string {
 		domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
 	}
 	return domain
+}
+
+func configureLogging(_ *cobra.Command, _ []string) error {
+	if err := log.Configure(loggingOptions); err != nil {
+		return err
+	}
+	return nil
 }
 
 func init() {
