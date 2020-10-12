@@ -1,4 +1,4 @@
-# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=b060b8df63c983fc0f741268dc6caff190b517b9"`
+# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=v1alpha1-rc1"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -15,7 +15,11 @@ spec:
     singular: gatewayclass
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.controller
+      name: Controller
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: "GatewayClass describes a class of Gateways available to the
@@ -37,18 +41,19 @@ spec:
           spec:
             description: Spec for this GatewayClass.
             properties:
-              allowedGatewayNamespaceSelector:
-                description: "AllowedGatewayNamespaceSelector is a selector of namespaces
-                  that Gateways can use this GatewayClass from. This is a standard
-                  Kubernetes LabelSelector. Controllers must not support Gateways
-                  in namespaces outside this selector. \n An empty selector (default)
-                  indicates that Gateways can use this GatewayClass from any namespace.
-                  \n When a Gateway attempts to use this class from a namespace that
-                  is not allowed by this selector, the controller implementing the
-                  GatewayClass may add a new \"ForbiddenNamespaceForClass\" condition
-                  to the Gateway status. Adding this condition is considered optional
-                  since not all controllers will have access to all namespaces. \n
-                  Support: Core"
+              allowedGatewayNamespaces:
+                description: "AllowedGatewayNamespaces is a selector of namespaces
+                  that Gateways of this class can be created in. Implementations must
+                  not support Gateways when they are created in namespaces not specified
+                  by this field. \n Gateways that appear in namespaces not specified
+                  by this field must continue to be supported if they have already
+                  been provisioned. This must be indicated by the Gateway's presence
+                  in the ProvisionedGateways list in the status for this GatewayClass.
+                  If the status on a Gateway indicates that it has been provisioned
+                  but the Gateway does not appear in the ProvisionedGateways list
+                  on GatewayClass it must not be supported. \n When this field is
+                  unspecified (default) or an empty selector, Gateways in any namespace
+                  will be able to use this GatewayClass. \n Support: Core"
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
@@ -91,80 +96,6 @@ spec:
                       are ANDed.
                     type: object
                 type: object
-              allowedRouteNamespaces:
-                default:
-                  onlySameNamespace: true
-                description: "AllowedRouteNamespaces indicates in which namespaces
-                  Routes can be selected for Gateways of this class. This is restricted
-                  to the namespace of the Gateway by default. \n When any Routes are
-                  selected by a Gateway in a namespace that is not allowed by this
-                  selector, the controller implementing the GatewayClass may add a
-                  new \"ForbiddenRoutesForClass\" condition to the Gateway status.
-                  Adding this condition is considered optional since not all controllers
-                  will have access to all namespaces. \n Support: Core"
-                properties:
-                  namespaceSelector:
-                    description: "NamespaceSelector is a selector of namespaces that
-                      Routes should be selected from. This is a standard Kubernetes
-                      LabelSelector, a label query over a set of resources. The result
-                      of matchLabels and matchExpressions are ANDed. Controllers must
-                      not support Routes in namespaces outside this selector. \n An
-                      empty selector (default) indicates that Routes in any namespace
-                      can be selected. \n The OnlySameNamespace field takes precedence
-                      over this field. This selector will only take effect when OnlySameNamespace
-                      is false. \n Support: Core"
-                    properties:
-                      matchExpressions:
-                        description: matchExpressions is a list of label selector
-                          requirements. The requirements are ANDed.
-                        items:
-                          description: A label selector requirement is a selector
-                            that contains values, a key, and an operator that relates
-                            the key and values.
-                          properties:
-                            key:
-                              description: key is the label key that the selector
-                                applies to.
-                              type: string
-                            operator:
-                              description: operator represents a key's relationship
-                                to a set of values. Valid operators are In, NotIn,
-                                Exists and DoesNotExist.
-                              type: string
-                            values:
-                              description: values is an array of string values. If
-                                the operator is In or NotIn, the values array must
-                                be non-empty. If the operator is Exists or DoesNotExist,
-                                the values array must be empty. This array is replaced
-                                during a strategic merge patch.
-                              items:
-                                type: string
-                              type: array
-                          required:
-                          - key
-                          - operator
-                          type: object
-                        type: array
-                      matchLabels:
-                        additionalProperties:
-                          type: string
-                        description: matchLabels is a map of {key,value} pairs. A
-                          single {key,value} in the matchLabels map is equivalent
-                          to an element of matchExpressions, whose key field is "key",
-                          the operator is "In", and the values array contains only
-                          "value". The requirements are ANDed.
-                        type: object
-                    type: object
-                  onlySameNamespace:
-                    default: true
-                    description: "OnlySameNamespace is a boolean used to indicate
-                      if Route references are limited to the same Namespace as the
-                      Gateway. When true, only Routes within the same Namespace as
-                      the Gateway should be selected. \n This field takes precedence
-                      over the NamespaceSelector field. That selector should only
-                      take effect when this field is set to false. \n Support: Core"
-                    type: boolean
-                type: object
               controller:
                 description: "Controller is a domain/path string that indicates the
                   controller that is managing Gateways of this class. \n Example:
@@ -172,6 +103,7 @@ spec:
                   cannot be empty. \n The format of this field is DOMAIN \"/\" PATH,
                   where DOMAIN and PATH are valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).
                   \n Support: Core"
+                maxLength: 253
                 type: string
               parametersRef:
                 description: "ParametersRef is a controller-specific resource containing
@@ -183,18 +115,24 @@ spec:
                   will be true. \n Support: Custom"
                 properties:
                   group:
-                    description: Group is the API group name of the referent.
+                    description: Group is the group of the referent.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  kind:
+                    description: Kind is kind of the referent.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                   name:
                     description: Name is the name of the referent.
-                    type: string
-                  resource:
-                    description: Resource is the API resource name of the referent.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                 required:
                 - group
+                - kind
                 - name
-                - resource
                 type: object
             required:
             - controller
@@ -285,6 +223,34 @@ spec:
                   - status
                   - type
                   type: object
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              provisionedGateways:
+                description: ProvisionedGateways is a list of Gateways that have been
+                  provisioned using this class. Implementations must add any Gateways
+                  of this class to this list once they have been provisioned and remove
+                  Gateways as soon as they are deleted or deprovisioned.
+                items:
+                  description: GatewayReference identifies a Gateway in a specified
+                    namespace.
+                  properties:
+                    name:
+                      description: Name is the name of the referent.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace of the referent.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  type: object
                 type: array
             type: object
         type: object
@@ -315,7 +281,11 @@ spec:
     singular: gateway
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.gatewayClassName
+      name: Class
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Gateway represents an instantiation of a service-traffic handling
@@ -366,14 +336,19 @@ spec:
                       description: 'Value. Examples: "1.2.3.4", "128::1", "my-ip-address".
                         Validity of the values will depend on `Type` and support by
                         the controller.'
+                      maxLength: 253
+                      minLength: 1
                       type: string
                   required:
                   - value
                   type: object
+                maxItems: 16
                 type: array
               gatewayClassName:
                 description: GatewayClassName used for this Gateway. This is the name
                   of a GatewayClass resource.
+                maxLength: 253
+                minLength: 1
                 type: string
               listeners:
                 description: "Listeners associated with this Gateway. Listeners define
@@ -396,11 +371,13 @@ spec:
                   is, \"Exact\" matches must be processed before \"Domain\" matches,
                   which must be processed before \"Any\" matches. \n If this field
                   specifies multiple Listeners that have the same Port value but are
-                  not compatible, the GatewayClass must raise a \"PortConflict\" condition
-                  on the Gateway. \n Support: Core"
+                  not compatible, the GatewayClass must raise a \"Conflicted\" condition
+                  in the Listener status. \n Support: Core"
                 items:
                   description: Listener embodies the concept of a logical endpoint
-                    where a Gateway can accept network connections.
+                    where a Gateway can accept network connections. Each listener
+                    in a Gateway must have a unique combination of Hostname, Port,
+                    and Protocol. This will be enforced by a validating webhook.
                   properties:
                     hostname:
                       default:
@@ -430,17 +407,16 @@ spec:
                             \n 1. IP address literals 2. Colon-delimited port numbers
                             3. Percent-encoded octets \n This field is required for
                             the \"Domain\" and \"Exact\" match types."
+                          maxLength: 253
                           type: string
                       type: object
                     port:
                       description: "Port is the network port. Multiple listeners may
                         use the same port, subject to the Listener compatibility rules.
                         \n Support: Core"
-                      exclusiveMaximum: true
-                      exclusiveMinimum: true
                       format: int32
-                      maximum: 65536
-                      minimum: 0
+                      maximum: 65535
+                      minimum: 1
                       type: integer
                     protocol:
                       description: "Protocol specifies the network protocol this listener
@@ -471,47 +447,73 @@ spec:
                         however, an implementation may support other types of resources.
                         \n The Routes selector MUST select a set of objects that are
                         compatible with the application protocol specified in the
-                        Protocol field. \n Support: Core"
+                        Protocol field. \n Although a client request may technically
+                        match multiple route rules, only one rule may ultimately receive
+                        the request. Matching precedence MUST be determined in order
+                        of the following criteria: \n * The most specific match. For
+                        example, the most specific HTTPRoute match   is determined
+                        by the longest matching combination of hostname and path.
+                        * The oldest Route based on creation timestamp. For example,
+                        a Route with   a creation timestamp of \"2020-09-08 01:02:03\"
+                        is given precedence over   a Route with a creation timestamp
+                        of \"2020-09-08 01:02:04\". * If everything else is equivalent,
+                        the Route appearing first in   alphabetical order (namespace/name)
+                        should be given precedence. For   example, foo/bar is given
+                        precedence over foo/baz. \n All valid portions of a Route
+                        selected by this field should be supported. Invalid portions
+                        of a Route can be ignored (sometimes that will mean the full
+                        Route). If a portion of a Route transitions from valid to
+                        invalid, support for that portion of the Route should be dropped
+                        to ensure consistency. For example, even if a filter specified
+                        by a Route is invalid, the rest of the Route should still
+                        be supported. \n Support: Core"
                       properties:
                         group:
                           default: networking.x-k8s.io
                           description: "Group is the group of the route resource to
                             select. Omitting the value or specifying the empty string
                             indicates the networking.x-k8s.io API group. For example,
-                            use the following to select an HTTPRoute: \n routes:   resource:
-                            httproutes \n Otherwise, if an alternative API group is
+                            use the following to select an HTTPRoute: \n routes:   kind:
+                            HTTPRoute \n Otherwise, if an alternative API group is
                             desired, specify the desired group: \n routes:   group:
                             acme.io   resource: fooroutes \n Support: Core"
+                          maxLength: 253
+                          minLength: 1
                           type: string
-                        resource:
-                          description: "Resource is the API resource name of the route
-                            resource to select. \n Resource MUST correspond to route
-                            resources that are compatible with the application protocol
-                            specified in the Listener's Protocol field. \n If an implementation
+                        kind:
+                          description: "Kind is the kind of the route resource to
+                            select. \n Kind MUST correspond to kinds of routes that
+                            are compatible with the application protocol specified
+                            in the Listener's Protocol field. \n If an implementation
                             does not support or recognize this resource type, it SHOULD
                             raise a \"ConditionInvalidRoutes\" condition for the affected
                             Listener. \n Support: Core"
                           type: string
                         routeNamespaces:
-                          default:
-                            onlySameNamespace: true
                           description: "RouteNamespaces indicates in which namespaces
                             Routes should be selected for this Gateway. This is restricted
                             to the namespace of this Gateway by default. \n Support:
                             Core"
                           properties:
-                            namespaceSelector:
-                              description: "NamespaceSelector is a selector of namespaces
-                                that Routes should be selected from. This is a standard
-                                Kubernetes LabelSelector, a label query over a set
-                                of resources. The result of matchLabels and matchExpressions
-                                are ANDed. Controllers must not support Routes in
-                                namespaces outside this selector. \n An empty selector
-                                (default) indicates that Routes in any namespace can
-                                be selected. \n The OnlySameNamespace field takes
-                                precedence over this field. This selector will only
-                                take effect when OnlySameNamespace is false. \n Support:
-                                Core"
+                            from:
+                              description: "From indicates where Routes will be selected
+                                for this Gateway. Possible values are: * All: Routes
+                                in all namespaces may be used by this Gateway. * Selector:
+                                Routes in namespaces selected by the selector may
+                                be used by   this Gateway. * Same: Only Routes in
+                                the same namespace may be used by this Gateway. \n
+                                Support: Core"
+                              enum:
+                              - All
+                              - Selector
+                              - Same
+                              type: string
+                            selector:
+                              description: "Selector must be specified when From is
+                                set to \"Selector\". In that case, only Routes in
+                                Namespaces matching this Selector will be selected
+                                by this Gateway. This field is ignored for other values
+                                of \"From\". \n Support: Core"
                               properties:
                                 matchExpressions:
                                   description: matchExpressions is a list of label
@@ -556,16 +558,6 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
-                            onlySameNamespace:
-                              default: true
-                              description: "OnlySameNamespace is a boolean used to
-                                indicate if Route references are limited to the same
-                                Namespace as the Gateway. When true, only Routes within
-                                the same Namespace as the Gateway should be selected.
-                                \n This field takes precedence over the NamespaceSelector
-                                field. That selector should only take effect when
-                                this field is set to false. \n Support: Core"
-                              type: boolean
                           type: object
                         routeSelector:
                           description: "RouteSelector specifies a set of route labels
@@ -617,7 +609,8 @@ spec:
                               type: object
                           type: object
                       required:
-                      - resource
+                      - kind
+                      - routeNamespaces
                       type: object
                     tls:
                       description: "TLS is the TLS configuration for the Listener.
@@ -645,31 +638,23 @@ spec:
                             (Other resource types)'
                           properties:
                             group:
-                              default: core
-                              description: "Group is the group of the referent.  Omitting
-                                the value or specifying the empty string indicates
-                                the core API group.  For example, use the following
-                                to specify a secrets resource: \n fooRef:   resource:
-                                secrets   name: mysecret \n Otherwise, if the core
-                                API group is not desired, specify the desired group:
-                                \n fooRef:   group: acme.io   resource: foos   name:
-                                myfoo"
+                              description: Group is the group of the referent.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                            kind:
+                              description: Kind is kind of the referent.
+                              maxLength: 253
+                              minLength: 1
                               type: string
                             name:
                               description: Name is the name of the referent.
-                              type: string
-                            resource:
-                              default: secrets
-                              description: "Resource is the API resource name of the
-                                referent. Omitting the value or specifying the empty
-                                string indicates the secrets resource. For example,
-                                use the following to specify a secrets resource: \n
-                                fooRef:   name: mysecret \n Otherwise, if the secrets
-                                resource is not desired, specify the desired group:
-                                \n fooRef:   group: acme.io   resource: foos   name:
-                                myfoo"
+                              maxLength: 253
+                              minLength: 1
                               type: string
                           required:
+                          - group
+                          - kind
                           - name
                           type: object
                         mode:
@@ -696,10 +681,36 @@ spec:
                             make sense to loft that as a core API construct. \n Support:
                             Implementation-specific."
                           type: object
+                        routeOverride:
+                          default:
+                            certificate: Deny
+                          description: "RouteOverride dictates if TLS settings can
+                            be configured via Routes or not. \n CertificateRef must
+                            be defined even if `routeOverride.certificate` is set
+                            to 'Allow' as it will be used as the default certificate
+                            for the listener."
+                          properties:
+                            certificate:
+                              default: Deny
+                              description: "Certificate dictates if TLS certificates
+                                can be configured via Routes. If set to 'Allow', a
+                                TLS certificate for a hostname defined in a Route
+                                takes precedence over the certificate defined in Gateway.
+                                \n Support: Core"
+                              enum:
+                              - Allow
+                              - Deny
+                              type: string
+                          required:
+                          - certificate
+                          type: object
                       type: object
                   required:
+                  - port
+                  - protocol
                   - routes
                   type: object
+                maxItems: 64
                 minItems: 1
                 type: array
             required:
@@ -707,6 +718,13 @@ spec:
             - listeners
             type: object
           status:
+            default:
+              conditions:
+              - lastTransitionTime: "1970-01-01T00:00:00Z"
+                message: Waiting for controller
+                reason: NotReconciled
+                status: "False"
+                type: Scheduled
             description: GatewayStatus defines the observed state of Gateway.
             properties:
               addresses:
@@ -730,13 +748,27 @@ spec:
                       description: 'Value. Examples: "1.2.3.4", "128::1", "my-ip-address".
                         Validity of the values will depend on `Type` and support by
                         the controller.'
+                      maxLength: 253
+                      minLength: 1
                       type: string
                   required:
                   - value
                   type: object
+                maxItems: 16
                 type: array
               conditions:
-                description: Conditions describe the current conditions of the Gateway.
+                default:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: NotReconciled
+                  status: "False"
+                  type: Scheduled
+                description: "Conditions describe the current conditions of the Gateway.
+                  \n Implementations should prefer to express Gateway conditions using
+                  the `GatewayConditionType` and `GatewayConditionReason` constants
+                  so that operators and tools can converge on a common vocabulary
+                  to describe Gateway state. \n Known condition types are: \n * \"Scheduled\"
+                  * \"Ready\""
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -804,7 +836,11 @@ spec:
                   - status
                   - type
                   type: object
+                maxItems: 8
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               listeners:
                 description: Listeners provide status for each unique listener port
                   defined in the Spec.
@@ -886,20 +922,29 @@ spec:
                         - status
                         - type
                         type: object
+                      maxItems: 8
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
                     port:
                       description: Port is the unique Listener port value for which
                         this message is reporting the status. If more than one Gateway
                         Listener shares the same port value, this message reports
                         the combined status of all such Listeners.
-                      type: string
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
                   required:
                   - conditions
                   - port
                   type: object
+                maxItems: 64
                 type: array
-            required:
-            - addresses
+                x-kubernetes-list-map-keys:
+                - port
+                x-kubernetes-list-type: map
             type: object
         type: object
     served: true
@@ -929,7 +974,11 @@ spec:
     singular: httproute
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.hostnames
+      name: Hostnames
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: HTTPRoute is the Schema for the HTTPRoute resource.
@@ -949,82 +998,310 @@ spec:
           spec:
             description: HTTPRouteSpec defines the desired state of HTTPRoute
             properties:
-              hosts:
-                description: Hosts is a list of Host definitions.
-                items:
-                  description: HTTPRouteHost is the configuration for a given set
-                    of hosts.
-                  properties:
-                    extensionRef:
-                      description: "ExtensionRef is an optional, implementation-specific
-                        extension to the \"host\" block. The resource may be \"configmaps\"
-                        \ or an implementation-defined resource (for example, resource
-                        \"myroutehosts\" in group \"networking.acme.io\"). \n If the
-                        referent cannot be found, the GatewayClass's \"InvalidParameters\"
-                        status condition will be true. \n Support: custom"
+              gateways:
+                default:
+                  allow: SameNamespace
+                description: Gateways defines which Gateways can use this Route.
+                properties:
+                  allow:
+                    default: SameNamespace
+                    description: 'Allow indicates which Gateways will be allowed to
+                      use this route. Possible values are: * All: Gateways in any
+                      namespace can use this route. * FromList: Only Gateways specified
+                      in GatewayRefs may use this route. * SameNamespace: Only Gateways
+                      in the same namespace may use this route.'
+                    enum:
+                    - All
+                    - FromList
+                    - SameNamespace
+                    type: string
+                  gatewayRefs:
+                    description: GatewayRefs must be specified when Allow is set to
+                      "FromList". In that case, only Gateways referenced in this list
+                      will be allowed to use this route. This field is ignored for
+                      other values of "Allow".
+                    items:
+                      description: GatewayReference identifies a Gateway in a specified
+                        namespace.
                       properties:
-                        group:
-                          description: Group is the API group name of the referent.
-                          type: string
                         name:
                           description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
-                        resource:
-                          description: Resource is the API resource name of the referent.
+                        namespace:
+                          description: Namespace is the namespace of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                       required:
-                      - group
                       - name
-                      - resource
+                      - namespace
                       type: object
-                    hostnames:
-                      description: "Hostnames defines a set of hostname that should
-                        match against the HTTP Host header to select a HTTPRoute to
-                        process the request. Hostname is the fully qualified domain
-                        name of a network host, as defined by RFC 3986. Note the following
-                        deviations from the \"host\" part of the URI as defined in
-                        the RFC: \n 1. IPs are not allowed. 2. The `:` delimiter is
-                        not respected because ports are not allowed. \n Incoming requests
-                        are matched against the hostnames before the HTTPRoute rules.
-                        If no hostname is specified, traffic is routed based on the
-                        HTTPRouteRules. \n Hostname can be \"precise\" which is a
-                        domain name without the terminating dot of a network host
-                        (e.g. \"foo.example.com\") or \"wildcard\", which is a domain
-                        name prefixed with a single wildcard label (e.g. \"*.example.com\").
-                        The wildcard character '*' must appear by itself as the first
-                        DNS label and matches only a single label. You cannot have
-                        a wildcard label by itself (e.g. Host == \"*\"). Requests
-                        will be matched against the Host field in the following order:
-                        1. If Host is precise, the request matches this rule if    the
-                        http host header is equal to Host. 2. If Host is a wildcard,
-                        then the request matches this rule if    the http host header
-                        is to equal to the suffix    (removing the first label) of
-                        the wildcard rule. \n Support: Core"
+                    type: array
+                type: object
+              hostnames:
+                description: "Hostnames defines a set of hostname that should match
+                  against the HTTP Host header to select a HTTPRoute to process the
+                  request. Hostname is the fully qualified domain name of a network
+                  host, as defined by RFC 3986. Note the following deviations from
+                  the \"host\" part of the URI as defined in the RFC: \n 1. IPs are
+                  not allowed. 2. The `:` delimiter is not respected because ports
+                  are not allowed. \n Incoming requests are matched against the hostnames
+                  before the HTTPRoute rules. If no hostname is specified, traffic
+                  is routed based on the HTTPRouteRules. \n Hostname can be \"precise\"
+                  which is a domain name without the terminating dot of a network
+                  host (e.g. \"foo.example.com\") or \"wildcard\", which is a domain
+                  name prefixed with a single wildcard label (e.g. \"*.example.com\").
+                  The wildcard character '*' must appear by itself as the first DNS
+                  label and matches only a single label. You cannot have a wildcard
+                  label by itself (e.g. Host == \"*\"). Requests will be matched against
+                  the Host field in the following order: 1. If Host is precise, the
+                  request matches this rule if    the http host header is equal to
+                  Host. 2. If Host is a wildcard, then the request matches this rule
+                  if    the http host header is to equal to the suffix    (removing
+                  the first label) of the wildcard rule. \n Support: Core"
+                items:
+                  description: HTTPRouteHostname is used to specify a hostname that
+                    should be matched by HTTPRoute.
+                  maxLength: 253
+                  minLength: 1
+                  type: string
+                maxItems: 16
+                type: array
+              rules:
+                description: Rules are a list of HTTP matchers, filters and actions.
+                items:
+                  description: HTTPRouteRule defines semantics for matching an incoming
+                    HTTP request against a set of matching rules and executing an
+                    action (and optionally filters) on the request.
+                  properties:
+                    filters:
+                      description: "Filters define the filters that are applied to
+                        requests that match this rule. \n The effects of ordering
+                        of multiple behaviors are currently undefined. This can change
+                        in the future based on feedback during the alpha stage. \n
+                        Conformance-levels at this level are defined based on the
+                        type of filter: - ALL core filters MUST be supported by all
+                        implementations. - Implementers are encouraged to support
+                        extended filters. - Implementation-specific custom filters
+                        have no API guarantees across implementations. Specifying
+                        a core filter multiple times has undefined or custom conformance.
+                        \n Support: core"
                       items:
-                        type: string
-                      type: array
-                    rules:
-                      description: Rules are a list of HTTP matchers, filters and
-                        actions.
-                      items:
-                        description: HTTPRouteRule defines semantics for matching
-                          an incoming HTTP request against a set of matching rules
-                          and executing an action (and optionally filters) on the
-                          request.
+                        description: 'HTTPRouteFilter defines additional processing
+                          steps that must be completed during the request or response
+                          lifecycle. HTTPRouteFilters are meant as an extension point
+                          to express additional processing that may be done in Gateway
+                          implementations. Some examples include request or response
+                          modification, implementing authentication strategies, rate-limiting,
+                          and traffic shaping. API guarantee/conformance is defined
+                          based on the type of the filter. TODO(hbagdi): re-render
+                          CRDs once controller-tools supports union tags: - https://github.com/kubernetes-sigs/controller-tools/pull/298
+                          - https://github.com/kubernetes-sigs/controller-tools/issues/461'
                         properties:
+                          extensionRef:
+                            description: ExtensionRef is an optional, implementation-specific
+                              extension to the "filter" behavior.  The resource may
+                              be "configmap" (use the empty string for the group)
+                              or an implementation-defined resource (for example,
+                              resource "myroutefilters" in group "networking.acme.io").
+                              Omitting or specifying the empty string for both the
+                              resource and group indicates that the resource is "configmaps".
+                              ExtensionRef MUST NOT be used for core and extended
+                              filters.
+                            properties:
+                              group:
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - group
+                            - kind
+                            - name
+                            type: object
+                          requestHeader:
+                            description: HTTPRequestHeaderFilter defines configuration
+                              for the RequestHeader filter.
+                            properties:
+                              add:
+                                additionalProperties:
+                                  type: string
+                                description: "Add adds the given header (name, value)
+                                  to the request before the action. \n Input:   GET
+                                  /foo HTTP/1.1 \n Config:   add: {\"my-header\":
+                                  \"foo\"} \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo \n Support: Extended"
+                                type: object
+                              remove:
+                                description: "Remove the given header(s) from the
+                                  HTTP request before the action. The value of RemoveHeader
+                                  is a list of HTTP header names. Note that the header
+                                  names are case-insensitive [RFC-2616 4.2]. \n Input:
+                                  \  GET /foo HTTP/1.1   My-Header1: ABC   My-Header2:
+                                  DEF   My-Header2: GHI \n Config:   remove: [\"my-header1\",
+                                  \"my-header3\"] \n Output:   GET /foo HTTP/1.1   My-Header2:
+                                  DEF \n Support: Extended"
+                                items:
+                                  type: string
+                                maxItems: 16
+                                type: array
+                            required:
+                            - add
+                            - remove
+                            type: object
+                          requestMirror:
+                            description: HTTPRequestMirrorFilter defines configuration
+                              for the RequestMirror filter.
+                            properties:
+                              backendRef:
+                                description: "BackendRef is a local object reference
+                                  to mirror matched requests to. If both BackendRef
+                                  and ServiceName are specified, ServiceName will
+                                  be given precedence. \n If the referent cannot be
+                                  found, the route must be dropped from the Gateway.
+                                  The controller should raise the \"ResolvedRefs\"
+                                  condition on the Gateway with the \"DroppedRoutes\"
+                                  reason. The gateway status for this route should
+                                  be updated with a condition that describes the error
+                                  more specifically. \n Support: Custom"
+                                properties:
+                                  group:
+                                    description: Group is the group of the referent.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  kind:
+                                    description: Kind is kind of the referent.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name is the name of the referent.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - group
+                                - kind
+                                - name
+                                type: object
+                              port:
+                                description: "Port specifies the destination port
+                                  number to use for the backend referenced by the
+                                  ServiceName or BackendRef field. \n If the port
+                                  is unspecified and a Service object consisting of
+                                  a single port definition is the backend, that port
+                                  will be used. \n If the port is unspecified and
+                                  the backend is a Service object consisting of multiple
+                                  port definitions, the route must be dropped from
+                                  the Gateway. The controller should raise the \"ResolvedRefs\"
+                                  condition on the Gateway with the \"DroppedRoutes\"
+                                  reason.  The gateway status for this route should
+                                  be updated with a condition that describes the error
+                                  more specifically. \n Support: Core"
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              serviceName:
+                                description: "ServiceName refers to the name of the
+                                  Service to mirror matched requests to. When specified,
+                                  this takes the place of BackendRef. If both BackendRef
+                                  and ServiceName are specified, ServiceName will
+                                  be given precedence. \n If the referent cannot be
+                                  found, the route must be dropped from the Gateway.
+                                  The controller should raise the \"ResolvedRefs\"
+                                  condition on the Gateway with the \"DroppedRoutes\"
+                                  reason. The gateway status for this route should
+                                  be updated with a condition that describes the error
+                                  more specifically. \n Support: Core"
+                                maxLength: 253
+                                type: string
+                            type: object
+                          type:
+                            description: "Type identifies the filter to execute. Types
+                              are classified into three conformance-levels (similar
+                              to other locations in this API): - Core and extended:
+                              These filter types and their corresponding configuration
+                              \  is defined in this package. All implementations must
+                              implement   the core filters. Implementers are encouraged
+                              to support extended filters.   Definitions for filter-specific
+                              configuration for these   filters is defined in this
+                              package. - Custom: These filters are defined and supported
+                              by specific vendors.   In the future, filters showing
+                              convergence in behavior across multiple   implementations
+                              will be considered for inclusion in extended or core
+                              \  conformance rings. Filter-specific configuration
+                              for such filters   is specified using the ExtensionRef
+                              field. `Type` should be set to   \"ImplementationSpecific\"
+                              for custom filters. \n Implementers are encouraged to
+                              define custom implementation types to extend the core
+                              API with implementation-specific behavior."
+                            maxLength: 100
+                            minLength: 1
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      maxItems: 16
+                      type: array
+                    forwardTo:
+                      description: ForwardTo defines the backend(s) where matching
+                        requests should be sent.
+                      items:
+                        description: HTTPRouteForwardTo defines how a HTTPRoute should
+                          forward a request.
+                        properties:
+                          backendRef:
+                            description: "BackendRef is a reference to a backend to
+                              forward matched requests to. If both BackendRef and
+                              ServiceName are specified, ServiceName will be given
+                              precedence. \n If the referent cannot be found, the
+                              route must be dropped from the Gateway. The controller
+                              should raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DroppedRoutes\" reason. The gateway status
+                              for this route should be updated with a condition that
+                              describes the error more specifically. \n Support: Custom"
+                            properties:
+                              group:
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - group
+                            - kind
+                            - name
+                            type: object
                           filters:
-                            description: "Filters define the filters that are applied
-                              to requests that match this rule. \n The effects of
-                              ordering of multiple behaviors are currently undefined.
-                              This can change in the future based on feedback during
-                              the alpha stage. \n Conformance-levels at this level
-                              are defined based on the type of filter: - ALL core
-                              filters MUST be supported by all implementations. -
-                              Implementers are encouraged to support extended filters.
-                              - Implementation-specific custom filters have no API
-                              guarantees across implementations. Specifying a core
-                              filter multiple times has undefined or custom conformance.
-                              \n Support: core"
+                            description: "Filters defined at this-level should be
+                              executed if and only if the request is being forwarded
+                              to the backend defined here. \n Conformance: Filtering
+                              support, including core filters, is NOT guaranteed at
+                              this-level. Use Filters in HTTPRouteRule for portable
+                              filters across implementations. \n Support: Custom"
                             items:
                               description: 'HTTPRouteFilter defines additional processing
                                 steps that must be completed during the request or
@@ -1051,20 +1328,24 @@ spec:
                                     for core and extended filters.
                                   properties:
                                     group:
-                                      description: Group is the API group name of
-                                        the referent.
+                                      description: Group is the group of the referent.
+                                      maxLength: 253
+                                      minLength: 1
+                                      type: string
+                                    kind:
+                                      description: Kind is kind of the referent.
+                                      maxLength: 253
+                                      minLength: 1
                                       type: string
                                     name:
                                       description: Name is the name of the referent.
-                                      type: string
-                                    resource:
-                                      description: Resource is the API resource name
-                                        of the referent.
+                                      maxLength: 253
+                                      minLength: 1
                                       type: string
                                   required:
                                   - group
+                                  - kind
                                   - name
-                                  - resource
                                   type: object
                                 requestHeader:
                                   description: HTTPRequestHeaderFilter defines configuration
@@ -1078,7 +1359,7 @@ spec:
                                         Input:   GET /foo HTTP/1.1 \n Config:   add:
                                         {\"my-header\": \"foo\"} \n Output:   GET
                                         /foo HTTP/1.1   my-header: foo \n Support:
-                                        extended?"
+                                        Extended"
                                       type: object
                                     remove:
                                       description: "Remove the given header(s) from
@@ -1089,9 +1370,10 @@ spec:
                                         \  My-Header1: ABC   My-Header2: DEF   My-Header2:
                                         GHI \n Config:   remove: [\"my-header1\",
                                         \"my-header3\"] \n Output:   GET /foo HTTP/1.1
-                                        \  My-Header2: DEF \n Support: extended?"
+                                        \  My-Header2: DEF \n Support: Extended"
                                       items:
                                         type: string
+                                      maxItems: 16
                                       type: array
                                   required:
                                   - add
@@ -1101,67 +1383,74 @@ spec:
                                   description: HTTPRequestMirrorFilter defines configuration
                                     for the RequestMirror filter.
                                   properties:
-                                    targetPort:
-                                      description: "TargetPort specifies the destination
-                                        port number to use for the TargetRef. If unspecified
-                                        and TargetRef is a Service object consisting
-                                        of a single port definition, that port will
-                                        be used. If unspecified and TargetRef is a
-                                        Service object consisting of multiple port
-                                        definitions, an error is surfaced in status.
-                                        \n Support: Core"
-                                      format: int32
-                                      type: integer
-                                    targetRef:
-                                      description: "TargetRef is an object reference
-                                        to forward matched requests to. The resource
-                                        may be \"services\" (omit or use the empty
-                                        string for the group), or an implementation
-                                        may support other resources (for example,
-                                        resource \"myroutetargets\" in group \"networking.acme.io\").
-                                        Omitting or specifying the empty string for
-                                        both the resource and group indicates that
-                                        the resource is \"services\".  If the referent
-                                        cannot be found, the \"InvalidRoutes\" status
-                                        condition on any Gateway that includes the
-                                        HTTPRoute will be true. \n Support: Core (Kubernetes
-                                        Services) Support: Implementation-specific
-                                        (Other resource types)"
+                                    backendRef:
+                                      description: "BackendRef is a local object reference
+                                        to mirror matched requests to. If both BackendRef
+                                        and ServiceName are specified, ServiceName
+                                        will be given precedence. \n If the referent
+                                        cannot be found, the route must be dropped
+                                        from the Gateway. The controller should raise
+                                        the \"ResolvedRefs\" condition on the Gateway
+                                        with the \"DroppedRoutes\" reason. The gateway
+                                        status for this route should be updated with
+                                        a condition that describes the error more
+                                        specifically. \n Support: Custom"
                                       properties:
                                         group:
-                                          default: core
-                                          description: "Group is the group of the
-                                            referent.  Omitting the value or specifying
-                                            the empty string indicates the core API
-                                            group.  For example, use the following
-                                            to specify a service: \n fooRef:   resource:
-                                            services   name: myservice \n Otherwise,
-                                            if the core API group is not desired,
-                                            specify the desired group: \n fooRef:
-                                            \  group: acme.io   resource: foos   name:
-                                            myfoo"
+                                          description: Group is the group of the referent.
+                                          maxLength: 253
+                                          minLength: 1
+                                          type: string
+                                        kind:
+                                          description: Kind is kind of the referent.
+                                          maxLength: 253
+                                          minLength: 1
                                           type: string
                                         name:
                                           description: Name is the name of the referent.
-                                          type: string
-                                        resource:
-                                          default: services
-                                          description: "Resource is the API resource
-                                            name of the referent. Omitting the value
-                                            or specifying the empty string indicates
-                                            the services resource. For example, use
-                                            the following to specify a services resource:
-                                            \n fooRef:   name: myservice \n Otherwise,
-                                            if the services resource is not desired,
-                                            specify the desired group: \n fooRef:
-                                            \  group: acme.io   resource: foos   name:
-                                            myfoo"
+                                          maxLength: 253
+                                          minLength: 1
                                           type: string
                                       required:
+                                      - group
+                                      - kind
                                       - name
                                       type: object
-                                  required:
-                                  - targetRef
+                                    port:
+                                      description: "Port specifies the destination
+                                        port number to use for the backend referenced
+                                        by the ServiceName or BackendRef field. \n
+                                        If the port is unspecified and a Service object
+                                        consisting of a single port definition is
+                                        the backend, that port will be used. \n If
+                                        the port is unspecified and the backend is
+                                        a Service object consisting of multiple port
+                                        definitions, the route must be dropped from
+                                        the Gateway. The controller should raise the
+                                        \"ResolvedRefs\" condition on the Gateway
+                                        with the \"DroppedRoutes\" reason.  The gateway
+                                        status for this route should be updated with
+                                        a condition that describes the error more
+                                        specifically. \n Support: Core"
+                                      format: int32
+                                      maximum: 65535
+                                      minimum: 1
+                                      type: integer
+                                    serviceName:
+                                      description: "ServiceName refers to the name
+                                        of the Service to mirror matched requests
+                                        to. When specified, this takes the place of
+                                        BackendRef. If both BackendRef and ServiceName
+                                        are specified, ServiceName will be given precedence.
+                                        \n If the referent cannot be found, the route
+                                        must be dropped from the Gateway. The controller
+                                        should raise the \"ResolvedRefs\" condition
+                                        on the Gateway with the \"DroppedRoutes\"
+                                        reason. The gateway status for this route
+                                        should be updated with a condition that describes
+                                        the error more specifically. \n Support: Core"
+                                      maxLength: 253
+                                      type: string
                                   type: object
                                 type:
                                   description: "Type identifies the filter to execute.
@@ -1184,483 +1473,241 @@ spec:
                                     filters. \n Implementers are encouraged to define
                                     custom implementation types to extend the core
                                     API with implementation-specific behavior."
+                                  maxLength: 100
+                                  minLength: 1
                                   type: string
                               required:
-                              - requestHeader
-                              - requestMirror
                               - type
                               type: object
+                            maxItems: 16
                             type: array
-                          forward:
-                            description: Forward defines the upstream target(s) where
-                              the request should be sent.
-                            properties:
-                              extensionRef:
-                                description: "ExtensionRef is an optional, implementation-specific
-                                  extension to the \"action\" behavior.  The resource
-                                  may be \"configmaps\" (use the empty string for
-                                  the group) or an implementation-defined resource
-                                  (for example, resource \"myrouteactions\" in group
-                                  \"networking.acme.io\"). Omitting or specifying
-                                  the empty string for both the resource and group
-                                  indicates that the resource is \"configmaps\".  If
-                                  the referent cannot be found, the \"InvalidRoutes\"
-                                  status condition on any Gateway that includes the
-                                  HTTPRoute will be true. \n Support: custom"
-                                properties:
-                                  group:
-                                    description: Group is the API group name of the
-                                      referent.
-                                    type: string
-                                  name:
-                                    description: Name is the name of the referent.
-                                    type: string
-                                  resource:
-                                    description: Resource is the API resource name
-                                      of the referent.
-                                    type: string
-                                required:
-                                - group
-                                - name
-                                - resource
-                                type: object
-                              to:
-                                description: "To references referenced object(s) where
-                                  the request should be sent. The resource may be
-                                  \"services\" (omit or use the empty string for the
-                                  group), or an implementation may support other resources
-                                  (for example, resource \"myroutetargets\" in group
-                                  \"networking.acme.io\"). Omitting or specifying
-                                  the empty string for both the resource and group
-                                  indicates that the resource is \"services\".  If
-                                  the referent cannot be found, the \"InvalidRoutes\"
-                                  status condition on any Gateway that includes the
-                                  HTTPRoute will be true. \n Support: core"
-                                items:
-                                  description: HTTPForwardToTarget identifies a target
-                                    object within a known namespace.
-                                  properties:
-                                    filters:
-                                      description: "Filters defined at this-level
-                                        should be executed if and only if the request
-                                        is being forwarded to the target defined here.
-                                        \n Conformance: For any implementation, filtering
-                                        support, including core filters, is NOT guaranteed
-                                        at this-level. Use Filters in HTTPRouteRule
-                                        for portable filters across implementations.
-                                        \n Support: custom"
-                                      items:
-                                        description: 'HTTPRouteFilter defines additional
-                                          processing steps that must be completed
-                                          during the request or response lifecycle.
-                                          HTTPRouteFilters are meant as an extension
-                                          point to express additional processing that
-                                          may be done in Gateway implementations.
-                                          Some examples include request or response
-                                          modification, implementing authentication
-                                          strategies, rate-limiting, and traffic shaping.
-                                          API guarantee/conformance is defined based
-                                          on the type of the filter. TODO(hbagdi):
-                                          re-render CRDs once controller-tools supports
-                                          union tags: - https://github.com/kubernetes-sigs/controller-tools/pull/298
-                                          - https://github.com/kubernetes-sigs/controller-tools/issues/461'
-                                        properties:
-                                          extensionRef:
-                                            description: ExtensionRef is an optional,
-                                              implementation-specific extension to
-                                              the "filter" behavior.  The resource
-                                              may be "configmap" (use the empty string
-                                              for the group) or an implementation-defined
-                                              resource (for example, resource "myroutefilters"
-                                              in group "networking.acme.io"). Omitting
-                                              or specifying the empty string for both
-                                              the resource and group indicates that
-                                              the resource is "configmaps". ExtensionRef
-                                              MUST NOT be used for core and extended
-                                              filters.
-                                            properties:
-                                              group:
-                                                description: Group is the API group
-                                                  name of the referent.
-                                                type: string
-                                              name:
-                                                description: Name is the name of the
-                                                  referent.
-                                                type: string
-                                              resource:
-                                                description: Resource is the API resource
-                                                  name of the referent.
-                                                type: string
-                                            required:
-                                            - group
-                                            - name
-                                            - resource
-                                            type: object
-                                          requestHeader:
-                                            description: HTTPRequestHeaderFilter defines
-                                              configuration for the RequestHeader
-                                              filter.
-                                            properties:
-                                              add:
-                                                additionalProperties:
-                                                  type: string
-                                                description: "Add adds the given header
-                                                  (name, value) to the request before
-                                                  the action. \n Input:   GET /foo
-                                                  HTTP/1.1 \n Config:   add: {\"my-header\":
-                                                  \"foo\"} \n Output:   GET /foo HTTP/1.1
-                                                  \  my-header: foo \n Support: extended?"
-                                                type: object
-                                              remove:
-                                                description: "Remove the given header(s)
-                                                  from the HTTP request before the
-                                                  action. The value of RemoveHeader
-                                                  is a list of HTTP header names.
-                                                  Note that the header names are case-insensitive
-                                                  [RFC-2616 4.2]. \n Input:   GET
-                                                  /foo HTTP/1.1   My-Header1: ABC
-                                                  \  My-Header2: DEF   My-Header2:
-                                                  GHI \n Config:   remove: [\"my-header1\",
-                                                  \"my-header3\"] \n Output:   GET
-                                                  /foo HTTP/1.1   My-Header2: DEF
-                                                  \n Support: extended?"
-                                                items:
-                                                  type: string
-                                                type: array
-                                            required:
-                                            - add
-                                            - remove
-                                            type: object
-                                          requestMirror:
-                                            description: HTTPRequestMirrorFilter defines
-                                              configuration for the RequestMirror
-                                              filter.
-                                            properties:
-                                              targetPort:
-                                                description: "TargetPort specifies
-                                                  the destination port number to use
-                                                  for the TargetRef. If unspecified
-                                                  and TargetRef is a Service object
-                                                  consisting of a single port definition,
-                                                  that port will be used. If unspecified
-                                                  and TargetRef is a Service object
-                                                  consisting of multiple port definitions,
-                                                  an error is surfaced in status.
-                                                  \n Support: Core"
-                                                format: int32
-                                                type: integer
-                                              targetRef:
-                                                description: "TargetRef is an object
-                                                  reference to forward matched requests
-                                                  to. The resource may be \"services\"
-                                                  (omit or use the empty string for
-                                                  the group), or an implementation
-                                                  may support other resources (for
-                                                  example, resource \"myroutetargets\"
-                                                  in group \"networking.acme.io\").
-                                                  Omitting or specifying the empty
-                                                  string for both the resource and
-                                                  group indicates that the resource
-                                                  is \"services\".  If the referent
-                                                  cannot be found, the \"InvalidRoutes\"
-                                                  status condition on any Gateway
-                                                  that includes the HTTPRoute will
-                                                  be true. \n Support: Core (Kubernetes
-                                                  Services) Support: Implementation-specific
-                                                  (Other resource types)"
-                                                properties:
-                                                  group:
-                                                    default: core
-                                                    description: "Group is the group
-                                                      of the referent.  Omitting the
-                                                      value or specifying the empty
-                                                      string indicates the core API
-                                                      group.  For example, use the
-                                                      following to specify a service:
-                                                      \n fooRef:   resource: services
-                                                      \  name: myservice \n Otherwise,
-                                                      if the core API group is not
-                                                      desired, specify the desired
-                                                      group: \n fooRef:   group: acme.io
-                                                      \  resource: foos   name: myfoo"
-                                                    type: string
-                                                  name:
-                                                    description: Name is the name
-                                                      of the referent.
-                                                    type: string
-                                                  resource:
-                                                    default: services
-                                                    description: "Resource is the
-                                                      API resource name of the referent.
-                                                      Omitting the value or specifying
-                                                      the empty string indicates the
-                                                      services resource. For example,
-                                                      use the following to specify
-                                                      a services resource: \n fooRef:
-                                                      \  name: myservice \n Otherwise,
-                                                      if the services resource is
-                                                      not desired, specify the desired
-                                                      group: \n fooRef:   group: acme.io
-                                                      \  resource: foos   name: myfoo"
-                                                    type: string
-                                                required:
-                                                - name
-                                                type: object
-                                            required:
-                                            - targetRef
-                                            type: object
-                                          type:
-                                            description: "Type identifies the filter
-                                              to execute. Types are classified into
-                                              three conformance-levels (similar to
-                                              other locations in this API): - Core
-                                              and extended: These filter types and
-                                              their corresponding configuration   is
-                                              defined in this package. All implementations
-                                              must implement   the core filters. Implementers
-                                              are encouraged to support extended filters.
-                                              \  Definitions for filter-specific configuration
-                                              for these   filters is defined in this
-                                              package. - Custom: These filters are
-                                              defined and supported by specific vendors.
-                                              \  In the future, filters showing convergence
-                                              in behavior across multiple   implementations
-                                              will be considered for inclusion in
-                                              extended or core   conformance rings.
-                                              Filter-specific configuration for such
-                                              filters   is specified using the ExtensionRef
-                                              field. `Type` should be set to   \"ImplementationSpecific\"
-                                              for custom filters. \n Implementers
-                                              are encouraged to define custom implementation
-                                              types to extend the core API with implementation-specific
-                                              behavior."
-                                            type: string
-                                        required:
-                                        - requestHeader
-                                        - requestMirror
-                                        - type
-                                        type: object
-                                      type: array
-                                    targetPort:
-                                      description: "TargetPort specifies the destination
-                                        port number to use for the TargetRef. If unspecified
-                                        and TargetRef is a Service object consisting
-                                        of a single port definition, that port will
-                                        be used. If unspecified and TargetRef is a
-                                        Service object consisting of multiple port
-                                        definitions, an error is surfaced in status.
-                                        \n Support: Core"
-                                      format: int32
-                                      type: integer
-                                    targetRef:
-                                      description: "TargetRef is an object reference
-                                        to forward matched requests to. The resource
-                                        may be \"services\" (omit or use the empty
-                                        string for the group), or an implementation
-                                        may support other resources (for example,
-                                        resource \"myroutetargets\" in group \"networking.acme.io\").
-                                        Omitting or specifying the empty string for
-                                        both the resource and group indicates that
-                                        the resource is \"services\".  If the referent
-                                        cannot be found, the \"InvalidRoutes\" status
-                                        condition on any Gateway that includes the
-                                        HTTPRoute will be true. \n Support: Core (Kubernetes
-                                        Services) Support: Implementation-specific
-                                        (Other resource types)"
-                                      properties:
-                                        group:
-                                          default: core
-                                          description: "Group is the group of the
-                                            referent.  Omitting the value or specifying
-                                            the empty string indicates the core API
-                                            group.  For example, use the following
-                                            to specify a service: \n fooRef:   resource:
-                                            services   name: myservice \n Otherwise,
-                                            if the core API group is not desired,
-                                            specify the desired group: \n fooRef:
-                                            \  group: acme.io   resource: foos   name:
-                                            myfoo"
-                                          type: string
-                                        name:
-                                          description: Name is the name of the referent.
-                                          type: string
-                                        resource:
-                                          default: services
-                                          description: "Resource is the API resource
-                                            name of the referent. Omitting the value
-                                            or specifying the empty string indicates
-                                            the services resource. For example, use
-                                            the following to specify a services resource:
-                                            \n fooRef:   name: myservice \n Otherwise,
-                                            if the services resource is not desired,
-                                            specify the desired group: \n fooRef:
-                                            \  group: acme.io   resource: foos   name:
-                                            myfoo"
-                                          type: string
-                                      required:
-                                      - name
-                                      type: object
-                                    weight:
-                                      default: 1
-                                      description: "Weight specifies the proportion
-                                        of traffic forwarded to a targetRef, computed
-                                        as weight/(sum of all weights in targetRefs).
-                                        Weight is not a percentage and the sum of
-                                        weights does not need to equal 100. The following
-                                        example (in yaml) sends 70% of traffic to
-                                        service \"my-trafficsplit-sv1\" and 30% of
-                                        the traffic to service \"my-trafficsplit-sv2\":
-                                        \n   forwardTo:     - targetRef:         name:
-                                        my-trafficsplit-sv1         weight: 70     -
-                                        targetRef:         name: my-trafficsplit-sv2
-                                        \        weight: 30 \n If only one targetRef
-                                        is specified, 100% of the traffic is forwarded
-                                        to the targetRef. If unspecified, weight defaults
-                                        to 1. \n Support: Core (HTTPRoute) Support:
-                                        Extended (TCPRoute)"
-                                      format: int32
-                                      type: integer
-                                  required:
-                                  - targetRef
-                                  type: object
-                                minItems: 1
-                                type: array
-                            required:
-                            - to
-                            type: object
-                          matches:
-                            default:
-                            - path:
-                                type: Prefix
-                                value: /
-                            description: "Matches define conditions used for matching
-                              the rule against incoming HTTP requests. Each match
-                              is independent, i.e. this rule will be matched if **any**
-                              one of the matches is satisfied. \n For example, take
-                              the following matches configuration: \n ``` matches:
-                              - path:     value: \"/foo\"   headers:     values:       version:
-                              \"2\" - path:     value: \"/v2/foo\" ``` \n For a request
-                              to match against this rule, a request should satisfy
-                              EITHER of the two conditions: \n - path prefixed with
-                              `/foo` AND contains the header `version: \"2\"` - path
-                              prefix of `/v2/foo` \n See the documentation for HTTPRouteMatch
-                              on how to specify multiple match conditions that should
-                              be ANDed together. \n If no matches are specified, the
-                              default is a prefix path match on \"/\", which has the
-                              effect of matching every HTTP request."
-                            items:
-                              description: "HTTPRouteMatch defines the predicate used
-                                to match requests to a given action. Multiple match
-                                types are ANDed together, i.e. the match will evaluate
-                                to true only if all conditions are satisfied. \n For
-                                example, the match below will match a HTTP request
-                                only if its path starts with `/foo` AND it contains
-                                the `version: \"1\"` header: \n ``` match:   path:
-                                \    value: \"/foo\"   headers:     values:       version:
-                                \"1\" ```"
-                              properties:
-                                extensionRef:
-                                  description: "ExtensionRef is an optional, implementation-specific
-                                    extension to the \"match\" behavior.  The resource
-                                    may be \"configmap\" (use the empty string for
-                                    the group) or an implementation-defined resource
-                                    (for example, resource \"myroutematchers\" in
-                                    group \"networking.acme.io\"). Omitting or specifying
-                                    the empty string for both the resource and group
-                                    indicates that the resource is \"configmaps\".
-                                    \ If the referent cannot be found, the \"InvalidRoutes\"
-                                    status condition on any Gateway that includes
-                                    the HTTPRoute will be true. \n Support: custom"
-                                  properties:
-                                    group:
-                                      description: Group is the API group name of
-                                        the referent.
-                                      type: string
-                                    name:
-                                      description: Name is the name of the referent.
-                                      type: string
-                                    resource:
-                                      description: Resource is the API resource name
-                                        of the referent.
-                                      type: string
-                                  required:
-                                  - group
-                                  - name
-                                  - resource
-                                  type: object
-                                headers:
-                                  description: Headers specifies a HTTP request header
-                                    matcher.
-                                  properties:
-                                    type:
-                                      default: Exact
-                                      description: "HeaderMatchType specifies how
-                                        to match a HTTP request header against the
-                                        Values map. \n Support: core (Exact) Support:
-                                        custom (ImplementationSpecific) \n Default:
-                                        \"Exact\""
-                                      enum:
-                                      - Exact
-                                      - ImplementationSpecific
-                                      type: string
-                                    values:
-                                      additionalProperties:
-                                        type: string
-                                      description: "Values is a map of HTTP Headers
-                                        to be matched. It MUST contain at least one
-                                        entry. \n The HTTP header field name to match
-                                        is the map key, and the value of the HTTP
-                                        header is the map value. HTTP header field
-                                        names MUST be matched case-insensitively.
-                                        \n Multiple match values are ANDed together,
-                                        meaning, a request must match all the specified
-                                        headers to select the route."
-                                      type: object
-                                  required:
-                                  - values
-                                  type: object
-                                path:
-                                  default:
-                                    type: Prefix
-                                    value: /
-                                  description: Path specifies a HTTP request path
-                                    matcher. If this field is not specified, a default
-                                    prefix match on the "/" path is provided.
-                                  properties:
-                                    type:
-                                      default: Prefix
-                                      description: "Type specifies how to match against
-                                        the path Value. \n Support: core (Exact, Prefix)
-                                        Support: custom (RegularExpression, ImplementationSpecific)
-                                        \n Since RegularExpression PathType has custom
-                                        conformance, implementations can support POSIX,
-                                        PCRE or any other dialects of regular expressions.
-                                        Please read the implementation's documentation
-                                        to determine the supported dialect. \n Default:
-                                        \"Prefix\""
-                                      enum:
-                                      - Exact
-                                      - Prefix
-                                      - RegularExpression
-                                      - ImplementationSpecific
-                                      type: string
-                                    value:
-                                      description: Value of the HTTP path to match
-                                        against.
-                                      minLength: 1
-                                      type: string
-                                  required:
-                                  - value
-                                  type: object
-                              type: object
-                            type: array
+                          port:
+                            description: "Port specifies the destination port number
+                              to use for the backend referenced by the ServiceName
+                              or BackendRef field. \n If the port is unspecified and
+                              a Service object consisting of a single port definition
+                              is the backend, that port will be used. \n If the port
+                              is unspecified and the backend is a Service object consisting
+                              of multiple port definitions, the route must be dropped
+                              from the Gateway. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DroppedRoutes\"
+                              reason.  The gateway status for this route should be
+                              updated with a condition that describes the error more
+                              specifically. \n Support: Core"
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          serviceName:
+                            description: "ServiceName refers to the name of the Service
+                              to forward matched requests to. When specified, this
+                              takes the place of BackendRef. If both BackendRef and
+                              ServiceName are specified, ServiceName will be given
+                              precedence. \n If the referent cannot be found, the
+                              route must be dropped from the Gateway. The controller
+                              should raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DroppedRoutes\" reason. The gateway status
+                              for this route should be updated with a condition that
+                              describes the error more specifically. \n Support: Core"
+                            maxLength: 253
+                            type: string
+                          weight:
+                            default: 1
+                            description: "Weight specifies the proportion of traffic
+                              forwarded to the backend referenced by the ServiceName
+                              or BackendRef field. computed as weight/(sum of all
+                              weights in this ForwardTo list). Weight is not a percentage
+                              and the sum of weights does not need to equal 100. If
+                              only one backend is specified, 100% of the traffic is
+                              forwarded to that backend. If unspecified, weight defaults
+                              to 1. \n Support: Core"
+                            format: int32
+                            maximum: 10000
+                            minimum: 1
+                            type: integer
                         type: object
-                      minItems: 1
+                      maxItems: 4
                       type: array
-                  required:
-                  - rules
+                    matches:
+                      default:
+                      - path:
+                          type: Prefix
+                          value: /
+                      description: "Matches define conditions used for matching the
+                        rule against incoming HTTP requests. Each match is independent,
+                        i.e. this rule will be matched if **any** one of the matches
+                        is satisfied. \n For example, take the following matches configuration:
+                        \n ``` matches: - path:     value: \"/foo\"   headers:     values:
+                        \      version: \"2\" - path:     value: \"/v2/foo\" ``` \n
+                        For a request to match against this rule, a request should
+                        satisfy EITHER of the two conditions: \n - path prefixed with
+                        `/foo` AND contains the header `version: \"2\"` - path prefix
+                        of `/v2/foo` \n See the documentation for HTTPRouteMatch on
+                        how to specify multiple match conditions that should be ANDed
+                        together. \n If no matches are specified, the default is a
+                        prefix path match on \"/\", which has the effect of matching
+                        every HTTP request."
+                      items:
+                        description: "HTTPRouteMatch defines the predicate used to
+                          match requests to a given action. Multiple match types are
+                          ANDed together, i.e. the match will evaluate to true only
+                          if all conditions are satisfied. \n For example, the match
+                          below will match a HTTP request only if its path starts
+                          with `/foo` AND it contains the `version: \"1\"` header:
+                          \n ``` match:   path:     value: \"/foo\"   headers:     values:
+                          \      version: \"1\" ```"
+                        properties:
+                          extensionRef:
+                            description: "ExtensionRef is an optional, implementation-specific
+                              extension to the \"match\" behavior.  The resource may
+                              be \"configmap\" (use the empty string for the group)
+                              or an implementation-defined resource (for example,
+                              resource \"myroutematchers\" in group \"networking.acme.io\").
+                              Omitting or specifying the empty string for both the
+                              resource and group indicates that the resource is \"configmaps\".
+                              \n If the referent cannot be found, the route must be
+                              dropped from the Gateway. The controller should raise
+                              the \"ResolvedRefs\" condition on the Gateway with the
+                              \"DroppedRoutes\" reason. The gateway status for this
+                              route should be updated with a condition that describes
+                              the error more specifically. \n Support: custom"
+                            properties:
+                              group:
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - group
+                            - kind
+                            - name
+                            type: object
+                          headers:
+                            description: Headers specifies a HTTP request header matcher.
+                            properties:
+                              type:
+                                default: Exact
+                                description: "HeaderMatchType specifies how to match
+                                  a HTTP request header against the Values map. \n
+                                  Support: core (Exact) Support: custom (ImplementationSpecific)
+                                  \n Default: \"Exact\""
+                                enum:
+                                - Exact
+                                - ImplementationSpecific
+                                type: string
+                              values:
+                                additionalProperties:
+                                  type: string
+                                description: "Values is a map of HTTP Headers to be
+                                  matched. It MUST contain at least one entry. \n
+                                  The HTTP header field name to match is the map key,
+                                  and the value of the HTTP header is the map value.
+                                  HTTP header field names MUST be matched case-insensitively.
+                                  \n Multiple match values are ANDed together, meaning,
+                                  a request must match all the specified headers to
+                                  select the route."
+                                type: object
+                            required:
+                            - values
+                            type: object
+                          path:
+                            default:
+                              type: Prefix
+                              value: /
+                            description: Path specifies a HTTP request path matcher.
+                              If this field is not specified, a default prefix match
+                              on the "/" path is provided.
+                            properties:
+                              type:
+                                default: Prefix
+                                description: "Type specifies how to match against
+                                  the path Value. \n Support: core (Exact, Prefix)
+                                  Support: custom (RegularExpression, ImplementationSpecific)
+                                  \n Since RegularExpression PathType has custom conformance,
+                                  implementations can support POSIX, PCRE or any other
+                                  dialects of regular expressions. Please read the
+                                  implementation's documentation to determine the
+                                  supported dialect. \n Default: \"Prefix\""
+                                enum:
+                                - Exact
+                                - Prefix
+                                - RegularExpression
+                                - ImplementationSpecific
+                                type: string
+                              value:
+                                description: Value of the HTTP path to match against.
+                                minLength: 1
+                                type: string
+                            required:
+                            - value
+                            type: object
+                        type: object
+                      maxItems: 8
+                      type: array
                   type: object
+                maxItems: 16
+                minItems: 1
                 type: array
+              tls:
+                description: "TLS defines the TLS certificate to use for Hostnames
+                  defined in this Route. This configuration only takes effect if the
+                  AllowRouteOverride field is set to true in the associated Gateway
+                  resource. \n Collisions can happen if multiple HTTPRoutes define
+                  a TLS certificate for the same hostname. In such a case, conflict
+                  resolution guiding principles apply, specificallly, if hostnames
+                  are same and two different certificates are specified then the certificate
+                  in the oldest resource wins. \n Please note that HTTP Route-selection
+                  takes place after the TLS Handshake (ClientHello). Due to this,
+                  TLS certificate defined here will take precedence even if the request
+                  has the potential to match multiple routes (in case multiple HTTPRoutes
+                  share the same hostname). \n Support: Core"
+                properties:
+                  certificateRef:
+                    description: 'CertificateRef refers to a Kubernetes object that
+                      contains a TLS certificate and private key. This certificate
+                      MUST be used for TLS handshakes for the domain this RouteTLSConfig
+                      is associated with. If an entry in this list omits or specifies
+                      the empty string for both the group and the resource, the resource
+                      defaults to "secrets". An implementation may support other resources
+                      (for example, resource "mycertificates" in group "networking.acme.io").
+                      Support: Core (Kubernetes Secrets) Support: Implementation-specific
+                      (Other resource types)'
+                    properties:
+                      group:
+                        description: Group is the group of the referent.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      kind:
+                        description: Kind is kind of the referent.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      name:
+                        description: Name is the name of the referent.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                    required:
+                    - group
+                    - kind
+                    - name
+                    type: object
+                required:
+                - certificateRef
+                type: object
+            required:
+            - rules
             type: object
           status:
             description: HTTPRouteStatus defines the observed state of HTTPRoute.
@@ -1754,19 +1801,28 @@ spec:
                         - status
                         - type
                         type: object
+                      maxItems: 8
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
                     gatewayRef:
                       description: GatewayRef is a reference to a Gateway object that
                         is associated with the route.
                       properties:
                         name:
                           description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                         namespace:
                           description: Namespace is the namespace of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                       required:
                       - name
+                      - namespace
                       type: object
                   required:
                   - gatewayRef
@@ -1823,135 +1879,138 @@ spec:
           spec:
             description: TCPRouteSpec defines the desired state of TCPRoute
             properties:
+              gateways:
+                default:
+                  allow: SameNamespace
+                description: Gateways defines which Gateways can use this Route.
+                properties:
+                  allow:
+                    default: SameNamespace
+                    description: 'Allow indicates which Gateways will be allowed to
+                      use this route. Possible values are: * All: Gateways in any
+                      namespace can use this route. * FromList: Only Gateways specified
+                      in GatewayRefs may use this route. * SameNamespace: Only Gateways
+                      in the same namespace may use this route.'
+                    enum:
+                    - All
+                    - FromList
+                    - SameNamespace
+                    type: string
+                  gatewayRefs:
+                    description: GatewayRefs must be specified when Allow is set to
+                      "FromList". In that case, only Gateways referenced in this list
+                      will be allowed to use this route. This field is ignored for
+                      other values of "Allow".
+                    items:
+                      description: GatewayReference identifies a Gateway in a specified
+                        namespace.
+                      properties:
+                        name:
+                          description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: Namespace is the namespace of the referent.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    type: array
+                type: object
               rules:
                 description: Rules are a list of TCP matchers and actions.
                 items:
                   description: TCPRouteRule is the configuration for a given rule.
                   properties:
-                    action:
-                      description: Action defines what happens to the connection.
-                      properties:
-                        extensionRef:
-                          description: "ExtensionRef is an optional, implementation-specific
-                            extension to the \"action\" behavior.  The resource may
-                            be \"configmaps\" (use the empty string for the group)
-                            or an implementation-defined resource (for example, resource
-                            \"myrouteactions\" in group \"networking.acme.io\"). Omitting
-                            or specifying the empty string for both the resource and
-                            group indicates that the resource is \"configmaps\".  If
-                            the referent cannot be found, the \"InvalidRoutes\" status
-                            condition on any Gateway that includes the TCPRoute will
-                            be true. \n Support: custom"
-                          properties:
-                            group:
-                              description: Group is the API group name of the referent.
-                              type: string
-                            name:
-                              description: Name is the name of the referent.
-                              type: string
-                            resource:
-                              description: Resource is the API resource name of the
-                                referent.
-                              type: string
-                          required:
-                          - group
-                          - name
-                          - resource
-                          type: object
-                        forwardTo:
-                          description: "ForwardTo sends requests to the referenced
-                            object(s). The resource may be \"services\" (omit or use
-                            the empty string for the group), or an implementation
-                            may support other resources (for example, resource \"myroutetargets\"
-                            in group \"networking.acme.io\"). Omitting or specifying
-                            the empty string for both the resource and group indicates
-                            that the resource is \"services\".  If the referent cannot
-                            be found, the \"InvalidRoutes\" status condition on any
-                            Gateway that includes the HTTPRoute will be true. \n Support:
-                            core"
-                          items:
-                            description: GenericForwardToTarget identifies a target
-                              object within a known namespace.
+                    forwardTo:
+                      description: ForwardTo defines the backend(s) where matching
+                        requests should be sent.
+                      items:
+                        description: RouteForwardTo defines how a Route should forward
+                          a request.
+                        properties:
+                          backendRef:
+                            description: "BackendRef is a reference to a backend to
+                              forward matched requests to. If both BackendRef and
+                              ServiceName are specified, ServiceName will be given
+                              precedence. \n If the referent cannot be found, the
+                              route must be dropped from the Gateway. The controller
+                              should raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DroppedRoutes\" reason. The gateway status
+                              for this route should be updated with a condition that
+                              describes the error more specifically. \n Support: Custom"
                             properties:
-                              targetPort:
-                                description: "TargetPort specifies the destination
-                                  port number to use for the TargetRef. If unspecified
-                                  and TargetRef is a Service object consisting of
-                                  a single port definition, that port will be used.
-                                  If unspecified and TargetRef is a Service object
-                                  consisting of multiple port definitions, an error
-                                  is surfaced in status. \n Support: Core"
-                                format: int32
-                                type: integer
-                              targetRef:
-                                description: "TargetRef is an object reference to
-                                  forward matched requests to. The resource may be
-                                  \"services\" (omit or use the empty string for the
-                                  group), or an implementation may support other resources
-                                  (for example, resource \"myroutetargets\" in group
-                                  \"networking.acme.io\"). Omitting or specifying
-                                  the empty string for both the resource and group
-                                  indicates that the resource is \"services\".  If
-                                  the referent cannot be found, the \"InvalidRoutes\"
-                                  status condition on any Gateway that includes the
-                                  HTTPRoute will be true. \n Support: Core (Kubernetes
-                                  Services) Support: Implementation-specific (Other
-                                  resource types)"
-                                properties:
-                                  group:
-                                    default: core
-                                    description: "Group is the group of the referent.
-                                      \ Omitting the value or specifying the empty
-                                      string indicates the core API group.  For example,
-                                      use the following to specify a service: \n fooRef:
-                                      \  resource: services   name: myservice \n Otherwise,
-                                      if the core API group is not desired, specify
-                                      the desired group: \n fooRef:   group: acme.io
-                                      \  resource: foos   name: myfoo"
-                                    type: string
-                                  name:
-                                    description: Name is the name of the referent.
-                                    type: string
-                                  resource:
-                                    default: services
-                                    description: "Resource is the API resource name
-                                      of the referent. Omitting the value or specifying
-                                      the empty string indicates the services resource.
-                                      For example, use the following to specify a
-                                      services resource: \n fooRef:   name: myservice
-                                      \n Otherwise, if the services resource is not
-                                      desired, specify the desired group: \n fooRef:
-                                      \  group: acme.io   resource: foos   name: myfoo"
-                                    type: string
-                                required:
-                                - name
-                                type: object
-                              weight:
-                                default: 1
-                                description: "Weight specifies the proportion of traffic
-                                  forwarded to a targetRef, computed as weight/(sum
-                                  of all weights in targetRefs). Weight is not a percentage
-                                  and the sum of weights does not need to equal 100.
-                                  The following example (in yaml) sends 70% of traffic
-                                  to service \"my-trafficsplit-sv1\" and 30% of the
-                                  traffic to service \"my-trafficsplit-sv2\": \n   forwardTo:
-                                  \    - targetRef:         name: my-trafficsplit-sv1
-                                  \        weight: 70     - targetRef:         name:
-                                  my-trafficsplit-sv2         weight: 30 \n If only
-                                  one targetRef is specified, 100% of the traffic
-                                  is forwarded to the targetRef. If unspecified, weight
-                                  defaults to 1. \n Support: Core (HTTPRoute) Support:
-                                  Extended (TCPRoute)"
-                                format: int32
-                                type: integer
+                              group:
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
                             required:
-                            - targetRef
+                            - group
+                            - kind
+                            - name
                             type: object
-                          minItems: 1
-                          type: array
-                      required:
-                      - forwardTo
-                      type: object
+                          port:
+                            description: "Port specifies the destination port number
+                              to use for the backend referenced by the ServiceName
+                              or BackendRef field. \n If the port is unspecified and
+                              a Service object consisting of a single port definition
+                              is the backend, that port will be used. \n If the port
+                              is unspecified and the backend is a Service object consisting
+                              of multiple port definitions, the route must be dropped
+                              from the Gateway. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DroppedRoutes\"
+                              reason.  The gateway status for this route should be
+                              updated with a condition that describes the error \n
+                              Support: Core"
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          serviceName:
+                            description: "ServiceName refers to the name of the Service
+                              to forward matched requests to. When specified, this
+                              takes the place of BackendRef. If both BackendRef and
+                              ServiceName are specified, ServiceName will be given
+                              precedence. \n If the referent cannot be found, the
+                              route must be dropped from the Gateway. The controller
+                              should raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DroppedRoutes\" reason. The gateway status
+                              for this route should be updated with a condition that
+                              describes the error more specifically. \n Support: Core"
+                            maxLength: 253
+                            type: string
+                          weight:
+                            default: 1
+                            description: "Weight specifies the proportion of traffic
+                              forwarded to the backend referenced by the ServiceName
+                              or BackendRef field. computed as weight/(sum of all
+                              weights in this ForwardTo list). Weight is not a percentage
+                              and the sum of weights does not need to equal 100. If
+                              only one backend is specified, 100% of the traffic is
+                              forwarded to that backend. If unspecified, weight defaults
+                              to 1. \n Support: Extended"
+                            format: int32
+                            maximum: 10000
+                            minimum: 1
+                            type: integer
+                        type: object
+                      maxItems: 4
+                      type: array
                     matches:
                       description: Matches define conditions used for matching the
                         rule against incoming TCP connections. Each match is independent,
@@ -1969,29 +2028,36 @@ spec:
                               resource \"myroutematchers\" in group \"networking.acme.io\").
                               Omitting or specifying the empty string for both the
                               resource and group indicates that the resource is \"configmaps\".
-                              \ If the referent cannot be found, the \"InvalidRoutes\"
-                              status condition on any Gateway that includes the TCPRoute
-                              will be true. \n Support: custom"
+                              \n If the referent cannot be found, the route must be
+                              dropped from the Gateway. The controller should raise
+                              the \"ResolvedRefs\" condition on the Gateway with the
+                              \"DroppedRoutes\" reason. The gateway status for this
+                              route should be updated with a condition that describes
+                              the error more specifically. \n Support: custom"
                             properties:
                               group:
-                                description: Group is the API group name of the referent.
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
                                 type: string
                               name:
                                 description: Name is the name of the referent.
-                                type: string
-                              resource:
-                                description: Resource is the API resource name of
-                                  the referent.
+                                maxLength: 253
+                                minLength: 1
                                 type: string
                             required:
                             - group
+                            - kind
                             - name
-                            - resource
                             type: object
                         type: object
+                      maxItems: 8
                       type: array
-                  required:
-                  - action
                   type: object
                 type: array
             required:
@@ -2089,19 +2155,28 @@ spec:
                         - status
                         - type
                         type: object
+                      maxItems: 8
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
                     gatewayRef:
                       description: GatewayRef is a reference to a Gateway object that
                         is associated with the route.
                       properties:
                         name:
                           description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                         namespace:
                           description: Namespace is the namespace of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                       required:
                       - name
+                      - namespace
                       type: object
                   required:
                   - gatewayRef
@@ -2162,135 +2237,138 @@ spec:
           spec:
             description: TLSRouteSpec defines the desired state of TLSRoute
             properties:
+              gateways:
+                default:
+                  allow: SameNamespace
+                description: Gateways defines which Gateways can use this Route.
+                properties:
+                  allow:
+                    default: SameNamespace
+                    description: 'Allow indicates which Gateways will be allowed to
+                      use this route. Possible values are: * All: Gateways in any
+                      namespace can use this route. * FromList: Only Gateways specified
+                      in GatewayRefs may use this route. * SameNamespace: Only Gateways
+                      in the same namespace may use this route.'
+                    enum:
+                    - All
+                    - FromList
+                    - SameNamespace
+                    type: string
+                  gatewayRefs:
+                    description: GatewayRefs must be specified when Allow is set to
+                      "FromList". In that case, only Gateways referenced in this list
+                      will be allowed to use this route. This field is ignored for
+                      other values of "Allow".
+                    items:
+                      description: GatewayReference identifies a Gateway in a specified
+                        namespace.
+                      properties:
+                        name:
+                          description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: Namespace is the namespace of the referent.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    type: array
+                type: object
               rules:
                 description: Rules are a list of TLS matchers and actions.
                 items:
                   description: TLSRouteRule is the configuration for a given rule.
                   properties:
-                    action:
-                      description: Action defines what happens to the connection.
-                      properties:
-                        extensionRef:
-                          description: "ExtensionRef is an optional, implementation-specific
-                            extension to the \"action\" behavior.  The resource may
-                            be \"configmaps\" (use the empty string for the group)
-                            or an implementation-defined resource (for example, resource
-                            \"myrouteactions\" in group \"networking.acme.io\"). Omitting
-                            or specifying the empty string for both the resource and
-                            group indicates that the resource is \"configmaps\".  If
-                            the referent cannot be found, the \"InvalidRoutes\" status
-                            condition on any Gateway that includes the TLSRoute will
-                            be true. \n Support: custom"
-                          properties:
-                            group:
-                              description: Group is the API group name of the referent.
-                              type: string
-                            name:
-                              description: Name is the name of the referent.
-                              type: string
-                            resource:
-                              description: Resource is the API resource name of the
-                                referent.
-                              type: string
-                          required:
-                          - group
-                          - name
-                          - resource
-                          type: object
-                        forwardTo:
-                          description: "ForwardTo sends requests to the referenced
-                            object(s). The resource may be \"services\" (omit or use
-                            the empty string for the group), or an implementation
-                            may support other resources (for example, resource \"myroutetargets\"
-                            in group \"networking.acme.io\"). Omitting or specifying
-                            the empty string for both the resource and group indicates
-                            that the resource is \"services\".  If the referent cannot
-                            be found, the \"InvalidRoutes\" status condition on any
-                            Gateway that includes the HTTPRoute will be true. \n Support:
-                            core"
-                          items:
-                            description: GenericForwardToTarget identifies a target
-                              object within a known namespace.
+                    forwardTo:
+                      description: ForwardTo defines the backend(s) where matching
+                        requests should be sent.
+                      items:
+                        description: RouteForwardTo defines how a Route should forward
+                          a request.
+                        properties:
+                          backendRef:
+                            description: "BackendRef is a reference to a backend to
+                              forward matched requests to. If both BackendRef and
+                              ServiceName are specified, ServiceName will be given
+                              precedence. \n If the referent cannot be found, the
+                              route must be dropped from the Gateway. The controller
+                              should raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DroppedRoutes\" reason. The gateway status
+                              for this route should be updated with a condition that
+                              describes the error more specifically. \n Support: Custom"
                             properties:
-                              targetPort:
-                                description: "TargetPort specifies the destination
-                                  port number to use for the TargetRef. If unspecified
-                                  and TargetRef is a Service object consisting of
-                                  a single port definition, that port will be used.
-                                  If unspecified and TargetRef is a Service object
-                                  consisting of multiple port definitions, an error
-                                  is surfaced in status. \n Support: Core"
-                                format: int32
-                                type: integer
-                              targetRef:
-                                description: "TargetRef is an object reference to
-                                  forward matched requests to. The resource may be
-                                  \"services\" (omit or use the empty string for the
-                                  group), or an implementation may support other resources
-                                  (for example, resource \"myroutetargets\" in group
-                                  \"networking.acme.io\"). Omitting or specifying
-                                  the empty string for both the resource and group
-                                  indicates that the resource is \"services\".  If
-                                  the referent cannot be found, the \"InvalidRoutes\"
-                                  status condition on any Gateway that includes the
-                                  HTTPRoute will be true. \n Support: Core (Kubernetes
-                                  Services) Support: Implementation-specific (Other
-                                  resource types)"
-                                properties:
-                                  group:
-                                    default: core
-                                    description: "Group is the group of the referent.
-                                      \ Omitting the value or specifying the empty
-                                      string indicates the core API group.  For example,
-                                      use the following to specify a service: \n fooRef:
-                                      \  resource: services   name: myservice \n Otherwise,
-                                      if the core API group is not desired, specify
-                                      the desired group: \n fooRef:   group: acme.io
-                                      \  resource: foos   name: myfoo"
-                                    type: string
-                                  name:
-                                    description: Name is the name of the referent.
-                                    type: string
-                                  resource:
-                                    default: services
-                                    description: "Resource is the API resource name
-                                      of the referent. Omitting the value or specifying
-                                      the empty string indicates the services resource.
-                                      For example, use the following to specify a
-                                      services resource: \n fooRef:   name: myservice
-                                      \n Otherwise, if the services resource is not
-                                      desired, specify the desired group: \n fooRef:
-                                      \  group: acme.io   resource: foos   name: myfoo"
-                                    type: string
-                                required:
-                                - name
-                                type: object
-                              weight:
-                                default: 1
-                                description: "Weight specifies the proportion of traffic
-                                  forwarded to a targetRef, computed as weight/(sum
-                                  of all weights in targetRefs). Weight is not a percentage
-                                  and the sum of weights does not need to equal 100.
-                                  The following example (in yaml) sends 70% of traffic
-                                  to service \"my-trafficsplit-sv1\" and 30% of the
-                                  traffic to service \"my-trafficsplit-sv2\": \n   forwardTo:
-                                  \    - targetRef:         name: my-trafficsplit-sv1
-                                  \        weight: 70     - targetRef:         name:
-                                  my-trafficsplit-sv2         weight: 30 \n If only
-                                  one targetRef is specified, 100% of the traffic
-                                  is forwarded to the targetRef. If unspecified, weight
-                                  defaults to 1. \n Support: Core (HTTPRoute) Support:
-                                  Extended (TCPRoute)"
-                                format: int32
-                                type: integer
+                              group:
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
                             required:
-                            - targetRef
+                            - group
+                            - kind
+                            - name
                             type: object
-                          minItems: 1
-                          type: array
-                      required:
-                      - forwardTo
-                      type: object
+                          port:
+                            description: "Port specifies the destination port number
+                              to use for the backend referenced by the ServiceName
+                              or BackendRef field. \n If the port is unspecified and
+                              a Service object consisting of a single port definition
+                              is the backend, that port will be used. \n If the port
+                              is unspecified and the backend is a Service object consisting
+                              of multiple port definitions, the route must be dropped
+                              from the Gateway. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DroppedRoutes\"
+                              reason.  The gateway status for this route should be
+                              updated with a condition that describes the error \n
+                              Support: Core"
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          serviceName:
+                            description: "ServiceName refers to the name of the Service
+                              to forward matched requests to. When specified, this
+                              takes the place of BackendRef. If both BackendRef and
+                              ServiceName are specified, ServiceName will be given
+                              precedence. \n If the referent cannot be found, the
+                              route must be dropped from the Gateway. The controller
+                              should raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DroppedRoutes\" reason. The gateway status
+                              for this route should be updated with a condition that
+                              describes the error more specifically. \n Support: Core"
+                            maxLength: 253
+                            type: string
+                          weight:
+                            default: 1
+                            description: "Weight specifies the proportion of traffic
+                              forwarded to the backend referenced by the ServiceName
+                              or BackendRef field. computed as weight/(sum of all
+                              weights in this ForwardTo list). Weight is not a percentage
+                              and the sum of weights does not need to equal 100. If
+                              only one backend is specified, 100% of the traffic is
+                              forwarded to that backend. If unspecified, weight defaults
+                              to 1. \n Support: Extended"
+                            format: int32
+                            maximum: 10000
+                            minimum: 1
+                            type: integer
+                        type: object
+                      maxItems: 4
+                      type: array
                     matches:
                       description: Matches define conditions used for matching the
                         rule against incoming TLS handshake. Each match is independent,
@@ -2308,24 +2386,32 @@ spec:
                               resource \"myroutematchers\" in group \"networking.acme.io\").
                               Omitting or specifying the empty string for both the
                               resource and group indicates that the resource is \"configmaps\".
-                              \ If the referent cannot be found, the \"InvalidRoutes\"
-                              status condition on any Gateway that includes the TLSRoute
-                              will be true. \n Support: custom"
+                              \n If the referent cannot be found, the route must be
+                              dropped from the Gateway. The controller should raise
+                              the \"ResolvedRefs\" condition on the Gateway with the
+                              \"DroppedRoutes\" reason. The gateway status for this
+                              route should be updated with a condition that describes
+                              the error more specifically. \n Support: custom"
                             properties:
                               group:
-                                description: Group is the API group name of the referent.
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
                                 type: string
                               name:
                                 description: Name is the name of the referent.
-                                type: string
-                              resource:
-                                description: Resource is the API resource name of
-                                  the referent.
+                                maxLength: 253
+                                minLength: 1
                                 type: string
                             required:
                             - group
+                            - kind
                             - name
-                            - resource
                             type: object
                           snis:
                             description: "SNIs defines a set of SNI names that should
@@ -2350,10 +2436,10 @@ spec:
                             minItems: 1
                             type: array
                         type: object
+                      maxItems: 8
                       type: array
-                  required:
-                  - action
                   type: object
+                maxItems: 16
                 minItems: 1
                 type: array
             required:
@@ -2451,19 +2537,28 @@ spec:
                         - status
                         - type
                         type: object
+                      maxItems: 8
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
                     gatewayRef:
                       description: GatewayRef is a reference to a Gateway object that
                         is associated with the route.
                       properties:
                         name:
                           description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                         namespace:
                           description: Namespace is the namespace of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                       required:
                       - name
+                      - namespace
                       type: object
                   required:
                   - gatewayRef
@@ -2520,128 +2615,138 @@ spec:
           spec:
             description: UDPRouteSpec defines the desired state of UDPRoute.
             properties:
+              gateways:
+                default:
+                  allow: SameNamespace
+                description: Gateways defines which Gateways can use this Route.
+                properties:
+                  allow:
+                    default: SameNamespace
+                    description: 'Allow indicates which Gateways will be allowed to
+                      use this route. Possible values are: * All: Gateways in any
+                      namespace can use this route. * FromList: Only Gateways specified
+                      in GatewayRefs may use this route. * SameNamespace: Only Gateways
+                      in the same namespace may use this route.'
+                    enum:
+                    - All
+                    - FromList
+                    - SameNamespace
+                    type: string
+                  gatewayRefs:
+                    description: GatewayRefs must be specified when Allow is set to
+                      "FromList". In that case, only Gateways referenced in this list
+                      will be allowed to use this route. This field is ignored for
+                      other values of "Allow".
+                    items:
+                      description: GatewayReference identifies a Gateway in a specified
+                        namespace.
+                      properties:
+                        name:
+                          description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: Namespace is the namespace of the referent.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    type: array
+                type: object
               rules:
                 description: Rules are a list of UDP matchers and actions.
                 items:
                   description: UDPRouteRule is the configuration for a given rule.
                   properties:
-                    action:
-                      description: Action defines what happens to the packet.
-                      properties:
-                        extensionRef:
-                          description: "ExtensionRef is an optional, implementation-specific
-                            extension to the \"action\" behavior.  The resource may
-                            be \"configmaps\" (use the empty string for the group)
-                            or an implementation-defined resource (for example, resource
-                            \"myrouteactions\" in group \"networking.acme.io\"). Omitting
-                            or specifying the empty string for both the resource and
-                            group indicates that the resource is \"configmaps\".  If
-                            the referent cannot be found, the \"InvalidRoutes\" status
-                            condition on any Gateway that includes the UDPRoute will
-                            be true. \n Support: custom"
-                          properties:
-                            group:
-                              description: Group is the API group name of the referent.
-                              type: string
-                            name:
-                              description: Name is the name of the referent.
-                              type: string
-                            resource:
-                              description: Resource is the API resource name of the
-                                referent.
-                              type: string
-                          required:
-                          - group
-                          - name
-                          - resource
-                          type: object
-                        forwardTo:
-                          description: ForwardTo sends requests to the referenced
-                            object.  The resource may be "services" (omit or use the
-                            empty string for the group), or an implementation may
-                            support other resources (for example, resource "myroutetargets"
-                            in group "networking.acme.io"). Omitting or specifying
-                            the empty string for both the resource and group indicates
-                            that the resource is "services".  If the referent cannot
-                            be found, the "InvalidRoutes" status condition on any
-                            Gateway that includes the UDPRoute will be true.
-                          properties:
-                            targetPort:
-                              description: "TargetPort specifies the destination port
-                                number to use for the TargetRef. If unspecified and
-                                TargetRef is a Service object consisting of a single
-                                port definition, that port will be used. If unspecified
-                                and TargetRef is a Service object consisting of multiple
-                                port definitions, an error is surfaced in status.
-                                \n Support: Core"
-                              format: int32
-                              type: integer
-                            targetRef:
-                              description: "TargetRef is an object reference to forward
-                                matched requests to. The resource may be \"services\"
-                                (omit or use the empty string for the group), or an
-                                implementation may support other resources (for example,
-                                resource \"myroutetargets\" in group \"networking.acme.io\").
-                                Omitting or specifying the empty string for both the
-                                resource and group indicates that the resource is
-                                \"services\".  If the referent cannot be found, the
-                                \"InvalidRoutes\" status condition on any Gateway
-                                that includes the HTTPRoute will be true. \n Support:
-                                Core (Kubernetes Services) Support: Implementation-specific
-                                (Other resource types)"
-                              properties:
-                                group:
-                                  default: core
-                                  description: "Group is the group of the referent.
-                                    \ Omitting the value or specifying the empty string
-                                    indicates the core API group.  For example, use
-                                    the following to specify a service: \n fooRef:
-                                    \  resource: services   name: myservice \n Otherwise,
-                                    if the core API group is not desired, specify
-                                    the desired group: \n fooRef:   group: acme.io
-                                    \  resource: foos   name: myfoo"
-                                  type: string
-                                name:
-                                  description: Name is the name of the referent.
-                                  type: string
-                                resource:
-                                  default: services
-                                  description: "Resource is the API resource name
-                                    of the referent. Omitting the value or specifying
-                                    the empty string indicates the services resource.
-                                    For example, use the following to specify a services
-                                    resource: \n fooRef:   name: myservice \n Otherwise,
-                                    if the services resource is not desired, specify
-                                    the desired group: \n fooRef:   group: acme.io
-                                    \  resource: foos   name: myfoo"
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            weight:
-                              default: 1
-                              description: "Weight specifies the proportion of traffic
-                                forwarded to a targetRef, computed as weight/(sum
-                                of all weights in targetRefs). Weight is not a percentage
-                                and the sum of weights does not need to equal 100.
-                                The following example (in yaml) sends 70% of traffic
-                                to service \"my-trafficsplit-sv1\" and 30% of the
-                                traffic to service \"my-trafficsplit-sv2\": \n   forwardTo:
-                                \    - targetRef:         name: my-trafficsplit-sv1
-                                \        weight: 70     - targetRef:         name:
-                                my-trafficsplit-sv2         weight: 30 \n If only
-                                one targetRef is specified, 100% of the traffic is
-                                forwarded to the targetRef. If unspecified, weight
-                                defaults to 1. \n Support: Core (HTTPRoute) Support:
-                                Extended (TCPRoute)"
-                              format: int32
-                              type: integer
-                          required:
-                          - targetRef
-                          type: object
-                      required:
-                      - forwardTo
-                      type: object
+                    forwardTo:
+                      description: ForwardTo defines the backend(s) where matching
+                        requests should be sent.
+                      items:
+                        description: RouteForwardTo defines how a Route should forward
+                          a request.
+                        properties:
+                          backendRef:
+                            description: "BackendRef is a reference to a backend to
+                              forward matched requests to. If both BackendRef and
+                              ServiceName are specified, ServiceName will be given
+                              precedence. \n If the referent cannot be found, the
+                              route must be dropped from the Gateway. The controller
+                              should raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DroppedRoutes\" reason. The gateway status
+                              for this route should be updated with a condition that
+                              describes the error more specifically. \n Support: Custom"
+                            properties:
+                              group:
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - group
+                            - kind
+                            - name
+                            type: object
+                          port:
+                            description: "Port specifies the destination port number
+                              to use for the backend referenced by the ServiceName
+                              or BackendRef field. \n If the port is unspecified and
+                              a Service object consisting of a single port definition
+                              is the backend, that port will be used. \n If the port
+                              is unspecified and the backend is a Service object consisting
+                              of multiple port definitions, the route must be dropped
+                              from the Gateway. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DroppedRoutes\"
+                              reason.  The gateway status for this route should be
+                              updated with a condition that describes the error \n
+                              Support: Core"
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          serviceName:
+                            description: "ServiceName refers to the name of the Service
+                              to forward matched requests to. When specified, this
+                              takes the place of BackendRef. If both BackendRef and
+                              ServiceName are specified, ServiceName will be given
+                              precedence. \n If the referent cannot be found, the
+                              route must be dropped from the Gateway. The controller
+                              should raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DroppedRoutes\" reason. The gateway status
+                              for this route should be updated with a condition that
+                              describes the error more specifically. \n Support: Core"
+                            maxLength: 253
+                            type: string
+                          weight:
+                            default: 1
+                            description: "Weight specifies the proportion of traffic
+                              forwarded to the backend referenced by the ServiceName
+                              or BackendRef field. computed as weight/(sum of all
+                              weights in this ForwardTo list). Weight is not a percentage
+                              and the sum of weights does not need to equal 100. If
+                              only one backend is specified, 100% of the traffic is
+                              forwarded to that backend. If unspecified, weight defaults
+                              to 1. \n Support: Extended"
+                            format: int32
+                            maximum: 10000
+                            minimum: 1
+                            type: integer
+                        type: object
+                      maxItems: 4
+                      type: array
                     matches:
                       description: Matches defines which packets match this rule.
                       items:
@@ -2656,26 +2761,35 @@ spec:
                               resource \"myroutematchers\" in group \"networking.acme.io\").
                               Omitting or specifying the empty string for both the
                               resource and group indicates that the resource is \"configmaps\".
-                              \ If the referent cannot be found, the \"InvalidRoutes\"
-                              status condition on any Gateway that includes the UDPRoute
-                              will be true. \n Support: custom"
+                              \n If the referent cannot be found, the route must be
+                              dropped from the Gateway. The controller should raise
+                              the \"ResolvedRefs\" condition on the Gateway with the
+                              \"DroppedRoutes\" reason. The gateway status for this
+                              route should be updated with a condition that describes
+                              the error more specifically. \n Support: custom"
                             properties:
                               group:
-                                description: Group is the API group name of the referent.
+                                description: Group is the group of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent.
+                                maxLength: 253
+                                minLength: 1
                                 type: string
                               name:
                                 description: Name is the name of the referent.
-                                type: string
-                              resource:
-                                description: Resource is the API resource name of
-                                  the referent.
+                                maxLength: 253
+                                minLength: 1
                                 type: string
                             required:
                             - group
+                            - kind
                             - name
-                            - resource
                             type: object
                         type: object
+                      maxItems: 8
                       type: array
                   type: object
                 type: array
@@ -2774,19 +2888,28 @@ spec:
                         - status
                         - type
                         type: object
+                      maxItems: 8
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
                     gatewayRef:
                       description: GatewayRef is a reference to a Gateway object that
                         is associated with the route.
                       properties:
                         name:
                           description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                         namespace:
                           description: Namespace is the namespace of the referent.
+                          maxLength: 253
+                          minLength: 1
                           type: string
                       required:
                       - name
+                      - namespace
                       type: object
                   required:
                   - gatewayRef
