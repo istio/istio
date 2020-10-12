@@ -16,6 +16,7 @@ package xds
 
 import (
 	"fmt"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,6 +29,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/ratelimit"
 	"istio.io/pkg/log"
 )
 
@@ -56,8 +59,22 @@ type InternalGen struct {
 	// Store only tracks things in k8s since we don't handle writing to MCP based stores or reconciling across different store types.
 	Store *crdclient.Client
 
+	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
+	cleanupLimit ratelimit.Limiter
+	// delayedCleanup is written to after GracePeriod seconds when a proxy associated to an autoregistered WorkloadEntry disconnects.
+	delayedCleanup chan config.Meta
+
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
+}
+
+func NewInternalGen(s *DiscoveryServer) *InternalGen {
+	return &InternalGen{
+		Server: s,
+		// TODO make this configurable
+		cleanupLimit:   ratelimit.NewLeakyBucket(20, time.Second),
+		delayedCleanup: make(chan config.Meta),
+	}
 }
 
 func (sg *InternalGen) OnConnect(con *Connection) {
@@ -94,7 +111,7 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 
 func (sg *InternalGen) Run(stop <-chan struct{}) {
 	if sg.Store != nil {
-		go sg.periodicWorkloadEntryCleanup(stop)
+		go sg.workloadEntryCleanup(stop)
 	}
 }
 

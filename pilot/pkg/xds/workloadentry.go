@@ -83,11 +83,21 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	})
 	if err != nil {
 		adsLog.Warnf("disconnect: failed patching WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+		return
 	}
+
+	gp := time.After(features.WorkloadEntryCleanupGracePeriod)
+	go func() {
+		<-gp
+		sg.delayedCleanup <- config.Meta{Name: entryName, Namespace: proxy.Metadata.Namespace}
+	}()
+
 }
 
-func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
-	ticker := time.NewTicker(features.WorkloadEntryCleanupGracePeriod)
+// workloadEntryCleanup processes the delete queue as well as performs periodic cleanup of WorkloadEntries to catch
+// edge cases where the last connected pilot cannot perform the cleanup.
+func (sg *InternalGen) workloadEntryCleanup(stopCh <-chan struct{}) {
+	ticker := time.NewTicker(10 * features.WorkloadEntryCleanupGracePeriod)
 	defer ticker.Stop()
 	for {
 		select {
@@ -95,34 +105,53 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 			for _, ns := range sg.Store.Namespaces() {
 				wles, err := sg.Store.List(gvk.WorkloadEntry, ns.Name)
 				if err != nil {
-					adsLog.Warnf("failed listing WorkloadEntry in %s for cleanup: %v", ns.Name, err)
 					continue
 				}
 				for _, wle := range wles {
-					// don't clean-up if connected or non-autoregistered WorkloadEntries
-					_, ok := wle.Annotations[WorkloadControllerAnnotation]
-					if wle.Annotations[AutoRegistrationGroupAnnotation] == "" || ok {
-						continue
-					}
-					// if we haven't passed the grace period, don't cleanup
-					disconnUnixTime, err := strconv.ParseInt(wle.Annotations[DisconnectedAtAnnotation], 10, 64)
-					if err != nil {
-						// remove workload entries with invalid disconnect times - they need to be re-registered and fixed.
-						adsLog.Warnf("invalid disconnect time for WorkloadEntry %s/%s: %s", wle.Annotations[DisconnectedAtAnnotation])
-					}
-					disconnat := time.Unix(0, disconnUnixTime)
-					if err != nil || time.Since(disconnat) > features.WorkloadEntryCleanupGracePeriod {
-						adsLog.Infof("cleaning up %s; diconn time: %v", wle.Name, disconnat)
-						if err := sg.Store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
-							adsLog.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
-						}
-					}
+					go sg.cleanupEntry(wle)
 				}
 			}
+		case weMeta := <-sg.delayedCleanup:
+			wle := sg.Store.Get(gvk.WorkloadEntry, weMeta.Name, weMeta.Namespace)
+			if wle == nil {
+				continue
+			}
+			go sg.cleanupEntry(*wle)
 		case <-stopCh:
 			return
 		}
 	}
+}
+
+func (sg *InternalGen) cleanupEntry(wle config.Config) {
+	if !shouldCleanupEntry(wle) {
+		return
+	}
+	sg.cleanupLimit.Wait()
+	if err := sg.Store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
+		adsLog.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
+	}
+}
+
+func shouldCleanupEntry(wle config.Config) bool {
+	// don't clean-up if connected or non-autoregistered WorkloadEntries
+	_, ok := wle.Annotations[WorkloadControllerAnnotation]
+	if wle.Annotations[AutoRegistrationGroupAnnotation] == "" || ok {
+		return false
+	}
+
+	disconnUnixTime, err := strconv.ParseInt(wle.Annotations[DisconnectedAtAnnotation], 10, 64)
+	if err != nil {
+		// remove workload entries with invalid disconnect times - they need to be re-registered and fixed.
+		adsLog.Warnf("invalid disconnect time for WorkloadEntry %s/%s: %s", wle.Annotations[DisconnectedAtAnnotation])
+	}
+	disconnAt := time.Unix(0, disconnUnixTime)
+	// if we haven't passed the grace period, don't cleanup
+	if err == nil && time.Since(disconnAt) < features.WorkloadEntryCleanupGracePeriod {
+		return false
+	}
+
+	return true
 }
 
 func setConnectMeta(c *config.Config, controller string, con *Connection) {

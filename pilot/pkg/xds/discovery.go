@@ -488,9 +488,7 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators["grpc/"+v2.EndpointType] = epGen
 	s.Generators["api"] = &apigen.APIGenerator{}
 	s.Generators["api/"+v2.EndpointType] = epGen
-	s.InternalGen = &InternalGen{
-		Server: s,
-	}
+	s.InternalGen = NewInternalGen(s)
 	s.Generators["api/"+TypeURLConnections] = s.InternalGen
 	s.Generators["event"] = s.InternalGen
 }

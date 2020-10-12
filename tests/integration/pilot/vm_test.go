@@ -142,13 +142,13 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 			ctx.NewSubTest("disconnect deletes WorkloadEntry").Run(func(ctx framework.TestContext) {
 				deployment := fmt.Sprintf("%s-%s", autoVM.Config().Service, "v1")
 				scaleDeploymentOrFail(ctx, deployment, autoVM.Config().Namespace.Name(), 0)
-				// it should take at most 2*grace period to trigger removal
+				// it should take at most just over GracePeriod to cleanup if all pilots are healthy
 				retry.UntilSuccessOrFail(ctx, func() error {
 					if len(getWorkloadEntriesOrFail(ctx, autoVM)) > 0 {
 						return errors.New("expected 0 WorkloadEntries")
 					}
 					return nil
-				}, retry.Timeout(features.WorkloadEntryCleanupGracePeriod*2+1))
+				}, retry.Timeout(features.WorkloadEntryCleanupGracePeriod+(2*time.Second)))
 			})
 		})
 }
