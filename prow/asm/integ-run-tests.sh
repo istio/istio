@@ -28,14 +28,102 @@ set -u
 # Print commands
 set -x
 
+# shellcheck source=prow/asm/lib.sh
+source "${WD}/lib.sh"
+
+export BUILD_WITH_CONTAINER=0
+
+# CA = CITADEL or MESHCA
+CA="MESHCA"
+while (( "$#" )); do
+  case $1 in
+    --ca)
+      case $2 in
+        "CITADEL" | "MESHCA" )
+          CA=$2
+          shift 2
+          ;;
+        *)
+          echo "Error: Unsupported CA $2" >&2
+          exit 1
+          ;;
+      esac
+      ;;
+    *)
+      echo "Error: Unsupported input $1" >&2
+      exit 1
+      ;;
+    esac
+done
+echo "Running with CA ${CA}"
+
 echo "Using ${KUBECONFIG} to connect to the cluster(s)"
+if [[ -z "${KUBECONFIG}" ]]; then
+  echo "Error: ${KUBECONFIG} cannot be empty."
+  exit 1
+fi
 
 echo "The kubetest2 deployer is ${DEPLOYER}"
+if [[ -z ${DEPLOYER} ]]; then
+  echo "Error: ${DEPLOYER} cannot be empty."
+  exit 1
+fi
 
-echo "The topology is ${CLUSTER_TOPOLOGY}"
+echo "The cluster topology is ${CLUSTER_TOPOLOGY}"
+if [[ -z "${CLUSTER_TOPOLOGY}" ]]; then
+  echo "Error: ${CLUSTER_TOPOLOGY} cannot be empty."
+  exit 1
+fi
+
+# We observed the kubeconfig files don't have current-context
+# set correctly. Add the logging for help debugging this issue.
+# Remove this part once b/168906799 is closed.
+echo "Printing kubeconfig files for debugging..."
+print_kubeconfigs
+
+# Get all contexts of the clusters.
+CONTEXTSTR=$(kubectl config view -o jsonpath="{range .contexts[*]}{.name}{','}{end}")
+CONTEXTSTR="${CONTEXTSTR::-1}"
+IFS="," read -r -a CONTEXTS <<< "$CONTEXTSTR"
+
+# Use the gcr of the first project to store required images.
+IFS="_" read -r -a VALS <<< "${CONTEXTS[0]}"
+GCR_PROJECT_ID=${VALS[1]}
+export HUB="gcr.io/${GCR_PROJECT_ID}/asm"
+export TAG="BUILD_ID_${BUILD_ID}"
+
+echo "Preparing images..."
+prepare_images
+
+echo "Set permissions to allow other projects pull images..."
+set_permissions "${GCR_PROJECT_ID}" "${CONTEXTS[@]}"
+
+echo "Building istioctl..."
+build_istioctl
 
 echo "Installing ASM control plane..."
+gcloud components install kpt
+install_asm "${WD}/pkg" "${CA}" "${CONTEXTS[@]}"
 
-echo "Running the e2e tests..."
+# We observed the kubeconfig files don't have current-context
+# set correctly. Add the logging for help debugging this issue.
+# Remove this part once b/168906799 is closed.
+echo "Printing kubeconfig files for debugging..."
+print_kubeconfigs
 
-echo "(Optional) Uninstalling ASM control plane..."
+echo "Processing kubeconfig files for running the tests..."
+process_kubeconfigs
+
+export KUBECONFIGINPUT="${KUBECONFIG/:/,}"
+
+echo "Running e2e test: test.integration.multicluster.kube.presubmit..."
+make test.integration.multicluster.kube.presubmit \
+  INTEGRATION_TEST_FLAGS="--istio.test.kube.deploy=false" \
+  TEST_SELECT="+multicluster" \
+  INTEGRATION_TEST_KUBECONFIG="${KUBECONFIGINPUT}"
+
+echo "Cleaning up..."
+cleanup_images
+
+# Remove read permissions from the first project.
+remove_permissions "${GCR_PROJECT_ID}" "${CONTEXTS[@]}"

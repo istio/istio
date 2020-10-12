@@ -32,6 +32,9 @@ func ClusterLocalTest(t *testing.T, apps AppContext, features ...features.Featur
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("respect-cluster-local-config").Run(func(ctx framework.TestContext) {
 				for _, c := range ctx.Clusters() {
+					// Skip this test since pre-installed ASM will not
+					// have the required set-up to run this test.
+					ctx.SkipNow()
 					c := c
 					ctx.NewSubTest(c.StableName()).
 						Label(label.Multicluster).
