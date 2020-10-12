@@ -19,7 +19,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"strings"
 	"time"
 
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -166,16 +165,26 @@ func validateCSR(identities []string, csrPEM string) error {
 	if len(idsFromCSR) == 0 {
 		return fmt.Errorf("missing spiffe identities in CSR")
 	}
-	identitiesAsStr := strings.Join(identities, ",")
 
-	unmatched := false
-	for _, csrID := range idsFromCSR {
-		if !strings.Contains(identitiesAsStr, csrID) {
-			unmatched = true
+	matched := true
+	for _, csrIdentity := range idsFromCSR {
+		if !isContain(csrIdentity, identities) {
+			matched = false
 		}
 	}
-	if unmatched {
+
+	if !matched {
 		return fmt.Errorf("csr's host (%s) doesn't match with request identities (%s)", idsFromCSR, identities)
 	}
 	return nil
+}
+
+func isContain(identity string, identities []string) bool {
+	contained := false
+	for _, id := range identities {
+		if identity == id {
+			contained = true
+		}
+	}
+	return contained
 }
