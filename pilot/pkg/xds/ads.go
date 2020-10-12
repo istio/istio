@@ -762,6 +762,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(sendTimeout)
 	go func() {
+		start := time.Now()
+		defer func() { recordSendTime(time.Since(start)) }()
 		errChan <- conn.stream.Send(res)
 		close(errChan)
 	}()
