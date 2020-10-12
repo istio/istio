@@ -23,8 +23,7 @@ spec:
       routeSelector:
         matchLabels:
           selected: "yes"
-      group: ""
-      resource: httproutes
+      kind: HTTPRoute
   - hostname:
       match: Any
     port: 34000
@@ -34,7 +33,7 @@ spec:
       routeSelector:
         matchLabels:
           selected: "yes"
-      resource: tcproutes
+      kind: TCPRoute
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -44,37 +43,41 @@ metadata:
   labels:
     selected: "yes"
 spec:
-  hosts:
-  - hostnames: ["first.domain.example", "another.domain.example"]
-    rules:
-    - matches:
-      - path:
-          type: Prefix
-          value: /get
-        headers:
-          type: Exact
-          values:
-            my-header: some-value
-      filters:
-      - type: RequestHeader
-        requestHeader:
-          add:
-            my-added-header: added-value
-          remove: [my-removed-header]
-      forward:
-        to:
-        - targetRef:
-            name: httpbin
-  - hostnames: ["second.domain.example"]
-    rules:
-    - matches:
-      - path:
-          type: Prefix
-          value: /second
-      forward:
-        to:
-        - targetRef:
-            name: httpbin-second
+  hostnames: ["first.domain.example", "another.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /get
+      headers:
+        type: Exact
+        values:
+          my-header: some-value
+    filters:
+    - type: RequestHeader
+      requestHeader:
+        add:
+          my-added-header: added-value
+        remove: [my-removed-header]
+    forwardTo:
+    - serviceName: httpbin
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http2
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  hostnames: ["second.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /second
+    forwardTo:
+    - serviceName: httpbin-second
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -84,17 +87,14 @@ metadata:
   labels:
     selected: "nope"
 spec:
-  hosts:
-  - hostnames: ["should.not.select"]
-    rules:
-    - matches:
-      - path:
-          type: Prefix
-          value: /get
-      forward:
-        to:
-        - targetRef:
-            name: httpbin
+  hostnames: ["should.not.select"]
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /get
+    forwardTo:
+    - serviceName: httpbin
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: TCPRoute
@@ -105,7 +105,5 @@ metadata:
     selected: "yes"
 spec:
   rules:
-  - action:
-      forwardTo:
-      - targetRef:
-          name: httpbin
+  - forwardTo:
+    - serviceName: httpbin

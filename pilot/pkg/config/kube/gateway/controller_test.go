@@ -41,16 +41,12 @@ var (
 				Hostname: svc.HostnameMatch{Match: svc.HostnameMatchAny},
 				Port:     9009,
 				Protocol: "HTTP",
-				Routes:   svc.RouteBindingSelector{Resource: "httproutes"},
+				Routes:   svc.RouteBindingSelector{Kind: gvk.HTTPRoute.Kind},
 			},
 		},
 	}
 	httpRouteSpec = &svc.HTTPRouteSpec{
-		Hosts: []svc.HTTPRouteHost{
-			{
-				Hostnames: []string{"test.cluster.local"},
-			},
-		},
+		Hostnames: []svc.HTTPRouteHostname{"test.cluster.local"},
 	}
 
 	expectedgw = &networking.Gateway{
