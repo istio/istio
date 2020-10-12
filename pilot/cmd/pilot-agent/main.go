@@ -159,8 +159,6 @@ var (
 	dnsCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
 
-
-
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
 		Short:        "Istio Pilot agent.",

@@ -45,8 +45,8 @@ type GCEPlugin struct {
 // CreateGCEPlugin creates a Google credential fetcher plugin. Return the pointer to the created plugin.
 func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
 	p := &GCEPlugin{
-		aud:     audience,
-		jwtPath: jwtPath,
+		aud:              audience,
+		jwtPath:          jwtPath,
 		identityProvider: identityProvider,
 	}
 	return p
