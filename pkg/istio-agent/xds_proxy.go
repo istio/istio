@@ -176,6 +176,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		return err
 	}
 	defer upstreamConn.Close()
+	proxyLog.Debugf("connected to %s", p.istiodAddress)
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
@@ -512,6 +513,11 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	// strip the port from the address
 	parts := strings.Split(agent.proxyConfig.DiscoveryAddress, ":")
 	config.ServerName = parts[0]
+	// For debugging on localhost (with port forward)
+	// This matches the logic for the CA; this code should eventually be shared
+	if strings.Contains(config.ServerName, "localhost") {
+		config.ServerName = "istiod.istio-system.svc"
+	}
 	config.MinVersion = tls.VersionTLS12
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
