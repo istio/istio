@@ -16,10 +16,7 @@ package crdclient
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
-
 	"reflect"
 	"testing"
 	"time"
@@ -242,8 +239,6 @@ func TestClient(t *testing.T) {
 			if cfg == nil {
 				return fmt.Errorf("cfg shouldnt be nil :(")
 			}
-			p, _ := json.Marshal(cfg)
-			log.Println(string(p))
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
 				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
 			}
@@ -279,38 +274,5 @@ func TestClient(t *testing.T) {
 		})
 
 	})
-	// test just workloadgroup for now
-	res := collections.IstioNetworkingV1Alpha3Workloadgroups.Resource()
-	gvk := res.GroupVersionKind()
-	wgConfigMeta := config.Meta{
-		GroupVersionKind: gvk,
-		Name:             "foo",
-	}
-	if !res.IsClusterScoped() {
-		wgConfigMeta.Namespace = "namespace"
-	}
-
-	spec, err := res.NewInstance()
-	if err != nil {
-		t.Error(err)
-	}
-	_, err = res.Status()
-	if err != nil {
-		t.Error(err)
-	}
-
-	_, err = store.Create(config.Config{
-		Meta: wgConfigMeta,
-		Spec: spec,
-	})
-	if err != nil {
-		t.Fatalf("fail: %v", err)
-	}
-
-	retry.UntilSuccessOrFail(t, func() error {
-		cfg := store.Get(gvk, "foo", wgConfigMeta.Namespace)
-		t.Errorf("%v", cfg == nil)
-		return nil
-	}, timeout)
 
 }
