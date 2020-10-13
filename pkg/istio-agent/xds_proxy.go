@@ -174,6 +174,7 @@ type ProxyConnection struct {
 	requestsChan    chan *discovery.DiscoveryRequest
 	responsesChan   chan *discovery.DiscoveryResponse
 	stopChan        chan struct{}
+	downstream      discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 }
 
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
@@ -189,6 +190,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		requestsChan:    make(chan *discovery.DiscoveryRequest, 10),
 		responsesChan:   make(chan *discovery.DiscoveryResponse, 10),
 		stopChan:        make(chan struct{}),
+		downstream:      downstream,
 	}
 
 	p.RegisterStream(con)
@@ -232,13 +234,27 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 		}
 	}
+	for {
+		err, cont := p.HandleUpstream(con, xds, ctx)
+		if err != nil {
+			return err
+		}
+		proxyLog.Infof("disconnected from %v", p.istiodAddress)
+		// We are done, break out of the loop
+		if !cont {
+			break
+		}
+		// Continue signalled, reconnect to the upstream
+	}
+	return nil
+}
 
-RecreateUpstream:
+func (p *XdsProxy) HandleUpstream(con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient, ctx context.Context) (error, bool) {
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
 		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
-		return err
+		return err, false
 	}
 
 	// Handle upstream xds
@@ -264,7 +280,7 @@ RecreateUpstream:
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
 			}
 			_ = upstream.CloseSend()
-			goto RecreateUpstream
+			return nil, true
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {
@@ -273,19 +289,19 @@ RecreateUpstream:
 				proxyLog.Warnf("downstream terminated with unexpected error %v", err)
 			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
-			return err
+			return err, false
 		case req, ok := <-con.requestsChan:
 			if !ok {
-				return nil
+				return nil, false
 			}
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
-				return err
+				return err, false
 			}
 		case resp, ok := <-con.responsesChan:
 			if !ok {
-				return nil
+				return nil, false
 			}
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			switch resp.TypeUrl {
@@ -308,17 +324,17 @@ RecreateUpstream:
 				}
 			default:
 				// TODO: Validate the known type urls before forwarding them to Envoy.
-				if err := downstream.Send(resp); err != nil {
+				if err := con.downstream.Send(resp); err != nil {
 					proxyLog.Errorf("downstream send error: %v", err)
 					// we cannot return partial error and hope to restart just the downstream
 					// as we are blindly proxying req/responses. For now, the best course of action
 					// is to terminate upstream connection as well and restart afresh.
-					return err
+					return err, false
 				}
 			}
 		case <-con.stopChan:
 			_ = upstream.CloseSend()
-			return nil
+			return nil, false
 		}
 	}
 }
