@@ -63,15 +63,31 @@ var (
 	}
 )
 
-func TestAutoregisterWorkloadEntryFailure(t *testing.T) {
+func TestNonAutoregisteredWorklaods(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
 	ig.Store = store
 	createOrFail(t, store, wgA)
 
-	t.Run("proxy missing group", func(t *testing.T) {
+	cases := map[string]*model.Proxy{
+		"missing group":     {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: "ns1", AutoRegisterGroup: "wg1"}},
+		"missing ip":        {Metadata: &model.NodeMetadata{Namespace: "ns1", AutoRegisterGroup: "wg1"}},
+		"missing namespace": {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{AutoRegisterGroup: "wg1"}},
+	}
 
-	})
+	for name, tc := range cases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ig.RegisterWorkload(tc, &Connection{proxy: tc, Connect: time.Now()})
+			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
+			if err != nil {
+				t.Fatalf("failed listing WorkloadEntry: %v", err)
+			}
+			if len(items) != 0 {
+				t.Fatalf("expected 0 WorkloadEntry")
+			}
+		})
+	}
 
 }
 
