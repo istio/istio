@@ -146,8 +146,9 @@ func run() {
 	})
 	if err != nil {
 		log.Warnf("Error while building exporter")
+	} else {
+		view.RegisterExporter(exporter)
 	}
-	view.RegisterExporter(exporter)
 
 	log.Info("Registering Components.")
 
