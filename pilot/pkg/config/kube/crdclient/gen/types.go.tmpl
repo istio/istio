@@ -72,7 +72,6 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 	}
 }
 
-<<<<<<< HEAD
 func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
     switch cfg.GroupVersionKind {
     {{- range . }}
@@ -87,8 +86,6 @@ func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, 
     	}
 }
 
-=======
->>>>>>> parent of 96867c2888... idek
 func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig config.Config, origMeta metav1.ObjectMeta, mod config.Config, modMeta metav1.ObjectMeta) (metav1.Object, error) {
 	if orig.GroupVersionKind != mod.GroupVersionKind {
 		return nil, fmt.Errorf("gvk mismatch: %v, modified: %v", orig.GroupVersionKind, mod.GroupVersionKind)

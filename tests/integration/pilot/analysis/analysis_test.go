@@ -92,7 +92,6 @@ spec:
 		})
 }
 
-<<<<<<< HEAD
 func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 	framework.NewTest(t).
 		Features(features.Usability_Observability_Status).
@@ -150,7 +149,6 @@ metadata:
 			}, retry.Timeout(time.Minute*5))
 				return expectVirtualServiceStatus(t, ctx, ns, false)
 			})
-		})
 }
 
 func TestWorkloadEntryUpdatesStatus(t *testing.T) {
@@ -218,9 +216,6 @@ metadata:
 }
 
 func expectVirtualServiceStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
-=======
-func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
->>>>>>> parent of 96867c2888... idek
 	c := ctx.Clusters().Default()
 
 	x, err := c.Istio().NetworkingV1alpha3().VirtualServices(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
