@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -137,7 +138,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	}
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
-	_ = DetectIstioVersionDiff(cmd, tag, kubeClient)
+	_ = DetectIstioVersionDiff(cmd, tag, kubeClient, iArgs)
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
 		prompt := fmt.Sprintf("This will install the Istio %s profile into the cluster. Proceed? (y/N)", tag)
@@ -221,23 +222,37 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 
 // DetectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
-func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.ExtendedClient) error {
+func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.ExtendedClient, iArgs *installArgs) error {
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), controller.IstioNamespace)
 	if err != nil {
 		return err
 	}
 	if len(*icps) != 0 {
+		var icpTags []string
 		var icpTag string
+		// create normalized tags for multiple control plane revisions
 		for _, icp := range *icps {
 			tagVer, err := GetTagVersion(icp.Info.GitTag)
 			if err != nil {
 				return err
 			}
-			if tagVer != "" && tag != tagVer {
-				icpTag = tagVer
+			icpTags = append(icpTags, tagVer)
+		}
+		// sort different versions of control plane revsions
+		sort.Strings(icpTags)
+		// capture latest revision installed for comparison
+		for _, val := range icpTags {
+			if val != "" {
+				icpTag = val
 			}
 		}
-		if icpTag != "" && tag != icpTag {
+		// when the revision is not passed
+		if iArgs.revision == "" && tag != icpTag {
+			cmd.Printf("! Istio control planes installed: %s.\n"+
+				"! Use --revision=%s or --force to install Istio.\n", strings.Join(icpTags, ", "), tag)
+		}
+		// when the revision is passed
+		if icpTag != "" && tag != icpTag && iArgs.revision != "" {
 			cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
 				"! Before upgrading, you may wish to 'istioctl analyze' to check for IST0002 deprecation warnings.\n", icpTag, tag)
 		}
