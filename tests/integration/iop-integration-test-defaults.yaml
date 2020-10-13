@@ -6,7 +6,6 @@ spec:
     accessLogFile: "/dev/stdout"
     defaultConfig:
       proxyMetadata:
-        ISTIO_META_PROXY_XDS_VIA_AGENT: "true"
         ISTIO_META_DNS_CAPTURE: "true"
   components:
     ingressGateways:
