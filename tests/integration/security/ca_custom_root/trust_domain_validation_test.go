@@ -187,7 +187,7 @@ func TestTrustDomainValidation(t *testing.T) {
 					opt := echo.CallOptions{
 						Target:   server,
 						PortName: port,
-						Host:     "server",
+						Address:  "server",
 						Scheme:   s,
 						Cert:     trustDomains[td].cert,
 						Key:      trustDomains[td].key,
