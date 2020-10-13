@@ -130,6 +130,11 @@ func TestClient(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			stat, err := r.Status()
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			if _, err := store.Create(config.Config{
 				Meta: configMeta,
 				Spec: pb,
@@ -168,8 +173,9 @@ func TestClient(t *testing.T) {
 			}
 			configMeta.Annotations = annotations
 			if _, err := store.Update(config.Config{
-				Meta: configMeta,
-				Spec: pb,
+				Meta:   configMeta,
+				Spec:   pb,
+				Status: stat,
 			}); err != nil {
 				t.Errorf("Unexpected Error in Update -> %v", err)
 			}
