@@ -16,11 +16,10 @@ package crdclient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-<<<<<<< HEAD
 	"log"
-=======
->>>>>>> parent of 96867c2888... idek
+
 	"reflect"
 	"testing"
 	"time"
@@ -218,7 +217,6 @@ func TestClient(t *testing.T) {
 		})
 	}
 
-<<<<<<< HEAD
 	t.Run("update status", func(t *testing.T) {
 		c := collections.IstioNetworkingV1Alpha3Workloadgroups
 		r := c.Resource()
@@ -281,7 +279,6 @@ func TestClient(t *testing.T) {
 		})
 
 	})
-=======
 	// test just workloadgroup for now
 	res := collections.IstioNetworkingV1Alpha3Workloadgroups.Resource()
 	gvk := res.GroupVersionKind()
@@ -316,23 +313,4 @@ func TestClient(t *testing.T) {
 		return nil
 	}, timeout)
 
-	//retry.UntilSuccessOrFail(t, func() error {
-	//	r, err := store.Update(config.Config{
-	//		Meta:   wgConfigMeta,
-	//		Spec:   spec,
-	//		Status: stat,
-	//	})
-	//	if err != nil {
-	//		t.Errorf("err: %v", err)
-	//		return err
-	//	}
-	//	log.Println(r)
-	//	return nil
-	//}, timeout)
-	//retry.UntilSuccessOrFail(t, func() error {
-	//	cfg := store.Get(gvk, "foo", "bar")
-	//	log.Println(cfg.Spec)
-	//	return nil
-	//}, timeout)
->>>>>>> parent of 96867c2888... idek
 }

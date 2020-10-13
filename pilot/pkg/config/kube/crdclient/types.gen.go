@@ -131,7 +131,6 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.DestinationRule)),
-<<<<<<< HEAD
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.EnvoyFilter{
@@ -213,8 +212,6 @@ func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, 
 	case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: objMeta,
-=======
->>>>>>> parent of 96867c2888... idek
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():

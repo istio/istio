@@ -233,3 +233,35 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 	ns.Store(cfg.Name, cfg)
 	return rev, nil
 }
+
+func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
+	cr.mutex.Lock()
+	defer cr.mutex.Unlock()
+	kind := cfg.GroupVersionKind
+	s, ok := cr.schemas.FindByGroupVersionKind(kind)
+	if !ok {
+		return "", errors.New("unknown type")
+	}
+	if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+		return "", err
+	}
+
+	ns, exists := cr.data[kind][cfg.Namespace]
+	if !exists {
+		return "", errNotFound
+	}
+
+	_, exists = ns.Load(cfg.Name)
+	if !exists {
+		return "", errNotFound
+	}
+
+	rev := time.Now().String()
+	cfg.ResourceVersion = rev
+	_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
+	if err != nil {
+		log.Warnf(ledgerLogf, err)
+	}
+	ns.Store(cfg.Name, cfg)
+	return rev, nil
+}
