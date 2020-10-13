@@ -79,15 +79,21 @@ func injectorListCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
-			nslist, err := getNamespaces(client)
+			ctx := context.Background()
+
+			nslist, err := getNamespaces(ctx, client)
 			if err != nil {
 				return err
 			}
-			hooks, err := getWebhooks(client)
+			sort.Slice(nslist, func(i, j int) bool {
+				return nslist[i].Name < nslist[j].Name
+			})
+
+			hooks, err := getWebhooks(ctx, client)
 			if err != nil {
 				return err
 			}
-			pods, err := getPods(client)
+			pods, err := getPods(ctx, client)
 			if err != nil {
 				return err
 			}
@@ -96,10 +102,14 @@ func injectorListCommand() *cobra.Command {
 				return err
 			}
 			cmd.Println()
-			injectedImages, err := getInjectedImages(client)
+			injectedImages, err := getInjectedImages(ctx, client)
 			if err != nil {
 				return err
 			}
+
+			sort.Slice(hooks, func(i, j int) bool {
+				return hooks[i].Name < hooks[j].Name
+			})
 			return printHooks(cmd.OutOrStdout(), nslist, hooks, injectedImages)
 		},
 	}
@@ -107,8 +117,8 @@ func injectorListCommand() *cobra.Command {
 	return cmd
 }
 
-func getNamespaces(client kube.ExtendedClient) ([]v1.Namespace, error) {
-	nslist, err := client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namespace, error) {
+	nslist, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return []v1.Namespace{}, err
 	}
@@ -117,10 +127,6 @@ func getNamespaces(client kube.ExtendedClient) ([]v1.Namespace, error) {
 
 func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration,
 	allPods map[resource.Namespace][]v1.Pod) error {
-
-	sort.Slice(namespaces, func(i, j int) bool {
-		return namespaces[i].Name < namespaces[j].Name
-	})
 
 	outputCount := 0
 
@@ -154,8 +160,8 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 	return w.Flush()
 }
 
-func getWebhooks(client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
-	hooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+func getWebhooks(ctx context.Context, client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
+	hooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return []admit_v1.MutatingWebhookConfiguration{}, err
 	}
@@ -164,13 +170,9 @@ func getWebhooks(client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfigur
 
 func printHooks(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration, injectedImages map[string]string) error {
 	if len(hooks) == 0 {
-		_, err := fmt.Fprintf(writer, "No Istio injection hooks present.\n")
-		return err
+		fmt.Fprintf(writer, "No Istio injection hooks present.\n")
+		return nil
 	}
-
-	sort.Slice(hooks, func(i, j int) bool {
-		return hooks[i].Name < hooks[j].Name
-	})
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "NAMESPACES\tINJECTOR-HOOK\tISTIO-REVISION\tSIDECAR-IMAGE")
@@ -238,10 +240,10 @@ func getMatchingNamespaces(hook *admit_v1.MutatingWebhookConfiguration, namespac
 	return retval
 }
 
-func getPods(client kube.ExtendedClient) (map[resource.Namespace][]v1.Pod, error) {
+func getPods(ctx context.Context, client kube.ExtendedClient) (map[resource.Namespace][]v1.Pod, error) {
 	retval := map[resource.Namespace][]v1.Pod{}
 	// All pods in all namespaces
-	pods, err := client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	pods, err := client.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return retval, err
 	}
@@ -257,11 +259,11 @@ func getPods(client kube.ExtendedClient) (map[resource.Namespace][]v1.Pod, error
 }
 
 // getInjectedImages() returns a map of revision->dockerimage
-func getInjectedImages(client kube.ExtendedClient) (map[string]string, error) {
+func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[string]string, error) {
 	retval := map[string]string{}
 
 	// All configs in all namespaces that are Istio revisioned
-	configMaps, err := client.CoreV1().ConfigMaps("").List(context.TODO(), metav1.ListOptions{LabelSelector: label.IstioRev})
+	configMaps, err := client.CoreV1().ConfigMaps("").List(ctx, metav1.ListOptions{LabelSelector: label.IstioRev})
 	if err != nil {
 		return retval, err
 	}
@@ -298,13 +300,7 @@ func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revis
 }
 
 func hideFromOutput(ns resource.Namespace) bool {
-	if analyzer_util.IsSystemNamespace(ns) {
-		return true
-	}
-	if ns == resource.Namespace(istioNamespace) {
-		return true
-	}
-	return false
+	return (analyzer_util.IsSystemNamespace(ns) || ns == resource.Namespace(istioNamespace))
 }
 
 func injectionDisabled(pod *v1.Pod) bool {
