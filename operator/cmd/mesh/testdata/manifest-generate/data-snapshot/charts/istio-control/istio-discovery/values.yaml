@@ -348,6 +348,8 @@ global:
 
   # One central istiod controls all remote clusters: disabled by default
   centralIstiod: false
+  # One external istiod controls all remote clusters: disabled by default
+  externalIstiod: false
 
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".

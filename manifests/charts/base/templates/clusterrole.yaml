@@ -129,7 +129,7 @@ rules:
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
-{{- if .Values.global.centralIstiod }}
+{{- if or .Values.global.externalIstiod .Values.global.centralIstiod }}
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
