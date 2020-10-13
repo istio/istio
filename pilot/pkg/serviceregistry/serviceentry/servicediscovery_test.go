@@ -910,7 +910,7 @@ func expectEvents(t *testing.T, ch chan Event, events ...Event) {
 }
 
 func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
-	t.Helper()fmt.Printf("%+v\n", expected)
+	t.Helper()
 	svcs := convertServices(*cfg)
 	if len(svcs) != len(expected) {
 		t.Fatalf("got more services than expected: %v vs %v", len(svcs), len(expected))
