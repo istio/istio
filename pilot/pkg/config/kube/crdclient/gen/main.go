@@ -140,5 +140,3 @@ func main() {
 		panic(err)
 	}
 }
-
-// 			Status:     *(cfg.Status.(*{{ .APIImport }}.IstioStatus)),{{else}}*(cfg.Status.(*{{ .APIImport }}.{{ .Kind }}Status)),
