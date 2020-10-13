@@ -28,7 +28,8 @@ type delayTask struct {
 
 var _ heap.Interface = &pq{}
 
-// pq implements an internal priority queue so that tasks with the soonest expiry will be run first
+// pq implements an internal priority queue so that tasks with the soonest expiry will be run first.
+// Methods on pq are not threadsafe, access should be protected.
 // much of this is taken from the example at https://golang.org/pkg/container/heap/
 type pq []*delayTask
 
@@ -60,6 +61,7 @@ func (q *pq) Pop() interface{} {
 	return item
 }
 
+// Peek is not managed by the container/heap package, so we return the 0th element in the list.
 func (q *pq) Peek() interface{} {
 	if q.Len() < 1 {
 		return nil
@@ -67,6 +69,7 @@ func (q *pq) Peek() interface{} {
 	return (*q)[0]
 }
 
+// Delayed ipmlements queue such that tasks are executed after a specified delay.
 type Delayed interface {
 	Instance
 	PushDelayed(t Task, delay time.Duration)
@@ -74,6 +77,7 @@ type Delayed interface {
 
 var _ Delayed = &delayQueue{}
 
+// NewDelayed gives a Delayed queue with maximum concurrency specified by workers.
 func NewDelayed(workers int) Delayed {
 	return &delayQueue{
 		workers:  workers,
@@ -109,8 +113,7 @@ func (d delayQueue) Run(stop <-chan struct{}) {
 	q := &pq{}
 
 	for {
-		head := q.Peek()
-		if head != nil {
+		if head := q.Peek(); head != nil {
 			task := head.(*delayTask)
 			delay := time.Until(task.runAt)
 			if delay <= 0 {
@@ -129,14 +132,14 @@ func (d delayQueue) Run(stop <-chan struct{}) {
 					return
 				}
 			}
-		} else {
-			// no items, wait for Push
-			select {
-			case t := <-d.register:
-				q.Push(t)
-			case <-stop:
-				return
-			}
+		}
+
+		// no items, wait for Push or stop
+		select {
+		case t := <-d.register:
+			q.Push(t)
+		case <-stop:
+			return
 		}
 	}
 }
