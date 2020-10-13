@@ -140,7 +140,11 @@ func TestXdsProxyReconnects(t *testing.T) {
 		grpcServer := grpc.NewServer()
 		t.Cleanup(grpcServer.Stop)
 		f.Discovery.Register(grpcServer)
-		go grpcServer.Serve(listener)
+		go func() {
+			if err := grpcServer.Serve(listener); err != nil && !(err == grpc.ErrServerStopped || err.Error() == "closed") {
+				t.Fatal(err)
+			}
+		}()
 
 		// Send initial request
 		conn := setupDownstreamConnection(t)
@@ -156,7 +160,11 @@ func TestXdsProxyReconnects(t *testing.T) {
 		grpcServer = grpc.NewServer()
 		t.Cleanup(grpcServer.Stop)
 		f.Discovery.Register(grpcServer)
-		go grpcServer.Serve(listener)
+		go func() {
+			if err := grpcServer.Serve(listener); err != nil && !(err == grpc.ErrServerStopped || err.Error() == "closed") {
+				t.Fatal(err)
+			}
+		}()
 
 		// Send downstream again
 		downstream = stream(t, conn)
