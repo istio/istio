@@ -191,6 +191,7 @@ func (cr *store) Update(c config.Config) (string, error) {
 	return cr.writer.Update(c)
 }
 
+<<<<<<< HEAD
 func (cr *store) UpdateStatus(c config.Config) (string, error) {
 	if cr.writer == nil {
 		return "", errorUnsupported
@@ -198,6 +199,8 @@ func (cr *store) UpdateStatus(c config.Config) (string, error) {
 	return cr.writer.UpdateStatus(c)
 }
 
+=======
+>>>>>>> parent of 96867c2888... idek
 type storeCache struct {
 	model.ConfigStore
 	caches []model.ConfigStoreCache

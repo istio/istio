@@ -17,6 +17,7 @@ package gateway
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"reflect"
 	"testing"
 
@@ -46,6 +47,7 @@ func TestConvertResources(t *testing.T) {
 			}
 			golden := splitOutput(readConfig(t, goldenFile))
 			if diff := cmp.Diff(golden, output); diff != "" {
+				log.Println(output)
 				t.Fatalf("Diff:\n%s", diff)
 			}
 		})

@@ -18,11 +18,7 @@ package analysis
 import (
 	"context"
 	"fmt"
-	"istio.io/api/meta/v1alpha1"
-	"reflect"
 	"testing"
-	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +66,7 @@ spec:
 `)
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
-				return expectVirtualServiceStatus(t, ctx, ns, true)
+				return expectStatus(t, ctx, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
@@ -91,11 +87,12 @@ spec:
 `)
 			// Status should no longer report error
 			retry.UntilSuccessOrFail(t, func() error {
-				return expectVirtualServiceStatus(t, ctx, ns, false)
+				return expectStatus(t, ctx, ns, false)
 			})
 		})
 }
 
+<<<<<<< HEAD
 func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 	framework.NewTest(t).
 		Features(features.Usability_Observability_Status).
@@ -221,6 +218,9 @@ metadata:
 }
 
 func expectVirtualServiceStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
+=======
+func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
+>>>>>>> parent of 96867c2888... idek
 	c := ctx.Clusters().Default()
 
 	x, err := c.Istio().NetworkingV1alpha3().VirtualServices(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
@@ -261,24 +261,6 @@ func expectVirtualServiceStatus(t *testing.T, ctx resource.Context, ns namespace
 	}
 	if !found {
 		return fmt.Errorf("expected Reconciled condition to exist, but got %v", status.Conditions)
-	}
-	return nil
-}
-
-func expectWorkloadEntryStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, expectedConds []*v1alpha1.IstioCondition) error {
-	c := ctx.Clusters().Default()
-
-	x, err := c.Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("unexpected test failure: can't get workloadentry: %v", err)
-		return err
-	}
-
-	status := x.Status
-
-	if !reflect.DeepEqual(status.Conditions, expectedConds){
-		t.Errorf("expected conditions %v got %v", expectedConds, status.Conditions)
-		return fmt.Errorf("expected conditions %v got %v", expectedConds, status.Conditions)
 	}
 	return nil
 }

@@ -125,10 +125,6 @@ func (c controller) Update(config config.Config) (newRevision string, err error)
 	return "", errUnsupportedOp
 }
 
-func (c controller) UpdateStatus(config.Config) (string, error) {
-	return "", errUnsupportedOp
-}
-
 func (c controller) Delete(typ config.GroupVersionKind, name, namespace string) error {
 	return errUnsupportedOp
 }

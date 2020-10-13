@@ -233,7 +233,3 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 	ns.Store(cfg.Name, cfg)
 	return rev, nil
 }
-
-func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
-	return "", nil
-}

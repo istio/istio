@@ -337,10 +337,13 @@ func (c *controller) Update(_ config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
+<<<<<<< HEAD
 func (c *controller) UpdateStatus(config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
+=======
+>>>>>>> parent of 96867c2888... idek
 func (c *controller) Delete(_ config.GroupVersionKind, _, _ string) error {
 	return errUnsupportedOp
 }

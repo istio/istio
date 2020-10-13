@@ -131,10 +131,6 @@ type ConfigStore interface {
 	// revision if the operation succeeds.
 	Update(config config.Config) (newRevision string, err error)
 
-	// UpdateStatus modifies the status of the store. Status can only be
-	// changed on 'put' requests.
-	UpdateStatus(config config.Config) (newRevision string, err error)
-
 	// Delete removes an object from the store by key
 	Delete(typ config.GroupVersionKind, name, namespace string) error
 

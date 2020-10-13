@@ -131,7 +131,7 @@ func main() {
 	// Format source code.
 	out, err := format.Source(buffer.Bytes())
 	if err != nil {
-		log.Fatal(err)
+		log.Print(buffer.String())
 	}
 	// Output
 	if outputFile == nil || *outputFile == "" {
@@ -140,3 +140,4 @@ func main() {
 		panic(err)
 	}
 }
+// 			Status:     *(cfg.Status.(*{{ .APIImport }}.IstioStatus)),{{else}}*(cfg.Status.(*{{ .APIImport }}.{{ .Kind }}Status)),

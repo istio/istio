@@ -85,7 +85,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
-    "reflect"
 	githubcomgogoprotobuftypes "github.com/gogo/protobuf/types"
 )
 
