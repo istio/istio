@@ -165,7 +165,10 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		}
 	}()
 
-	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, p.stopChan)
+	// health check stop channel
+	stop := make(chan struct{})
+	defer close(stop)
+	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, stop)
 
 	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
 	if err != nil {
