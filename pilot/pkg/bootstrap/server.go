@@ -123,7 +123,6 @@ type Server struct {
 	multicluster *kubecontroller.Multicluster
 
 	configController    model.ConfigStoreCache
-	writableConfigStore model.ConfigStoreCache
 	ConfigStores        []model.ConfigStoreCache
 	serviceEntryStore   *serviceentry.ServiceEntryStore
 

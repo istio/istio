@@ -114,7 +114,6 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		return err
 	}
 	s.configController = aggregateConfigController
-	s.XDSServer.InternalGen.Store = s.writableConfigStore
 
 	// Create the config store.
 	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
@@ -143,7 +142,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		}
 	}
 	s.initStatusController(args, features.EnableStatus)
-	s.writableConfigStore = configController
+	s.XDSServer.InternalGen.Store = configController
 	return nil
 }
 
