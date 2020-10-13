@@ -219,10 +219,9 @@ var (
 
 	EnableSDSServer = env.RegisterBoolVar(
 		"ISTIOD_ENABLE_SDS_SERVER",
-		false,
+		true,
 		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
-			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well. "+
-			"This option temporarily only supports gateways running in istio-system namespace.",
+			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
 	).Get()
 
 	EnableCRDValidation = env.RegisterBoolVar(
