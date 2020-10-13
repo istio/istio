@@ -36,9 +36,7 @@ var (
 
 	// CRNamespacedNameLabel describes the name with namespace.
 	CRNamespacedNameLabel = monitoring.MustCreateLabel("name")
-)
 
-var (
 	// ComponentNameLabel represents istio component name - like
 	// core, pilot, istio-cni etc.
 	ComponentNameLabel = monitoring.MustCreateLabel("component")
@@ -104,7 +102,7 @@ var (
 	// This is required for fleet level metrics although it is available from
 	// ControlZ (more precisely versionz endpoint).
 	Version = monitoring.NewGauge(
-		"istio_install_operator_version",
+		"version",
 		"Version of operator binary",
 		monitoring.WithLabels(OperatorVersionLabel),
 	)
@@ -112,14 +110,14 @@ var (
 	// GetCRErrorTotal counts the number of times fetching
 	// CR fails from API server.
 	GetCRErrorTotal = monitoring.NewSum(
-		"istio_install_operator_get_cr_error_total",
+		"get_cr_error_total",
 		"Number of times fetching CR from apiserver failed",
 		monitoring.WithLabels(CRFetchErrorReasonLabel, CRNamespacedNameLabel),
 	)
 
 	// CRMergeFailureTotal counts number of CR merge failures.
 	CRMergeFailureTotal = monitoring.NewSum(
-		"istio_install_operator_cr_merge_failure_total",
+		"cr_merge_failure_total",
 		"Number of IstioOperator CR merge failures",
 		monitoring.WithLabels(MergeErrorLabel),
 	)
@@ -127,21 +125,21 @@ var (
 	// CRDeletionTotal counts the number of times
 	// IstioOperator CR was deleted.
 	CRDeletionTotal = monitoring.NewSum(
-		"istio_install_operator_cr_deletion_total",
+		"cr_deletion_total",
 		"Number of IstioOperator CR deleted",
 	)
 
 	// CRValidationErrorTotal counts the number of CR
 	// validation failures.
 	CRValidationErrorTotal = monitoring.NewSum(
-		"istio_install_operator_cr_validation_error_total",
+		"cr_validation_error_total",
 		"Number of IstioOperator CR validation failures",
 	)
 
 	// RenderManifestTotal counts the number of manifest
 	// renders at each component level.
 	RenderManifestTotal = monitoring.NewSum(
-		"istio_install_operator_render_manifest_total",
+		"render_manifest_total",
 		"Number of component manifests rendered",
 		monitoring.WithLabels(ComponentNameLabel),
 	)
@@ -149,7 +147,7 @@ var (
 	// OwnedResourceTotal indicates the number of resources
 	// currently owned by the CR with given name and revision.
 	OwnedResourceTotal = monitoring.NewGauge(
-		"istio_install_operator_owned_resource_total",
+		"owned_resource_total",
 		"Number of resources currently owned by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
@@ -157,7 +155,7 @@ var (
 	// ResourceCreationTotal indicates the number of resources
 	// created by the operator for a CR and revision.
 	ResourceCreationTotal = monitoring.NewSum(
-		"istio_install_operator_resource_creation_total",
+		"resource_creation_total",
 		"Number of resources created by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
@@ -165,7 +163,7 @@ var (
 	// ResourceUpdateTotal indicates the number of resources updated by
 	// the operator in response to CR updates for a revision.
 	ResourceUpdateTotal = monitoring.NewSum(
-		"istio_install_operator_resource_update_total",
+		"resource_update_total",
 		"Number of resources updated by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
@@ -175,40 +173,40 @@ var (
 	// ingress-gateway which was enabled could be disabled and this requires
 	// deleting ingress-gateway deployment).
 	ResourceDeletionTotal = monitoring.NewSum(
-		"istio_install_operator_resource_deletion_total",
+		"resource_deletion_total",
 		"Number of resources deleted by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
 	// ResourcePruneTotal indicates the resources pruned as a result of update.
 	ResourcePruneTotal = monitoring.NewSum(
-		"istio_install_operator_resource_prune_total",
+		"resource_prune_total",
 		"Number of resources pruned by the operator",
 		monitoring.WithLabels(ResourceKindLabel, CRRevisionLabel, CRNamespacedNameLabel),
 	)
 
 	// ManifestPatchErrorTotal counts the total number of K8S patch errors.
 	ManifestPatchErrorTotal = monitoring.NewSum(
-		"istio_install_operator_manifest_patch_error_total",
+		"manifest_patch_error_total",
 		"Number of times K8S patch overlays failed",
 	)
 
 	// ManifestRenderErrorTotal counts errors occurred while rendering manifest.
 	ManifestRenderErrorTotal = monitoring.NewSum(
-		"istio_install_operator_manifest_render_error_total",
+		"manifest_render_error_total",
 		"Number of times error occurred during rendering output manifest",
 		monitoring.WithLabels(ComponentNameLabel, RenderErrorLabel),
 	)
 
 	// LegacyPathTranslationTotal counts the translations from legacy API to new one.
 	LegacyPathTranslationTotal = monitoring.NewSum(
-		"istio_install_operator_legacy_path_translation_total",
+		"legacy_path_translation_total",
 		"Number of times a legacy API path is translated",
 	)
 
 	// CacheFlushTotal counts number of cache flushes.
 	CacheFlushTotal = monitoring.NewSum(
-		"istio_install_operator_cache_flush_total",
+		"cache_flush_total",
 		"number of times operator cache was flushed",
 	)
 )

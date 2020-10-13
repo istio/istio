@@ -142,7 +142,8 @@ func run() {
 
 	log.Info("Creating operator metrics exporter")
 	exporter, err := ocprom.NewExporter(ocprom.Options{
-		Registry: ctrlmetrics.Registry.(*prometheus.Registry),
+		Registry:  ctrlmetrics.Registry.(*prometheus.Registry),
+		Namespace: "istio_install_operator",
 	})
 	if err != nil {
 		log.Warnf("Error while building exporter: %v", err)
