@@ -140,41 +140,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	// A separate channel for nds requests to not contend with the ones from envoys
 	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
 
-	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
-	if err != nil {
-		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
-		return err
-	}
-
-	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
-	if p.agent.cfg.XDSHeaders != nil {
-		for k, v := range p.agent.cfg.XDSHeaders {
-			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
-		}
-	}
-	upstream, err := xds.StreamAggregatedResources(ctx,
-		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
-	if err != nil {
-		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
-		return err
-	}
-
+	// Handle downstream xds
 	firstNDSSent := false
-
-	go func() {
-		defer close(responsesChan) // Indicates upstream close.
-		for {
-			// from istiod
-			resp, err := upstream.Recv()
-			if err != nil {
-				upstreamError <- err
-				close(upstreamError)
-				return
-			}
-			responsesChan <- resp
-		}
-	}()
 	go func() {
 		defer close(requestsChan) // Indicates downstream close.
 		defer close(ndsRequestChan)
@@ -198,7 +165,48 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		}
 	}()
 
-	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, p.stopChan)
+	// health check stop channel
+	stop := make(chan struct{})
+	defer close(stop)
+	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, stop)
+
+	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
+	if err != nil {
+		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
+		return err
+	}
+	defer upstreamConn.Close()
+
+	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
+	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
+	if p.agent.cfg.XDSHeaders != nil {
+		for k, v := range p.agent.cfg.XDSHeaders {
+			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+		}
+	}
+
+RecreateUpstream:
+	upstream, err := xds.StreamAggregatedResources(ctx,
+		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
+	if err != nil {
+		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
+		return err
+	}
+
+	// Handle upstream xds
+	go func() {
+		defer close(responsesChan) // Indicates upstream close.
+		for {
+			// from istiod
+			resp, err := upstream.Recv()
+			if err != nil {
+				upstreamError <- err
+				close(upstreamError)
+				return
+			}
+			responsesChan <- resp
+		}
+	}()
 
 	for {
 		select {
@@ -210,7 +218,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
 			}
 			_ = upstream.CloseSend()
-			return err
+			goto RecreateUpstream
 		case err := <-downstreamError:
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {
