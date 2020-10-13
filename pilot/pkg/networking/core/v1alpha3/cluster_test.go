@@ -3666,6 +3666,76 @@ func TestTelemetryMetadata(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "inbound duplicated metadata",
+			direction: model.TrafficDirectionInbound,
+			cluster:   &cluster.Cluster{},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range cases {

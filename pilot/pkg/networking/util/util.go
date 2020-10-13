@@ -390,21 +390,11 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc.
 func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
-	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
-	return &core.Metadata{
-		FilterMetadata: map[string]*pstruct.Struct{
-			IstioMetadataKey: {
-				Fields: map[string]*pstruct.Value{
-					"config": {
-						Kind: &pstruct.Value_StringValue{
-							StringValue: s,
-						},
-					},
-				},
-			},
-		},
+	metadata := &core.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{},
 	}
+	AddConfigInfoMetadata(metadata, config)
+	return metadata
 }
 
 // AddConfigInfoMetadata adds name.namespace of the config, the type, etc

@@ -228,9 +228,12 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		direction:       direction,
 		proxy:           cb.proxy,
 	}
+	// decides whether the cluster corresponds to a service external to mesh or not.
 	if direction == model.TrafficDirectionInbound {
+		// Inbound cluster always corresponds to service in the mesh.
 		opts.meshExternal = false
 	} else if service != nil {
+		// otherwise, read this information from service object.
 		opts.meshExternal = service.MeshExternal
 	}
 	applyTrafficPolicy(opts)

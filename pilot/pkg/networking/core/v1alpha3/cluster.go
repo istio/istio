@@ -1107,11 +1107,18 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	// Add servie related metadata. This will be consumed by telemetry v2 filter for metric labels.
 	if direction == model.TrafficDirectionInbound {
 		// For inbound cluster, add all services on the cluster port
+		have := make(map[host.Name]bool)
 		for _, svc := range opts.proxy.ServiceInstances {
 			if svc.ServicePort.Port != opts.port.Port {
 				continue
 			}
+			if _, ok := have[svc.Service.Hostname]; ok {
+				// Skip adding metadata for instance with the same host name.
+				// This could happen when a service has multiple IPs.
+				continue
+			}
 			svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc.Service))
+			have[svc.Service.Hostname] = true
 		}
 	} else if direction == model.TrafficDirectionOutbound {
 		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
