@@ -344,7 +344,7 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
 				c.Config().Service,
 				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Host,
+				opts.Address,
 				opts.Port.ServicePort,
 				opts.Path,
 				err)
@@ -371,7 +371,7 @@ func (c *instance) CallWithRetry(opts echo.CallOptions,
 			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
 				c.Config().Service,
 				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Host,
+				opts.Address,
 				opts.Port.ServicePort,
 				opts.Path,
 				err)

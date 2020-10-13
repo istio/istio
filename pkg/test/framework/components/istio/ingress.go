@@ -19,9 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/http"
-	"strconv"
-	"sync"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -32,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -42,8 +38,6 @@ const (
 
 	eastWestIngressIstioLabel  = "eastwestgateway"
 	eastWestIngressServiceName = "istio-" + eastWestIngressIstioLabel
-
-	DefaultRequestTimeout = 10 * time.Second
 
 	proxyContainerName = "istio-proxy"
 	proxyAdminPort     = 15000
@@ -77,7 +71,6 @@ func newIngress(ctx resource.Context, cfg ingressConfig) (i ingress.Instance) {
 		cfg.IstioLabel = defaultIngressIstioLabel
 	}
 	c := &ingressImpl{
-		clients:     map[clientKey]*http.Client{},
 		serviceName: cfg.ServiceName,
 		istioLabel:  cfg.IstioLabel,
 		namespace:   cfg.Namespace,
@@ -94,9 +87,6 @@ type ingressImpl struct {
 
 	env     *kube.Environment
 	cluster resource.Cluster
-
-	mu      sync.Mutex
-	clients map[clientKey]*http.Client
 }
 
 // getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
@@ -147,22 +137,32 @@ func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
 	return address
 }
 
-type clientKey struct {
-	Address    string
-	Host       string
-	Timeout    time.Duration
-	CallType   ingress.CallType
-	PrivateKey string
-	CaCert     string
-	Cert       string
-}
-
 func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses, error) {
 	return c.callEcho(options, false)
 }
 
-func (c *ingressImpl) CallEchoWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+func (c *ingressImpl) CallEchoOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses {
+	t.Helper()
+	resp, err := c.CallEcho(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func (c *ingressImpl) CallEchoWithRetry(options echo.CallOptions,
+	retryOptions ...retry.Option) (client.ParsedResponses, error) {
 	return c.callEcho(options, true, retryOptions...)
+}
+
+func (c *ingressImpl) CallEchoWithRetryOrFail(t test.Failer, options echo.CallOptions,
+	retryOptions ...retry.Option) client.ParsedResponses {
+	t.Helper()
+	resp, err := c.CallEchoWithRetry(options, retryOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
 }
 
 func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
@@ -182,103 +182,26 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
 		}
 	}
-	host := options.Host
-	// Default host based on protocol
-	switch options.Port.Protocol {
-	case protocol.HTTP:
-		options.Host = c.HTTPAddress().IP.String()
-	case protocol.HTTPS:
-		options.Host = c.HTTPSAddress().IP.String()
-	case protocol.TCP:
-		options.Host = c.TCPAddress().IP.String()
-	default:
-		return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
+	if len(options.Address) == 0 {
+		// Default host based on protocol
+		switch options.Port.Protocol {
+		case protocol.HTTP:
+			options.Address = c.HTTPAddress().IP.String()
+		case protocol.HTTPS:
+			options.Address = c.HTTPSAddress().IP.String()
+		case protocol.TCP:
+			options.Address = c.TCPAddress().IP.String()
+		default:
+			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
+		}
 	}
 	if options.Headers == nil {
 		options.Headers = map[string][]string{}
 	}
-	options.Headers["Host"] = []string{host}
+	if host := options.Headers["Host"]; len(host) == 0 {
+		options.Headers["Host"] = []string{options.Address}
+	}
 	return common.CallEcho(&options, retry, retryOptions...)
-}
-
-func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, error) {
-	return c.call(options, false)
-}
-
-func (c *ingressImpl) call(options ingress.CallOptions,
-	retry bool, retryOptions ...retry.Option) (ingress.CallResponse, error) {
-	if err := options.Sanitize(); err != nil {
-		scopes.Framework.Fatalf("CallOptions sanitization failure, error %v", err)
-	}
-	req := &echo.CallOptions{
-		Port: &echo.Port{
-			Protocol:    protocol.HTTP,
-			ServicePort: options.Address.Port,
-		},
-		Host: options.Address.IP.String(),
-		Path: options.Path,
-		Headers: map[string][]string{
-			"Host": {options.Host},
-		},
-	}
-
-	for k, v := range options.Headers {
-		req.Headers[k] = v
-	}
-
-	if options.CallType == ingress.TLS {
-		req.Port.Protocol = protocol.HTTPS
-		req.CaCert = options.CaCert
-	}
-
-	if options.CallType == ingress.Mtls {
-		req.Port.Protocol = protocol.HTTPS
-		req.Key = options.PrivateKey
-		req.Cert = options.Cert
-		req.CaCert = options.CaCert
-	}
-
-	resp, err := common.CallEcho(req, retry, retryOptions...)
-	if err != nil {
-		return ingress.CallResponse{}, err
-	}
-	if len(resp) == 0 {
-		return ingress.CallResponse{}, fmt.Errorf("got no responses")
-	}
-
-	code, err := strconv.Atoi(resp[0].Code)
-	if err != nil {
-		return ingress.CallResponse{}, err
-	}
-	response := ingress.CallResponse{
-		Code: code,
-		Body: resp[0].Body,
-	}
-	return response, nil
-}
-
-func (c *ingressImpl) CallOrFail(t test.Failer, options ingress.CallOptions) ingress.CallResponse {
-	t.Helper()
-	resp, err := c.call(options, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resp
-}
-
-func (c *ingressImpl) CallWithRetry(options ingress.CallOptions,
-	retryOptions ...retry.Option) (ingress.CallResponse, error) {
-	return c.call(options, true, retryOptions...)
-}
-
-func (c *ingressImpl) CallWithRetryOrFail(t test.Failer, options ingress.CallOptions,
-	retryOptions ...retry.Option) ingress.CallResponse {
-	t.Helper()
-	resp, err := c.call(options, true, retryOptions...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resp
 }
 
 func (c *ingressImpl) ProxyStats() (map[string]int, error) {
@@ -288,15 +211,6 @@ func (c *ingressImpl) ProxyStats() (map[string]int, error) {
 		return stats, fmt.Errorf("failed to get response from admin port: %v", err)
 	}
 	return c.unmarshalStats(statsJSON)
-}
-
-func (c *ingressImpl) CloseClients() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, cl := range c.clients {
-		cl.CloseIdleConnections()
-	}
-	c.clients = map[clientKey]*http.Client{}
 }
 
 func (c *ingressImpl) PodID(i int) (string, error) {

@@ -15,12 +15,14 @@
 package echo
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -41,14 +43,9 @@ type CallOptions struct {
 	// If true, h2c will be used in HTTP requests
 	HTTP2 bool
 
-	// Host specifies the host to be used on the request. If not provided, an appropriate
-	// default is chosen for the target Instance.
-	Host string
-
-	// HostHeader specifies the "Host" header to be used on a request. This will override the Host
-	// field if set, in which case Host will be used for DNS resolution while HostHeader will be set
-	// as a header.
-	HostHeader string
+	// Address specifies the host name or IP address to be used on the request. If not provided,
+	// an appropriate default is chosen for the target Instance.
+	Address string
 
 	// Path specifies the URL path for the HTTP(s) request.
 	Path string
@@ -58,6 +55,7 @@ type CallOptions struct {
 	Count int
 
 	// Headers indicates headers that should be sent in the request. Ignored for WebSocket calls.
+	// If no Host header is provided, a default will be chosen for the target service endpoint.
 	Headers http.Header
 
 	// Timeout used for each individual request. Must be > 0, otherwise 30 seconds is used.
@@ -73,56 +71,130 @@ type CallOptions struct {
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
 	Cert, Key, CaCert string
 
-	// Validators is a list of validators for server responses. If empty, only the number of responses received
+	// Validator for server responses. If no validator is provided, only the number of responses received
 	// will be verified.
-	Validators Validators
+	Validator Validator
 }
 
 // Validator validates that the given responses are expected.
-type Validator func(client.ParsedResponses) error
-
-type Validators []Validator
-
-// NewValidators creates an empty Validators array.
-func NewValidators() Validators {
-	return make(Validators, 0)
+type Validator interface {
+	// Validate performs the validation check for this Validator.
+	Validate(client.ParsedResponses, error) error
 }
 
+type validators []Validator
+
+var _ Validator = validators{}
+
 // Validate executes all validators in order, exiting on the first error encountered.
-func (all Validators) Validate(responses client.ParsedResponses) error {
+func (all validators) Validate(inResp client.ParsedResponses, err error) error {
+	if len(all) == 0 {
+		// By default, just assume no error.
+		return expectNoError.Validate(inResp, err)
+	}
+
 	for _, v := range all {
-		if err := v(responses); err != nil {
-			return err
+		if e := v.Validate(inResp, err); e != nil {
+			return e
 		}
 	}
 	return nil
 }
 
-// WithOK returns a copy of this Validators with ValidateOK added.
-func (all Validators) WithOK() Validators {
-	return all.With(ValidateOK)
+func (all validators) And(v Validator) Validator {
+	if v == nil {
+		return all
+	}
+	return append(append(validators{}, all...), v)
 }
 
-// WithCount returns a copy of this Validators with validation for the given
-// expected response count.
-func (all Validators) WithCount(expectedCount int) Validators {
-	return all.With(func(responses client.ParsedResponses) error {
-		if len(responses) != expectedCount {
-			return fmt.Errorf("unexpected number of responses: expected %d, received %d",
-				expectedCount, len(responses))
+var (
+	expectNoError = ValidatorFunc(func(resp client.ParsedResponses, err error) error {
+		if err != nil {
+			return fmt.Errorf("expected no error, but encountered: %v", err)
 		}
 		return nil
 	})
+
+	expectError = ValidatorFunc(func(resp client.ParsedResponses, err error) error {
+		if err == nil {
+			return errors.New("expected error, but none occurred")
+		}
+		return nil
+	})
+
+	identityValidator = ValidatorFunc(func(_ client.ParsedResponses, err error) error {
+		return err
+	})
+)
+
+// ExpectError returns a Validator that is completed when an error occurs.
+func ExpectError() Validator {
+	return expectError
 }
 
-// With returns a copy of this Validators with the given validator added.
-func (all Validators) With(v Validator) Validators {
-	return append(append(NewValidators(), all...), v)
+// ExpectOK returns a Validator that calls CheckOK on the given responses.
+func ExpectOK() Validator {
+	return ValidatorFunc(func(resp client.ParsedResponses, err error) error {
+		return resp.CheckOK()
+	})
 }
 
-var _ Validator = ValidateOK
+// ExpectReachedClusters returns a Validator that checks that all provided clusters are reached.
+func ExpectReachedClusters(clusters resource.Clusters) Validator {
+	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
+		return responses.CheckReachedClusters(clusters)
+	})
+}
 
-// ValidateOK is a Validator that calls CheckOK on the given responses.
-func ValidateOK(responses client.ParsedResponses) error {
-	return responses.CheckOK()
+// ExpectCluster returns a validator that checks responses for the given cluster ID.
+func ExpectCluster(expected string) Validator {
+	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
+		return responses.CheckCluster(expected)
+	})
+}
+
+// ExpectHost returns a Validator that checks the responses for the given host header.
+func ExpectHost(expected string) Validator {
+	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
+		return responses.CheckHost(expected)
+	})
+}
+
+// ExpectCode returns a Validator that checks the responses for the given response code.
+func ExpectCode(expected string) Validator {
+	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
+		return responses.CheckCode(expected)
+	})
+}
+
+// ValidatorFunc is a function that serves as a Validator.
+type ValidatorFunc func(client.ParsedResponses, error) error
+
+var _ Validator = ValidatorFunc(func(client.ParsedResponses, error) error { return nil })
+
+func (v ValidatorFunc) Validate(resp client.ParsedResponses, err error) error {
+	return v(resp, err)
+}
+
+// And combines the validators into a chain. If no validators are provided, returns
+// the identity validator that just returns the original error.
+func And(vs ...Validator) Validator {
+	out := make(validators, 0)
+
+	for _, v := range vs {
+		if v != nil {
+			out = append(out, v)
+		}
+	}
+
+	if len(out) == 0 {
+		return identityValidator
+	}
+
+	if len(out) == 1 {
+		return out[0]
+	}
+
+	return out
 }

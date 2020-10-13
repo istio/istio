@@ -42,24 +42,18 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		return nil, err
 	}
 
-	port := opts.Port.ServicePort
-
 	// Forward a request from 'this' service to the destination service.
-	targetHost := net.JoinHostPort(opts.Host, strconv.Itoa(port))
+	port := opts.Port.ServicePort
+	addressAndPort := net.JoinHostPort(opts.Address, strconv.Itoa(port))
 	var targetURL string
 	if opts.Scheme != scheme.TCP {
-		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), targetHost, opts.Path)
+		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.Path)
 	} else {
-		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), targetHost)
+		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
 	}
-	protoHeaders := []*proto.Header{
-		{
-			Key:   "Host",
-			Value: opts.HostHeader,
-		},
-	}
-	// Add headers in opts.Headers, e.g., authorization header, etc.
-	// If host header is set, it will override targetService.
+
+	// Copy all the headers.
+	protoHeaders := make([]*proto.Header, 0, len(opts.Headers))
 	for k := range opts.Headers {
 		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
 	}
@@ -82,11 +76,17 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	sendAndValidate := func() error {
 		var err error
 		responses, err = send(req)
-		if err != nil {
-			return err
+
+		// Verify the number of responses matches the expected.
+		if err == nil {
+			if len(responses) != opts.Count {
+				err = fmt.Errorf("unexpected number of responses: expected %d, received %d",
+					opts.Count, len(responses))
+			}
 		}
 
-		return opts.Validators.Validate(responses)
+		// Return the results from the validator.
+		return opts.Validator.Validate(responses, err)
 	}
 
 	formatError := func(err error) error {
@@ -97,15 +97,15 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	}
 
 	if doRetry {
-		// Add the default retry options.
-		retryOptions = append(retryOptions, echo.DefaultCallRetryOptions()...)
-		err := formatError(retry.UntilSuccess(sendAndValidate, retryOptions...))
-		return responses, err
+		// Add defaults retry options to the beginning, since last option encountered wins.
+		retryOptions = append(append([]retry.Option{}, echo.DefaultCallRetryOptions()...), retryOptions...)
+		err := retry.UntilSuccess(sendAndValidate, retryOptions...)
+		return responses, formatError(err)
 	}
 
 	// Retry not enabled for this call.
-	err := formatError(sendAndValidate())
-	return responses, err
+	err := sendAndValidate()
+	return responses, formatError(err)
 }
 
 func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
@@ -136,7 +136,6 @@ func ForwardEcho(srcName string, c *client.Instance, opts *echo.CallOptions,
 }
 
 func fillInCallOptions(opts *echo.CallOptions) error {
-
 	if opts.Target != nil {
 		targetPorts := opts.Target.Config().Ports
 		if opts.PortName == "" {
@@ -171,7 +170,7 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 				return fmt.Errorf("callOptions: no port named %s available in Target Instance", opts.PortName)
 			}
 		}
-	} else if opts.Port == nil || opts.Port.ServicePort == 0 || opts.Port.Protocol == "" || opts.Host == "" {
+	} else if opts.Port == nil || opts.Port.ServicePort == 0 || opts.Port.Protocol == "" || opts.Address == "" {
 		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol, and host must be set")
 	}
 
@@ -183,22 +182,18 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		}
 	}
 
+	if opts.Address == "" {
+		// No host specified, use the fully qualified domain name for the service.
+		opts.Address = opts.Target.Config().FQDN()
+	}
+
+	// Initialize the headers and add a default Host header if none provided.
 	if opts.Headers == nil {
 		opts.Headers = make(http.Header)
 	}
-
-	if opts.Host == "" {
-		// No host specified, use the fully qualified domain name for the service.
-		opts.Host = opts.Target.Config().FQDN()
-	}
-
-	if opts.HostHeader == "" {
-		if opts.Target != nil {
-			// No host specified, use the hostname for the service.
-			opts.HostHeader = opts.Target.Config().HostHeader()
-		} else if h := opts.Headers["Host"]; len(h) > 0 {
-			opts.HostHeader = h[0]
-		}
+	if h := opts.Headers["Host"]; len(h) == 0 && opts.Target != nil {
+		// No host specified, use the hostname for the service.
+		opts.Headers["Host"] = []string{opts.Target.Config().HostHeader()}
 	}
 
 	if opts.Timeout <= 0 {
@@ -209,7 +204,8 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		opts.Count = common.DefaultCount
 	}
 
-	opts.Validators.WithCount(opts.Count)
+	// This is a quick and dirty way of getting the identity validator if the validator was not set.
+	opts.Validator = echo.And(opts.Validator)
 	return nil
 }
 
