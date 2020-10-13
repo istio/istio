@@ -51,7 +51,7 @@ const (
       "ISTIO_META_TLS_SERVER_CERT_CHAIN": "/server-certs/cert.pem",
       "ISTIO_META_TLS_SERVER_KEY": "/server-certs/key.pem",
       "ISTIO_META_TLS_SERVER_ROOT_CERT": "/server-certs/ca.pem",
-      "ISTIO_META_PROXY_XDS_VIA_AGENT": "false",
+      "PROXY_XDS_VIA_AGENT": "false",
       "ISTIO_METAJSON_METRICS_INCLUSIONS": '{\"sidecar.istio.io/statsInclusionPrefixes\": \"access_log_file,cluster,cluster_manager,control_plane,http,http2,http_mixer_filter,listener,listener_manager,redis,runtime,server,stats,tcp,tcp_mixer_filter,tracing\"}',
       "ISTIO_META_DNS_CAPTURE": "false",
 	}
@@ -123,8 +123,8 @@ components:
 
 meshConfig:
   defaultConfig:
-    controlPlaneAuthPolicy: "NONE"
-    discoveryAddress: istiod.istio-system:15010
+    controlPlaneAuthPolicy: "MUTUAL_TLS"
+    discoveryAddress: istiod.istio-system:15012
     proxyMetadata: ` + strings.Replace(ProxyMetadataJson, "\n", "", -1) +
 `
 values:
@@ -137,8 +137,6 @@ values:
       componentLogLevel: "misc:debug"
   pilot:
     env:
-      PILOT_SKIP_VALIDATE_TRUST_DOMAIN: "true"
-      PILOT_SIDECAR_USE_REMOTE_ADDRESS: "true"
       PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND: "true"
       PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND: "true"
       XDS_AUTH: "false"

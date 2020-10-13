@@ -118,7 +118,6 @@ spec:
   trafficPolicy:
     tls:
       mode: MUTUAL
-      sni: server.istio-fd-sds-1-94047.svc.cluster.local
       caCertificates: /client-certs/ca.pem
       clientCertificate: /client-certs/cert.pem
       privateKey: /client-certs/key.pem
@@ -211,8 +210,16 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		Inject: true,
 	})
 
-	credNameGeneric := "test-cred"
-	CreateCustomSecret(ctx, credNameGeneric, appsNamespace, "")
+
+	// test-server-cred's certificate has "server.default.svc" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
+	// This cert is going to be used as a "server certificate" on Echo Server's side
+	CreateCustomSecret(ctx, "test-server-cred", appsNamespace, "tests/testdata/certs/dns")
+
+	// test-istiod-client-cred will be used for connections to the control plane.
+	CreateCustomSecret(ctx, "test-istiod-client-cred", appsNamespace, "tests/testdata/certs/pilot")
+
+	// test-client-cred will be used for client connections from EchoClient to EchoServer
+	CreateCustomSecret(ctx, "test-client-cred", appsNamespace, "tests/testdata/certs/pilot")
 
 	var internalClient, internalServer echo.Instance
 
@@ -225,9 +232,12 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				Version: "v1",
 				// Set up custom annotations to mount the certs.
 				Annotations: echo.NewAnnotations().
-					Set(echo.SidecarVolume, `{"server-certs":{"secret":{"secretName":"test-cred"}},"client-certs":{"secret":{"secretName":"test-cred"}}}`).
-					Set(echo.SidecarVolumeMount, `{"server-certs":{"mountPath":"/server-certs"},"client-certs":{"mountPath":"/client-certs"}}`).
-					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"NONE","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
+					// workload-certs are needed in order to load the "default" SDS resource, which will be used for the xds-grpc mTLS (tls_certificate_sds_secret_configs.name == "default")
+					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
+					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
+					Set(echo.SidecarVolume, `{"server-certs":{"secret":{"secretName":"test-server-cred"}},"client-certs":{"secret":{"secretName":"test-client-cred"}},"workload-certs":{"secret":{"secretName":"test-istiod-client-cred","items":[{"key":"ca.pem","path":"root-cert.pem"},{"key":"cert.pem","path":"cert-chain.pem"},{"key":"key.pem","path":"key.pem"}]}}}`).
+					Set(echo.SidecarVolumeMount, `{"server-certs":{"mountPath":"/server-certs"},"client-certs":{"mountPath":"/client-certs"},"workload-certs":{"mountPath":"/etc/certs"}}`).
+					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
 			}},
 		}).
 		With(&internalServer, echo.Config{
@@ -246,9 +256,12 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				Version:     "v1",
 				// Set up custom annotations to mount the certs.
 				Annotations: echo.NewAnnotations().
-					Set(echo.SidecarVolume, `{"server-certs":{"secret":{"secretName":"test-cred"}},"client-certs":{"secret":{"secretName":"test-cred"}}}`).
-					Set(echo.SidecarVolumeMount, `{"server-certs":{"mountPath":"/server-certs"},"client-certs":{"mountPath":"/client-certs"}}`).
-					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"NONE","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
+					// workload-certs are needed in order to load the "default" SDS resource, which will be used for the xds-grpc mTLS (tls_certificate_sds_secret_configs.name == "default")
+					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
+					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
+					Set(echo.SidecarVolume, `{"server-certs":{"secret":{"secretName":"test-server-cred"}},"client-certs":{"secret":{"secretName":"test-client-cred"}},"workload-certs":{"secret":{"secretName":"test-istiod-client-cred","items":[{"key":"ca.pem","path":"root-cert.pem"},{"key":"cert.pem","path":"cert-chain.pem"},{"key":"key.pem","path":"key.pem"}]}}}`).
+					Set(echo.SidecarVolumeMount, `{"server-certs":{"mountPath":"/server-certs"},"client-certs":{"mountPath":"/client-certs"},"workload-certs":{"mountPath":"/etc/certs"}}`).
+					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
 			}},
 		}).
 		BuildOrFail(t)
