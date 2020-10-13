@@ -217,14 +217,11 @@ type TLSContext struct {
 func SendRequestOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
 	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse) {
 	ctx.Helper()
-	endpointAddress := ing.HTTPSAddress()
 	opts := echo.CallOptions{
 		Port: &echo.Port{
-			Protocol:    protocol.HTTPS,
-			ServicePort: endpointAddress.Port,
+			Protocol: protocol.HTTPS,
 		},
-		Address: endpointAddress.IP.String(),
-		Path:    fmt.Sprintf("/%s", path),
+		Path: fmt.Sprintf("/%s", path),
 		Headers: map[string][]string{
 			"Host": {host},
 		},

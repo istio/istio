@@ -94,14 +94,11 @@ spec:
 `)
 
 			ctx.NewSubTest("http").Run(func(ctx framework.TestContext) {
-				address := apps.Ingress.HTTPAddress()
 				_ = apps.Ingress.CallEchoWithRetryOrFail(ctx, echo.CallOptions{
 					Port: &echo.Port{
-						Protocol:    protocol.HTTP,
-						ServicePort: address.Port,
+						Protocol: protocol.HTTP,
 					},
-					Address: address.IP.String(),
-					Path:    "/get",
+					Path: "/get",
 					Headers: map[string][]string{
 						"Host": {"my.domain.example"},
 					},
@@ -191,8 +188,6 @@ spec:
 				t.Fatal(err)
 			}
 
-			httpAddress := apps.Ingress.HTTPAddress()
-			httpsAddress := apps.Ingress.HTTPSAddress()
 			// TODO check all clusters were hit
 			cases := []struct {
 				name string
@@ -203,11 +198,9 @@ spec:
 					name: "http",
 					call: echo.CallOptions{
 						Port: &echo.Port{
-							Protocol:    protocol.HTTP,
-							ServicePort: httpAddress.Port,
+							Protocol: protocol.HTTP,
 						},
-						Address: httpAddress.IP.String(),
-						Path:    "/test",
+						Path: "/test",
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
@@ -219,15 +212,13 @@ spec:
 					name: "https-foo",
 					call: echo.CallOptions{
 						Port: &echo.Port{
-							Protocol:    protocol.HTTPS,
-							ServicePort: httpsAddress.Port,
+							Protocol: protocol.HTTPS,
 						},
-						Address: httpsAddress.IP.String(),
-						Path:    "/test",
+						Path: "/test",
 						Headers: map[string][]string{
 							"Host": {"foo.example.com"},
 						},
-						CaCert: ingressutil.IngressCredentialA.CaCert,
+						CaCert:    ingressutil.IngressCredentialA.CaCert,
 						Validator: echo.ExpectOK(),
 					},
 				},
@@ -236,15 +227,13 @@ spec:
 					name: "https-bar",
 					call: echo.CallOptions{
 						Port: &echo.Port{
-							Protocol:    protocol.HTTPS,
-							ServicePort: httpsAddress.Port,
+							Protocol: protocol.HTTPS,
 						},
-						Address: httpsAddress.IP.String(),
-						Path:    "/test",
+						Path: "/test",
 						Headers: map[string][]string{
 							"Host": {"bar.example.com"},
 						},
-						CaCert: ingressutil.IngressCredentialB.CaCert,
+						CaCert:    ingressutil.IngressCredentialB.CaCert,
 						Validator: echo.ExpectOK(),
 					},
 				},
@@ -253,15 +242,13 @@ spec:
 					name: "https-namedport",
 					call: echo.CallOptions{
 						Port: &echo.Port{
-							Protocol:    protocol.HTTPS,
-							ServicePort: httpsAddress.Port,
+							Protocol: protocol.HTTPS,
 						},
-						Address: httpsAddress.IP.String(),
-						Path:    "/test/namedport",
+						Path: "/test/namedport",
 						Headers: map[string][]string{
 							"Host": {"bar.example.com"},
 						},
-						CaCert: ingressutil.IngressCredentialB.CaCert,
+						CaCert:    ingressutil.IngressCredentialB.CaCert,
 						Validator: echo.ExpectOK(),
 					},
 				},

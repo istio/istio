@@ -73,14 +73,11 @@ func (c *TestCase) CheckAuthn() error {
 // CheckIngressOrFail checks a request for the ingress gateway.
 func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host string, path string,
 	token string, expectResponseCode int) {
-	endpointAddress := ingr.HTTPAddress()
 	opts := echo.CallOptions{
 		Port: &echo.Port{
-			Protocol:    protocol.HTTP,
-			ServicePort: endpointAddress.Port,
+			Protocol: protocol.HTTP,
 		},
-		Address: endpointAddress.IP.String(),
-		Path:    path,
+		Path: path,
 		Headers: map[string][]string{
 			"Host": {host},
 		},

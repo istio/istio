@@ -412,7 +412,6 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Address: apps.Ingress.HTTPAddress().IP.String(),
 				Headers: map[string][]string{
 					"Host": {fqdn},
 				},
@@ -428,7 +427,6 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 			Port: &echo.Port{
 				Protocol: protocol.HTTP,
 			},
-			Address: apps.Ingress.HTTPAddress().IP.String(),
 			Headers: map[string][]string{
 				"Host": {"foo.bar"},
 			},

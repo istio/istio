@@ -315,7 +315,6 @@ func setupDashboardTest(t framework.TestContext) {
 	// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
 	// Spread out over 5s so rate() queries will behave correctly
 	g, _ := errgroup.WithContext(context.Background())
-	addr := ingr.HTTPAddress()
 	tcpAddr := ingr.TCPAddress()
 	ticker := time.NewTicker(time.Second * 5)
 	for t := 0; t < 20; t++ {
@@ -324,11 +323,9 @@ func setupDashboardTest(t framework.TestContext) {
 			for i := 0; i < 10; i++ {
 				_, err := ingr.CallEcho(echo.CallOptions{
 					Port: &echo.Port{
-						Protocol:    protocol.HTTP,
-						ServicePort: addr.Port,
+						Protocol: protocol.HTTP,
 					},
-					Address: addr.IP.String(),
-					Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", ns.Name()),
+					Path: fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", ns.Name()),
 					Headers: map[string][]string{
 						"Host": {"server"},
 					},
