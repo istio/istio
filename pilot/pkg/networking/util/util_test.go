@@ -34,6 +34,7 @@ import (
 	"gopkg.in/d4l3k/messagediff.v1"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config"
@@ -955,6 +956,7 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 }
 
 func TestEndpointMetadata(t *testing.T) {
+	features.EndpointTelemetryLabel = true
 	cases := []struct {
 		name         string
 		network      string
@@ -978,9 +980,9 @@ func TestEndpointMetadata(t *testing.T) {
 			workloadName: "",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
-					IstioMetadataKey: {
+					EnvoyTransportSocketMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"tlsMode": {
+							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
 									StringValue: string(model.IstioMutualTLSModeLabel),
 								},
@@ -997,13 +999,17 @@ func TestEndpointMetadata(t *testing.T) {
 			workloadName: "",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
-					IstioMetadataKey: {
+					EnvoyTransportSocketMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"tlsMode": {
+							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
 									StringValue: string(model.IstioMutualTLSModeLabel),
 								},
 							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
 							"network": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "network",
@@ -1026,19 +1032,23 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
-					IstioMetadataKey: {
+					EnvoyTransportSocketMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"tlsMode": {
+							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
 									StringValue: string(model.IstioMutualTLSModeLabel),
 								},
 							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
 							"network": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "network",
 								},
 							},
-							"telemetry": {
+							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;service;v1",
 								},
@@ -1048,7 +1058,6 @@ func TestEndpointMetadata(t *testing.T) {
 				},
 			},
 		},
-
 		{
 			name:         "miss pod label",
 			tlsMode:      string(model.IstioMutualTLSModeLabel),
@@ -1057,19 +1066,23 @@ func TestEndpointMetadata(t *testing.T) {
 			namespace:    "default",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
-					IstioMetadataKey: {
+					EnvoyTransportSocketMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"tlsMode": {
+							model.TLSModeLabelShortname: {
 								Kind: &structpb.Value_StringValue{
 									StringValue: string(model.IstioMutualTLSModeLabel),
 								},
 							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
 							"network": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "network",
 								},
 							},
-							"telemetry": {
+							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;;",
 								},
@@ -1082,7 +1095,7 @@ func TestEndpointMetadata(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.name, tt.namespace, tt.labels); reflect.DeepEqual(got, tt.want) {
+			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.labels); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
 			}
 		})

@@ -37,6 +37,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -497,8 +498,8 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network, tlsMode, name, namespace string, labels labels.Instance) *core.Metadata {
-	if network == "" && tlsMode == model.DisabledTLSModeLabel && name == "" {
+func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace string, labels labels.Instance) *core.Metadata {
+	if network == "" && tlsMode == model.DisabledTLSModeLabel && !shouldAddTelemetryLabel(workloadname) {
 		return nil
 	}
 
@@ -507,11 +508,7 @@ func BuildLbEndpointMetadata(network, tlsMode, name, namespace string, labels la
 	}
 
 	if network != "" {
-		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
-			Fields: map[string]*pstruct.Value{
-				"network": {Kind: &pstruct.Value_StringValue{StringValue: network}},
-			},
-		}
+		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}})
 	}
 
 	if tlsMode != "" {
@@ -527,9 +524,9 @@ func BuildLbEndpointMetadata(network, tlsMode, name, namespace string, labels la
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision.
-	if features.EndpointTelemetryLabel {
+	if shouldAddTelemetryLabel(workloadname) {
 		var sb strings.Builder
-		sb.WriteString(name)
+		sb.WriteString(workloadname)
 		sb.WriteString(";")
 		sb.WriteString(namespace)
 		sb.WriteString(";")
@@ -540,14 +537,24 @@ func BuildLbEndpointMetadata(network, tlsMode, name, namespace string, labels la
 		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
 			sb.WriteString(csr)
 		}
-		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
-			Fields: map[string]*pstruct.Value{
-				"workload": {Kind: &pstruct.Value_StringValue{StringValue: sb.String()}},
-			},
-		}
+		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
 	}
 
 	return metadata
+}
+
+func addIstioEndpointLabel(metadata *core.Metadata, key string, val *structpb.Value) {
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+
+	metadata.FilterMetadata[IstioMetadataKey].Fields[key] = val
+}
+
+func shouldAddTelemetryLabel(workloadName string) bool {
+	return features.EndpointTelemetryLabel && (workloadName != "")
 }
 
 // IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
