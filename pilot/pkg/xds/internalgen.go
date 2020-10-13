@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
 )
 
@@ -60,8 +60,8 @@ type InternalGen struct {
 
 	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
 	cleanupLimit *rate.Limiter
-	// delayedCleanup is written to after GracePeriod seconds when a proxy associated to an autoregistered WorkloadEntry disconnects.
-	delayedCleanup chan config.Meta
+
+	cleanupQueue queue.Delayed
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
@@ -71,8 +71,8 @@ func NewInternalGen(s *DiscoveryServer) *InternalGen {
 	return &InternalGen{
 		Server: s,
 		// TODO make this configurable
-		cleanupLimit:   rate.NewLimiter(rate.Limit(20), 1),
-		delayedCleanup: make(chan config.Meta),
+		cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
+		cleanupQueue: queue.NewDelayed(20),
 	}
 }
 
@@ -110,7 +110,10 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 
 func (sg *InternalGen) Run(stop <-chan struct{}) {
 	if sg.Store != nil {
-		go sg.workloadEntryCleanup(stop)
+		go sg.periodicWorkloadEntryCleanup(stop)
+	}
+	if sg.cleanupQueue != nil {
+		go sg.cleanupQueue.Run(stop)
 	}
 }
 

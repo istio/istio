@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -29,6 +31,8 @@ import (
 )
 
 const (
+	// TODO use status or another proper API instead of annotations
+
 	// AutoRegistrationGroupAnnotation on a WorkloadEntry stores the associated WorkloadGroup.
 	AutoRegistrationGroupAnnotation = "istio.io/autoRegistrationGroup"
 	// WorkloadControllerAnnotation on a WorkloadEntry should store the current/last pilot instance connected to the workload for XDS.
@@ -87,37 +91,34 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 		return
 	}
 
-	gp := time.After(features.WorkloadEntryCleanupGracePeriod)
-	go func() {
-		<-gp
-		sg.delayedCleanup <- config.Meta{Name: entryName, Namespace: proxy.Metadata.Namespace}
-	}()
-
+	ns := proxy.Metadata.Namespace
+	sg.cleanupQueue.PushDelayed(func() error {
+		wle := sg.Store.Get(gvk.WorkloadEntry, entryName, ns)
+		if wle == nil {
+			return nil
+		}
+		sg.cleanupEntry(*wle)
+		return nil
+	}, features.WorkloadEntryCleanupGracePeriod)
 }
 
-// workloadEntryCleanup processes the delete queue as well as performs periodic cleanup of WorkloadEntries to catch
-// edge cases where the last connected pilot cannot perform the cleanup.
-func (sg *InternalGen) workloadEntryCleanup(stopCh <-chan struct{}) {
+// periodicWorkloadEntryCleanup checks lists all WorkloadEntry
+func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 	ticker := time.NewTicker(10 * features.WorkloadEntryCleanupGracePeriod)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			for _, ns := range sg.Store.Namespaces() {
-				wles, err := sg.Store.List(gvk.WorkloadEntry, ns.Name)
-				if err != nil {
-					continue
-				}
-				for _, wle := range wles {
-					go sg.cleanupEntry(wle)
-				}
-			}
-		case weMeta := <-sg.delayedCleanup:
-			wle := sg.Store.Get(gvk.WorkloadEntry, weMeta.Name, weMeta.Namespace)
-			if wle == nil {
+			wles, err := sg.Store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
+			if err != nil {
 				continue
 			}
-			go sg.cleanupEntry(*wle)
+			for _, wle := range wles {
+				sg.cleanupQueue.Push(func() error {
+					sg.cleanupEntry(wle)
+					return nil
+				})
+			}
 		case <-stopCh:
 			return
 		}
