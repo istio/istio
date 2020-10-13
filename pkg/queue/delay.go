@@ -132,14 +132,14 @@ func (d delayQueue) Run(stop <-chan struct{}) {
 					return
 				}
 			}
-		}
-
-		// no items, wait for Push or stop
-		select {
-		case t := <-d.register:
-			q.Push(t)
-		case <-stop:
-			return
+		} else {
+			// no items, wait for Push or stop
+			select {
+			case t := <-d.register:
+				q.Push(t)
+			case <-stop:
+				return
+			}
 		}
 	}
 }

@@ -60,9 +60,11 @@ func TestDelayQueue(t *testing.T) {
 	mu := sync.Mutex{}
 	var t0, t1, t2 time.Time
 
+	done := make(chan struct{})
 	dq.PushDelayed(func() error {
 		mu.Lock()
 		defer mu.Unlock()
+		defer close(done)
 		t2 = time.Now()
 		return nil
 	}, 200*time.Millisecond)
@@ -78,8 +80,11 @@ func TestDelayQueue(t *testing.T) {
 		t0 = time.Now()
 		return nil
 	})
-	// TODO don't do this
-	time.Sleep(300 * time.Millisecond)
+
+	select {
+	case <-time.After(500 * time.Millisecond):
+	case <-done:
+	}
 
 	mu.Lock()
 	if !(t2.After(t1) && t1.After(t0)) {
