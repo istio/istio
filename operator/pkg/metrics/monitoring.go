@@ -20,16 +20,16 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-// OperatorVersionLabel describes version of running binary.
-var OperatorVersionLabel = monitoring.MustCreateLabel("version")
-
-// MergeErrorLabel describes the type of merge error.
-var MergeErrorLabel = monitoring.MustCreateLabel("error_type")
-
-// RenderErrorLabel describes the type of the error while rendering.
-var RenderErrorLabel = monitoring.MustCreateLabel("render_error")
-
 var (
+	// OperatorVersionLabel describes version of running binary.
+	OperatorVersionLabel = monitoring.MustCreateLabel("version")
+
+	// MergeErrorLabel describes the type of merge error.
+	MergeErrorLabel = monitoring.MustCreateLabel("error_type")
+
+	// RenderErrorLabel describes the type of the error while rendering.
+	RenderErrorLabel = monitoring.MustCreateLabel("render_error")
+
 	// CRFetchErrorReasonLabel describes the reason/HTTP code
 	// for failing to fetch CR.
 	CRFetchErrorReasonLabel = monitoring.MustCreateLabel("reason")
