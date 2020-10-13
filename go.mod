@@ -89,6 +89,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	gomodules.xyz/jsonpatch/v2 v2.0.1
 	google.golang.org/genproto v0.0.0-20200904004341-0bd0a958aa1d
 	google.golang.org/grpc v1.33.0-dev.0.20200828165940-d8ef479ab79a
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
@@ -98,7 +99,7 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20201005190743-aafbee249e6c
+	istio.io/api v0.0.0-20201007205536-38d3c76a5557
 	istio.io/client-go v0.0.0-20200908160912-f99162621a1a
 	istio.io/gogo-genproto v0.0.0-20200908160912-66171252e3db
 	istio.io/pkg v0.0.0-20200922180714-670b76a68558

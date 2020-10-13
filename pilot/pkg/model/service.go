@@ -408,6 +408,8 @@ type ServiceAttributes struct {
 	Name string
 	// Namespace is "destination.service.namespace" attribute
 	Namespace string
+	// Labels applied to the service
+	Labels map[string]string
 	// UID is "destination.service.uid" attribute
 	UID string
 	// ExportTo defines the visibility of Service in
@@ -492,6 +494,9 @@ type ServiceDiscovery interface {
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
+
+	// NetworkGateways returns a map of network name to Gateways that can be used to access that network.
+	NetworkGateways() map[string][]*Gateway
 }
 
 // GetNames returns port names

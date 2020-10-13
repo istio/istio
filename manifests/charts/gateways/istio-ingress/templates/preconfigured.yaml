@@ -47,7 +47,8 @@ spec:
       operation: INSERT_AFTER
       value:
         name: "envoy.filters.network.tcp_cluster_rewrite"
-        config:
+        typed_config:
+          "@type": "type.googleapis.com/istio.envoy.config.filter.network.tcp_cluster_rewrite.v2alpha1.TcpClusterRewrite"
           cluster_pattern: "\\.{{ .Values.global.multiCluster.globalDomainSuffix | trim }}$"
           cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"
 ---

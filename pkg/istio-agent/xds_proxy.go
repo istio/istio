@@ -74,6 +74,7 @@ const (
 // single tcp connection with multiple gRPC streams.
 // TODO: Right now, the workloadSDS server and gatewaySDS servers are still separate
 // connections. These need to be consolidated.
+// TODO: consolidate/use ADSC struct - a lot of duplication.
 type XdsProxy struct {
 	stopChan             chan struct{}
 	resetChan            chan struct{}
@@ -85,6 +86,7 @@ type XdsProxy struct {
 	localDNSServer       *dns.LocalDNSServer
 	healthChecker        *health.WorkloadHealthChecker
 	fileWatcher          filewatcher.FileWatcher
+	agent                *Agent
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -99,6 +101,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		stopChan:       make(chan struct{}),
 		resetChan:      make(chan struct{}),
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe),
+		agent:          ia,
 	}
 
 	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
@@ -145,6 +148,11 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
+	if p.agent.cfg.XDSHeaders != nil {
+		for k, v := range p.agent.cfg.XDSHeaders {
+			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+		}
+	}
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {

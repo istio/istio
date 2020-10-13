@@ -17,6 +17,7 @@ package istio
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -26,6 +27,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -46,14 +48,8 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 		return err
 	}
 
-	generateSettings := []string{
-		"--istioNamespace", i.settings.SystemNamespace,
-		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
-		"--set", "hub=" + imgSettings.Hub,
-		"--set", "tag=" + imgSettings.Tag,
-	}
-	// generate k8s resources for the gateway
-	cmd := exec.Command(genGatewayScript, generateSettings...)
+	// generate istio operator yaml
+	cmd := exec.Command(genGatewayScript)
 	cmd.Env = os.Environ()
 	customEnv := []string{
 		"CLUSTER=" + cluster.Name(),
@@ -64,18 +60,47 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 		customEnv = append(customEnv, "SINGLE_CLUSTER=1")
 	}
 	cmd.Env = append(cmd.Env, customEnv...)
-	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v %v", cluster.Name(), customEnv, generateSettings)
-	gwYaml, err := cmd.CombinedOutput()
-
+	gwIOP, err := cmd.CombinedOutput()
 	if err != nil {
-		whichIstioctl, _ := exec.Command("which", "istioctl").CombinedOutput()
-		return fmt.Errorf("failed generating eastwestgateway manifest for %s using %q: %v: %s", cluster.Name(), whichIstioctl, err, string(gwYaml))
+		return fmt.Errorf("failed generating eastwestgateway operator yaml: %v", err)
 	}
-	i.saveManifestForCleanup(cluster.Name(), string(gwYaml))
-	// push the deployment to the cluster
-	if err := i.ctx.Config(cluster).ApplyYAML(i.settings.IngressNamespace, string(gwYaml)); err != nil {
-		return fmt.Errorf("failed applying eastwestgateway deployment to %s: %v", cluster.Name(), err)
+	iopFile := path.Join(i.workDir, fmt.Sprintf("eastwest-%s.yaml", cluster.Name()))
+	if err := ioutil.WriteFile(iopFile, gwIOP, os.ModePerm); err != nil {
+		return err
 	}
+
+	// use operator yaml to generate k8s resources
+	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{Cluster: cluster})
+	if err != nil {
+		return err
+	}
+
+	installSettings := []string{
+		"manifest", "generate",
+		"--istioNamespace", i.settings.SystemNamespace,
+		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
+		"--set", "hub=" + imgSettings.Hub,
+		"--set", "tag=" + imgSettings.Tag,
+		"--set", "values.global.imagePullPolicy=" + imgSettings.PullPolicy,
+		"-f", iopFile,
+	}
+	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
+	gwYaml, stderr, err := istioCtl.Invoke(installSettings)
+	if err != nil {
+		scopes.Framework.Error(gwYaml)
+		scopes.Framework.Error(stderr)
+		scopes.Framework.Error(err)
+		return fmt.Errorf("failed installing eastwestgateway via IstioOperator: %v", err)
+	}
+
+	// apply k8s resources
+	if err := i.ctx.Config(cluster).ApplyYAML(i.settings.SystemNamespace, gwYaml); err != nil {
+		return err
+	}
+
+	// cleanup using operator yaml later
+	i.saveManifestForCleanup(cluster.Name(), gwYaml)
+
 	// wait for a ready pod
 	if err := retry.UntilSuccess(func() error {
 		pods, err := cluster.CoreV1().Pods(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{

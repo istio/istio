@@ -57,6 +57,13 @@ const (
 	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
+
+	// IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
+	// TODO move gatewayPort to api repo
+	IstioGatewayPortLabel = "topology.istio.io/gatewayPort"
+	// DefaultNetworkGatewayPort is the port used by default for cross-network traffic if not otherwise specified
+	// by meshNetworks or "topology.istio.io/gatewayPort"
+	DefaultNetworkGatewayPort = 15443
 )
 
 var (
@@ -218,6 +225,10 @@ type Controller struct {
 
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
+	// tracks which services on which ports should act as a gateway for networkForRegistry
+	registryServiceNameGateways map[host.Name]uint32
+	// gateways for each network, indexed by the service that runs them so we clean them up later
+	networkGateways map[host.Name]map[string][]*model.Gateway
 
 	once sync.Once
 }
@@ -227,19 +238,21 @@ type Controller struct {
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
-		domainSuffix:               options.DomainSuffix,
-		client:                     kubeClient.Kube(),
-		queue:                      queue.NewQueue(1 * time.Second),
-		clusterID:                  options.ClusterID,
-		xdsUpdater:                 options.XDSUpdater,
-		servicesMap:                make(map[host.Name]*model.Service),
-		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
-		nodeInfoMap:                make(map[string]kubernetesNode),
-		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
-		workloadInstancesByIP:      make(map[string]*model.WorkloadInstance),
-		workloadInstancesIPsByName: make(map[string]string),
-		networksWatcher:            options.NetworksWatcher,
-		metrics:                    options.Metrics,
+		domainSuffix:                options.DomainSuffix,
+		client:                      kubeClient.Kube(),
+		queue:                       queue.NewQueue(1 * time.Second),
+		clusterID:                   options.ClusterID,
+		xdsUpdater:                  options.XDSUpdater,
+		servicesMap:                 make(map[host.Name]*model.Service),
+		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
+		nodeInfoMap:                 make(map[string]kubernetesNode),
+		externalNameSvcInstanceMap:  make(map[host.Name][]*model.ServiceInstance),
+		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
+		workloadInstancesIPsByName:  make(map[string]string),
+		registryServiceNameGateways: make(map[host.Name]uint32),
+		networkGateways:             make(map[host.Name]map[string][]*model.Gateway),
+		networksWatcher:             options.NetworksWatcher,
+		metrics:                     options.Metrics,
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -323,6 +336,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.servicesMap, svcConv.Hostname)
 		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
+		delete(c.networkGateways, svcConv.Hostname)
 		c.Unlock()
 	default:
 		if isNodePortGatewayService(svc) {
@@ -333,7 +347,9 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			// only add when it is nodePort gateway service
 			c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
 			c.Unlock()
-			c.updateServiceExternalAddr(svcConv)
+			c.updateServiceNodePortAddresses(svcConv)
+		} else {
+			c.extractGatewaysFromService(svcConv)
 		}
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(svc, svcConv)
@@ -413,7 +429,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	}
 
 	// update all related services
-	if updatedNeeded && c.updateServiceExternalAddr() {
+	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.xdsUpdater.ConfigUpdate(&model.PushRequest{
 			Full: true,
 		})
@@ -592,57 +608,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
 	return svc, nil
-}
-
-// getNodePortServices returns nodePort type gateway service
-func (c *Controller) getNodePortGatewayServices() []*model.Service {
-	c.RLock()
-	defer c.RUnlock()
-	out := make([]*model.Service, 0, len(c.nodeSelectorsForServices))
-	for hostname := range c.nodeSelectorsForServices {
-		svc := c.servicesMap[hostname]
-		if svc != nil {
-			out = append(out, svc)
-		}
-	}
-
-	return out
-}
-
-// updateServiceExternalAddr updates ClusterExternalAddresses for ingress gateway service of nodePort type
-func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) bool {
-	// node event, update all nodePort gateway services
-	if len(svcs) == 0 {
-		svcs = c.getNodePortGatewayServices()
-	}
-	// no nodePort gateway service found, no update
-	if len(svcs) == 0 {
-		return false
-	}
-	for _, svc := range svcs {
-		c.RLock()
-		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
-		c.RUnlock()
-		// update external address
-		svc.Mutex.Lock()
-		if nodeSelector == nil {
-			var extAddresses []string
-			for _, n := range c.nodeInfoMap {
-				extAddresses = append(extAddresses, n.address)
-			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
-		} else {
-			var nodeAddresses []string
-			for _, n := range c.nodeInfoMap {
-				if nodeSelector.SubsetOf(n.labels) {
-					nodeAddresses = append(nodeAddresses, n.address)
-				}
-			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
-		}
-		svc.Mutex.Unlock()
-	}
-	return true
 }
 
 // getPodLocality retrieves the locality for a pod.
@@ -972,7 +937,7 @@ func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
 // If the proxy doesn't have enough metadata, an error is returned
 func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	if len(proxy.Metadata.Labels) == 0 {
-		return nil, fmt.Errorf("no workload labels found")
+		return nil, nil
 	}
 
 	if !c.isControllerForProxy(proxy) {
@@ -1045,7 +1010,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	return out, nil
 }
 
-func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
+func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
+	service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(service.Name, service.Namespace, c.domainSuffix)

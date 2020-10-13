@@ -191,7 +191,7 @@ type PushContext struct {
 	Mesh *meshconfig.MeshConfig `json:"-"`
 
 	// Networks configuration.
-	Networks *meshconfig.MeshNetworks `json:"-"`
+	MeshNetworks *meshconfig.MeshNetworks `json:"-"`
 
 	// Discovery interface for listing services and instances.
 	ServiceDiscovery `json:"-"`
@@ -858,7 +858,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.Networks = env.Networks()
+	ps.MeshNetworks = env.Networks()
 	ps.ServiceDiscovery = env
 	ps.IstioConfigStore = env
 	ps.Version = env.Version()
@@ -1609,30 +1609,28 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 // pre computes gateways for each network
 func (ps *PushContext) initMeshNetworks() {
-	if ps.Networks == nil || len(ps.Networks.Networks) == 0 {
-		return
-	}
-
 	ps.networkGateways = map[string][]*Gateway{}
-	for network, networkConf := range ps.Networks.Networks {
-		gws := networkConf.Gateways
-		if len(gws) == 0 {
-			// all endpoints in this network are reachable directly from others. nothing to do.
-			continue
+
+	// First, use addresses directly specified in meshNetworks
+	if ps.MeshNetworks != nil {
+		for network, networkConf := range ps.MeshNetworks.Networks {
+			gws := networkConf.Gateways
+			for _, gw := range gws {
+				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+					ps.networkGateways[network] = append(ps.networkGateways[network], &Gateway{gw.GetAddress(), gw.Port})
+				}
+			}
+
 		}
-
-		registryNames := getNetworkRegistries(networkConf)
-		gateways := make([]*Gateway, 0, len(gws))
-
-		for _, gw := range gws {
-			gateways = append(gateways, getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)...)
-		}
-
-		log.Debugf("Endpoints from registries %v on network %v reachable through %d gateways",
-			registryNames, network, len(gateways))
-
-		ps.networkGateways[network] = gateways
 	}
+
+	// Second, load registry specific gateways.
+	for network, gateways := range ps.ServiceDiscovery.NetworkGateways() {
+		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
+		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
+		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
+	}
+
 }
 
 func (ps *PushContext) initClusterLocalHosts(e *Environment) {
@@ -1681,57 +1679,6 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 
 	sort.Sort(host.Names(clusterLocalHosts))
 	ps.clusterLocalHosts = clusterLocalHosts
-}
-
-func getNetworkRegistries(network *meshconfig.Network) []string {
-	registryNames := make([]string, 0, len(network.Endpoints))
-	for _, eps := range network.Endpoints {
-		if eps != nil && len(eps.GetFromRegistry()) > 0 {
-			registryNames = append(registryNames, eps.GetFromRegistry())
-		}
-	}
-	return registryNames
-}
-
-func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []*Gateway {
-	// First, if a gateway address is provided in the configuration use it. If the gateway address
-	// in the config was a hostname it got already resolved and replaced with an IP address
-	// when loading the config
-	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-		return []*Gateway{{gw.GetAddress(), gw.Port}}
-	}
-
-	// Second, try to find the gateway addresses by the provided service name
-	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
-		svc, _ := discovery.GetService(host.Name(gwSvcName))
-		if svc == nil {
-			return nil
-		}
-		// No need lock here as the service returned is a new one
-		if svc.Attributes.ClusterExternalAddresses != nil {
-			var gateways []*Gateway
-			for _, clusterName := range registryNames {
-				remotePort := gw.Port
-				// check if we have node port mappings
-				if svc.Attributes.ClusterExternalPorts != nil {
-					if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[clusterName]; exists {
-						// what we now have is a service port. If there is a mapping for cluster external ports,
-						// look it up and get the node port for the remote port
-						if nodePort, exists := nodePortMap[remotePort]; exists {
-							remotePort = nodePort
-						}
-					}
-				}
-				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
-				for _, ip := range ips {
-					gateways = append(gateways, &Gateway{ip, remotePort})
-				}
-			}
-			return gateways
-		}
-	}
-
-	return nil
 }
 
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {

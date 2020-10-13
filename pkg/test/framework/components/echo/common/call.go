@@ -30,9 +30,14 @@ import (
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
-func callInternal(opts *echo.CallOptions, send func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error)) (client.ParsedResponses, error) {
+type sendFunc func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error)
+
+func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
+	doRetry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
@@ -73,19 +78,38 @@ func callInternal(opts *echo.CallOptions, send func(req *proto.ForwardEchoReques
 		CaCert:        opts.CaCert,
 	}
 
-	resp, err := send(req)
-	if err != nil {
-		return nil, err
+	var responses client.ParsedResponses
+	sendAndValidate := func() error {
+		var err error
+		responses, err = send(req)
+		if err != nil {
+			return err
+		}
+
+		return opts.Validators.Validate(responses)
 	}
 
-	if len(resp) != opts.Count {
-		return nil, fmt.Errorf("unexpected number of responses: expected %d, received %d", opts.Count, len(resp))
+	formatError := func(err error) error {
+		if err != nil {
+			return fmt.Errorf("call failed from %s to %s (using %s): %v", srcName, targetURL, opts.Scheme, err)
+		}
+		return nil
 	}
-	return resp, err
+
+	if doRetry {
+		// Add the default retry options.
+		retryOptions = append(retryOptions, echo.DefaultCallRetryOptions()...)
+		err := formatError(retry.UntilSuccess(sendAndValidate, retryOptions...))
+		return responses, err
+	}
+
+	// Retry not enabled for this call.
+	err := formatError(sendAndValidate())
+	return responses, err
 }
 
-func CallEcho(opts *echo.CallOptions) (client.ParsedResponses, error) {
-	return callInternal(opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+	send := func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		instance, err := forwarder.New(forwarder.Config{
 			Request: req,
 		})
@@ -100,13 +124,15 @@ func CallEcho(opts *echo.CallOptions) (client.ParsedResponses, error) {
 		}
 		resp := client.ParseForwardedResponse(ret)
 		return resp, nil
-	})
+	}
+	return callInternal("TestRunner", opts, send, retry, retryOptions...)
 }
 
-func ForwardEcho(c *client.Instance, opts *echo.CallOptions) (client.ParsedResponses, error) {
-	return callInternal(opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+func ForwardEcho(srcName string, c *client.Instance, opts *echo.CallOptions,
+	retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+	return callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		return c.ForwardEcho(context.Background(), req)
-	})
+	}, retry, retryOptions...)
 }
 
 func fillInCallOptions(opts *echo.CallOptions) error {
@@ -183,6 +209,7 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		opts.Count = common.DefaultCount
 	}
 
+	opts.Validators.WithCount(opts.Count)
 	return nil
 }
 

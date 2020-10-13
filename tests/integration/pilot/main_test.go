@@ -16,6 +16,7 @@
 package pilot
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -37,6 +38,15 @@ var (
 	apps = &common.EchoDeployments{}
 )
 
+func supportsCRDv1(ctx resource.Context) bool {
+	ver, err := ctx.Clusters()[0].GetKubernetesVersion()
+	if err != nil {
+		return true
+	}
+	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+	return serverVersion >= "1.16"
+}
+
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
@@ -44,45 +54,19 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(func(ctx resource.Context) (err error) {
-			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
-			if err != nil {
-				return err
+			if supportsCRDv1(ctx) {
+				crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+				if err != nil {
+					return err
+				}
+				return ctx.Config().ApplyYAML("", string(crd))
 			}
-			return ctx.Config().ApplyYAML("", string(crd))
+			return nil
 		}).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
 			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
-			cfg.ControlPlaneValues = `
-# Add TCP port, not in the default install
-components:
-  ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
-      k8s:
-        service:
-          ports:
-            - port: 15021
-              targetPort: 15021
-              name: status-port
-            - port: 80
-              targetPort: 8080
-              name: http2
-            - port: 443
-              targetPort: 8443
-              name: https
-            - port: 15443
-              targetPort: 15443
-              name: tls
-            - port: 31400
-              name: tcp
-            - port: 15012
-              targetPort: 15012
-              name: tcp-istiod
-values:
-  pilot:
-    env:
-      PILOT_ENABLED_SERVICE_APIS: "true"`
+			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
 		})).
 		Setup(func(ctx resource.Context) error {
 			return common.SetupApps(ctx, i, apps)
