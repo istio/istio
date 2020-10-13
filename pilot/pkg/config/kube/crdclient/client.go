@@ -26,7 +26,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	v1 "k8s.io/api/core/v1"
 	"time"
 
 	"gomodules.xyz/jsonpatch/v2"
@@ -81,8 +80,6 @@ type Client struct {
 	// kinds keeps track of all cache handlers for known types
 	kinds map[config.GroupVersionKind]*cacheHandler
 	queue queue.Instance
-
-	client kube.Client
 
 	// The istio/client-go client we will use to access objects
 	istioClient istioclient.Interface
@@ -147,7 +144,6 @@ func New(client kube.Client, configLedger ledger.Ledger, revision string, option
 		revision:          revision,
 		queue:             queue.NewQueue(1 * time.Second),
 		kinds:             map[config.GroupVersionKind]*cacheHandler{},
-		client:            client,
 		istioClient:       client.Istio(),
 		serviceApisClient: client.ServiceApis(),
 	}
@@ -178,14 +174,6 @@ func New(client kube.Client, configLedger ledger.Ledger, revision string, option
 // Schemas for the store
 func (cl *Client) Schemas() collection.Schemas {
 	return cl.schemas
-}
-
-func (cl *Client) Namespaces() []v1.Namespace {
-	ns, err := cl.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		scope.Warn("error listing namespaces: %v", err)
-	}
-	return ns.Items
 }
 
 // Get implements store interface
