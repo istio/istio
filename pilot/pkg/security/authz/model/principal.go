@@ -70,6 +70,7 @@ func principalAuthenticated(name *matcherpb.StringMatcher) *rbacpb.Principal {
 func principalSourceIP(cidr *corepb.CidrRange) *rbacpb.Principal {
 	return &rbacpb.Principal{
 		Identifier: &rbacpb.Principal_SourceIp{
+			// nolint: staticcheck
 			SourceIp: cidr,
 		},
 	}
