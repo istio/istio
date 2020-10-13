@@ -145,7 +145,7 @@ func run() {
 		Registry: ctrlmetrics.Registry.(*prometheus.Registry),
 	})
 	if err != nil {
-		log.Warnf("Error while building exporter")
+		log.Warnf("Error while building exporter: %v", err)
 	} else {
 		view.RegisterExporter(exporter)
 	}
