@@ -116,7 +116,7 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 		merged := basePrincipal.copy()
 		if s := from.Source; s != nil {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
-			merged.insertFront(remoteIPGenerator{}, attrSrcIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
+			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
 			merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
