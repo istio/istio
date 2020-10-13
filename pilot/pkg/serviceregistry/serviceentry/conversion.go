@@ -273,8 +273,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 			// Workload entry config name is used as workload name, which will appear in metric label.
-			// After auto registry is introduced, auto generated address suffix needs to be trimmed
-			// from the name to make sure metric label is bounded.
+			// After VM auto registry is introduced, workload group annotation should be used for workload name.
 			WorkloadName: wleck.name,
 			Namespace:    wleck.namespace,
 		},
