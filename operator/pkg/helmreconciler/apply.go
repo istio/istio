@@ -204,7 +204,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 				return err
 			}
 			if err := h.client.Update(context.TODO(), receiver); err != nil {
-				return fmt.Errorf("failed to update %q: %w", objectStr, err)
+				return err
 			}
 			metrics.CountResourceUpdates(iopName, revision, gvkStr)
 			return nil
