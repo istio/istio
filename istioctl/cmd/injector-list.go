@@ -132,14 +132,19 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 
 		revision := getInjectedRevision(&namespace, hooks)
 		podCount := podCountByRevision(allPods[resource.Namespace(namespace.Name)], revision)
+		if len(podCount) == 0 {
+			// This namespace has no pods, but we wish to display it if new pods will be auto-injected
+			if revision != "" {
+				podCount[revision] = revisionCount{}
+			}
+		}
 		for injectedRevision, count := range podCount {
 			if outputCount == 0 {
 				fmt.Fprintln(w, "NAMESPACE\tISTIO-REVISION\tPOD-REVISIONS")
 			}
 			outputCount++
 
-			fmt.Fprintf(w, "%s\t%s\t%s\n", namespace.Name, revision,
-				fmt.Sprintf("%s: %s", injectedRevision, renderCounts(count)))
+			fmt.Fprintf(w, "%s\t%s\t%s\n", namespace.Name, revision, renderCounts(injectedRevision, count))
 		}
 	}
 	if outputCount == 0 {
@@ -271,6 +276,7 @@ func getInjectedImages(client kube.ExtendedClient) (map[string]string, error) {
 	return retval, nil
 }
 
+// podCountByRevision() returns a map of revision->pods, with "<non-Istio>" as the dummy "revision" for uninjected pods
 func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revisionCount {
 	retval := map[string]revisionCount{}
 	for _, pod := range pods {
@@ -306,13 +312,17 @@ func injectionDisabled(pod *v1.Pod) bool {
 	return strings.EqualFold(inject, "false")
 }
 
-func renderCounts(counts revisionCount) string {
-	retval := strconv.Itoa(counts.pods)
+func renderCounts(injectedRevision string, counts revisionCount) string {
+	if counts.pods == 0 {
+		return "<no pods>"
+	}
+
+	podText := strconv.Itoa(counts.pods)
 	if counts.disabled > 0 {
-		retval += fmt.Sprintf(" (injection disabled: %d)", counts.disabled)
+		podText += fmt.Sprintf(" (injection disabled: %d)", counts.disabled)
 	}
 	if counts.needsRestart > 0 {
-		retval += fmt.Sprintf(" NEEDS RESTART: %d", counts.needsRestart)
+		podText += fmt.Sprintf(" NEEDS RESTART: %d", counts.needsRestart)
 	}
-	return retval
+	return fmt.Sprintf("%s: %s", injectedRevision, podText)
 }
