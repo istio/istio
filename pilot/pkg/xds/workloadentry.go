@@ -16,6 +16,7 @@ package xds
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"strconv"
 	"strings"
 	"time"
@@ -57,20 +58,21 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
 	})
 	if err == nil {
 		return
+	} else if !errors.IsNotFound(err) && err.Error() != "item not found" {
+		adsLog.Warnf("updating auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 	}
-	// TODO better errors from Get/Patch. NotFound is fine but others should warn.
 
 	// No WorkloadEntry, create one using fields from the associated WorkloadGroup
 	groupCfg := sg.Store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if groupCfg == nil {
-		adsLog.Warnf("auto registration of %v failed: cannot find WorkloadGroup %s/%s", proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
+		adsLog.Warnf("auto-registration of %v failed: cannot find WorkloadGroup %s/%s", proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 		return
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
 	setConnectMeta(entry, sg.Server.instanceID, con)
 	_, err = sg.Store.Create(*entry)
 	if err != nil {
-		adsLog.Errorf("auto registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
+		adsLog.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
 }
 
@@ -167,6 +169,9 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	group := groupCfg.Spec.(*v1alpha3.WorkloadGroup)
 	entry := group.Template.DeepCopy()
 	entry.Address = proxy.IPAddresses[0]
+	// TODO move labels out of entry
+	entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
+
 	if proxy.Metadata.Network != "" {
 		entry.Network = proxy.Metadata.Network
 	}
@@ -178,7 +183,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 			GroupVersionKind: gvk.WorkloadEntry,
 			Name:             name,
 			Namespace:        proxy.Metadata.Namespace,
-			Labels:           mergeLabels(entry.Labels, proxy.Metadata.Labels),
+			Labels:           entry.Labels,
 			Annotations:      map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name},
 		},
 		Spec: entry,
@@ -205,11 +210,11 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 		return ""
 	}
 	if len(proxy.IPAddresses) == 0 {
-		adsLog.Errorf("auto registration of %v failed: missing IP addresses", proxy.ID)
+		adsLog.Errorf("auto-registration of %v failed: missing IP addresses", proxy.ID)
 		return ""
 	}
 	if len(proxy.Metadata.Namespace) == 0 {
-		adsLog.Errorf("auto registration of %v failed: missing namespace", proxy.ID)
+		adsLog.Errorf("auto-registration of %v failed: missing namespace", proxy.ID)
 		return ""
 	}
 	p := []string{proxy.Metadata.AutoRegisterGroup, proxy.IPAddresses[0]}

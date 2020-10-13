@@ -1,13 +1,29 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package xds
 
 import (
+	"fmt"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/test/util/retry"
 	"reflect"
 	"testing"
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -40,27 +56,6 @@ var (
 		Spec:   tmplA,
 		Status: nil,
 	}
-
-	tmplB = &v1alpha3.WorkloadGroup{
-		Template: &v1alpha3.WorkloadEntry{
-			Ports:          map[string]uint32{"http": 80},
-			Labels:         map[string]string{"app": "b"},
-			Weight:         1,
-			ServiceAccount: "sa-a",
-		},
-	}
-	wgB = config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.WorkloadGroup,
-			Namespace:        "b",
-			Name:             "wg-b",
-			Labels: map[string]string{
-				"grouplabel": "notonentry",
-			},
-		},
-		Spec:   tmplB,
-		Status: nil,
-	}
 )
 
 func TestNonAutoregisteredWorklaods(t *testing.T) {
@@ -70,9 +65,10 @@ func TestNonAutoregisteredWorklaods(t *testing.T) {
 	createOrFail(t, store, wgA)
 
 	cases := map[string]*model.Proxy{
-		"missing group":     {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: "ns1", AutoRegisterGroup: "wg1"}},
-		"missing ip":        {Metadata: &model.NodeMetadata{Namespace: "ns1", AutoRegisterGroup: "wg1"}},
-		"missing namespace": {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{AutoRegisterGroup: "wg1"}},
+		"missing group":      {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: wgA.Namespace}},
+		"missing ip":         {Metadata: &model.NodeMetadata{Namespace: wgA.Namespace, AutoRegisterGroup: wgA.Name}},
+		"missing namespace":  {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{AutoRegisterGroup: wgA.Name}},
+		"non-existent group": {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: wgA.Namespace, AutoRegisterGroup: "dne"}},
 	}
 
 	for name, tc := range cases {
@@ -91,50 +87,174 @@ func TestNonAutoregisteredWorklaods(t *testing.T) {
 
 }
 
-func TestAutoregisterWorkloadEntry(t *testing.T) {
-	features.WorkloadEntryCleanupGracePeriod = 5 * time.Second
+func TestAutoregisterFields(t *testing.T) {
+	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
+	ig1, ig2, store := setup(t)
+	stop1, stop2 := make(chan struct{}), make(chan struct{})
+	defer close(stop1) // stop1 should be killed early, as part of test
+	defer close(stop2)
+	go ig1.Run(stop1)
+	go ig2.Run(stop2)
+
+	p := fakeProxy("1.2.3.4", wgA, "nw1")
+
+	t.Run("initial registration", func(t *testing.T) {
+		// simply make sure the entry exists after connecting
+		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
+	})
+	t.Run("fast reconnect", func(t *testing.T) {
+		t.Run("same instance", func(t *testing.T) {
+			// disconnect, make sure entry is still there with disconnect meta
+			ig1.QueueUnregisterWorkload(p)
+			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
+			checkEntryOrFail(t, store, wgA, p, "")
+			// reconnect, ensure entry is there with the same instance id
+			ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+			checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
+		})
+		t.Run("different instance", func(t *testing.T) {
+			// disconnect, make sure entry is still there with disconnect metadata
+			ig1.QueueUnregisterWorkload(p)
+			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
+			checkEntryOrFail(t, store, wgA, p, "")
+			// reconnect, ensure entry is there with the new instance id
+			ig2.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+			checkEntryOrFail(t, store, wgA, p, ig2.Server.instanceID)
+		})
+	})
+	t.Run("slow reconnect", func(t *testing.T) {
+		// disconnect, wait and make sure entry is gone
+		ig2.QueueUnregisterWorkload(p)
+		time.Sleep(features.WorkloadEntryCleanupGracePeriod * 2)
+		checkNoEntryOrFail(t, store, wgA, p)
+		// reconnect
+		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
+	})
+	t.Run("disconnect and controller stop", func(t *testing.T) {
+		// disconnect, kill the cleanup queue from the first controller
+		ig1.QueueUnregisterWorkload(p)
+		// stop processing the delayed close queue in ig1, forces using periodic cleanup
+		close(stop1)
+		retry.UntilSuccessOrFail(t, func() error {
+			return checkNoEntry(store, wgA, p)
+		}, retry.Timeout(time.Until(time.Now().Add(11*features.WorkloadEntryCleanupGracePeriod))))
+	})
+}
+
+func setup(t *testing.T) (*InternalGen, *InternalGen, model.ConfigStoreCache) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig1 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
 	ig1.Store = store
 	ig2 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-2"})
 	ig2.Store = store
-
 	createOrFail(t, store, wgA)
-	createOrFail(t, store, wgB)
-
-	t.Run("autoregister", func(t *testing.T) {
-		ig1.RegisterWorkload(fakeProxy("1.2.3.4", "wg-a", "a", ""))
-		cfg := store.Get(gvk.WorkloadEntry, "wg-a-1.2.3.4", "a")
-		if cfg == nil {
-			t.Fatal("expected WorkloadEntry to be created.")
-		}
-		we := cfg.Spec.(*v1alpha3.WorkloadEntry)
-		if !reflect.DeepEqual(cfg.Labels, map[string]string{"app": "a", "merge": "me"}) {
-			t.Fatal("expected metadata labels to be merged with WorkloadGroup labels")
-		}
-		if !reflect.DeepEqual(we.Ports, tmplA.Template.Ports) {
-			t.Fatal("expected ports from WorkloadGroup")
-		}
-		if we.Address != "1.2.3.4" {
-			t.Fatal("expected to maintain address from proxy")
-		}
-	})
+	return ig1, ig2, store
 }
 
-func fakeProxy(ip, wg, ns, nw string) (*model.Proxy, *Connection) {
-	p := &model.Proxy{
+func checkNoEntry(store model.ConfigStoreCache, wg config.Config, proxy *model.Proxy) error {
+	name := wg.Name + "-" + proxy.IPAddresses[0]
+	if proxy.Metadata.Network != "" {
+		name += "-" + proxy.Metadata.Network
+	}
+
+	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
+	if cfg != nil {
+		return fmt.Errorf("did not expect WorkloadEntry %s/%s to exist", wg.Namespace, name)
+	}
+	return nil
+}
+
+func checkNoEntryOrFail(
+	t test.Failer,
+	store model.ConfigStoreCache,
+	wg config.Config,
+	proxy *model.Proxy,
+) {
+	if err := checkNoEntry(store, wg, proxy); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func checkEntryOrFail(
+	t test.Failer,
+	store model.ConfigStoreCache,
+	wg config.Config,
+	proxy *model.Proxy,
+	connectedTo string,
+) {
+	name := wg.Name + "-" + proxy.IPAddresses[0]
+	if proxy.Metadata.Network != "" {
+		name += "-" + proxy.Metadata.Network
+	}
+
+	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
+	if cfg == nil {
+		t.Fatalf("expected WorkloadEntry %s/%s to exist", wg.Namespace, name)
+		return
+	}
+	tmpl := wg.Spec.(*v1alpha3.WorkloadGroup)
+	we := cfg.Spec.(*v1alpha3.WorkloadEntry)
+
+	// check workload entry specific fields
+	if !reflect.DeepEqual(we.Ports, tmpl.Template.Ports) {
+		t.Fatal("expected ports from WorkloadGroup")
+	}
+	if we.Address != proxy.IPAddresses[0] {
+		t.Fatalf("entry has address %s; expected %s", we.Address, proxy.IPAddresses[0])
+	}
+
+	// check controller annotations
+	if connectedTo != "" {
+		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
+			t.Fatalf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v)
+		}
+		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
+			t.Fatalf("expected connection timestamp to be set")
+		}
+	} else {
+		if _, ok := cfg.Annotations[WorkloadControllerAnnotation]; ok {
+			t.Fatal("expected WorkloadEntry have controller annotation unset")
+		}
+		if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+			t.Fatal("expected disconnection timestamp to be set")
+		}
+	}
+
+	// check all labels are copied to the WorkloadEntry
+	if !reflect.DeepEqual(cfg.Labels, we.Labels) {
+		t.Fatal("WorkloadEntry spec labels should match meta labels")
+	}
+	for k, v := range tmpl.Template.Labels {
+		if _, ok := proxy.Metadata.Labels[k]; ok {
+			// would be overwritten
+			continue
+		}
+		if we.Labels[k] != v {
+			t.Fatalf("WorkloadEntry labels missing %s: %s from template", k, v)
+		}
+	}
+	for k, v := range proxy.Metadata.Labels {
+		if we.Labels[k] != v {
+			t.Fatalf("WorkloadEntry labels missing %s: %s from proxy meta", k, v)
+		}
+	}
+}
+
+func fakeProxy(ip string, wg config.Config, nw string) *model.Proxy {
+	return &model.Proxy{
 		IPAddresses: []string{ip},
 		Metadata: &model.NodeMetadata{
-			AutoRegisterGroup: wg,
-			Namespace:         ns,
+			AutoRegisterGroup: wg.Name,
+			Namespace:         wg.Namespace,
 			Network:           nw,
 			Labels:            map[string]string{"merge": "me"},
 		},
 	}
-	c := &Connection{Connect: time.Now(), proxy: p}
-	return p, c
 }
 
+// createOrFail wraps config creation with convience for failing tests
 func createOrFail(t test.Failer, store model.ConfigStoreCache, cfg config.Config) {
 	if _, err := store.Create(cfg); err != nil {
 		t.Fatalf("failed creating %s/%s: %v", cfg.Namespace, cfg.Name, err)
