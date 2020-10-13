@@ -112,7 +112,7 @@ func (d delayQueue) Run(stop <-chan struct{}) {
 		head := q.Peek()
 		if head != nil {
 			task := head.(*delayTask)
-			delay := task.runAt.Sub(time.Now())
+			delay := time.Until(task.runAt)
 			if delay <= 0 {
 				// actually remove the work item if we're ready to go
 				heap.Pop(q)
