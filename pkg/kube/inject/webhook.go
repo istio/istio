@@ -78,9 +78,6 @@ type Webhook struct {
 	healthCheckInterval time.Duration
 	healthCheckFile     string
 
-	configFile string
-	valuesFile string
-
 	watcher Watcher
 
 	mon      *monitor
