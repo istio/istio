@@ -35,20 +35,24 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
-			retry.UntilSuccessOrFail(t, func() error {
-				_, err := clt.Call(echo.CallOptions{
-					Target:   srv,
+			for _, cltInstance := range clt {
+				_, err := cltInstance.Call(echo.CallOptions{
+					Target:   srv[0],
 					PortName: "tcp",
 					Count:    1,
 				})
 				if err != nil {
-					return err
+					t.Fatalf("Could not send traffic; err %v", err)
 				}
-				if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount); err != nil {
-					return err
-				}
-				if err := validateLogs(t, tcpServerLogEntry); err != nil {
-					return err
+			}
+			retry.UntilSuccessOrFail(t, func() error {
+				for index, _ := range ctx.Clusters() {
+					if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, index); err != nil {
+						return err
+					}
+					if err := validateLogs(t, tcpServerLogEntry, index); err != nil {
+						return err
+					}
 				}
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))

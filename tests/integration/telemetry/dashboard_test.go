@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/framework/resource"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -139,7 +140,7 @@ func TestDashboard(t *testing.T) {
 					}
 
 					for _, query := range queries {
-						if err := checkMetric(p, query, d.excluded); err != nil {
+						if err := checkMetric(ctx.Clusters().Default(), p, query, d.excluded); err != nil {
 							t.Errorf("Check query failed: %v", err)
 						}
 					}
@@ -170,9 +171,9 @@ var (
 	)
 )
 
-func checkMetric(p prometheus.Instance, query string, excluded []string) error {
+func checkMetric(cluster resource.Cluster, p prometheus.Instance, query string, excluded []string) error {
 	query = replacer.Replace(query)
-	value, _, err := p.API().QueryRange(context.Background(), query, promv1.Range{
+	value, _, err := p.API(cluster).QueryRange(context.Background(), query, promv1.Range{
 		Start: time.Now().Add(-time.Minute),
 		End:   time.Now(),
 		Step:  time.Second,
@@ -218,7 +219,7 @@ func waitForMetrics(t framework.TestContext, instance prometheus.Instance) {
 
 	for _, query := range queries {
 		err := retry.UntilSuccess(func() error {
-			return checkMetric(instance, query, nil)
+			return checkMetric(t.Clusters().Default(), instance, query, nil)
 		})
 		// Do not fail here - this is just to let the metrics sync. We will fail on the test if query fails
 		if err != nil {

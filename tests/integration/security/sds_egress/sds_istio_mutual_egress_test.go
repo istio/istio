@@ -147,7 +147,7 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 func getMetric(ctx framework.TestContext, prometheus prometheus.Instance, query string) (float64, error) {
 	ctx.Helper()
 
-	value, err := prometheus.WaitForQuiesce(query)
+	value, err := prometheus.WaitForQuiesce(ctx.Clusters().Default(), query)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve metric from prom with err: %v", err)
 	}

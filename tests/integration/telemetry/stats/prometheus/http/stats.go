@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	client, server echo.Instance
+	client, server echo.Instances
 	ist            istio.Instance
 	appNsInst      namespace.Instance
 	promInst       prometheus.Instance
@@ -67,19 +67,21 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 				if err := SendTraffic(); err != nil {
 					return err
 				}
-				// Query client side metrics
-				if _, err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
-					return err
-				}
-				if _, err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
-					return err
-				}
-				// This query will continue to increase due to readiness probe; don't wait for it to converge
-				if err := promUtil.QueryFirstPrometheus(t, appQuery, GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_echo_http_requests_total: \n%s", util.PromDump(promInst, "istio_echo_http_requests_total"))
-					return err
+				for _, c := range ctx.Clusters() {
+					// Query client side metrics
+					if err := promUtil.QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(c, promInst, "istio_requests_total"))
+						return err
+					}
+					if err := promUtil.QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(c, promInst, "istio_requests_total"))
+						return err
+					}
+					// This query will continue to increase due to readiness probe; don't wait for it to converge
+					if err := promUtil.QueryFirstPrometheus(t, c, appQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_echo_http_requests_total: \n%s", util.PromDump(c, promInst, "istio_echo_http_requests_total"))
+						return err
+					}
 				}
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
@@ -96,29 +98,37 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	_, err = echoboot.NewBuilder(ctx).
-		With(&client, echo.Config{
-			Service:   "client",
-			Namespace: appNsInst,
-			Ports:     nil,
-			Subsets:   []echo.SubsetConfig{{}},
-		}).
-		With(&server, echo.Config{
-			Service:   "server",
-			Namespace: appNsInst,
-			Subsets:   []echo.SubsetConfig{{}},
-			Ports: []echo.Port{
-				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+	builder := echoboot.NewBuilder(ctx)
+	for _, c := range ctx.Clusters() {
+		builder.
+			With(nil, echo.Config{
+				Service:   "client",
+				Namespace: appNsInst,
+				Cluster:   c,
+				Ports:     nil,
+				Subsets:   []echo.SubsetConfig{{}},
+			}).
+			With(nil, echo.Config{
+				Service:   "server",
+				Namespace: appNsInst,
+				Cluster:   c,
+				Subsets:   []echo.SubsetConfig{{}},
+				Ports: []echo.Port{
+					{
+						Name:         "http",
+						Protocol:     protocol.HTTP,
+						InstancePort: 8090,
+					},
 				},
-			},
-		}).
-		Build()
+			}).
+			Build()
+	}
+	echos, err := builder.Build()
 	if err != nil {
 		return err
 	}
+	client = echos.Match(echo.Service("client"))
+	server = echos.Match(echo.Service("server"))
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
@@ -128,11 +138,16 @@ func TestSetup(ctx resource.Context) (err error) {
 
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic() error {
-	_, err := client.Call(echo.CallOptions{
-		Target:   server,
-		PortName: "http",
-	})
-	return err
+	for _, cltInstance := range client {
+		_, err := cltInstance.Call(echo.CallOptions{
+			Target:   server[0],
+			PortName: "http",
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // BuildQueryCommon is the shared function to construct prom query for istio_request_total metric.

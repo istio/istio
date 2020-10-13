@@ -176,6 +176,15 @@ func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name s
 	return service, endpoints, nil
 }
 
+/*func GetNodeIP(a kubernetes.Interface) (string, error){
+	nodes, err := a.CoreV1().Nodes().Get(context.TODO(),"", kubeApiMeta.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return nodes.
+
+}*/
+
 // WaitForSecretToExist waits for the given secret up to the given waitTime.
 func WaitForSecretToExist(a kubernetes.Interface, namespace, name string, waitTime time.Duration) (*kubeApiCore.Secret, error) {
 	secret := a.CoreV1().Secrets(namespace)
