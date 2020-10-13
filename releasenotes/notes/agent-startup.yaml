@@ -4,4 +4,4 @@ area: networking
 issue: []
 releaseNotes:
 - |
-  **Added** a new `istio_agent_startup_time` metric to measure the latency in proxy readiness.
+  **Added** a new `startup_duration_seconds` metric to measure the latency in proxy readiness.
