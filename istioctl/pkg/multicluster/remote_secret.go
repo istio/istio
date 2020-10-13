@@ -67,6 +67,7 @@ func init() {
 const (
 	remoteSecretPrefix = "istio-remote-secret-"
 	configSecretName   = "istio-kubeconfig"
+	configSecretKey = "config"
 )
 
 func remoteSecretNameFromClusterName(clusterName string) string {
@@ -126,6 +127,10 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 	if err := latest.Codec.Encode(kubeconfig, &data); err != nil {
 		return nil, err
 	}
+	key := clusterName
+	if secName == configSecretName {
+		key = configSecretKey
+	}
 	out := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: secName,
@@ -137,7 +142,7 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 			},
 		},
 		Data: map[string][]byte{
-			clusterName: data.Bytes(),
+			key: data.Bytes(),
 		},
 	}
 	return out, nil
