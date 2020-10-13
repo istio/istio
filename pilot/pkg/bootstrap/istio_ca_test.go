@@ -22,10 +22,11 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/env"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/env"
 )
 
 const namespace = "istio-system"
