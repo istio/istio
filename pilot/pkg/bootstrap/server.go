@@ -291,10 +291,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initDiscoveryService(args)
 
-	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
 	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
-	if features.CentralIstioD && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
+	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
 		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
 	}
 

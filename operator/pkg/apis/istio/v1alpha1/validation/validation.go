@@ -115,6 +115,7 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		{"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
 			false},
+		{"Values.global.centralIstiod", "Values.global.externallIstiod", false},
 	}
 	for _, d := range deprecations {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
