@@ -59,6 +59,8 @@ var (
 				"pilot_total_xds_internal_errors",
 				"pilot_xds_push_context_errors",
 				`pilot_xds_pushes{type!~"lds|cds|rds|eds"}`,
+				// We do not push credentials in this test
+				`pilot_xds_pushes{type="sds"}`,
 				"_timeout",
 				"_rejects",
 				// We do not simulate injection errors
