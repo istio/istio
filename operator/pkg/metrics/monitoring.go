@@ -89,7 +89,7 @@ const (
 
 	// HelmChartRenderError describes error where Helm charts cannot be rendered
 	// for the generated values.yaml tree.
-	HelmChartRenderError RenderErrorType = "helm_chare_render"
+	HelmChartRenderError RenderErrorType = "helm_chart_render"
 
 	// K8SSettingsOverlayError describes the K8s overlay error after
 	// rendering Helm charts successfully.
