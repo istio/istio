@@ -114,6 +114,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		return err
 	}
 	s.configController = aggregateConfigController
+	s.XDSServer.InternalGen.Store = s.writableConfigStore
 
 	// Create the config store.
 	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
@@ -142,6 +143,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		}
 	}
 	s.initStatusController(args, features.EnableStatus)
+	s.writableConfigStore = configController
 	return nil
 }
 
@@ -424,15 +426,6 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 		return nil, err
 	}
 	return c, nil
-}
-
-func (s *Server) kubeConfigStore() *crdclient.Client {
-	for _, cs := range s.ConfigStores {
-		if kc, ok := cs.(*crdclient.Client); ok {
-			return kc
-		}
-	}
-	return nil
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

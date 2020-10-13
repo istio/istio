@@ -122,9 +122,10 @@ type Server struct {
 	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
 
-	configController  model.ConfigStoreCache
-	ConfigStores      []model.ConfigStoreCache
-	serviceEntryStore *serviceentry.ServiceEntryStore
+	configController    model.ConfigStoreCache
+	writableConfigStore model.ConfigStoreCache
+	ConfigStores        []model.ConfigStoreCache
+	serviceEntryStore   *serviceentry.ServiceEntryStore
 
 	httpServer       *http.Server // debug, monitoring and readiness Server.
 	httpsServer      *http.Server // webhooks HTTPS Server.
@@ -240,9 +241,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
-
-	// TODO handle no kube store
-	s.XDSServer.InternalGen.Store = s.kubeConfigStore()
 
 	s.initJwtPolicy()
 

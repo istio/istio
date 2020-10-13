@@ -317,6 +317,11 @@ func (c *controller) UpdateStatus(config.Config) (newRevision string, err error)
 	return "", errUnsupported
 }
 
+func (c *controller) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+	log.Warnf("patch %s", errUnsupported)
+	return "", errUnsupported
+}
+
 // Create is not implemented
 func (c *controller) Create(config.Config) (revision string, err error) {
 	log.Warnf("create %s", errUnsupported)

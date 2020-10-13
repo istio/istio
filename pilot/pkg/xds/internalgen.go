@@ -25,7 +25,6 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"golang.org/x/time/rate"
 
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -56,7 +55,7 @@ type InternalGen struct {
 	Server *DiscoveryServer
 
 	// Store only tracks things in k8s since we don't handle writing to MCP based stores or reconciling across different store types.
-	Store *crdclient.Client
+	Store model.ConfigStoreCache
 
 	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
 	cleanupLimit *rate.Limiter
