@@ -67,7 +67,7 @@ func init() {
 const (
 	remoteSecretPrefix = "istio-remote-secret-"
 	configSecretName   = "istio-kubeconfig"
-	configSecretKey = "config"
+	configSecretKey    = "config"
 )
 
 func remoteSecretNameFromClusterName(clusterName string) string {
