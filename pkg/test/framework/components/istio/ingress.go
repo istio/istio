@@ -158,6 +158,14 @@ type clientKey struct {
 }
 
 func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses, error) {
+	return c.callEcho(options, false)
+}
+
+func (c *ingressImpl) CallEchoWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+	return c.callEcho(options, true, retryOptions...)
+}
+
+func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
 	if options.Port == nil || options.Port.Protocol == "" {
 		return nil, fmt.Errorf("must provide protocol")
 	}
@@ -190,10 +198,15 @@ func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses
 		options.Headers = map[string][]string{}
 	}
 	options.Headers["Host"] = []string{host}
-	return common.CallEcho(&options)
+	return common.CallEcho(&options, retry, retryOptions...)
 }
 
 func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, error) {
+	return c.call(options, false)
+}
+
+func (c *ingressImpl) call(options ingress.CallOptions,
+	retry bool, retryOptions ...retry.Option) (ingress.CallResponse, error) {
 	if err := options.Sanitize(); err != nil {
 		scopes.Framework.Fatalf("CallOptions sanitization failure, error %v", err)
 	}
@@ -225,7 +238,7 @@ func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, e
 		req.CaCert = options.CaCert
 	}
 
-	resp, err := common.CallEcho(req)
+	resp, err := common.CallEcho(req, retry, retryOptions...)
 	if err != nil {
 		return ingress.CallResponse{}, err
 	}
@@ -246,7 +259,22 @@ func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, e
 
 func (c *ingressImpl) CallOrFail(t test.Failer, options ingress.CallOptions) ingress.CallResponse {
 	t.Helper()
-	resp, err := c.Call(options)
+	resp, err := c.call(options, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func (c *ingressImpl) CallWithRetry(options ingress.CallOptions,
+	retryOptions ...retry.Option) (ingress.CallResponse, error) {
+	return c.call(options, true, retryOptions...)
+}
+
+func (c *ingressImpl) CallWithRetryOrFail(t test.Failer, options ingress.CallOptions,
+	retryOptions ...retry.Option) ingress.CallResponse {
+	t.Helper()
+	resp, err := c.call(options, true, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}

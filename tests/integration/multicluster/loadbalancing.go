@@ -48,7 +48,7 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 		})
 }
 
-func checkReachedAllSubsets(echos echo.Instances) callChecker {
+func checkReachedAllSubsets(echos echo.Instances) echo.Validator {
 	return func(res client.ParsedResponses) error {
 		// make sure we reached all cluster/subset combos
 		for _, e := range echos {
@@ -66,7 +66,7 @@ func checkReachedAllSubsets(echos echo.Instances) callChecker {
 	}
 }
 
-func checkEqualIntraNetworkTraffic(clusters resource.Clusters, srcNetwork string) callChecker {
+func checkEqualIntraNetworkTraffic(clusters resource.Clusters, srcNetwork string) echo.Validator {
 	// expect same network traffic to have very equal distribution (20% error)
 	intraNetworkClusters := clusters.ByNetwork()[srcNetwork]
 	return func(res client.ParsedResponses) error {

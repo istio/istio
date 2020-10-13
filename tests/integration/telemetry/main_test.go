@@ -34,29 +34,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-# Add an additional TCP port, 31400
-components:
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: true
-    k8s:
-      service:
-        ports:
-          - port: 15020
-            targetPort: 15020
-            name: status-port
-          - port: 80
-            targetPort: 8080
-            name: http2
-          - port: 443
-            targetPort: 8443
-            name: https
-          - port: 31400
-            targetPort: 31400
-            name: tcp`
-		})).
+		Setup(istio.Setup(&i, nil)).
 		Setup(func(ctx resource.Context) (err error) {
 			ingr = i.IngressFor(ctx.Clusters().Default())
 			return nil

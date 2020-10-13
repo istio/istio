@@ -28,9 +28,10 @@ import (
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 
-	config "istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
@@ -202,6 +203,242 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
+	}
+}
+
+func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig config.Config, origMeta metav1.ObjectMeta, mod config.Config, modMeta metav1.ObjectMeta) (metav1.Object, error) {
+	if orig.GroupVersionKind != mod.GroupVersionKind {
+		return nil, fmt.Errorf("gvk mismatch: %v, modified: %v", orig.GroupVersionKind, mod.GroupVersionKind)
+	}
+	// TODO support multiple patch types and setting field manager
+	switch orig.GroupVersionKind {
+	case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.DestinationRule{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.DestinationRule)),
+		}
+		modRes := &clientnetworkingv1alpha3.DestinationRule{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.DestinationRule)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().DestinationRules(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.EnvoyFilter{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.EnvoyFilter)),
+		}
+		modRes := &clientnetworkingv1alpha3.EnvoyFilter{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.EnvoyFilter)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().EnvoyFilters(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.Gateway{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.Gateway)),
+		}
+		modRes := &clientnetworkingv1alpha3.Gateway{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.Gateway)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().Gateways(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.ServiceEntry{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.ServiceEntry)),
+		}
+		modRes := &clientnetworkingv1alpha3.ServiceEntry{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.ServiceEntry)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().ServiceEntries(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.Sidecar{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.Sidecar)),
+		}
+		modRes := &clientnetworkingv1alpha3.Sidecar{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.Sidecar)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().Sidecars(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.VirtualService{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.VirtualService)),
+		}
+		modRes := &clientnetworkingv1alpha3.VirtualService{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.VirtualService)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().VirtualServices(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.WorkloadEntry{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.WorkloadEntry)),
+		}
+		modRes := &clientnetworkingv1alpha3.WorkloadEntry{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.WorkloadEntry)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().WorkloadEntries(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1alpha3.WorkloadGroup{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1alpha3.WorkloadGroup)),
+		}
+		modRes := &clientnetworkingv1alpha3.WorkloadGroup{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1alpha3.WorkloadGroup)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1alpha3().WorkloadGroups(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
+		oldRes := &clientsecurityv1beta1.AuthorizationPolicy{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*securityv1beta1.AuthorizationPolicy)),
+		}
+		modRes := &clientsecurityv1beta1.AuthorizationPolicy{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*securityv1beta1.AuthorizationPolicy)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.SecurityV1beta1().AuthorizationPolicies(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+		oldRes := &clientsecurityv1beta1.PeerAuthentication{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*securityv1beta1.PeerAuthentication)),
+		}
+		modRes := &clientsecurityv1beta1.PeerAuthentication{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*securityv1beta1.PeerAuthentication)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.SecurityV1beta1().PeerAuthentications(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+		oldRes := &clientsecurityv1beta1.RequestAuthentication{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*securityv1beta1.RequestAuthentication)),
+		}
+		modRes := &clientsecurityv1beta1.RequestAuthentication{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*securityv1beta1.RequestAuthentication)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return ic.SecurityV1beta1().RequestAuthentications(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+		oldRes := &servicev1alpha1.GatewayClass{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*servicev1alpha1.GatewayClassSpec)),
+		}
+		modRes := &servicev1alpha1.GatewayClass{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*servicev1alpha1.GatewayClassSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return sc.NetworkingV1alpha1().GatewayClasses().
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind():
+		oldRes := &servicev1alpha1.Gateway{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*servicev1alpha1.GatewaySpec)),
+		}
+		modRes := &servicev1alpha1.Gateway{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*servicev1alpha1.GatewaySpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return sc.NetworkingV1alpha1().Gateways(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
+		oldRes := &servicev1alpha1.HTTPRoute{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*servicev1alpha1.HTTPRouteSpec)),
+		}
+		modRes := &servicev1alpha1.HTTPRoute{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*servicev1alpha1.HTTPRouteSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return sc.NetworkingV1alpha1().HTTPRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
+		oldRes := &servicev1alpha1.TCPRoute{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*servicev1alpha1.TCPRouteSpec)),
+		}
+		modRes := &servicev1alpha1.TCPRoute{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*servicev1alpha1.TCPRouteSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return sc.NetworkingV1alpha1().TCPRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
 	}
 }
 

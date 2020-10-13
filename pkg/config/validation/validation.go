@@ -1616,7 +1616,6 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		}
 
 		appliesToMesh := false
-		appliesToGateway := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
 		}
@@ -1625,8 +1624,6 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		for _, gatewayName := range virtualService.Gateways {
 			if gatewayName == constants.IstioMeshGateway {
 				appliesToMesh = true
-			} else {
-				appliesToGateway = true
 			}
 		}
 
@@ -1666,9 +1663,6 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			if httpRoute == nil {
 				errs = appendErrors(errs, errors.New("http route may not be null"))
 				continue
-			}
-			if !appliesToGateway && httpRoute.Delegate != nil {
-				errs = appendErrors(errs, errors.New("http delegate only applies to gateway"))
 			}
 			errs = appendErrors(errs, validateHTTPRoute(httpRoute, isDelegate))
 		}

@@ -37,7 +37,6 @@ import (
 // Controller watches a ConfigMap and calls the given callback when the ConfigMap changes.
 // The ConfigMap is passed to the callback, or nil if it doesn't exist.
 type Controller struct {
-	client   kube.Client
 	informer infomersv1.ConfigMapInformer
 	queue    workqueue.RateLimitingInterface
 
@@ -52,7 +51,6 @@ type Controller struct {
 // NewController returns a new ConfigMap watcher controller.
 func NewController(client kube.Client, namespace, name string, callback func(*v1.ConfigMap)) *Controller {
 	c := &Controller{
-		client:             client,
 		queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
 		configMapNamespace: namespace,
 		configMapName:      name,

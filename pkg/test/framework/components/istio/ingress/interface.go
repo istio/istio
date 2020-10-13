@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // CallType defines ingress gateway type
@@ -90,10 +91,13 @@ type Instance interface {
 	// Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)
 	CallOrFail(t test.Failer, options CallOptions) CallResponse
+	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (CallResponse, error)
+	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) CallResponse
 
 	// CallEcho makes a call through ingress using the echo call and response types. This is recommended
 	// and the other method will likely be removed in the future.
 	CallEcho(options echo.CallOptions) (client.ParsedResponses, error)
+	CallEchoWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
 
 	// ProxyStats returns proxy stats, or error if failure happens.
 	ProxyStats() (map[string]int, error)
