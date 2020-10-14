@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 27490
+
+releaseNotes:
+- |
+  **Added** `istioctl proxy-config log` now accept label selectors to filter logs based on label.

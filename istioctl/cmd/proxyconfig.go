@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -431,9 +432,9 @@ func logCmd() *cobra.Command {
 `,
 		Aliases: []string{"o"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
+			if labelSelector == "" && len(args) < 1 {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("log requires pod name")
+				return fmt.Errorf("log requires pod name or --selector")
 			}
 			if reset && loggerLevelString != "" {
 				cmd.Println(cmd.UsageString())
@@ -443,8 +444,14 @@ func logCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var err error
-			if podName, podNamespace, err = getPodName(args[0]); err != nil {
-				return err
+			if labelSelector != "" {
+				if podName, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
+					return err
+				}
+			} else {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
 			}
 			loggerNames, err := setupEnvoyLogConfig("", podName, podNamespace)
 			if err != nil {
@@ -519,7 +526,9 @@ func logCmd() *cobra.Command {
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
 	s := strings.Join(activeLoggers, ", ")
+
 	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
+	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" [<logger>:]<level>,[<logger>:]<level>,... where logger can be one of %s and level can be one of %s",
@@ -805,5 +814,27 @@ func getPodName(podflag string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+	return podName, ns, nil
+}
+
+func getPodNameBySelector(labelSelector string) (string, string, error) {
+	client, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
+	}
+	var podName, ns string
+	pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+	if err != nil {
+		return "", "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+	}
+	if len(pl.Items) < 1 {
+		return "", "", errors.New("no pods found")
+	}
+	if len(pl.Items) > 1 {
+		log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
+	}
+	// only use the first pod in the list
+	podName = pl.Items[0].Name
+	ns = pl.Items[0].Namespace
 	return podName, ns, nil
 }
