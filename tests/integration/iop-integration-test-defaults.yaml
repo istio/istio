@@ -55,6 +55,7 @@ spec:
     pilot:
       env:
         PILOT_ENABLE_STATUS: true
+        PILOT_ENABLED_SERVICE_APIS: true
 
     gateways:
       istio-ingressgateway:
