@@ -185,6 +185,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		PushContext:  model.NewPushContext(),
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
+	e.SetLedger(buildLedger(args.RegistryOptions))
 	ac := aggregate.NewController(aggregate.Options{
 		MeshHolder: e,
 	})

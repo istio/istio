@@ -1,0 +1,63 @@
+From 513447a1109eafe9522c4b05da8fe9c6cc3093a4 Mon Sep 17 00:00:00 2001
+From: therealmitchconnors <mitchconnors@gmail.com>
+Date: Mon, 17 Aug 2020 15:35:11 -0700
+Subject: [PATCH] fmt
+
+---
+ istioctl/cmd/detectprotocols.go | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/istioctl/cmd/detectprotocols.go b/istioctl/cmd/detectprotocols.go
+index 461191da4e..7fd1f2f1c0 100644
+--- a/istioctl/cmd/detectprotocols.go
++++ b/istioctl/cmd/detectprotocols.go
+@@ -18,18 +18,22 @@ import (
+ 	"context"
+ 	"errors"
+ 	"fmt"
+-	"github.com/hashicorp/go-multierror"
+-	"github.com/prometheus/common/model"
+-	"istio.io/istio/istioctl/pkg/clioptions"
+-	"istio.io/istio/pkg/kube"
+-	"istio.io/pkg/log"
+-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"strings"
+ 	"time"
+ 
++	"strings"
++	"time"
++
++	"github.com/hashicorp/go-multierror"
+ 	prometheus "github.com/prometheus/client_golang/api"
+ 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
++	"github.com/prometheus/common/model"
+ 	"github.com/spf13/cobra"
++	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
++
++	"istio.io/istio/istioctl/pkg/clioptions"
++	"istio.io/istio/pkg/kube"
++	"istio.io/pkg/log"
+ )
+ 
+ func protocolLabelsCmd() *cobra.Command {
+@@ -84,7 +88,7 @@ to quickly create a Cobra application.`,
+ 			return nil
+ 		},
+ 	}
+-	cmd.PersistentFlags().StringVar(&promURI, "prometheus-uri", "", "The URI of the prometheus instance " +
++	cmd.PersistentFlags().StringVar(&promURI, "prometheus-uri", "", "The URI of the prometheus instance "+
+ 		"which is recording telemetry for the mesh.  Overrides port forwarding behavior")
+ 	return cmd
+ }
+@@ -111,7 +115,7 @@ func getSvcProtocols(client kube.ExtendedClient, promURI string) (map[string][]s
+ 	}
+ 
+ 	pclient, err := prometheus.NewClient(prometheus.Config{
+-		Address:      fmt.Sprintf("http://%s", addr),
++		Address: fmt.Sprintf("http://%s", addr),
+ 	})
+ 
+ 	if err != nil {
+-- 
+2.28.0.220.ged08abb693-goog
+

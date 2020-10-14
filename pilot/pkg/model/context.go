@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )
 
@@ -73,6 +74,8 @@ type Environment struct {
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
+
+	ledger ledger.Ledger
 }
 
 func (e *Environment) GetDomainSuffix() string {

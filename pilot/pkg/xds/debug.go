@@ -365,7 +365,7 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 	configVersion := nonce[:VersionLen]
 	result, ok := cache[configVersion]
 	if !ok {
-		lookupResult, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
+		lookupResult, err := s.Env.GetLedger().GetPreviousValue(configVersion, key)
 		if err != nil {
 			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
 			lookupResult = ""
