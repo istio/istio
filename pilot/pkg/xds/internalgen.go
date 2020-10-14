@@ -54,7 +54,8 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
-	// Store only tracks things in k8s since we don't handle writing to MCP based stores or reconciling across different store types.
+	// Store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
+	// do not support writing.
 	Store model.ConfigStoreCache
 
 	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
@@ -108,10 +109,8 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 }
 
 func (sg *InternalGen) Run(stop <-chan struct{}) {
-	if sg.Store != nil {
+	if sg.Store != nil && sg.cleanupQueue != nil {
 		go sg.periodicWorkloadEntryCleanup(stop)
-	}
-	if sg.cleanupQueue != nil {
 		go sg.cleanupQueue.Run(stop)
 	}
 }
