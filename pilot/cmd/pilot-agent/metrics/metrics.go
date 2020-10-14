@@ -12,12 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package metrics
 
-import "istio.io/pkg/monitoring"
+import (
+	"time"
+
+	"istio.io/pkg/monitoring"
+)
 
 var (
 	typeTag = monitoring.MustCreateLabel("type")
+
+	// StartupTime measures the time it takes for the agent to get ready Note: This
+	// is dependant on readiness probes. This means our granularity is correlated to
+	// the probing interval.
+	startupTime = monitoring.NewGauge(
+		"startup_duration_seconds",
+		"The time from the process starting to being marked ready.",
+	)
 
 	// scrapeErrors records total number of failed scrapes.
 	scrapeErrors = monitoring.NewSum(
@@ -25,12 +37,12 @@ var (
 		"The total number of failed scrapes.",
 		monitoring.WithLabels(typeTag),
 	)
-	envoyScrapeErrors = scrapeErrors.With(typeTag.Value(ScrapeTypeEnvoy))
-	appScrapeErrors   = scrapeErrors.With(typeTag.Value(ScrapeTypeApp))
-	agentScrapeErrors = scrapeErrors.With(typeTag.Value(ScrapeTypeAgent))
+	EnvoyScrapeErrors = scrapeErrors.With(typeTag.Value(ScrapeTypeEnvoy))
+	AppScrapeErrors   = scrapeErrors.With(typeTag.Value(ScrapeTypeApp))
+	AgentScrapeErrors = scrapeErrors.With(typeTag.Value(ScrapeTypeAgent))
 
-	// scrapeErrors records total number of scrapes.
-	scrapeTotals = monitoring.NewSum(
+	// ScrapeTotals records total number of scrapes.
+	ScrapeTotals = monitoring.NewSum(
 		"scrapes_total",
 		"The total number of scrapes.",
 	)
@@ -42,9 +54,18 @@ var (
 	ScrapeTypeAgent = "agent"
 )
 
+var (
+	processStartTime = time.Now()
+)
+
+func RecordStartupTime() {
+	startupTime.Record(time.Since(processStartTime).Seconds())
+}
+
 func init() {
 	monitoring.MustRegister(
-		scrapeTotals,
+		ScrapeTotals,
 		scrapeErrors,
+		startupTime,
 	)
 }
