@@ -614,6 +614,31 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
 				},
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {Fields: map[string]*structpb.Value{
+							"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+								{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+									"host": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "host",
+										},
+									},
+									"name": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "svc",
+										},
+									},
+									"namespace": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "default",
+										},
+									},
+								}}}},
+							}}}},
+						}},
+					},
+				},
 			},
 		},
 		{
@@ -678,6 +703,31 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
 				},
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {Fields: map[string]*structpb.Value{
+							"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+								{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+									"host": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "host",
+										},
+									},
+									"name": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "svc",
+										},
+									},
+									"namespace": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "default",
+										},
+									},
+								}}}},
+							}}}},
+						}},
+					},
+				},
 			},
 		},
 	}
@@ -688,7 +738,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery,
-				tt.endpoints, tt.direction, servicePort, tt.external)
+				tt.endpoints, tt.direction, servicePort,
+				&model.Service{Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"}})
 
 			if diff := cmp.Diff(defaultCluster, tt.expectedCluster, protocmp.Transform()); diff != "" {
 				t.Errorf("Unexpected default cluster, diff: %v", diff)
