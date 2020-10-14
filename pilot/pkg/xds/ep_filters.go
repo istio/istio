@@ -67,10 +67,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*endpoint.Localit
 				lbEndpoints = append(lbEndpoints, clonedLbEp)
 			} else {
 				if !b.canViewNetwork(epNetwork) {
+					adsLog.Infof("network filter removing %s %s from %s: network view %v does not include %s", lbEp.GetEndpoint(), b.clusterName, b.proxyID, b.networkView, epNetwork)
 					continue
 				}
 				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
 					// dont allow cross-network endpoints for uninjected traffic
+					adsLog.Infof("network filter removing %s %s from %s: tls mode is disabled", lbEp.GetEndpoint(), b.clusterName, b.proxyID)
 					continue
 				}
 

@@ -45,6 +45,9 @@ type EndpointBuilder struct {
 	hostname   host.Name
 	port       int
 	push       *model.PushContext
+
+	// TODO temporary for debugging
+	proxyID string
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -59,6 +62,8 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		service:         svc,
 		destinationRule: push.DestinationRule(proxy, svc),
 
+		// TODO temporary for debugging
+		proxyID:    proxy.ID,
 		push:       push,
 		subsetName: subsetName,
 		hostname:   hostname,
