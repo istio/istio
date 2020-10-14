@@ -177,7 +177,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}
 	defer upstreamConn.Close()
 	proxyLog.Debugf("connected to %s", p.istiodAddress)
-
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
 	if p.agent.cfg.XDSHeaders != nil {
@@ -202,7 +201,6 @@ RecreateUpstream:
 			resp, err := upstream.Recv()
 			if err != nil {
 				upstreamError <- err
-				close(upstreamError)
 				return
 			}
 			responsesChan <- resp
