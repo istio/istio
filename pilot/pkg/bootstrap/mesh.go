@@ -26,9 +26,9 @@ import (
 )
 
 const (
-	// defaultConfigMapName is the default name of the ConfigMap with the mesh config
-	// The actual name can be different - use getConfigMapName
-	defaultConfigMapName = "istio"
+	// defaultMeshConfigMapName is the default name of the ConfigMap with the mesh config
+	// The actual name can be different - use getMeshConfigMapName
+	defaultMeshConfigMapName = "istio"
 	// configMapKey should match the expected MeshConfig file name
 	configMapKey = "mesh"
 )
@@ -65,7 +65,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 
 	// Watch the istio ConfigMap for mesh config changes.
 	// This may be necessary for external Istiod.
-	configMapName := getConfigMapName(args.Revision)
+	configMapName := getMeshConfigMapName(args.Revision)
 	s.environment.Watcher = mesh.NewConfigMapWatcher(
 		s.kubeClient, args.Namespace, configMapName, configMapKey)
 }
@@ -88,8 +88,8 @@ func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileW
 	}
 }
 
-func getConfigMapName(revision string) string {
-	name := defaultConfigMapName
+func getMeshConfigMapName(revision string) string {
+	name := defaultMeshConfigMapName
 	if revision == "" || revision == "default" {
 		return name
 	}

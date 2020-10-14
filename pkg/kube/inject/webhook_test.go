@@ -992,9 +992,9 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	env := model.Environment{
 		Watcher: mesh.NewFixedWatcher(&m),
 	}
+	watcher, err := NewFileWatcher(configFile, valuesFile)
 	wh, err := NewWebhook(WebhookParameters{
-		ConfigFile:     configFile,
-		ValuesFile:     valuesFile,
+		Watcher:        watcher,
 		Port:           port,
 		MonitoringPort: monitoringPort,
 		Env:            &env,

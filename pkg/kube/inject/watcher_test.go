@@ -75,7 +75,8 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	var newValues string
 
 	client := kube.NewFakeClient()
-	w := NewConfigMapWatcher(client, namespace, cmName, configKey, valuesKey, func(config *Config, values string) {
+	w := NewConfigMapWatcher(client, namespace, cmName, configKey, valuesKey)
+	w.SetHandler(func(config *Config, values string) {
 		mu.Lock()
 		defer mu.Unlock()
 		newConfig = config
