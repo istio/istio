@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
-		Setup(istio.Setup(&inst, setupConfig)).
+		Setup(istio.Setup(&inst, nil)).
 		Setup(func(ctx resource.Context) (err error) {
 			if prom, err = prometheus.New(ctx, prometheus.Config{}); err != nil {
 				return err
@@ -49,14 +49,3 @@ func TestMain(m *testing.M) {
 
 }
 
-func setupConfig(_ resource.Context, cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.ControlPlaneValues = `
-components:
-  gateways:
-    istio-egressgateway:
-      enabled: true
-`
-}
