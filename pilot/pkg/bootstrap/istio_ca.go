@@ -70,7 +70,7 @@ var (
 		"Location of a local or mounted CA root")
 
 	useRemoteCerts = env.RegisterBoolVar("USE_REMOTE_CERTS", false,
-		"Whether to try to load remote CA certs.")
+		"Whether to try to load CA certs from a remote Kubernetes cluster. Used for external Istiod.")
 
 	workloadCertTTL = env.RegisterDurationVar("DEFAULT_WORKLOAD_CERT_TTL",
 		cmd.DefaultWorkloadCertTTL,
@@ -313,7 +313,7 @@ func (s *Server) loadRemoteCACerts(caOpts *CAOptions, dir string) error {
 		return err
 	}
 
-	log.Infof("cacerts Secret found, saving contents to %s", dir)
+	log.Infof("cacerts Secret found in remote cluster, saving contents to %s", dir)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
