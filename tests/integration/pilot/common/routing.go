@@ -329,6 +329,8 @@ spec:
 			split := split
 			cases = append(cases, TrafficTestCase{
 				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.Name()),
+				// TODO fix multicluster traffic shifting
+				skip: apps.PodA.Clusters().IsMulticluster(),
 				config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
