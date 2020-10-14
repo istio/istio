@@ -49,6 +49,12 @@ spec:
           requests:
             cpu: 10m
             memory: 40Mi
+      istiod:
+        enableAnalysis: true
+
+    pilot:
+      env:
+        PILOT_ENABLE_STATUS: true
 
     gateways:
       istio-ingressgateway:
