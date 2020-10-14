@@ -85,7 +85,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
-		if c.SkippedForMulticluster && len(ctx.Clusters()) > 1 {
+		if c.SkippedForMulticluster && ctx.Clusters().IsMulticluster() {
 			continue
 		}
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
@@ -128,42 +128,42 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			})
 			for _, clients := range []echo.Instances{apps.A, apps.B, apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {
-					destinationSets := []echo.Instances{
-						apps.A,
-						apps.B,
-						// only hit same cluster headless services
-						apps.Headless.Match(echo.InCluster(client.Config().Cluster)),
-						// only hit same cluster multiversion services
-						apps.Multiversion.Match(echo.InCluster(client.Config().Cluster)),
-						// only hit same cluster naked services
-						apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
-						// only hit same cluster vm services
-						apps.VM.Match(echo.InCluster(client.Config().Cluster)),
-						// only hit same cluster headless services
-						apps.HeadlessNaked.Match(echo.InCluster(client.Config().Cluster)),
-					}
-
-					for _, destinations := range destinationSets {
-						client := client
-						destinations := destinations
-						destClusters := destinations.Clusters()
-						if len(destClusters) == 0 {
-							continue
-						}
-						// grabbing the 0th assumes all echos in destinations have the same service name
-						destination := destinations[0]
-						if (apps.IsHeadless(client) || apps.IsHeadless(destination) || apps.IsNaked(client)) && len(destClusters) > 1 {
-							// TODO(landow) fix DNS issues with multicluster/VMs/headless
-							continue
-						}
-						callCount := 1
-						if len(destClusters) > 1 {
-							// so we can validate all clusters are hit
-							callCount = util.CallsPerCluster * len(destClusters)
+					ctx.NewSubTest(fmt.Sprintf("%s in %s",
+						client.Config().Service, client.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
+						destinationSets := []echo.Instances{
+							apps.A,
+							apps.B,
+							// only hit same cluster headless services
+							apps.Headless.Match(echo.InCluster(client.Config().Cluster)),
+							// only hit same cluster multiversion services
+							apps.Multiversion.Match(echo.InCluster(client.Config().Cluster)),
+							// only hit same cluster naked services
+							apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
+							// only hit same cluster vm services
+							apps.VM.Match(echo.InCluster(client.Config().Cluster)),
+							// only hit same cluster headless services
+							apps.HeadlessNaked.Match(echo.InCluster(client.Config().Cluster)),
 						}
 
-						ctx.NewSubTest(fmt.Sprintf("%s->%s",
-							client.Config().Service, destination.Config().Service)).Run(func(ctx framework.TestContext) {
+						for _, destinations := range destinationSets {
+							client := client
+							destinations := destinations
+							destClusters := destinations.Clusters()
+							if len(destClusters) == 0 {
+								continue
+							}
+							// grabbing the 0th assumes all echos in destinations have the same service name
+							destination := destinations[0]
+							if (apps.IsHeadless(client) || apps.IsHeadless(destination) || apps.IsNaked(client)) && len(destClusters) > 1 {
+								// TODO(landow) fix DNS issues with multicluster/VMs/headless
+								continue
+							}
+							callCount := 1
+							if len(destClusters) > 1 {
+								// so we can validate all clusters are hit
+								callCount = util.CallsPerCluster * len(destClusters)
+							}
+
 							copts := &callOptions
 							// If test case specified service call options, use that instead.
 							if c.CallOpts != nil {
@@ -183,10 +183,8 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 								if c.Include(src, opts) {
 									expectSuccess := c.ExpectSuccess(src, opts)
 
-									subTestName := fmt.Sprintf("%s->%s in cluster %s://%s:%s%s",
-										src.Config().Service,
+									subTestName := fmt.Sprintf("with scheme %s to %s:%s%s",
 										opts.Scheme,
-										src.Config().Cluster.Name(),
 										dest.Config().Service,
 										opts.PortName,
 										opts.Path)
@@ -207,8 +205,8 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 										})
 								}
 							}
-						})
-					}
+						}
+					})
 				}
 			}
 		})
