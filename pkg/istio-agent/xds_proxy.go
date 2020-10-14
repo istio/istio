@@ -181,8 +181,7 @@ type ProxyConnection struct {
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	proxyLog.Infof("connecting to %s", p.istiodAddress)
-	defer proxyLog.Infof("disconnecting from %s", p.istiodAddress)
+	proxyLog.Infof("Envoy ADS stream established")
 
 	con := &ProxyConnection{
 		upstreamError:   make(chan error),
@@ -225,7 +224,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		return err
 	}
 	defer upstreamConn.Close()
-	proxyLog.Debugf("connected to %s", p.istiodAddress)
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
 	ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
@@ -234,27 +232,18 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 		}
 	}
-	for {
-		err, cont := p.HandleUpstream(ctx, con, xds)
-		if err != nil {
-			return err
-		}
-		proxyLog.Infof("disconnected from %v", p.istiodAddress)
-		// We are done, break out of the loop
-		if !cont {
-			break
-		}
-		// Continue signaled, reconnect to the upstream
-	}
-	return nil
+	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
+	return p.HandleUpstream(ctx, con, xds)
 }
 
-func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) (error, bool) {
+func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
+	proxyLog.Infof("connecting to upstream XDS server: %s", p.istiodAddress)
+	defer proxyLog.Infof("disconnected from XDS server: %s", p.istiodAddress)
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
 		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
-		return err, false
+		return err
 	}
 
 	// Handle upstream xds
@@ -280,7 +269,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
 			}
 			_ = upstream.CloseSend()
-			return nil, true
+			return nil
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {
@@ -289,19 +278,19 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				proxyLog.Warnf("downstream terminated with unexpected error %v", err)
 			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
-			return err, false
+			return err
 		case req, ok := <-con.requestsChan:
 			if !ok {
-				return nil, false
+				return nil
 			}
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
-				return err, false
+				return err
 			}
 		case resp, ok := <-con.responsesChan:
 			if !ok {
-				return nil, false
+				return nil
 			}
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			switch resp.TypeUrl {
@@ -329,12 +318,12 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 					// we cannot return partial error and hope to restart just the downstream
 					// as we are blindly proxying req/responses. For now, the best course of action
 					// is to terminate upstream connection as well and restart afresh.
-					return err, false
+					return err
 				}
 			}
 		case <-con.stopChan:
 			_ = upstream.CloseSend()
-			return nil, false
+			return nil
 		}
 	}
 }
