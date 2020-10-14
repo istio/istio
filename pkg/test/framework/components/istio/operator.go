@@ -553,6 +553,7 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster re
 		"-f", defaultsIOPFile,
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
+		"--set", "values.pilot.env.ENABLE_ADMIN_ENDPOINTS=true",
 		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
 
