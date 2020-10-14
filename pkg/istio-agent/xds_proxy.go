@@ -41,6 +41,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -427,11 +428,13 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	// In these cases, while we fallback to mTLS to istiod using the provisioned certs
 	// it would be ideal to keep using token plus k8s ca certs for control plane communication
 	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
-	if sa.secOpts.ProvCert == "" || !sa.secOpts.FileMountedCerts {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{
-			sa.secOpts.JWTPath,
-			time.Second * 300,
-		}}))
+	if sa.proxyConfig.ControlPlaneAuthPolicy != meshconfig.AuthenticationPolicy_NONE {
+		if sa.secOpts.ProvCert == "" || !sa.secOpts.FileMountedCerts {
+			dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{
+				sa.secOpts.JWTPath,
+				time.Second * 300,
+			}}))
+		}
 	}
 	return dialOptions, nil
 }
@@ -486,7 +489,9 @@ func (p *XdsProxy) initCertificateWatches(agent *Agent, stop <-chan struct{}) er
 // Else it will return a one-way TLS related config with the assumption
 // that the consumer code will use tokens to authenticate the upstream.
 func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
-
+	if agent.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_NONE {
+		return grpc.WithInsecure(), nil
+	}
 	rootCert, err := p.getRootCertificate(agent)
 	if err != nil {
 		return nil, err
