@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
@@ -134,8 +136,9 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	t.Run("slow reconnect", func(t *testing.T) {
 		// disconnect, wait and make sure entry is gone
 		ig2.QueueUnregisterWorkload(p)
-		time.Sleep(features.WorkloadEntryCleanupGracePeriod * 2)
-		checkNoEntryOrFail(t, store, wgA, p)
+		retry.UntilSuccessOrFail(t, func() error {
+			return checkNoEntry(store, wgA, p)
+		})
 		// reconnect
 		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
@@ -176,15 +179,69 @@ func checkNoEntry(store model.ConfigStoreCache, wg config.Config, proxy *model.P
 	return nil
 }
 
-func checkNoEntryOrFail(
-	t test.Failer,
+func checkEntry(
 	store model.ConfigStoreCache,
 	wg config.Config,
 	proxy *model.Proxy,
-) {
-	if err := checkNoEntry(store, wg, proxy); err != nil {
-		t.Fatal(err)
+	connectedTo string,
+) (err error) {
+	name := wg.Name + "-" + proxy.IPAddresses[0]
+	if proxy.Metadata.Network != "" {
+		name += "-" + proxy.Metadata.Network
 	}
+
+	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
+	if cfg == nil {
+		err = multierror.Append(fmt.Errorf("expected WorkloadEntry %s/%s to exist", wg.Namespace, name))
+		return
+	}
+	tmpl := wg.Spec.(*v1alpha3.WorkloadGroup)
+	we := cfg.Spec.(*v1alpha3.WorkloadEntry)
+
+	// check workload entry specific fields
+	if !reflect.DeepEqual(we.Ports, tmpl.Template.Ports) {
+		err = multierror.Append(err, fmt.Errorf("expected ports from WorkloadGroup"))
+	}
+	if we.Address != proxy.IPAddresses[0] {
+		err = multierror.Append(fmt.Errorf("entry has address %s; expected %s", we.Address, proxy.IPAddresses[0]))
+	}
+
+	// check controller annotations
+	if connectedTo != "" {
+		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
+			err = multierror.Append(err, fmt.Errorf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v))
+		}
+		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
+			err = multierror.Append(err, fmt.Errorf("expected connection timestamp to be set"))
+		}
+	} else {
+		if _, ok := cfg.Annotations[WorkloadControllerAnnotation]; ok {
+			err = multierror.Append(err, fmt.Errorf("expected WorkloadEntry have controller annotation unset"))
+		}
+		if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+			err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
+		}
+	}
+
+	// check all labels are copied to the WorkloadEntry
+	if !reflect.DeepEqual(cfg.Labels, we.Labels) {
+		err = multierror.Append(err, fmt.Errorf("spec labels on WorkloadEntry should match meta labels"))
+	}
+	for k, v := range tmpl.Template.Labels {
+		if _, ok := proxy.Metadata.Labels[k]; ok {
+			// would be overwritten
+			continue
+		}
+		if we.Labels[k] != v {
+			err = multierror.Append(err, fmt.Errorf("labels missing on WorkloadEntry: %s=%s from template", k, v))
+		}
+	}
+	for k, v := range proxy.Metadata.Labels {
+		if we.Labels[k] != v {
+			err = multierror.Append(err, fmt.Errorf("labels missing on WorkloadEntry: %s=%s from proxy meta", k, v))
+		}
+	}
+	return
 }
 
 func checkEntryOrFail(
@@ -194,61 +251,8 @@ func checkEntryOrFail(
 	proxy *model.Proxy,
 	connectedTo string,
 ) {
-	name := wg.Name + "-" + proxy.IPAddresses[0]
-	if proxy.Metadata.Network != "" {
-		name += "-" + proxy.Metadata.Network
-	}
-
-	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
-	if cfg == nil {
-		t.Fatalf("expected WorkloadEntry %s/%s to exist", wg.Namespace, name)
-		return
-	}
-	tmpl := wg.Spec.(*v1alpha3.WorkloadGroup)
-	we := cfg.Spec.(*v1alpha3.WorkloadEntry)
-
-	// check workload entry specific fields
-	if !reflect.DeepEqual(we.Ports, tmpl.Template.Ports) {
-		t.Fatal("expected ports from WorkloadGroup")
-	}
-	if we.Address != proxy.IPAddresses[0] {
-		t.Fatalf("entry has address %s; expected %s", we.Address, proxy.IPAddresses[0])
-	}
-
-	// check controller annotations
-	if connectedTo != "" {
-		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
-			t.Fatalf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v)
-		}
-		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
-			t.Fatalf("expected connection timestamp to be set")
-		}
-	} else {
-		if _, ok := cfg.Annotations[WorkloadControllerAnnotation]; ok {
-			t.Fatal("expected WorkloadEntry have controller annotation unset")
-		}
-		if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
-			t.Fatal("expected disconnection timestamp to be set")
-		}
-	}
-
-	// check all labels are copied to the WorkloadEntry
-	if !reflect.DeepEqual(cfg.Labels, we.Labels) {
-		t.Fatal("WorkloadEntry spec labels should match meta labels")
-	}
-	for k, v := range tmpl.Template.Labels {
-		if _, ok := proxy.Metadata.Labels[k]; ok {
-			// would be overwritten
-			continue
-		}
-		if we.Labels[k] != v {
-			t.Fatalf("WorkloadEntry labels missing %s: %s from template", k, v)
-		}
-	}
-	for k, v := range proxy.Metadata.Labels {
-		if we.Labels[k] != v {
-			t.Fatalf("WorkloadEntry labels missing %s: %s from proxy meta", k, v)
-		}
+	if err := checkEntry(store, wg, proxy, connectedTo); err != nil {
+		t.Fatal(err)
 	}
 }
 
