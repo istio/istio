@@ -1,6 +1,6 @@
 # A-la-carte istio ingress gateway.
 # Must be installed in a separate namespace, to minimize access to secrets.
-
+foo: bar
 gateways:
   istio-ingressgateway:
     name: istio-ingressgateway
