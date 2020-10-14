@@ -170,7 +170,6 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 
 	mcpOptions := &mcp.Options{
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-		ConfigLedger: buildLedger(args.RegistryOptions),
 		XDSUpdater:   s.XDSServer,
 		Revision:     args.Revision,
 	}
@@ -186,7 +185,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				if srcAddress.Path == "" {
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions), false)
+				store := memory.MakeSkipValidation(collections.Pilot, false)
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
@@ -377,7 +376,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		PodName:        args.PodName,
 	}
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
+		s.statusReporter.Start(s.kubeClient, args.Namespace, s.environment.GetLedger(), writeStatus, stop)
 		return nil
 	})
 	s.XDSServer.StatusReporter = s.statusReporter
@@ -420,7 +419,7 @@ func (s *Server) mcpController(
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	c, err := crdclient.New(s.kubeClient, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
+	c, err := crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions)
 	if err != nil {
 		return nil, err
 	}
