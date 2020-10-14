@@ -16,11 +16,11 @@ package xds
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"strconv"
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/networking/v1alpha3"
