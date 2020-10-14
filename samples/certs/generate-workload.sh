@@ -26,6 +26,7 @@ req_extensions = v3_req
 x509_extensions = v3_req
 prompt = no
 [req_distinguished_name]
+countryName = US
 [v3_req]
 keyUsage = critical, digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth, clientAuth
