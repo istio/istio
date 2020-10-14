@@ -480,7 +480,7 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
-	// this should be done before we look for service instances
+	// this should be done before we look for service instances, but after we load metadata
 	s.InternalGen.RegisterWorkload(proxy, con)
 
 	if err = s.setProxyState(proxy, s.globalPushContext()); err != nil {

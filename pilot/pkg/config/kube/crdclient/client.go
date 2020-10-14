@@ -250,8 +250,8 @@ func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, pat
 	// it is okay if orig is stale - we just care about the diff
 	orig := cl.Get(typ, name, namespace)
 	if orig == nil {
-		// TODO error from GET
-		return "", fmt.Errorf("failed getting base config")
+		// TODO error from Get
+		return "", fmt.Errorf("item not found")
 	}
 	modified := patchFn(orig.DeepCopy())
 

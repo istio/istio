@@ -56,6 +56,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
 		setConnectMeta(&cfg, sg.Server.instanceID, con)
 		return cfg
 	})
+	// TODO return err from Patch through Get
 	if err == nil {
 		return
 	} else if !errors.IsNotFound(err) && err.Error() != "item not found" {
