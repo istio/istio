@@ -20,7 +20,10 @@ import (
 	"time"
 
 	"github.com/howeyc/fsnotify"
+	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/configmapwatcher"
 	"istio.io/pkg/log"
 )
 
@@ -32,11 +35,17 @@ type Watcher interface {
 
 var _ Watcher = &fileWatcher{}
 
+var _ Watcher = &configMapWatcher{}
+
 type fileWatcher struct {
 	watcher    *fsnotify.Watcher
 	configFile string
 	valuesFile string
 	callback   func(*Config, string)
+}
+
+type configMapWatcher struct {
+	c *configmapwatcher.Controller
 }
 
 // NewFileWatcher creates a Watcher for local config and values files.
@@ -84,4 +93,42 @@ func (w *fileWatcher) Run(stop <-chan struct{}) {
 			return
 		}
 	}
+}
+
+// NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
+func NewConfigMapWatcher(client kube.Client, namespace, name, configKey, valuesKey string, callback func(*Config, string)) Watcher {
+	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
+		sidecarConfig, valuesConfig, err := readConfigMap(cm, configKey, valuesKey)
+		if err != nil {
+			log.Warnf("failed to read injection config from ConfigMap: %v", err)
+			return
+		}
+		callback(sidecarConfig, valuesConfig)
+	})
+	return &configMapWatcher{c: c}
+}
+
+func (w *configMapWatcher) Run(stop <-chan struct{}) {
+	w.c.Run(stop)
+}
+
+func readConfigMap(cm *v1.ConfigMap, configKey, valuesKey string) (*Config, string, error) {
+	if cm == nil {
+		return nil, "", fmt.Errorf("no ConfigMap found")
+	}
+
+	configYaml, exists := cm.Data[configKey]
+	if !exists {
+		return nil, "", fmt.Errorf("missing ConfigMap config key %q", configKey)
+	}
+	c, err := unmarshalConfig([]byte(configYaml))
+	if err != nil {
+		return nil, "", fmt.Errorf("failed reading config: %v. YAML:\n%s", err, configYaml)
+	}
+
+	valuesConfig, exists := cm.Data[valuesKey]
+	if !exists {
+		return nil, "", fmt.Errorf("missing ConfigMap values key %q", valuesKey)
+	}
+	return c, valuesConfig, nil
 }
