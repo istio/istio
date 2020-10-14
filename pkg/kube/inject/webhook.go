@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,7 +28,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/howeyc/fsnotify"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -80,10 +78,7 @@ type Webhook struct {
 	healthCheckInterval time.Duration
 	healthCheckFile     string
 
-	configFile string
-	valuesFile string
-
-	watcher *fsnotify.Watcher
+	watcher Watcher
 
 	mon      *monitor
 	env      *model.Environment
@@ -159,32 +154,24 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
-	// watch the parent directory of the target files so we can catch
-	// symlink updates of k8s ConfigMaps volumes.
-	for _, file := range []string{p.ConfigFile} {
-		watchDir, _ := filepath.Split(file)
-		if err := watcher.Watch(watchDir); err != nil {
-			return nil, fmt.Errorf("could not watch %v: %v", file, err)
-		}
-	}
 
 	wh := &Webhook{
 		Config:                 sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             p.Env.Mesh(),
-		configFile:             p.ConfigFile,
-		valuesFile:             p.ValuesFile,
 		valuesConfig:           valuesConfig,
-		watcher:                watcher,
 		healthCheckInterval:    p.HealthCheckInterval,
 		healthCheckFile:        p.HealthCheckFile,
 		env:                    p.Env,
 		revision:               p.Revision,
 	}
+
+	watcher, err := NewFileWatcher(p.ConfigFile, p.ValuesFile, wh.updateConfig)
+	if err != nil {
+		return nil, err
+	}
+	wh.watcher = watcher
+
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 	p.Mux.HandleFunc("/inject/", wh.serveInject)
 
@@ -207,7 +194,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
-	defer wh.watcher.Close()
+	go wh.watcher.Run(stop)
 
 	if wh.mon != nil {
 		defer wh.mon.monitoringServer.Close()
@@ -219,36 +206,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		healthC = t.C
 		defer t.Stop()
 	}
-	var timerC <-chan time.Time
 
 	for {
 		select {
-		case <-timerC:
-			timerC = nil
-			sidecarConfig, valuesConfig, err := loadConfig(wh.configFile, wh.valuesFile)
-			if err != nil {
-				log.Errorf("update error: %v", err)
-				break
-			}
-
-			version := sidecarTemplateVersionHash(sidecarConfig.Template)
-			if err != nil {
-				log.Errorf("reload cert error: %v", err)
-				break
-			}
-			wh.mu.Lock()
-			wh.Config = sidecarConfig
-			wh.valuesConfig = valuesConfig
-			wh.sidecarTemplateVersion = version
-			wh.mu.Unlock()
-		case event := <-wh.watcher.Event:
-			log.Debugf("Injector watch update: %+v", event)
-			// use a timer to debounce configuration updates
-			if (event.IsModify() || event.IsCreate()) && timerC == nil {
-				timerC = time.After(watchDebounceDelay)
-			}
-		case err := <-wh.watcher.Error:
-			log.Errorf("Watcher error: %v", err)
 		case <-healthC:
 			content := []byte(`ok`)
 			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
@@ -258,6 +218,15 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			return
 		}
 	}
+}
+
+func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
+	version := sidecarTemplateVersionHash(sidecarConfig.Template)
+	wh.mu.Lock()
+	wh.Config = sidecarConfig
+	wh.valuesConfig = valuesConfig
+	wh.sidecarTemplateVersion = version
+	wh.mu.Unlock()
 }
 
 // It would be great to use https://github.com/mattbaird/jsonpatch to
