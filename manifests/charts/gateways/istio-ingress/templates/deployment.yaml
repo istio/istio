@@ -38,6 +38,9 @@ spec:
         {{- else}}
         service.istio.io/canonical-revision: latest
         {{- end }}
+{{- if not $gateway.runAsRoot }}
+        istio.io/unprivileged-pod: "true"
+{{- end }}
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"

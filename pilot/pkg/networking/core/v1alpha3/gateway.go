@@ -78,6 +78,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		if si != nil && si.Endpoint != nil {
 			portNumber = si.Endpoint.EndpointPort
 		}
+		// TODO: replace with reference to istio/api var
+		labelName := "istio.io/unprivileged-pod"
+		if builder.node.Metadata.Labels[labelName] != "" && portNumber < 1024 {
+			log.Warnf("buildGatewayListeners: skipping privileged gateway port %d for node %s due to %s label being set",
+				portNumber, builder.node.ID, labelName)
+			continue
+		}
+
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
