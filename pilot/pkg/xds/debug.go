@@ -750,9 +750,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Request) {
-	if req.Form.Get("push") != "" {
-		AdsPushAll(s)
-	}
+	// TODO this should probably exist in agent rather than istiod
 	var con *Connection
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		con = s.getProxyConnection(proxyID)

@@ -43,6 +43,10 @@ spec:
       - name: istio-egressgateway
         enabled: true
   values:
+    pilot:
+      env:
+      - name: ENABLE_ADMIN_ENDPOINTS
+        value: true
     global:
       proxy:
         resources:
