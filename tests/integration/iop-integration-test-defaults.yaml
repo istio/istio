@@ -53,6 +53,7 @@ spec:
     pilot:
       env:
         PILOT_ENABLED_SERVICE_APIS: true
+        ENABLE_ADMIN_ENDPOINTS: true
 
     gateways:
       istio-ingressgateway:
