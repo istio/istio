@@ -421,7 +421,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "avg(galley_istio_networking_virtualservices)",
+          "expr": "pilot_k8s_cfg_events{type=\"VirtualService\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -503,7 +503,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "avg(galley_istio_networking_destinationrules)",
+          "expr": "pilot_k8s_cfg_events{type=\"DestinationRule\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -585,7 +585,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "avg(galley_istio_networking_gateways)",
+          "expr": "pilot_k8s_cfg_events{type=\"Gateway\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
