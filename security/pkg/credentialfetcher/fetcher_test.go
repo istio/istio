@@ -22,40 +22,40 @@ import (
 
 func TestNewCredFetcher(t *testing.T) {
 	testCases := map[string]struct {
-		fetcherType   string
-		trustdomain   string
-		jwtPath       string
+		fetcherType      string
+		trustdomain      string
+		jwtPath          string
 		identityProvider string
-		expectedErr   string
-		expectedToken string
-		expectedIdp   string
+		expectedErr      string
+		expectedToken    string
+		expectedIdp      string
 	}{
 		"gce test": {
-			fetcherType:   security.GCE,
-			trustdomain:   "abc.svc.id.goog",
-			jwtPath:       "/var/run/secrets/tokens/istio-token",
+			fetcherType:      security.GCE,
+			trustdomain:      "abc.svc.id.goog",
+			jwtPath:          "/var/run/secrets/tokens/istio-token",
 			identityProvider: security.GCE,
-			expectedErr:   "", // No error when ID token auth is enabled.
-			expectedToken: "",
-			expectedIdp:   "GoogleComputeEngine",
+			expectedErr:      "", // No error when ID token auth is enabled.
+			expectedToken:    "",
+			expectedIdp:      "GoogleComputeEngine",
 		},
 		"mock test": {
-			fetcherType:   security.Mock,
-			trustdomain:   "",
-			jwtPath:       "",
+			fetcherType:      security.Mock,
+			trustdomain:      "",
+			jwtPath:          "",
 			identityProvider: "fakeIDP",
-			expectedErr:   "",
-			expectedToken: "test_token",
-			expectedIdp:   "fakeIDP",
+			expectedErr:      "",
+			expectedToken:    "test_token",
+			expectedIdp:      "fakeIDP",
 		},
 		"invalid test": {
-			fetcherType:   "foo",
-			trustdomain:   "",
-			jwtPath:       "",
+			fetcherType:      "foo",
+			trustdomain:      "",
+			jwtPath:          "",
 			identityProvider: "",
-			expectedErr:   "invalid credential fetcher type foo",
-			expectedToken: "",
-			expectedIdp:   "",
+			expectedErr:      "invalid credential fetcher type foo",
+			expectedToken:    "",
+			expectedIdp:      "",
 		},
 	}
 
