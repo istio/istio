@@ -135,7 +135,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	upstreamError := make(chan error)
 	downstreamError := make(chan error)
 	requestsChan := make(chan *discovery.DiscoveryRequest, 10)
-	responsesChan := make(chan *discovery.DiscoveryResponse, 10)
 	healthEventsChan := make(chan *health.ProbeEvent, 5)
 	// A separate channel for nds requests to not contend with the ones from envoys
 	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
@@ -187,6 +186,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}
 
 RecreateUpstream:
+	responsesChan := make(chan *discovery.DiscoveryResponse, 10)
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
