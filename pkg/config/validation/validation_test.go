@@ -2110,9 +2110,10 @@ func TestValidateRouteDestination(t *testing.T) {
 // TODO: add TCP test cases once it is implemented
 func TestValidateVirtualService(t *testing.T) {
 	testCases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
 	}{
 		{name: "simple", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
@@ -2180,7 +2181,7 @@ func TestValidateVirtualService(t *testing.T) {
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
-		}, valid: true},
+		}, valid: true, warning: true},
 		{name: "namespace/name for gateway", in: &networking.VirtualService{
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"ns1/gateway"},
@@ -2248,8 +2249,12 @@ func TestValidateVirtualService(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
+			warn, err := ValidateVirtualService(config.Config{Spec: tc.in})
+			if (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+			if (warn == nil) == tc.warning {
+				t.Fatalf("got warning=%v but wanted warning=%v", warn, tc.warning)
 			}
 		})
 	}
