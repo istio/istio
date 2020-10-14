@@ -148,7 +148,8 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 		eventNum := atomic.NewInt32(0)
 		go httpHealthChecker.PerformApplicationHealthCheck(func(event *ProbeEvent) {
 			if event.Healthy != expectedHTTPEvents[eventNum.Load()].Healthy {
-				t.Errorf("%s: got event healthy: %v at idx %v when expected healthy: %v", "tcp", event.Healthy, eventNum.Load(), expectedHTTPEvents[eventNum.Load()].Healthy)
+				t.Errorf("tcp: got event healthy: %v at idx %v when expected healthy: %v",
+					event.Healthy, eventNum.Load(), expectedHTTPEvents[eventNum.Load()].Healthy)
 			}
 			eventNum.Inc()
 		}, quitChan)

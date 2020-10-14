@@ -235,7 +235,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		}
 	}
 	for {
-		err, cont := p.HandleUpstream(con, xds, ctx)
+		err, cont := p.HandleUpstream(ctx, con, xds)
 		if err != nil {
 			return err
 		}
@@ -244,12 +244,12 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		if !cont {
 			break
 		}
-		// Continue signalled, reconnect to the upstream
+		// Continue signaled, reconnect to the upstream
 	}
 	return nil
 }
 
-func (p *XdsProxy) HandleUpstream(con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient, ctx context.Context) (error, bool) {
+func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) (error, bool) {
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
