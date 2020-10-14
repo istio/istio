@@ -21,9 +21,7 @@ import (
 	"time"
 )
 
-// TODO benchmarks
-
-func TestPq(t *testing.T) {
+func TestPriorityQueue(t *testing.T) {
 	pq := &pq{}
 
 	t0 := time.Now()
@@ -51,8 +49,8 @@ func TestPq(t *testing.T) {
 	}
 }
 
-func TestDelayQueue(t *testing.T) {
-	dq := NewDelayed(2)
+func TestDelayQueueOrdering(t *testing.T) {
+	dq := NewDelayed(DelayQueueWorkers(2))
 	stop := make(chan struct{})
 	defer close(stop)
 	go dq.Run(stop)

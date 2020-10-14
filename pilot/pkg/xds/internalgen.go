@@ -71,7 +71,7 @@ func NewInternalGen(s *DiscoveryServer) *InternalGen {
 		Server: s,
 		// TODO make this configurable
 		cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
-		cleanupQueue: queue.NewDelayed(20),
+		cleanupQueue: queue.NewDelayed(queue.DelayQueueWorkers(10)),
 	}
 }
 

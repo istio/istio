@@ -77,26 +77,52 @@ type Delayed interface {
 
 var _ Delayed = &delayQueue{}
 
-// NewDelayed gives a Delayed queue with maximum concurrency specified by workers.
-func NewDelayed(workers int) Delayed {
-	return &delayQueue{
-		workers:  workers,
-		register: make(chan *delayTask),
-		run:      make(chan *delayTask),
+// DelayQueueOption configure the behavior of the queue. Must be applied before Run.
+type DelayQueueOption func(*delayQueue)
+
+// DelayQueueBuffer sets maximum number of tasks awaiting execution. If this limit is reached, Push and PushDelayed
+// will block until there is room.
+func DelayQueueBuffer(bufferSize int) DelayQueueOption {
+	return func(queue *delayQueue) {
+		if queue.enqueue != nil {
+			close(queue.enqueue)
+		}
+		queue.enqueue = make(chan *delayTask, bufferSize)
 	}
+}
+
+// DelayQueueWorkers sets the number of background worker goroutines await tasks to execute. Effectively the
+// maximum number of concurrent tasks.
+func DelayQueueWorkers(workers int) DelayQueueOption {
+	return func(queue *delayQueue) {
+		queue.workers = workers
+	}
+}
+
+// NewDelayed gives a Delayed queue with maximum concurrency specified by workers.
+func NewDelayed(opts ...DelayQueueOption) Delayed {
+	q := &delayQueue{
+		workers: 1,
+		execute: make(chan *delayTask),
+		enqueue: make(chan *delayTask, 100),
+	}
+	for _, o := range opts {
+		o(q)
+	}
+	return q
 }
 
 type delayQueue struct {
 	workers int
 	// incoming
-	register chan *delayTask
+	enqueue chan *delayTask
 	// outgoing
-	run chan *delayTask
+	execute chan *delayTask
 }
 
 // PushDelayed will execute the task after waiting for the delay
 func (d delayQueue) PushDelayed(t Task, delay time.Duration) {
-	d.register <- &delayTask{do: t, runAt: time.Now().Add(delay)}
+	d.enqueue <- &delayTask{do: t, runAt: time.Now().Add(delay)}
 }
 
 // Push will execute the task as soon as possible
@@ -119,15 +145,15 @@ func (d delayQueue) Run(stop <-chan struct{}) {
 			if delay <= 0 {
 				// actually remove the work item if we're ready to go
 				heap.Pop(q)
-				d.run <- task
+				d.execute <- task
 			} else {
 				// wait for another Push, or for them item to be ready
 				select {
-				case t := <-d.register:
+				case t := <-d.enqueue:
 					heap.Push(q, t)
 				case <-time.After(delay):
 					heap.Pop(q)
-					d.run <- task
+					d.execute <- task
 				case <-stop:
 					return
 				}
@@ -135,7 +161,7 @@ func (d delayQueue) Run(stop <-chan struct{}) {
 		} else {
 			// no items, wait for Push or stop
 			select {
-			case t := <-d.register:
+			case t := <-d.enqueue:
 				q.Push(t)
 			case <-stop:
 				return
@@ -147,7 +173,7 @@ func (d delayQueue) Run(stop <-chan struct{}) {
 func (d delayQueue) work(stop <-chan struct{}) {
 	for {
 		select {
-		case t := <-d.run:
+		case t := <-d.execute:
 			if err := t.do(); err != nil {
 				log.Errorf("Work item handle failed: %v", err)
 				// TODO requeue?
