@@ -1798,7 +1798,8 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 				// Legacy FQDN style
 				parts := strings.Split(gatewayName, ".")
 				recommended := fmt.Sprintf("%s/%s", parts[1], parts[0])
-				errs = appendValidation(errs, WrapWarning(fmt.Errorf("using legacy gatewayName format %q; prefer the <namespace>/<name> format: %q", gatewayName, recommended)))
+				errs = appendValidation(errs, WrapWarning(fmt.Errorf(
+					"using legacy gatewayName format %q; prefer the <namespace>/<name> format: %q", gatewayName, recommended)))
 			}
 			errs = appendValidation(errs, ValidateFQDN(gatewayName))
 			return
