@@ -148,7 +148,7 @@ var (
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
-		"The identity provider for CREDENTIAL. Currently Default supported identity provider is GoogleComputeEngine").Get()
+		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
