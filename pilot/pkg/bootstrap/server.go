@@ -122,9 +122,9 @@ type Server struct {
 	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
 
-	configController    model.ConfigStoreCache
-	ConfigStores        []model.ConfigStoreCache
-	serviceEntryStore   *serviceentry.ServiceEntryStore
+	configController  model.ConfigStoreCache
+	ConfigStores      []model.ConfigStoreCache
+	serviceEntryStore *serviceentry.ServiceEntryStore
 
 	httpServer       *http.Server // debug, monitoring and readiness Server.
 	httpsServer      *http.Server // webhooks HTTPS Server.

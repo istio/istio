@@ -16,19 +16,19 @@ package xds
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/test/util/retry"
 	"reflect"
 	"testing"
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestMemstore(t *testing.T) {
@@ -87,11 +87,19 @@ func TestNonAutoregisteredWorklaods(t *testing.T) {
 
 }
 
-func TestAutoregisterFields(t *testing.T) {
-	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
+func TestAutoregistrationLifecycle(t *testing.T) {
+	if features.WorkloadEntryCleanupGracePeriod != 200*time.Millisecond {
+		features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
+	}
 	ig1, ig2, store := setup(t)
+	stopped1 := false
 	stop1, stop2 := make(chan struct{}), make(chan struct{})
-	defer close(stop1) // stop1 should be killed early, as part of test
+	defer func() {
+		// stop1 should be killed early, as part of test
+		if !stopped1 {
+			close(stop1)
+		}
+	}()
 	defer close(stop2)
 	go ig1.Run(stop1)
 	go ig2.Run(stop2)
@@ -136,7 +144,9 @@ func TestAutoregisterFields(t *testing.T) {
 		// disconnect, kill the cleanup queue from the first controller
 		ig1.QueueUnregisterWorkload(p)
 		// stop processing the delayed close queue in ig1, forces using periodic cleanup
+
 		close(stop1)
+		stopped1 = true
 		retry.UntilSuccessOrFail(t, func() error {
 			return checkNoEntry(store, wgA, p)
 		}, retry.Timeout(time.Until(time.Now().Add(11*features.WorkloadEntryCleanupGracePeriod))))

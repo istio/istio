@@ -124,7 +124,7 @@ func (c *controller) Patch(typ config.GroupVersionKind, name, namespace string, 
 	if oldconfig == nil {
 		return "", errNotFound
 	}
-	cfg := patchFn(*oldconfig)
+	cfg := patchFn((*oldconfig).DeepCopy())
 	if newRevision, err = c.configStore.Update(cfg); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    *oldconfig,
