@@ -63,11 +63,7 @@ func TestMain(m *testing.M) {
 			}
 			return nil
 		}).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
-			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
-			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
-		})).
+		Setup(istio.Setup(&i, nil)).
 		Setup(func(ctx resource.Context) error {
 			return common.SetupApps(ctx, i, apps)
 		}).
