@@ -25,6 +25,7 @@ func TestNewCredFetcher(t *testing.T) {
 		fetcherType   string
 		trustdomain   string
 		jwtPath       string
+		identityProvider string
 		expectedErr   string
 		expectedToken string
 		expectedIdp   string
@@ -33,6 +34,7 @@ func TestNewCredFetcher(t *testing.T) {
 			fetcherType:   security.GCE,
 			trustdomain:   "abc.svc.id.goog",
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
+			identityProvider: security.GCE,
 			expectedErr:   "", // No error when ID token auth is enabled.
 			expectedToken: "",
 			expectedIdp:   "GoogleComputeEngine",
@@ -41,6 +43,7 @@ func TestNewCredFetcher(t *testing.T) {
 			fetcherType:   security.Mock,
 			trustdomain:   "",
 			jwtPath:       "",
+			identityProvider: "fakeIDP",
 			expectedErr:   "",
 			expectedToken: "test_token",
 			expectedIdp:   "fakeIDP",
@@ -49,6 +52,7 @@ func TestNewCredFetcher(t *testing.T) {
 			fetcherType:   "foo",
 			trustdomain:   "",
 			jwtPath:       "",
+			identityProvider: "",
 			expectedErr:   "invalid credential fetcher type foo",
 			expectedToken: "",
 			expectedIdp:   "",
@@ -57,7 +61,7 @@ func TestNewCredFetcher(t *testing.T) {
 
 	for id, tc := range testCases {
 		cf, err := NewCredFetcher(
-			tc.fetcherType, tc.trustdomain, tc.jwtPath, security.GCE)
+			tc.fetcherType, tc.trustdomain, tc.jwtPath, tc.identityProvider)
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: succeeded. Error expected: %v", id, err)
