@@ -55,30 +55,30 @@ spec:
     port: 80
     protocol: HTTP
     routes:
-      resource: httproutes
+      routeNamespaces: {}
+      kind: HTTPRoute
   - hostname:
       match: Any
     port: 31400
     protocol: TCP
     routes:
-      resource: tcproutes
+      routeNamespaces: {}
+      kind: TCPRoute
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: http
 spec:
-  hosts:
-  - hostnames: ["my.domain.example"]
-    rules:
-    - matches:
-      - path:
-          type: Prefix
-          value: /get
-      forward:
-        to:
-        - targetRef:
-            name: b
+ hostnames: ["my.domain.example"]
+ rules:
+ - matches:
+   - path:
+       type: Prefix
+       value: /get
+   forwardTo:
+     - serviceName: b
+       port: 80
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: TCPRoute
@@ -86,11 +86,9 @@ metadata:
   name: tcp
 spec:
   rules:
-  - action:
-      forwardTo:
-      - targetPort: 80
-        targetRef:
-          name: b
+  - forwardTo:
+     - serviceName: b
+       port: 80
 `)
 
 			ctx.NewSubTest("http").Run(func(ctx framework.TestContext) {

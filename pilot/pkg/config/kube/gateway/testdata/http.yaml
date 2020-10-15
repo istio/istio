@@ -13,65 +13,17 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  # Passthrough
   - hostname:
-      match: Any
-    port: 34000
-    protocol: TLS
-    routes:
-      routeNamespaces: {}
-      routeSelector:
-        matchLabels:
-          selected: "yes"
-      kind: TLSRoute
-    tls:
-      mode: Passthrough
-      certificateRef:
-        name: my-cert-tls
-      options: {}
-  # Termination
-  - hostname:
-      name: "domain.example"
-      match: Exact
-    port: 34000
-    protocol: HTTPS
+      match: Domain
+      name: domain.example
+    port: 80
+    protocol: HTTP
     routes:
       routeNamespaces: {}
       routeSelector:
         matchLabels:
           selected: "yes"
       kind: HTTPRoute
-    tls:
-      mode: Terminate
-      certificateRef:
-        name: my-cert-http
-      options: {}
----
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: TLSRoute
-metadata:
-  name: tls
-  namespace: default
-  labels:
-    selected: "yes"
-spec:
-  rules:
-  - forwardTo:
-    - serviceName: httpbin
----
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: TLSRoute
-metadata:
-  name: tls-match
-  namespace: default
-  labels:
-    selected: "yes"
-spec:
-  rules:
-  - matches:
-    - snis: ["foo.com"]
-    forwardTo:
-    - serviceName: httpbin
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -81,7 +33,55 @@ metadata:
   labels:
     selected: "yes"
 spec:
-  hostnames: ["domain.example"]
+  hostnames: ["first.domain.example", "another.domain.example"]
   rules:
-  - forwardTo:
+  - matches:
+    - path:
+        type: Prefix
+        value: /get
+      headers:
+        type: Exact
+        values:
+          my-header: some-value
+    filters:
+    - type: RequestHeader
+      requestHeader:
+        add:
+          my-added-header: added-value
+        remove: [my-removed-header]
+    forwardTo:
+    - serviceName: httpbin
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http2
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  hostnames: ["second.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /second
+    forwardTo:
+    - serviceName: httpbin-second
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http-not-selected
+  namespace: default
+  labels:
+    selected: "nope"
+spec:
+  hostnames: ["should.not.select"]
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /get
+    forwardTo:
     - serviceName: httpbin
