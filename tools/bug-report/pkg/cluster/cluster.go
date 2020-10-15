@@ -20,6 +20,8 @@ import (
 	"regexp"
 	"strings"
 
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/pkg/config/resource"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,6 +69,10 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 		return nil, err
 	}
 	for _, ns := range namespaces.Items {
+		// skip system namesapces
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) {
+			continue
+		}
 		pods, err := clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, err
