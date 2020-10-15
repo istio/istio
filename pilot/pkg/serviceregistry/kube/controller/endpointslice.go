@@ -25,6 +25,7 @@ import (
 	discoverylister "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
@@ -285,8 +286,8 @@ func getLocalityFromTopology(topology map[string]string) string {
 	if _, f := topology[NodeZoneLabelGA]; f {
 		locality += "/" + topology[NodeZoneLabelGA]
 	}
-	if _, f := topology[IstioSubzoneLabel]; f {
-		locality += "/" + topology[IstioSubzoneLabel]
+	if _, f := topology[label.IstioSubZone]; f {
+		locality += "/" + topology[label.IstioSubZone]
 	}
 	return locality
 }
