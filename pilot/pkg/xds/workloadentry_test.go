@@ -33,10 +33,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func TestMemstore(t *testing.T) {
-	memory.NewController(memory.Make(collections.All))
-}
-
 var (
 	tmplA = &v1alpha3.WorkloadGroup{
 		Template: &v1alpha3.WorkloadEntry{

@@ -148,12 +148,12 @@ func shouldCleanupEntry(wle config.Config) bool {
 		return false
 	}
 
-	disconnUnixTime, err := strconv.ParseInt(wle.Annotations[DisconnectedAtAnnotation], 10, 64)
+	disconnUnixTime, err := strconv.Atoi(wle.Annotations[DisconnectedAtAnnotation])
 	if err != nil {
 		// remove workload entries with invalid disconnect times - they need to be re-registered and fixed.
 		adsLog.Warnf("invalid disconnect time for WorkloadEntry %s/%s: %s", wle.Annotations[DisconnectedAtAnnotation])
 	}
-	disconnAt := time.Unix(0, disconnUnixTime)
+	disconnAt := time.Unix(0, int64(disconnUnixTime))
 	// if we haven't passed the grace period, don't cleanup
 	if err == nil && time.Since(disconnAt) < features.WorkloadEntryCleanupGracePeriod {
 		return false

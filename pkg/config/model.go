@@ -306,6 +306,6 @@ func (g GroupVersionKind) String() string {
 	return g.Group + "/" + g.Version + "/" + g.Kind
 }
 
-// PatchFunc provides the cached config as a base for modification. Only the between the cfg parameter and the returned Config
-// will be applied.
+// PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
+// parameter and the returned Config will be applied.
 type PatchFunc func(cfg Config) Config

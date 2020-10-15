@@ -83,8 +83,8 @@ type Connection struct {
 	// This is included in internal events.
 	node *core.Node
 
-	// forceClose can be used to end the connection manually via debug endpoints. Only to be used for testing.
-	forceClose chan struct{}
+	// stop can be used to end the connection manually via debug endpoints. Only to be used for testing.
+	stop chan struct{}
 }
 
 // Event represents a config or registry event that results in a push.
@@ -99,7 +99,7 @@ type Event struct {
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
 		pushChannel: make(chan *Event),
-		forceClose:  make(chan struct{}),
+		stop:        make(chan struct{}),
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
@@ -269,7 +269,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			if err != nil {
 				return nil
 			}
-		case <-con.forceClose:
+		case <-con.stop:
 			return nil
 		}
 	}
@@ -868,6 +868,6 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 	return nil
 }
 
-func (conn *Connection) ForceClose() {
-	conn.forceClose <- struct{}{}
+func (conn *Connection) Stop() {
+	conn.stop <- struct{}{}
 }

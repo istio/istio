@@ -750,7 +750,6 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Request) {
-	// TODO this should probably exist in agent rather than istiod
 	var con *Connection
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		con = s.getProxyConnection(proxyID)
@@ -766,8 +765,7 @@ func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Reque
 		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
 		return
 	}
-	// TODO put this in agent instead of pilot
-	con.ForceClose()
+	con.Stop()
 	_, _ = w.Write([]byte("OK"))
 }
 
