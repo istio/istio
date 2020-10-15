@@ -37,7 +37,7 @@ spec:
   tls:
   - match:
     - port: 15012
-    sniHosts:
+      sniHosts:
       - istiod.istio-system.svc.cluster.local
     route:
     - destination:
@@ -46,7 +46,7 @@ spec:
           number: 15012
   - match:
     - port: 15017
-    sniHosts:
+      sniHosts:
       - istiod.istio-system.svc.cluster.local    
     route:
     - destination:
