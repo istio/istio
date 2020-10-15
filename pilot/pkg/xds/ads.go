@@ -248,8 +248,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		case pushEv := <-con.pushChannel:
 			// Note this is to handle possible race condition: if a config change happens while the envoy
 			// was getting the initial config, between LDS and RDS, the push will miss the
-			// monitored 'routes'. Same for CDS/EDS interval. It is very tricky to handle
-			// due to the protocol - but the periodic push recovers from it.
+			// monitored 'routes'. Same for CDS/EDS interval.
 			// Wait for proxy initialization
 			<-con.initDone
 			err := s.pushConnection(con, pushEv)
