@@ -255,6 +255,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 	}
 
+	if ext := kubeClient.ClusterExtension(c.clusterID); ext != nil {
+		if ext.Network != "" {
+			c.networkForRegistry = ext.Network
+		}
+	}
+
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
 	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
 	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
