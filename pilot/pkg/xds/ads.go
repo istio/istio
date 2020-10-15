@@ -82,6 +82,10 @@ type Connection struct {
 	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
 	node *core.Node
+
+	// indicates whether proxy has received all xds
+	// and if proxy is not initialized, all active pushes are blocked
+	initDone chan struct{}
 }
 
 // Event represents a config or registry event that results in a push.
@@ -99,6 +103,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
+		initDone:    make(chan struct{}),
 	}
 }
 
@@ -187,7 +192,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	// Currently ready means caches have been synced and hence can build
 	// clusters correctly. Without this check, InitContext() call below would
 	// initialize with empty config, leading to reconnected Envoys loosing
-	// configuration. This is an additional safety check inaddition to adding
+	// configuration. This is an additional safety check in addition to adding
 	// cachesSynced logic to readiness probe to handle cases where kube-proxy
 	// ip tables update latencies.
 	// See https://github.com/istio/istio/issues/25495.
@@ -235,6 +240,29 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
 	go s.receive(con, reqChannel, &receiveError)
 
+	pushErrChannel := make(chan error, 1)
+
+	// handle active xds push (resources or configs update)
+	go func() {
+		select {
+		case pushEv := <-con.pushChannel:
+			// Note this is to handle possible race condition: if a config change happens while the envoy
+			// was getting the initial config, between LDS and RDS, the push will miss the
+			// monitored 'routes'. Same for CDS/EDS interval. It is very tricky to handle
+			// due to the protocol - but the periodic push recovers from it.
+			// Wait for proxy initialization
+			<-con.initDone
+			err := s.pushConnection(con, pushEv)
+			pushEv.done()
+			if err != nil {
+				pushErrChannel <- err
+			}
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	// handle passive xds push (proxy send initial xds request)
 	for {
 		// Block until either a request is received or a push is triggered.
 		// We need 2 go routines because 'read' blocks in Recv().
@@ -256,13 +284,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 				return err
 			}
 
-		case pushEv := <-con.pushChannel:
-			// TODO: possible race condition: if a config change happens while the envoy
-			// was getting the initial config, between LDS and RDS, the push will miss the
-			// monitored 'routes'. Same for CDS/EDS interval. It is very tricky to handle
-			// due to the protocol - but the periodic push recovers from it.
-			err := s.pushConnection(con, pushEv)
-			pushEv.done()
+		case err := <-pushErrChannel:
 			if err != nil {
 				return nil
 			}
@@ -572,10 +594,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range getPushResources(con.proxy.WatchedResources) {
+	for _, w := range getWatchedResources(con.proxy.WatchedResources) {
 		err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest)
 		if err != nil {
 			return err
+		}
+		if w.TypeUrl == v3.RouteType {
+			close(con.initDone)
 		}
 	}
 	if pushRequest.Full {
@@ -598,7 +623,7 @@ var KnownPushOrder = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+func getWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
 	wr := make([]*model.WatchedResource, 0, len(resources))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
