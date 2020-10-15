@@ -600,7 +600,12 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return err
 		}
 		if w.TypeUrl == v3.RouteType {
-			close(con.initDone)
+			select {
+			case <-con.initDone:
+			default:
+				// notify initial xds config has been pushed
+				close(con.initDone)
+			}
 		}
 	}
 	if pushRequest.Full {
