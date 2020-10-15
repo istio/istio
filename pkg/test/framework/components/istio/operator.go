@@ -471,7 +471,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 		}
 	}
 
-	if i.environment.IsMulticluster() && i.environment.IsConfigCluster(cluster) {
+	if i.environment.IsConfigCluster(cluster) {
 		if err := i.deployEastWestGateway(cluster); err != nil {
 			return err
 		}
