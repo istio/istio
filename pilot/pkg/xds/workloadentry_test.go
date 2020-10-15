@@ -107,11 +107,18 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	go ig2.Run(stop2)
 
 	p := fakeProxy("1.2.3.4", wgA, "nw1")
+	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
 		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
+	})
+	t.Run("multinetwork same ip", func(t *testing.T) {
+		// make sure we don't overrwrite a similar entry for a different network
+		ig2.RegisterWorkload(p2, &Connection{proxy: p2, Connect: time.Now()})
+		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
+		checkEntryOrFail(t, store, wgA, p2, ig2.Server.instanceID)
 	})
 	t.Run("fast reconnect", func(t *testing.T) {
 		t.Run("same instance", func(t *testing.T) {
@@ -143,7 +150,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 	})
-	t.Run("disconnect and controller stop", func(t *testing.T) {
+	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
 		// disconnect, kill the cleanup queue from the first controller
 		ig1.QueueUnregisterWorkload(p)
 		// stop processing the delayed close queue in ig1, forces using periodic cleanup
@@ -154,6 +161,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			return checkNoEntry(store, wgA, p)
 		}, retry.Timeout(time.Until(time.Now().Add(11*features.WorkloadEntryCleanupGracePeriod))))
 	})
+	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
 func setup(t *testing.T) (*InternalGen, *InternalGen, model.ConfigStoreCache) {
