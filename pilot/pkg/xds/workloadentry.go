@@ -117,6 +117,7 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 				continue
 			}
 			for _, wle := range wles {
+				wle := wle
 				sg.cleanupQueue.Push(func() error {
 					sg.cleanupEntry(wle)
 					return nil
