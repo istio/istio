@@ -31,14 +31,15 @@ import (
 
 // Watcher watches for and reacts to injection config updates.
 type Watcher interface {
-	// Run starts the Watcher.
+	// SetHandler sets the handler that is run when the config changes.
+	// Must call this before Run.
+	SetHandler(func(*Config, string))
+
+	// Run starts the Watcher. Must call this after SetHandler.
 	Run(<-chan struct{})
 
 	// Get returns the sidecar and values configuration.
 	Get() (*Config, string, error)
-
-	// SetHandler sets the handler that is run when the config changes.
-	SetHandler(func(*Config, string))
 }
 
 var _ Watcher = &fileWatcher{}
