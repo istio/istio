@@ -20,13 +20,13 @@ import (
 	"regexp"
 	"strings"
 
-	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-	"istio.io/istio/pkg/config/resource"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
 	"istio.io/pkg/log"
