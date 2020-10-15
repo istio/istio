@@ -37,7 +37,6 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/hashicorp/go-multierror"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -537,16 +536,16 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace string, l
 		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
 			sb.WriteString(csr)
 		}
-		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
+		addIstioEndpointLabel(metadata, "workload", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
 	}
 
 	return metadata
 }
 
-func addIstioEndpointLabel(metadata *core.Metadata, key string, val *structpb.Value) {
+func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Value) {
 	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
 		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
-			Fields: map[string]*structpb.Value{},
+			Fields: map[string]*pstruct.Value{},
 		}
 	}
 
