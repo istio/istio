@@ -100,6 +100,9 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 		if wle == nil {
 			return nil
 		}
+		if !shouldCleanupEntry(*wle) {
+			return nil
+		}
 		sg.cleanupEntry(*wle)
 		return nil
 	}, features.WorkloadEntryCleanupGracePeriod)
@@ -118,6 +121,9 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 			}
 			for _, wle := range wles {
 				wle := wle
+				if !shouldCleanupEntry(wle) {
+					return
+				}
 				sg.cleanupQueue.Push(func() error {
 					sg.cleanupEntry(wle)
 					return nil
@@ -130,9 +136,6 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 }
 
 func (sg *InternalGen) cleanupEntry(wle config.Config) {
-	if !shouldCleanupEntry(wle) {
-		return
-	}
 	if err := sg.cleanupLimit.Wait(context.TODO()); err != nil {
 		adsLog.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
 	}
