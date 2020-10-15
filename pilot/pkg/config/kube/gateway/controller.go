@@ -21,7 +21,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	svc "sigs.k8s.io/service-apis/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -34,9 +33,7 @@ import (
 
 var (
 	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
-	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway & virtual service resource type")
-	_                  = svc.HTTPRoute{}
-	_                  = svc.GatewayClass{}
+	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway, destination rule, and virtual service resource type")
 )
 
 type controller struct {
@@ -61,6 +58,7 @@ func (c *controller) Schemas() collection.Schemas {
 	return collection.SchemasFor(
 		collections.IstioNetworkingV1Alpha3Virtualservices,
 		collections.IstioNetworkingV1Alpha3Gateways,
+		collections.IstioNetworkingV1Alpha3Destinationrules,
 	)
 }
 
@@ -69,7 +67,7 @@ func (c controller) Get(typ config.GroupVersionKind, name, namespace string) *co
 }
 
 func (c controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	if typ != gvk.Gateway && typ != gvk.VirtualService {
+	if typ != gvk.Gateway && typ != gvk.VirtualService && typ != gvk.DestinationRule {
 		return nil, errUnsupportedType
 	}
 
@@ -129,6 +127,8 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 		return output.Gateway, nil
 	case gvk.VirtualService:
 		return output.VirtualService, nil
+	case gvk.DestinationRule:
+		return output.DestinationRule, nil
 	}
 	return nil, errUnsupportedOp
 }

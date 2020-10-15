@@ -122,8 +122,9 @@ func (r *KubernetesResources) fetchTLSRoutes(gatewayNamespace string, routes k8s
 }
 
 type IstioResources struct {
-	Gateway        []config.Config
-	VirtualService []config.Config
+	Gateway         []config.Config
+	VirtualService  []config.Config
+	DestinationRule []config.Config
 }
 
 var _ = k8s.HTTPRoute{}
@@ -131,9 +132,9 @@ var _ = k8s.HTTPRoute{}
 func convertResources(r *KubernetesResources) IstioResources {
 	result := IstioResources{}
 	gw, routeMap := convertGateway(r)
-	vs := convertVirtualService(r, routeMap)
 	result.Gateway = gw
-	result.VirtualService = vs
+	result.VirtualService = convertVirtualService(r, routeMap)
+	result.DestinationRule = convertDestinationRule(r)
 	return result
 }
 
@@ -150,6 +151,54 @@ func toRouteKey(c config.Config) RouteKey {
 		c.Name,
 		c.Namespace,
 	}
+}
+
+func convertDestinationRule(r *KubernetesResources) []config.Config {
+
+	result := []config.Config{}
+	for _, obj := range r.BackendPolicy {
+		bp := obj.Spec.(*k8s.BackendPolicySpec)
+		for i, ref := range bp.BackendRefs {
+			var serviceName string
+			if emptyOrEqual(ref.Group, "core") && emptyOrEqual(ref.Kind, "Service") {
+				serviceName = fmt.Sprintf("%s.%s.svc.%s", ref.Name, obj.Namespace, r.Domain)
+			} else {
+				log.Warnf("unsupported backendRef: %+v", ref)
+				continue
+			}
+			dr := &istio.DestinationRule{
+				Host:          serviceName,
+				TrafficPolicy: &istio.TrafficPolicy{},
+			}
+			if bp.TLS != nil && bp.TLS.CertificateAuthorityRef != nil {
+				tls := &istio.ClientTLSSettings{
+					// Currently, only simple is supported
+					CredentialName: buildSecretReference(*bp.TLS.CertificateAuthorityRef),
+					Mode:           istio.ClientTLSSettings_SIMPLE,
+				}
+				if ref.Port != nil {
+					dr.TrafficPolicy.PortLevelSettings = append(dr.TrafficPolicy.PortLevelSettings, &istio.TrafficPolicy_PortTrafficPolicy{
+						Port: &istio.PortSelector{Number: uint32(*ref.Port)},
+						Tls:  tls,
+					})
+				} else {
+					dr.TrafficPolicy.Tls = tls
+				}
+			}
+			drConfig := config.Config{
+				Meta: config.Meta{
+					CreationTimestamp: obj.CreationTimestamp,
+					GroupVersionKind:  gvk.DestinationRule,
+					Name:              fmt.Sprintf("%s-%d-%s", obj.Name, i, constants.KubernetesGatewayName),
+					Namespace:         obj.Namespace,
+					Domain:            r.Domain,
+				},
+				Spec: dr,
+			}
+			result = append(result, drConfig)
+		}
+	}
+	return result
 }
 
 func convertVirtualService(r *KubernetesResources, routeMap map[RouteKey][]string) []config.Config {
@@ -427,6 +476,13 @@ func buildGenericDestination(to k8s.RouteForwardTo, ns string) *istio.Destinatio
 // TODO in the future we should probably just make VirtualService support relative weights directly
 func standardizeWeights(weights []int) []int {
 	total := intSum(weights)
+	if total == 0 {
+		// All empty, fallback to even weight
+		for i := range weights {
+			weights[i] = 1
+		}
+		total = len(weights)
+	}
 	results := make([]int, 0, len(weights))
 	remainders := make([]float64, 0, len(weights))
 	for _, w := range weights {
