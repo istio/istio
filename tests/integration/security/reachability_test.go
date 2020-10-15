@@ -45,7 +45,7 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-on.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return !apps.Multiversion.Contains(opts.Target)
+						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						if apps.IsNaked(src) && apps.IsNaked(opts.Target) {
@@ -63,7 +63,7 @@ func TestReachability(t *testing.T) {
 						// Exclude calls from naked->VM since naked has no Envoy
 						// so k8s is responsible for DNS resolution
 						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
-						return !apps.IsNaked(opts.Target) && !(apps.IsNaked(src) && apps.VM.Contains(opts.Target)) && !apps.Multiversion.Contains(opts.Target)
+						return !apps.IsNaked(opts.Target) && !(apps.IsNaked(src) && apps.VM.Contains(opts.Target))
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true

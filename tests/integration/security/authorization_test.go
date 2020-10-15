@@ -525,7 +525,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			//TODO: Convert into multicluster support. Currently 503 is received
 			if len(ctx.Clusters()) > 1 {
-				return
+				ctx.Skip()
 			}
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-egress-gateway",

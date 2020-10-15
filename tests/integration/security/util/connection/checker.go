@@ -66,7 +66,7 @@ func (c *Checker) Check() error {
 }
 
 func (c *Checker) CheckOrFail(t test.Failer) {
-	if err := retry.UntilSuccess(c.Check, retry.Delay(time.Millisecond*100), retry.Timeout(120*time.Second)); err != nil {
+	if err := retry.UntilSuccess(c.Check, retry.Delay(time.Millisecond*100)); err != nil {
 		t.Fatal(err)
 	}
 }
