@@ -67,7 +67,8 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 					// open port until we get confirmation that
 					srv, err := net.Listen("tcp", "localhost:5991")
 					if err != nil {
-						t.Fatal(err)
+						t.Log(err)
+						return
 					}
 					// add to delta and wait for event received
 					tcpFinishedEvents.Add(1)
