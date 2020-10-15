@@ -672,6 +672,7 @@ func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Conf
 	cmd := []string{
 		"x", "create-remote-secret",
 		"--name", cluster.Name(),
+		"--network", cluster.NetworkName(),
 		"--namespace", cfg.SystemNamespace,
 	}
 
