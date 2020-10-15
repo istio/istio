@@ -59,7 +59,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-10-15T14-31-45
+  export IMAGE_VERSION=master-2020-10-15T20-33-46
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
@@ -110,7 +110,7 @@ if [[ -f "${HOME}/.gitconfig" ]]; then
 fi
 
 # .netrc conditional host mount (needed for git commands inside container)
-if [[ -f "${HOME}/.gitconfig" ]]; then
+if [[ -f "${HOME}/.netrc" ]]; then
   CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.netrc,destination=/home/.netrc,readonly "
 fi
 
