@@ -88,3 +88,20 @@ data:
 {{- end }}
 ---
 {{- end }}
+
+{{- if .Values.global.multiCluster.clusterName }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-cluster{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    release: {{ .Release.Name }}
+    istio/multiCluster: true
+data:
+  cluster: {{ .Values.global.multiCluster.clusterName }}
+  {{- if .Values.global.network }}
+  network: {{ .Values.global.network }}
+  {{- end }}
+{{- end }}
