@@ -34,8 +34,8 @@ import (
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
-func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
-	return BuildClientCmd(kubeconfig, context).ClientConfig()
+func BuildClientConfig(kubeconfig, context string) clientcmd.ClientConfig {
+	return BuildClientCmd(kubeconfig, context)
 }
 
 // BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
@@ -72,7 +72,8 @@ func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 // CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig
 // filepath. See `BuildClientConfig` for kubeconfig loading rules.
 func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*kubernetes.Clientset, error) {
-	c, err := BuildClientConfig(kubeconfig, context)
+	cfg := BuildClientConfig(kubeconfig, context)
+	c, err := cfg.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("build client config: %v", err)
 	}
@@ -83,18 +84,19 @@ func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*ku
 }
 
 // DefaultRestConfig returns the rest.Config for the given kube config file and context.
-func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Config)) (*rest.Config, error) {
-	config, err := BuildClientConfig(kubeconfig, configContext)
+func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Config)) (clientcmd.ClientConfig, *rest.Config, error) {
+	cfg := BuildClientConfig(kubeconfig, configContext)
+	restCfg, err := cfg.ClientConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	config = SetRestDefaults(config)
+	restCfg = SetRestDefaults(restCfg)
 
 	for _, fn := range fns {
-		fn(config)
+		fn(restCfg)
 	}
 
-	return config, nil
+	return cfg, restCfg, nil
 }
 
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.

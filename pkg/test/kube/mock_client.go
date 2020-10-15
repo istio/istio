@@ -140,6 +140,11 @@ func (c MockClient) RESTConfig() *rest.Config {
 	return c.ConfigValue
 }
 
+func (c MockClient) ClusterExtension(clusterName string) *kube.ClusterExtension {
+	// TODO implement if necessary
+	return nil
+}
+
 func (c MockClient) GetIstioVersions(_ context.Context, _ string) (*version.MeshInfo, error) {
 	return c.IstioVersions, nil
 }

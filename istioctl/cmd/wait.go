@@ -211,7 +211,7 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 
 func init() {
 	clientGetter = func(kubeconfig, context string) (dynamic.Interface, error) {
-		config, err := kube.DefaultRestConfig(kubeconfig, context)
+		_, config, err := kube.DefaultRestConfig(kubeconfig, context)
 		if err != nil {
 			return nil, err
 		}

@@ -27,11 +27,8 @@ var (
 )
 
 func newConfigStore() (istioclient.Interface, error) {
-	cfg, err := kubecfg.BuildClientConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	kclient, err := kubecfg.NewClient(kubecfg.NewClientConfigForRestConfig(cfg))
+	cfg := kubecfg.BuildClientConfig(kubeconfig, configContext)
+	kclient, err := kubecfg.NewClient(cfg)
 	if err != nil {
 		return nil, err
 	}

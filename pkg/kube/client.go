@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/pkg/log"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"net/http"
 	"os"
 	"strings"
@@ -80,6 +82,10 @@ type Client interface {
 	// TODO - stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
 	// TODO - add istio/client-go and service-apis
 	kubernetes.Interface
+
+	// ClusterExtension parses the value of the "istio" extension on a given cluster.
+	ClusterExtension(clusterName string) *ClusterExtension
+
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
 
@@ -221,7 +227,8 @@ type client struct {
 	restClient    *rest.RESTClient
 	revision      string
 
-	config *rest.Config
+	config    *rest.Config
+	rawConfig api.Config
 
 	extSet        kubeExtClient.Interface
 	versionClient discovery.ServerVersionInterface
@@ -256,6 +263,11 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 
 	c.config, err = clientFactory.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	c.rawConfig, err = clientFactory.ToRawKubeConfigLoader().RawConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -315,6 +327,28 @@ func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
 func (c *client) RESTConfig() *rest.Config {
 	cpy := *c.config
 	return &cpy
+}
+
+func (c *client) ClusterExtension(clusterName string) *ClusterExtension {
+	cluster, ok := c.rawConfig.Clusters[clusterName]
+	if !ok {
+		return nil
+	}
+	extObj, ok := cluster.Extensions["istio"]
+	if !ok {
+		return nil
+	}
+	unk, ok := extObj.(*runtime.Unknown)
+	if !ok {
+		return nil
+	}
+	ext := &ClusterExtension{}
+	err := json.Unmarshal(unk.Raw, ext)
+	if err != nil {
+		log.Errorf("failed parsing istio Kubeconfig extension for cluster %s: %v", clusterName, err)
+		return nil
+	}
+	return ext
 }
 
 func (c *client) REST() rest.Interface {

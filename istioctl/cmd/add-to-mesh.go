@@ -381,7 +381,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 }
 
 func createDynamicInterface(kubeconfig string) (dynamic.Interface, error) {
-	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
+	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext).ClientConfig()
 
 	if err != nil {
 		return nil, err

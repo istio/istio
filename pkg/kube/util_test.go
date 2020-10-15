@@ -88,7 +88,7 @@ func TestBuildClientConfig(t *testing.T) {
 			}
 			defer os.Setenv("KUBECONFIG", currentEnv)
 
-			resp, err := BuildClientConfig(tt.explicitKubeconfig, tt.context)
+			resp, err := BuildClientConfig(tt.explicitKubeconfig, tt.context).ClientConfig()
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("BuildClientConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}

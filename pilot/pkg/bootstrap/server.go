@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/client-go/tools/clientcmd"
 	"net"
 	"net/http"
 	"os"
@@ -477,8 +478,9 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 
 	if hasK8SConfigStore || hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
+		var clientCfg clientcmd.ClientConfig
 		// Used by validation
-		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
+		clientCfg, s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
 			config.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
 		})
@@ -486,7 +488,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
+		s.kubeClient, err = kubelib.NewClient(clientCfg)
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
