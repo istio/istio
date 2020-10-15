@@ -197,6 +197,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	// Handle downstream xds
 	firstNDSSent := false
 	go func() {
+		defer close(requestsChan) // Indicates downstream close.
+		defer close(ndsRequestChan)
 		for {
 			// From Envoy
 			req, err := downstream.Recv()
