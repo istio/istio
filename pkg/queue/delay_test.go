@@ -90,3 +90,32 @@ func TestDelayQueueOrdering(t *testing.T) {
 	}
 	mu.Unlock()
 }
+
+func TestDelayQueuePushNonblockingWithFullBuffer(t *testing.T) {
+	queuedItems := 50
+	dq := NewDelayed(DelayQueueBuffer(0), DelayQueueWorkers(0))
+
+	success := make(chan struct{})
+	timeout := time.After(500 * time.Millisecond)
+	defer close(success)
+
+	go func() {
+		for i := 0; i < queuedItems; i++ {
+			dq.PushDelayed(func() error { return nil }, time.Minute*time.Duration(queuedItems-i))
+		}
+		success <- struct{}{}
+	}()
+
+	select {
+	case <-success:
+		dq := dq.(*delayQueue)
+		dq.mu.Lock()
+		if dq.queue.Len() < queuedItems {
+			t.Fatalf("expected 5 items in the queue, got %d", dq.queue.Len())
+		}
+		dq.mu.Unlock()
+		return
+	case <-timeout:
+		t.Fatal("timed out waiting for enqueues")
+	}
+}

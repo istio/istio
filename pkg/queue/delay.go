@@ -16,6 +16,7 @@ package queue
 
 import (
 	"container/heap"
+	"sync"
 	"time"
 
 	"istio.io/pkg/log"
@@ -96,6 +97,7 @@ func DelayQueueBuffer(bufferSize int) DelayQueueOption {
 func DelayQueueWorkers(workers int) DelayQueueOption {
 	return func(queue *delayQueue) {
 		queue.workers = workers
+		// TODO buffer execute channel?
 	}
 }
 
@@ -103,6 +105,7 @@ func DelayQueueWorkers(workers int) DelayQueueOption {
 func NewDelayed(opts ...DelayQueueOption) Delayed {
 	q := &delayQueue{
 		workers: 1,
+		queue:   &pq{},
 		execute: make(chan *delayTask),
 		enqueue: make(chan *delayTask, 100),
 	}
@@ -118,51 +121,74 @@ type delayQueue struct {
 	enqueue chan *delayTask
 	// outgoing
 	execute chan *delayTask
+
+	mu    sync.Mutex
+	queue *pq
 }
 
 // PushDelayed will execute the task after waiting for the delay
-func (d delayQueue) PushDelayed(t Task, delay time.Duration) {
-	d.enqueue <- &delayTask{do: t, runAt: time.Now().Add(delay)}
+func (d *delayQueue) PushDelayed(t Task, delay time.Duration) {
+	task := &delayTask{do: t, runAt: time.Now().Add(delay)}
+	select {
+	case d.enqueue <- task:
+	// buffer has room to enqueue
+	default:
+		// TODO warn and resize buffer
+		// if the buffer is full, we take the more expensive route of locking and pushing direclty to the heap
+		d.mu.Lock()
+		heap.Push(d.queue, task)
+		d.mu.Unlock()
+	}
 }
 
 // Push will execute the task as soon as possible
-func (d delayQueue) Push(task Task) {
+func (d *delayQueue) Push(task Task) {
 	d.PushDelayed(task, 0)
 }
 
-func (d delayQueue) Run(stop <-chan struct{}) {
+func (d *delayQueue) Run(stop <-chan struct{}) {
 	for i := 0; i < d.workers; i++ {
 		go d.work(stop)
 	}
 
-	// only needed while running
-	q := &pq{}
-
 	for {
-		if head := q.Peek(); head != nil {
-			task := head.(*delayTask)
+		var task *delayTask
+		d.mu.Lock()
+		if head := d.queue.Peek(); head != nil {
+			task = head.(*delayTask)
+			heap.Pop(d.queue)
+		}
+		d.mu.Unlock()
+
+		if task != nil {
 			delay := time.Until(task.runAt)
 			if delay <= 0 {
-				// actually remove the work item if we're ready to go
-				heap.Pop(q)
+				// execute now and continue processing incoming enqueues/tasks
 				d.execute <- task
 			} else {
-				// wait for another Push, or for them item to be ready
+				// not ready yet, don't block enqueueing
+				await := time.NewTimer(delay)
 				select {
 				case t := <-d.enqueue:
-					heap.Push(q, t)
-				case <-time.After(delay):
-					heap.Pop(q)
+					d.mu.Lock()
+					heap.Push(d.queue, t)
+					// put the old "head" back on the queue, it may be scheduled to execute after the one
+					// that was just pushed
+					heap.Push(d.queue, task)
+					d.mu.Unlock()
+				case <-await.C:
 					d.execute <- task
 				case <-stop:
+					await.Stop()
 					return
 				}
+				await.Stop()
 			}
 		} else {
 			// no items, wait for Push or stop
 			select {
 			case t := <-d.enqueue:
-				q.Push(t)
+				d.queue.Push(t)
 			case <-stop:
 				return
 			}
@@ -170,7 +196,7 @@ func (d delayQueue) Run(stop <-chan struct{}) {
 	}
 }
 
-func (d delayQueue) work(stop <-chan struct{}) {
+func (d *delayQueue) work(stop <-chan struct{}) {
 	for {
 		select {
 		case t := <-d.execute:
