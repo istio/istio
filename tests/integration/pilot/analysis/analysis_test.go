@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"istio.io/api/meta/v1alpha1"
-	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"reflect"
 	"testing"
 	"time"
@@ -107,60 +105,77 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 				Revision: "",
 				Labels:   nil,
 			})
-			// Make a workloadentry
-			we, err := ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Create(context.TODO(), &v1alpha3.WorkloadEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "vm-1",
-					Namespace: ns.Name(),
-				},
-				Spec: networkingv1alpha3.WorkloadEntry{
-					Address: "127.0.0.1",
-				},
-			}, metav1.CreateOptions{})
 
-			if err != nil {
-				t.Error(err)
-			}
+			// create WorkloadEntry
+		ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: vm-1
+spec:
+  address: 127.0.0.1
+`)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				// we should expect an empty array not nil
 				return expectWorkloadEntryStatus(t, ctx, ns, nil)
 			})
-			// Test adding one condition
-			stat := &v1alpha1.IstioStatus{
-				Conditions: []*v1alpha1.IstioCondition{
+
+			// add one health condition and one other condition
+			addedConds := []*v1alpha1.IstioCondition{
+				{
+					Type:   "Health",
+					Reason: "DontTellAnyoneButImNotARealReason",
+					Status: "True",
+				},
+				{
+					Type:   "SomeRandomType",
+					Reason: "ImNotHealthSoDontTouchMe",
+					Status: "True",
+				},
+
+			}
+
+			// Get WorkloadEntry to append to
+			we, err := ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			if we.Status.Conditions == nil {
+				we.Status.Conditions = []*v1alpha1.IstioCondition{}
+			}
+			// append to conditions
+			we.Status.Conditions = append(we.Status.Conditions, addedConds...)
+			// update the status
+			we, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
+			if err != nil {
+				t.Error(err)
+			}
+			// we should have all the conditions present
+			retry.UntilSuccessOrFail(t, func() error {
+				// should update
+				return expectWorkloadEntryStatus(t, ctx, ns, []*v1alpha1.IstioCondition{
 					{
-						Type: "Health",
+						Type:   "Health",
 						Reason: "DontTellAnyoneButImNotARealReason",
 						Status: "True",
 					},
 					{
-						Type: "SomeRandomType",
+						Type:   "SomeRandomType",
 						Reason: "ImNotHealthSoDontTouchMe",
 						Status: "True",
-					},
-				},
-			}
-			we, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), &v1alpha3.WorkloadEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "vm-1",
-					Namespace: ns.Name(),
-					ResourceVersion: we.ResourceVersion,
-				},
-				Status: *stat,
-			}, metav1.UpdateOptions{})
-			if err != nil {
-				t.Error(err)
-			}
-			retry.UntilSuccessOrFail(t, func() error {
-				// should update
-				return expectWorkloadEntryStatus(t, ctx, ns, stat.Conditions)
+					}})
 			})
 
+			// get the workload entry to replace the health condition field
+			we, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+
 			// replacing the condition
-			for i, cond := range stat.Conditions {
+			for i, cond := range we.Status.Conditions {
 				if cond.Type == "Health" {
-					stat.Conditions[i] = &v1alpha1.IstioCondition{
+					we.Status.Conditions[i] = &v1alpha1.IstioCondition{
 						Type: "Health",
 						Reason: "LooksLikeIHavebeenReplaced",
 						Status: "False",
@@ -169,21 +184,25 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 			}
 
 			// update this new status
-			_, err =ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), &v1alpha3.WorkloadEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "vm-1",
-					Namespace: ns.Name(),
-					ResourceVersion: we.ResourceVersion,
-				},
-				Status: *stat,
-			}, metav1.UpdateOptions{})
+			_, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
 
 			if err != nil {
 				t.Error(err)
 			}
 			retry.UntilSuccessOrFail(t, func() error {
 				// should update
-				return expectWorkloadEntryStatus(t, ctx, ns, stat.Conditions)
+				return expectWorkloadEntryStatus(t, ctx, ns, []*v1alpha1.IstioCondition{
+					{
+						Type: "Health",
+						Reason: "LooksLikeIHavebeenReplaced",
+						Status: "False",
+					},
+					{
+						Type:   "SomeRandomType",
+						Reason: "ImN	otHealthSoDontTouchMe",
+						Status: "True",
+					},
+				})
 			})
 		})
 }
