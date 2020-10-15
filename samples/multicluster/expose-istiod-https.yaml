@@ -14,10 +14,10 @@ spec:
       tls:
         mode: SIMPLE
         # use a valid credential here
-        credentialName: $CREDENTIAL_NAME
+        credentialName: "$CREDENTIAL_NAME"
       hosts:
-      # use a valid gateway host for istiod
-      - $ISTIOD_HOST
+      # use a valid gateway host and domain for istiod
+      - "$ISTIOD_HOST.DOMAIN"
     - port:
         name: https-istiodwebhook
         number: 15017
@@ -25,10 +25,10 @@ spec:
       tls:
         mode: SIMPLE
         # use a valid credential here
-        credentialName: $CREDENTIAL_NAME
+        credentialName: "$CREDENTIAL_NAME"
       hosts:
-      # use a valid gateway host for istiod
-      - $ISTIOD_HOST
+      # use a valid gateway host and domain for istiod
+      - "$ISTIOD_HOST.DOMAIN"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -37,7 +37,8 @@ metadata:
   namespace: istio-system
 spec:
   hosts:
-  - $ISTIOD_HOST
+  # use a valid gateway host and domain for istiod
+  - "$ISTIOD_HOST.DOMAIN"
   gateways:
   - istiod-gateway
   http:
