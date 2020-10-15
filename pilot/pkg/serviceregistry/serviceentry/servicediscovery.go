@@ -733,7 +733,7 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 // NOTE: The service objects in these instances do not have the auto allocated IP set.
-func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	s.maybeRefreshIndexes()
 
 	s.storeMutex.RLock()
@@ -747,10 +747,10 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 			out = append(out, instances...)
 		}
 	}
-	return out, nil
+	return out
 }
 
-func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	s.maybeRefreshIndexes()
 
 	s.storeMutex.RLock()
@@ -766,7 +766,7 @@ func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 			}
 		}
 	}
-	return out, nil
+	return out
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
