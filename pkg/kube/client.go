@@ -334,7 +334,7 @@ func (c *client) ClusterExtension(clusterName string) *ClusterExtension {
 	if !ok {
 		return nil
 	}
-	extObj, ok := cluster.Extensions["istio"]
+	extObj, ok := cluster.Extensions[ClusterExtensionKey]
 	if !ok {
 		return nil
 	}

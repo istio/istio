@@ -442,10 +442,15 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 
 func TestCreateRemoteKubeconfig(t *testing.T) {
 	fakeClusterName := "fake-clusterName-0"
+	fakeNetworkName := "fake-network-0"
 	kubeconfig := strings.ReplaceAll(`apiVersion: v1
 clusters:
 - cluster:
     certificate-authority-data: Y2FEYXRh
+    extensions:
+    - extension:
+        network: fake-network-0
+      name: istio
     server: ""
   name: {cluster}
 contexts:
@@ -463,33 +468,29 @@ users:
 `, "{cluster}", fakeClusterName)
 
 	cases := []struct {
-		name        string
-		clusterName string
-		context     string
-		server      string
-		in          *v1.Secret
-		want        *v1.Secret
-		wantErrStr  string
+		name       string
+		context    string
+		server     string
+		in         *v1.Secret
+		want       *v1.Secret
+		wantErrStr string
 	}{
 		{
-			name:        "missing caData",
-			in:          makeSecret("", "", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			wantErrStr:  errMissingRootCAKey.Error(),
+			name:       "missing caData",
+			in:         makeSecret("", "", "token"),
+			context:    "c0",
+			wantErrStr: errMissingRootCAKey.Error(),
 		},
 		{
-			name:        "missing token",
-			in:          makeSecret("", "caData", ""),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			wantErrStr:  errMissingTokenKey.Error(),
+			name:       "missing token",
+			in:         makeSecret("", "caData", ""),
+			context:    "c0",
+			wantErrStr: errMissingTokenKey.Error(),
 		},
 		{
-			name:        "success",
-			in:          makeSecret("", "caData", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
+			name:    "success",
+			in:      makeSecret("", "caData", "token"),
+			context: "c0",
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: remoteSecretNameFromClusterName(fakeClusterName),
@@ -508,9 +509,9 @@ users:
 	}
 	for i := range cases {
 		c := &cases[i]
-		secName := remoteSecretNameFromClusterName(c.clusterName)
+		secName := remoteSecretNameFromClusterName(fakeClusterName)
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromTokenAndServer(c.in, c.clusterName, c.server, secName)
+			got, err := createRemoteSecretFromTokenAndServer(c.in, fakeClusterName, fakeNetworkName, c.server, secName)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)
@@ -569,10 +570,15 @@ metadata:
 
 func TestCreateRemoteSecretFromPlugin(t *testing.T) {
 	fakeClusterName := "fake-clusterName-0"
+	networkName := "fake-network-0"
 	kubeconfig := strings.ReplaceAll(`apiVersion: v1
 clusters:
 - cluster:
     certificate-authority-data: Y2FEYXRh
+    extensions:
+    - extension:
+        network: fake-network-0
+      name: istio
     server: ""
   name: {cluster}
 contexts:
@@ -596,24 +602,21 @@ users:
 		name               string
 		in                 *v1.Secret
 		context            string
-		clusterName        string
 		server             string
 		authProviderConfig *api.AuthProviderConfig
 		want               *v1.Secret
 		wantErrStr         string
 	}{
 		{
-			name:        "error on missing caData",
-			in:          makeSecret("", "", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
-			wantErrStr:  errMissingRootCAKey.Error(),
+			name:       "error on missing caData",
+			in:         makeSecret("", "", "token"),
+			context:    "c0",
+			wantErrStr: errMissingRootCAKey.Error(),
 		},
 		{
-			name:        "success on missing token",
-			in:          makeSecret("", "caData", ""),
-			context:     "c0",
-			clusterName: fakeClusterName,
+			name:    "success on missing token",
+			in:      makeSecret("", "caData", ""),
+			context: "c0",
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -636,10 +639,9 @@ users:
 			},
 		},
 		{
-			name:        "success",
-			in:          makeSecret("", "caData", "token"),
-			context:     "c0",
-			clusterName: fakeClusterName,
+			name:    "success",
+			in:      makeSecret("", "caData", "token"),
+			context: "c0",
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -665,9 +667,9 @@ users:
 
 	for i := range cases {
 		c := &cases[i]
-		secName := remoteSecretNameFromClusterName(c.clusterName)
+		secName := remoteSecretNameFromClusterName(fakeClusterName)
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromPlugin(c.in, c.server, c.clusterName, secName, c.authProviderConfig)
+			got, err := createRemoteSecretFromPlugin(c.in, c.server, fakeClusterName, networkName, secName, c.authProviderConfig)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)
