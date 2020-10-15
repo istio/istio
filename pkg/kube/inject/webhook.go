@@ -91,8 +91,8 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil {
+	var c *Config
+	if c, err = unmarshalConfig(data); err != nil {
 		log.Warnf("Failed to parse injectFile %s", string(data))
 		return nil, "", err
 	}
@@ -101,14 +101,21 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	return c, string(valuesConfig), nil
+}
+
+func unmarshalConfig(data []byte) (*Config, error) {
+	var c Config
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return nil, err
+	}
 
 	log.Debugf("New inject configuration: sha256sum %x", sha256.Sum256(data))
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
 	log.Debugf("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
-
-	return &c, string(valuesConfig), nil
+	return &c, nil
 }
 
 // WebhookParameters configures parameters for the sidecar injection
