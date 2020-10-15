@@ -116,14 +116,20 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		}
 		gConfig.Include = append(gConfig.Include, ss)
 	}
+	// Exclude default system namespaces eg: bugReportDefaultExclude
+	dss := &config2.SelectionSpec{}
+	if err := dss.UnmarshalJSON([]byte(bugReportDefaultExclude[0])); err != nil {
+		return nil, err
+	}
+	gConfig.Exclude = append(gConfig.Exclude, dss)
+	// Exclude namespace provided by --exclude flag
 	for _, s := range excluded {
-		ss := &config2.SelectionSpec{}
-		if err := ss.UnmarshalJSON([]byte(s)); err != nil {
+		ess := &config2.SelectionSpec{}
+		if err := ess.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		gConfig.Exclude = append(gConfig.Exclude, ss)
+		gConfig.Exclude = append(gConfig.Exclude, ess)
 	}
-
 	return overlayConfig(fileConfig, gConfig)
 }
 
