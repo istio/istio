@@ -993,6 +993,10 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		Watcher: mesh.NewFixedWatcher(&m),
 	}
 	watcher, err := NewFileWatcher(configFile, valuesFile)
+	if err != nil {
+		cleanup()
+		t.Fatalf("NewFileWatcher() failed: %v", err)
+	}
 	wh, err := NewWebhook(WebhookParameters{
 		Watcher:        watcher,
 		Port:           port,
