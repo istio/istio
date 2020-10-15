@@ -122,7 +122,7 @@ func newClients(kubeConfigs []string) ([]istioKube.ExtendedClient, error) {
 	out := make([]istioKube.ExtendedClient, 0, len(kubeConfigs))
 	for _, cfg := range kubeConfigs {
 		if len(cfg) > 0 {
-			cfg, rc, err := istioKube.DefaultRestConfig(cfg, "", func(config *rest.Config) {
+			cfg, _, err := istioKube.DefaultRestConfig(cfg, "", func(config *rest.Config) {
 				config.QPS = 200
 				config.Burst = 400
 			})

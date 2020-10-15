@@ -272,6 +272,13 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 
+	rc, err := json.Marshal(c.rawConfig)
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("raw cfg: %s", string(rc))
+
+
 	c.Interface, err = kubernetes.NewForConfig(c.config)
 	c.kube = c.Interface
 	if err != nil {
