@@ -202,12 +202,11 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return fmt.Errorf("invalid XDS config URL %s %v", configSource.Address, err)
 			}
 			// TODO: use a query param or schema to specify insecure
-			xdsMCP, err := adsc.New(&meshconfig.ProxyConfig{
-				DiscoveryAddress: srcAddress.Host,
-			}, &adsc.Config{
+			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
 				Meta: model.NodeMetadata{
 					Generator: "api",
 				}.ToStruct(),
+				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 			})
 			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
@@ -216,7 +215,6 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
-			go xdsMCP.WatchConfig()
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Warna("Started XDS config ", s.ConfigStores)
 			continue
