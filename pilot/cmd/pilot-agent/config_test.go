@@ -84,6 +84,10 @@ defaultConfig:
     SOME: setting
   drainDuration: 1s
   extraStatTags: ["a"]
+  proxyStatsMatcher:
+    inclusionPrefixes: ["a"]
+    inclusionSuffixes: ["b"]
+    inclusionRegexps: ["c"]
   controlPlaneAuthPolicy: NONE`,
 			environment: `
 discoveryAddress: environment:123
@@ -95,6 +99,10 @@ proxyMetadata:
   ANNOTATION: something
 drainDuration: 5s
 extraStatTags: ["b"]
+proxyStatsMatcher:
+  inclusionPrefixes: ["a"]
+  inclusionSuffixes: ["e"]
+  inclusionRegexps: ["f"]
 `,
 			expect: func() meshconfig.ProxyConfig {
 				m := mesh.DefaultProxyConfig()
@@ -102,6 +110,10 @@ extraStatTags: ["b"]
 				m.ProxyMetadata = map[string]string{"ANNOTATION": "something"}
 				m.DrainDuration = types.DurationProto(5 * time.Second)
 				m.ExtraStatTags = []string{"b"}
+				m.ProxyStatsMatcher = &meshconfig.ProxyConfig_ProxyStatsMatcher{}
+				m.ProxyStatsMatcher.InclusionPrefixes = []string{"a"}
+				m.ProxyStatsMatcher.InclusionSuffixes = []string{"e"}
+				m.ProxyStatsMatcher.InclusionRegexps = []string{"f"}
 				m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 				return m
 			}(),
