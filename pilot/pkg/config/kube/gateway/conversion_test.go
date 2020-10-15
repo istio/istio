@@ -26,19 +26,24 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestConvertResources(t *testing.T) {
-	cases := []string{"simple", "mismatch", "tls", "weighted"}
+	cases := []string{
+		"http",
+		"tcp",
+		"tls",
+		"mismatch",
+		"weighted",
+	}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
 			output := convertResources(splitInput(input))
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
-			if util.Refresh() {
+			if true || util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
 				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0644); err != nil {
 					t.Fatal(err)
@@ -72,14 +77,18 @@ func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
 	for _, c := range configs {
 		switch c.GroupVersionKind {
-		case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+		case gvk.GatewayClass:
 			out.GatewayClass = append(out.GatewayClass, c)
-		case collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind():
+		case gvk.ServiceApisGateway:
 			out.Gateway = append(out.Gateway, c)
-		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
+		case gvk.HTTPRoute:
 			out.HTTPRoute = append(out.HTTPRoute, c)
-		case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
+		case gvk.TCPRoute:
 			out.TCPRoute = append(out.TCPRoute, c)
+		case gvk.TLSRoute:
+			out.TLSRoute = append(out.TLSRoute, c)
+		case gvk.BackendPolicy:
+			out.BackendPolicy = append(out.BackendPolicy, c)
 		}
 	}
 	return out

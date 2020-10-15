@@ -73,21 +73,44 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 		return nil, errUnsupportedType
 	}
 
-	gatewayClass, err := c.cache.List(collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(), namespace)
+	gatewayClass, err := c.cache.List(gvk.GatewayClass, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list type GatewayClass: %v", err)
 	}
-	gateway, err := c.cache.List(collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(), namespace)
+	gateway, err := c.cache.List(gvk.ServiceApisGateway, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list type Gateway: %v", err)
 	}
-	httpRoute, err := c.cache.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), namespace)
+	httpRoute, err := c.cache.List(gvk.HTTPRoute, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list type HTTPRoute: %v", err)
 	}
-	tcpRoute, err := c.cache.List(collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(), namespace)
+	tcpRoute, err := c.cache.List(gvk.TCPRoute, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list type TCPRoute: %v", err)
+	}
+	tlsRoute, err := c.cache.List(gvk.TLSRoute, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list type TLSRoute: %v", err)
+	}
+	backendPolicy, err := c.cache.List(gvk.BackendPolicy, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list type BackendPolicy: %v", err)
+	}
+
+	input := &KubernetesResources{
+		GatewayClass:  gatewayClass,
+		Gateway:       gateway,
+		HTTPRoute:     httpRoute,
+		TCPRoute:      tcpRoute,
+		TLSRoute:      tlsRoute,
+		BackendPolicy: backendPolicy,
+		Domain:        c.domain,
+	}
+
+	if !anyApisUsed(input) {
+		// Early exit for common case of no service-apis used.
+		return nil, nil
 	}
 
 	nsl, err := c.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
@@ -98,14 +121,7 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 	for i, ns := range nsl.Items {
 		namespaces[ns.Name] = &nsl.Items[i]
 	}
-	input := &KubernetesResources{
-		GatewayClass: gatewayClass,
-		Gateway:      gateway,
-		HTTPRoute:    httpRoute,
-		TCPRoute:     tcpRoute,
-		Namespaces:   namespaces,
-		Domain:       c.domain,
-	}
+	input.Namespaces = namespaces
 	output := convertResources(input)
 
 	switch typ {
@@ -115,6 +131,15 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 		return output.VirtualService, nil
 	}
 	return nil, errUnsupportedOp
+}
+
+func anyApisUsed(input *KubernetesResources) bool {
+	return len(input.GatewayClass) > 0 ||
+		len(input.Gateway) > 0 ||
+		len(input.HTTPRoute) > 0 ||
+		len(input.TCPRoute) > 0 ||
+		len(input.TLSRoute) > 0 ||
+		len(input.BackendPolicy) > 0
 }
 
 func (c controller) Create(config config.Config) (revision string, err error) {

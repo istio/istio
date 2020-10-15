@@ -39,11 +39,13 @@ const (
 )
 
 type KubernetesResources struct {
-	GatewayClass []config.Config
-	Gateway      []config.Config
-	HTTPRoute    []config.Config
-	TCPRoute     []config.Config
-	Namespaces   map[string]*corev1.Namespace
+	GatewayClass  []config.Config
+	Gateway       []config.Config
+	HTTPRoute     []config.Config
+	TCPRoute      []config.Config
+	TLSRoute      []config.Config
+	BackendPolicy []config.Config
+	Namespaces    map[string]*corev1.Namespace
 
 	// Domain for the cluster. Typically cluster.local
 	Domain string
@@ -109,6 +111,16 @@ func (r *KubernetesResources) fetchTCPRoutes(gatewayNamespace string, routes k8s
 	return result
 }
 
+func (r *KubernetesResources) fetchTLSRoutes(gatewayNamespace string, routes k8s.RouteBindingSelector) []config.Config {
+	result := []config.Config{}
+	for _, http := range r.TLSRoute {
+		if isRouteMatch(http, collections.K8SServiceApisV1Alpha1Tlsroutes.Resource(), gatewayNamespace, routes, r.Namespaces) {
+			result = append(result, http)
+		}
+	}
+	return result
+}
+
 type IstioResources struct {
 	Gateway        []config.Config
 	VirtualService []config.Config
@@ -150,6 +162,17 @@ func convertVirtualService(r *KubernetesResources, routeMap map[RouteKey][]strin
 		}
 
 		vsConfig := buildTCPVirtualService(obj, gateways, r.Domain)
+		result = append(result, vsConfig)
+	}
+
+	for _, obj := range r.TLSRoute {
+		gateways, f := routeMap[toRouteKey(obj)]
+		if !f {
+			// There are no gateways using this route
+			continue
+		}
+
+		vsConfig := buildTLSVirtualService(obj, gateways, r.Domain)
 		result = append(result, vsConfig)
 	}
 
@@ -197,10 +220,11 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	}
 	vsConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             name,
-			Namespace:        obj.Namespace,
-			Domain:           domain,
+			CreationTimestamp: obj.CreationTimestamp,
+			GroupVersionKind:  gvk.VirtualService,
+			Name:              name,
+			Namespace:         obj.Namespace,
+			Domain:            domain,
 		},
 		Spec: &istio.VirtualService{
 			Hosts:    hosts,
@@ -233,16 +257,46 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 
 	vsConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
-			Namespace:        obj.Namespace,
-			Domain:           domain,
+			CreationTimestamp: obj.CreationTimestamp,
+			GroupVersionKind:  gvk.VirtualService,
+			Name:              fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
+			Namespace:         obj.Namespace,
+			Domain:            domain,
 		},
 		Spec: &istio.VirtualService{
-			// TODO investigate if we should/muust constrain this to avoid conflicts
+			// TODO investigate if we should/must constrain this to avoid conflicts
 			Hosts:    []string{"*"},
 			Gateways: gateways,
 			Tcp:      routes,
+		},
+	}
+	return vsConfig
+}
+
+func buildTLSVirtualService(obj config.Config, gateways []string, domain string) config.Config {
+	route := obj.Spec.(*k8s.TLSRouteSpec)
+	routes := []*istio.TLSRoute{}
+	for _, r := range route.Rules {
+		ir := &istio.TLSRoute{
+			Match: buildTLSMatch(r.Matches),
+			Route: buildTCPDestination(r.ForwardTo, obj.Namespace),
+		}
+		routes = append(routes, ir)
+	}
+
+	vsConfig := config.Config{
+		Meta: config.Meta{
+			CreationTimestamp: obj.CreationTimestamp,
+			GroupVersionKind:  gvk.VirtualService,
+			Name:              fmt.Sprintf("%s-tls-%s", obj.Name, constants.KubernetesGatewayName),
+			Namespace:         obj.Namespace,
+			Domain:            domain,
+		},
+		Spec: &istio.VirtualService{
+			// TODO investigate if we should/must constrain this to avoid conflicts
+			Hosts:    []string{"*"},
+			Gateways: gateways,
+			Tls:      routes,
 		},
 	}
 	return vsConfig
@@ -278,6 +332,22 @@ func buildTCPDestination(action []k8s.RouteForwardTo, ns string) []*istio.RouteD
 func buildTCPMatch([]k8s.TCPRouteMatch) []*istio.L4MatchAttributes {
 	// Currently the spec only supports extensions, which are not currently implemented by Istio.
 	return nil
+}
+
+func buildTLSMatch(match []k8s.TLSRouteMatch) []*istio.TLSMatchAttributes {
+	if len(match) == 0 {
+		// Istio validation doesn't like empty match, instead do a match all explicitly
+		return []*istio.TLSMatchAttributes{{
+			SniHosts: []string{"*"},
+		}}
+	}
+	res := make([]*istio.TLSMatchAttributes, 0, len(match))
+	for _, m := range match {
+		res = append(res, &istio.TLSMatchAttributes{
+			SniHosts: m.SNIs,
+		})
+	}
+	return res
 }
 
 func intSum(n []int) int {
@@ -490,8 +560,7 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 
 			servers = append(servers, server)
 
-			// TODO support TCP Route
-			// TODO support VirtualService
+			// TODO support VirtualService direct reference
 			for _, http := range r.fetchHTTPRoutes(obj.Namespace, l.Routes) {
 				k := toRouteKey(http)
 				routeToGateway[k] = append(routeToGateway[k], obj.Namespace+"/"+name)
@@ -500,13 +569,18 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 				k := toRouteKey(tcp)
 				routeToGateway[k] = append(routeToGateway[k], obj.Namespace+"/"+name)
 			}
+			for _, tls := range r.fetchTLSRoutes(obj.Namespace, l.Routes) {
+				k := toRouteKey(tls)
+				routeToGateway[k] = append(routeToGateway[k], obj.Namespace+"/"+name)
+			}
 		}
 		gatewayConfig := config.Config{
 			Meta: config.Meta{
-				GroupVersionKind: gvk.Gateway,
-				Name:             name,
-				Namespace:        obj.Namespace,
-				Domain:           r.Domain,
+				CreationTimestamp: obj.CreationTimestamp,
+				GroupVersionKind:  gvk.Gateway,
+				Name:              name,
+				Namespace:         obj.Namespace,
+				Domain:            r.Domain,
 			},
 			Spec: &istio.Gateway{
 				Servers: servers,
