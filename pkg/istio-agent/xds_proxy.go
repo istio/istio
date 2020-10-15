@@ -171,7 +171,9 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	defer close(stop)
 	go p.healthChecker.PerformApplicationHealthCheck(healthEventsChan, stop)
 
-	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		return err
@@ -179,7 +181,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	defer upstreamConn.Close()
 	proxyLog.Debugf("connected to %s", p.istiodAddress)
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
+	ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
 	if p.agent.cfg.XDSHeaders != nil {
 		for k, v := range p.agent.cfg.XDSHeaders {
 			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
