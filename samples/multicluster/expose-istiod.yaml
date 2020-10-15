@@ -8,15 +8,15 @@ spec:
     istio: eastwestgateway
   servers:
     - port:
-        name: tcp-istiod
+        name: https-istiod
         number: 15012
-        protocol: TCP
+        protocol: https
       hosts:
         - "*"
     - port:
-        name: tcp-istiodwebhook
+        name: https-istiodwebhook
         number: 15017
-        protocol: TCP
+        protocol: https
       hosts:
         - "*"
 ---
@@ -30,7 +30,7 @@ spec:
   - istiod.istio-system.svc.cluster.local
   gateways:
   - istiod-gateway
-  tcp:
+  http:
   - match:
     - port: 15012
     route:
@@ -58,8 +58,11 @@ spec:
     - port:
         number: 15012
       tls:
-        mode: DISABLE
+        mode: SIMPLE
+      connectionPool:
+        http:
+          h2UpgradePolicy: UPGRADE        
     - port:
-        number: 15017
+        number: 443
       tls:
-        mode: DISABLE
+        mode: SIMPLE
