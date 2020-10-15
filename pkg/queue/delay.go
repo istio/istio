@@ -134,7 +134,7 @@ func (d *delayQueue) PushDelayed(t Task, delay time.Duration) {
 	// buffer has room to enqueue
 	default:
 		// TODO warn and resize buffer
-		// if the buffer is full, we take the more expensive route of locking and pushing direclty to the heap
+		// if the buffer is full, we take the more expensive route of locking and pushing directly to the heap
 		d.mu.Lock()
 		heap.Push(d.queue, task)
 		d.mu.Unlock()

@@ -73,6 +73,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
 	setConnectMeta(entry, sg.Server.instanceID, con)
 	_, err = sg.Store.Create(*entry)
 	if err != nil {
+		// TODO retry to handle transient failures
 		adsLog.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
 }
