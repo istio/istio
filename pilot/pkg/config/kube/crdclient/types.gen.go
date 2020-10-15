@@ -99,6 +99,11 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
 		}, metav1.CreateOptions{})
+	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
+		return sc.NetworkingV1alpha1().BackendPolicies(cfg.Namespace).Create(context.TODO(), &servicev1alpha1.BackendPolicy{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*servicev1alpha1.BackendPolicySpec)),
+		}, metav1.CreateOptions{})
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().GatewayClasses().Create(context.TODO(), &servicev1alpha1.GatewayClass{
 			ObjectMeta: objMeta,
@@ -118,6 +123,11 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return sc.NetworkingV1alpha1().TCPRoutes(cfg.Namespace).Create(context.TODO(), &servicev1alpha1.TCPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.TCPRouteSpec)),
+		}, metav1.CreateOptions{})
+	case collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind():
+		return sc.NetworkingV1alpha1().TLSRoutes(cfg.Namespace).Create(context.TODO(), &servicev1alpha1.TLSRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*servicev1alpha1.TLSRouteSpec)),
 		}, metav1.CreateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
@@ -181,6 +191,11 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
 		}, metav1.UpdateOptions{})
+	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
+		return sc.NetworkingV1alpha1().BackendPolicies(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.BackendPolicy{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*servicev1alpha1.BackendPolicySpec)),
+		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().GatewayClasses().Update(context.TODO(), &servicev1alpha1.GatewayClass{
 			ObjectMeta: objMeta,
@@ -200,6 +215,11 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return sc.NetworkingV1alpha1().TCPRoutes(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.TCPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.TCPRouteSpec)),
+		}, metav1.UpdateOptions{})
+	case collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind():
+		return sc.NetworkingV1alpha1().TLSRoutes(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.TLSRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*servicev1alpha1.TLSRouteSpec)),
 		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
@@ -377,6 +397,21 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 		}
 		return ic.SecurityV1beta1().RequestAuthentications(orig.Namespace).
 			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
+		oldRes := &servicev1alpha1.BackendPolicy{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*servicev1alpha1.BackendPolicySpec)),
+		}
+		modRes := &servicev1alpha1.BackendPolicy{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*servicev1alpha1.BackendPolicySpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return sc.NetworkingV1alpha1().BackendPolicies(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 		oldRes := &servicev1alpha1.GatewayClass{
 			ObjectMeta: origMeta,
@@ -437,6 +472,21 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 		}
 		return sc.NetworkingV1alpha1().TCPRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind():
+		oldRes := &servicev1alpha1.TLSRoute{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*servicev1alpha1.TLSRouteSpec)),
+		}
+		modRes := &servicev1alpha1.TLSRoute{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*servicev1alpha1.TLSRouteSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes)
+		if err != nil {
+			return nil, err
+		}
+		return sc.NetworkingV1alpha1().TLSRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
 	}
@@ -466,6 +516,8 @@ func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ co
 		return ic.SecurityV1beta1().PeerAuthentications(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().RequestAuthentications(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
+		return sc.NetworkingV1alpha1().BackendPolicies(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().GatewayClasses().Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind():
@@ -474,6 +526,8 @@ func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ co
 		return sc.NetworkingV1alpha1().HTTPRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().TCPRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	case collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind():
+		return sc.NetworkingV1alpha1().TLSRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	default:
 		return fmt.Errorf("unsupported type: %v", typ)
 	}
@@ -645,6 +699,21 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 			Spec: &obj.Spec,
 		}
 	},
+	collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
+		obj := r.(*servicev1alpha1.BackendPolicy)
+		return &config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+			},
+			Spec: &obj.Spec,
+		}
+	},
 	collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*servicev1alpha1.GatewayClass)
 		return &config.Config{
@@ -695,6 +764,21 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 		return &config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
+		obj := r.(*servicev1alpha1.TLSRoute)
+		return &config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

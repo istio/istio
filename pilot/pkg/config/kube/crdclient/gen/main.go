@@ -103,6 +103,8 @@ var (
 		"gatewayclasses":         "GatewayClasses",
 		"httproutes":             "HTTPRoutes",
 		"tcproutes":              "TCPRoutes",
+		"tlsroutes":              "TLSRoutes",
+		"backendpolicies":        "BackendPolicies",
 	}
 )
 

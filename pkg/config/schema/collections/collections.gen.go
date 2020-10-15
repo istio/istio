@@ -660,6 +660,25 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SServiceApisV1Alpha1Backendpolicies describes the collection
+	// k8s/service_apis/v1alpha1/backendpolicies
+	K8SServiceApisV1Alpha1Backendpolicies = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/backendpolicies",
+		VariableName: "K8SServiceApisV1Alpha1Backendpolicies",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.x-k8s.io",
+			Kind:          "BackendPolicy",
+			Plural:        "backendpolicies",
+			Version:       "v1alpha1",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.BackendPolicySpec",
+			ReflectType:   reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.BackendPolicySpec{}).Elem(),
+			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SServiceApisV1Alpha1Gatewayclasses describes the collection
 	// k8s/service_apis/v1alpha1/gatewayclasses
 	K8SServiceApisV1Alpha1Gatewayclasses = collection.Builder{
@@ -736,6 +755,25 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SServiceApisV1Alpha1Tlsroutes describes the collection
+	// k8s/service_apis/v1alpha1/tlsroutes
+	K8SServiceApisV1Alpha1Tlsroutes = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/tlsroutes",
+		VariableName: "K8SServiceApisV1Alpha1Tlsroutes",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.x-k8s.io",
+			Kind:          "TLSRoute",
+			Plural:        "tlsroutes",
+			Version:       "v1alpha1",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.TLSRouteSpec",
+			ReflectType:   reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.TLSRouteSpec{}).Elem(),
+			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
@@ -772,10 +810,12 @@ var (
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
+		MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
 		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
 		MustAdd(K8SServiceApisV1Alpha1Gateways).
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
+		MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
 		Build()
 
 	// Istio contains only Istio collections.
@@ -818,10 +858,12 @@ var (
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
+		MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
 		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
 		MustAdd(K8SServiceApisV1Alpha1Gateways).
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
+		MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -852,10 +894,12 @@ var (
 			MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).
+			MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
 			MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
 			MustAdd(K8SServiceApisV1Alpha1Gateways).
 			MustAdd(K8SServiceApisV1Alpha1Httproutes).
 			MustAdd(K8SServiceApisV1Alpha1Tcproutes).
+			MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
 			Build()
 
 	// Deprecated contains only collections used by that will soon be used by nothing.
