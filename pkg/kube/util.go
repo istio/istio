@@ -92,6 +92,10 @@ func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Confi
 	}
 	restCfg = SetRestDefaults(restCfg)
 
+	// TODO somehow apply restCfg fns to any rest config derived from the clientcmd.Client config
+	// TODO could just wrap both in a struct with restCfg override?
+	// TODO we really just need the raw config. maybe return that instead of clientcmd.ClientCOnfig
+	// TODO could also push this down into a NewClient like fn, they're always used together.
 	for _, fn := range fns {
 		fn(restCfg)
 	}

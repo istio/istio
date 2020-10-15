@@ -122,14 +122,14 @@ func newClients(kubeConfigs []string) ([]istioKube.ExtendedClient, error) {
 	out := make([]istioKube.ExtendedClient, 0, len(kubeConfigs))
 	for _, cfg := range kubeConfigs {
 		if len(cfg) > 0 {
-			rc, err := istioKube.DefaultRestConfig(cfg, "", func(config *rest.Config) {
+			cfg, rc, err := istioKube.DefaultRestConfig(cfg, "", func(config *rest.Config) {
 				config.QPS = 200
 				config.Burst = 400
 			})
 			if err != nil {
 				return nil, err
 			}
-			a, err := istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
+			a, err := istioKube.NewExtendedClient(cfg, "")
 			if err != nil {
 				return nil, fmt.Errorf("client setup: %v", err)
 			}
