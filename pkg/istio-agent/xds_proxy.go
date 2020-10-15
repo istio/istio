@@ -349,8 +349,7 @@ func isExpectedGRPCError(err error) bool {
 }
 
 type fileTokenSource struct {
-	path   string
-	period time.Duration
+	path string
 }
 
 var _ = oauth2.TokenSource(&fileTokenSource{})
@@ -369,7 +368,6 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 
 	return &oauth2.Token{
 		AccessToken: tok,
-		Expiry:      time.Now().Add(ts.period),
 	}, nil
 }
 
@@ -432,10 +430,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
 	if sa.proxyConfig.ControlPlaneAuthPolicy != meshconfig.AuthenticationPolicy_NONE {
 		if sa.secOpts.ProvCert == "" || !sa.secOpts.FileMountedCerts {
-			dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{
-				sa.secOpts.JWTPath,
-				time.Second * 300,
-			}}))
+			dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: &fileTokenSource{sa.secOpts.JWTPath}}))
 		}
 	}
 	return dialOptions, nil
