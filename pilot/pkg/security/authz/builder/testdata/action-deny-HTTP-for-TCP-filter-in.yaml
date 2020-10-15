@@ -24,21 +24,21 @@ spec:
   # rule[3] `from`: TCP field, `to`: HTTP field.
   - from:
     - source:
-        namespaces: ["ns-1"]
+        namespaces: ["ns-1", "regex:ns-[0-9]+-regexp"]
     to:
     - operation:
           methods: ["GET"]
   # rule[4] `from`: HTTP field, `to`: TCP field.
   - from:
     - source:
-          requestPrincipals: ["id-1"]
+          requestPrincipals: ["id-1", "regex:id-[0-9]+-regexp"]
     to:
     - operation:
           ports: ["80"]
   # rule[5] `from`: TCP field, `to`: TCP field.
   - from:
     - source:
-        namespaces: ["ns-1"]
+        namespaces: ["ns-1", "regex:ns-[0-9]+-regexp"]
     to:
     - operation:
         ports: ["80"]
@@ -53,14 +53,14 @@ spec:
   # rule[8] `from`: all fields, `to`: all fields, `when`: all fields.
   - from:
     - source:
-        principals: ["principal", "*principal-suffix", "principal-prefix*", "*"]
+        principals: ["principal", "*principal-suffix", "principal-prefix*", "*", "regex:principal-regexp"]
         requestPrincipals: ["requestPrincipals"]
-        namespaces: ["ns", "*ns-suffix", "ns-prefix*", "*"]
+        namespaces: ["ns", "*ns-suffix", "ns-prefix*", "*", "regex:ns-regexp"]
         ipBlocks: ["1.2.3.4"]
         remoteIpBlocks: ["172.18.4.0/22"]
-        notPrincipals: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*"]
+        notPrincipals: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*", "regex:not-principal-regexp"]
         notRequestPrincipals: ["not-requestPrincipals"]
-        notNamespaces: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*"]
+        notNamespaces: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*", "regex:not-ns-regexp"]
         notIpBlocks: ["9.0.0.1"]
         notRemoteIpBlocks: ["192.168.244.139"]
     to:
@@ -84,11 +84,11 @@ spec:
         values: ["192.168.3.3"]
         notValues: ["172.19.31.3"]
       - key: "source.namespace"
-        values: ["ns", "*ns-suffix", "ns-prefix*", "*"]
-        notValues: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*"]
+        values: ["ns", "*ns-suffix", "ns-prefix*", "*", "regex:ns-regexp"]
+        notValues: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*", "regex:not-ns-regexp"]
       - key: "source.principal"
-        values: ["principal", "*principal-suffix", "principal-prefix*", "*"]
-        notValues: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*"]
+        values: ["principal", "*principal-suffix", "principal-prefix*", "*", "regex:principal-regexp"]
+        notValues: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*", "regex:not-principal-regexp"]
       - key: "request.auth.principal"
         values: ["requestPrincipals"]
         notValues: ["not-requestPrincipals"]

@@ -55,6 +55,7 @@ spec:
         PILOT_ENABLED_SERVICE_APIS: true
         ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION: true
+        AUTHZ_ENABLE_REGEX: true
 
     gateways:
       istio-ingressgateway:

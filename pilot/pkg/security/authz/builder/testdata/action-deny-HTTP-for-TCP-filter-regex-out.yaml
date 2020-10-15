@@ -50,7 +50,7 @@ typedConfig:
                     principalName:
                       safeRegex:
                         googleRe2: {}
-                        regex: .*/ns/regex:ns-[0-9]+-regexp/.*
+                        regex: .*/ns/ns-[0-9]+-regexp/.*
       ns[foo]-policy[httpbin-deny]-rule[4]:
         permissions:
         - andRules:
@@ -83,7 +83,7 @@ typedConfig:
                     principalName:
                       safeRegex:
                         googleRe2: {}
-                        regex: .*/ns/regex:ns-[0-9]+-regexp/.*
+                        regex: .*/ns/ns-[0-9]+-regexp/.*
       ns[foo]-policy[httpbin-deny]-rule[6]:
         permissions:
         - andRules:
@@ -184,7 +184,9 @@ typedConfig:
                         regex: .+
                 - authenticated:
                     principalName:
-                      exact: spiffe://regex:principal-regexp
+                      safeRegex:
+                        googleRe2: {}
+                        regex: spiffe://principal-regexp
             - notId:
                 orIds:
                   ids:
@@ -206,7 +208,9 @@ typedConfig:
                           regex: .+
                   - authenticated:
                       principalName:
-                        exact: spiffe://regex:not-principal-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: spiffe://not-principal-regexp
             - orIds:
                 ids:
                 - authenticated:
@@ -233,7 +237,7 @@ typedConfig:
                     principalName:
                       safeRegex:
                         googleRe2: {}
-                        regex: .*/ns/regex:ns-regexp/.*
+                        regex: .*/ns/ns-regexp/.*
             - notId:
                 orIds:
                   ids:
@@ -261,7 +265,7 @@ typedConfig:
                       principalName:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/regex:not-ns-regexp/.*
+                          regex: .*/ns/not-ns-regexp/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -332,7 +336,7 @@ typedConfig:
                     principalName:
                       safeRegex:
                         googleRe2: {}
-                        regex: .*/ns/regex:ns-regexp/.*
+                        regex: .*/ns/ns-regexp/.*
             - notId:
                 orIds:
                   ids:
@@ -360,7 +364,7 @@ typedConfig:
                       principalName:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/regex:not-ns-regexp/.*
+                          regex: .*/ns/not-ns-regexp/.*
             - orIds:
                 ids:
                 - authenticated:
@@ -381,7 +385,9 @@ typedConfig:
                         regex: .+
                 - authenticated:
                     principalName:
-                      exact: spiffe://regex:principal-regexp
+                      safeRegex:
+                        googleRe2: {}
+                        regex: spiffe://principal-regexp
             - notId:
                 orIds:
                   ids:
@@ -403,5 +409,7 @@ typedConfig:
                           regex: .+
                   - authenticated:
                       principalName:
-                        exact: spiffe://regex:not-principal-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: spiffe://not-principal-regexp
   statPrefix: tcp.

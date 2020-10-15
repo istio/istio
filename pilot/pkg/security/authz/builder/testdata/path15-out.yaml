@@ -23,6 +23,9 @@ typedConfig:
                       safeRegex:
                         googleRe2: {}
                         regex: .+
+                - urlPath:
+                    path:
+                      exact: regex:regexp
             - notRule:
                 orRules:
                   rules:
@@ -40,6 +43,9 @@ typedConfig:
                         safeRegex:
                           googleRe2: {}
                           regex: .+
+                  - urlPath:
+                      path:
+                        exact: regex:not-regexp
         principals:
         - andIds:
             ids:

@@ -22,8 +22,9 @@ typedConfig:
                     name: :authority
                     presentMatch: true
                 - header:
-                    exactMatch: regex:regexp
                     name: :authority
+                    safeRegexMatch:
+                      regex: regexp
             - notRule:
                 orRules:
                   rules:
@@ -40,8 +41,9 @@ typedConfig:
                       name: :authority
                       presentMatch: true
                   - header:
-                      exactMatch: regex:not-regexp
                       name: :authority
+                      safeRegexMatch:
+                        regex: not-regexp
             - orRules:
                 rules:
                 - header:
@@ -57,8 +59,9 @@ typedConfig:
                     name: :method
                     presentMatch: true
                 - header:
-                    exactMatch: regex:method-regexp
                     name: :method
+                    safeRegexMatch:
+                      regex: method-regexp
             - notRule:
                 orRules:
                   rules:
@@ -75,8 +78,9 @@ typedConfig:
                       name: :method
                       presentMatch: true
                   - header:
-                      exactMatch: regex:not-method-regexp
                       name: :method
+                      safeRegexMatch:
+                        regex: not-method-regexp
             - orRules:
                 rules:
                 - urlPath:
@@ -95,7 +99,9 @@ typedConfig:
                         regex: .+
                 - urlPath:
                     path:
-                      exact: regex:regexp
+                      safeRegex:
+                        googleRe2: {}
+                        regex: regexp
             - notRule:
                 orRules:
                   rules:
@@ -115,7 +121,9 @@ typedConfig:
                           regex: .+
                   - urlPath:
                       path:
-                        exact: regex:not-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: not-regexp
             - orRules:
                 rules:
                 - destinationPort: 80
@@ -164,7 +172,9 @@ typedConfig:
                       googleRe2: {}
                       regex: .+
                 - requestedServerName:
-                    exact: regex:regexp
+                    safeRegex:
+                      googleRe2: {}
+                      regex: regexp
             - notRule:
                 orRules:
                   rules:
@@ -179,7 +189,9 @@ typedConfig:
                         googleRe2: {}
                         regex: .+
                   - requestedServerName:
-                      exact: regex:not-regexp
+                      safeRegex:
+                        googleRe2: {}
+                        regex: not-regexp
             - orRules:
                 rules:
                 - metadata:
@@ -218,7 +230,9 @@ typedConfig:
                     - key: c
                     value:
                       stringMatch:
-                        exact: regex:regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: regexp
             - notRule:
                 orRules:
                   rules:
@@ -258,7 +272,9 @@ typedConfig:
                       - key: c
                       value:
                         stringMatch:
-                          exact: regex:not-regexp
+                          safeRegex:
+                            googleRe2: {}
+                            regex: not-regexp
         principals:
         - andIds:
             ids:
@@ -300,7 +316,9 @@ typedConfig:
                     - key: source.principal
                     value:
                       stringMatch:
-                        exact: regex:principal-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: principal-regexp
             - notId:
                 orIds:
                   ids:
@@ -340,7 +358,9 @@ typedConfig:
                       - key: source.principal
                       value:
                         stringMatch:
-                          exact: regex:not-principal-regexp
+                          safeRegex:
+                            googleRe2: {}
+                            regex: not-principal-regexp
             - orIds:
                 ids:
                 - metadata:
@@ -379,7 +399,9 @@ typedConfig:
                     - key: request.auth.principal
                     value:
                       stringMatch:
-                        exact: regex:requestPrincipals-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: requestPrincipals-regexp
             - notId:
                 orIds:
                   ids:
@@ -419,7 +441,9 @@ typedConfig:
                       - key: request.auth.principal
                       value:
                         stringMatch:
-                          exact: regex:not-requestPrincipals-regexp
+                          safeRegex:
+                            googleRe2: {}
+                            regex: not-requestPrincipals-regexp
             - orIds:
                 ids:
                 - metadata:
@@ -466,7 +490,7 @@ typedConfig:
                       stringMatch:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/regex:ns-regexp/.*
+                          regex: .*/ns/ns-regexp/.*
             - notId:
                 orIds:
                   ids:
@@ -514,7 +538,7 @@ typedConfig:
                         stringMatch:
                           safeRegex:
                             googleRe2: {}
-                            regex: .*/ns/regex:not-ns-regexp/.*
+                            regex: .*/ns/not-ns-regexp/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -564,8 +588,9 @@ typedConfig:
                     name: X-header
                     presentMatch: true
                 - header:
-                    exactMatch: regex:header-regexp
                     name: X-header
+                    safeRegexMatch:
+                      regex: header-regexp
             - notId:
                 orIds:
                   ids:
@@ -582,8 +607,9 @@ typedConfig:
                       name: X-header
                       presentMatch: true
                   - header:
-                      exactMatch: regex:not-header-regexp
                       name: X-header
+                      safeRegexMatch:
+                        regex: not-header-regexp
             - orIds:
                 ids:
                 - directRemoteIp:
@@ -664,7 +690,7 @@ typedConfig:
                       stringMatch:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/regex:ns-regexp/.*
+                          regex: .*/ns/ns-regexp/.*
             - notId:
                 orIds:
                   ids:
@@ -712,7 +738,7 @@ typedConfig:
                         stringMatch:
                           safeRegex:
                             googleRe2: {}
-                            regex: .*/ns/regex:not-ns-regexp/.*
+                            regex: .*/ns/not-ns-regexp/.*
             - orIds:
                 ids:
                 - metadata:
@@ -751,7 +777,9 @@ typedConfig:
                     - key: source.principal
                     value:
                       stringMatch:
-                        exact: regex:principal-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: principal-regexp
             - notId:
                 orIds:
                   ids:
@@ -791,7 +819,9 @@ typedConfig:
                       - key: source.principal
                       value:
                         stringMatch:
-                          exact: regex:not-principal-regexp
+                          safeRegex:
+                            googleRe2: {}
+                            regex: not-principal-regexp
             - orIds:
                 ids:
                 - metadata:
@@ -830,7 +860,9 @@ typedConfig:
                     - key: request.auth.principal
                     value:
                       stringMatch:
-                        exact: regex:requestPrincipals-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: requestPrincipals-regexp
             - notId:
                 orIds:
                   ids:
@@ -870,7 +902,9 @@ typedConfig:
                       - key: request.auth.principal
                       value:
                         stringMatch:
-                          exact: regex:not-requestPrincipals-regexp
+                          safeRegex:
+                            googleRe2: {}
+                            regex: not-requestPrincipals-regexp
             - orIds:
                 ids:
                 - metadata:
@@ -909,7 +943,9 @@ typedConfig:
                     - key: request.auth.audiences
                     value:
                       stringMatch:
-                        exact: regex:audiences-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: audiences-regexp
             - notId:
                 orIds:
                   ids:
@@ -949,7 +985,9 @@ typedConfig:
                       - key: request.auth.audiences
                       value:
                         stringMatch:
-                          exact: regex:not-audiences-regexp
+                          safeRegex:
+                            googleRe2: {}
+                            regex: not-audiences-regexp
             - orIds:
                 ids:
                 - metadata:
@@ -988,7 +1026,9 @@ typedConfig:
                     - key: request.auth.presenter
                     value:
                       stringMatch:
-                        exact: regex:presenter-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: presenter-regexp
             - notId:
                 orIds:
                   ids:
@@ -1028,7 +1068,9 @@ typedConfig:
                       - key: request.auth.presenter
                       value:
                         stringMatch:
-                          exact: regex:not-presenter-regexp
+                          safeRegex:
+                            googleRe2: {}
+                            regex: not-presenter-regexp
             - orIds:
                 ids:
                 - metadata:
@@ -1082,7 +1124,9 @@ typedConfig:
                       listMatch:
                         oneOf:
                           stringMatch:
-                            exact: regex:iss-regexp
+                            safeRegex:
+                              googleRe2: {}
+                              regex: iss-regexp
             - notId:
                 orIds:
                   ids:
@@ -1137,7 +1181,9 @@ typedConfig:
                         listMatch:
                           oneOf:
                             stringMatch:
-                              exact: regex:not-iss-regexp
+                              safeRegex:
+                                googleRe2: {}
+                                regex: not-iss-regexp
             - orIds:
                 ids:
                 - metadata:
@@ -1234,4 +1280,4 @@ typedConfig:
                             stringMatch:
                               safeRegex:
                                 googleRe2: {}
-                                regex: .+
+                                regex: .+                      

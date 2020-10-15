@@ -21,14 +21,17 @@ import (
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 func TestHeaderMatcher(t *testing.T) {
 	testCases := []struct {
-		Name   string
-		K      string
-		V      string
-		Expect *routepb.HeaderMatcher
+		Name        string
+		K           string
+		V           string
+		enableRegex bool
+		Expect      *routepb.HeaderMatcher
 	}{
 		{
 			Name: "exact match",
@@ -52,13 +55,43 @@ func TestHeaderMatcher(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:        "regex match disabled",
+			K:           ":path",
+			V:           `regex:\/productpage\/[0-9]?`,
+			enableRegex: false,
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
+					ExactMatch: `regex:\/productpage\/[0-9]?`,
+				},
+			},
+		},
+		{
+			Name:        "regex match enabled",
+			K:           ":path",
+			V:           `regex:\/productpage\/[0-9]?`,
+			enableRegex: true,
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+					SafeRegexMatch: &matcherpb.RegexMatcher{
+						Regex: `\/productpage\/[0-9]?`,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
-		actual := HeaderMatcher(tc.K, tc.V)
-		if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
-			t.Errorf("expecting %v, but got %v", tc.Expect, actual)
-		}
+		t.Run(tc.Name, func(t *testing.T) {
+			features.EnableAuthzRegexMatching = tc.enableRegex
+			actual := HeaderMatcher(tc.K, tc.V)
+			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
+			}
+			features.EnableAuthzRegexMatching = false
+		})
 	}
 }
 

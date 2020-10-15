@@ -11,30 +11,30 @@ spec:
   rules:
     - from:
         - source:
-            principals: ["principal", "principal-prefix-*", "*-suffix-principal", "*"]
-            requestPrincipals: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*"]
-            namespaces: ["ns", "ns-prefix-*", "*-ns-suffix", "*"]
+            principals: ["principal", "principal-prefix-*", "*-suffix-principal", "*", "regex:principal-regexp"]
+            requestPrincipals: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*", "regex:requestPrincipals-regexp"]
+            namespaces: ["ns", "ns-prefix-*", "*-ns-suffix", "*", "regex:ns-regexp"]
             ipBlocks: ["1.2.3.4", "5.6.0.0/16"]
             remoteIpBlocks: ["1.2.3.4", "5.6.0.0/16"]
-            notPrincipals: ["not-principal", "not-principal-prefix-*", "*-not-suffix-principal", "*"]
-            notRequestPrincipals: ["not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-not-suffix-requestPrincipals", "*"]
-            notNamespaces: ["not-ns", "not-ns-prefix-*", "*-not-ns-suffix", "*"]
+            notPrincipals: ["not-principal", "not-principal-prefix-*", "*-not-suffix-principal", "*", "regex:not-principal-regexp"]
+            notRequestPrincipals: ["not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-not-suffix-requestPrincipals", "*", "regex:not-requestPrincipals-regexp"]
+            notNamespaces: ["not-ns", "not-ns-prefix-*", "*-not-ns-suffix", "*", "regex:not-ns-regexp"]
             notIpBlocks: ["9.0.0.1", "9.2.0.0/16"]
             notRemoteIpBlocks: ["9.0.0.1", "9.2.0.0/16"]
       to:
         - operation:
-            methods: ["method", "method-prefix-*", "*-suffix-method", "*"]
-            hosts: ["exact.com", "*.suffix.com", "prefix.*", "*"]
+            methods: ["method", "method-prefix-*", "*-suffix-method", "*", "regex:method-regexp"]
+            hosts: ["exact.com", "*.suffix.com", "prefix.*", "*", "regex:regexp"]
             ports: ["80", "90"]
-            paths: ["/exact", "/prefix/*", "*/suffix", "*"]
-            notMethods: ["not-method", "not-method-prefix-*", "*-not-suffix-method", "*"]
-            notHosts: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*"]
+            paths: ["/exact", "/prefix/*", "*/suffix", "*", "regex:regexp"]
+            notMethods: ["not-method", "not-method-prefix-*", "*-not-suffix-method", "*", "regex:not-method-regexp"]
+            notHosts: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*", "regex:not-regexp"]
             notPorts: ["8000", "9000"]
-            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*"]
+            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*", "regex:not-regexp"]
       when:
         - key: "request.headers[X-header]"
-          values: ["header", "header-prefix-*", "*-suffix-header", "*"]
-          notValues: ["not-header", "not-header-prefix-*", "*-not-suffix-header", "*"]
+          values: ["header", "header-prefix-*", "*-suffix-header", "*", "regex:header-regexp"]
+          notValues: ["not-header", "not-header-prefix-*", "*-not-suffix-header", "*", "regex:not-header-regexp"]
         - key: "source.ip"
           values: ["10.10.10.10", "192.168.10.0/24"]
           notValues: ["90.10.10.10", "90.168.10.0/24"]
@@ -42,23 +42,23 @@ spec:
           values: ["10.10.10.10", "192.168.10.0/24"]
           notValues: ["90.10.10.10", "90.168.10.0/24"]
         - key: "source.namespace"
-          values: ["ns", "ns-prefix-*", "*-ns-suffix", "*"]
-          notValues: ["not-ns", "not-ns-prefix-*", "*-not-ns-suffix", "*"]
+          values: ["ns", "ns-prefix-*", "*-ns-suffix", "*", "regex:ns-regexp"]
+          notValues: ["not-ns", "not-ns-prefix-*", "*-not-ns-suffix", "*", "regex:not-ns-regexp"]
         - key: "source.principal"
-          values: ["principal", "principal-prefix-*", "*-suffix-principal", "*"]
-          notValues: ["not-principal", "not-principal-prefix-*", "*-not-suffix-principal", "*"]
+          values: ["principal", "principal-prefix-*", "*-suffix-principal", "*", "regex:principal-regexp"]
+          notValues: ["not-principal", "not-principal-prefix-*", "*-not-suffix-principal", "*", "regex:not-principal-regexp"]
         - key: "request.auth.principal"
-          values: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*"]
-          notValues: ["not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-not-suffix-requestPrincipals", "*"]
+          values: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*", "regex:requestPrincipals-regexp"]
+          notValues: ["not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-not-suffix-requestPrincipals", "*", "regex:not-requestPrincipals-regexp"]
         - key: "request.auth.audiences"
-          values: ["audiences", "audiences-prefix-*", "*-suffix-audiences", "*"]
-          notValues: ["not-audiences", "not-audiences-prefix-*", "*-not-suffix-audiences", "*"]
+          values: ["audiences", "audiences-prefix-*", "*-suffix-audiences", "*", "regex:audiences-regexp"]
+          notValues: ["not-audiences", "not-audiences-prefix-*", "*-not-suffix-audiences", "*", "regex:not-audiences-regexp"]
         - key: "request.auth.presenter"
-          values: ["presenter", "presenter-prefix-*", "*-suffix-presenter", "*"]
-          notValues: ["not-presenter", "not-presenter-prefix-*", "*-not-suffix-presenter", "*"]
+          values: ["presenter", "presenter-prefix-*", "*-suffix-presenter", "*", "regex:presenter-regexp"]
+          notValues: ["not-presenter", "not-presenter-prefix-*", "*-not-suffix-presenter", "*", "regex:not-presenter-regexp"]
         - key: "request.auth.claims[iss]"
-          values: ["iss", "iss-prefix-*", "*-suffix-iss", "*"]
-          notValues: ["not-iss", "not-iss-prefix-*", "*-not-suffix-iss", "*"]
+          values: ["iss", "iss-prefix-*", "*-suffix-iss", "*", "regex:iss-regexp"]
+          notValues: ["not-iss", "not-iss-prefix-*", "*-not-suffix-iss", "*", "regex:not-iss-regexp"]
         - key: "request.auth.claims[nested1][nested2]"
           values: ["nested", "nested-prefix-*", "*-suffix-nested", "*"]
           notValues: ["not-nested", "not-nested-prefix-*", "*-not-suffix-nested", "*"]
@@ -69,8 +69,8 @@ spec:
           values: ["91", "92"]
           notValues: ["9001", "9002"]
         - key: "connection.sni"
-          values: ["exact.com", "*.suffix.com", "prefix.*", "*"]
-          notValues: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*"]
+          values: ["exact.com", "*.suffix.com", "prefix.*", "*", "regex:regexp"]
+          notValues: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*", "regex:not-regexp"]
         - key: "experimental.envoy.filters.a.b[c]"
-          values: ["exact", "prefix-*", "*-suffix", "*"]
-          notValues: ["not-exact", "not-prefix-*", "*-not-suffix", "*"]
+          values: ["exact", "prefix-*", "*-suffix", "*", "regex:regexp"]
+          notValues: ["not-exact", "not-prefix-*", "*-not-suffix", "*", "regex:not-regexp"]

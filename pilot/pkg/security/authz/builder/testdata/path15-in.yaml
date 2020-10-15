@@ -11,5 +11,5 @@ spec:
   rules:
     - to:
         - operation:
-            paths: ["/exact", "/prefix/*", "*/suffix", "*"]
-            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*"]
+            paths: ["/exact", "/prefix/*", "*/suffix", "*", "regex:regexp"]
+            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*", "regex:not-regexp"]

@@ -987,6 +987,13 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
 				newTestCase(a, "/request-headers", nil, false),
 				newTestCase(b, "/request-headers", nil, false),
+				newTestCase(a, "/request-headers-regexp/", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(b, "/request-headers-regexp/0", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(a, "/request-headers-regexp/", map[string]string{"x-foo": "bar"}, false),
+				newTestCase(b, "/request-headers-regexp/", map[string]string{"x-foo": "bar"}, false),
+				newTestCase(a, "/request-headers-regex-value", map[string]string{"x-foo": "foo-regexp"}, true),
+				newTestCase(a, "/request-headers-regex-value", map[string]string{"x-foo": "foo-regexp0"}, true),
+				newTestCase(a, "/request-headers-regex-value", map[string]string{"x-foo": "foo-regexpa"}, false),
 				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
 				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
@@ -1001,6 +1008,12 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/source-namespace-a", nil, false),
 				newTestCase(a, "/source-namespace-b", nil, false),
 				newTestCase(b, "/source-namespace-b", nil, true),
+				newTestCase(a, "/source-namespace-a-regexp/", nil, true),
+				newTestCase(a, "/source-namespace-a-regexp/0", nil, true),
+				newTestCase(a, "/source-namespace-a-regexp", nil, false),
+				newTestCase(a, "/source-namespace-a-regexp/a", nil, false),
+				newTestCase(a, "/source-namespace-a-regex-value", nil, true),
+				newTestCase(b, "/source-namespace-a-regex-value", nil, false),
 				newTestCase(a, "/source-namespace-notValues-b", nil, true),
 				newTestCase(b, "/source-namespace-notValues-b", nil, false),
 
@@ -1008,6 +1021,10 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/source-principal-a", nil, false),
 				newTestCase(a, "/source-principal-b", nil, false),
 				newTestCase(b, "/source-principal-b", nil, true),
+				newTestCase(a, "/source-principal-a-regexp/", nil, true),
+				newTestCase(a, "/source-principal-a-regexp/0", nil, true),
+				newTestCase(a, "/source-principal-a-regexp", nil, false),
+				newTestCase(a, "/source-principal-a-regexp/a", nil, false),
 				newTestCase(a, "/source-principal-notValues-b", nil, true),
 				newTestCase(b, "/source-principal-notValues-b", nil, false),
 
@@ -1029,6 +1046,10 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/connection-sni-good", nil, true),
 				newTestCase(a, "/connection-sni-bad", nil, false),
 				newTestCase(b, "/connection-sni-bad", nil, false),
+				newTestCase(a, "/connection-sni-good-regexp/", nil, true),
+				newTestCase(a, "/connection-sni-good-regexp/0", nil, true),
+				newTestCase(a, "/connection-sni-good-regexp", nil, false),
+				newTestCase(a, "/connection-sni-good-regexp/a", nil, false),
 				newTestCase(a, "/connection-sni-notValues-a-or-b", nil, true),
 				newTestCase(a, "/connection-sni-notValues-a-or-b-or-c", nil, false),
 
@@ -1166,6 +1187,12 @@ func TestAuthorization_Path(t *testing.T) {
 				newTestCase("/public/%2e/%2e%2e/private", false),
 				newTestCase("/public/%2E%2E/%2E/private", false),
 				newTestCase("/public/%2e%2e/%2e/private", false),
+				newTestCase("/regexp", false),
+				newTestCase("/regexp/", true),
+				newTestCase("/regexp/0", true),
+				newTestCase("/regexp/12",  false),
+				newTestCase("/regexp/a", false),
+				newTestCase("/regexp/0/123", false),
 			}
 
 			args := map[string]string{

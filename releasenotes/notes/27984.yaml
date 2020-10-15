@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 27984
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** Enable regex matching for authorization policy. The regex matching feature is disabled by default, and can be enabled by setting the global flag AUTHZ_ENABLE_REGEX to true on istiod.
+
+

@@ -20,13 +20,16 @@ import (
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 type testCase struct {
-	name   string
-	v      string
-	prefix string
-	want   *matcherpb.StringMatcher
+	name        string
+	v           string
+	prefix      string
+	enableRegex bool
+	want        *matcherpb.StringMatcher
 }
 
 func TestStringMatcherWithPrefix(t *testing.T) {
@@ -73,14 +76,54 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "regex disabled - exact match",
+			v:           `regex:\/ab\/[123]+\/cd`,
+			prefix:      "abc",
+			enableRegex: false,
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_Exact{
+					Exact: `abcregex:\/ab\/[123]+\/cd`,
+				},
+			},
+		},
+		{
+			name:        "regex disabled - prefix match",
+			v:           `regex:\/ab\/[123]+\/cd*`,
+			prefix:      "abc",
+			enableRegex: false,
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_Prefix{
+					Prefix: `abcregex:\/ab\/[123]+\/cd`,
+				},
+			},
+		},
+		{
+			name:        "regex enabled",
+			v:           `regex:\/ab\/[123]+\/cd`,
+			prefix:      "abc",
+			enableRegex: true,
+			want: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+					SafeRegex: &matcherpb.RegexMatcher{
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+						Regex: `abc\/ab\/[123]+\/cd`,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			features.EnableAuthzRegexMatching = tc.enableRegex
 			actual := StringMatcherWithPrefix(tc.v, tc.prefix)
 			if !cmp.Equal(actual, tc.want, protocmp.Transform()) {
 				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
 			}
+			features.EnableAuthzRegexMatching = false
 		})
 	}
 }

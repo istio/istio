@@ -9,14 +9,14 @@ spec:
   # rule[0] `from`: all fields, `to`: all fields, `when`: all fields.
   - from:
     - source:
-        principals: ["principal"]
+        principals: ["principal", "*principal-suffix", "principal-prefix*", "*", "regex:principal-regexp"]
         requestPrincipals: ["requestPrincipals"]
-        namespaces: ["ns"]
+        namespaces: ["ns", "*ns-suffix", "ns-prefix*", "*", "regex:ns-regexp"]
         ipBlocks: ["1.2.3.4"]
         remoteIpBlocks: ["10.250.90.4"]
-        notPrincipals: ["not-principal"]
+        notPrincipals: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*", "regex:not-principal-regexp"]
         notRequestPrincipals: ["not-requestPrincipals"]
-        notNamespaces: ["not-ns"]
+        notNamespaces: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*", "regex:not-ns-regexp"]
         notIpBlocks: ["9.0.0.1"]
         notRemoteIpBlocks: ["10.133.154.65"]
     to:
@@ -40,11 +40,11 @@ spec:
         values: ["192.168.7.7"]
         notValues: ["192.168.10.9"]
       - key: "source.namespace"
-        values: ["ns"]
-        notValues: ["not-ns"]
+        values: ["ns", "*ns-suffix", "ns-prefix*", "*", "regex:ns-regexp"]
+        notValues: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*", "regex:not-ns-regexp"]
       - key: "source.principal"
-        values: ["principal"]
-        notValues: ["not-principal"]
+        values: ["principal", "*principal-suffix", "principal-prefix*", "*", "regex:principal-regexp"]
+        notValues: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*", "regex:not-principal-regexp"]
       - key: "request.auth.principal"
         values: ["requestPrincipals"]
         notValues: ["not-requestPrincipals"]

@@ -14,6 +14,6 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/public*"]
+        paths: ["/public*", 'regex:\/regexp\/[0-9]?']
         methods: ["GET"]
 ---

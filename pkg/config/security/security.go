@@ -18,11 +18,13 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -88,17 +90,20 @@ func ParseJwksURI(jwksURI string) (JwksInfo, error) {
 	return info, nil
 }
 
-func CheckEmptyValues(key string, values []string) error {
+func CheckEmptyOrInvalidRegex(key string, values []string) error {
 	for _, value := range values {
 		if value == "" {
 			return fmt.Errorf("empty value not allowed, found in %s", key)
 		}
 	}
+	if regexErr := validateRegex(values); regexErr != nil {
+		return fmt.Errorf("invalid regex expression found in %s, got error %s", key, regexErr)
+	}
 	return nil
 }
 
 func ValidateAttribute(key string, values []string) error {
-	if err := CheckEmptyValues(key, values); err != nil {
+	if err := CheckEmptyOrInvalidRegex(key, values); err != nil {
 		return err
 	}
 	switch {
@@ -109,10 +114,15 @@ func ValidateAttribute(key string, values []string) error {
 	case isEqual(key, attrRemoteIP):
 		return ValidateIPs(values)
 	case isEqual(key, attrSrcNamespace):
+		return validateRegex(values)
 	case isEqual(key, attrSrcPrincipal):
+		return validateRegex(values)
 	case isEqual(key, attrRequestPrincipal):
+		return validateRegex(values)
 	case isEqual(key, attrRequestAudiences):
+		return validateRegex(values)
 	case isEqual(key, attrRequestPresenter):
+		return validateRegex(values)
 	case hasPrefix(key, attrRequestClaims):
 		return validateMapKey(key)
 	case isEqual(key, attrDestIP):
@@ -180,4 +190,17 @@ func validateMapKey(key string) error {
 		return nil
 	}
 	return fmt.Errorf("bad key (%s): should have format a[b]", key)
+}
+
+func validateRegex(values []string) error {
+	if features.EnableAuthzRegexMatching {
+		for _, v := range values {
+			if strings.HasPrefix(v, "regex:") {
+				if _, err := regexp.Compile(strings.TrimPrefix(v, "regex:")); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }

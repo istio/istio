@@ -20,6 +20,7 @@ import (
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
 	sm "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
@@ -131,7 +132,13 @@ func (srcNamespaceGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 }
 
 func (srcNamespaceGenerator) principal(_, value string, forTCP bool) (*rbacpb.Principal, error) {
-	v := strings.Replace(value, "*", ".*", -1)
+	var v string
+	if features.EnableAuthzRegexMatching && strings.HasPrefix(value, "regex:") {
+		v = strings.TrimPrefix(value, "regex:")
+	} else {
+		v = strings.Replace(value, "*", ".*", -1)
+	}
+
 	m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", v))
 	if forTCP {
 		return principalAuthenticated(m), nil
@@ -154,6 +161,7 @@ func (srcPrincipalGenerator) principal(key, value string, forTCP bool) (*rbacpb.
 		m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix)
 		return principalAuthenticated(m), nil
 	}
+
 	metadata := matcher.MetadataStringMatcher(sm.AuthnFilterName, key, matcher.StringMatcher(value))
 	return principalMetadata(metadata), nil
 }

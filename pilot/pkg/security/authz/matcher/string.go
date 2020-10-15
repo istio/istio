@@ -18,6 +18,8 @@ import (
 	"strings"
 
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 // StringMatcher creates a string matcher for v.
@@ -42,7 +44,12 @@ func StringMatcherRegex(regex string) *matcherpb.StringMatcher {
 // StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the
 // created string matcher, note the prefix is ignored if v is wildcard ("*").
 // The wildcard "*" will be generated as ".+" instead of ".*".
+// "regex:" will trigger regex matching if environment variable AUTHZ_ENABLE_REGEX is set to ture
 func StringMatcherWithPrefix(v, prefix string) *matcherpb.StringMatcher {
+	if features.EnableAuthzRegexMatching && strings.HasPrefix(v, "regex:") {
+		return StringMatcherRegex(prefix + strings.TrimPrefix(v, "regex:"))
+	}
+
 	switch {
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.

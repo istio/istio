@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
@@ -51,6 +52,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		name        string
 		tdBundle    trustdomain.Bundle
 		isVersion14 bool
+		enableRegex bool
 		input       string
 		want        []string
 	}{
@@ -58,6 +60,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:        "path14",
 			input:       "path14-in.yaml",
 			isVersion14: true,
+			enableRegex: true,
 			want:        []string{"path14-out.yaml"},
 		},
 		{
@@ -73,9 +76,16 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 				"action-both-allow-out.yaml"},
 		},
 		{
-			name:  "all-fields",
-			input: "all-fields-in.yaml",
-			want:  []string{"all-fields-out.yaml"},
+			name:        "all-fields",
+			enableRegex: false,
+			input:       "all-fields-in.yaml",
+			want:        []string{"all-fields-out.yaml"},
+		},
+		{
+			name:        "all-fields-regex-enabled",
+			enableRegex: true,
+			input:       "all-fields-in.yaml",
+			want:        []string{"all-fields-regex-out.yaml"},
 		},
 		{
 			name:  "allow-all",
@@ -130,6 +140,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			features.EnableAuthzRegexMatching = tc.enableRegex
 			option := Option{
 				IsIstioVersionGE15:     !tc.isVersion14,
 				IsOnInboundPassthrough: false,
@@ -140,16 +151,18 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			}
 			got := g.BuildHTTP()
 			verify(t, convertHTTP(got), tc.want, false /* forTCP */)
+			features.EnableAuthzRegexMatching = false
 		})
 	}
 }
 
 func TestGenerator_GenerateTCP(t *testing.T) {
 	testCases := []struct {
-		name     string
-		tdBundle trustdomain.Bundle
-		input    string
-		want     []string
+		name        string
+		tdBundle    trustdomain.Bundle
+		input       string
+		enableRegex bool
+		want        []string
 	}{
 		{
 			name:  "action-allow-HTTP-for-TCP-filter",
@@ -157,19 +170,38 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			want:  []string{"action-allow-HTTP-for-TCP-filter-out.yaml"},
 		},
 		{
+			name:        "action-allow-HTTP-for-TCP-filter-regex-enabled",
+			input:       "action-allow-HTTP-for-TCP-filter-in.yaml",
+			enableRegex: true,
+			want:        []string{"action-allow-HTTP-for-TCP-filter-regex-out.yaml"},
+		},
+		{
 			name:  "action-deny-HTTP-for-TCP-filter",
 			input: "action-deny-HTTP-for-TCP-filter-in.yaml",
 			want:  []string{"action-deny-HTTP-for-TCP-filter-out.yaml"},
+		},
+		{
+			name:        "action-deny-HTTP-for-TCP-filter-regex-enabled",
+			input:       "action-deny-HTTP-for-TCP-filter-in.yaml",
+			enableRegex: true,
+			want:        []string{"action-deny-HTTP-for-TCP-filter-regex-out.yaml"},
 		},
 		{
 			name:  "action-audit-HTTP-for-TCP-filter",
 			input: "action-audit-HTTP-for-TCP-filter-in.yaml",
 			want:  []string{"action-audit-HTTP-for-TCP-filter-out.yaml"},
 		},
+		{
+			name:        "action-audit-HTTP-for-TCP-filter-regex-enabled",
+			input:       "action-audit-HTTP-for-TCP-filter-in.yaml",
+			enableRegex: true,
+			want:        []string{"action-audit-HTTP-for-TCP-filter-regex-out.yaml"},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			features.EnableAuthzRegexMatching = tc.enableRegex
 			option := Option{
 				IsIstioVersionGE15:     true,
 				IsOnInboundPassthrough: false,
@@ -180,6 +212,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			}
 			got := g.BuildTCP()
 			verify(t, convertTCP(got), tc.want, true /* forTCP */)
+			features.EnableAuthzRegexMatching = false
 		})
 	}
 }

@@ -19,10 +19,24 @@ import (
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
 func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
+	if features.EnableAuthzRegexMatching && strings.HasPrefix(v, "regex:") {
+		v = strings.TrimPrefix(v, "regex:")
+		return &routepb.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+				SafeRegexMatch: &matcherpb.RegexMatcher{
+					Regex: v,
+				},
+			},
+		}
+	}
+
 	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
 	// Empty prefix/suffix value is invalid in HeaderMatcher.
 	if v == "*" {

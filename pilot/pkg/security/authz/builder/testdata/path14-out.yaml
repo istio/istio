@@ -21,6 +21,10 @@ typedConfig:
                 - header:
                     name: :path
                     presentMatch: true
+                - header:
+                    name: :path
+                    safeRegexMatch:
+                      regex: regexp
             - notRule:
                 orRules:
                   rules:
@@ -36,6 +40,10 @@ typedConfig:
                   - header:
                       name: :path
                       presentMatch: true
+                  - header:
+                      name: :path
+                      safeRegexMatch:
+                        regex: not-regexp
         principals:
         - andIds:
             ids:

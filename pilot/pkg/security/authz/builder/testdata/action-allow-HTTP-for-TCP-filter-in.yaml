@@ -14,7 +14,7 @@ spec:
         methods: ["GET"]
   - from:
     - source:
-        namespaces: ["ns-1"]
+        namespaces: ["ns-1", "regex:ns-[0-9]+-regexp"]
     to:
     - operation:
         ports: ["80"]

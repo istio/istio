@@ -2,109 +2,9 @@ name: envoy.filters.network.rbac
 typedConfig:
   '@type': type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
   rules:
-    action: DENY
+    action: LOG
     policies:
-      ns[foo]-policy[httpbin-deny]-rule[0]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
-      ns[foo]-policy[httpbin-deny]-rule[1]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
-      ns[foo]-policy[httpbin-deny]-rule[2]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
-      ns[foo]-policy[httpbin-deny]-rule[3]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - orIds:
-                ids:
-                - authenticated:
-                    principalName:
-                      safeRegex:
-                        googleRe2: {}
-                        regex: .*/ns/ns-1/.*
-                - authenticated:
-                    principalName:
-                      safeRegex:
-                        googleRe2: {}
-                        regex: .*/ns/regex:ns-[0-9]+-regexp/.*
-      ns[foo]-policy[httpbin-deny]-rule[4]:
-        permissions:
-        - andRules:
-            rules:
-            - orRules:
-                rules:
-                - destinationPort: 80
-        principals:
-        - andIds:
-            ids:
-            - any: true
-      ns[foo]-policy[httpbin-deny]-rule[5]:
-        permissions:
-        - andRules:
-            rules:
-            - orRules:
-                rules:
-                - destinationPort: 80
-        principals:
-        - andIds:
-            ids:
-            - orIds:
-                ids:
-                - authenticated:
-                    principalName:
-                      safeRegex:
-                        googleRe2: {}
-                        regex: .*/ns/ns-1/.*
-                - authenticated:
-                    principalName:
-                      safeRegex:
-                        googleRe2: {}
-                        regex: .*/ns/regex:ns-[0-9]+-regexp/.*
-      ns[foo]-policy[httpbin-deny]-rule[6]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
-      ns[foo]-policy[httpbin-deny]-rule[7]:
-        permissions:
-        - andRules:
-            rules:
-            - orRules:
-                rules:
-                - destinationPort: 80
-        principals:
-        - andIds:
-            ids:
-            - any: true
-      ns[foo]-policy[httpbin-deny]-rule[8]:
+      ns[foo]-policy[httpbin-audit]-rule[0]:
         permissions:
         - andRules:
             rules:
@@ -184,7 +84,9 @@ typedConfig:
                         regex: .+
                 - authenticated:
                     principalName:
-                      exact: spiffe://regex:principal-regexp
+                      safeRegex:
+                        googleRe2: {}
+                        regex: spiffe://principal-regexp
             - notId:
                 orIds:
                   ids:
@@ -206,7 +108,9 @@ typedConfig:
                           regex: .+
                   - authenticated:
                       principalName:
-                        exact: spiffe://regex:not-principal-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: spiffe://not-principal-regexp
             - orIds:
                 ids:
                 - authenticated:
@@ -233,7 +137,7 @@ typedConfig:
                     principalName:
                       safeRegex:
                         googleRe2: {}
-                        regex: .*/ns/regex:ns-regexp/.*
+                        regex: .*/ns/ns-regexp/.*
             - notId:
                 orIds:
                   ids:
@@ -261,17 +165,17 @@ typedConfig:
                       principalName:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/regex:not-ns-regexp/.*
+                          regex: .*/ns/not-ns-regexp/.*
             - orIds:
                 ids:
                 - remoteIp:
-                    addressPrefix: 172.18.4.0
-                    prefixLen: 22
+                    addressPrefix: 10.250.90.4
+                    prefixLen: 32
             - notId:
                 orIds:
                   ids:
                   - remoteIp:
-                      addressPrefix: 192.168.244.139
+                      addressPrefix: 10.133.154.65
                       prefixLen: 32
             - orIds:
                 ids:
@@ -298,13 +202,13 @@ typedConfig:
             - orIds:
                 ids:
                 - remoteIp:
-                    addressPrefix: 192.168.3.3
+                    addressPrefix: 192.168.7.7
                     prefixLen: 32
             - notId:
                 orIds:
                   ids:
                   - remoteIp:
-                      addressPrefix: 172.19.31.3
+                      addressPrefix: 192.168.10.9
                       prefixLen: 32
             - orIds:
                 ids:
@@ -332,7 +236,7 @@ typedConfig:
                     principalName:
                       safeRegex:
                         googleRe2: {}
-                        regex: .*/ns/regex:ns-regexp/.*
+                        regex: .*/ns/ns-regexp/.*
             - notId:
                 orIds:
                   ids:
@@ -360,7 +264,7 @@ typedConfig:
                       principalName:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/regex:not-ns-regexp/.*
+                          regex: .*/ns/not-ns-regexp/.*
             - orIds:
                 ids:
                 - authenticated:
@@ -381,7 +285,9 @@ typedConfig:
                         regex: .+
                 - authenticated:
                     principalName:
-                      exact: spiffe://regex:principal-regexp
+                      safeRegex:
+                        googleRe2: {}
+                        regex: spiffe://principal-regexp
             - notId:
                 orIds:
                   ids:
@@ -403,5 +309,7 @@ typedConfig:
                           regex: .+
                   - authenticated:
                       principalName:
-                        exact: spiffe://regex:not-principal-regexp
+                        safeRegex:
+                          googleRe2: {}
+                          regex: spiffe://not-principal-regexp
   statPrefix: tcp.
