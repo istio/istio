@@ -199,7 +199,7 @@ spec:
 					},
 					{
 						Type:   "SomeRandomType",
-						Reason: "ImN	otHealthSoDontTouchMe",
+						Reason: "ImNotHealthSoDontTouchMe",
 						Status: "True",
 					},
 				})
