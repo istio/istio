@@ -28,7 +28,7 @@
       "id": 21,
       "panels": [
         {
-          "content": "The charts on this dashboard are intended to show Istio main components cost in terms resources utilization under steady load.\n\n- **vCPU/1k rps:** shows vCPU utilization by the main Istio components normalized by 1000 requests/second. When idle or low traffic, this chart will be blank. The curve for istio-proxy refers to the services sidecars only.\n- **vCPU:** vCPU utilization by Istio components, not normalized.\n- **Memory:** memory footprint for the components. Telemetry and policy are normalized by 1k rps, and no data is shown  when there is no traffic. For ingress and istio-proxy, the data is per instance.\n- **Bytes transferred/ sec:** shows the number of bytes flowing through each Istio component.\n\n\n",
+          "content": "The charts on this dashboard are intended to show Istio main components cost in terms of resources utilization under steady load.\n\n- **vCPU / 1k rps:** shows vCPU utilization by the main Istio components normalized by 1000 requests/second. When idle or low traffic, this chart will be blank. The curve for istio-proxy refers to the services sidecars only.\n- **vCPU:** vCPU utilization by Istio components, not normalized.\n- **Memory:** memory footprint for the components. Telemetry and policy are normalized by 1k rps, and no data is shown  when there is no traffic. For ingress and istio-proxy, the data is per instance.\n- **Bytes transferred / sec:** shows the number of bytes flowing through each Istio component.\n\n\n",
           "gridPos": {
             "h": 6,
             "w": 24,
@@ -103,14 +103,14 @@
           "hide": false,
           "intervalFactor": 1,
           "legendFormat": "istio-ingressgateway",
-          "refId": "B"
+          "refId": "A"
         },
         {
           "expr": "(sum(irate(container_cpu_usage_seconds_total{namespace!=\"istio-system\",container=\"istio-proxy\"}[1m]))/ (round(sum(irate(istio_requests_total[1m])), 0.001)/1000))/ (sum(irate(istio_requests_total{source_workload=\"istio-ingressgateway\"}[1m])) >bool 10)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
-          "refId": "C"
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -195,14 +195,14 @@
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-ingressgateway",
-          "refId": "B"
+          "refId": "A"
         },
         {
           "expr": "sum(rate(container_cpu_usage_seconds_total{namespace!=\"istio-system\",container=\"istio-proxy\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
-          "refId": "C"
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -300,14 +300,14 @@
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "per istio-ingressgateway",
-          "refId": "B"
+          "refId": "A"
         },
         {
           "expr": "sum(container_memory_working_set_bytes{namespace!=\"istio-system\",container=\"istio-proxy\"}) / count(container_memory_working_set_bytes{namespace!=\"istio-system\",container=\"istio-proxy\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "per istio proxy",
-          "refId": "C"
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -392,14 +392,14 @@
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-ingressgateway",
-          "refId": "B"
+          "refId": "A"
         },
         {
           "expr": "sum(irate(istio_response_bytes_sum{source_workload_namespace!=\"istio-system\", reporter=\"source\"}[1m])) + sum(irate(istio_response_bytes_sum{destination_workload_namespace!=\"istio-system\", reporter=\"destination\"}[1m])) + sum(irate(istio_request_bytes_sum{source_workload_namespace!=\"istio-system\", reporter=\"source\"}[1m])) + sum(irate(istio_request_bytes_sum{destination_workload_namespace!=\"istio-system\", reporter=\"destination\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "istio-proxy",
-          "refId": "C"
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -595,8 +595,8 @@
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "{{ container }} (k8s)",
-          "refId": "B",
+          "legendFormat": "Total (k8s)",
+          "refId": "A",
           "step": 2
         }
       ],
@@ -765,11 +765,11 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(container_fs_usage_bytes{ container=\"istio-proxy\"})",
+          "expr": "sum(container_fs_usage_bytes{container=\"istio-proxy\"})",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "{{ container }}",
-          "refId": "B",
+          "legendFormat": "Total (k8s)",
+          "refId": "A",
           "step": 2
         }
       ],
