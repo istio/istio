@@ -207,6 +207,7 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 		return sc.NetworkingV1alpha1().BackendPolicies(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.BackendPolicy{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.BackendPolicySpec)),
+			Status:     *(cfg.Status.(*servicev1alpha1.BackendPolicyStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().GatewayClasses().Update(context.TODO(), &servicev1alpha1.GatewayClass{
@@ -231,6 +232,12 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, cfg co
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*servicev1alpha1.TCPRouteSpec)),
 			Status:     *(cfg.Status.(*servicev1alpha1.TCPRouteStatus)),
+		}, metav1.UpdateOptions{})
+	case collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind():
+		return sc.NetworkingV1alpha1().TLSRoutes(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.TLSRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*servicev1alpha1.TLSRouteSpec)),
+			Status:     *(cfg.Status.(*servicev1alpha1.TLSRouteStatus)),
 		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
@@ -294,6 +301,11 @@ func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, 
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
+	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
+		return sc.NetworkingV1alpha1().BackendPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &servicev1alpha1.BackendPolicy{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*servicev1alpha1.BackendPolicyStatus)),
+		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().GatewayClasses().UpdateStatus(context.TODO(), &servicev1alpha1.GatewayClass{
 			ObjectMeta: objMeta,
@@ -315,9 +327,9 @@ func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, 
 			Status:     *(cfg.Status.(*servicev1alpha1.TCPRouteStatus)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TLSRoutes(cfg.Namespace).Update(context.TODO(), &servicev1alpha1.TLSRoute{
+		return sc.NetworkingV1alpha1().TLSRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &servicev1alpha1.TLSRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*servicev1alpha1.TLSRouteSpec)),
+			Status:     *(cfg.Status.(*servicev1alpha1.TLSRouteStatus)),
 		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
@@ -820,7 +832,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 			},
-			Spec: &obj.Spec,
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
 		}
 	},
 	collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
@@ -899,7 +912,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 			},
-			Spec: &obj.Spec,
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
 		}
 	},
 }
