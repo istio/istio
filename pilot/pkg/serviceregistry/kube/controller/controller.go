@@ -60,9 +60,9 @@ const (
 
 	// IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
 	// TODO move gatewayPort to api repo
-	IstioGatewayPortLabel = "topology.istio.io/gatewayPort"
+	IstioGatewayPortLabel = "networking.istio.io/gatewayPort"
 	// DefaultNetworkGatewayPort is the port used by default for cross-network traffic if not otherwise specified
-	// by meshNetworks or "topology.istio.io/gatewayPort"
+	// by meshNetworks or "networking.istio.io/gatewayPort"
 	DefaultNetworkGatewayPort = 15443
 )
 

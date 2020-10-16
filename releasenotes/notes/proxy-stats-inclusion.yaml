@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+- 26546
+releaseNotes:
+- |
+  **Added** Proxy config to control Envoy native stats generation.

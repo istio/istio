@@ -197,6 +197,14 @@ collections:
     name: "k8s/service_apis/v1alpha1/tcproutes"
     group: "networking.x-k8s.io"
 
+  - kind: "TLSRoute"
+    name: "k8s/service_apis/v1alpha1/tlsroutes"
+    group: "networking.x-k8s.io"
+
+  - kind: "BackendPolicy"
+    name: "k8s/service_apis/v1alpha1/backendpolicies"
+    group: "networking.x-k8s.io"
+
   # Istio CRD collections
   - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
     kind: "DestinationRule"
@@ -354,7 +362,7 @@ resources:
     statusProto: "k8s.io.service_apis.api.v1alpha1.IngressStatus"
     statusProtoPackage: "k8s.io/api/extensions/v1beta1"
 
-  - Kind: "GatewayClass"
+  - kind: "GatewayClass"
     plural: "gatewayclasses"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
@@ -364,7 +372,7 @@ resources:
     statusProto: "k8s.io.service_apis.api.v1alpha1.GatewayClassStatus"
     statusProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
 
-  - Kind: "Gateway"
+  - kind: "Gateway"
     plural: "gateways"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
@@ -374,7 +382,7 @@ resources:
     statusProto: "k8s.io.service_apis.api.v1alpha1.GatewayStatus"
     statusProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
 
-  - Kind: "HTTPRoute"
+  - kind: "HTTPRoute"
     plural: "httproutes"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
@@ -383,7 +391,7 @@ resources:
     statusProto: "k8s.io.service_apis.api.v1alpha1.HTTPRouteStatus"
     statusProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
 
-  - Kind: "TCPRoute"
+  - kind: "TCPRoute"
     plural: "tcproutes"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
@@ -391,6 +399,20 @@ resources:
     proto: "k8s.io.service_apis.api.v1alpha1.TCPRouteSpec"
     statusProto: "k8s.io.service_apis.api.v1alpha1.TCPRouteStatus"
     statusProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
+
+  - kind: "TLSRoute"
+    plural: "tlsroutes"
+    group: "networking.x-k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.TLSRouteSpec"
+
+  - kind: "BackendPolicy"
+    plural: "backendpolicies"
+    group: "networking.x-k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
+    proto: "k8s.io.service_apis.api.v1alpha1.BackendPolicySpec"
 
   ## Istio resources
   - kind: "VirtualService"
