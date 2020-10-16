@@ -15,9 +15,11 @@
 package v1alpha3_test
 
 import (
+	"io/ioutil"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -580,7 +582,7 @@ type simulationTest struct {
 	calls          []simulation.Expect
 }
 
-var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", true, "if enabled, will dump verbose output").Get()
+var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", false, "if enabled, will dump verbose output").Get()
 
 func runGatewayTest(t *testing.T, cases ...simulationTest) {
 	for _, tt := range cases {
@@ -609,11 +611,16 @@ func runSimulationTest(t *testing.T, proxy *model.Proxy, o xds.FakeOptions, tt s
 			t.Log(tt.config)
 			t.Log(tt.kubeConfig)
 		}
-		if !tt.skipValidation {
+		ioutil.WriteFile("/tmp/"+tt.name, []byte(xdstest.Dump(t, xdstest.ExtractListener(v1alpha3.VirtualInboundListenerName, sim.Listeners))), 0644)
+		ioutil.WriteFile("/tmp/"+tt.name, []byte(xdstest.Dump(t, xdstest.ExtractListener(v1alpha3.VirtualInboundListenerName, sim.Listeners))), 0644)
+		t.Run("validate configs", func(t *testing.T) {
+			if tt.skipValidation {
+				t.Skip()
+			}
 			xdstest.ValidateClusters(t, sim.Clusters)
 			xdstest.ValidateListeners(t, sim.Listeners)
 			xdstest.ValidateRouteConfigurations(t, sim.Routes)
-		}
+		})
 	})
 }
 

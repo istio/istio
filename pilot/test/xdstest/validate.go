@@ -123,6 +123,7 @@ func validateListenerTLS(t testing.TB, l *listener.Listener) {
 }
 
 // Validate a tls inspect filter is added whenever it is needed
+// matches logic in https://github.com/envoyproxy/envoy/blob/22683a0a24ffbb0cdeb4111eec5ec90246bec9cb/source/server/listener_impl.cc#L41
 func validateInspector(t testing.TB, l *listener.Listener) {
 	t.Helper()
 	for _, lf := range l.ListenerFilters {
@@ -138,12 +139,12 @@ func validateInspector(t testing.TB, l *listener.Listener) {
 		if m.TransportProtocol == xdsfilters.TLSTransportProtocol {
 			t.Errorf("transport protocol set, but missing tls inspector: %v", Dump(t, l))
 		}
-		if len(m.ServerNames) > 0 {
+		if m.TransportProtocol == "" && len(m.ServerNames) > 0 {
 			t.Errorf("server names set, but missing tls inspector: %v", Dump(t, l))
 		}
 		// This is a bit suspect; I suspect this could be done with just http inspector without tls inspector,
 		// but this mirrors Envoy validation logic
-		if len(m.ApplicationProtocols) > 0 {
+		if m.TransportProtocol == "" && len(m.ApplicationProtocols) > 0 {
 			t.Errorf("application protocol set, but missing tls inspector: %v", Dump(t, l))
 		}
 	}

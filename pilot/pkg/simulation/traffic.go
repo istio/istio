@@ -238,7 +238,8 @@ func (sim *Simulation) Run(input Call) (result Result) {
 			input.Alpn = alpn
 		}
 	}
-	fc, err := sim.matchFilterChain(l.FilterChains, input)
+	_, hasTlsInspector := xdstest.ExtractListenerFilters(l)[xdsfilters.TLSInspector.Name]
+	fc, err := sim.matchFilterChain(l.FilterChains, input, hasTlsInspector)
 	if err != nil {
 		result.Error = err
 		return
@@ -381,7 +382,7 @@ func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host strin
 // Envoy algorithm - at each level we will filter out all FilterChains that do
 // not match. This means an empty match (`{}`) may not match if another chain
 // matches one criteria but not another.
-func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Call) (*listener.FilterChain, error) {
+func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Call, hasTlsInspector bool) (*listener.FilterChain, error) {
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetDestinationPort() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
@@ -420,6 +421,10 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Ca
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetTransportProtocol() == ""
 	}, func(fc *listener.FilterChainMatch) bool {
+		if !hasTlsInspector {
+			// Without tls inspector, transport protocol will always be raw buffer
+			return fc.GetTransportProtocol() == xdsfilters.RawBufferTransportProtocol
+		}
 		switch fc.GetTransportProtocol() {
 		case xdsfilters.TLSTransportProtocol:
 			return input.Protocol == HTTPS || input.Protocol == TLS

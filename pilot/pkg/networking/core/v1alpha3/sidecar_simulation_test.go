@@ -154,9 +154,8 @@ spec:
 	})
 
 	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		name:           "permissive",
-		config:         svc + mtlsMode("PERMISSIVE"),
-		skipValidation: true, // TODO(https://github.com/istio/istio/issues/26079)
+		name:   "permissive",
+		config: svc + mtlsMode("PERMISSIVE"),
 		calls: []simulation.Expect{
 			{
 				Name: "http port",
@@ -181,7 +180,7 @@ spec:
 				},
 				Result: simulation.Result{
 					// This is expected. Protocol is explicitly declared HTTP but we send TLS traffic
-					Error: simulation.ErrProtocolError,
+					Error: simulation.ErrNoFilterChain,
 				},
 			},
 			{
@@ -387,13 +386,23 @@ spec:
 					CallMode: simulation.CallModeInbound,
 				},
 				Result: simulation.Result{
-					VirtualHostMatched: "inbound|http|80",
-					ClusterMatched:     "inbound|80|http|foo.bar",
-					ListenerTLS:        simulation.TlsModeTerminate,
+					Error: simulation.ErrNoFilterChain,
 				},
 			},
 			{
 				Name: "auto port http",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					// Plaintext to strict, should fails
+					Error: simulation.ErrNoFilterChain,
+				},
+			},
+			{
+				Name: "auto port http mtls",
 				Call: simulation.Call{
 					Port:     81,
 					Protocol: simulation.HTTPS,
@@ -414,11 +423,8 @@ spec:
 					CallMode: simulation.CallModeInbound,
 				},
 				Result: simulation.Result{
-					StrictMatch:        true,
-					ListenerMatched:    "virtualInbound",
-					FilterChainMatched: "0.0.0.0_81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
-					ListenerTLS:        simulation.TlsModeTerminate,
+					// Plaintext to strict, should fails
+					Error: simulation.ErrNoFilterChain,
 				},
 			},
 			{
