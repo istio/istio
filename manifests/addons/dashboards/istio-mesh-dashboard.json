@@ -667,18 +667,35 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "avg(galley_istio_authentication_meshpolicies)",
+          "expr": "max(pilot_k8s_cfg_events{type=\"PeerAuthentication\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"PeerAuthentication\", event=\"delete\"}) or max(up * 0))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
+          "legendFormat": "# of PeerAuthentication",
           "refId": "A"
+        },
+        {
+          "expr": "max(pilot_k8s_cfg_events{type=\"RequestAuthentication\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"RequestAuthentication\", event=\"delete\"}) or max(up * 0))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "# of RequestAuthentication",
+          "refId": "B"
+        },
+        {
+          "expr": "max(pilot_k8s_cfg_events{type=\"AuthorizationPolicy\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"AuthorizationPolicy\", event=\"delete\"}) or max(up * 0))",
+          "hide": false,
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "# of AuthorizationPolicy",
+          "refId": "C"
         }
       ],
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
       "title": "Authentication Mesh Policies",
-      "type": "singlestat",
+      "type": "graph",
       "valueFontSize": "80%",
       "valueMaps": [
         {
