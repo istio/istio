@@ -118,6 +118,7 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 		case <-ticker.C:
 			wles, err := sg.Store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
 			if err != nil {
+				adsLog.Warnf("error listing WorkloadEntry for cleanup: %v", err)
 				continue
 			}
 			for _, wle := range wles {
