@@ -121,10 +121,8 @@ func unmarshalConfig(data []byte) (*Config, error) {
 // WebhookParameters configures parameters for the sidecar injection
 // webhook.
 type WebhookParameters struct {
-	// ConfigFile is the path to the sidecar injection configuration file.
-	ConfigFile string
-
-	ValuesFile string
+	// Watcher watches the sidecar injection configuration.
+	Watcher Watcher
 
 	// Port is the webhook port, e.g. typically 443 for https.
 	// This is mainly used for tests. Webhook runs on the port started by Istiod.
@@ -157,27 +155,22 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if p.Mux == nil {
 		return nil, errors.New("expected mux to be passed, but was not passed")
 	}
-	sidecarConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.ValuesFile)
-	if err != nil {
-		return nil, err
-	}
 
 	wh := &Webhook{
-		Config:                 sidecarConfig,
-		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
-		meshConfig:             p.Env.Mesh(),
-		valuesConfig:           valuesConfig,
-		healthCheckInterval:    p.HealthCheckInterval,
-		healthCheckFile:        p.HealthCheckFile,
-		env:                    p.Env,
-		revision:               p.Revision,
+		watcher:             p.Watcher,
+		meshConfig:          p.Env.Mesh(),
+		healthCheckInterval: p.HealthCheckInterval,
+		healthCheckFile:     p.HealthCheckFile,
+		env:                 p.Env,
+		revision:            p.Revision,
 	}
 
-	watcher, err := NewFileWatcher(p.ConfigFile, p.ValuesFile, wh.updateConfig)
+	p.Watcher.SetHandler(wh.updateConfig)
+	sidecarConfig, valuesConfig, err := p.Watcher.Get()
 	if err != nil {
 		return nil, err
 	}
-	wh.watcher = watcher
+	wh.updateConfig(sidecarConfig, valuesConfig)
 
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 	p.Mux.HandleFunc("/inject/", wh.serveInject)
