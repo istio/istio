@@ -2,9 +2,11 @@ package kube
 
 import (
 	"context"
-	"istio.io/pkg/log"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/pkg/log"
 )
 
 type ClusterMeta struct {
