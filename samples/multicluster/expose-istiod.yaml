@@ -14,7 +14,7 @@ spec:
       tls:
         mode: PASSTHROUGH        
       hosts:
-        - "istiod.istio-system.svc.cluster.local"
+        - "*"
     - port:
         name: tls-istiodwebhook
         number: 15017
@@ -22,7 +22,7 @@ spec:
       tls:
         mode: PASSTHROUGH          
       hosts:
-        - "istiod.istio-system.svc.cluster.local"
+        - "*"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -37,17 +37,13 @@ spec:
   tls:
   - match:
     - port: 15012
-      sniHosts:
-      - istiod.istio-system.svc.cluster.local
     route:
     - destination:
         host: istiod.istio-system.svc.cluster.local
         port:
           number: 15012
   - match:
-    - port: 15017
-      sniHosts:
-      - istiod.istio-system.svc.cluster.local    
+    - port: 15017  
     route:
     - destination:
         host: istiod.istio-system.svc.cluster.local
