@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -29,6 +30,19 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&ist, nil)).
+		Setup(istio.Setup(&ist, setupConfig)).
 		Run()
+}
+
+func setupConfig(_ resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
+spec:                                                              
+  meshConfig:                                                      
+    defaultConfig:                                                 
+      gatewayTopology:                                             
+        numTrustedProxies: 1 
+`
 }

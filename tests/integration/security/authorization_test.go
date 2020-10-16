@@ -512,7 +512,210 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 
 			for _, tc := range cases {
 				ctx.NewSubTest(tc.Name).Run(func(ctx framework.TestContext) {
-					authn.CheckIngressOrFail(ctx, ingr, tc.Host, tc.Path, "", tc.WantCode)
+					authn.CheckIngressOrFail(ctx, ingr, tc.Host, tc.Path, nil, "", tc.WantCode)
+				})
+			}
+		})
+}
+
+// TestAuthorization_IngressGatewayRemoteIp tests the authorization policy on ingress gateway with remote ip.
+func TestAuthorization_IngressGatewayRemoteIp(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.ingress-gateway.remote-ip").
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-ingress-gateway",
+				Inject: true,
+			})
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+			}
+
+			applyPolicy := func(filename string) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, "", policy...)
+				return policy
+			}
+			policies := applyPolicy("testdata/authz/v1beta1-ingress-gateway-remote-ip.yaml.tmpl")
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
+
+			var b echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				BuildOrFail(t)
+
+			ingr := ist.IngressFor(ctx.Clusters().Default())
+
+			cases := []struct {
+				Name     string
+				Host     string
+				Path     string
+				IP       string
+				WantCode int
+			}{
+				{
+					Name:     "deny 172.17.72.46",
+					Host:     "www.company.com",
+					Path:     "/",
+					IP:       "172.17.72.46",
+					WantCode: 403,
+				},
+				{
+					Name:     "deny 192.168.5.233",
+					Host:     "www.company.com",
+					Path:     "/",
+					IP:       "192.168.5.233",
+					WantCode: 403,
+				},
+				{
+					Name:     "allow 10.4.5.6",
+					Host:     "www.company.com",
+					Path:     "/",
+					IP:       "10.4.5.6",
+					WantCode: 200,
+				},
+			}
+
+			for _, tc := range cases {
+				ctx.NewSubTest(tc.Name).Run(func(ctx framework.TestContext) {
+					headers := map[string][]string{
+						"X-Forwarded-For": {tc.IP},
+					}
+					authn.CheckIngressOrFail(ctx, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
+				})
+			}
+		})
+}
+
+// TestAuthorization_IngressGatewayNotRemoteIp tests the authorization policy on ingress gateway with not remote ip.
+func TestAuthorization_IngressGatewayNotRemoteIp(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.ingress-gateway.not-remote-ip").
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-ingress-gateway",
+				Inject: true,
+			})
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+			}
+
+			applyPolicy := func(filename string) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, "", policy...)
+				return policy
+			}
+			policies := applyPolicy("testdata/authz/v1beta1-ingress-gateway-not-remote-ip.yaml.tmpl")
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
+
+			var b echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				BuildOrFail(t)
+
+			ingr := ist.IngressFor(ctx.Clusters().Default())
+
+			cases := []struct {
+				Name     string
+				Host     string
+				Path     string
+				IP       string
+				WantCode int
+			}{
+				{
+					Name:     "allow 10.2.3.4",
+					Host:     "www.company.com",
+					Path:     "/",
+					IP:       "10.2.3.4",
+					WantCode: 200,
+				},
+				{
+					Name:     "deny 172.23.242.188",
+					Host:     "www.company.com",
+					Path:     "/",
+					IP:       "172.23.242.188",
+					WantCode: 403,
+				},
+			}
+
+			for _, tc := range cases {
+				ctx.NewSubTest(tc.Name).Run(func(ctx framework.TestContext) {
+					headers := map[string][]string{
+						"X-Forwarded-For": {tc.IP},
+					}
+					authn.CheckIngressOrFail(ctx, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
+				})
+			}
+		})
+}
+
+// TestAuthorization_IngressGatewayRemoteIpAttr tests the authorization policy on ingress with remote ip attribute.
+func TestAuthorization_IngressGatewayRemoteIpAttr(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.ingress-gateway.remote-ip-attr").
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-ingress-gateway",
+				Inject: true,
+			})
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+			}
+
+			applyPolicy := func(filename string) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, "", policy...)
+				return policy
+			}
+			policies := applyPolicy("testdata/authz/v1beta1-ingress-gateway-remote-ip-attr.yaml.tmpl")
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
+
+			var b echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				BuildOrFail(t)
+
+			ingr := ist.IngressFor(ctx.Clusters().Default())
+
+			cases := []struct {
+				Name     string
+				Host     string
+				Path     string
+				IP       string
+				WantCode int
+			}{
+				{
+					Name:     "deny 10.242.5.7",
+					Host:     "www.company.com",
+					Path:     "/",
+					IP:       "10.242.5.7",
+					WantCode: 403,
+				},
+				{
+					Name:     "deny 10.124.99.10",
+					Host:     "www.company.com",
+					Path:     "/",
+					IP:       "10.124.99.10",
+					WantCode: 403,
+				},
+				{
+					Name:     "allow 10.4.5.6",
+					Host:     "www.company.com",
+					Path:     "/",
+					IP:       "10.4.5.6",
+					WantCode: 200,
+				},
+			}
+
+			for _, tc := range cases {
+				ctx.NewSubTest(tc.Name).Run(func(ctx framework.TestContext) {
+					headers := map[string][]string{
+						"X-Forwarded-For": {tc.IP},
+					}
+					authn.CheckIngressOrFail(ctx, ingr, tc.Host, tc.Path, headers, "", tc.WantCode)
 				})
 			}
 		})

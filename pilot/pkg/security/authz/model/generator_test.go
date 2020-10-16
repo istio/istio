@@ -97,15 +97,15 @@ func TestGenerator(t *testing.T) {
           addressPrefix: 1.2.3.4
           prefixLen: 32`),
 		},
-    {
-      name: "remoteIPGenerator",
-      g:    remoteIPGenerator{},
-      value: "1.2.3.4",
-      want: yamlPrincipal(t, `
+		{
+			name:  "remoteIPGenerator",
+			g:     remoteIPGenerator{},
+			value: "1.2.3.4",
+			want: yamlPrincipal(t, `
          remoteIp:
           addressPrefix: 1.2.3.4
           prefixLen: 32`),
-    },
+		},
 		{
 			name:  "srcNamespaceGenerator-http",
 			g:     srcNamespaceGenerator{},

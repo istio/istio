@@ -3773,7 +3773,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "RemoteNotIpBlocks-empty",
+			name: "NotRemoteIpBlocks-empty",
 			in: &security_beta.AuthorizationPolicy{
 				Rules: []*security_beta.Rule{
 					{
@@ -3942,7 +3942,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "invalid ip and port",
+			name: "invalid ip and port in ipBlocks",
 			in: &security_beta.AuthorizationPolicy{
 				Rules: []*security_beta.Rule{
 					{
@@ -3951,6 +3951,32 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 								Source: &security_beta.Source{
 									IpBlocks:    []string{"1.2.3.4", "ip1"},
 									NotIpBlocks: []string{"5.6.7.8", "ip2"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:    []string{"80", "port1"},
+									NotPorts: []string{"90", "port2"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid ip and port in remoteIpBlocks",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									RemoteIpBlocks:    []string{"1.2.3.4", "ip1"},
+									NotRemoteIpBlocks: []string{"5.6.7.8", "ip2"},
 								},
 							},
 						},
