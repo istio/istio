@@ -430,7 +430,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "VirtualService",
+      "title": "Virtual Services",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -512,7 +512,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "DestinationRule",
+      "title": "Destination Rules",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -594,7 +594,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Gateway",
+      "title": "Gateways",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -676,7 +676,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "WorkloadEntry",
+      "title": "Workload Entries",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -758,7 +758,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "ServiceEntry",
+      "title": "Service Entries",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -840,7 +840,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "PeerAuthentication",
+      "title": "PeerAuthentication Policies",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -922,7 +922,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "RequestAuthentication",
+      "title": "RequestAuthentication Policies",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1004,7 +1004,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "AuthorizationPolicy",
+      "title": "Authorization Policies",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
