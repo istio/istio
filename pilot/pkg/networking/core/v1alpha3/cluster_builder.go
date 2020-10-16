@@ -96,7 +96,6 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		if clusterMode == DefaultClusterMode {
 			subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 			defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-
 		} else {
 			subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 		}
@@ -122,7 +121,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		}
 		setUpstreamProtocol(cb.proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
-		// Apply traffic policy for subset cluster with the destination rule traffice policy.
+		// Apply traffic policy for subset cluster with the destination rule traffic policy.
 		opts.cluster = subsetCluster
 		opts.istioMtlsSni = defaultSni
 
@@ -238,7 +237,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	}
 	applyTrafficPolicy(opts)
 	addTelemetryMetadata(opts, service, direction)
-
+	addNetworkingMetadata(opts, service, direction)
 	return c
 }
 
