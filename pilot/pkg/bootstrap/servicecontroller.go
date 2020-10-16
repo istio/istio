@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/kube"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -80,8 +81,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 // initKubeRegistry creates all the k8s service controllers under this pilot
 func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-	// TODO allow overriding with configmap
-	args.RegistryOptions.KubeOptions.ClusterMeta.ID = s.clusterID
+	// TODO init single-cluster registry in a common-way as multi-cluster registries
+	if cm := kube.ClusterMetaFromConfigMap(s.kubeClient, args.Namespace); cm != nil {
+		args.RegistryOptions.KubeOptions.ClusterMeta = *cm
+		s.clusterID = cm.ID
+	}
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher

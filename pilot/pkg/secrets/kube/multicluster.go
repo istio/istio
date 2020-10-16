@@ -44,24 +44,24 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string) *
 		localCluster:          localCluster,
 	}
 
-	// TODO move this to bootstrap and re-use it for serviceregistry
-	clusterMeta := &kube.ClusterMeta{ID: localCluster}
+	// TODO re-use the lookup from initKubeRegistry set on server struct
+	clusterMeta := kube.ClusterMeta{ID: localCluster}
 	if cmMeta := kube.ClusterMetaFromConfigMap(client, secretNamespace); cmMeta != nil {
-		clusterMeta = cmMeta
+		clusterMeta = *cmMeta
 	}
 
 	// Add the local cluster
 	m.addMemberCluster(client, localCluster, clusterMeta)
 	sc := secretcontroller.StartSecretController(client,
-		func(c kube.Client, k string, cm *kube.ClusterMeta) error { m.addMemberCluster(c, k, cm); return nil },
-		func(c kube.Client, k string, cm *kube.ClusterMeta) error { m.updateMemberCluster(c, k, cm); return nil },
+		func(c kube.Client, k string, cm kube.ClusterMeta) error { m.addMemberCluster(c, k, cm); return nil },
+		func(c kube.Client, k string, cm kube.ClusterMeta) error { m.updateMemberCluster(c, k, cm); return nil },
 		func(k string) error { m.deleteMemberCluster(k); return nil },
 		secretNamespace)
 	m.secretController = sc
 	return m
 }
 
-func (m *Multicluster) addMemberCluster(clients kube.Client, key string, cm *kube.ClusterMeta) {
+func (m *Multicluster) addMemberCluster(clients kube.Client, key string, cm kube.ClusterMeta) {
 	stopCh := make(chan struct{})
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
 	sc := NewSecretsController(clients, cm.ID)
@@ -72,7 +72,7 @@ func (m *Multicluster) addMemberCluster(clients kube.Client, key string, cm *kub
 	clients.RunAndWait(stopCh)
 }
 
-func (m *Multicluster) updateMemberCluster(clients kube.Client, key string, cm *kube.ClusterMeta) {
+func (m *Multicluster) updateMemberCluster(clients kube.Client, key string, cm kube.ClusterMeta) {
 	m.deleteMemberCluster(key)
 	m.addMemberCluster(clients, key, cm)
 }

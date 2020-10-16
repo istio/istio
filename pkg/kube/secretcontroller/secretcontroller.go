@@ -46,10 +46,10 @@ const (
 )
 
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clients kube.Client, dataKey string, cm *kube.ClusterMeta) error
+type addSecretCallback func(clients kube.Client, dataKey string, cm kube.ClusterMeta) error
 
 // updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clients kube.Client, dataKey string, cm *kube.ClusterMeta) error
+type updateSecretCallback func(clients kube.Client, dataKey string, cm kube.ClusterMeta) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -348,9 +348,9 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
 }
 
-func (c *Controller) clusterMetaOrDefault(clients kubernetes.Interface, defaultClusterID string) *kube.ClusterMeta {
+func (c *Controller) clusterMetaOrDefault(clients kubernetes.Interface, defaultClusterID string) kube.ClusterMeta {
 	if cm := kube.ClusterMetaFromConfigMap(clients, c.namespace); cm != nil {
-		return cm
+		return *cm
 	}
-	return &kube.ClusterMeta{ID: defaultClusterID}
+	return kube.ClusterMeta{ID: defaultClusterID}
 }
