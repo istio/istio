@@ -150,7 +150,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, key string, cm k
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clients kubelib.Client, clusterID string, cm *kubelib.ClusterMeta) error {
+func (m *Multicluster) UpdateMemberCluster(clients kubelib.Client, clusterID string, cm kubelib.ClusterMeta) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
