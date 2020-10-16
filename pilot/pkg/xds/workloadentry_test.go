@@ -150,12 +150,12 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		// disconnect, kill the cleanup queue from the first controller
 		ig1.QueueUnregisterWorkload(p)
 		// stop processing the delayed close queue in ig1, forces using periodic cleanup
-
 		close(stop1)
 		stopped1 = true
+		// unfortunately, this retry at worst could be twice as long as the sweep interval
 		retry.UntilSuccessOrFail(t, func() error {
 			return checkNoEntry(store, wgA, p)
-		}, retry.Timeout(time.Until(time.Now().Add(11*features.WorkloadEntryCleanupGracePeriod))))
+		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
