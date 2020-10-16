@@ -621,7 +621,7 @@ func reportAllEvents(s DistributionStatusCache, id, version string, ignored map[
 	}
 	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
 	// inform distribution status reporter that this connection has been updated, because it effectively has
-	for _, distributionType := range AllEventTypes {
+	for distributionType := range AllEventTypes {
 		if _, f := ignored[distributionType]; f {
 			// Skip this type
 			continue
@@ -752,7 +752,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 
 	if s.StatusReporter != nil {
-		go s.StatusReporter.RegisterDisconnect(conID, AllEventTypes)
+		s.StatusReporter.RegisterDisconnect(conID, AllEventTypesList)
 	}
 }
 
