@@ -35,15 +35,14 @@ import (
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyBasicFlow(t *testing.T) {
-	proxy := setupXdsProxy(t)
 	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	setDialOptions(proxy, f.Listener)
+	setupXdsProxy(t, f.Listener)
 	conn := setupDownstreamConnection(t)
 	downstream := stream(t, conn)
 	sendDownstream(t, downstream)
 }
 
-func setupXdsProxy(t *testing.T) *XdsProxy {
+func setupXdsProxy(t *testing.T, l ...*bufconn.Listener) *XdsProxy {
 	secOpts := &security.Options{
 		FileMountedCerts: true,
 	}
@@ -62,7 +61,11 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	t.Cleanup(func() {
 		ia.Close()
 	})
-	proxy, err := initXdsProxy(ia)
+	var dialOptions []grpc.DialOption
+	if len(l) == 1 {
+		dialOptions = createDialOptions(l[0])
+	}
+	proxy, err := initXdsProxy(ia, dialOptions...)
 	if err != nil {
 		t.Fatalf("Failed to initialize xds proxy %v", err)
 	}
@@ -70,16 +73,15 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	return proxy
 }
 
-func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
+func createDialOptions(l *bufconn.Listener) []grpc.DialOption {
 	// Override istiodDialOptions so that the test can connect with plain text and with buffcon listener.
-	p.istiodDialOptions = []grpc.DialOption{
+	return []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithInsecure(),
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return l.Dial()
 		}),
 	}
-
 }
 
 var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", "Kubernetes")
@@ -87,9 +89,8 @@ var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", "K
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyReconnects(t *testing.T) {
 	t.Run("Envoy close and open stream", func(t *testing.T) {
-		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		setDialOptions(proxy, f.Listener)
+		setupXdsProxy(t, f.Listener)
 
 		conn := setupDownstreamConnection(t)
 		downstream := stream(t, conn)
@@ -100,9 +101,8 @@ func TestXdsProxyReconnects(t *testing.T) {
 		sendDownstream(t, downstream)
 	})
 	t.Run("Envoy opens multiple stream", func(t *testing.T) {
-		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		setDialOptions(proxy, f.Listener)
+		setupXdsProxy(t, f.Listener)
 
 		conn := setupDownstreamConnection(t)
 		downstream := stream(t, conn)
@@ -111,9 +111,8 @@ func TestXdsProxyReconnects(t *testing.T) {
 		sendDownstream(t, downstream)
 	})
 	t.Run("Envoy closes connection", func(t *testing.T) {
-		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		setDialOptions(proxy, f.Listener)
+		setupXdsProxy(t, f.Listener)
 
 		conn := setupDownstreamConnection(t)
 		downstream := stream(t, conn)
@@ -124,17 +123,16 @@ func TestXdsProxyReconnects(t *testing.T) {
 		sendDownstream(t, downstream)
 	})
 	t.Run("Istiod closes connection", func(t *testing.T) {
-		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
 		// Here we set up a real listener (instead of in memory) since we need to close and re-open
 		// a new listener on the same port, which we cannot do with the in memory listener.
 		listener, err := net.Listen("tcp", ":0")
 		if err != nil {
 			t.Fatal(err)
 		}
-		proxy.istiodAddress = listener.Addr().String()
-		proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
+		// proxy.istiodAddress = listener.Addr().String()
+		// proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
+		setupXdsProxy(t, f.Listener)
 
 		// Setup gRPC server
 		grpcServer := grpc.NewServer()

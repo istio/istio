@@ -27,10 +27,10 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/oauth2"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -43,15 +43,16 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/dns"
-	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/istio-agent/health"
+	"istio.io/istio/pkg/istio-agent/upstream"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -83,40 +84,29 @@ type XdsProxy struct {
 	clusterID            string
 	downstreamListener   net.Listener
 	downstreamGrpcServer *grpc.Server
-	istiodAddress        string
-	istiodDialOptions    []grpc.DialOption
+	upstreamConnection   *grpc.ClientConn
 	localDNSServer       *dns.LocalDNSServer
-	healthChecker        *health.WorkloadHealthChecker
 	fileWatcher          filewatcher.FileWatcher
 	agent                *Agent
-
-	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
-	connected      *ProxyConnection
-	connectedMutex sync.RWMutex
+	mutex                sync.RWMutex
+	healthcheckResultCh  map[int64]chan *discovery.DiscoveryRequest
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 
-func initXdsProxy(ia *Agent) (*XdsProxy, error) {
+func initXdsProxy(ia *Agent, dialOptions ...grpc.DialOption) (*XdsProxy, error) {
 	var err error
 	proxy := &XdsProxy{
-		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
-		clusterID:      ia.secOpts.ClusterID,
-		localDNSServer: ia.localDNSServer,
-		fileWatcher:    newFileWatcher(),
-		stopChan:       make(chan struct{}),
-		resetChan:      make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe),
-		agent:          ia,
+		clusterID:           ia.secOpts.ClusterID,
+		localDNSServer:      ia.localDNSServer,
+		fileWatcher:         newFileWatcher(),
+		stopChan:            make(chan struct{}),
+		resetChan:           make(chan struct{}),
+		healthcheckResultCh: make(map[int64]chan *discovery.DiscoveryRequest, 5),
+		agent:               ia,
 	}
-
-	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
 
 	if err = proxy.initDownstreamServer(); err != nil {
-		return nil, err
-	}
-
-	if proxy.istiodDialOptions, err = proxy.buildUpstreamClientDialOpts(ia); err != nil {
 		return nil, err
 	}
 
@@ -126,55 +116,62 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}()
 
+	proxyLog.Infof("Initializing with upstream address %s and cluster %s", ia.proxyConfig.DiscoveryAddress, proxy.clusterID)
+	if len(dialOptions) == 0 {
+		dialOptions, err = proxy.buildUpstreamClientDialOpts(ia)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	proxy.upstreamConnection, err = grpc.Dial(ia.proxyConfig.DiscoveryAddress, dialOptions...)
+	if err != nil {
+		proxyLog.Errorf("failed to connect to upstream %s: %v", ia.proxyConfig.DiscoveryAddress, err)
+		return nil, err
+	}
+
 	if err = proxy.initCertificateWatches(ia, proxy.stopChan); err != nil {
 		return nil, err
 	}
 
-	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
-		var req *discovery.DiscoveryRequest
-		if healthEvent.Healthy {
-			req = &discovery.DiscoveryRequest{TypeUrl: health.HealthInfoTypeURL}
-		} else {
-			req = &discovery.DiscoveryRequest{
-				TypeUrl: health.HealthInfoTypeURL,
-				ErrorDetail: &google_rpc.Status{
-					Code:    500,
-					Message: healthEvent.UnhealthyMessage,
-				},
-			}
-		}
-		proxy.SendRequest(req)
-	}, proxy.stopChan)
+	healthChecker := health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe)
+	go healthChecker.PerformApplicationHealthCheck(proxy.SendHealthCheckRequest, proxy.stopChan)
 	return proxy, nil
 }
 
-// SendRequest sends a request to the currently connected proxy
-func (p *XdsProxy) SendRequest(req *discovery.DiscoveryRequest) {
-	p.connectedMutex.RLock()
-	defer p.connectedMutex.RUnlock()
-	// TODO especially for health check purposes, we need a way to ensure the send succeeded. Otherwise,
-	// requests send to a disconnecting proxy will be permanently dropped.
-	if p.connected != nil {
-		p.connected.requestsChan <- req
+// SendHealthCheckRequest sends a request to the currently connected proxy
+func (p *XdsProxy) SendHealthCheckRequest(healthEvent *health.ProbeEvent) {
+	var req *discovery.DiscoveryRequest
+	if healthEvent.Healthy {
+		req = &discovery.DiscoveryRequest{TypeUrl: health.HealthInfoTypeURL}
+	} else {
+		req = &discovery.DiscoveryRequest{
+			TypeUrl: health.HealthInfoTypeURL,
+			ErrorDetail: &google_rpc.Status{
+				Code:    500,
+				Message: healthEvent.UnhealthyMessage,
+			},
+		}
 	}
+
+	p.mutex.RLock()
+	for _, ch := range p.healthcheckResultCh {
+		select {
+		case ch <- req:
+		default:
+			// TODO: maybe retry
+			proxyLog.Warnf("health check info send blocking")
+		}
+	}
+	p.mutex.RUnlock()
+
 }
 
-func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
-	p.connectedMutex.Lock()
-	defer p.connectedMutex.Unlock()
-	if p.connected != nil {
-		close(p.connected.stopChan)
-	}
-	p.connected = c
-}
+// Tracks connections, increment on each new connection.
+var connectionNumber = int64(0)
 
-type ProxyConnection struct {
-	upstreamError   chan error
-	downstreamError chan error
-	requestsChan    chan *discovery.DiscoveryRequest
-	responsesChan   chan *discovery.DiscoveryResponse
-	stopChan        chan struct{}
-	downstream      discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+func connectionID() int64 {
+	return atomic.AddInt64(&connectionNumber, 1)
 }
 
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
@@ -182,33 +179,60 @@ type ProxyConnection struct {
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	proxyLog.Infof("Envoy ADS stream established")
+	requestChan := make(chan *discovery.DiscoveryRequest, 10)
+	connID := connectionID()
+	p.mutex.Lock()
+	p.healthcheckResultCh[connID] = requestChan
+	p.mutex.Unlock()
+	defer func() {
+		p.mutex.Lock()
+		delete(p.healthcheckResultCh, connID)
+		p.mutex.Unlock()
+	}()
 
-	con := &ProxyConnection{
-		upstreamError:   make(chan error),
-		downstreamError: make(chan error),
-		requestsChan:    make(chan *discovery.DiscoveryRequest, 10),
-		responsesChan:   make(chan *discovery.DiscoveryResponse, 10),
-		stopChan:        make(chan struct{}),
-		downstream:      downstream,
+	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
+	if p.agent.cfg.XDSHeaders != nil {
+		for k, v := range p.agent.cfg.XDSHeaders {
+			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+		}
 	}
 
-	p.RegisterStream(con)
+	client := upstream.New(ctx, p.upstreamConnection, proxyLog)
+	respCh, cancel := client.OpenStream(requestChan)
+	defer cancel()
 
-	// Handle downstream xds
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	// Handle downstream send
+	go func() {
+		defer wg.Done()
+		for {
+			response := <-respCh
+			err := downstream.Send(response)
+			if err != nil {
+				proxyLog.Errorf("downstream send error: %v", err)
+				return
+			}
+		}
+	}()
+
+	// Handle downstream recv
 	firstNDSSent := false
 	go func() {
+		defer wg.Done()
 		for {
 			// From Envoy
 			req, err := downstream.Recv()
 			if err != nil {
-				con.downstreamError <- err
+				proxyLog.Errorf("downstream recv error: %v", err)
 				return
 			}
 			// forward to istiod
-			con.requestsChan <- req
+			requestChan <- req
 			if !firstNDSSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
-				con.requestsChan <- &discovery.DiscoveryRequest{
+				requestChan <- &discovery.DiscoveryRequest{
 					TypeUrl: v3.NameTableType,
 				}
 				firstNDSSent = true
@@ -216,116 +240,19 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
-	if err != nil {
-		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
-		return err
-	}
-	defer upstreamConn.Close()
-
-	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
-	ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
-	if p.agent.cfg.XDSHeaders != nil {
-		for k, v := range p.agent.cfg.XDSHeaders {
-			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
-		}
-	}
-	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
-	return p.HandleUpstream(ctx, con, xds)
-}
-
-func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
-	proxyLog.Infof("connecting to upstream XDS server: %s", p.istiodAddress)
-	defer proxyLog.Infof("disconnected from XDS server: %s", p.istiodAddress)
-	upstream, err := xds.StreamAggregatedResources(ctx,
-		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
-	if err != nil {
-		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
-		return err
-	}
-
-	// Handle upstream xds
+	// wait for downstream handle done
+	exitCh := make(chan struct{})
 	go func() {
-		for {
-			// from istiod
-			resp, err := upstream.Recv()
-			if err != nil {
-				con.upstreamError <- err
-				return
-			}
-			con.responsesChan <- resp
-		}
+		wg.Wait()
+		// notify exit
+		close(exitCh)
 	}()
 
-	for {
-		select {
-		case err := <-con.upstreamError:
-			// error from upstream Istiod.
-			if isExpectedGRPCError(err) {
-				proxyLog.Debugf("upstream terminated with status %v", err)
-			} else {
-				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
-			}
-			_ = upstream.CloseSend()
-			return nil
-		case err := <-con.downstreamError:
-			// error from downstream Envoy.
-			if isExpectedGRPCError(err) {
-				proxyLog.Debugf("downstream terminated with status %v", err)
-			} else {
-				proxyLog.Warnf("downstream terminated with unexpected error %v", err)
-			}
-			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
-			return err
-		case req, ok := <-con.requestsChan:
-			if !ok {
-				return nil
-			}
-			proxyLog.Debugf("request for type url %s", req.TypeUrl)
-			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
-				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
-				return err
-			}
-		case resp, ok := <-con.responsesChan:
-			if !ok {
-				return nil
-			}
-			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
-			switch resp.TypeUrl {
-			case v3.NameTableType:
-				// intercept. This is for the dns server
-				if p.localDNSServer != nil && len(resp.Resources) > 0 {
-					var nt nds.NameTable
-					// TODO we should probably send ACK and not update nametable here
-					if err = ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
-						log.Errorf("failed to unmarshall name table: %v", err)
-					}
-					p.localDNSServer.UpdateLookupTable(&nt)
-				}
-
-				// Send ACK
-				con.requestsChan <- &discovery.DiscoveryRequest{
-					VersionInfo:   resp.VersionInfo,
-					TypeUrl:       v3.NameTableType,
-					ResponseNonce: resp.Nonce,
-				}
-			default:
-				// TODO: Validate the known type urls before forwarding them to Envoy.
-				if err := con.downstream.Send(resp); err != nil {
-					proxyLog.Errorf("downstream send error: %v", err)
-					// we cannot return partial error and hope to restart just the downstream
-					// as we are blindly proxying req/responses. For now, the best course of action
-					// is to terminate upstream connection as well and restart afresh.
-					return err
-				}
-			}
-		case <-con.stopChan:
-			_ = upstream.CloseSend()
-			return nil
-		}
+	select {
+	case <-p.stopChan:
+	case <-exitCh:
 	}
+	return nil
 }
 
 func (p *XdsProxy) DeltaAggregatedResources(server discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
