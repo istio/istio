@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -66,6 +68,9 @@ var (
 	// requires a secret named "cacerts" with specific files inside.
 	LocalCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
 		"Location of a local or mounted CA root")
+
+	useRemoteCerts = env.RegisterBoolVar("USE_REMOTE_CERTS", false,
+		"Whether to try to load CA certs from a remote Kubernetes cluster. Used for external Istiod.")
 
 	workloadCertTTL = env.RegisterDurationVar("DEFAULT_WORKLOAD_CERT_TTL",
 		cmd.DefaultWorkloadCertTTL,
@@ -281,6 +286,42 @@ func (s *Server) initPublicKey() error {
 		}
 	} else {
 		s.caBundlePath = path.Join(features.PilotCertProvider.Get(), "cert-chain.pem")
+	}
+	return nil
+}
+
+// loadRemoteCACerts mounts an existing cacerts Secret if the files aren't mounted locally.
+// By default, a cacerts Secret would be mounted during pod startup due to the
+// Istiod Deployment configuration. But with external Istiod, we want to be
+// able to load cacerts from a remote cluster instead.
+func (s *Server) loadRemoteCACerts(caOpts *CAOptions, dir string) error {
+	if s.kubeClient == nil {
+		return nil
+	}
+
+	signingKeyFile := path.Join(dir, "ca-key.pem")
+	if _, err := os.Stat(signingKeyFile); !os.IsNotExist(err) {
+		return fmt.Errorf("signing key file %s already exists", signingKeyFile)
+	}
+
+	secret, err := s.kubeClient.Kube().CoreV1().Secrets(caOpts.Namespace).Get(
+		context.TODO(), "cacerts", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	log.Infof("cacerts Secret found in remote cluster, saving contents to %s", dir)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	for key, data := range secret.Data {
+		filename := path.Join(dir, key)
+		if err := ioutil.WriteFile(filename, data, 0600); err != nil {
+			return err
+		}
 	}
 	return nil
 }
