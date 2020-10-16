@@ -2016,8 +2016,8 @@ func TestValidateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route, false); (err == nil) != tc.valid {
-				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			if err := validateHTTPRoute(tc.route, false); (err.Err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
 			}
 		})
 	}
@@ -2245,18 +2245,33 @@ func TestValidateVirtualService(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "deprecated mirror", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/gateway"},
+			Http: []*networking.HTTPRoute{{
+				MirrorPercent: &types.UInt32Value{Value: 5},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true, warning: true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			warn, err := ValidateVirtualService(config.Config{Spec: tc.in})
-			if (err == nil) != tc.valid {
-				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
-			}
-			if (warn == nil) == tc.warning {
-				t.Fatalf("got warning=%v but wanted warning=%v", warn, tc.warning)
-			}
+			checkValidation(t, warn, err, tc.valid, tc.warning)
 		})
+	}
+}
+
+func checkValidation(t *testing.T, gotWarning Warning, gotError error, valid bool, warning bool) {
+	t.Helper()
+	if (gotError == nil) != valid {
+		t.Fatalf("got valid=%v but wanted valid=%v: %v", gotError == nil, valid, gotError)
+	}
+	if (gotWarning == nil) == warning {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, warning)
 	}
 }
 
