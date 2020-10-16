@@ -146,13 +146,13 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 				oldWorkloadLabels := labels.Collection{oldWle.Labels}
 				if oldWorkloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
 					selected = true
-					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry)
+					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry, &key)
 					instancesDeleted = append(instancesDeleted, instance...)
 				}
 			}
 		} else {
 			selected = true
-			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry)
+			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key)
 			instancesUpdated = append(instancesUpdated, instance...)
 		}
 
@@ -573,12 +573,13 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 				EndpointPort:    instance.Endpoint.EndpointPort,
 				ServicePortName: port.Name,
 				Labels:          instance.Endpoint.Labels,
-				UID:             instance.Endpoint.UID,
 				ServiceAccount:  instance.Endpoint.ServiceAccount,
 				Network:         instance.Endpoint.Network,
 				Locality:        instance.Endpoint.Locality,
 				LbWeight:        instance.Endpoint.LbWeight,
 				TLSMode:         instance.Endpoint.TLSMode,
+				WorkloadName:    instance.Endpoint.WorkloadName,
+				Namespace:       instance.Endpoint.Namespace,
 			})
 	}
 
@@ -674,7 +675,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 				// Not a match, skip this one
 				continue
 			}
-			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry), instanceMap, ip2instances)
+			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key), instanceMap, ip2instances)
 		}
 	}
 

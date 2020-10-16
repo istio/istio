@@ -440,7 +440,6 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 			ServicePortName: "http-main",
 			EndpointPort:    80,
 			Labels:          map[string]string{"version": version},
-			UID:             "uid1",
 			ServiceAccount:  account,
 		},
 	}

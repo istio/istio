@@ -278,7 +278,6 @@ func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []
 			Locality: model.Locality{
 				Label: "az",
 			},
-			UID:    "kubernetes://dummy",
 			Labels: svcLabels,
 		}
 	}

@@ -17,8 +17,11 @@ package kube
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	kubeApiCore "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -147,4 +150,61 @@ func CheckPodReady(pod *kubeApiCore.Pod) error {
 	default:
 		return fmt.Errorf("%s", pod.Status.Phase)
 	}
+}
+
+// GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
+func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (*metav1.ObjectMeta, *metav1.TypeMeta) {
+	if pod == nil {
+		return nil, nil
+	}
+	// try to capture more useful namespace/name info for deployments, etc.
+	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
+	deployMeta := pod.ObjectMeta.DeepCopy()
+	deployMeta.Namespace = pod.ObjectMeta.Namespace
+
+	typeMetadata := &metav1.TypeMeta{
+		Kind:       "Pod",
+		APIVersion: "v1",
+	}
+	if len(pod.GenerateName) > 0 {
+		// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
+		var controllerRef metav1.OwnerReference
+		controllerFound := false
+		for _, ref := range pod.GetOwnerReferences() {
+			if *ref.Controller {
+				controllerRef = ref
+				controllerFound = true
+				break
+			}
+		}
+		if controllerFound {
+			typeMetadata.APIVersion = controllerRef.APIVersion
+			typeMetadata.Kind = controllerRef.Kind
+
+			// heuristic for deployment detection
+			deployMeta.Name = controllerRef.Name
+			if typeMetadata.Kind == "ReplicaSet" && pod.Labels["pod-template-hash"] != "" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
+				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
+				deployMeta.Name = name
+				typeMetadata.Kind = "Deployment"
+			} else if typeMetadata.Kind == "Job" && len(controllerRef.Name) > 11 {
+				// If job name suffixed with `-<ten-digit-timestamp>`, trim the suffix and set kind to cron job.
+				l := len(controllerRef.Name)
+				if _, err := strconv.Atoi(controllerRef.Name[l-10:]); err == nil && string(controllerRef.Name[l-11]) == "-" {
+					deployMeta.Name = controllerRef.Name[:l-11]
+					typeMetadata.Kind = "CronJob"
+					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
+					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
+					typeMetadata.APIVersion = "batch/v1beta1"
+				}
+			}
+		}
+	}
+
+	if deployMeta.Name == "" {
+		// if we haven't been able to extract a deployment name, then just give it the pod name
+		deployMeta.Name = pod.Name
+	}
+
+	return deployMeta, typeMetadata
 }

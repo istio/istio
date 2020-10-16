@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
+	kubeUtil "istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -32,33 +33,39 @@ type EndpointBuilder struct {
 	controller *Controller
 
 	labels         labels.Instance
-	uid            string
 	metaNetwork    string
 	serviceAccount string
 	locality       model.Locality
 	tlsMode        string
+	workloadName   string
+	namespace      string
 }
 
 func NewEndpointBuilder(c *Controller, pod *v1.Pod) *EndpointBuilder {
-	locality, sa, uid := "", "", ""
+	locality, sa, wn, namespace := "", "", "", ""
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
-		uid = createUID(pod.Name, pod.Namespace)
 		podLabels = pod.Labels
+		namespace = pod.Namespace
+	}
+	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
+	if dm != nil {
+		wn = dm.Name
 	}
 
 	return &EndpointBuilder{
 		controller:     c,
 		labels:         podLabels,
-		uid:            uid,
 		serviceAccount: sa,
 		locality: model.Locality{
 			Label:     locality,
 			ClusterID: c.clusterID,
 		},
-		tlsMode: kube.PodTLSMode(pod),
+		tlsMode:      kube.PodTLSMode(pod),
+		workloadName: wn,
+		namespace:    namespace,
 	}
 }
 
@@ -86,7 +93,6 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 
 	return &model.IstioEndpoint{
 		Labels:          b.labels,
-		UID:             b.uid,
 		ServiceAccount:  b.serviceAccount,
 		Locality:        b.locality,
 		TLSMode:         b.tlsMode,
@@ -94,6 +100,8 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		EndpointPort:    uint32(endpointPort),
 		ServicePortName: svcPortName,
 		Network:         b.endpointNetwork(endpointAddress),
+		WorkloadName:    b.workloadName,
+		Namespace:       b.namespace,
 	}
 }
 
