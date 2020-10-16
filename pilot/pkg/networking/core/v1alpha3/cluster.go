@@ -1177,12 +1177,10 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 		}
 	}
 	// Create Istio metadata if does not exist yet
-	if im, ok := cluster.Metadata.FilterMetadata[util.IstioMetadataKey]; !ok {
+	if _, ok := cluster.Metadata.FilterMetadata[util.IstioMetadataKey]; !ok {
 		cluster.Metadata.FilterMetadata[util.IstioMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{},
 		}
-		return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
-	} else {
-		return im
 	}
+	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
 }
