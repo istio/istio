@@ -92,20 +92,23 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores,
 			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
-		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient)
-		if err != nil {
-			log.Warnf("Disabled ingress status syncer due to %v", err)
-		} else {
-			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-				le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube())
-				le.AddRunFunction(func(leaderStop <-chan struct{}) {
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					ingressSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient)
+					// Start informers again. This fixes the case where informers for namespace do not start,
+					// as we create them only after acquiring the leader lock
+					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+					// basically lazy loading the informer, if we stop it when we lose the lock we will never
+					// recreate it again.
+					s.kubeClient.RunAndWait(stop)
 					log.Infof("Starting ingress controller")
 					ingressSyncer.Run(leaderStop)
-				})
-				le.Run(stop)
-				return nil
-			})
-		}
+				}).
+				Run(stop)
+			return nil
+		})
 	}
 
 	// Wrap the config controller with a cache.
