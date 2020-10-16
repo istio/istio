@@ -76,6 +76,17 @@ type Expect struct {
 	Result Result
 }
 
+type CallMode string
+
+var (
+	// simulate no iptables
+	CallModeGateway CallMode = "gateway"
+	// simulate iptables redirect to 15001
+	CallModeOutbound CallMode = "outbound"
+	// simulate iptables redirect to 15006
+	CallModeInbound CallMode = "inbound"
+)
+
 type Call struct {
 	Address  string
 	Port     int
@@ -88,6 +99,9 @@ type Call struct {
 	Headers    http.Header
 
 	Sni string
+
+	// CallMode describes the type of call to make.
+	CallMode CallMode
 }
 
 func (c Call) FillDefaults() Call {
@@ -106,21 +120,46 @@ func (c Call) FillDefaults() Call {
 	return c
 }
 
+type TlsMode string
+
+var (
+	// assert tls must be terminated
+	TlsModeTerminate TlsMode = "terminate"
+	// assert tls must not be terminated
+	TlsModePassthrough TlsMode = "passthrough"
+)
+
 type Result struct {
 	Error              error
 	ListenerMatched    string
 	FilterChainMatched string
+	// TODO: we should have distinct filter chain names so we can avoid this. However, currently we have
+	// multiple names overlap, for example `virtualInbound`
+	ListenerTLS        TlsMode
 	RouteMatched       string
 	RouteConfigMatched string
 	VirtualHostMatched string
 	ClusterMatched     string
-	t                  test.Failer
+	// StrictMatch controls whether we will strictly match the result. If not set,
+	// empty fields will be ignored, allowing testing only fields we care about This
+	// allows asserting that the result is *exactly* equal, allowing asserting a
+	// field is empty
+	StrictMatch bool
+	t           test.Failer
 }
 
 func (r Result) Matches(t *testing.T, want Result) {
+	r.StrictMatch = want.StrictMatch // to make diff pass
 	diff := cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors())
+	if want.StrictMatch && diff != "" {
+		t.Errorf("Diff: %v", diff)
+		return
+	}
 	if want.Error != nil && want.Error != r.Error {
 		t.Errorf("want error %v got %v", want.Error, r.Error)
+	}
+	if want.ListenerTLS != "" && want.ListenerTLS != r.ListenerTLS {
+		t.Errorf("want TLS mode %v, got %v", want.ListenerTLS, r.ListenerTLS)
 	}
 	if want.ListenerMatched != "" && want.ListenerMatched != r.ListenerMatched {
 		t.Errorf("want listener matched %q got %q", want.ListenerMatched, r.ListenerMatched)
@@ -205,20 +244,31 @@ func (sim *Simulation) Run(input Call) (result Result) {
 		return
 	}
 	result.FilterChainMatched = fc.Name
+	if fc.TransportSocket != nil {
+		result.ListenerTLS = TlsModeTerminate
+	} else {
+		result.ListenerTLS = TlsModePassthrough
+	}
 
 	if hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc); hcm != nil {
 		if !input.Protocol.IsHTTP() && fc.TransportSocket == nil {
 			result.Error = ErrProtocolError
 			return
 		}
-		routeName := hcm.GetRds().RouteConfigName
-		result.RouteConfigMatched = routeName
-		rc := xdstest.ExtractRouteConfigurations(sim.Routes)[routeName]
-		if len(input.Headers["Host"]) != 1 {
-			result.Error = errors.New("http requests require a host header")
-			return
+
+		// Fetch inline route
+		rc := hcm.GetRouteConfig()
+		if rc == nil {
+			// If not set, fallback to RDS
+			routeName := hcm.GetRds().RouteConfigName
+			result.RouteConfigMatched = routeName
+			rc = xdstest.ExtractRouteConfigurations(sim.Routes)[routeName]
 		}
-		vh := sim.matchVirtualHost(rc, input.Headers["Host"][0])
+		hostHeader := ""
+		if len(input.Headers["Host"]) > 0 {
+			hostHeader = input.Headers["Host"][0]
+		}
+		vh := sim.matchVirtualHost(rc, hostHeader)
 		if vh == nil {
 			result.Error = ErrNoVirtualHost
 			return
@@ -439,6 +489,9 @@ func protocolToAlpn(s Protocol) string {
 }
 
 func matchListener(listeners []*listener.Listener, input Call) *listener.Listener {
+	if input.CallMode == CallModeInbound {
+		return xdstest.ExtractListener(v1alpha3.VirtualInboundListenerName, listeners)
+	}
 	// First find exact match for the IP/Port, then fallback to wildcard IP/Port
 	// There is no wildcard port
 	for _, l := range listeners {
