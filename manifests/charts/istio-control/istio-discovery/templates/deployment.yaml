@@ -138,7 +138,7 @@ spec:
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
-{{- if not .Values.pilot.env.INJECTION_WEBHOOK_CONFIG_NAME }}
+{{- if not (hasKey .Values.pilot.env "INJECTION_WEBHOOK_CONFIG_NAME") }}
           - name: INJECTION_WEBHOOK_CONFIG_NAME
           {{- if eq .Release.Namespace "istio-system" }}
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
