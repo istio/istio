@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -37,6 +38,8 @@ type deprecatedSettings struct {
 	new string
 	// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
 	def interface{}
+	// whether to fail hard or issue a warning message only and still proceed.
+	failHard bool
 }
 
 // ValidateConfig  calls validation func for every defined element in Values
@@ -51,7 +54,10 @@ func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorS
 
 	validationErrors = util.AppendErrs(validationErrors, ValidateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	validationErrors = util.AppendErrs(validationErrors, validateFeatures(values, iopls))
-	warningMessage += deprecatedSettingsMessage(iopls)
+	deprecatedErrors, warningMessage := checkDeprecatedSettings(iopls)
+	if deprecatedErrors != nil {
+		validationErrors = util.AppendErr(validationErrors, deprecatedErrors)
+	}
 	return validationErrors, warningMessage
 }
 
@@ -74,49 +80,50 @@ func firstCharsToLower(s string) string {
 		s)
 }
 
-func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
+func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
+	var errs util.Errors
 	messages := []string{}
 	deprecations := []deprecatedSettings{
-		{"Values.global.certificates", "meshConfig.certificates", nil},
-		{"Values.global.trustDomainAliases", "meshConfig.trustDomainAliases", nil},
-		{"Values.global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil},
-		{"Values.global.localityLbSetting", "meshConfig.localityLbSetting", nil},
-		{"Values.global.policyCheckFailOpen", "meshConfig.policyCheckFailOpen", false},
-		{"Values.global.enableTracing", "meshConfig.enableTracing", false},
-		{"Values.global.proxy.accessLogFormat", "meshConfig.accessLogFormat", ""},
-		{"Values.global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
-		{"Values.global.proxy.concurrency", "meshConfig.defaultConfig.concurrency", uint32(0)},
-		{"Values.global.proxy.envoyAccessLogService", "meshConfig.defaultConfig.envoyAccessLogService", nil},
-		{"Values.global.proxy.envoyAccessLogService.enabled", "meshConfig.enableEnvoyAccessLogService", nil},
-		{"Values.global.proxy.envoyMetricsService", "meshConfig.defaultConfig.envoyMetricsService", nil},
-		{"Values.global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
-		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
-		{"Values.global.mtls.enabled", "the PeerAuthentication resource", nil},
-		{"Values.global.mtls.auto", "meshConfig.enableAutoMtls", nil},
-		{"Values.grafana.enabled", "the samples/addons/ deployments", false},
-		{"Values.tracing.enabled", "the samples/addons/ deployments", false},
-		{"Values.kiali.enabled", "the samples/addons/ deployments", false},
-		{"Values.prometheus.enabled", "the samples/addons/ deployments", false},
-		{"Values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", ""},
-		{"Values.global.tracer.lightstep.accessToken", "meshConfig.defaultConfig.tracing.lightstep.accessToken", ""},
-		{"Values.global.tracer.zipkin.address", "meshConfig.defaultConfig.tracing.zipkin.address", nil},
-		{"Values.global.tracer.stackdriver.debug", "meshConfig.defaultConfig.tracing.stackdriver.debug", false},
-		{"Values.global.tracer.stackdriver.maxNumberOfAttributes", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes", 0},
-		{"Values.global.tracer.stackdriver.maxNumberOfAnnotations", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", 0},
-		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0},
-		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
-		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/istiod-gateway/", false},
-		{"Values.global.trustDomain", "meshConfig.trustDomain", false},
-		{"Values.gateways.istio-ingressgateway.meshExpansionPorts", "components.ingressGateways[name=istio-ingressgateway].k8s.service.ports", nil},
-		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false},
-		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
-		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
-		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
-		{"AddonComponents.istiocoredns.Enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
-		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
+		{"Values.global.certificates", "meshConfig.certificates", nil, false},
+		{"Values.global.trustDomainAliases", "meshConfig.trustDomainAliases", nil, false},
+		{"Values.global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil, false},
+		{"Values.global.localityLbSetting", "meshConfig.localityLbSetting", nil, false},
+		{"Values.global.policyCheckFailOpen", "meshConfig.policyCheckFailOpen", false, false},
+		{"Values.global.enableTracing", "meshConfig.enableTracing", false, false},
+		{"Values.global.proxy.accessLogFormat", "meshConfig.accessLogFormat", "", false},
+		{"Values.global.proxy.accessLogFile", "meshConfig.accessLogFile", "", false},
+		{"Values.global.proxy.concurrency", "meshConfig.defaultConfig.concurrency", uint32(0), false},
+		{"Values.global.proxy.envoyAccessLogService", "meshConfig.defaultConfig.envoyAccessLogService", nil, false},
+		{"Values.global.proxy.envoyAccessLogService.enabled", "meshConfig.enableEnvoyAccessLogService", nil, false},
+		{"Values.global.proxy.envoyMetricsService", "meshConfig.defaultConfig.envoyMetricsService", nil, false},
+		{"Values.global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", "", false},
+		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil, false},
+		{"Values.global.mtls.enabled", "the PeerAuthentication resource", nil, false},
+		{"Values.global.mtls.auto", "meshConfig.enableAutoMtls", nil, false},
+		{"Values.grafana.enabled", "the samples/addons/ deployments", false, true},
+		{"Values.tracing.enabled", "the samples/addons/ deployments", false, true},
+		{"Values.kiali.enabled", "the samples/addons/ deployments", false, true},
+		{"Values.prometheus.enabled", "the samples/addons/ deployments", false, true},
+		{"Values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", "", false},
+		{"Values.global.tracer.lightstep.accessToken", "meshConfig.defaultConfig.tracing.lightstep.accessToken", "", false},
+		{"Values.global.tracer.zipkin.address", "meshConfig.defaultConfig.tracing.zipkin.address", nil, false},
+		{"Values.global.tracer.stackdriver.debug", "meshConfig.defaultConfig.tracing.stackdriver.debug", false, false},
+		{"Values.global.tracer.stackdriver.maxNumberOfAttributes", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes", 0, false},
+		{"Values.global.tracer.stackdriver.maxNumberOfAnnotations", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", 0, false},
+		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0, false},
+		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", "", false},
+		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/istiod-gateway/", false, false},
+		{"Values.global.trustDomain", "meshConfig.trustDomain", false, false},
+		{"Values.gateways.istio-ingressgateway.meshExpansionPorts", "components.ingressGateways[name=istio-ingressgateway].k8s.service.ports", nil, false},
+		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false, true},
+		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false, true},
+		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false, true},
+		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false, true},
+		{"AddonComponents.istiocoredns.Enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false, false},
+		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false, false},
 		{"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
-			false},
-		{"Values.global.centralIstiod", "Values.global.externallIstiod", false},
+			false, false},
+		{"Values.global.centralIstiod", "Values.global.externallIstiod", false, false},
 	}
 	for _, d := range deprecations {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
@@ -129,12 +136,17 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 				v = t.Value
 			}
 			if v != d.def {
-				messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
+				ms := fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new)
+				if !d.failHard {
+					messages = append(messages, ms)
+				} else {
+					errs = util.AppendErr(errs, errors.New(ms+"\n"))
+				}
+
 			}
 		}
 	}
-
-	return strings.Join(messages, "\n")
+	return errs, strings.Join(messages, "\n")
 }
 
 // validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.
