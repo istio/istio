@@ -115,9 +115,9 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, key string, cm k
 		DomainSuffix:      m.DomainSuffix,
 		XDSUpdater:        m.XDSUpdater,
 		ClusterMeta:       cm,
-		NetworksWatcher: m.networksWatcher,
-		Metrics:         m.metrics,
-		EndpointMode:    m.endpointMode,
+		NetworksWatcher:   m.networksWatcher,
+		Metrics:           m.metrics,
+		EndpointMode:      m.endpointMode,
 	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterMeta.ID)
 	kubectl := NewController(clients, options)

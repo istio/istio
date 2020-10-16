@@ -16,7 +16,7 @@ package bootstrap
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/kube"
+
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
