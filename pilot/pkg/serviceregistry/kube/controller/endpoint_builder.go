@@ -61,7 +61,7 @@ func NewEndpointBuilder(c *Controller, pod *v1.Pod) *EndpointBuilder {
 		serviceAccount: sa,
 		locality: model.Locality{
 			Label:     locality,
-			ClusterID: c.clusterID,
+			ClusterID: c.ID,
 		},
 		tlsMode:      kube.PodTLSMode(pod),
 		workloadName: wn,
@@ -77,7 +77,7 @@ func NewEndpointBuilderFromMetadata(c *Controller, proxy *model.Proxy) *Endpoint
 		serviceAccount: proxy.Metadata.ServiceAccount,
 		locality: model.Locality{
 			Label:     util.LocalityToString(proxy.Locality),
-			ClusterID: c.clusterID,
+			ClusterID: c.ID,
 		},
 		tlsMode: model.GetTLSModeFromEndpointLabels(proxy.Metadata.Labels),
 	}
@@ -134,5 +134,5 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 	}
 
 	// Fallback to legacy fromRegistry setting, all endpoints from this cluster are on that network.
-	return b.controller.networkForRegistry
+	return b.controller.DefaultNetwork()
 }

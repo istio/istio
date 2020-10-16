@@ -106,8 +106,8 @@ type Options struct {
 	ResyncPeriod      time.Duration
 	DomainSuffix      string
 
-	// ClusterID identifies the remote cluster in a multicluster env.
-	ClusterID string
+	// ClusterMeta contains the multi-cluster ClusterID and optionally the default network for the cluster.
+	ClusterMeta kubelib.ClusterMeta
 
 	// FetchCaRoot defines the function to get caRoot
 	FetchCaRoot func() map[string]string
@@ -173,6 +173,8 @@ type kubernetesNode struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
+	kubelib.ClusterMeta
+
 	client kubernetes.Interface
 
 	queue queue.Instance
@@ -194,7 +196,6 @@ type Controller struct {
 	networksWatcher mesh.NetworksWatcher
 	xdsUpdater      model.XDSUpdater
 	domainSuffix    string
-	clusterID       string
 
 	serviceHandlers  []func(*model.Service, model.Event)
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
@@ -223,7 +224,7 @@ type Controller struct {
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
 
-	// Network name for the registry as specified by the MeshNetworks configmap
+	// Network name for the registry as specified by the MeshNetworks configmap, overrides ClusterMeta network.
 	networkForRegistry string
 	// tracks which services on which ports should act as a gateway for networkForRegistry
 	registryServiceNameGateways map[host.Name]uint32
@@ -238,10 +239,10 @@ type Controller struct {
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
+		ClusterMeta:                 options.ClusterMeta,
 		domainSuffix:                options.DomainSuffix,
 		client:                      kubeClient.Kube(),
 		queue:                       queue.NewQueue(1 * time.Second),
-		clusterID:                   options.ClusterID,
 		xdsUpdater:                  options.XDSUpdater,
 		servicesMap:                 make(map[host.Name]*model.Service),
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
@@ -295,7 +296,7 @@ func (c *Controller) Provider() serviceregistry.ProviderID {
 }
 
 func (c *Controller) Cluster() string {
-	return c.clusterID
+	return c.ID
 }
 
 func (c *Controller) Cleanup() error {
@@ -306,7 +307,7 @@ func (c *Controller) Cleanup() error {
 	}
 	for _, s := range svcs {
 		name := kube.ServiceHostname(s.Name, s.Namespace, c.domainSuffix)
-		c.xdsUpdater.SvcUpdate(c.clusterID, string(name), s.Namespace, model.EventDelete)
+		c.xdsUpdater.SvcUpdate(c.ID, string(name), s.Namespace, model.EventDelete)
 		// TODO(landow) do we need to notify service handlers?
 	}
 	return nil
@@ -329,7 +330,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 
 	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
-	svcConv := kube.ConvertService(*svc, c.domainSuffix, c.clusterID)
+	svcConv := kube.ConvertService(*svc, c.domainSuffix, c.ID)
 	switch event {
 	case model.EventDelete:
 		c.Lock()
@@ -372,11 +373,11 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		}
 
 		if len(endpoints) > 0 {
-			c.xdsUpdater.EDSCacheUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, endpoints)
+			c.xdsUpdater.EDSCacheUpdate(c.ID, string(svcConv.Hostname), svc.Namespace, endpoints)
 		}
 	}
 
-	c.xdsUpdater.SvcUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, event)
+	c.xdsUpdater.SvcUpdate(c.ID, string(svcConv.Hostname), svc.Namespace, event)
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
 		f(svcConv, event)
@@ -922,7 +923,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				}
 			}
 			// fire off eds update
-			c.xdsUpdater.EDSUpdate(c.clusterID, string(service.Hostname), service.Attributes.Namespace, endpoints)
+			c.xdsUpdater.EDSUpdate(c.ID, string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
 	}
 }
@@ -930,7 +931,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 // isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
 // may not necessarily pass this check, but we still want to allow kube services to select workload instances.
 func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
-	return proxy.Metadata.ClusterID == c.clusterID
+	return proxy.Metadata.ClusterID == c.ID
 }
 
 // getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
@@ -942,7 +943,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	}
 
 	if !c.isControllerForProxy(proxy) {
-		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.ID)
 	}
 
 	// Create a pod with just the information needed to find the associated Services

@@ -103,7 +103,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clients kubelib.Client, key string, cm *kubelib.ClusterMeta) error {
+func (m *Multicluster) AddMemberCluster(clients kubelib.Client, key string, cm kubelib.ClusterMeta) error {
 	// stopCh to stop controller created here when cluster removed.
 	stopCh := make(chan struct{})
 	var remoteKubeController kubeController
@@ -114,13 +114,12 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, key string, cm *
 		ResyncPeriod:      m.ResyncPeriod,
 		DomainSuffix:      m.DomainSuffix,
 		XDSUpdater:        m.XDSUpdater,
-		ClusterID:         cm.ID,
-		// TODO network or just the entire ClusterMeta
+		ClusterMeta:       cm,
 		NetworksWatcher: m.networksWatcher,
 		Metrics:         m.metrics,
 		EndpointMode:    m.endpointMode,
 	}
-	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
+	log.Infof("Initializing Kubernetes service registry %q", options.ClusterMeta.ID)
 	kubectl := NewController(clients, options)
 
 	remoteKubeController.Controller = kubectl
