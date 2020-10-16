@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 27947
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** Enable user to set the custom vm identity provider for credential authentication
