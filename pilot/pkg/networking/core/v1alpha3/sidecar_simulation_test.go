@@ -568,10 +568,10 @@ func TestPassthroughTraffic(t *testing.T) {
 	calls := map[string]simulation.Call{}
 	for port := 80; port < 87; port++ {
 		for _, call := range []simulation.Call{
-			{Port: port, Protocol: simulation.HTTP, HostHeader: "foo"},
+			{Port: port, Protocol: simulation.HTTP, TLS: simulation.Plaintext, HostHeader: "foo"},
 			{Port: port, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo"},
 			{Port: port, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo", Alpn: "http/1.1"},
-			{Port: port, Protocol: simulation.TCP, HostHeader: "foo"},
+			{Port: port, Protocol: simulation.TCP, TLS: simulation.Plaintext, HostHeader: "foo"},
 			{Port: port, Protocol: simulation.HTTP2, TLS: simulation.TLS, HostHeader: "foo"},
 		} {
 			suffix := ""
@@ -654,7 +654,7 @@ func TestPassthroughTraffic(t *testing.T) {
 					}
 					// For blackhole, we will 502 where possible instead of blackhole cluster
 					// This only works for HTTP on HTTP
-					if expectedCluster == util.BlackHoleCluster && call.Protocol.IsHTTP() && isHTTPPort(call.Port) {
+					if expectedCluster == util.BlackHoleCluster && call.IsHTTP() && isHTTPPort(call.Port) {
 						e.Result.ClusterMatched = ""
 						e.Result.VirtualHostMatched = util.BlackHole
 					}
@@ -695,13 +695,13 @@ spec:
 					}
 					// For blackhole, we will 502 where possible instead of blackhole cluster
 					// This only works for HTTP on HTTP
-					if expectedCluster == util.BlackHoleCluster && call.Protocol.IsHTTP() && (isHTTPPort(call.Port) || isAutoPort(call.Port)) {
+					if expectedCluster == util.BlackHoleCluster && call.IsHTTP() && (isHTTPPort(call.Port) || isAutoPort(call.Port)) {
 						e.Result.ClusterMatched = ""
 						e.Result.VirtualHostMatched = util.BlackHole
 					}
 					// TCP without a VIP will capture everything.
 					// Auto without a VIP is similar, but HTTP happens to work because routing is done on header
-					if call.Port == 82 || (call.Port == 81 && !call.Protocol.IsHTTP()) {
+					if call.Port == 82 || (call.Port == 81 && !call.IsHTTP()) {
 						e.Result.Error = nil
 						e.Result.ClusterMatched = ""
 					}

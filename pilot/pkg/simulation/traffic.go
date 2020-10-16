@@ -58,8 +58,8 @@ const (
 	MTLS      TlsMode = "mtls"
 )
 
-func (p Protocol) IsHTTP() bool {
-	return httpProtocols.Contains(string(p))
+func (c Call) IsHTTP() bool {
+	return httpProtocols.Contains(string(c.Protocol)) && (c.TLS == Plaintext || c.TLS == "")
 }
 
 var (
@@ -216,7 +216,7 @@ func (sim *Simulation) withT(t *testing.T) *Simulation {
 func (sim *Simulation) RunExpectations(es []Expect) {
 	for _, e := range es {
 		sim.t.Run(e.Name, func(t *testing.T) {
-			if t.Name() != "TestPassthroughTraffic/ALLOW_ANY/without_VIP/#00/http-tls-81" {
+			if t.Name() != "TestPassthroughTraffic/ALLOW_ANY/without_VIP/#00/http-tls-81-http/1.1" {
 				return
 			}
 			if err := ioutil.WriteFile("/tmp/new", []byte(xdstest.Dump(t, xdstest.ExtractListener("0.0.0.0_81", sim.Listeners))), 0644); err != nil {
