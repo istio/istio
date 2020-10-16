@@ -45,6 +45,9 @@ const (
 )
 
 func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
+	if !features.WorkloadEntryAutoRegistration {
+		return
+	}
 	// check if the WE already exists, update the status
 	entryName := autoregisteredWorkloadEntryName(proxy)
 	if entryName == "" {
@@ -79,6 +82,9 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
 }
 
 func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
+	if !features.WorkloadEntryAutoRegistration {
+		return
+	}
 	// check if the WE already exists, update the status
 	entryName := autoregisteredWorkloadEntryName(proxy)
 	if entryName == "" {
@@ -116,6 +122,9 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
 func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
+	if !features.WorkloadEntryAutoRegistration {
+		return
+	}
 	ticker := time.NewTicker(10 * features.WorkloadEntryCleanupGracePeriod)
 	defer ticker.Stop()
 	for {
