@@ -694,7 +694,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Authentication Mesh Policies",
+      "title": "Mesh Security Policies",
       "type": "graph",
       "valueFontSize": "80%",
       "valueMaps": [
