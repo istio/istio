@@ -203,7 +203,7 @@ func (pc *PodCache) endpointDeleted(key string, ip string) {
 
 func (pc *PodCache) proxyUpdates(ip string) {
 	if pc.c != nil && pc.c.xdsUpdater != nil {
-		pc.c.xdsUpdater.ProxyUpdate(pc.c.clusterID, ip)
+		pc.c.xdsUpdater.ProxyUpdate(pc.c.ID, ip)
 	}
 }
 

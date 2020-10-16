@@ -159,7 +159,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		Metrics:           &model.Environment{},
 		NetworksWatcher:   opts.NetworksWatcher,
 		EndpointMode:      opts.Mode,
-		ClusterID:         opts.ClusterID,
+		ClusterMeta:       kubelib.ClusterMeta{ID: opts.ClusterID},
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {
