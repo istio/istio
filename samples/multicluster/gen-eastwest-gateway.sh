@@ -92,7 +92,7 @@ $IOP
               - name: status-port
                 port: 15021
                 targetPort: 15021
-              - name: mtls
+              - name: tls
                 port: 15443
                 targetPort: 15443
               - name: tls-istiod
