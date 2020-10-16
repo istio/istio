@@ -263,6 +263,15 @@ func expectWorkloadEntryStatus(t *testing.T, ctx resource.Context, ns namespace.
 
 	statusConds := x.Status.Conditions
 
+	// todo for some reason when a WorkloadEntry is created a "Reconciled" Condition isn't added.
+	for i, cond := range x.Status.Conditions {
+		// remove reconciled conditions for when WorkloadEntry starts initializing
+		// with a reconciled status.
+		if cond.Type == "Reconciled" {
+			statusConds = append(statusConds[:i], statusConds[i+1:]...)
+		}
+	}
+
 	if !reflect.DeepEqual(statusConds, expectedConds){
 		return fmt.Errorf("expected conditions %v got %v", expectedConds, statusConds)
 	}
