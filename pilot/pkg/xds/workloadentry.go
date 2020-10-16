@@ -84,17 +84,22 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	if entryName == "" {
 		return
 	}
+
 	// unset controller, set disconnect time
-	_, err := sg.Store.Patch(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace, func(cfg config.Config) config.Config {
-		delete(cfg.Annotations, WorkloadControllerAnnotation)
-		cfg.Annotations[DisconnectedAtAnnotation] = strconv.FormatInt(time.Now().UnixNano(), 10)
-		return cfg
-	})
+	cfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	if cfg == nil {
+		// we failed to create the workload entry in the first place
+		return
+	}
+	delete(cfg.Annotations, WorkloadControllerAnnotation)
+	cfg.Annotations[DisconnectedAtAnnotation] = strconv.FormatInt(time.Now().UnixNano(), 10)
+	_, err := sg.Store.Update(*cfg)
 	if err != nil {
 		adsLog.Warnf("disconnect: failed patching WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 		return
 	}
 
+	// after grace period, check if the workload ever reconnected
 	ns := proxy.Metadata.Namespace
 	sg.cleanupQueue.PushDelayed(func() error {
 		wle := sg.Store.Get(gvk.WorkloadEntry, entryName, ns)
