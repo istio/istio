@@ -8,4 +8,4 @@ issue:
 # release notes.
 releaseNotes:
 - |
-  **Added** Enable user to set the custom vm identity provider for IDNS and credential fetcher
+  **Added** Enable user to set the custom vm identity provider for credential authentication
