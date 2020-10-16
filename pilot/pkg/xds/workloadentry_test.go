@@ -33,6 +33,10 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+func init() {
+	features.WorkloadEntryAutoRegistration = true
+}
+
 var (
 	tmplA = &v1alpha3.WorkloadGroup{
 		Template: &v1alpha3.WorkloadEntry{
