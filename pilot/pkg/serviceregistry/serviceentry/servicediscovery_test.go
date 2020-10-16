@@ -527,6 +527,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
+		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com",
@@ -555,6 +559,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "dns-wle"}, "default"),
 		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "dnswl"
+			i.Endpoint.Namespace = dnsSelector.Namespace
+		}
 		expectProxyInstances(t, sd, instances, "4.4.4.4")
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events, Event{kind: "xds"})
@@ -569,12 +577,20 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
 		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
+		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		instances = append(instances,
 			makeInstanceWithServiceAccount(selector, "3.3.3.3", 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
 			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
+		for _, i := range instances[2:] {
+			i.Endpoint.WorkloadName = "wl2"
+			i.Endpoint.Namespace = selector.Name
+		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4})
 	})
@@ -587,6 +603,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
@@ -606,6 +626,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
@@ -658,6 +682,10 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
+		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
@@ -686,6 +714,14 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
 		}
+		for _, i := range instances[:2] {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
+		}
+		for _, i := range instances[2:] {
+			i.Endpoint.WorkloadName = "wl3"
+			i.Endpoint.Namespace = selector.Name
+		}
 		expectProxyInstances(t, sd, instances[:2], "2.2.2.2")
 		expectProxyInstances(t, sd, instances[2:], "3.3.3.3")
 		expectServiceInstances(t, sd, selector, 0, instances)
@@ -699,6 +735,10 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl3"
+			i.Endpoint.Namespace = selector.Name
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "3.3.3.3")
