@@ -197,8 +197,11 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 			append(lb.virtualInboundListener.ListenerFilters, buildHTTPInspector(inspectors))
 	}
 
-	timeout := features.InboundProtocolDetectionTimeout
-	lb.virtualInboundListener.ListenerFiltersTimeout = ptypes.DurationProto(timeout)
+	timeout := util.GogoDurationToDuration(lb.push.Mesh.GetProtocolDetectionTimeout())
+	if features.InboundProtocolDetectionTimeoutSet {
+		timeout = ptypes.DurationProto(features.InboundProtocolDetectionTimeout)
+	}
+	lb.virtualInboundListener.ListenerFiltersTimeout = timeout
 	lb.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
 
 	// All listeners except bind_to_port=true listeners are now a part of virtual inbound and not needed
