@@ -47,37 +47,42 @@ func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
 	}
 }
 
+type callbackData struct {
+	key  string
+	meta kube.ClusterMeta
+}
+
 var (
-	mu      sync.Mutex
-	added   string
-	updated string
-	deleted string
+	mu         sync.Mutex
+	added      callbackData
+	updated    callbackData
+	deletedKey string
 )
 
-func addCallback(_ kube.Client, id string) error {
+func addCallback(_ kube.Client, id string, meta kube.ClusterMeta) error {
 	mu.Lock()
 	defer mu.Unlock()
-	added = id
+	added = callbackData{key: id, meta: meta}
 	return nil
 }
 
-func updateCallback(_ kube.Client, id string) error {
+func updateCallback(_ kube.Client, id string, meta kube.ClusterMeta) error {
 	mu.Lock()
 	defer mu.Unlock()
-	updated = id
+	updated = callbackData{key: id, meta: meta}
 	return nil
 }
 func deleteCallback(id string) error {
 	mu.Lock()
 	defer mu.Unlock()
-	deleted = id
+	deletedKey = id
 	return nil
 }
 
 func resetCallbackData() {
-	added = ""
-	updated = ""
-	deleted = ""
+	added = callbackData{}
+	updated = callbackData{}
+	deletedKey = ""
 }
 
 func Test_SecretController(t *testing.T) {
@@ -101,14 +106,14 @@ func Test_SecretController(t *testing.T) {
 		delete *v1.Secret
 
 		// only set one of these per step. The others should be empty.
-		wantAdded   string
-		wantUpdated string
+		wantAdded   callbackData
+		wantUpdated callbackData
 		wantDeleted string
 	}{
-		{add: secret0, wantAdded: "c0"},
-		{update: secret0UpdateKubeconfigChanged, wantUpdated: "c0"},
+		{add: secret0, wantAdded: callbackData{key: "c0", meta: kube.ClusterMeta{ID: "c0"}}},
+		{update: secret0UpdateKubeconfigChanged, wantUpdated: callbackData{key: "c0", meta: kube.ClusterMeta{ID: "c0"}}},
 		{update: secret0UpdateKubeconfigSame},
-		{add: secret1, wantAdded: "c1"},
+		{add: secret1, wantAdded: callbackData{key: "c1", meta: kube.ClusterMeta{ID: "c1"}}},
 		{delete: secret0, wantDeleted: "c0"},
 		{delete: secret1, wantDeleted: "c1"},
 	}
@@ -137,14 +142,14 @@ func Test_SecretController(t *testing.T) {
 			}
 
 			switch {
-			case step.wantAdded != "":
-				g.Eventually(func() string {
+			case step.wantAdded != callbackData{}:
+				g.Eventually(func() callbackData {
 					mu.Lock()
 					defer mu.Unlock()
 					return added
 				}, 10*time.Second).Should(Equal(step.wantAdded))
-			case step.wantUpdated != "":
-				g.Eventually(func() string {
+			case step.wantUpdated != callbackData{}:
+				g.Eventually(func() callbackData {
 					mu.Lock()
 					defer mu.Unlock()
 					return updated
@@ -153,13 +158,13 @@ func Test_SecretController(t *testing.T) {
 				g.Eventually(func() string {
 					mu.Lock()
 					defer mu.Unlock()
-					return deleted
+					return deletedKey
 				}, 10*time.Second).Should(Equal(step.wantDeleted))
 			default:
 				g.Consistently(func() bool {
 					mu.Lock()
 					defer mu.Unlock()
-					return added == "" && updated == "" && deleted == ""
+					return added == callbackData{} && updated == callbackData{} && deletedKey == ""
 				}).Should(Equal(true))
 			}
 		})

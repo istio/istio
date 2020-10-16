@@ -142,8 +142,8 @@ func TestForCluster(t *testing.T) {
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
 	sc := NewMulticluster(localClient, "local", "")
-	sc.addMemberCluster(remoteClient, "remote")
-	sc.addMemberCluster(remoteClient, "remote2")
+	sc.addMemberCluster(remoteClient, "remoteKey", kube.ClusterMeta{ID: "remote"})
+	sc.addMemberCluster(remoteClient, "remoteKey2", kube.ClusterMeta{ID: "remote2"})
 	cases := []struct {
 		cluster string
 		allowed bool
@@ -169,7 +169,7 @@ func TestAuthorize(t *testing.T) {
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
 	sc := NewMulticluster(localClient, "local", "")
-	sc.addMemberCluster(remoteClient, "remote")
+	sc.addMemberCluster(remoteClient, "remoteKey123", kube.ClusterMeta{ID: "remote"})
 	cases := []struct {
 		sa      string
 		ns      string
@@ -221,8 +221,8 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	remoteClient := kube.NewFakeClient(secretsRemote...)
 	otherRemoteClient := kube.NewFakeClient()
 	sc := NewMulticluster(localClient, "local", "")
-	sc.addMemberCluster(remoteClient, "remote")
-	sc.addMemberCluster(otherRemoteClient, "other")
+	sc.addMemberCluster(remoteClient, "remotekey", kube.ClusterMeta{ID: "remote"})
+	sc.addMemberCluster(otherRemoteClient, "otherkey", kube.ClusterMeta{ID: "other"})
 	cases := []struct {
 		name      string
 		namespace string
