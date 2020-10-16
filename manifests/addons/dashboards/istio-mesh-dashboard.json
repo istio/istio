@@ -430,7 +430,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Virtual Services",
+      "title": "VirtualService",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -512,7 +512,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Destination Rules",
+      "title": "DestinationRule",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -594,7 +594,89 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Gateways",
+      "title": "Gateway",
+      "type": "singlestat",
+      "valueFontSize": "80%",
+      "valueMaps": [
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "null"
+        }
+      ],
+      "valueName": "current"
+    },
+    {
+      "cacheTimeout": null,
+      "colorBackground": false,
+      "colorValue": false,
+      "colors": [
+        "#299c46",
+        "rgba(237, 129, 40, 0.89)",
+        "#d44a3a"
+      ],
+      "datasource": "Prometheus",
+      "format": "none",
+      "gauge": {
+        "maxValue": 100,
+        "minValue": 0,
+        "show": false,
+        "thresholdLabels": false,
+        "thresholdMarkers": true
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "id": 116,
+      "interval": null,
+      "links": [],
+      "mappingType": 1,
+      "mappingTypes": [
+        {
+          "name": "value to text",
+          "value": 1
+        },
+        {
+          "name": "range to text",
+          "value": 2
+        }
+      ],
+      "maxDataPoints": 100,
+      "nullPointMode": "connected",
+      "nullText": null,
+      "postfix": "",
+      "postfixFontSize": "50%",
+      "prefix": "",
+      "prefixFontSize": "50%",
+      "rangeMaps": [
+        {
+          "from": "null",
+          "text": "N/A",
+          "to": "null"
+        }
+      ],
+      "sparkline": {
+        "fillColor": "rgba(31, 118, 189, 0.18)",
+        "full": false,
+        "lineColor": "rgb(31, 120, 193)",
+        "show": true
+      },
+      "tableColumn": "",
+      "targets": [
+        {
+          "expr": "max(pilot_k8s_cfg_events{type=\"WorkloadEntry\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"WorkloadEntry\", event=\"delete\"}) or max(up * 0))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "A"
+        }
+      ],
+      "thresholds": "",
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "WorkloadEntry",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -628,6 +710,88 @@
         "h": 3,
         "w": 6,
         "x": 0,
+        "y": 6
+      },
+      "id": 117,
+      "interval": null,
+      "links": [],
+      "mappingType": 1,
+      "mappingTypes": [
+        {
+          "name": "value to text",
+          "value": 1
+        },
+        {
+          "name": "range to text",
+          "value": 2
+        }
+      ],
+      "maxDataPoints": 100,
+      "nullPointMode": "connected",
+      "nullText": null,
+      "postfix": "",
+      "postfixFontSize": "50%",
+      "prefix": "",
+      "prefixFontSize": "50%",
+      "rangeMaps": [
+        {
+          "from": "null",
+          "text": "N/A",
+          "to": "null"
+        }
+      ],
+      "sparkline": {
+        "fillColor": "rgba(31, 118, 189, 0.18)",
+        "full": false,
+        "lineColor": "rgb(31, 120, 193)",
+        "show": true
+      },
+      "tableColumn": "",
+      "targets": [
+        {
+          "expr": "max(pilot_k8s_cfg_events{type=\"ServiceEntry\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"ServiceEntry\", event=\"delete\"}) or max(up * 0))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "A"
+        }
+      ],
+      "thresholds": "",
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "ServiceEntry",
+      "type": "singlestat",
+      "valueFontSize": "80%",
+      "valueMaps": [
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "null"
+        }
+      ],
+      "valueName": "current"
+    },
+    {
+      "cacheTimeout": null,
+      "colorBackground": false,
+      "colorValue": false,
+      "colors": [
+        "#299c46",
+        "rgba(237, 129, 40, 0.89)",
+        "#d44a3a"
+      ],
+      "datasource": "Prometheus",
+      "format": "none",
+      "gauge": {
+        "maxValue": 100,
+        "minValue": 0,
+        "show": false,
+        "thresholdLabels": false,
+        "thresholdMarkers": true
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
         "y": 6
       },
       "id": 90,
@@ -709,7 +873,7 @@
       "gridPos": {
         "h": 3,
         "w": 6,
-        "x": 6,
+        "x": 12,
         "y": 6
       },
       "id": 91,
@@ -791,7 +955,7 @@
       "gridPos": {
         "h": 3,
         "w": 6,
-        "x": 12,
+        "x": 18,
         "y": 6
       },
       "id": 92,
@@ -840,7 +1004,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Authorization Policies",
+      "title": "AuthorizationPolicy",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
