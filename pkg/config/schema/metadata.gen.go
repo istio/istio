@@ -406,6 +406,8 @@ resources:
     version: "v1alpha1"
     protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.TLSRouteSpec"
+    statusProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
+    statusProto: "k8s.io.service_apis.api.v1alpha1.TLSRouteStatus"
 
   - kind: "BackendPolicy"
     plural: "backendpolicies"
@@ -413,6 +415,8 @@ resources:
     version: "v1alpha1"
     protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.BackendPolicySpec"
+    statusProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
+    statusProto: "k8s.io.service_apis.api.v1alpha1.BackendPolicyStatus"
 
   ## Istio resources
   - kind: "VirtualService"
