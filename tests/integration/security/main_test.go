@@ -39,10 +39,11 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
-spec:                                                              
-  meshConfig:                                                      
-    defaultConfig:                                                 
-      gatewayTopology:                                             
-        numTrustedProxies: 1 
+meshConfig:
+  accessLogEncoding: JSON
+  accessLogFile: /dev/stdout
+  defaultConfig:
+    gatewayTopology:
+      numTrustedProxies: 1
 `
 }

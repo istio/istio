@@ -625,18 +625,18 @@ func TestAuthorization_IngressGatewayNotRemoteIp(t *testing.T) {
 				WantCode int
 			}{
 				{
-					Name:     "allow 10.2.3.4",
+					Name:     "deny 10.2.3.4",
 					Host:     "www.company.com",
 					Path:     "/",
 					IP:       "10.2.3.4",
-					WantCode: 200,
+					WantCode: 403,
 				},
 				{
-					Name:     "deny 172.23.242.188",
+					Name:     "allow 172.23.242.188",
 					Host:     "www.company.com",
 					Path:     "/",
 					IP:       "172.23.242.188",
-					WantCode: 403,
+					WantCode: 200,
 				},
 			}
 
