@@ -42,7 +42,6 @@ type Client struct {
 	conn   *grpc.ClientConn
 	logger *log.Scope
 
-	mutex sync.RWMutex
 	// store the initial xds request, resend them when upstream recreated
 	initialRequests map[string]*discovery.DiscoveryRequest
 }
@@ -202,8 +201,6 @@ func handleError(ctx context.Context, logger *log.Scope, errMsg string, cancelFu
 }
 
 func (c *Client) getDiscoveryRequestsInOrder() []*discovery.DiscoveryRequest {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
 	ret := make([]*discovery.DiscoveryRequest, 0, len(c.initialRequests))
 	// first add all known types, in order
 	for _, tp := range v3.PushOrder {
