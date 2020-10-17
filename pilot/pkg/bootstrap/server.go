@@ -226,6 +226,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s.initMeshConfiguration(args, s.fileWatcher)
+	spiffe.SetTrustDomain(s.environment.Mesh().TrustDomain)
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
