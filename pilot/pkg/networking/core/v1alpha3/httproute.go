@@ -521,6 +521,7 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 							Timeout: notimeout,
 							// If not configured at all, the grpc-timeout header is not used and
 							// gRPC requests time out like any other requests using timeout or its default.
+							// nolint: staticcheck
 							MaxGrpcTimeout: notimeout,
 						},
 					},
