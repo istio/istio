@@ -16,14 +16,17 @@ package upstream
 
 import (
 	"context"
+	"io"
 	"math"
 	"sync"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/log"
 )
 
@@ -59,16 +62,16 @@ func (c *Client) OpenStream(requestCh chan *discovery.DiscoveryRequest) (<-chan 
 
 	go c.handleStreamsWithRetry(ctx, requestCh, response)
 
-	// We use context cancellation over using a separate channel for signalling stream shutdown.
-	// The reason is cancelling a context tied with the stream is straightforward to signal closure.
+	// We use context cancellation over using a separate channel for notifying stream shutdown.
+	// The reason is canceling a context tied with the stream is straightforward to signal closure.
 	// Also, the shutdown function could potentially be called more than once by a caller.
-	// Closing channels is not idempotent while cancelling context is idempotent.
+	// Closing channels is not idempotent while canceling context is idempotent.
 	return response, func() { cancel() }
 }
 
 func (c *Client) handleStreamsWithRetry(
 	ctx context.Context,
-	requestCh chan *discovery.DiscoveryRequest,
+	requestCh <-chan *discovery.DiscoveryRequest,
 	respCh chan<- *discovery.DiscoveryResponse) {
 
 	for {
@@ -81,37 +84,12 @@ func (c *Client) handleStreamsWithRetry(
 			continue
 		}
 
-		orderedRequest := c.getDiscoveryRequestsInOrder()
-		// send the initial requests
-		for _, req := range orderedRequest {
-			requestCh <- req
-		}
-
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go c.send(childCtx, wg.Done, c.logger, cancel, stream, requestCh)
 		go recv(childCtx, wg.Done, cancel, c.logger, respCh, stream)
 		wg.Wait()
 	}
-}
-
-func (c *Client) getDiscoveryRequestsInOrder() []*discovery.DiscoveryRequest {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	ret := make([]*discovery.DiscoveryRequest, 0, len(c.initialRequests))
-	// first add all known types, in order
-	for _, tp := range v3.PushOrder {
-		if r, f := c.initialRequests[tp]; f {
-			ret = append(ret, r)
-		}
-	}
-	// Then add any undeclared types
-	for tp, r := range c.initialRequests {
-		if _, f := v3.KnownPushOrder[tp]; !f {
-			ret = append(ret, r)
-		}
-	}
-	return ret
 }
 
 // It is safe to assume send goroutine will not leak as long as these conditions are true:
@@ -127,6 +105,16 @@ func (c *Client) send(
 	requestCh <-chan *discovery.DiscoveryRequest) {
 	defer complete()
 
+	orderedRequest := c.getDiscoveryRequestsInOrder()
+	// send the initial requests
+	for _, req := range orderedRequest {
+		err := SendUpstreamWithTimeout(ctx, stream, req)
+		if err != nil {
+			handleError(ctx, logger, "Error in SendMsg", cancelFunc, err)
+			return
+		}
+	}
+
 	for {
 		select {
 		case request, ok := <-requestCh:
@@ -136,17 +124,12 @@ func (c *Client) send(
 			// this is the first requests, cds/lds/nds
 			if v3.IsWildcardTypeURL(request.TypeUrl) && c.initialRequests[request.TypeUrl] == nil {
 				c.initialRequests[request.TypeUrl] = request
-			} else {
-				if request.ErrorDetail == nil {
-					c.initialRequests[request.TypeUrl] = request
-				}
+			}
+			if !v3.IsWildcardTypeURL(request.TypeUrl) && request.ErrorDetail == nil {
+				c.initialRequests[request.TypeUrl] = request
 			}
 
-			// Ref: https://github.com/grpc/grpc-go/issues/1229#issuecomment-302755717
-			// Call SendMsg in a timeout because it can block in some cases.
-			err := DoWithTimeout(ctx, func() error {
-				return stream.Send(request)
-			}, sendTimeout)
+			err := SendUpstreamWithTimeout(ctx, stream, request)
 			if err != nil {
 				handleError(ctx, logger, "Error in SendMsg", cancelFunc, err)
 				return
@@ -159,7 +142,7 @@ func (c *Client) send(
 }
 
 // recv is an infinite loop which blocks on RecvMsg.
-// The only ways to exit the goroutine is by cancelling the context or when an error occurs.
+// The only ways to exit the goroutine is by canceling the context or when an error occurs.
 func recv(
 	ctx context.Context,
 	complete func(),
@@ -185,14 +168,13 @@ func recv(
 	}
 }
 
-// DoWithTimeout runs f and returns its error.
-// If the timeout elapses first, returns a ctx timeout error instead.
-func DoWithTimeout(ctx context.Context, f func() error, t time.Duration) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, t)
+// SendUpstreamWithTimeout sends discovery request with default send timeout.
+func SendUpstreamWithTimeout(ctx context.Context, upstream Upstream, request *discovery.DiscoveryRequest) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, sendTimeout)
 	defer cancel()
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- f()
+		errChan <- upstream.Send(request)
 		close(errChan)
 	}()
 	select {
@@ -211,6 +193,46 @@ func handleError(ctx context.Context, logger *log.Scope, errMsg string, cancelFu
 		// Context is cancelled only when shutdown is called or any of the send/recv goroutines error out.
 		// The shutdown can be called by the caller in many cases, during app shutdown/ttl expiry, etc
 	default:
-		logger.Errorf("%s: %s", errMsg, err.Error())
+		if isExpectedGRPCError(err) {
+			logger.Debugf("%s: %s", errMsg, err.Error())
+		} else {
+			logger.Errorf("%s: %s", errMsg, err.Error())
+		}
 	}
+}
+
+func (c *Client) getDiscoveryRequestsInOrder() []*discovery.DiscoveryRequest {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	ret := make([]*discovery.DiscoveryRequest, 0, len(c.initialRequests))
+	// first add all known types, in order
+	for _, tp := range v3.PushOrder {
+		if r, f := c.initialRequests[tp]; f {
+			ret = append(ret, r)
+		}
+	}
+	// Then add any undeclared types
+	for tp, r := range c.initialRequests {
+		if _, f := v3.KnownPushOrder[tp]; !f {
+			ret = append(ret, r)
+		}
+	}
+	return ret
+}
+
+// isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
+// things are operating normally. This is basically capturing when the client disconnects.
+func isExpectedGRPCError(err error) bool {
+	if err == io.EOF {
+		return true
+	}
+
+	s := status.Convert(err)
+	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+		return true
+	}
+	if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
+		return true
+	}
+	return false
 }

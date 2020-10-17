@@ -130,8 +130,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// proxy.istiodAddress = listener.Addr().String()
-		// proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
+
 		setupXdsProxy(t, f.Listener)
 
 		// Setup gRPC server
