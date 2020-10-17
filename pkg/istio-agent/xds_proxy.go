@@ -42,9 +42,6 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -52,17 +49,13 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/upstream"
 	"istio.io/istio/pkg/uds"
-)
-
-var (
-	newFileWatcher = filewatcher.NewWatcher
+	"istio.io/pkg/log"
 )
 
 const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
-	defaultInitialConnWindowSize       = 1024 * 1024            // default gRPC InitialWindowSize
-	defaultInitialWindowSize           = 1024 * 1024            // default gRPC ConnWindowSize
-	watchDebounceDelay                 = 100 * time.Millisecond // file watcher event debounce delay.
+	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
+	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
 const (
