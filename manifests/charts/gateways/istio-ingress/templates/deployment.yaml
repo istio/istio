@@ -126,9 +126,6 @@ spec:
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
-        {{- end }}
         {{- if not $gateway.runAsRoot }}
           securityContext:
             allowPrivilegeEscalation: false
