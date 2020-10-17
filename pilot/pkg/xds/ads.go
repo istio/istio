@@ -358,28 +358,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 // there are no routes needed, Envoy will send an empty request, which this
 // properly handles by not adding it to the watched resource list.
 func shouldUnsubscribe(request *discovery.DiscoveryRequest) bool {
-	return len(request.ResourceNames) == 0 && !isWildcardTypeURL(request.TypeUrl)
-}
-
-// isWildcardTypeURL checks whether a given type is a wildcard type
-// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#how-the-client-specifies-what-resources-to-return
-// If the list of resource names becomes empty, that means that the client is no
-// longer interested in any resources of the specified type. For Listener and
-// Cluster resource types, there is also a “wildcard” mode, which is triggered
-// when the initial request on the stream for that resource type contains no
-// resource names.
-func isWildcardTypeURL(typeURL string) bool {
-	switch typeURL {
-	case v3.SecretType, v3.EndpointType, v3.RouteType:
-		// By XDS spec, these are not wildcard
-		return false
-	case v3.ClusterType, v3.ListenerType:
-		// By XDS spec, these are wildcard
-		return true
-	default:
-		// All of our internal types use wildcard semantics
-		return true
-	}
+	return len(request.ResourceNames) == 0 && !v3.IsWildcardTypeURL(request.TypeUrl)
 }
 
 // listEqualUnordered checks that two lists contain all the same elements
@@ -587,28 +566,17 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	return nil
 }
 
-// PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
-// order after the types listed here
-var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
-var KnownPushOrder = map[string]struct{}{
-	v3.ClusterType:  {},
-	v3.EndpointType: {},
-	v3.ListenerType: {},
-	v3.RouteType:    {},
-	v3.SecretType:   {},
-}
-
 func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
 	wr := make([]*model.WatchedResource, 0, len(resources))
 	// first add all known types, in order
-	for _, tp := range PushOrder {
+	for _, tp := range v3.PushOrder {
 		if w, f := resources[tp]; f {
 			wr = append(wr, w)
 		}
 	}
 	// Then add any undeclared types
 	for tp, w := range resources {
-		if _, f := KnownPushOrder[tp]; !f {
+		if _, f := v3.KnownPushOrder[tp]; !f {
 			wr = append(wr, w)
 		}
 	}

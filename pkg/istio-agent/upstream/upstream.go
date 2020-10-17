@@ -27,7 +27,10 @@ import (
 	"istio.io/pkg/log"
 )
 
-const defaultClientMaxReceiveMessageSize = math.MaxInt32
+const (
+	defaultClientMaxReceiveMessageSize = math.MaxInt32
+	sendTimeout                        = 5 * time.Second // default upstream send timeout.
+)
 
 type Upstream = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
@@ -35,23 +38,26 @@ type Client struct {
 	ctx    context.Context
 	conn   *grpc.ClientConn
 	logger *log.Scope
-	// store the initial cds/nds request
-	initialRequest []*discovery.DiscoveryRequest
+
+	mutex sync.RWMutex
+	// store the initial xds request, resend them when upstream recreated
+	initialRequests map[string]*discovery.DiscoveryRequest
 }
 
 func New(ctx context.Context, conn *grpc.ClientConn, logger *log.Scope) *Client {
 	return &Client{
-		ctx:    ctx,
-		conn:   conn,
-		logger: logger,
+		ctx:             ctx,
+		conn:            conn,
+		logger:          logger,
+		initialRequests: make(map[string]*discovery.DiscoveryRequest),
 	}
 }
 
-func (c *Client) OpenStream(request <-chan *discovery.DiscoveryRequest) (<-chan *discovery.DiscoveryResponse, func()) {
+func (c *Client) OpenStream(requestCh chan *discovery.DiscoveryRequest) (<-chan *discovery.DiscoveryResponse, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	response := make(chan *discovery.DiscoveryResponse)
 
-	go c.handleStreamsWithRetry(ctx, request, response)
+	go c.handleStreamsWithRetry(ctx, requestCh, response)
 
 	// We use context cancellation over using a separate channel for signalling stream shutdown.
 	// The reason is cancelling a context tied with the stream is straightforward to signal closure.
@@ -62,7 +68,7 @@ func (c *Client) OpenStream(request <-chan *discovery.DiscoveryRequest) (<-chan 
 
 func (c *Client) handleStreamsWithRetry(
 	ctx context.Context,
-	requestCh <-chan *discovery.DiscoveryRequest,
+	requestCh chan *discovery.DiscoveryRequest,
 	respCh chan<- *discovery.DiscoveryResponse) {
 
 	for {
@@ -75,12 +81,37 @@ func (c *Client) handleStreamsWithRetry(
 			continue
 		}
 
+		orderedRequest := c.getDiscoveryRequestsInOrder()
+		// send the initial requests
+		for _, req := range orderedRequest {
+			requestCh <- req
+		}
+
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go c.send(childCtx, wg.Done, c.logger, cancel, stream, requestCh)
 		go recv(childCtx, wg.Done, cancel, c.logger, respCh, stream)
 		wg.Wait()
 	}
+}
+
+func (c *Client) getDiscoveryRequestsInOrder() []*discovery.DiscoveryRequest {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	ret := make([]*discovery.DiscoveryRequest, 0, len(c.initialRequests))
+	// first add all known types, in order
+	for _, tp := range v3.PushOrder {
+		if r, f := c.initialRequests[tp]; f {
+			ret = append(ret, r)
+		}
+	}
+	// Then add any undeclared types
+	for tp, r := range c.initialRequests {
+		if _, f := v3.KnownPushOrder[tp]; !f {
+			ret = append(ret, r)
+		}
+	}
+	return ret
 }
 
 // It is safe to assume send goroutine will not leak as long as these conditions are true:
@@ -96,40 +127,26 @@ func (c *Client) send(
 	requestCh <-chan *discovery.DiscoveryRequest) {
 	defer complete()
 
-	// send the initial request
-	for _, req := range c.initialRequest {
-		// Ref: https://github.com/grpc/grpc-go/issues/1229#issuecomment-302755717
-		// Call SendMsg in a timeout because it can block in some cases.
-		err := DoWithTimeout(ctx, func() error {
-			return stream.Send(req)
-		}, 5*time.Second)
-		if err != nil {
-			handleError(ctx, logger, "Error in SendMsg", cancelFunc, err)
-			return
-		}
-	}
-
 	for {
 		select {
 		case request, ok := <-requestCh:
 			if !ok {
 				return
 			}
-			// this is the first cds request
-			if request.TypeUrl == v3.ClusterType && len(c.initialRequest) == 0 {
-				c.initialRequest = append(c.initialRequest, request)
-			}
-
-			// this is the first nds request, we only send once after lds
-			if request.TypeUrl == v3.NameTableType {
-				c.initialRequest = append(c.initialRequest, request)
+			// this is the first requests, cds/lds/nds
+			if v3.IsWildcardTypeURL(request.TypeUrl) && c.initialRequests[request.TypeUrl] == nil {
+				c.initialRequests[request.TypeUrl] = request
+			} else {
+				if request.ErrorDetail == nil {
+					c.initialRequests[request.TypeUrl] = request
+				}
 			}
 
 			// Ref: https://github.com/grpc/grpc-go/issues/1229#issuecomment-302755717
 			// Call SendMsg in a timeout because it can block in some cases.
 			err := DoWithTimeout(ctx, func() error {
 				return stream.Send(request)
-			}, 5*time.Second)
+			}, sendTimeout)
 			if err != nil {
 				handleError(ctx, logger, "Error in SendMsg", cancelFunc, err)
 				return
@@ -149,7 +166,7 @@ func recv(
 	cancelFunc context.CancelFunc,
 	logger *log.Scope,
 	responseCh chan<- *discovery.DiscoveryResponse,
-	stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
+	stream Upstream,
 ) {
 	defer complete()
 	for {

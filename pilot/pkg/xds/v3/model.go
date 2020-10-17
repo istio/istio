@@ -27,6 +27,17 @@ const (
 	NameTableType = "type.googleapis.com/istio.networking.nds.v1.NameTable"
 )
 
+// PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
+// order after the types listed here
+var PushOrder = []string{ClusterType, EndpointType, ListenerType, RouteType, SecretType}
+var KnownPushOrder = map[string]struct{}{
+	ClusterType:  {},
+	EndpointType: {},
+	ListenerType: {},
+	RouteType:    {},
+	SecretType:   {},
+}
+
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
 func GetShortType(typeURL string) string {
 	switch typeURL {
@@ -44,6 +55,27 @@ func GetShortType(typeURL string) string {
 		return "NDS"
 	default:
 		return typeURL
+	}
+}
+
+// IsWildcardTypeURL checks whether a given type is a wildcard type
+// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#how-the-client-specifies-what-resources-to-return
+// If the list of resource names becomes empty, that means that the client is no
+// longer interested in any resources of the specified type. For Listener and
+// Cluster resource types, there is also a “wildcard” mode, which is triggered
+// when the initial request on the stream for that resource type contains no
+// resource names.
+func IsWildcardTypeURL(typeURL string) bool {
+	switch typeURL {
+	case SecretType, EndpointType, RouteType:
+		// By XDS spec, these are not wildcard
+		return false
+	case ClusterType, ListenerType:
+		// By XDS spec, these are wildcard
+		return true
+	default:
+		// All of our internal types use wildcard semantics
+		return true
 	}
 }
 

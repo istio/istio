@@ -43,9 +43,6 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/dns"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
@@ -53,6 +50,8 @@ import (
 	"istio.io/istio/pkg/istio-agent/upstream"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -129,11 +128,6 @@ func initXdsProxy(ia *Agent, dialOptions ...grpc.DialOption) (*XdsProxy, error) 
 		proxyLog.Errorf("failed to connect to upstream %s: %v", ia.proxyConfig.DiscoveryAddress, err)
 		return nil, err
 	}
-
-	if err = proxy.initCertificateWatches(ia, proxy.stopChan); err != nil {
-		return nil, err
-	}
-
 	healthChecker := health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe)
 	go healthChecker.PerformApplicationHealthCheck(proxy.SendHealthCheckRequest, proxy.stopChan)
 	return proxy, nil
