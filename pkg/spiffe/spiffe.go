@@ -102,16 +102,6 @@ func GetTrustDomain() string {
 	return trustDomain
 }
 
-func DetermineTrustDomain(commandLineTrustDomain string, isKubernetes bool) string {
-	if len(commandLineTrustDomain) != 0 {
-		return commandLineTrustDomain
-	}
-	if isKubernetes {
-		return defaultTrustDomain
-	}
-	return ""
-}
-
 // GenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate.
 func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 	var err error
