@@ -219,10 +219,9 @@ var (
 
 	EnableSDSServer = env.RegisterBoolVar(
 		"ISTIOD_ENABLE_SDS_SERVER",
-		false,
+		true,
 		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
-			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well. "+
-			"This option temporarily only supports gateways running in istio-system namespace.",
+			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
 	).Get()
 
 	EnableCRDValidation = env.RegisterBoolVar(
@@ -301,8 +300,10 @@ var (
 		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
 			"to true, and then galley may push data incrementally, it depends on whether the "+
 			"resource supports incremental. By default, this is false.").Get()
-
+	// CentralIstioD will be Deprecated: TODO remove in 1.9 in favor of `ExternalIstioD`
 	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
+		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+	ExternalIstioD = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
@@ -366,5 +367,9 @@ var (
 		"PILOT_XDS_SEND_TIMEOUT",
 		5*time.Second,
 		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
+	).Get()
+
+	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", false,
+		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()
 )

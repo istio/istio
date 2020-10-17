@@ -147,10 +147,12 @@ var (
 	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
+	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
+		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
-	proxyXDSViaAgent = env.RegisterBoolVar("ISTIO_META_PROXY_XDS_VIA_AGENT", false,
+	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", true,
 		"If set to true, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
 	// This is a copy of the env var in the init code.
@@ -175,11 +177,9 @@ var (
 			// Allow unknown flags for backward-compatibility.
 			UnknownFlags: true,
 		},
+		PersistentPreRunE: configureLogging,
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
 			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Extract pod variables.
@@ -293,7 +293,8 @@ var (
 			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
 			// GCE is the only supported plugin at the moment.
 			if credFetcherTypeEnv == security.GCE {
-				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath)
+				secOpts.CredIdentityProvider = credIdentityProvider
+				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath, secOpts.CredIdentityProvider)
 				if err != nil {
 					return fmt.Errorf("failed to create credential fetcher: %v", err)
 				}
@@ -439,6 +440,13 @@ func getDNSDomain(podNamespace, domain string) string {
 		domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
 	}
 	return domain
+}
+
+func configureLogging(_ *cobra.Command, _ []string) error {
+	if err := log.Configure(loggingOptions); err != nil {
+		return err
+	}
+	return nil
 }
 
 func init() {

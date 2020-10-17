@@ -110,6 +110,12 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
+	sendTime = monitoring.NewDistribution(
+		"pilot_xds_send_time",
+		"Total time in seconds Pilot takes to send generated configuration.",
+		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
+	)
+
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(
 		"pilot_proxy_queue_time",
@@ -200,6 +206,10 @@ func incrementXDSRejects(xdsType string, node, errCode string) {
 	}
 }
 
+func recordSendTime(duration time.Duration) {
+	sendTime.Record(duration.Seconds())
+}
+
 func recordPushTime(xdsType string, duration time.Duration) {
 	pushTime.With(typeTag.Value(v3.GetMetricType(xdsType))).Record(duration.Seconds())
 	pushes.With(typeTag.Value(v3.GetMetricType(xdsType))).Increment()
@@ -224,5 +234,6 @@ func init() {
 		totalXDSInternalErrors,
 		inboundUpdates,
 		pushTriggers,
+		sendTime,
 	)
 }

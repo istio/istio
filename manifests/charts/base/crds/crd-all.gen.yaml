@@ -1311,7 +1311,7 @@ spec:
                                 format: string
                                 type: string
                               transportProtocol:
-                                description: Applies only to SIDECAR_INBOUND context.
+                                description: Applies only to `SIDECAR_INBOUND` context.
                                 format: string
                                 type: string
                             type: object
@@ -3022,6 +3022,13 @@ spec:
         spec:
           description: 'Configuration for access control on workloads. See more details
             at: https://istio.io/docs/reference/config/security/authorization-policy.html'
+          oneOf:
+          - not:
+              anyOf:
+              - required:
+                - external
+          - required:
+            - external
           properties:
             action:
               description: Optional.
@@ -3029,7 +3036,72 @@ spec:
               - ALLOW
               - DENY
               - AUDIT
+              - EXTERNAL
               type: string
+            external:
+              description: Configures how to talk to the external server.
+              properties:
+                http:
+                  properties:
+                    authorizationRequest:
+                      description: Settings used for controlling authorization request
+                        metadata.
+                      properties:
+                        allowedHeaders:
+                          description: Authorization request will include the client
+                            request headers that have a correspondent match.
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                      type: object
+                    authorizationResponse:
+                      description: Settings used for controlling authorization response
+                        metadata.
+                      properties:
+                        forwardToDownstream:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        forwardToUpstream:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                      type: object
+                    includePeerCertificate:
+                      description: Specifies if the peer certificate is included in
+                        the external authorization request.
+                      type: boolean
+                    server:
+                      description: Supplies the full URL of the external server that
+                        implements the Envoy ext_authz filter check request API.
+                      format: string
+                      type: string
+                    timeout:
+                      description: Sets the maximum duration in milliseconds for connection
+                        to the external server (default is 200ms).
+                      type: string
+                  type: object
+                tcp:
+                  properties:
+                    includePeerCertificate:
+                      description: Specifies if the peer certificate is included in
+                        the external authorization request.
+                      type: boolean
+                    server:
+                      description: Supplies the full URL of the external server that
+                        implements the Envoy ext_authz filter authorization request
+                        API.
+                      format: string
+                      type: string
+                    timeout:
+                      description: Sets the maximum duration in milliseconds for connection
+                        to the external server (default is 200ms).
+                      type: string
+                  type: object
+              type: object
             rules:
               description: Optional.
               items:
@@ -3071,6 +3143,12 @@ spec:
                                 format: string
                                 type: string
                               type: array
+                            notRemoteIpBlocks:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
                             notRequestPrincipals:
                               description: Optional.
                               items:
@@ -3078,6 +3156,12 @@ spec:
                                 type: string
                               type: array
                             principals:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            remoteIpBlocks:
                               description: Optional.
                               items:
                                 format: string

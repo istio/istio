@@ -90,6 +90,9 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
 	// Make sure we include the ID - the DR may not include metadata
+	if dr.Node == nil {
+		dr.Node = &core.Node{}
+	}
 	dr.Node.Id = node.ID
 	sg.startPush(TypeURLNACK, []proto.Message{dr})
 }

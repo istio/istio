@@ -224,7 +224,6 @@ spec:
         enabled: true
       priorityClassName: ""
       useMCP: false
-      trustDomain: "cluster.local"
       sds:
         token:
           aud: istio-ca

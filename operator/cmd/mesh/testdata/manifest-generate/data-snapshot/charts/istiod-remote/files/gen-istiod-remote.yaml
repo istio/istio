@@ -46,6 +46,7 @@ data:
           "s390x": 2
         },
         "caAddress": "",
+        "externalIstiod": false,
         "centralIstiod": false,
         "configValidation": true,
         "defaultConfigVisibilitySettings": [],

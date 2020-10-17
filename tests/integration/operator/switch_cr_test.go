@@ -321,7 +321,7 @@ func sanityCheck(t *testing.T, ctx resource.Context) {
 	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
 		Target:     server,
 		PortName:   "http",
-		Validators: echo.NewValidators().WithOK(),
+		Validator: echo.ExpectOK(),
 	})
 }
 

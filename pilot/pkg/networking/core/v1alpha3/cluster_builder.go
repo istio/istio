@@ -112,7 +112,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		}
 
 		subsetCluster := cb.buildDefaultCluster(subsetClusterName, c.GetType(), lbEndpoints,
-			model.TrafficDirectionOutbound, nil, service.MeshExternal)
+			model.TrafficDirectionOutbound, port, service)
 
 		if subsetCluster == nil {
 			continue
@@ -191,7 +191,7 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
 func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, meshExternal bool) *cluster.Cluster {
+	port *model.Port, service *model.Service) *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
@@ -227,9 +227,17 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		clusterMode:     DefaultClusterMode,
 		direction:       direction,
 		proxy:           cb.proxy,
-		meshExternal:    meshExternal,
+	}
+	// decides whether the cluster corresponds to a service external to mesh or not.
+	if direction == model.TrafficDirectionInbound {
+		// Inbound cluster always corresponds to service in the mesh.
+		opts.meshExternal = false
+	} else if service != nil {
+		// otherwise, read this information from service object.
+		opts.meshExternal = service.MeshExternal
 	}
 	applyTrafficPolicy(opts)
+	addTelemetryMetadata(opts, service, direction)
 
 	return c
 }
@@ -239,7 +247,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.Servic
 		instance.Service.Hostname, instance.ServicePort.Port)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
-		model.TrafficDirectionInbound, nil, false)
+		model.TrafficDirectionInbound, instance.ServicePort, instance.Service)
 	// If stat name is configured, build the alt statname.
 	if len(cb.push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
@@ -260,7 +268,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.Servic
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
-			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.Meta)
+			util.AddConfigInfoMetadata(localCluster.Metadata, cfg.Meta)
 		}
 	}
 	return localCluster
@@ -305,7 +313,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode)
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
+			instance.Endpoint.Namespace, instance.Endpoint.Labels)
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}

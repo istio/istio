@@ -50,12 +50,7 @@ func (c *Controller) reloadNetworkLookup() {
 	if err := c.syncEndpoints(); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
-	// also need to recompute gateways
-	c.Lock()
-	for _, svc := range c.servicesMap {
-		c.extractGatewaysFromService(svc)
-	}
-	c.Unlock()
+	c.reloadNetworkGateways()
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup
@@ -132,6 +127,22 @@ func (c *Controller) NetworkGateways() map[string][]*model.Gateway {
 // extractGatewaysFromService checks if the service is a cross-network gateway
 // and if it is, updates the controller's gateways.
 func (c *Controller) extractGatewaysFromService(svc *model.Service) {
+	c.Lock()
+	defer c.Unlock()
+	c.extractGatewaysInner(svc)
+}
+
+// reloadNetworkGateways performs extractGatewaysFromService for all services registered with the controller.
+func (c *Controller) reloadNetworkGateways() {
+	c.Lock()
+	defer c.Unlock()
+	for _, svc := range c.servicesMap {
+		c.extractGatewaysInner(svc)
+	}
+}
+
+// extractGatewaysInner performs the logic for extractGatewaysFromService without locking the controller
+func (c *Controller) extractGatewaysInner(svc *model.Service) {
 	svc.Mutex.RLock()
 	defer svc.Mutex.RUnlock()
 
@@ -148,7 +159,7 @@ func (c *Controller) extractGatewaysFromService(svc *model.Service) {
 	gws := make([]*model.Gateway, 0, len(svc.Attributes.ClusterExternalAddresses))
 
 	// TODO(landow) ClusterExternalAddresses doesn't need to get used outside of the kube controller, and spreads
-	// TODO(cont)   logic between ConvertService, extractGatewaysFromService, and updateServiceNodePortAddresses.
+	// TODO(cont)   logic between ConvertService, extractGatewaysInner, and updateServiceNodePortAddresses.
 	if svc.Attributes.ClusterExternalAddresses != nil {
 		// check if we have node port mappings
 		if svc.Attributes.ClusterExternalPorts != nil {
