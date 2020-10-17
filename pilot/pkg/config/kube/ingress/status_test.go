@@ -129,10 +129,7 @@ func makeStatusSyncer(t *testing.T) (*StatusSyncer, error) {
 
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
-	sync, err := NewStatusSyncer(&m, client)
-	if err != nil {
-		return nil, err
-	}
+	sync := NewStatusSyncer(&m, client)
 	stop := make(chan struct{})
 	client.RunAndWait(stop)
 	t.Cleanup(func() {
