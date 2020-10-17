@@ -101,9 +101,6 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		iop = &valuesv1alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
-	if operatorRevision, found := os.LookupEnv("REVISION"); found {
-		iop.Spec.Revision = operatorRevision
-	}
 	var cs *kubernetes.Clientset
 	var err error
 	if restConfig != nil {
