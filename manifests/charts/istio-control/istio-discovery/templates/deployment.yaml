@@ -156,6 +156,10 @@ spec:
             value: "{{ $.Values.global.externalIstiod | default "false" }}"
           - name: CENTRAL_ISTIOD
             value: "{{ $.Values.global.centralIstiod | default "false" }}"
+{{- if .Values.telemetry.v2.enabled }}
+          - name: PILOT_ENDPOINT_TELEMETRY_LABEL
+            value: "true"
+{{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
