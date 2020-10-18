@@ -1,3 +1,10 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
-spec: {}
+spec:
+  # install only "base" component
+  components:
+    pilot:
+      enabled: false
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: false
