@@ -511,6 +511,7 @@ func installRemoteCluster(i *operatorComponent, cfg Config, cluster resource.Clu
 		// It also sets up the "istio-cluster" ConfigMap that must exist before creating remote secrets, to give topology info
 		// to pilots discovering endpoints in this cluster.
 		baseInstallSettings := []string{
+			"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 			"--set", "profile=remote",
 			"--set", "values.global.network=" + cluster.NetworkName(),
 			"--set", "values.global.multiCluster.clusterName=" + cluster.Name(),
