@@ -15,10 +15,7 @@
 package controller
 
 import (
-	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/watch"
 	"sort"
 	"sync"
 	"time"
@@ -193,9 +190,6 @@ type Controller struct {
 	nodeInformer cache.SharedIndexInformer
 	nodeLister   listerv1.NodeLister
 
-	// cmWatch checks for updates to the istio-cluster ConfigMap used to configure per-cluster fields.
-	cmWatch watch.Interface
-
 	pods *PodCache
 
 	metrics         model.Metrics
@@ -262,13 +256,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 	}
 
-	cmWatch, err := c.client.CoreV1().ConfigMaps("istio-system").Watch(context.TODO(), metav1.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("metadata.name", "istio-cluster").String(),
-	})
-	if err != nil {
-		log.Warnf("failed creating istio-cluster ConfigMap watch in %s: %v", c.ID, err)
-	}
-	c.cmWatch = cmWatch
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
 	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
 	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
@@ -594,52 +581,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	cache.WaitForCacheSync(stop, c.HasSynced)
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
-}
-
-func (c *Controller) watchConfigMap(stop <-chan struct{}) {
-	select {
-	case event := <-c.cmWatch.ResultChan():
-		c.queue.Push(func() error {
-			if event.Type != watch.Added && event.Type != watch.Modified {
-				// err or delete
-				log.Warnf("istio-cluster ConfigMap: %v", event.Type)
-				return nil
-			}
-
-			cm, ok := event.Object.(*v1.ConfigMap)
-			if !ok {
-				log.Warnf("non ConfigMap object in istio-cluster update")
-				return nil
-			}
-
-			// we can only update the network here, updating the cluster name affects many other
-			// areas such as secret controller, jwt auth and tracking the loaded registries
-			// changing the cluster ID while running is an unsafe operation
-			nw, ok := cm.Data["network"]
-			if !ok {
-				return nil
-			}
-			c.Lock()
-			c.Network = nw
-			defer c.Unlock()
-
-			// apply the new network to all pods/endpoints, then trigger a push
-			if err := c.syncPods(); err != nil {
-				log.Errorf("one or more errors force-syncing pods: %v", err)
-			}
-			if err := c.syncEndpoints(); err != nil {
-				log.Errorf("one or more errors force-syncing endpoints: %v", err)
-			}
-			c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-				Full:   true,
-				Reason: []model.TriggerReason{model.GlobalUpdate},
-			})
-
-			return nil
-		})
-	case <-stop:
-		c.cmWatch.Stop()
-	}
 }
 
 // Stop the controller. Only for tests, to simplify the code (defer c.Stop())
