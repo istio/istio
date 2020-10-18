@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/pkg/log"
 	"net"
 	"os"
 	"path"
@@ -691,11 +692,12 @@ func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Conf
 		"--namespace", cfg.SystemNamespace,
 	}
 
-	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
+	scopes.Framework.Infof("Creating remote secret for %s: %v", cluster.Name(), cmd)
 	out, _, err := istioCtl.Invoke(cmd)
 	if err != nil {
 		return "", fmt.Errorf("create remote secret failed for cluster %s: %v", cluster.Name(), err)
 	}
+	log.Infof("remote secret for %s:\n%s", cluster.Name(), out)
 	return out, nil
 }
 
