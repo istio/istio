@@ -336,6 +336,11 @@ func TestInsertCNIConfig(t *testing.T) {
 			existingConfFilename: "list.conflist",
 			newConfFilename:      "istio-cni.conf",
 		},
+		{
+			name:                 "list network file with existing istio",
+			existingConfFilename: "list-with-istio.conflist",
+			newConfFilename:      "istio-cni.conf",
+		},
 	}
 
 	for _, c := range cases {
