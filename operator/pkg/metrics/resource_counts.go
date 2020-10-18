@@ -31,11 +31,6 @@ type resourceCounts struct {
 
 var rc *resourceCounts
 
-var sharedResourceKinds = []string{
-	"CustomResourceDefinition",
-	"ValidatingWebhookConfiguration",
-}
-
 func initOperatorCrdResourceMetrics() {
 	rc = &resourceCounts{
 		mu:        &sync.Mutex{},
