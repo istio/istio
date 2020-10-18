@@ -120,15 +120,14 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		return nil, err
 	}
 	return &HelmReconciler{
-		client:            client,
-		restConfig:        restConfig,
-		clientSet:         cs,
-		iop:               iop,
-		opts:              opts,
-		dependencyWaitCh:  initDependencies(),
-		countLock:         &sync.Mutex{},
-		ownedObjectsCount: make(map[schema.GroupVersionKind]int),
-		prunedKindSet:     make(map[schema.GroupVersionKind]struct{}),
+		client:           client,
+		restConfig:       restConfig,
+		clientSet:        cs,
+		iop:              iop,
+		opts:             opts,
+		dependencyWaitCh: initDependencies(),
+		countLock:        &sync.Mutex{},
+		prunedKindSet:    make(map[schema.GroupVersionKind]struct{}),
 	}, nil
 }
 
@@ -215,7 +214,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	}
 	wg.Wait()
 
-	h.reportOwnedObjectCountMetrics()
+	metrics.ReportOwnedResourceCounts()
 
 	out := &v1alpha1.InstallStatus{
 		Status:          overallStatus(componentStatus),
@@ -228,7 +227,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
 	defer func() {
-		h.reportOwnedObjectCountMetrics()
+		metrics.ReportOwnedResourceCounts()
 		h.reportPrunedObjectKind()
 	}()
 	iop := h.iop
@@ -458,39 +457,10 @@ func (h *HelmReconciler) getClient() client.Client {
 	return h.client
 }
 
-func (h *HelmReconciler) changeResourceOwnedCount(gvk schema.GroupVersionKind, by int) {
-	h.countLock.Lock()
-	defer h.countLock.Unlock()
-	h.ownedObjectsCount[gvk] += by
-}
-
 func (h *HelmReconciler) addPrunedKind(gvk schema.GroupVersionKind) {
 	h.countLock.Lock()
 	defer h.countLock.Unlock()
 	h.prunedKindSet[gvk] = struct{}{}
-}
-
-func (h *HelmReconciler) reportOwnedObjectCountMetrics() {
-	h.countLock.Lock()
-	defer h.countLock.Unlock()
-	for gvk, cnt := range h.ownedObjectsCount {
-		// CustomResourceDefinition is shared across different CRDs. So
-		// they are not "owned" by any one of them. Hence we don't need
-		// namespaced name and revision of CR.
-		if gvk.Kind == "CustomResourceDefinition" {
-			metrics.OwnedResourceTotal.
-				With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
-				With(metrics.CRNamespacedNameLabel.Value("")).
-				With(metrics.CRRevisionLabel.Value("")).
-				Record(float64(cnt))
-			continue
-		}
-		metrics.OwnedResourceTotal.
-			With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
-			With(metrics.CRNamespacedNameLabel.Value(util.NamespacedIOPName(h.iop))).
-			With(metrics.CRRevisionLabel.Value(util.Revision(h.iop))).
-			Record(float64(cnt))
-	}
 }
 
 func (h *HelmReconciler) reportPrunedObjectKind() {
@@ -499,8 +469,6 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 	for gvk := range h.prunedKindSet {
 		metrics.ResourcePruneTotal.
 			With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
-			With(metrics.CRNamespacedNameLabel.Value(util.NamespacedIOPName(h.iop))).
-			With(metrics.CRRevisionLabel.Value(util.Revision(h.iop))).
 			Increment()
 	}
 }

@@ -150,11 +150,11 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 				}
 			} else {
 				objGvk := o.GroupVersionKind()
-				revision := h.iop.Spec.Revision
-				iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
-				metrics.CountResourceDeletions(iopName, revision)
+				metrics.ResourceDeletionTotal.
+					With(metrics.ResourceKindLabel.Value(util.GVKString(objGvk))).
+					Increment()
 				h.addPrunedKind(objGvk)
-				h.changeResourceOwnedCount(o.GroupVersionKind(), -1)
+				metrics.RemoveResource(obj.FullName(), objGvk)
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 		}
@@ -201,7 +201,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		if err != nil {
 			continue
 		}
-		h.changeResourceOwnedCount(gvk, len(objects.Items))
+		for _, obj := range objects.Items {
+			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
+			metrics.AddResource(objName, gvk)
+		}
 		usList = append(usList, objects)
 	}
 	return usList, nil
@@ -282,7 +285,10 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
 		}
-		h.changeResourceOwnedCount(gvk, len(objects.Items))
+		for _, obj := range objects.Items {
+			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
+			metrics.AddResource(objName, gvk)
+		}
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
 	return errs.ToError()
@@ -314,8 +320,6 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		}
 		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		objGvk := o.GroupVersionKind()
-		revision := h.iop.Spec.Revision
-		iopName := fmt.Sprintf("%s/%s", h.iop.GetNamespace(), h.iop.GetName())
 		if err != nil {
 			if !strings.Contains(err.Error(), "not found") {
 				errs = util.AppendErr(errs, err)
@@ -328,9 +332,11 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		if !all {
 			h.removeFromObjectCache(componentName, oh)
 		}
-		metrics.CountResourceDeletions(iopName, revision)
+		metrics.ResourceDeletionTotal.
+			With(metrics.ResourceKindLabel.Value(util.GVKString(objGvk))).
+			Increment()
 		h.addPrunedKind(objGvk)
-		h.changeResourceOwnedCount(objGvk, -1)
+		metrics.RemoveResource(obj.FullName(), objGvk)
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
 	if all {

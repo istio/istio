@@ -20,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 type JWTPolicy string
@@ -70,20 +68,4 @@ func DetectSupportedJWTPolicy(config *rest.Config) (JWTPolicy, error) {
 // is separated by slashes.
 func GVKString(gvk schema.GroupVersionKind) string {
 	return fmt.Sprintf("%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind)
-}
-
-// NamespacedIOPName returns name of the IstioOperator CR with namespace
-func NamespacedIOPName(iop *v1alpha1.IstioOperator) string {
-	if iop == nil {
-		return ""
-	}
-	return fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
-}
-
-// Revision returns the revision in IstioOperatorSpec if any
-func Revision(iop *v1alpha1.IstioOperator) string {
-	if iop == nil || iop.Spec == nil {
-		return ""
-	}
-	return iop.Spec.Revision
 }

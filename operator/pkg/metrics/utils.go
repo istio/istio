@@ -16,10 +16,8 @@ package metrics
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/pkg/monitoring"
 )
 
 // CountCRMergeFail increments the count of CR merge failure
@@ -41,14 +39,13 @@ func CountManifestRenderError(cn name.ComponentName, reason RenderErrorType) {
 
 // CountCRFetchFail increments the count of CR fetch failure
 // for a given name and the error status.
-func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
+func CountCRFetchFail(reason metav1.StatusReason) {
 	errorReason := string(reason)
 	if reason == metav1.StatusReasonUnknown {
 		errorReason = "unknown"
 	}
 	GetCRErrorTotal.
 		With(CRFetchErrorReasonLabel.Value(errorReason)).
-		With(CRNamespacedNameLabel.Value(name.String())).
 		Increment()
 }
 
@@ -57,40 +54,5 @@ func CountCRFetchFail(name types.NamespacedName, reason metav1.StatusReason) {
 func CountManifestRender(name name.ComponentName) {
 	RenderManifestTotal.
 		With(ComponentNameLabel.Value(string(name))).
-		Increment()
-}
-
-// CountResourceCreations increments the number of K8S resources
-// of a particular kind created by Operator for a CR and revision.
-func CountResourceCreations(name, revision, resourceKind string) {
-	incrementCount(name, revision, resourceKind, ResourceCreationTotal)
-}
-
-// CountResourceDeletions increments the number of K8S resources
-// of a particular kind deleted by Operator for a CR and revision.
-func CountResourceDeletions(name, revision string) {
-	ResourceDeletionTotal.
-		With(CRNamespacedNameLabel.Value(name)).
-		With(CRRevisionLabel.Value(revision)).
-		Increment()
-}
-
-// CountResourceUpdates increments the number of K8S resources
-// of a particular kind updated by Operator for a CR and revision.
-func CountResourceUpdates(name, revision, resourceKind string) {
-	incrementCount(name, revision, resourceKind, ResourceUpdateTotal)
-}
-
-// CountResourcePrunes increments the number of K8S resources
-// of a particular kind pruned by Operator
-func CountResourcePrunes(name, revision, resourceKind string) {
-	incrementCount(name, revision, resourceKind, ResourcePruneTotal)
-}
-
-func incrementCount(name, revision, resourceKind string, metric monitoring.Metric) {
-	metric.
-		With(CRNamespacedNameLabel.Value(name)).
-		With(CRRevisionLabel.Value(revision)).
-		With(ResourceKindLabel.Value(resourceKind)).
 		Increment()
 }

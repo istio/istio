@@ -208,7 +208,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		}
 		// Error reading the object - requeue the request.
 		scope.Warnf(errdict.OperatorFailedToGetObjectFromAPIServer, "error getting IstioOperator %s: %s", iopName, err)
-		metrics.CountCRFetchFail(reqNamespacedName, errors.ReasonForError(err))
+		metrics.CountCRFetchFail(errors.ReasonForError(err))
 		return reconcile.Result{}, err
 	}
 	if iop.Spec == nil {

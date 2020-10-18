@@ -71,7 +71,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		allObjectsMap[oh] = true
 		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
-			h.changeResourceOwnedCount(obj.GroupVersionKind(), 1)
+			metrics.AddResource(obj.FullName(), obj.GroupVersionKind())
 			deployedObjects++
 			continue
 		}
@@ -105,7 +105,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 				continue
 			}
 			plog.ReportProgress()
-			h.changeResourceOwnedCount(obj.GroupVersionKind(), 1)
+			metrics.AddResource(obj.FullName(), obj.GroupVersionKind())
 			processedObjects = append(processedObjects, obj)
 			// Update the cache with the latest object.
 			objectCache.Cache[obj.Hash()] = obj
@@ -166,13 +166,8 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		scope.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
-	objGvk := obj.GroupVersionKind()
-	gvkStr := util.GVKString(objGvk)
-	iopName := util.NamespacedIOPName(h.iop)
-	revision := util.Revision(h.iop)
-
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(objGvk)
+	receiver.SetGroupVersionKind(obj.GroupVersionKind())
 	objectKey, _ := client.ObjectKeyFromObject(obj)
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
@@ -182,6 +177,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		return nil
 	}
 
+	gkStr := obj.GetObjectKind().GroupVersionKind().GroupKind().String()
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
 		err := h.client.Get(context.TODO(), objectKey, receiver)
@@ -193,7 +189,9 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err != nil {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
 			}
-			metrics.CountResourceCreations(iopName, revision, gvkStr)
+			metrics.ResourceCreationTotal.
+				With(metrics.ResourceKindLabel.Value(util.GVKString(obj.GetObjectKind().GroupVersionKind()))).
+				Increment()
 			return nil
 		case err == nil:
 			scope.Infof("updating resource: %s", objectStr)
@@ -206,7 +204,9 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err := h.client.Update(context.TODO(), receiver); err != nil {
 				return err
 			}
-			metrics.CountResourceUpdates(iopName, revision, gvkStr)
+			metrics.ResourceUpdateTotal.
+				With(metrics.ResourceKindLabel.Value(gkStr)).
+				Increment()
 			return nil
 		}
 		return nil
