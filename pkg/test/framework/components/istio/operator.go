@@ -510,7 +510,11 @@ func installRemoteCluster(i *operatorComponent, cfg Config, cluster resource.Clu
 		// Installing with only "base" component creates the ServiceAccount used to access the cluster via the remote secret.
 		// It also sets up the "istio-cluster" ConfigMap that must exist before creating remote secrets, to give topology info
 		// to pilots discovering endpoints in this cluster.
-		baseInstallSettings := append(installSettings, "--set", "profile=remote")
+		baseInstallSettings := []string{
+			"--set", "profile=remote",
+			"--set", "values.global.network=" + cluster.NetworkName(),
+			"--set", "values.global.multiCluster.clusterName=" + cluster.Name(),
+		}
 		if err := install(i, baseInstallSettings, istioCtl, cluster.Name()); err != nil {
 			return err
 		}
