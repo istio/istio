@@ -82,6 +82,8 @@ type Connection struct {
 	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
 	node *core.Node
+
+	recvStarted chan struct{}
 }
 
 // Event represents a config or registry event that results in a push.
@@ -99,6 +101,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
+		recvStarted: make(chan struct{}),
 	}
 }
 
@@ -121,6 +124,11 @@ func isExpectedGRPCError(err error) bool {
 
 func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
+	defer close(con.recvStarted)
+
+	// Notify the connection mainloop that this connection's recv gorotuine has been started
+	con.recvStarted <- struct{}{}
+
 	firstReq := true
 	for {
 		req, err := con.stream.Recv()
@@ -234,6 +242,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	var receiveError error
 	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
 	go s.receive(con, reqChannel, &receiveError)
+
+	// Avoid a race by prevent push operations until the receive goroutine has started
+	<-con.recvStarted
 
 	for {
 		// Block until either a request is received or a push is triggered.
