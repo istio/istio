@@ -306,6 +306,18 @@ func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("existing CNI config: %v", err)
 		}
+
+		for i, rawPlugin := range plugins {
+			plugin, err := util.GetPlugin(rawPlugin)
+			if err != nil {
+				return nil, fmt.Errorf("existing CNI plugin: %v", err)
+			}
+			if plugin["type"] == "istio-cni" {
+				plugins = append(plugins[:i], plugins[i+1:]...)
+				break
+			}
+		}
+
 		newMap["plugins"] = append(plugins, istioMap)
 	}
 
