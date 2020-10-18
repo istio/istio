@@ -242,11 +242,18 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// install control plane clusters (can be external or primary)
 	errG := multierror.Group{}
-	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) {
-			cluster := cluster
-			if err = installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile); err != nil {
-				return i, err
+	for _, cluster := range env.ControlPlaneClusters() {
+		cluster := cluster
+		if err = installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile); err != nil {
+			return i, err
+		}
+	}
+
+	// configure remote secrets for primary->primary
+	if env.IsMulticluster() {
+		for _, cp := range env.ControlPlaneClusters() {
+			if err := i.configureDirectAPIServiceAccessForCluster(ctx, env, cfg, cp); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -255,21 +262,12 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Under external control plane mode, we only use config and external control plane(primary)clusters for now
 	if !i.isExternalControlPlane() {
 		// TODO allow doing this with external control planes (not implemented yet)
-
-		// Remote secrets must be present for remote install to succeed
-		if env.IsMulticluster() {
-			// For multicluster, configure direct access so each control plane can get endpoints from all
-			// API servers.
-			if err := i.configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
-				return nil, err
-			}
-		}
 		errG = multierror.Group{}
 		for _, cluster := range env.KubeClusters {
 			if !(env.IsControlPlaneCluster(cluster) || env.IsConfigCluster(cluster)) {
 				cluster := cluster
 				errG.Go(func() error {
-					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile); err != nil {
+					if err := installRemoteCluster(i, cfg, cluster, istioctlConfigFiles.remoteIopFile); err != nil {
 						return fmt.Errorf("failed deploying control plane to remote cluster %s: %v", cluster.Name(), err)
 					}
 					return nil
@@ -488,10 +486,18 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 }
 
 // Deploy Istio to remote clusters
-func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
+func installRemoteCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
 	// TODO this method should handle setting up discovery from remote config clusters to their control-plane
 	// TODO(cont) and eventually we should always use istiod-less remotes
 	scopes.Framework.Infof("setting up %s as remote cluster", cluster.Name())
+	// Create an istioctl to configure this cluster.
+	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return err
+	}
+
 	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, remoteIopFile)
 	if err != nil {
 		return err
@@ -500,13 +506,18 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-	}
-	// Create an istioctl to configure this cluster.
-	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
-		Cluster: cluster,
-	})
-	if err != nil {
-		return err
+
+		// Installing with only "base" component creates the ServiceAccount used to access the cluster via the remote secret.
+		// It also sets up the "istio-cluster" ConfigMap that must exist before creating remote secrets, to give topology info
+		// to pilots discovering endpoints in this cluster.
+		baseInstallSettings := append(installSettings, "--set", "profile=remote")
+		if err := install(i, baseInstallSettings, istioCtl, cluster.Name()); err != nil {
+			return err
+		}
+		// The remote secret must be created before setting up ingress, to allow the remote pilot to validate JWTs against this cluster.
+		if err := i.configureDirectAPIServiceAccessForCluster(i.ctx, i.environment, cfg, cluster); err != nil {
+			return err
+		}
 	}
 	if !i.isExternalControlPlane() {
 		remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
