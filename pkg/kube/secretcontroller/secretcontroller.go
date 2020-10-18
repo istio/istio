@@ -77,7 +77,7 @@ type RemoteCluster struct {
 }
 
 // ClusterStore is a collection of clusters, keyed by a reliable key. The clusterID can be the same as the key, but
-// that is not guaranteed as it could be overriden by a ConfigMap.
+// that is not guaranteed as it could be overridden by a ConfigMap.
 type ClusterStore struct {
 	remoteClusters map[string]*RemoteCluster
 }
