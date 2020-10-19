@@ -56,6 +56,8 @@ func TestCustomizeMetrics(t *testing.T) {
 				}
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(90*time.Second))
+
+			promUtil.ValidateMetric(t, promInst, destinationQuery, "istio_requests_total", 1)
 		})
 }
 
@@ -111,6 +113,21 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+	cfg.ControlPlaneValues = `
+values:
+ telemetry:
+   v2:
+     prometheus:
+       configOverride:
+         inboundSidecar:
+           debug: false
+           stat_prefix: istio
+           metrics:
+           - name: requests_total
+             dimensions:
+               response_code: istio_responseClass
+               request_operation: istio_operationId
+`
 	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
 	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
 }
@@ -124,13 +141,6 @@ func setupEnvoyFilter(ctx resource.Context) error {
 		return err
 	}
 
-	sf, err := ioutil.ReadFile("testdata/stats_filter_update.yaml")
-	if err != nil {
-		return err
-	}
-	if err := ctx.Config().ApplyYAML(appNsInst.Name(), string(sf)); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -139,12 +149,21 @@ func sendTraffic(t *testing.T) error {
 	httpOpts := echo.CallOptions{
 		Target:   server,
 		PortName: "http",
+		Path:     "/path",
 		Count:    1,
 		Method:   "GET",
 	}
 
-	_, err := client.Call(httpOpts)
-	return err
+	if _, err := client.Call(httpOpts); err != nil {
+		return err
+	}
+
+	httpOpts.Method = "POST"
+	if _, err := client.Call(httpOpts); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func buildQuery() (destinationQuery string) {
