@@ -169,7 +169,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service.MeshExternal)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
 			if defaultCluster == nil {
 				continue
 			}
@@ -231,7 +231,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			discoveryType := convertResolution(proxy, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, nil, service.MeshExternal)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
 			if defaultCluster == nil {
 				continue
 			}
@@ -1062,5 +1062,98 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
 		c.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
+	}
+}
+
+func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
+	if opts.cluster == nil {
+		return
+	}
+	if direction == model.TrafficDirectionInbound && (opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
+		len(opts.proxy.ServiceInstances) == 0 || opts.port == nil) {
+		// At inbound, port and local service instance has to be provided
+		return
+	}
+	if direction == model.TrafficDirectionOutbound && service == nil {
+		// At outbound, the service corresponding to the cluster has to be provided.
+		return
+	}
+	if opts.cluster.Metadata == nil {
+		opts.cluster.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+
+	// Create Istio metadata if does not exist yet
+	if _, ok := opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey]; !ok {
+		opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+
+	im := opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
+
+	// Add services field into istio metadata
+	im.Fields["services"] = &structpb.Value{
+		Kind: &structpb.Value_ListValue{
+			ListValue: &structpb.ListValue{
+				Values: []*structpb.Value{},
+			},
+		},
+	}
+
+	svcMetaList := im.Fields["services"].GetListValue()
+
+	// Add servie related metadata. This will be consumed by telemetry v2 filter for metric labels.
+	if direction == model.TrafficDirectionInbound {
+		// For inbound cluster, add all services on the cluster port
+		have := make(map[host.Name]bool)
+		for _, svc := range opts.proxy.ServiceInstances {
+			if svc.ServicePort.Port != opts.port.Port {
+				// If the service port is different from the the port of the cluster that is being built,
+				// skip adding telemetry metadata for the service to the cluster.
+				continue
+			}
+			if _, ok := have[svc.Service.Hostname]; ok {
+				// Skip adding metadata for instance with the same host name.
+				// This could happen when a service has multiple IPs.
+				continue
+			}
+			svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc.Service))
+			have[svc.Service.Hostname] = true
+		}
+	} else if direction == model.TrafficDirectionOutbound {
+		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
+		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(service))
+	}
+}
+
+// Build a struct which contains service metadata and will be added into cluster label.
+func buildServiceMetadata(svc *model.Service) *structpb.Value {
+	return &structpb.Value{
+		Kind: &structpb.Value_StructValue{
+			StructValue: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					// serivce fqdn
+					"host": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: string(svc.Hostname),
+						},
+					},
+					// short name of the service
+					"name": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: svc.Attributes.Name,
+						},
+					},
+					// namespace of the service
+					"namespace": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: svc.Attributes.Namespace,
+						},
+					},
+				},
+			},
+		},
 	}
 }

@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 	"time"
 
 	ingress "k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/informers/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -103,17 +103,23 @@ var (
 	errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 )
 
-func ingressClassSupported(client kubernetes.Interface) bool {
-	_, s, _ := client.Discovery().ServerGroupsAndResources()
-	// This may fail if any api service is down, but the result will still be populated, so we skip the error
-	for _, res := range s {
-		for _, api := range res.APIResources {
-			if api.Kind == "IngressClass" && strings.HasPrefix(res.GroupVersion, "networking.k8s.io/") {
-				return true
-			}
-		}
+// Check if the "networking" group Ingress is available. Implementation borrowed from ingress-nginx
+func NetworkingIngressAvailable(client kubernetes.Interface) bool {
+	// check kubernetes version to use new ingress package or not
+	version118, _ := version.ParseGeneric("v1.18.0")
+
+	serverVersion, err := client.Discovery().ServerVersion()
+	if err != nil {
+		return false
 	}
-	return false
+
+	runningVersion, err := version.ParseGeneric(serverVersion.String())
+	if err != nil {
+		log.Errorf("unexpected error parsing running Kubernetes version: %v", err)
+		return false
+	}
+
+	return runningVersion.AtLeast(version118)
 }
 
 // NewController creates a new Kubernetes controller
@@ -132,7 +138,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
 	var classes v1beta1.IngressClassInformer
-	if ingressClassSupported(client) {
+	if NetworkingIngressAvailable(client) {
 		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
 		// Register the informer now, so it will be properly started
 		_ = classes.Informer()
@@ -334,6 +340,10 @@ func (c *controller) Create(_ config.Config) (string, error) {
 }
 
 func (c *controller) Update(_ config.Config) (string, error) {
+	return "", errUnsupportedOp
+}
+
+func (c *controller) UpdateStatus(config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 

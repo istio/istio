@@ -50,6 +50,10 @@ spec:
             cpu: 10m
             memory: 40Mi
 
+    pilot:
+      env:
+        PILOT_ENABLED_SERVICE_APIS: true
+
     gateways:
       istio-ingressgateway:
         autoscaleMax: 1

@@ -97,7 +97,10 @@ sidecarInjectorWebhook:
     autoInject: true
 
   rewriteAppHTTPProbe: true
-
+istiodRemote:
+  # Sidecar injector mutating webhook configuration url
+  # For example: https://$remotePilotAddress:15017/inject
+  injectionURL: ""
 telemetry:
   enabled: true
   v2:

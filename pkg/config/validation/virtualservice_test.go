@@ -322,7 +322,7 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateRootHTTPRoute(tc.route); (err == nil) != tc.valid {
+			if err := validateHTTPRoute(tc.route, false); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -552,7 +552,7 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateDelegateHTTPRoute(tc.route); (err == nil) != tc.valid {
+			if err := validateHTTPRoute(tc.route, true); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
