@@ -33,6 +33,7 @@ func TestMain(m *testing.M) {
 	// the control plane certificate provider is k8s CA.
 	framework.
 		NewSuite(m).
+		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 
