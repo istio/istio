@@ -288,8 +288,6 @@ func (c Config) DeepCopy() Config {
 		}
 	}
 	clone.Spec = DeepCopy(c.Spec)
-	// TODO proper deep copy
-	clone.Status = c.Status
 	return clone
 }
 
