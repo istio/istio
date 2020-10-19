@@ -20,6 +20,12 @@ spec:
           command:
           - operator
           - server
+        {{- if .Values.global.logging.level }}
+          - --log_output_level={{ .Values.global.logging.level }}
+        {{- end}}
+        {{- if .Values.global.logAsJson }}
+          - --log_as_json
+        {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
