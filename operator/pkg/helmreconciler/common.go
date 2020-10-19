@@ -15,7 +15,9 @@
 package helmreconciler
 
 import (
+	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -119,16 +121,20 @@ func applyOverlay(current, overlay *unstructured.Unstructured) error {
 	if err != nil {
 		return err
 	}
-	overlayByte, err := overlay.MarshalJSON()
-	if err != nil {
-		return err
-	}
-
 	// All the fields set by the cluster automatically is saved in the service resources.
 	// For all service resources, we leverage 2-way merging to keep the fields set by the cluster.
 	if strings.EqualFold(current.GetKind(), "service") {
 		var schema strategicpatch.LookupPatchMeta
 		originalByte := getLastAppliedConfig(current)
+		overlayUpdated := overlay.DeepCopy()
+		err := saveNodePorts(current, overlayUpdated)
+		if err != nil {
+			return err
+		}
+		overlayByte, err := overlayUpdated.MarshalJSON()
+		if err != nil {
+			return err
+		}
 		patchByte, schema, err := createPatchSchema(originalByte, overlayByte, overlay)
 		if err != nil {
 			return err
@@ -139,6 +145,10 @@ func applyOverlay(current, overlay *unstructured.Unstructured) error {
 		}
 
 	} else {
+		overlayByte, err := overlay.MarshalJSON()
+		if err != nil {
+			return err
+		}
 		result, err = jsonpatch.MergePatch(currentByte, overlayByte)
 		if err != nil {
 			return err
@@ -169,4 +179,31 @@ func getLastAppliedConfig(obj *unstructured.Unstructured) []byte {
 		return nil
 	}
 	return []byte(annotations[v1.LastAppliedConfigAnnotation])
+}
+
+// saveNodePorts transfers the port values from the current cluster into the overlay
+func saveNodePorts(current, overlay *unstructured.Unstructured) error {
+	var svc = &v1.Service{}
+	err := scheme.Scheme.Convert(current, svc, nil)
+	if err != nil {
+		return err
+	}
+
+	portMap := make(map[string]string)
+	for _, p := range svc.Spec.Ports {
+		portMap[strconv.Itoa(int(p.Port))] = strconv.Itoa(int(p.NodePort))
+	}
+
+	ports, _, _ := unstructured.NestedFieldNoCopy(overlay.Object, "spec", "ports")
+	for _, port := range ports.([]interface{}) {
+		m := port.(map[string]interface{})
+		if nodePortNum, ok := m["nodePort"]; ok && nodePortNum == "0" {
+			if portNum, ok := m["port"]; ok {
+				if v, ok := portMap[fmt.Sprintf("%v", portNum)]; ok {
+					m["nodePort"] = v
+				}
+			}
+		}
+	}
+	return nil
 }
