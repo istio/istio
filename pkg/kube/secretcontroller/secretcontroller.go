@@ -25,7 +25,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,10 +46,10 @@ const (
 )
 
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clients kube.Client, dataKey string, cm kube.ClusterMeta) error
+type addSecretCallback func(clients kube.Client, dataKey string) error
 
 // updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clients kube.Client, dataKey string, cm kube.ClusterMeta) error
+type updateSecretCallback func(clients kube.Client, dataKey string) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -76,8 +76,7 @@ type RemoteCluster struct {
 	kubeConfigSha [sha256.Size]byte
 }
 
-// ClusterStore is a collection of clusters, keyed by a reliable key. The clusterID can be the same as the key, but
-// that is not guaranteed as it could be overridden by a ConfigMap.
+// ClusterStore is a collection of clusters
 type ClusterStore struct {
 	remoteClusters map[string]*RemoteCluster
 }
@@ -101,11 +100,11 @@ func NewController(
 
 	secretsInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
 				return kubeclientset.CoreV1().Secrets(namespace).List(context.TODO(), opts)
 			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = MultiClusterSecretLabel + "=true"
 				return kubeclientset.CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
 			},
@@ -283,23 +282,22 @@ func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, 
 }
 
 func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
-	for clusterKey, kubeConfig := range s.Data {
-		// clusterKey must be unique even across multiple secrets
-		if prev, ok := c.cs.remoteClusters[clusterKey]; !ok {
-			log.Infof("Adding cluster_id=%v from secret=%v", clusterKey, secretName)
+	for clusterID, kubeConfig := range s.Data {
+		// clusterID must be unique even across multiple secrets
+		if prev, ok := c.cs.remoteClusters[clusterID]; !ok {
+			log.Infof("Adding cluster_id=%v from secret=%v", clusterID, secretName)
 
 			remoteCluster, err := createRemoteCluster(kubeConfig, secretName)
 			if err != nil {
 				log.Errorf("Failed to add remote cluster from secret=%v for cluster_id=%v: %v",
-					secretName, clusterKey, err)
+					secretName, clusterID, err)
 				continue
 			}
 
-			c.cs.remoteClusters[clusterKey] = remoteCluster
-			cm := c.clusterMetaOrDefault(remoteCluster.clients.Kube(), clusterKey)
-			if err := c.addCallback(remoteCluster.clients, clusterKey, cm); err != nil {
+			c.cs.remoteClusters[clusterID] = remoteCluster
+			if err := c.addCallback(remoteCluster.clients, clusterID); err != nil {
 				log.Errorf("Error creating cluster_id=%s from secret %v: %v",
-					clusterKey, secretName, err)
+					clusterID, secretName, err)
 			}
 		} else {
 			if prev.secretName != secretName {
@@ -310,21 +308,20 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				log.Infof("Updating cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterKey, secretName)
+				log.Infof("Updating cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretName)
 			} else {
-				log.Infof("Updating cluster %v from secret %v", clusterKey, secretName)
+				log.Infof("Updating cluster %v from secret %v", clusterID, secretName)
 
 				remoteCluster, err := createRemoteCluster(kubeConfig, secretName)
 				if err != nil {
 					log.Errorf("Error updating cluster_id=%v from secret=%v: %v",
-						clusterKey, secretName, err)
+						clusterID, secretName, err)
 					continue
 				}
-				c.cs.remoteClusters[clusterKey] = remoteCluster
-				cm := c.clusterMetaOrDefault(remoteCluster.clients.Kube(), clusterKey)
-				if err := c.updateCallback(remoteCluster.clients, clusterKey, cm); err != nil {
+				c.cs.remoteClusters[clusterID] = remoteCluster
+				if err := c.updateCallback(remoteCluster.clients, clusterID); err != nil {
 					log.Errorf("Error updating cluster_id from secret=%v: %s %v",
-						clusterKey, secretName, err)
+						clusterID, secretName, err)
 				}
 			}
 		}
@@ -346,11 +343,4 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 		}
 	}
 	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
-}
-
-func (c *Controller) clusterMetaOrDefault(clients kubernetes.Interface, defaultClusterID string) kube.ClusterMeta {
-	if cm := kube.ClusterMetaFromConfigMap(clients, c.namespace); cm != nil {
-		return *cm
-	}
-	return kube.ClusterMeta{ID: defaultClusterID}
 }

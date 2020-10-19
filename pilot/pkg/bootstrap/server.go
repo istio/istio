@@ -342,7 +342,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 }
 
 func getClusterID(args *PilotArgs) string {
-	clusterID := args.RegistryOptions.KubeOptions.ClusterMeta.ID
+	clusterID := args.RegistryOptions.KubeOptions.ClusterID
 	if clusterID == "" {
 		if hasKubeRegistry(args.RegistryOptions.Registries) {
 			clusterID = string(serviceregistry.Kubernetes)

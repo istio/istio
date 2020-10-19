@@ -26,9 +26,6 @@ import (
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
-	// maps the key (could be a secret name or other reliable key) to the cluster id
-	clusterIDByKey map[string]string
-	// maps cluster id to the related controller
 	remoteKubeControllers map[string]*SecretsController
 	m                     sync.Mutex // protects remoteKubeControllers
 	secretController      *secretcontroller.Controller
@@ -39,49 +36,38 @@ var _ secrets.MulticlusterController = &Multicluster{}
 
 func NewMulticluster(client kube.Client, localCluster, secretNamespace string) *Multicluster {
 	m := &Multicluster{
-		clusterIDByKey:        map[string]string{},
 		remoteKubeControllers: map[string]*SecretsController{},
 		localCluster:          localCluster,
 	}
-
-	// TODO re-use the lookup from initKubeRegistry set on server struct
-	clusterMeta := kube.ClusterMeta{ID: localCluster}
-	if cmMeta := kube.ClusterMetaFromConfigMap(client, secretNamespace); cmMeta != nil {
-		clusterMeta = *cmMeta
-	}
-
 	// Add the local cluster
-	m.addMemberCluster(client, localCluster, clusterMeta)
+	m.addMemberCluster(client, localCluster)
 	sc := secretcontroller.StartSecretController(client,
-		func(c kube.Client, k string, cm kube.ClusterMeta) error { m.addMemberCluster(c, k, cm); return nil },
-		func(c kube.Client, k string, cm kube.ClusterMeta) error { m.updateMemberCluster(c, k, cm); return nil },
+		func(c kube.Client, k string) error { m.addMemberCluster(c, k); return nil },
+		func(c kube.Client, k string) error { m.updateMemberCluster(c, k); return nil },
 		func(k string) error { m.deleteMemberCluster(k); return nil },
 		secretNamespace)
 	m.secretController = sc
 	return m
 }
 
-func (m *Multicluster) addMemberCluster(clients kube.Client, key string, cm kube.ClusterMeta) {
+func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
 	stopCh := make(chan struct{})
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
-	sc := NewSecretsController(clients, cm.ID)
+	sc := NewSecretsController(clients, key)
 	m.m.Lock()
-	m.clusterIDByKey[key] = cm.ID
-	m.remoteKubeControllers[cm.ID] = sc
+	m.remoteKubeControllers[key] = sc
 	m.m.Unlock()
 	clients.RunAndWait(stopCh)
 }
 
-func (m *Multicluster) updateMemberCluster(clients kube.Client, key string, cm kube.ClusterMeta) {
+func (m *Multicluster) updateMemberCluster(clients kube.Client, key string) {
 	m.deleteMemberCluster(key)
-	m.addMemberCluster(clients, key, cm)
+	m.addMemberCluster(clients, key)
 }
 
 func (m *Multicluster) deleteMemberCluster(key string) {
 	m.m.Lock()
-	cid := m.clusterIDByKey[key]
-	delete(m.remoteKubeControllers, cid)
-	delete(m.clusterIDByKey, key)
+	delete(m.remoteKubeControllers, key)
 	m.m.Unlock()
 }
 

@@ -32,16 +32,9 @@ type namedRangerEntry struct {
 	network net.IPNet
 }
 
-// Network returns the IPNet for the network
+// returns the IPNet for the network
 func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
-}
-
-func (c *Controller) DefaultNetwork() string {
-	if c.networkForRegistry != "" {
-		return c.networkForRegistry
-	}
-	return c.Network
 }
 
 // reloadNetworkLookup refreshes the meshNetworks configuration, network for each endpoint, and
@@ -65,6 +58,7 @@ func (c *Controller) reloadNetworkLookup() {
 func (c *Controller) reloadMeshNetworks() {
 	c.Lock()
 	defer c.Unlock()
+	c.networkForRegistry = ""
 	ranger := cidranger.NewPCTrieRanger()
 
 	c.networkForRegistry = ""
@@ -89,10 +83,10 @@ func (c *Controller) reloadMeshNetworks() {
 				}
 				_ = ranger.Insert(rangerEntry)
 			}
-			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ID {
+			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.clusterID {
 				if c.networkForRegistry != "" {
 					log.Warnf("multiple networks specify %s in fromRegistry, only first network %s will use %s",
-						c.ID, c.networkForRegistry, c.ID)
+						c.clusterID, c.networkForRegistry, c.clusterID)
 				} else {
 					c.networkForRegistry = n
 				}
@@ -169,7 +163,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) {
 	if svc.Attributes.ClusterExternalAddresses != nil {
 		// check if we have node port mappings
 		if svc.Attributes.ClusterExternalPorts != nil {
-			if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[c.ID]; exists {
+			if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[c.clusterID]; exists {
 				// what we now have is a service port. If there is a mapping for cluster external ports,
 				// look it up and get the node port for the remote port
 				if nodePort, exists := nodePortMap[gwPort]; exists {
@@ -177,7 +171,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) {
 				}
 			}
 		}
-		ips := svc.Attributes.ClusterExternalAddresses[c.ID]
+		ips := svc.Attributes.ClusterExternalAddresses[c.clusterID]
 		for _, ip := range ips {
 			gws = append(gws, &model.Gateway{Addr: ip, Port: gwPort})
 		}
@@ -202,7 +196,7 @@ func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, string) {
 
 	// meshNetworks registryServiceName+fromRegistry
 	if port, ok := c.registryServiceNameGateways[svc.Hostname]; ok {
-		return port, c.DefaultNetwork()
+		return port, c.networkForRegistry
 	}
 
 	return 0, ""
@@ -229,7 +223,7 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 			for _, n := range c.nodeInfoMap {
 				extAddresses = append(extAddresses, n.address)
 			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.ID: extAddresses}
+			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
 		} else {
 			var nodeAddresses []string
 			for _, n := range c.nodeInfoMap {
@@ -237,7 +231,7 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 					nodeAddresses = append(nodeAddresses, n.address)
 				}
 			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.ID: nodeAddresses}
+			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
 		}
 		svc.Mutex.Unlock()
 		// update gateways that use the service
