@@ -262,6 +262,8 @@ func (r *Reporter) RegisterEvent(conID string, distributionType xds.EventType, n
 	// Skip unsupported event types. This ensures we do not leak memory for types
 	// which may not be handled properly. For example, a type not in AllEventTypes
 	// will not be properly unregistered.
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if _, f := xds.AllEventTypes[distributionType]; !f {
 		return
 	}
