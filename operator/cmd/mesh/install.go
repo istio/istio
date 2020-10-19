@@ -17,11 +17,9 @@ package mesh
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/util/validation"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -87,7 +85,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 	ic := &cobra.Command{
 		Use:   "install",
 		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
-		Long:  "The install command generates an Istio install manifest and applies it to a cluster.",
+		Long:  "The install generates an Istio install manifest and applies it to a cluster.",
 		// nolint: lll
 		Example: `  # Apply a default Istio installation
   istioctl install
@@ -102,13 +100,6 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
   istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
 `,
 		Args: cobra.ExactArgs(0),
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			errs := validation.IsQualifiedName(iArgs.revision)
-			if len(errs) != 0 && cmd.PersistentFlags().Changed("revision") {
-				return fmt.Errorf("invalid revision specified:\n%v", strings.Join(errs, "\n"))
-			}
-			return nil
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runApplyCmd(cmd, rootArgs, iArgs, logOpts)
 		}}

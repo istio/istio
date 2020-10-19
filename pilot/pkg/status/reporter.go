@@ -259,14 +259,6 @@ func (r *Reporter) QueryLastNonce(conID string, distributionType xds.EventType) 
 // Theoretically, we could use the ads connections themselves to harvest this data,
 // but the mutex there is pretty hot, and it seems best to trade memory for time.
 func (r *Reporter) RegisterEvent(conID string, distributionType xds.EventType, nonce string) {
-	// Skip unsupported event types. This ensures we do not leak memory for types
-	// which may not be handled properly. For example, a type not in AllEventTypes
-	// will not be properly unregistered.
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if _, f := xds.AllEventTypes[distributionType]; !f {
-		return
-	}
 	d := distributionEvent{nonce: nonce, distributionType: distributionType, conID: conID}
 	select {
 	case r.distributionEventQueue <- d:
@@ -283,7 +275,6 @@ func (r *Reporter) readFromEventQueue() {
 	}
 
 }
-
 func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

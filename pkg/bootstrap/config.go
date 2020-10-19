@@ -208,14 +208,10 @@ var (
 )
 
 func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
-	parseOption := func(metaOption string, required string, proxyConfigOption []string) []string {
+	parseOption := func(metaOption string, required string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
 			inclusionOption = strings.Split(metaOption, ",")
-		} else if proxyConfigOption != nil {
-			// In case user relies on mixed usage of annotation and proxy config,
-			// only consider proxy config if annotation is not set instead of merging.
-			inclusionOption = proxyConfigOption
 		}
 
 		if len(required) > 0 {
@@ -243,18 +239,10 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 		}
 	}
 
-	var proxyConfigPrefixes, proxyConfigSuffixes, proxyConfigRegexps []string
-	if config.ProxyStatsMatcher != nil {
-		proxyConfigPrefixes = config.ProxyStatsMatcher.InclusionPrefixes
-		proxyConfigSuffixes = config.ProxyStatsMatcher.InclusionSuffixes
-		proxyConfigRegexps = config.ProxyStatsMatcher.InclusionRegexps
-	}
-
 	return []option.Instance{
-		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes,
-			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "", proxyConfigSuffixes)),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "", proxyConfigRegexps)),
+		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes, requiredEnvoyStatsMatcherInclusionPrefixes)),
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "")),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }

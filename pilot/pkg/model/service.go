@@ -291,6 +291,9 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint.LbWeight != second.Endpoint.LbWeight {
 		return false
 	}
+	if first.Endpoint.UID != second.Endpoint.UID {
+		return false
+	}
 	if first.Namespace != second.Namespace {
 		return false
 	}
@@ -368,6 +371,9 @@ type IstioEndpoint struct {
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
+	// UID identifies the workload, for telemetry purpose.
+	UID string
+
 	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
 	EnvoyEndpoint *endpoint.LbEndpoint
@@ -390,12 +396,6 @@ type IstioEndpoint struct {
 
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
 	TLSMode string
-
-	// Namespace that this endpont belongs to. This is for telemetry purpose.
-	Namespace string
-
-	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
-	WorkloadName string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -408,8 +408,6 @@ type ServiceAttributes struct {
 	Name string
 	// Namespace is "destination.service.namespace" attribute
 	Namespace string
-	// Labels applied to the service
-	Labels map[string]string
 	// UID is "destination.service.uid" attribute
 	UID string
 	// ExportTo defines the visibility of Service in
@@ -494,9 +492,6 @@ type ServiceDiscovery interface {
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
-
-	// NetworkGateways returns a map of network name to Gateways that can be used to access that network.
-	NetworkGateways() map[string][]*Gateway
 }
 
 // GetNames returns port names

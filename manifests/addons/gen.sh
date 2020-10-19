@@ -25,7 +25,7 @@ set -eux
 ADDONS="${WD}/../../samples/addons"
 DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
-TMP=$(mktemp -d)
+
 # Set up kiali
 {
 helm3 template kiali-server \
@@ -46,10 +46,6 @@ helm3 template prometheus stable/prometheus \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
 
-function compressDashboard() {
-  < "${DASHBOARDS}/$1" jq -c  > "${TMP}/$1"
-}
-
 # Set up grafana
 {
   helm3 template grafana stable/grafana \
@@ -57,22 +53,17 @@ function compressDashboard() {
     --version 5.3.5 \
     -f "${WD}/values-grafana.yaml"
 
-  # Set up grafana dashboards. Split into 2 and compress to single line json to avoid Kubernetes size limits
-  compressDashboard "pilot-dashboard.json"
-  compressDashboard "istio-performance-dashboard.json"
-  compressDashboard "istio-workload-dashboard.json"
-  compressDashboard "istio-service-dashboard.json"
-  compressDashboard "istio-mesh-dashboard.json"
+  # Set up grafana dashboards. Split into 2 to avoid Kubernetes size limits
   echo -e "\n---\n"
   kubectl create configmap -n istio-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
-    --from-file=pilot-dashboard.json="${TMP}/pilot-dashboard.json" \
-    --from-file=istio-performance-dashboard.json="${TMP}/istio-performance-dashboard.json"
+    --from-file=pilot-dashboard.json="${DASHBOARDS}/pilot-dashboard.json" \
+    --from-file=istio-performance-dashboard.json="${DASHBOARDS}/istio-performance-dashboard.json"
 
   echo -e "\n---\n"
   kubectl create configmap -n istio-system istio-services-grafana-dashboards \
     --dry-run=client -oyaml \
-    --from-file=istio-workload-dashboard.json="${TMP}/istio-workload-dashboard.json" \
-    --from-file=istio-service-dashboard.json="${TMP}/istio-service-dashboard.json" \
-    --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.json"
+    --from-file=istio-workload-dashboard.json="${DASHBOARDS}/istio-workload-dashboard.json" \
+    --from-file=istio-service-dashboard.json="${DASHBOARDS}/istio-service-dashboard.json" \
+    --from-file=istio-mesh-dashboard.json="${DASHBOARDS}/istio-mesh-dashboard.json"
 } > "${ADDONS}/grafana.yaml"

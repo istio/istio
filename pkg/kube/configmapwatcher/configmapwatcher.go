@@ -16,7 +16,6 @@ package configmapwatcher
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -35,22 +34,20 @@ import (
 )
 
 // Controller watches a ConfigMap and calls the given callback when the ConfigMap changes.
-// The ConfigMap is passed to the callback, or nil if it doesn't exist.
 type Controller struct {
+	client   kube.Client
 	informer infomersv1.ConfigMapInformer
 	queue    workqueue.RateLimitingInterface
 
 	configMapNamespace string
 	configMapName      string
-	callback           func(*v1.ConfigMap)
-
-	mu        sync.RWMutex
-	hasSynced bool
+	callback           func()
 }
 
 // NewController returns a new ConfigMap watcher controller.
-func NewController(client kube.Client, namespace, name string, callback func(*v1.ConfigMap)) *Controller {
+func NewController(client kube.Client, namespace, name string, callback func()) *Controller {
 	c := &Controller{
+		client:             client,
 		queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter()),
 		configMapNamespace: namespace,
 		configMapName:      name,
@@ -94,26 +91,31 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 	return c
 }
 
-func (c *Controller) Run(stop <-chan struct{}) {
+func (c *Controller) Run(stop <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	go c.informer.Informer().Run(stop)
 	if !cache.WaitForCacheSync(stop, c.informer.Informer().HasSynced) {
-		log.Error("failed to wait for cache sync")
-		return
+		return fmt.Errorf("failed to wait for cache sync")
 	}
 
-	// Trigger initial callback.
-	c.queue.Add(struct{}{})
 	wait.Until(c.runWorker, time.Second, stop)
+	return nil
 }
 
-// HasSynced returns whether the underlying cache has synced and the callback has been called at least once.
+// HasSynced returns whether the underlying cache has synced.
 func (c *Controller) HasSynced() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.hasSynced
+	return c.informer.Informer().HasSynced()
+}
+
+// Get returns the cached ConfigMap, or nil if it doesn't exist.
+func (c *Controller) Get() (*v1.ConfigMap, error) {
+	cm, err := c.informer.Lister().ConfigMaps(c.configMapNamespace).Get(c.configMapName)
+	if err != nil && errors.IsNotFound(err) {
+		return nil, nil
+	}
+	return cm, err
 }
 
 func (c *Controller) runWorker() {
@@ -129,27 +131,7 @@ func (c *Controller) processNextWorkItem() bool {
 	defer c.queue.Done(obj)
 
 	log.Debug("processing queue item")
-	if err := c.processItem(); err != nil {
-		log.Error("error processing queue item (retrying)")
-		c.queue.AddRateLimited(struct{}{})
-	} else {
-		c.queue.Forget(obj)
-	}
+	c.callback()
+	c.queue.Forget(obj)
 	return true
-}
-
-func (c *Controller) processItem() error {
-	cm, err := c.informer.Lister().ConfigMaps(c.configMapNamespace).Get(c.configMapName)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("error fetching object %s error: %v", c.configMapName, err)
-		}
-		cm = nil
-	}
-	c.callback(cm)
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.hasSynced = true
-	return nil
 }

@@ -184,8 +184,6 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"networking.x-k8s.io/v1alpha1/GatewayClass",
 				"networking.x-k8s.io/v1alpha1/HTTPRoute",
 				"networking.x-k8s.io/v1alpha1/TCPRoute",
-				"networking.x-k8s.io/v1alpha1/TLSRoute",
-				"networking.x-k8s.io/v1alpha1/BackendPolicy",
 			} {
 				delete(recognized, gvk)
 			}

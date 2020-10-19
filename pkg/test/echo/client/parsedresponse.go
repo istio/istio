@@ -135,23 +135,6 @@ func (r ParsedResponses) CheckOKOrFail(t test.Failer) ParsedResponses {
 	return r
 }
 
-func (r ParsedResponses) CheckCode(expected string) error {
-	return r.Check(func(i int, response *ParsedResponse) error {
-		if response.Code != expected {
-			return fmt.Errorf("expected response code %s, got %q", expected, response.Code)
-		}
-		return nil
-	})
-}
-
-func (r ParsedResponses) CheckCodeOrFail(t test.Failer, expected string) ParsedResponses {
-	t.Helper()
-	if err := r.CheckCode(expected); err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
-
 func (r ParsedResponses) CheckHost(expected string) error {
 	return r.Check(func(i int, response *ParsedResponse) error {
 		if response.Host != expected {

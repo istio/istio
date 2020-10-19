@@ -231,8 +231,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 	con := newSDSConnection(stream)
 
 	go receiveThread(con, reqChannel, &receiveError)
-	totalActiveConnCounts.Increment()
-	defer totalActiveConnCounts.Decrement()
 
 	for {
 		// Block until a request is received.
@@ -307,6 +305,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			// Update metrics.
+			totalActiveConnCounts.Increment()
 			if discReq.ErrorDetail != nil {
 				totalSecretUpdateFailureCounts.Increment()
 				sdsServiceLog.Errorf("%s received error: %v. Will not respond until next secret update",
@@ -543,6 +542,7 @@ func recycleConnection(conID, resourceName string) {
 	staledClientKeys[key] = true
 
 	totalStaleConnCounts.Increment()
+	totalActiveConnCounts.Decrement()
 }
 
 func getResourceName(discReq *discovery.DiscoveryRequest) (string /*resourceName*/, error) {

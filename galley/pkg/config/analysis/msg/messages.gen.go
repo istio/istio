@@ -23,7 +23,7 @@ var (
 
 	// NamespaceNotInjected defines a diag.MessageType for message "NamespaceNotInjected".
 	// Description: A namespace is not enabled for Istio injection.
-	NamespaceNotInjected = diag.NewMessageType(diag.Info, "IST0102", "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection.")
+	NamespaceNotInjected = diag.NewMessageType(diag.Warning, "IST0102", "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection")
 
 	// PodMissingProxy defines a diag.MessageType for message "PodMissingProxy".
 	// Description: A pod is missing the Istio proxy.

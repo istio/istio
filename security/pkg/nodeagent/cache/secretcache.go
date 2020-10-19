@@ -873,7 +873,10 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	cacheLog.Debugf("%s received CSR response with certificate chain %+v \n",
 		logPrefix, certChainPEM)
 
-	certChain := concatCerts(certChainPEM)
+	certChain := []byte{}
+	for _, c := range certChainPEM {
+		certChain = append(certChain, []byte(c)...)
+	}
 
 	var expireTime time.Time
 	// Cert expire time by default is createTime + sc.configOptions.SecretTTL.
@@ -1041,19 +1044,4 @@ func (sc *SecretCache) useCertToRotate() bool {
 		return false
 	}
 	return true
-}
-
-// concatCerts concatenates PEM certificates, making sure each one starts on a new line
-func concatCerts(certsPEM []string) []byte {
-	if len(certsPEM) == 0 {
-		return []byte{}
-	}
-	var certChain bytes.Buffer
-	for i, c := range certsPEM {
-		certChain.WriteString(c)
-		if i < len(certsPEM)-1 && !strings.HasSuffix(c, "\n") {
-			certChain.WriteString("\n")
-		}
-	}
-	return certChain.Bytes()
 }

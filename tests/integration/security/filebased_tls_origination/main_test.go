@@ -51,6 +51,9 @@ components:
   egressGateways:
   - enabled: true
     name: istio-egressgateway
+  ingressGateways:
+  - enabled: false
+    name: istio-ingressgateway
 values:
    gateways:
       istio-egressgateway:

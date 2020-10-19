@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&appCtx)).
 		Setup(kube.Setup(func(s *kube.Settings, ctx resource.Context) {
-			// Make externalIstiod run on first cluster, all others are remotes which use externalIstiod's pilot
+			// Make CentralIstiod run on first cluster, all others are remotes which use centralIstiod's pilot
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
 			primaryCluster := resource.ClusterIndex(0)
 			for i := 0; i < len(s.KubeConfig); i++ {
@@ -47,13 +47,38 @@ func TestMain(m *testing.M) {
 		})).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 
-			cfg.Values["global.externalIstiod"] = "true"
+			cfg.Values["global.centralIstiod"] = "true"
 
 			// Set the control plane values on the config.
 			// For ingress, add port 15017 to the default list of ports.
 			cfg.ControlPlaneValues = appCtx.ControlPlaneValues + `
   global:
-    externalIstiod: true`
+    centralIstiod: true
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+    k8s:
+      service:
+        ports:
+        - port: 15021
+          targetPort: 15021
+          name: status-port
+        - port: 80
+          targetPort: 8080
+          name: http2
+        - port: 443
+          targetPort: 8443
+          name: https
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 15443
+          targetPort: 15443
+          name: tls
+        - port: 15017
+          targetPort: 15017
+          name: tcp-webhook`
 			cfg.RemoteClusterValues = `
 components:
   base:
@@ -61,10 +86,13 @@ components:
   pilot:
     enabled: false  
   istiodRemote:
+    enabled: true 
+  ingressGateways:
+  - name: istio-ingressgateway
     enabled: true
 values:
   global:
-    externalIstiod: true`
+    centralIstiod: true`
 		})).
 		Setup(multicluster.SetupApps(&appCtx)).
 		Run()

@@ -45,6 +45,10 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: false
 values:
   meshConfig:
     trustDomainAliases: [some-other, trust-domain-foo]

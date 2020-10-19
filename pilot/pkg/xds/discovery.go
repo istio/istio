@@ -189,13 +189,8 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
-var (
-	processStartTime = time.Now()
-)
-
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	adsLog.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
 	s.updateMutex.Lock()
 	s.serverReady = true
 	s.updateMutex.Unlock()

@@ -36,11 +36,9 @@ global:
   # Enabled by default in master for maximising testing.
   istiod:
     enableAnalysis: false
-  # `centralIstiod` flag will be deprecated in favor of `externalIstiod` to better support external control plane model.
-  # central istiod controls all remote clusters: disabled by default
+
+  # One central istiod controls all remote clusters: disabled by default
   centralIstiod: false
-  # external istiod controls all remote clusters: disabled by default
-  externalIstiod: false
 
   proxy:
     image: proxyv2

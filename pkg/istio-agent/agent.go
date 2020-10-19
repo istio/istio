@@ -147,9 +147,6 @@ type AgentConfig struct {
 	// CARootCerts of the location of the root CA for the CA connection. Used for setting platform certs or
 	// using custom roots.
 	CARootCerts string
-
-	// Extra headers to add to the XDS connection.
-	XDSHeaders map[string]string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is

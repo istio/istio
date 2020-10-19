@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/test/mock"
 	config2 "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -39,11 +38,6 @@ func TestConvert(t *testing.T) {
 			Annotations:      map[string]string{"annotation": "value"},
 		},
 		Spec: mock.ExampleVirtualService,
-		Status: v1alpha1.IstioStatus{
-			Conditions: []*v1alpha1.IstioCondition{
-				{Type: "Health"},
-			},
-		},
 	}
 
 	obj, err := ConvertConfig(config)

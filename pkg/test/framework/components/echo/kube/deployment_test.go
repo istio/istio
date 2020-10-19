@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
-	kubetest "istio.io/istio/pkg/test/kube"
 )
 
 var (
@@ -140,9 +139,7 @@ func TestDeploymentYAML(t *testing.T) {
 			tc.config.Cluster = resource.FakeCluster{
 				NameValue: "cluster-0",
 			}
-			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(nil, tc.config, settings, kube.Cluster{
-				ExtendedClient: kubetest.MockClient{},
-			})
+			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(nil, tc.config, settings, kube.Cluster{})
 			if err != nil {
 				t.Errorf("failed to generate yaml %v", err)
 			}

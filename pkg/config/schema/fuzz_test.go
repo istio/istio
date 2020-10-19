@@ -31,7 +31,6 @@ import (
 
 	authentication "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	security "istio.io/api/security/v1beta1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -162,9 +161,6 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		},
 		func(t *networking.ReadinessProbe, c fuzz.Continue) {
 			*t = networking.ReadinessProbe{}
-		},
-		func(t *security.AuthorizationPolicy, c fuzz.Continue) {
-			*t = security.AuthorizationPolicy{}
 		},
 	}
 }

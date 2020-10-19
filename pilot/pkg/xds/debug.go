@@ -89,10 +89,9 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 
 // AdsClient defines the data that is displayed on "/adsz" endpoint.
 type AdsClient struct {
-	ConnectionID string              `json:"connectionId"`
-	ConnectedAt  time.Time           `json:"connectedAt"`
-	PeerAddress  string              `json:"address"`
-	Watches      map[string][]string `json:"watches"`
+	ConnectionID string    `json:"connectionId"`
+	ConnectedAt  time.Time `json:"connectedAt"`
+	PeerAddress  string    `json:"address"`
 }
 
 // AdsClients is collection of AdsClient connected to this Istiod.
@@ -460,17 +459,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 			ConnectionID: c.ConID,
 			ConnectedAt:  c.Connect,
 			PeerAddress:  c.PeerAddr,
-			Watches:      map[string][]string{},
 		}
-		c.proxy.RLock()
-		for k, wr := range c.proxy.WatchedResources {
-			r := wr.ResourceNames
-			if r == nil {
-				r = []string{}
-			}
-			adsClient.Watches[k] = r
-		}
-		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
 	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {

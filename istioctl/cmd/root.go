@@ -141,7 +141,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
-		PersistentPreRunE: configureLogging,
+		PersistentPreRunE: istioPersistentPreRunE,
 	}
 
 	rootCmd.SetArgs(args)
@@ -216,7 +216,7 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
-	experimentalCmd.AddCommand(istiodConfig())
+	rootCmd.AddCommand(istiodConfig())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(install.NewPrecheckCommand())
@@ -328,7 +328,7 @@ func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 	})
 }
 
-func configureLogging(_ *cobra.Command, _ []string) error {
+func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}

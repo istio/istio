@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -332,7 +331,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			// Apply the policy.
 			namespaceTmpl := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+				"RootNamespace": rootNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
@@ -461,8 +460,11 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			}
 
 			for _, c := range ingTestCases {
-				ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
-					authn.CheckIngressOrFail(ctx, ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
+				t.Run(c.Name, func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, func() error {
+						return authn.CheckIngress(ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
+					},
+						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 				})
 			}
 		})

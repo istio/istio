@@ -134,6 +134,7 @@ func TestMain(m *testing.M) {
 			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.name"] = "CANONICAL_REVISION"
 			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.defaultValue"] = "earliest"
 			cfg.Values["global.proxy.tracer"] = "stackdriver"
+			cfg.Values["telemetry.enabled"] = "true"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"

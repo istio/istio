@@ -30,19 +30,19 @@ import (
 	"golang.org/x/sync/errgroup"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -59,8 +59,6 @@ var (
 				"pilot_total_xds_internal_errors",
 				"pilot_xds_push_context_errors",
 				`pilot_xds_pushes{type!~"lds|cds|rds|eds"}`,
-				// We do not push credentials in this test
-				`pilot_xds_pushes{type="sds"}`,
 				"_timeout",
 				"_rejects",
 				// We do not simulate injection errors
@@ -317,20 +315,18 @@ func setupDashboardTest(t framework.TestContext) {
 	// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
 	// Spread out over 5s so rate() queries will behave correctly
 	g, _ := errgroup.WithContext(context.Background())
+	addr := ingr.HTTPAddress()
 	tcpAddr := ingr.TCPAddress()
 	ticker := time.NewTicker(time.Second * 5)
 	for t := 0; t < 20; t++ {
 		<-ticker.C
 		g.Go(func() error {
 			for i := 0; i < 10; i++ {
-				_, err := ingr.CallEcho(echo.CallOptions{
-					Port: &echo.Port{
-						Protocol: protocol.HTTP,
-					},
-					Path: fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", ns.Name()),
-					Headers: map[string][]string{
-						"Host": {"server"},
-					},
+				_, err := ingr.Call(ingress.CallOptions{
+					Host:     "server",
+					Path:     fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", ns.Name()),
+					CallType: ingress.PlainText,
+					Address:  addr,
 				})
 				if err != nil {
 					// Do not fail on errors since there may be initial startup errors
@@ -338,16 +334,11 @@ func setupDashboardTest(t framework.TestContext) {
 					log.Warnf("requests failed: %v", err)
 				}
 			}
-			_, err := ingr.CallEcho(echo.CallOptions{
-				Port: &echo.Port{
-					Protocol:    protocol.HTTP,
-					ServicePort: tcpAddr.Port,
-				},
-				Address: tcpAddr.IP.String(),
-				Path:    fmt.Sprintf("/echo-%s", ns.Name()),
-				Headers: map[string][]string{
-					"Host": {"server"},
-				},
+			_, err := ingr.Call(ingress.CallOptions{
+				Host:     "server",
+				Path:     fmt.Sprintf("/echo-%s", ns.Name()),
+				CallType: ingress.PlainText,
+				Address:  tcpAddr,
 			})
 			if err != nil {
 				// Do not fail on errors since there may be initial startup errors

@@ -97,10 +97,7 @@ sidecarInjectorWebhook:
     autoInject: true
 
   rewriteAppHTTPProbe: true
-istiodRemote:
-  # Sidecar injector mutating webhook configuration url
-  # For example: https://$remotePilotAddress:15017/inject
-  injectionURL: ""
+
 telemetry:
   enabled: true
   v2:
@@ -195,9 +192,6 @@ global:
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
-
-  # Used to locate istiod.
-  istioNamespace: istio-system
 
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
@@ -352,9 +346,7 @@ global:
   # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
   caAddress: ""
 
-  # External istiod controls all remote clusters: disabled by default
-  externalIstiod: false
-  # Central istiod controls all remote clusters: disabled by default
+  # One central istiod controls all remote clusters: disabled by default
   centralIstiod: false
 
   # Configure the policy for validating JWT.

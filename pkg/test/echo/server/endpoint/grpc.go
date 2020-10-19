@@ -26,7 +26,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/reflection"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -76,7 +75,6 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
 		Config: s.Config,
 	})
-	reflection.Register(s.server)
 
 	// Start serving GRPC traffic.
 	go func() {

@@ -116,7 +116,7 @@ func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	}()
 	// from [200,400)
 	if res.StatusCode >= http.StatusOK && res.StatusCode < http.StatusBadRequest {
-		healthCheckLog.Debugf("Health check succeeded for %v", targetURL.String())
+		healthCheckLog.Infof("Health check succeeded for %v", targetURL.String())
 		return Healthy, nil
 	}
 	return Unhealthy, fmt.Errorf("status code was not from [200,400), bad code %v", res.StatusCode)

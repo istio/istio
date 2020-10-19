@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -258,8 +257,8 @@ func (wh *Webhook) admitPilot(request *kube.AdmissionRequest) *kube.AdmissionRes
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	warnings, err := s.Resource().ValidateConfig(*out)
-	if err != nil {
+	// TODO expose warnings
+	if _, err := s.Resource().ValidateConfig(*out); err != nil {
 		scope.Infof("configuration is invalid: %v", err)
 		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
@@ -271,22 +270,7 @@ func (wh *Webhook) admitPilot(request *kube.AdmissionRequest) *kube.AdmissionRes
 	}
 
 	reportValidationPass(request)
-	return &kube.AdmissionResponse{Allowed: true, Warnings: toKubeWarnings(warnings)}
-}
-
-func toKubeWarnings(warn validation.Warning) []string {
-	if warn == nil {
-		return nil
-	}
-	me, ok := warn.(*multierror.Error)
-	if ok {
-		res := []string{}
-		for _, e := range me.Errors {
-			res = append(res, e.Error())
-		}
-		return res
-	}
-	return []string{warn.Error()}
+	return &kube.AdmissionResponse{Allowed: true}
 }
 
 func checkFields(raw []byte, kind string, namespace string, name string) (string, error) {

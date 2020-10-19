@@ -327,7 +327,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if request.ResponseNonce != previousInfo.NonceSent {
 		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
-		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
+		xdsExpiredNonce.Increment()
 		return false
 	}
 
@@ -622,7 +622,7 @@ func reportAllEvents(s DistributionStatusCache, id, version string, ignored map[
 	}
 	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
 	// inform distribution status reporter that this connection has been updated, because it effectively has
-	for distributionType := range AllEventTypes {
+	for _, distributionType := range AllEventTypes {
 		if _, f := ignored[distributionType]; f {
 			// Skip this type
 			continue
@@ -753,7 +753,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(conID, AllEventTypesList)
+		go s.StatusReporter.RegisterDisconnect(conID, AllEventTypes)
 	}
 }
 
@@ -763,8 +763,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(sendTimeout)
 	go func() {
-		start := time.Now()
-		defer func() { recordSendTime(time.Since(start)) }()
 		errChan <- conn.stream.Send(res)
 		close(errChan)
 	}()

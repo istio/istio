@@ -16,7 +16,6 @@ package status
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -341,7 +340,7 @@ func TestAppProbe(t *testing.T) {
 			},
 		},
 	}
-
+	_ = simpleConfig
 	testCases := []struct {
 		probePath  string
 		config     KubeAppProbers
@@ -405,19 +404,14 @@ func TestAppProbe(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.probePath, func(t *testing.T) {
-			appProber, err := json.Marshal(tc.config)
-			if err != nil {
-				t.Fatalf("invalid app probers")
-			}
-			config := Config{
-				StatusPort:     0,
-				KubeAppProbers: string(appProber),
-			}
 			// Starts the pilot agent status server.
-			server, err := NewServer(config)
+			server, err := NewServer(Config{
+				StatusPort: 0,
+			})
 			if err != nil {
 				t.Fatalf("failed to create status server %v", err)
 			}
+			server.appKubeProbers = tc.config
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			go server.Run(ctx)
@@ -436,7 +430,7 @@ func TestAppProbe(t *testing.T) {
 			}
 			resp, err := client.Do(req)
 			if err != nil {
-				t.Fatal("request failed: ", err)
+				t.Fatal("request failed")
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != tc.statusCode {

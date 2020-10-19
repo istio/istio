@@ -64,9 +64,6 @@ func TestMain(m *testing.M) {
   ingressGateways:
   - enabled: false
     name: istio-ingressgateway
-  egressGateways:
-  - enabled: false
-    name: istio-egressgateway
 values:
   istiodRemote:
     injectionURL: https://istiod.istio-system.svc:15017/inject
@@ -84,9 +81,6 @@ components:
   ingressGateways:
   - enabled: false
     name: istio-ingressgateway
-  egressGateways:
-  - enabled: false
-    name: istio-egressgateway
 values:
   global:
     operatorManageWebhooks: true

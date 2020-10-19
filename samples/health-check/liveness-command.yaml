@@ -21,7 +21,6 @@ metadata:
   name: liveness
   labels:
     app: liveness
-    service: liveness
 spec:
   ports:
   - port: 80

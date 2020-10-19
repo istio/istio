@@ -69,7 +69,7 @@ func TestAPIGen(t *testing.T) {
 
 	// Verify we can receive the DNS cluster IPs using XDS
 	t.Run("adsc", func(t *testing.T) {
-		adscConn, err := adsc.New(grpcUpstreamAddr, &adsc.Config{
+		adscConn, err := adsc.Dial(grpcUpstreamAddr, "", &adsc.Config{
 			IP: "1.2.3.4",
 			Meta: model.NodeMetadata{
 				Generator: "api",

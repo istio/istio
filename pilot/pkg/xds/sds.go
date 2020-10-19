@@ -47,7 +47,7 @@ func (sr SecretResource) Key() string {
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigKey {
-	return relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})
+	return []model.ConfigKey{{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}}
 }
 
 func (sr SecretResource) Cacheable() bool {
@@ -106,7 +106,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 	}
 	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
-		adsLog.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		adsLog.Warnf("proxy %v is from and unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		return nil
 	}
 	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
@@ -129,7 +129,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 		}
 
 		if updatedSecrets != nil {
-			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
+			if _, f := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; !f {
 				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}
@@ -202,37 +202,6 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte) *any.Any {
 			},
 		},
 	})
-}
-
-func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
-	for _, k := range keys {
-		if _, f := mp[k]; f {
-			return true
-		}
-	}
-	return false
-}
-
-// relatedConfigs maps a single resource to a list of relevant resources. This is used for cache invalidation
-// and push skipping. This is because an secret potentially has a dependency on the same secret with or without
-// the -cacert suffix. By including this dependency we ensure we do not miss any updates.
-// This is important for cases where we have a compound secret. In this case, the `foo` secret may update,
-// but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
-func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
-	related := []model.ConfigKey{k}
-	// For secrets without -cacert suffix, add the suffix
-	if !strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
-		withSuffix := k
-		withSuffix.Name += GatewaySdsCaSuffix
-		related = append(related, withSuffix)
-	}
-	// For secrets with -cacert suffix, remove the suffix
-	if strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
-		withoutSuffix := k
-		withoutSuffix.Name = strings.TrimSuffix(withoutSuffix.Name, GatewaySdsCaSuffix)
-		related = append(related, withoutSuffix)
-	}
-	return related
 }
 
 type SecretGen struct {

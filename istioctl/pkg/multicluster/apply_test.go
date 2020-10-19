@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd/api"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -49,7 +48,7 @@ var (
 	// required to build remote secret
 	pilotServiceAccount = &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.DefaultServiceAccountName,
+			Name:      DefaultServiceAccountName,
 			Namespace: defaultIstioNamespace,
 		},
 		Secrets: []v1.ObjectReference{{
@@ -94,7 +93,7 @@ func makeCluster(id int) *Cluster {
 		ClusterDesc: ClusterDesc{
 			Network:              fmt.Sprintf("net%v", id),
 			Namespace:            defaultIstioNamespace,
-			ServiceAccountReader: constants.DefaultServiceAccountName,
+			ServiceAccountReader: DefaultServiceAccountName,
 			DisableRegistryJoin:  false,
 		},
 		Context:     fmt.Sprintf("context%v", id),

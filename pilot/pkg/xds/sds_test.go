@@ -125,8 +125,6 @@ func TestGenerate(t *testing.T) {
 		Cert   string
 		CaCert string
 	}
-	allResources := []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
-		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert"}
 	cases := []struct {
 		name                 string
 		proxy                *model.Proxy
@@ -169,10 +167,11 @@ func TestGenerate(t *testing.T) {
 			expect:    map[string]Expected{},
 		},
 		{
-			name:      "multiple",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"},
-			resources: allResources,
-			request:   &model.PushRequest{Full: true},
+			name:  "multiple",
+			proxy: &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"},
+			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
+				"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert"},
+			request: &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
 					Key:  "generic-key",
@@ -197,7 +196,7 @@ func TestGenerate(t *testing.T) {
 		{
 			name:      "full push with updates",
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"},
-			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert"},
+			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls"},
 			request: &model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{
 				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
 			}},
@@ -210,29 +209,12 @@ func TestGenerate(t *testing.T) {
 					Key:  "generic-mtls-key",
 					Cert: "generic-mtls-cert",
 				},
-				"kubernetes://generic-mtls-cacert": {
-					CaCert: "generic-mtls-ca",
-				},
 			},
 		},
 		{
 			name:      "incremental push with updates",
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"},
-			resources: allResources,
-			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic", Namespace: "istio-system", Kind: gvk.Secret}: {},
-			}},
-			expect: map[string]Expected{
-				"kubernetes://generic": {
-					Key:  "generic-key",
-					Cert: "generic-cert",
-				},
-			},
-		},
-		{
-			name:      "incremental push with updates - mtls",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"},
-			resources: allResources,
+			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls"},
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
 				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
 			}},
@@ -240,43 +222,6 @@ func TestGenerate(t *testing.T) {
 				"kubernetes://generic-mtls": {
 					Key:  "generic-mtls-key",
 					Cert: "generic-mtls-cert",
-				},
-				"kubernetes://generic-mtls-cacert": {
-					CaCert: "generic-mtls-ca",
-				},
-			},
-		},
-		{
-			name:      "incremental push with updates - mtls split",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"},
-			resources: allResources,
-			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split", Namespace: "istio-system", Kind: gvk.Secret}: {},
-			}},
-			expect: map[string]Expected{
-				"kubernetes://generic-mtls-split": {
-					Key:  "generic-mtls-split-key",
-					Cert: "generic-mtls-split-cert",
-				},
-				"kubernetes://generic-mtls-split-cacert": {
-					CaCert: "generic-mtls-split-ca",
-				},
-			},
-		},
-		{
-			name:      "incremental push with updates - mtls split ca update",
-			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"},
-			resources: allResources,
-			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split-cacert", Namespace: "istio-system", Kind: gvk.Secret}: {},
-			}},
-			expect: map[string]Expected{
-				"kubernetes://generic-mtls-split": {
-					Key:  "generic-mtls-split-key",
-					Cert: "generic-mtls-split-cert",
-				},
-				"kubernetes://generic-mtls-split-cacert": {
-					CaCert: "generic-mtls-split-ca",
 				},
 			},
 		},

@@ -21,7 +21,6 @@ metadata:
   name: details
   labels:
     app: details
-    service: details
 spec:
   ports:
   - port: 9080
@@ -64,7 +63,6 @@ metadata:
   name: reviews
   labels:
     app: reviews
-    service: reviews
 spec:
   ports:
   - port: 9080
@@ -107,7 +105,6 @@ metadata:
   name: productpage
   labels:
     app: productpage
-    service: productpage
 spec:
   ports:
   - port: 9080

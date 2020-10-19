@@ -49,6 +49,10 @@ func getLabelValue(metadata metav1.Object, label string, fallBackLabel string) s
 	return labels[fallBackLabel]
 }
 
+func createUID(podName, namespace string) string {
+	return "kubernetes://" + podName + "." + namespace
+}
+
 // Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod
 // FindPort locates the container port for the given pod and portName.  If the
 // targetPort is a number, use that.  If the targetPort is a string, look that

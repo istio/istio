@@ -1616,6 +1616,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		}
 
 		appliesToMesh := false
+		appliesToGateway := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
 		}
@@ -1624,6 +1625,8 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		for _, gatewayName := range virtualService.Gateways {
 			if gatewayName == constants.IstioMeshGateway {
 				appliesToMesh = true
+			} else {
+				appliesToGateway = true
 			}
 		}
 
@@ -1663,6 +1666,9 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			if httpRoute == nil {
 				errs = appendErrors(errs, errors.New("http route may not be null"))
 				continue
+			}
+			if !appliesToGateway && httpRoute.Delegate != nil {
+				errs = appendErrors(errs, errors.New("http delegate only applies to gateway"))
 			}
 			errs = appendErrors(errs, validateHTTPRoute(httpRoute, isDelegate))
 		}
@@ -1766,6 +1772,109 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	}
 	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+	return
+}
+
+func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
+	if features.EnableVirtualServiceDelegate {
+		if delegate {
+			return validateDelegateHTTPRoute(http)
+		}
+		if http.Delegate != nil {
+			return validateRootHTTPRoute(http)
+		}
+	}
+
+	// check for conflicts
+	if http.Redirect != nil {
+		if len(http.Route) > 0 {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both route and redirect"))
+		}
+
+		if http.Fault != nil {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both fault and redirect"))
+		}
+
+		if http.Rewrite != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
+		}
+	} else if len(http.Route) == 0 {
+		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
+	}
+
+	// header manipulation
+	for name, val := range http.Headers.GetRequest().GetAdd() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
+	}
+	for name, val := range http.Headers.GetRequest().GetSet() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
+	}
+	for _, name := range http.Headers.GetRequest().GetRemove() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for name, val := range http.Headers.GetResponse().GetAdd() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
+	}
+	for name, val := range http.Headers.GetResponse().GetSet() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
+	}
+	for _, name := range http.Headers.GetResponse().GetRemove() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+
+	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
+	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
+
+	for _, match := range http.Match {
+		if match != nil {
+			for name, header := range match.Headers {
+				if header == nil {
+					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+				}
+				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
+			}
+
+			if match.Port != 0 {
+				errs = appendErrors(errs, ValidatePort(int(match.Port)))
+			}
+			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
+			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
+			for _, qp := range match.GetQueryParams() {
+				errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+			}
+		}
+	}
+
+	if http.MirrorPercent != nil {
+		if value := http.MirrorPercent.GetValue(); value > 100 {
+			errs = appendErrors(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
+		}
+	}
+
+	if http.MirrorPercentage != nil {
+		if value := http.MirrorPercentage.GetValue(); value > 100 {
+			errs = appendErrors(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
+		}
+	}
+
+	errs = appendErrors(errs, validateDestination(http.Mirror))
+	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
+	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
+	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
+	errs = appendErrors(errs, validateHTTPRouteDestinations(http.Route))
+	if http.Timeout != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
+	}
+
 	return
 }
 

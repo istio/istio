@@ -338,13 +338,13 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, false)
+	out, err := common.ForwardEcho(c.workloads[0].Instance, &opts)
 	if err != nil {
 		if opts.Port != nil {
 			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
 				c.Config().Service,
 				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Address,
+				opts.Host,
 				opts.Port.ServicePort,
 				opts.Path,
 				err)
@@ -357,34 +357,6 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
 	t.Helper()
 	r, err := c.Call(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
-
-func (c *instance) CallWithRetry(opts echo.CallOptions,
-	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
-	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, true, retryOptions...)
-	if err != nil {
-		if opts.Port != nil {
-			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-				c.Config().Service,
-				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Address,
-				opts.Port.ServicePort,
-				opts.Path,
-				err)
-		}
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
-	retryOptions ...retry.Option) appEcho.ParsedResponses {
-	t.Helper()
-	r, err := c.CallWithRetry(opts, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}

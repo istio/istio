@@ -15,13 +15,9 @@
 package bootstrap
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube/inject"
@@ -33,9 +29,6 @@ import (
 const (
 	// Name of the webhook config in the config - no need to change it.
 	webhookName = "sidecar-injector.istio.io"
-	// defaultInjectorConfigMapName is the default name of the ConfigMap with the injection config
-	// The actual name can be different - use getInjectorConfigMapName
-	defaultInjectorConfigMapName = "istio-sidecar-injector"
 )
 
 var (
@@ -50,33 +43,18 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		return nil, nil
 	}
 
-	// If the injection config exists either locally or remotely, we will set up injection.
-	var watcher inject.Watcher
-	if _, err := os.Stat(filepath.Join(injectPath, "config")); !os.IsNotExist(err) {
-		configFile := filepath.Join(injectPath, "config")
-		valuesFile := filepath.Join(injectPath, "values")
-		watcher, err = inject.NewFileWatcher(configFile, valuesFile)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		configMapName := getInjectorConfigMapName(args.Revision)
-		cms := s.kubeClient.CoreV1().ConfigMaps(args.Namespace)
-		if _, err := cms.Get(context.TODO(), configMapName, metav1.GetOptions{}); err != nil {
-			if errors.IsNotFound(err) {
-				log.Infof("Skipping sidecar injector, template not found")
-				return nil, nil
-			}
-			return nil, err
-		}
-		watcher = inject.NewConfigMapWatcher(s.kubeClient, args.Namespace, configMapName, "config", "values")
+	// If the injection path exists, we will set up injection
+	if _, err := os.Stat(filepath.Join(injectPath, "config")); os.IsNotExist(err) {
+		log.Infof("Skipping sidecar injector, template not found")
+		return nil, nil
 	}
 
 	log.Info("initializing sidecar injector")
 
 	parameters := inject.WebhookParameters{
-		Watcher: watcher,
-		Env:     s.environment,
+		ConfigFile: filepath.Join(injectPath, "config"),
+		ValuesFile: filepath.Join(injectPath, "values"),
+		Env:        s.environment,
 		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
 		MonitoringPort: -1,
 		Mux:            s.httpsMux,
@@ -106,12 +84,4 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		return nil
 	})
 	return wh, nil
-}
-
-func getInjectorConfigMapName(revision string) string {
-	name := defaultInjectorConfigMapName
-	if revision == "" || revision == "default" {
-		return name
-	}
-	return name + "-" + revision
 }

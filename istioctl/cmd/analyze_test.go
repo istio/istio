@@ -53,7 +53,7 @@ func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
 			"",
 		),
 		diag.NewMessage(
-			diag.NewMessageType(diag.Warning, "A1", "Template: %q"),
+			diag.NewMessageType(diag.Info, "A1", "Template: %q"),
 			nil,
 			"",
 		),

@@ -36,7 +36,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
@@ -44,6 +43,10 @@ import (
 var (
 	codec  runtime.Codec
 	scheme *runtime.Scheme
+)
+
+const (
+	configSecretName = "istio-kubeconfig"
 )
 
 func init() {
@@ -65,9 +68,10 @@ func init() {
 }
 
 const (
+	// default service account to use for remote cluster access.
+	DefaultServiceAccountName = "istio-reader-service-account"
+
 	remoteSecretPrefix = "istio-remote-secret-"
-	configSecretName   = "istio-kubeconfig"
-	configSecretKey    = "config"
 )
 
 func remoteSecretNameFromClusterName(clusterName string) string {
@@ -82,9 +86,10 @@ func clusterNameFromRemoteSecretName(name string) string {
 // together in a multi-cluster mesh.
 func NewCreateRemoteSecretCommand() *cobra.Command {
 	opts := RemoteSecretOptions{
-		AuthType:         RemoteSecretAuthTypeBearerToken,
-		AuthPluginConfig: make(map[string]string),
-		Type:             SecretTypeRemote,
+		ServiceAccountName: DefaultServiceAccountName,
+		AuthType:           RemoteSecretAuthTypeBearerToken,
+		AuthPluginConfig:   make(map[string]string),
+		Type:               SecretTypeRemote,
 	}
 	c := &cobra.Command{
 		Use:   "create-remote-secret",
@@ -127,10 +132,6 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 	if err := latest.Codec.Encode(kubeconfig, &data); err != nil {
 		return nil, err
 	}
-	key := clusterName
-	if secName == configSecretName {
-		key = configSecretKey
-	}
 	out := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: secName,
@@ -142,7 +143,7 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 			},
 		},
 		Data: map[string][]byte{
-			key: data.Bytes(),
+			clusterName: data.Bytes(),
 		},
 	}
 	return out, nil
@@ -340,10 +341,8 @@ type RemoteSecretOptions struct {
 }
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
-	flagset.StringVar(&o.ServiceAccountName, "service-account", "",
-		"Create a secret with this service account's credentials. Use \""+
-			constants.DefaultServiceAccountName+"\" as default value if --type is \"remote\", use \""+
-			constants.DefaultConfigServiceAccountName+"\" as default value if --type is \"config\"")
+	flagset.StringVar(&o.ServiceAccountName, "service-account", o.ServiceAccountName,
+		"Create a secret with this service account's credentials.")
 	flagset.StringVar(&o.ClusterName, "name", "",
 		"Name of the local cluster whose credentials are stored "+
 			"in the secret. If a name is not specified the kube-system namespace's UUID of "+
@@ -390,21 +389,6 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 		opt.ClusterName = string(uid)
 	}
 
-	var secretName string
-	switch opt.Type {
-	case SecretTypeRemote:
-		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
-		if opt.ServiceAccountName == "" {
-			opt.ServiceAccountName = constants.DefaultServiceAccountName
-		}
-	case SecretTypeConfig:
-		secretName = configSecretName
-		if opt.ServiceAccountName == "" {
-			opt.ServiceAccountName = constants.DefaultConfigServiceAccountName
-		}
-	default:
-		return nil, fmt.Errorf("unsupported type: %v", opt.Type)
-	}
 	tokenSecret, err := getServiceAccountSecret(client, opt.ServiceAccountName, opt.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
@@ -413,6 +397,15 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 	server, err := getServerFromKubeconfig(opt.Context, env.GetConfig())
 	if err != nil {
 		return nil, err
+	}
+	var secretName string
+	switch opt.Type {
+	case SecretTypeRemote:
+		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
+	case SecretTypeConfig:
+		secretName = configSecretName
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", opt.Type)
 	}
 
 	var remoteSecret *v1.Secret

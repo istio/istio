@@ -291,23 +291,14 @@ func getLocalityFromTopology(topology map[string]string) string {
 	return locality
 }
 
-// endpointKey unique identifies an endpoint by IP and port name
-// This is used for deduping endpoints accros slices.
-type endpointKey struct {
-	ip   string
-	port string
-}
-
 type endpointSliceCache struct {
-	mu                            sync.RWMutex
-	endpointKeysByServiceAndSlice map[host.Name]map[string][]endpointKey
-	endpointByKey                 map[endpointKey]*model.IstioEndpoint
+	mu                         sync.RWMutex
+	endpointsByServiceAndSlice map[host.Name]map[string][]*model.IstioEndpoint
 }
 
 func newEndpointSliceCache() *endpointSliceCache {
 	out := &endpointSliceCache{
-		endpointKeysByServiceAndSlice: make(map[host.Name]map[string][]endpointKey),
-		endpointByKey:                 make(map[endpointKey]*model.IstioEndpoint),
+		endpointsByServiceAndSlice: make(map[host.Name]map[string][]*model.IstioEndpoint),
 	}
 	return out
 }
@@ -316,36 +307,21 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if len(endpoints) == 0 {
-		for _, ip := range e.endpointKeysByServiceAndSlice[hostname][slice] {
-			delete(e.endpointByKey, ip)
-		}
-		delete(e.endpointKeysByServiceAndSlice[hostname], slice)
+		delete(e.endpointsByServiceAndSlice[hostname], slice)
 	}
-	if _, f := e.endpointKeysByServiceAndSlice[hostname]; !f {
-		e.endpointKeysByServiceAndSlice[hostname] = make(map[string][]endpointKey)
+	if _, f := e.endpointsByServiceAndSlice[hostname]; !f {
+		e.endpointsByServiceAndSlice[hostname] = make(map[string][]*model.IstioEndpoint)
 	}
-	keys := make([]endpointKey, 0, len(endpoints))
-	for _, ep := range endpoints {
-		key := endpointKey{ep.Address, ep.ServicePortName}
-		keys = append(keys, key)
-		// We will always overwrite. A conflict here means an endpoint is transitioning
-		// from one slice to another See
-		// https://github.com/kubernetes/website/blob/master/content/en/docs/concepts/services-networking/endpoint-slices.md#duplicate-endpoints
-		// In this case, we can always assume and update is fresh, although older slices
-		// we have not gotten updates may be stale; therefor we always take the new
-		// update.
-		e.endpointByKey[key] = ep
-	}
-	e.endpointKeysByServiceAndSlice[hostname][slice] = keys
+	e.endpointsByServiceAndSlice[hostname][slice] = endpoints
 }
 
 func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	delete(e.endpointKeysByServiceAndSlice[hostname], slice)
-	if len(e.endpointKeysByServiceAndSlice[hostname]) == 0 {
-		delete(e.endpointKeysByServiceAndSlice, hostname)
+	delete(e.endpointsByServiceAndSlice[hostname], slice)
+	if len(e.endpointsByServiceAndSlice[hostname]) == 0 {
+		delete(e.endpointsByServiceAndSlice, hostname)
 	}
 }
 
@@ -353,17 +329,8 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	var endpoints []*model.IstioEndpoint
-	found := map[endpointKey]struct{}{}
-	for _, keys := range e.endpointKeysByServiceAndSlice[hostname] {
-		for _, key := range keys {
-			if _, f := found[key]; f {
-				// This a duplicate. Update() already handles conflict resolution, so we don't
-				// need to pick the "right" one here.
-				continue
-			}
-			found[key] = struct{}{}
-			endpoints = append(endpoints, e.endpointByKey[key])
-		}
+	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
+		endpoints = append(endpoints, eps...)
 	}
 	return endpoints
 }

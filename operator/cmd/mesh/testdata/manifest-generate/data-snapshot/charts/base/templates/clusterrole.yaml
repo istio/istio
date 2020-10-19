@@ -115,7 +115,7 @@ rules:
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
     verbs: ["create"]
-{{- if or .Values.global.externalIstiod .Values.global.centralIstiod }}
+{{- if .Values.global.centralIstiod }}
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]

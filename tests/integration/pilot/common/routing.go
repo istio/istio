@@ -96,17 +96,13 @@ spec:
       request:
         add:
           istio-custom-header: user-defined-value`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
-							})
-						}),
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+					})
 				},
 			},
 			TrafficTestCase{
@@ -131,18 +127,13 @@ spec:
     route:
     - destination:
         host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo?key=value",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
-							})
-						}),
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Path: "/foo?key=value", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return ExpectString(response.URL, "/new/path?key=value", "URL")
+					})
 				},
 			},
 			TrafficTestCase{
@@ -164,18 +155,13 @@ spec:
     route:
     - destination:
         host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo?key=value#hash",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
-							})
-						}),
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Path: "/foo?key=value#hash", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return ExpectString(response.URL, "/new/path?key=value", "URL")
+					})
 				},
 			},
 			TrafficTestCase{
@@ -197,18 +183,13 @@ spec:
     route:
     - destination:
         host: b`,
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Path:     "/foo",
-					Count:    callCount,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.Host, "new-authority", "authority")
-							})
-						}),
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Path: "/foo", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return ExpectString(response.Host, "new-authority", "authority")
+					})
 				},
 			},
 			TrafficTestCase{
@@ -237,76 +218,57 @@ spec:
     - destination:
         host: b
 `,
-				children: []TrafficCall{
+				calls: []TrafficCall{
 					{
-						name: "preflight",
-						call: podA.CallWithRetryOrFail,
-						opts: func() echo.CallOptions {
+						// Preflight request
+						call: func() (echoclient.ParsedResponses, error) {
 							header := http.Header{}
 							header.Add("Origin", "cors.com")
 							header.Add("Access-Control-Request-Method", "DELETE")
-							return echo.CallOptions{
+							return podA.Call(echo.CallOptions{
 								Target:   apps.PodB[0],
 								PortName: "http",
 								Method:   "OPTIONS",
 								Headers:  header,
 								Count:    callCount,
-								Validator: echo.ValidatorFunc(
-									func(response echoclient.ParsedResponses, _ error) error {
-										return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Origin"],
-												"cors.com", "preflight CORS origin"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Methods"],
-												"POST,GET", "preflight CORS method"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Headers"],
-												"X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Max-Age"],
-												"86400", "preflight CORS max age"); err != nil {
-												return err
-											}
-											return nil
-										})
-									}),
-							}
-						}(),
+							})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								if err := ExpectString(response.RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
+									return err
+								}
+								if err := ExpectString(response.RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
+									return err
+								}
+								if err := ExpectString(response.RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
+									return err
+								}
+								if err := ExpectString(response.RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
+									return err
+								}
+								return nil
+							})
+						},
 					},
 					{
-						name: "get",
-						call: podA.CallWithRetryOrFail,
-						opts: func() echo.CallOptions {
+						// GET
+						call: func() (echoclient.ParsedResponses, error) {
 							header := http.Header{}
 							header.Add("Origin", "cors.com")
-							return echo.CallOptions{
-								Target:   apps.PodB[0],
-								PortName: "http",
-								Headers:  header,
-								Count:    callCount,
-								Validator: echo.ValidatorFunc(
-									func(response echoclient.ParsedResponses, _ error) error {
-										return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"],
-											"cors.com", "GET CORS origin")
-									}),
-							}
-						}(),
+							return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Headers: header, Count: callCount})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin")
+						},
 					},
 					{
 						// GET without matching origin
-						name: "get no origin match",
-						call: podA.CallWithRetryOrFail,
-						opts: echo.CallOptions{
-							Target:   apps.PodB[0],
-							PortName: "http",
-							Count:    callCount,
-							Validator: echo.ValidatorFunc(
-								func(response echoclient.ParsedResponses, _ error) error {
-									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
-								}),
+						call: func() (echoclient.ParsedResponses, error) {
+							return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Count: callCount})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
 						},
 					}},
 			},
@@ -349,37 +311,34 @@ spec:
         host: vm
       weight: %d
 `, split[PodBSvc], split[NakedSvc], split[VMSvc]),
-				call: podA.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   apps.PodB[0],
-					PortName: "http",
-					Count:    100,
-					Validator: echo.And(
-						echo.ExpectOK(),
-						echo.ValidatorFunc(
-							func(responses echoclient.ParsedResponses, _ error) error {
-								errorThreshold := 10
-								for host, exp := range split {
-									hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
-										return strings.HasPrefix(r.Hostname, host+"-")
-									})
-									if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
-										return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
-									}
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Count: 100})
+				},
+				validator: func(responses echoclient.ParsedResponses) error {
+					if err := responses.CheckOK(); err != nil {
+						return err
+					}
+					errorThreshold := 10
+					for host, exp := range split {
+						hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
+							return strings.HasPrefix(r.Hostname, host+"-")
+						})
+						if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
+							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
+						}
 
-									hostDestinations := apps.All.Match(echo.Service(host))
-									if host == NakedSvc {
-										// only expect to hit same-network clusters for nakedSvc
-										hostDestinations = apps.All.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
-									}
+						hostDestinations := apps.All.Match(echo.Service(host))
+						if host == NakedSvc {
+							// only expect to hit same-network clusters for nakedSvc
+							hostDestinations = apps.All.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
+						}
 
-									// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
-									if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
-										return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
-									}
-								}
-								return nil
-							})),
+						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
+						if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
+							return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+						}
+					}
+					return nil
 				},
 			})
 		}
@@ -407,32 +366,14 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 		cases = append(cases, TrafficTestCase{
 			name:   fqdn,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
-			call:   apps.Ingress.CallEchoWithRetryOrFail,
-			opts: echo.CallOptions{
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
-				Headers: map[string][]string{
-					"Host": {fqdn},
-				},
-				Validator: echo.ExpectOK(),
+			call: func() (echoclient.ParsedResponses, error) {
+				return apps.Ingress.CallEcho(echo.CallOptions{Port: &echo.Port{Protocol: protocol.HTTP}, Host: fqdn})
+			},
+			validator: func(responses echoclient.ParsedResponses) error {
+				return responses.CheckOK()
 			},
 		})
 	}
-	cases = append(cases, TrafficTestCase{
-		name:   "404",
-		config: httpGateway("*"),
-		call:   apps.Ingress.CallEchoWithRetryOrFail,
-		opts: echo.CallOptions{
-			Port: &echo.Port{
-				Protocol: protocol.HTTP,
-			},
-			Headers: map[string][]string{
-				"Host": {"foo.bar"},
-			},
-			Validator: echo.ExpectCode("404"),
-		},
-	})
 	return cases
 }
 
@@ -489,16 +430,23 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 						// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
 						skip: call.scheme == scheme.TCP,
 						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
-						call: client.CallWithRetryOrFail,
-						opts: echo.CallOptions{
-							Target:   destination,
-							PortName: call.port,
-							Scheme:   call.scheme,
-							Count:    callCount,
-							Timeout:  time.Second * 5,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectHost(destination.Config().HostHeader())),
+						call: func() (echoclient.ParsedResponses, error) {
+							return client.Call(echo.CallOptions{
+								Target:   destination,
+								PortName: call.port,
+								Scheme:   call.scheme,
+								Count:    callCount,
+								Timeout:  time.Second * 5,
+							})
+						},
+						validator: func(responses echoclient.ParsedResponses) error {
+							if err := responses.CheckOK(); err != nil {
+								return err
+							}
+							if err := responses.CheckHost(destination.Config().HostHeader()); err != nil {
+								return err
+							}
+							return nil
 						},
 					})
 				}
@@ -553,21 +501,26 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			to:   vms,
 		})
 	}
-	cases := make([]TrafficTestCase, 0)
+	cases := []TrafficTestCase{}
 	for _, c := range testCases {
 		c := c
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.Name()),
-			call: c.from.CallWithRetryOrFail,
-			opts: echo.CallOptions{
-				// assume that all echos in `to` only differ in which cluster they're deployed in
-				Target:   c.to[0],
-				PortName: "http",
-				Address:  c.host,
-				Count:    callsPerCluster * len(c.to),
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ExpectReachedClusters(c.to.Clusters())),
+			call: func() (echoclient.ParsedResponses, error) {
+				return c.from.Call(echo.CallOptions{
+					// assume that all echos in `to` only differ in which cluster they're deployed in
+					Target:   c.to[0],
+					PortName: "http",
+					Host:     c.host,
+					Count:    callsPerCluster * len(c.to),
+				})
+			},
+			validator: func(responses echoclient.ParsedResponses) error {
+				if err := responses.CheckOK(); err != nil {
+					return err
+				}
+				// when vm -> k8s tests are enabled, they should reach all clusters
+				return responses.CheckReachedClusters(c.to.Clusters())
 			},
 		})
 	}
@@ -604,42 +557,42 @@ spec:
 }
 
 func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := make([]TrafficTestCase, 0)
+	cases := []TrafficTestCase{}
 	clients := apps.PodA
 	destination := apps.PodC[0]
 	configs := []struct {
-		port      string
-		dest      string
-		auth      string
-		validator echo.Validator
+		port    string
+		dest    string
+		auth    string
+		success bool
 	}{
 		// TODO: All these cases *should* succeed (except the TLS mismatch cases) - but don't due to issues in our implementation
 
 		// For auto port, outbound request will be delayed by the protocol sniffer, regardless of configuration
-		{"auto-tcp-server", "DISABLE", "DISABLE", echo.ExpectError()},
-		{"auto-tcp-server", "DISABLE", "PERMISSIVE", echo.ExpectError()},
-		{"auto-tcp-server", "DISABLE", "STRICT", echo.ExpectError()},
-		{"auto-tcp-server", "ISTIO_MUTUAL", "DISABLE", echo.ExpectError()},
-		{"auto-tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", echo.ExpectError()},
-		{"auto-tcp-server", "ISTIO_MUTUAL", "STRICT", echo.ExpectError()},
+		{"auto-tcp-server", "DISABLE", "DISABLE", false},
+		{"auto-tcp-server", "DISABLE", "PERMISSIVE", false},
+		{"auto-tcp-server", "DISABLE", "STRICT", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "DISABLE", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "STRICT", false},
 
 		// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
 		// there is no server-first "upgrading" to client-first
-		{"tcp-server", "DISABLE", "DISABLE", echo.ExpectOK()},
-		{"tcp-server", "DISABLE", "PERMISSIVE", echo.ExpectError()},
+		{"tcp-server", "DISABLE", "DISABLE", true},
+		{"tcp-server", "DISABLE", "PERMISSIVE", false},
 
 		// Expected to fail, incompatible configuration
-		{"tcp-server", "DISABLE", "STRICT", echo.ExpectError()},
-		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", echo.ExpectError()},
+		{"tcp-server", "DISABLE", "STRICT", false},
+		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", false},
 
 		// In these cases, we expect success
 		// There is no sniffer on either side
-		{"tcp-server", "DISABLE", "DISABLE", echo.ExpectOK()},
+		{"tcp-server", "DISABLE", "DISABLE", true},
 
 		// On outbound, we have no sniffer involved
 		// On inbound, the request is TLS, so its not server first
-		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", echo.ExpectOK()},
-		{"tcp-server", "ISTIO_MUTUAL", "STRICT", echo.ExpectOK()},
+		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", true},
+		{"tcp-server", "ISTIO_MUTUAL", "STRICT", true},
 	}
 	for _, client := range clients {
 		for _, c := range configs {
@@ -648,15 +601,19 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
 				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
 				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
-				call:   client.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:   destination,
-					PortName: c.port,
-					Scheme:   scheme.TCP,
-					// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
-					Timeout:   time.Millisecond * 100,
-					Validator: c.validator,
+				call: func() (echoclient.ParsedResponses, error) {
+					return client.Call(echo.CallOptions{
+						Target:   destination,
+						PortName: c.port,
+						Scheme:   scheme.TCP,
+						// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
+						Timeout: time.Millisecond * 100,
+					})
 				},
+				validator: func(responses echoclient.ParsedResponses) error {
+					return responses.CheckOK()
+				},
+				expectFailure: !c.success,
 			})
 		}
 	}

@@ -32,37 +32,37 @@ func TestCtlPlaneConfig(t *testing.T) {
 
 	cases := []execTestCase{
 		{
-			args:           strings.Split("experimental istiod", " "),
+			args:           strings.Split("istiod-config", " "),
 			expectedString: "Manage istiod logging",
 		},
 		{
-			args:           strings.Split("x istiod", " "),
+			args:           strings.Split("idc", " "),
 			expectedString: "Manage istiod logging",
 		},
 		{
-			args:           strings.Split("x istiod log -l app=invalid", " "),
+			args:           strings.Split("idc log -l app=invalid", " "),
 			expectedString: "no pods found",
 			wantException:  true,
 		},
 		{
-			args:           strings.Split("x istiod log", " "),
+			args:           strings.Split("idc log", " "),
 			expectedString: "no pods found",
 			wantException:  true,
 		},
 		{
 			execClientConfig: istiodConfigMap,
-			args:             strings.Split("x istiod log istiod-7b69ff6f8c-fvjvw --level invalid", " "),
+			args:             strings.Split("idc log istiod-7b69ff6f8c-fvjvw --level invalid", " "),
 			expectedString:   "pattern invalid did not match",
 			wantException:    true,
 		},
 		{
 			execClientConfig: istiodConfigMap,
-			args:             strings.Split("x istiod log istiod-7b69ff6f8c-fvjvw --stack-trace-level invalid", " "),
+			args:             strings.Split("idc log istiod-7b69ff6f8c-fvjvw --stack-trace-level invalid", " "),
 			expectedString:   "pattern invalid did not match",
 			wantException:    true,
 		},
 		{
-			args:           strings.Split("x istiod log --reset --level invalid", " "),
+			args:           strings.Split("idc log --reset --level invalid", " "),
 			expectedString: "--level cannot be combined with --reset",
 			wantException:  true,
 		},

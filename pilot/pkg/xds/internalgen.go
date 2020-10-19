@@ -52,8 +52,6 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
-	Store model.ConfigStore
-
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
 }
@@ -90,9 +88,6 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
 	// Make sure we include the ID - the DR may not include metadata
-	if dr.Node == nil {
-		dr.Node = &core.Node{}
-	}
 	dr.Node.Id = node.ID
 	sg.startPush(TypeURLNACK, []proto.Message{dr})
 }

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
@@ -56,15 +57,14 @@ const (
 	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
 	localHostIPv4      = "127.0.0.1"
 	localHostIPv6      = "[::1]"
-
-	// Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
-	xdsHeaderPrefix = "XDS_HEADER_"
 )
 
 // TODO: Move most of this to pkg.
 
 var (
 	role               = &model.Proxy{}
+	proxyIP            string
+	registryID         serviceregistry.ProviderID
 	trustDomain        string
 	stsPort            int
 	tokenManagerPlugin string
@@ -147,12 +147,10 @@ var (
 	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
-	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
-		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
-	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", true,
+	proxyXDSViaAgent = env.RegisterBoolVar("ISTIO_META_PROXY_XDS_VIA_AGENT", false,
 		"If set to true, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
 	// This is a copy of the env var in the init code.
@@ -177,9 +175,11 @@ var (
 			// Allow unknown flags for backward-compatibility.
 			UnknownFlags: true,
 		},
-		PersistentPreRunE: configureLogging,
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Extract pod variables.
@@ -197,7 +197,9 @@ var (
 				}
 			}
 
-			if podIP != nil {
+			if len(proxyIP) != 0 {
+				role.IPAddresses = []string{proxyIP}
+			} else if podIP != nil {
 				role.IPAddresses = []string{podIP.String()}
 			}
 
@@ -222,11 +224,17 @@ var (
 				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 				role.IPAddresses = append(role.IPAddresses, "::1")
 			}
-			role.ID = podName + "." + podNamespace
 
 			// Check if proxy runs in ipv4 or ipv6 environment to set Envoy's
 			// operational parameters correctly.
 			proxyIPv6 := isIPv6Proxy(role.IPAddresses)
+			if len(role.ID) == 0 {
+				if registryID == serviceregistry.Kubernetes {
+					role.ID = podName + "." + podNamespace
+				} else {
+					role.ID = role.IPAddresses[0]
+				}
+			}
 
 			proxyConfig, err := constructProxyConfig()
 			if err != nil {
@@ -293,8 +301,7 @@ var (
 			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
 			// GCE is the only supported plugin at the moment.
 			if credFetcherTypeEnv == security.GCE {
-				secOpts.CredIdentityProvider = credIdentityProvider
-				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath, secOpts.CredIdentityProvider)
+				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath)
 				if err != nil {
 					return fmt.Errorf("failed to create credential fetcher: %v", err)
 				}
@@ -305,9 +312,7 @@ var (
 			agentConfig := &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
 				CARootCerts:  caRootCA,
-				XDSHeaders:   map[string]string{},
 			}
-			extractXDSHeadersFromEnv(agentConfig)
 			if proxyXDSViaAgent {
 				agentConfig.ProxyXDSViaAgent = true
 				agentConfig.DNSCapture = dnsCaptureByAgent
@@ -400,21 +405,6 @@ var (
 	}
 )
 
-// Simplified extraction of gRPC headers from environment.
-// Unlike ISTIO_META, where we need JSON and advanced features - this is just for small string headers.
-func extractXDSHeadersFromEnv(config *istio_agent.AgentConfig) {
-	envs := os.Environ()
-	for _, e := range envs {
-		if strings.HasPrefix(e, xdsHeaderPrefix) {
-			parts := strings.SplitN(e, "=", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			config.XDSHeaders[parts[0][len(xdsHeaderPrefix):]] = parts[1]
-		}
-	}
-}
-
 func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfig.ProxyConfig) error {
 	localHostAddr := localHostIPv4
 	if proxyIPv6 {
@@ -437,19 +427,24 @@ func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfi
 
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
-		domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
+		if registryID == serviceregistry.Kubernetes {
+			domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
+		} else {
+			domain = ""
+		}
 	}
 	return domain
 }
 
-func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(loggingOptions); err != nil {
-		return err
-	}
-	return nil
-}
-
 func init() {
+	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
+		string(serviceregistry.Kubernetes),
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
+			serviceregistry.Kubernetes, serviceregistry.Mock))
+	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
+		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
+	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
+		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",

@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/url"
 )
 
@@ -76,7 +75,7 @@ func checkFields(un *unstructured.Unstructured) error {
 	return errs
 }
 
-func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured, writer io.Writer) (validation.Warning, error) {
+func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured, writer io.Writer) error {
 	gvk := config.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
@@ -91,13 +90,14 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+			return fmt.Errorf("cannot parse proto message: %v", err)
 		}
 		if err = checkFields(un); err != nil {
-			return nil, err
+			return err
 		}
-		warnings, err := schema.Resource().ValidateConfig(*obj)
-		return warnings, err
+		// TODO expose warnings
+		_, err = schema.Resource().ValidateConfig(*obj)
+		return err
 	}
 
 	var errs error
@@ -121,24 +121,24 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 
 	if errs != nil {
-		return nil, errs
+		return errs
 	}
 	if un.GetKind() == name.ServiceStr {
-		return nil, v.validateServicePortPrefix(istioNamespace, un)
+		return v.validateServicePortPrefix(istioNamespace, un)
 	}
 
 	if un.GetKind() == name.DeploymentStr {
 		err := v.validateDeploymentLabel(istioNamespace, un, writer)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return nil, nil
+		return nil
 	}
 
 	if un.GetAPIVersion() == "install.istio.io/v1alpha1" {
 		if un.GetKind() == "IstioOperator" {
 			if err := checkFields(un); err != nil {
-				return nil, err
+				return err
 			}
 			// IstioOperator isn't part of pkg/config/schema/collections,
 			// usual conversion not available.  Convert unstructured to string
@@ -147,16 +147,16 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 			by := util.ToYAML(un)
 			iop, err := operator_istio.UnmarshalIstioOperator(by, false)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			return nil, operator_validate.CheckIstioOperator(iop, true)
+			return operator_validate.CheckIstioOperator(iop, true)
 		}
 	}
 
 	// Didn't really validate.  This is OK, as we often get non-Istio Kubernetes YAML
 	// we can't complain about.
 
-	return nil, nil
+	return nil
 }
 
 func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstructured.Unstructured) error {
@@ -221,34 +221,29 @@ func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) 
 	return nil, nil
 }
 
-func (v *validator) validateFile(istioNamespace *string, reader io.Reader, writer io.Writer) (validation.Warning, error) {
+func (v *validator) validateFile(istioNamespace *string, reader io.Reader, writer io.Writer) error {
 	decoder := yaml.NewDecoder(reader)
 	decoder.SetStrict(true)
 	var errs error
-	var warnings validation.Warning
 	for {
 		// YAML allows non-string keys and the produces generic keys for nested fields
 		raw := make(map[interface{}]interface{})
 		err := decoder.Decode(&raw)
 		if err == io.EOF {
-			return warnings, errs
+			return errs
 		}
 		if err != nil {
 			errs = multierror.Append(errs, err)
-			return warnings, errs
+			return errs
 		}
 		if len(raw) == 0 {
 			continue
 		}
 		out := transformInterfaceMap(raw)
 		un := unstructured.Unstructured{Object: out}
-		warning, err := v.validateResource(*istioNamespace, &un, writer)
+		err = v.validateResource(*istioNamespace, &un, writer)
 		if err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%s/%s/%s:",
-				un.GetKind(), un.GetNamespace(), un.GetName())))
-		}
-		if warning != nil {
-			warnings = multierror.Append(warnings, multierror.Prefix(warning, fmt.Sprintf("%s/%s/%s:",
 				un.GetKind(), un.GetNamespace(), un.GetName())))
 		}
 	}
@@ -263,7 +258,6 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 
 	var errs, err error
 	var reader io.Reader
-	warningsByFilename := map[string]validation.Warning{}
 	for _, filename := range filenames {
 		if filename == "-" {
 			reader = os.Stdin
@@ -274,42 +268,20 @@ func validateFiles(istioNamespace *string, filenames []string, writer io.Writer)
 			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
 			continue
 		}
-		warning, err := v.validateFile(istioNamespace, reader, writer)
+		err = v.validateFile(istioNamespace, reader, writer)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		warningsByFilename[filename] = warning
 	}
-
 	if errs != nil {
-		// Display warnings we encountered as well
-		for _, fname := range filenames {
-			if w := warningsByFilename[fname]; w != nil {
-				if fname == "-" {
-					_, _ = fmt.Fprint(writer, warningToString(w))
-					break
-				} else {
-					_, _ = fmt.Fprintf(writer, "%q has warnings: %v\n", fname, warningToString(w))
-				}
-			}
-		}
 		return errs
 	}
 	for _, fname := range filenames {
 		if fname == "-" {
-			if w := warningsByFilename[fname]; w != nil {
-				_, _ = fmt.Fprint(writer, warningToString(w))
-			} else {
-				_, _ = fmt.Fprintf(writer, "validation succeed\n")
-			}
+			_, _ = fmt.Fprintf(writer, "validation succeed\n")
 			break
 		} else {
-			if w := warningsByFilename[fname]; w != nil {
-				_, _ = fmt.Fprintf(writer, "%q has warnings: %v\n", fname, warningToString(w))
-			} else {
-				_, _ = fmt.Fprintf(writer, "%q is valid\n", fname)
-			}
-
+			_, _ = fmt.Fprintf(writer, "%q is valid\n", fname)
 		}
 	}
 
@@ -351,23 +323,6 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
 
 	return c
-}
-
-func warningToString(w validation.Warning) string {
-	we, ok := w.(*multierror.Error)
-	if ok {
-		we.ErrorFormat = func(i []error) string {
-			points := make([]string, len(i))
-			for i, err := range i {
-				points[i] = fmt.Sprintf("* %s", err)
-			}
-
-			return fmt.Sprintf(
-				"\n\t%s\n",
-				strings.Join(points, "\n\t"))
-		}
-	}
-	return w.Error()
 }
 
 func transformInterfaceArray(in []interface{}) []interface{} {

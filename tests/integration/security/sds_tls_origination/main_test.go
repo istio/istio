@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -35,6 +36,22 @@ func TestMain(m *testing.M) {
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
 		Label("CustomSetup").
-		Setup(istio.Setup(&inst, nil)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
+
+}
+
+func setupConfig(_ resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
+components:
+  egressGateways:
+  - enabled: true
+    name: istio-egressgateway
+  ingressGateways:
+  - enabled: false
+    name: istio-ingressgateway
+`
 }

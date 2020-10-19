@@ -108,7 +108,5 @@ pilot:
   configMap: true
 global:
 
-  # External istiod controls all remote clusters: disabled by default
-  externalIstiod: false
-  # Deprecated: central istiod controls all remote clusters: disabled by default
+  # One central istiod controls all remote clusters: disabled by default
   centralIstiod: false

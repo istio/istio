@@ -30,30 +30,31 @@ import (
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
-type sendFunc func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error)
-
-func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
-	doRetry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-
+func callInternal(opts *echo.CallOptions, send func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error)) (client.ParsedResponses, error) {
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
 
-	// Forward a request from 'this' service to the destination service.
 	port := opts.Port.ServicePort
-	addressAndPort := net.JoinHostPort(opts.Address, strconv.Itoa(port))
+
+	// Forward a request from 'this' service to the destination service.
+	targetHost := net.JoinHostPort(opts.Host, strconv.Itoa(port))
 	var targetURL string
 	if opts.Scheme != scheme.TCP {
-		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.Path)
+		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), targetHost, opts.Path)
 	} else {
-		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
+		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), targetHost)
 	}
-
-	// Copy all the headers.
-	protoHeaders := make([]*proto.Header, 0, len(opts.Headers))
+	protoHeaders := []*proto.Header{
+		{
+			Key:   "Host",
+			Value: opts.HostHeader,
+		},
+	}
+	// Add headers in opts.Headers, e.g., authorization header, etc.
+	// If host header is set, it will override targetService.
 	for k := range opts.Headers {
 		protoHeaders = append(protoHeaders, &proto.Header{Key: k, Value: opts.Headers.Get(k)})
 	}
@@ -72,44 +73,19 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		CaCert:        opts.CaCert,
 	}
 
-	var responses client.ParsedResponses
-	sendAndValidate := func() error {
-		var err error
-		responses, err = send(req)
-
-		// Verify the number of responses matches the expected.
-		if err == nil {
-			if len(responses) != opts.Count {
-				err = fmt.Errorf("unexpected number of responses: expected %d, received %d",
-					opts.Count, len(responses))
-			}
-		}
-
-		// Return the results from the validator.
-		return opts.Validator.Validate(responses, err)
+	resp, err := send(req)
+	if err != nil {
+		return nil, err
 	}
 
-	formatError := func(err error) error {
-		if err != nil {
-			return fmt.Errorf("call failed from %s to %s (using %s): %v", srcName, targetURL, opts.Scheme, err)
-		}
-		return nil
+	if len(resp) != opts.Count {
+		return nil, fmt.Errorf("unexpected number of responses: expected %d, received %d", opts.Count, len(resp))
 	}
-
-	if doRetry {
-		// Add defaults retry options to the beginning, since last option encountered wins.
-		retryOptions = append(append([]retry.Option{}, echo.DefaultCallRetryOptions()...), retryOptions...)
-		err := retry.UntilSuccess(sendAndValidate, retryOptions...)
-		return responses, formatError(err)
-	}
-
-	// Retry not enabled for this call.
-	err := sendAndValidate()
-	return responses, formatError(err)
+	return resp, err
 }
 
-func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	send := func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+func CallEcho(opts *echo.CallOptions) (client.ParsedResponses, error) {
+	return callInternal(opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		instance, err := forwarder.New(forwarder.Config{
 			Request: req,
 		})
@@ -124,18 +100,17 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 		}
 		resp := client.ParseForwardedResponse(ret)
 		return resp, nil
-	}
-	return callInternal("TestRunner", opts, send, retry, retryOptions...)
+	})
 }
 
-func ForwardEcho(srcName string, c *client.Instance, opts *echo.CallOptions,
-	retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	return callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+func ForwardEcho(c *client.Instance, opts *echo.CallOptions) (client.ParsedResponses, error) {
+	return callInternal(opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		return c.ForwardEcho(context.Background(), req)
-	}, retry, retryOptions...)
+	})
 }
 
 func fillInCallOptions(opts *echo.CallOptions) error {
+
 	if opts.Target != nil {
 		targetPorts := opts.Target.Config().Ports
 		if opts.PortName == "" {
@@ -170,7 +145,7 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 				return fmt.Errorf("callOptions: no port named %s available in Target Instance", opts.PortName)
 			}
 		}
-	} else if opts.Port == nil || opts.Port.ServicePort == 0 || opts.Port.Protocol == "" || opts.Address == "" {
+	} else if opts.Port == nil || opts.Port.ServicePort == 0 || opts.Port.Protocol == "" || opts.Host == "" {
 		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol, and host must be set")
 	}
 
@@ -182,18 +157,22 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		}
 	}
 
-	if opts.Address == "" {
-		// No host specified, use the fully qualified domain name for the service.
-		opts.Address = opts.Target.Config().FQDN()
-	}
-
-	// Initialize the headers and add a default Host header if none provided.
 	if opts.Headers == nil {
 		opts.Headers = make(http.Header)
 	}
-	if h := opts.Headers["Host"]; len(h) == 0 && opts.Target != nil {
-		// No host specified, use the hostname for the service.
-		opts.Headers["Host"] = []string{opts.Target.Config().HostHeader()}
+
+	if opts.Host == "" {
+		// No host specified, use the fully qualified domain name for the service.
+		opts.Host = opts.Target.Config().FQDN()
+	}
+
+	if opts.HostHeader == "" {
+		if opts.Target != nil {
+			// No host specified, use the hostname for the service.
+			opts.HostHeader = opts.Target.Config().HostHeader()
+		} else if h := opts.Headers["Host"]; len(h) > 0 {
+			opts.HostHeader = h[0]
+		}
 	}
 
 	if opts.Timeout <= 0 {
@@ -204,8 +183,6 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		opts.Count = common.DefaultCount
 	}
 
-	// This is a quick and dirty way of getting the identity validator if the validator was not set.
-	opts.Validator = echo.And(opts.Validator)
 	return nil
 }
 

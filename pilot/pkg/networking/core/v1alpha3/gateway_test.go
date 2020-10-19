@@ -1252,7 +1252,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"*",
 				},
 			},
-			map[string]int{"blackhole:80": 0},
+			map[string]int{"blackhole:80": 1},
 		},
 		{
 			"virtual services do not matter when tls redirect is set",

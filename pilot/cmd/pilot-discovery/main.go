@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -55,13 +56,17 @@ var (
 	}
 
 	discoveryCmd = &cobra.Command{
-		Use:               "discovery",
-		Short:             "Start Istio proxy discovery service.",
-		Args:              cobra.ExactArgs(0),
-		PersistentPreRunE: configureLogging,
+		Use:   "discovery",
+		Short: "Start Istio proxy discovery service.",
+		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
+
+			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.RegistryOptions.KubeOptions.TrustDomain, hasKubeRegistry()))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -86,11 +91,14 @@ var (
 	}
 )
 
-func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(loggingOptions); err != nil {
-		return err
+// when we run on k8s, the default trust domain is 'cluster.local', otherwise it is the empty string
+func hasKubeRegistry() bool {
+	for _, r := range serverArgs.RegistryOptions.Registries {
+		if serviceregistry.ProviderID(r) == serviceregistry.Kubernetes {
+			return true
+		}
 	}
-	return nil
+	return false
 }
 
 func init() {

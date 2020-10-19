@@ -201,10 +201,7 @@ func (c MockClient) Dynamic() dynamic.Interface {
 }
 
 func (c MockClient) GetKubernetesVersion() (*kubeVersion.Info, error) {
-	return &kubeVersion.Info{
-		Major: "1",
-		Minor: "16",
-	}, nil
+	return nil, fmt.Errorf("TODO MockClient doesn't implement kubernetes version")
 }
 
 func (c MockClient) GetIstioPods(_ context.Context, _ string, _ map[string]string) ([]v1.Pod, error) {

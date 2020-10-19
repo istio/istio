@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -75,12 +76,12 @@ const (
 // CreateKubeSecret reads credential names from credNames and key/cert from TLSCredential,
 // and creates K8s secrets for gateway.
 // nolint: interfacer
-func CreateKubeSecret(ctx framework.TestContext, credNames []string,
+func CreateKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string,
 	credentialType string, egressCred TLSCredential, isNotGeneric bool) {
-	ctx.Helper()
+	t.Helper()
 	// Get namespace for gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
-	systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
+	istioCfg := istio.DefaultConfigOrFail(t, ctx)
+	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
 	if len(credNames) == 0 {
 		ctx.Log("no credential names are specified, skip creating secret")
@@ -92,11 +93,11 @@ func CreateKubeSecret(ctx framework.TestContext, credNames []string,
 		secret := createSecret(credentialType, cn, systemNS.Name(), egressCred, isNotGeneric)
 		_, err := cluster.CoreV1().Secrets(systemNS.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 		if err != nil {
-			ctx.Fatalf("Failed to create secret (error: %s)", err)
+			t.Fatalf("Failed to create secret (error: %s)", err)
 		}
 	}
 	// Check if Kubernetes secret is ready
-	retry.UntilSuccessOrFail(ctx, func() error {
+	retry.UntilSuccessOrFail(t, func() error {
 		for _, cn := range credNames {
 			_, err := cluster.CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), cn, metav1.GetOptions{})
 			if err != nil {

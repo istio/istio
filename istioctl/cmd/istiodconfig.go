@@ -374,19 +374,16 @@ func istiodLogCmd() *cobra.Command {
 		Use:   "log [<pod-name>] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[-r|--reset]|[--output|-o short|yaml]",
 		Short: "Manage istiod logging.",
 		Long:  "Retrieve or update logging levels of istiod components.",
-		Example: `  # Retrieve information about istiod logging levels.
-  istioctl experimental istiod log
-
-  # Retrieve information about istiod logging levels on a specific control plane pod.
-  istioctl experimental istiod l istiod-5c868d8bdd-pmvgg
+		Example: ` # Retrieve information about istiod logging levels.
+  istioctl istiod-config log [<pod-name>]
 
   # Update levels of the specified loggers.
-  istioctl x istiod log --level ads:debug,authorization:debug
+  istioctl istiod-config log --level ads:debug,authorization:debug
 
   # Reset levels of all the loggers to default value (info).
-  istioctl x istiod log -r
+  istioctl istiod-config log -r
 `,
-		Aliases: []string{"l"},
+		Aliases: []string{"o"},
 		Args: func(logCmd *cobra.Command, args []string) error {
 			if istiodReset && outputLogLevel != "" {
 				logCmd.Println(logCmd.UsageString())
@@ -474,11 +471,12 @@ func istiodLogCmd() *cobra.Command {
 func istiodConfig() *cobra.Command {
 
 	istiodConfigCmd := &cobra.Command{
-		Use:   "istiod",
+		Use:   "istiod-config",
 		Short: "Manage control plane (istiod) configuration",
 		Long:  "A group of commands used to manage istiod configuration",
-		Example: `  # Retrieve information about istiod configuration.
-  istioctl experimental istiod log`,
+		Example: ` # Retrieve information about istiod configuration.
+  istioctl istiod-config <log>`,
+		Aliases: []string{"idc"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {

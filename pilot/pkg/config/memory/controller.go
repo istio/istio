@@ -107,18 +107,6 @@ func (c *controller) Update(config config.Config) (newRevision string, err error
 	return
 }
 
-func (c *controller) UpdateStatus(config config.Config) (newRevision string, err error) {
-	oldconfig := c.configStore.Get(config.GroupVersionKind, config.Name, config.Namespace)
-	if newRevision, err = c.configStore.UpdateStatus(config); err == nil {
-		c.monitor.ScheduleProcessEvent(ConfigEvent{
-			old:    *oldconfig,
-			config: config,
-			event:  model.EventUpdate,
-		})
-	}
-	return
-}
-
 func (c *controller) Delete(kind config.GroupVersionKind, key, namespace string) (err error) {
 	if config := c.Get(kind, key, namespace); config != nil {
 		if err = c.configStore.Delete(kind, key, namespace); err == nil {

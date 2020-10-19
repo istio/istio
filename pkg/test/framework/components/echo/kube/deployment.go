@@ -164,13 +164,11 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
-{{- if $.StartupProbe }}
         startupProbe:
           tcpSocket:
             port: tcp-health-port
           periodSeconds: 10
           failureThreshold: 10
-{{- end }}
 {{- if $.TLSSettings }}
         volumeMounts:
         - mountPath: /etc/certs/custom
@@ -263,7 +261,7 @@ spec:
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
           # Proxy XDS via agent first
-          sudo sh -c 'echo PROXY_XDS_VIA_AGENT=true >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_META_PROXY_XDS_VIA_AGENT=true >> /var/lib/istio/envoy/cluster.env'
           # Capture all DNS traffic in the VM and forward to Envoy
           sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=true >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
@@ -380,15 +378,6 @@ const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 func generateYAMLWithSettings(
 	ctx resource.Context, cfg echo.Config,
 	settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
-	ver, err := cluster.GetKubernetesVersion()
-	if err != nil {
-		return "", "", err
-	}
-	supportStartupProbe := true
-	if ver.Minor < "16" {
-		// Added in Kubernetes 1.16
-		supportStartupProbe = false
-	}
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -451,8 +440,7 @@ func generateYAMLWithSettings(
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},
-		"Environment":  cfg.VMEnvironment,
-		"StartupProbe": supportStartupProbe,
+		"Environment": cfg.VMEnvironment,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)

@@ -29,18 +29,3 @@ spec:
     - operation:
         ports: ["100"]
 ---
-# Make sure listener has a least one listener, otherwise there may be no policies
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: gateway
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 18080
-      name: http
-      protocol: HTTP
-    hosts:
-    - "foo.bar"

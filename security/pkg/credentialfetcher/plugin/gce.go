@@ -37,17 +37,13 @@ type GCEPlugin struct {
 
 	// The location to save the identity token
 	jwtPath string
-
-	// identity provider
-	identityProvider string
 }
 
 // CreateGCEPlugin creates a Google credential fetcher plugin. Return the pointer to the created plugin.
-func CreateGCEPlugin(audience, jwtPath, identityProvider string) *GCEPlugin {
+func CreateGCEPlugin(audience, jwtPath string) *GCEPlugin {
 	p := &GCEPlugin{
-		aud:              audience,
-		jwtPath:          jwtPath,
-		identityProvider: identityProvider,
+		aud:     audience,
+		jwtPath: jwtPath,
 	}
 	return p
 }
@@ -84,5 +80,5 @@ func (p *GCEPlugin) GetType() string {
 // GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.
 // GCE idenity provider is named "GoogleComputeEngine".
 func (p *GCEPlugin) GetIdentityProvider() string {
-	return p.identityProvider
+	return security.GCE
 }

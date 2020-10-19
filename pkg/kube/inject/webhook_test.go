@@ -963,10 +963,10 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	cleanup := func() {
 		_ = os.RemoveAll(dir)
 	}
-	t.Cleanup(cleanup)
 
 	configBytes, err := yaml.Marshal(cfg)
 	if err != nil {
+		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
 	_, values, _ := loadInjectionSettings(t, nil, "")
@@ -978,10 +978,12 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	)
 
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
+		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
 	if err := ioutil.WriteFile(valuesFile, []byte(values), 0644); err != nil { // nolint: vetshadow
+		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 
@@ -990,18 +992,16 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	env := model.Environment{
 		Watcher: mesh.NewFixedWatcher(&m),
 	}
-	watcher, err := NewFileWatcher(configFile, valuesFile)
-	if err != nil {
-		t.Fatalf("NewFileWatcher() failed: %v", err)
-	}
 	wh, err := NewWebhook(WebhookParameters{
-		Watcher:        watcher,
+		ConfigFile:     configFile,
+		ValuesFile:     valuesFile,
 		Port:           port,
 		MonitoringPort: monitoringPort,
 		Env:            &env,
 		Mux:            http.NewServeMux(),
 	})
 	if err != nil {
+		cleanup()
 		t.Fatalf("NewWebhook() failed: %v", err)
 	}
 	return wh, cleanup

@@ -21,7 +21,6 @@ metadata:
   name: details
   labels:
     app: details
-    service: details
 spec:
   ports:
   - port: 9080

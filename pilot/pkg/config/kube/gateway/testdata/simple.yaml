@@ -1,0 +1,111 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+  - hostname:
+      match: Domain
+      name: domain.example
+    port: 80
+    protocol: HTTP
+    routes:
+      routeNamespaces: {}
+      routeSelector:
+        matchLabels:
+          selected: "yes"
+      group: ""
+      resource: httproutes
+  - hostname:
+      match: Any
+    port: 34000
+    protocol: TCP
+    routes:
+      routeNamespaces: {}
+      routeSelector:
+        matchLabels:
+          selected: "yes"
+      resource: tcproutes
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  hosts:
+  - hostnames: ["first.domain.example", "another.domain.example"]
+    rules:
+    - matches:
+      - path:
+          type: Prefix
+          value: /get
+        headers:
+          type: Exact
+          values:
+            my-header: some-value
+      filters:
+      - type: RequestHeader
+        requestHeader:
+          add:
+            my-added-header: added-value
+          remove: [my-removed-header]
+      forward:
+        to:
+        - targetRef:
+            name: httpbin
+  - hostnames: ["second.domain.example"]
+    rules:
+    - matches:
+      - path:
+          type: Prefix
+          value: /second
+      forward:
+        to:
+        - targetRef:
+            name: httpbin-second
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http-not-selected
+  namespace: default
+  labels:
+    selected: "nope"
+spec:
+  hosts:
+  - hostnames: ["should.not.select"]
+    rules:
+    - matches:
+      - path:
+          type: Prefix
+          value: /get
+      forward:
+        to:
+        - targetRef:
+            name: httpbin
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: TCPRoute
+metadata:
+  name: tcp
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  rules:
+  - action:
+      forwardTo:
+      - targetRef:
+          name: httpbin

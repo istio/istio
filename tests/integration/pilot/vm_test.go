@@ -59,7 +59,7 @@ func TestVmOSPost(t *testing.T) {
 				i, image := i, image
 				ctx.NewSubTest(image).RunParallel(func(ctx framework.TestContext) {
 					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, apps) {
-						tt.Run(ctx, apps.Namespace.Name())
+						common.ExecuteTrafficTest(ctx, tt, apps.Namespace.Name())
 					}
 				})
 			}

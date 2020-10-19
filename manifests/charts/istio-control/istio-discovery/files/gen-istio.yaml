@@ -78,7 +78,6 @@ data:
           }
         },
         "defaultTolerations": [],
-        "externalIstiod": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -795,8 +794,6 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
-          - name: EXTERNAL_ISTIOD
-            value: "false"
           - name: CENTRAL_ISTIOD
             value: "false"
           resources:

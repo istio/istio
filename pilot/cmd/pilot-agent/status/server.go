@@ -40,7 +40,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/env"
@@ -96,7 +95,6 @@ type Server struct {
 	prometheus          *PrometheusScrapeConfiguration
 	mutex               sync.RWMutex
 	appKubeProbers      KubeAppProbers
-	appProbeClient      map[string]*http.Client
 	statusPort          uint16
 	lastProbeSuccessful bool
 	envoyStatsPort      int
@@ -160,8 +158,6 @@ func NewServer(config Config) (*Server, error) {
 	if err := json.Unmarshal([]byte(config.KubeAppProbers), &s.appKubeProbers); err != nil {
 		return nil, fmt.Errorf("failed to decode app prober err = %v, json string = %v", err, config.KubeAppProbers)
 	}
-
-	s.appProbeClient = make(map[string]*http.Client, len(s.appKubeProbers))
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
 		if !appProberPattern.Match([]byte(path)) {
@@ -172,15 +168,6 @@ func NewServer(config Config) (*Server, error) {
 		}
 		if prober.HTTPGet.Port.Type != intstr.Int {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
-		}
-		// Construct a http client and cache it in order to reuse the connection.
-		s.appProbeClient[path] = &http.Client{
-			Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
-			// We skip the verification since kubelet skips the verification for HTTPS prober as well
-			// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
 		}
 	}
 
@@ -285,38 +272,38 @@ type PrometheusScrapeConfiguration struct {
 // Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
 // but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	metrics.ScrapeTotals.Increment()
+	scrapeTotals.Increment()
 	var envoy, application, agent []byte
 	var err error
 	// Gather all the metrics we will merge
 	if envoy, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 		log.Errorf("failed scraping envoy metrics: %v", err)
-		metrics.EnvoyScrapeErrors.Increment()
+		envoyScrapeErrors.Increment()
 	}
 	if s.prometheus != nil {
 		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
 		if application, err = s.scrape(url, r.Header); err != nil {
 			log.Errorf("failed scraping application metrics: %v", err)
-			metrics.AppScrapeErrors.Increment()
+			appScrapeErrors.Increment()
 		}
 	}
 	if agent, err = scrapeAgentMetrics(); err != nil {
 		log.Errorf("failed scraping agent metrics: %v", err)
-		metrics.AgentScrapeErrors.Increment()
+		agentScrapeErrors.Increment()
 	}
 
 	// Write out the metrics
 	if _, err := w.Write(envoy); err != nil {
 		log.Errorf("failed to write envoy metrics: %v", err)
-		metrics.EnvoyScrapeErrors.Increment()
+		envoyScrapeErrors.Increment()
 	}
 	if _, err := w.Write(application); err != nil {
 		log.Errorf("failed to write application metrics: %v", err)
-		metrics.AppScrapeErrors.Increment()
+		appScrapeErrors.Increment()
 	}
 	if _, err := w.Write(agent); err != nil {
 		log.Errorf("failed to write agent metrics: %v", err)
-		metrics.AgentScrapeErrors.Increment()
+		agentScrapeErrors.Increment()
 	}
 }
 
@@ -424,9 +411,16 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
-	// get the http client must exist because
-	httpClient := s.appProbeClient[path]
 
+	// Construct a request sent to the application.
+	httpClient := &http.Client{
+		Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
+		// We skip the verification since kubelet skips the verification for HTTPS prober as well
+		// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
 	proberPath := prober.HTTPGet.Path
 	if !strings.HasPrefix(proberPath, "/") {
 		proberPath = "/" + proberPath

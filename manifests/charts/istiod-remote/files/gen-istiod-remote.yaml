@@ -17,7 +17,6 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
-      meshId: cluster.local
       proxyMetadata:
         DNS_AGENT: ""
       tracing:
@@ -60,7 +59,6 @@ data:
           }
         },
         "defaultTolerations": [],
-        "externalIstiod": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -671,8 +669,7 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/inject"
-      caBundle: ""
-    sideEffects: None
+      caBundle: 
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
@@ -680,6 +677,7 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     admissionReviewVersions: ["v1beta1", "v1"]
+    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

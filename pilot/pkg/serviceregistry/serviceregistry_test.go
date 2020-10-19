@@ -24,7 +24,6 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -766,75 +765,6 @@ func waitForEdsUpdate(t *testing.T, xdsUpdater *FakeXdsUpdater, expected int) {
 	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second))
 }
 
-func TestEndpointsDeduping(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		KubernetesEndpointMode: kubecontroller.EndpointSliceOnly,
-	})
-	namespace := "namespace"
-	labels := map[string]string{
-		"app": "bar",
-	}
-	makeService(t, s.KubeClient(), &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "service",
-			Namespace: namespace,
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{{
-				Name: "http",
-				Port: 80,
-			}, {
-				Name: "http-other",
-				Port: 90,
-			}},
-			Selector:  labels,
-			ClusterIP: "9.9.9.9",
-		},
-	})
-	// Create an expect endpoint
-	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-
-	// Add another port endpoint
-	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace,
-		[]v1.EndpointPort{{Name: "http-other", Port: 90}, {Name: "http", Port: 80}}, []string{"1.2.3.4", "2.3.4.5"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80", "2.3.4.5:80"})
-	expectEndpoints(t, s, "outbound|90||service.namespace.svc.cluster.local", []string{"1.2.3.4:90", "2.3.4.5:90"})
-
-	// Move the endpoint to another slice - transition phase where its duplicated
-	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.5", "2.3.4.5"})
-	createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"2.3.4.5"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.5:80", "2.3.4.5:80"})
-
-	// Move the endpoint to another slice - completed
-	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
-	createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"2.3.4.5"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80", "2.3.4.5:80"})
-
-	// Delete endpoint
-	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
-	createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-
-	s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Delete(context.TODO(), "slice1", metav1.DeleteOptions{})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-
-	// Ensure there is nothing is left over
-	expectServiceInstances(t, s.KubeRegistry, &model.Service{
-		Hostname: "service.namespace.svc.cluster.local",
-		Ports: []*model.Port{{
-			Name:     "http",
-			Port:     80,
-			Protocol: "http",
-		}},
-		Attributes: model.ServiceAttributes{
-			Namespace:      namespace,
-			Name:           "service",
-			LabelSelectors: labels,
-		},
-	}, 80, []ServiceInstanceResponse{})
-}
-
 type ServiceInstanceResponse struct {
 	Hostname   host.Name
 	Namestring string
@@ -846,8 +776,6 @@ func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, e
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		got := xdstest.ExtractLoadAssignments(s.Endpoints(s.SetupProxy(nil)))
-		sort.Strings(got[cluster])
-		sort.Strings(expected)
 		if !reflect.DeepEqual(got[cluster], expected) {
 			return fmt.Errorf("wanted %v got %v. All endpoints: %+v", expected, got[cluster], got)
 		}
@@ -963,46 +891,5 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	}
 	if _, err := c.CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
-	}
-}
-
-// nolint: unparam
-func createEndpointSlice(t *testing.T, c kubernetes.Interface, name, serviceName, namespace string, ports []v1.EndpointPort, ips []string) {
-	esps := make([]discovery.EndpointPort, 0)
-	for _, name := range ports {
-		n := name // Create a stable reference to take the pointer from
-		esps = append(esps, discovery.EndpointPort{
-			Name:        &n.Name,
-			Protocol:    &n.Protocol,
-			Port:        &n.Port,
-			AppProtocol: n.AppProtocol,
-		})
-	}
-
-	sliceEndpoint := []discovery.Endpoint{}
-	for _, ip := range ips {
-		sliceEndpoint = append(sliceEndpoint, discovery.Endpoint{
-			Addresses: []string{ip},
-		})
-	}
-
-	endpointSlice := &discovery.EndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				discovery.LabelServiceName: serviceName,
-			},
-		},
-		Endpoints: sliceEndpoint,
-		Ports:     esps,
-	}
-	if _, err := c.DiscoveryV1beta1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metav1.CreateOptions{}); err != nil {
-		if kerrors.IsAlreadyExists(err) {
-			_, err = c.DiscoveryV1beta1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metav1.UpdateOptions{})
-		}
-		if err != nil {
-			t.Fatalf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
-		}
 	}
 }

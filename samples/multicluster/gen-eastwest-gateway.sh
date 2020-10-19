@@ -14,32 +14,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+ARGS=("${@:-}")
+
 set -euo pipefail
 
 # single-cluster installations may need this gateway to allow VMs to get discovery
-# for non-single cluster, we add additional topology information
-SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
-if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
-  if [[ -z "${CLUSTER:-}" ]]; then
-  echo The CLUSTER environment variable must be set.
-  exit 1
-  fi
-  if [[ -z "${NETWORK:-}" ]]; then
-    echo The NETWORK environment variable must be set.
-    exit 1
-  fi
-  if [[ -z "${MESH:-}" ]]; then
-    echo The MESH environment variable must be set.
-    exit 1
-  fi
-fi
-
-# base
 IOP=$(cat <<EOF
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
-metadata:
-  name: eastwest
 spec:
   # Only generate a gateway component defined below.
   # Using this with "istioctl install" will reconcile and remove existing control-plane components.
@@ -51,42 +33,8 @@ spec:
         label:
           istio: eastwestgateway
           app: istio-eastwestgateway
-EOF
-)
-
-# mark this as a multi-network gateway
-if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
-  IOP=$(cat <<EOF
-$IOP
-          topology.istio.io/network: $NETWORK
-EOF
-)
-fi
-
-# env
-IOP=$(cat <<EOF
-$IOP
         enabled: true
         k8s:
-          env:
-            # sni-dnat adds the clusters required for AUTO_PASSTHROUGH mode
-            - name: ISTIO_META_ROUTER_MODE
-              value: "sni-dnat"
-EOF
-)
-if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
-  IOP=$(cat <<EOF
-$IOP
-            # traffic through this gateway should be routed inside the network
-            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
-              value: ${NETWORK}
-EOF
-)
-fi
-
-# Ports
-IOP=$(cat <<EOF
-$IOP
           service:
             ports:
               - name: status-port
@@ -104,10 +52,26 @@ $IOP
 EOF
 )
 
-# additional multicluster/multinetwork meta
+SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
+  if [[ -z "${CLUSTER:-}" ]]; then
+  echo The CLUSTER environment variable must be set.
+  exit 1
+  fi
+  if [[ -z "${NETWORK:-}" ]]; then
+    echo The NETWORK environment variable must be set.
+    exit 1
+  fi
+  if [[ -z "${MESH:-}" ]]; then
+    echo The MESH environment variable must be set.
+    exit 1
+  fi
   IOP=$(cat <<EOF
 $IOP
+          env:
+            # traffic through this gateway should be routed inside the network
+            - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+              value: ${NETWORK}
   values:
     global:
       meshID: ${MESH}
@@ -118,4 +82,12 @@ EOF
 )
 fi
 
-echo "$IOP"
+if [[ "${#}" -gt 0 ]]; then
+  GEN_PARAMS=("${ARGS[@]}")
+fi
+GEN_PARAMS+=("-f" "-")
+
+# Generate the YAML for the east-west gateway.
+istioctl manifest generate "${GEN_PARAMS[@]}" <<EOF
+$IOP
+EOF

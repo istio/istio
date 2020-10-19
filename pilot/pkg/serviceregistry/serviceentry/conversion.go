@@ -236,7 +236,7 @@ func convertServices(cfg config.Config) []*model.Service {
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
-	endpoint *networking.WorkloadEntry, wleck *configKey) *model.ServiceInstance {
+	endpoint *networking.WorkloadEntry) *model.ServiceInstance {
 	var instancePort uint32
 	addr := endpoint.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -272,10 +272,6 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Labels:         endpoint.Labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
-			// Workload entry config name is used as workload name, which will appear in metric label.
-			// After VM auto registry is introduced, workload group annotation should be used for workload name.
-			WorkloadName: wleck.name,
-			Namespace:    wleck.namespace,
 		},
 		Service:     service,
 		ServicePort: convertPort(servicePort),
@@ -284,12 +280,11 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
-func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
-	se *networking.ServiceEntry, wleck *configKey) []*model.ServiceInstance {
+func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
-			out = append(out, convertEndpoint(service, port, wle, wleck))
+			out = append(out, convertEndpoint(service, port, wle))
 		}
 	}
 	return out
@@ -327,7 +322,7 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}))
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint))
 				}
 			}
 		}

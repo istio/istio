@@ -22,14 +22,15 @@ import (
 	"strings"
 	"testing"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
@@ -183,7 +184,9 @@ func TestLocality(t *testing.T) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
 					applyAndCleanup(ctx, apps.Namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
-					sendTrafficOrFail(ctx, apps.PodA[0], hostname, tt.expected)
+					retry.UntilSuccessOrFail(ctx, func() error {
+						return sendTraffic(apps.PodA[0], hostname, tt.expected)
+					}, retry.Delay(250*time.Millisecond))
 				})
 			}
 		})
@@ -202,42 +205,41 @@ func applyAndCleanup(ctx framework.TestContext, ns string, yaml ...string) {
 	})
 }
 
-func sendTrafficOrFail(ctx framework.TestContext, from echo.Instance, host string, expected map[string]int) {
-	ctx.Helper()
+func sendTraffic(from echo.Instance, host string, expected map[string]int) error {
 	headers := http.Header{}
 	headers.Add("Host", host)
-	validator := echo.ValidatorFunc(func(resp client.ParsedResponses, inErr error) error {
-		if inErr != nil {
-			return inErr
-		}
-		got := map[string]int{}
-		for _, r := range resp {
-			// Hostname will take form of svc-v1-random. We want to extract just 'svc'
-			parts := strings.SplitN(r.Hostname, "-", 2)
-			if len(parts) < 2 {
-				return fmt.Errorf("unexpected hostname: %v", r)
-			}
-			gotHost := parts[0]
-			got[gotHost]++
-		}
-		scopes.Framework.Infof("Got responses: %+v", got)
-		for svc, reqs := range got {
-			expect := expected[svc]
-			if !common.AlmostEquals(reqs, expect, 3) {
-				return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
-			}
-		}
-		return nil
-	})
 	// This is a hack to remain infrastructure agnostic when running these tests
 	// We actually call the host set above not the endpoint we pass
-	_ = from.CallWithRetryOrFail(ctx, echo.CallOptions{
-		Target:    from,
-		PortName:  "http",
-		Headers:   headers,
-		Count:     sendCount,
-		Validator: validator,
+	resp, err := from.Call(echo.CallOptions{
+		Target:   from,
+		PortName: "http",
+		Headers:  headers,
+		Count:    sendCount,
 	})
+	if err != nil {
+		return fmt.Errorf("%s->%s failed sending: %v", from.Config().Service, host, err)
+	}
+	if len(resp) != sendCount {
+		return fmt.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
+	}
+	got := map[string]int{}
+	for _, r := range resp {
+		// Hostname will take form of svc-v1-random. We want to extract just 'svc'
+		parts := strings.SplitN(r.Hostname, "-", 2)
+		if len(parts) < 2 {
+			return fmt.Errorf("unexpected hostname: %v", r)
+		}
+		gotHost := parts[0]
+		got[gotHost]++
+	}
+	scopes.Framework.Infof("Got responses: %+v", got)
+	for svc, reqs := range got {
+		expect := expected[svc]
+		if !common.AlmostEquals(reqs, expect, 3) {
+			return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
+		}
+	}
+	return nil
 }
 
 func runTemplate(t test.Failer, tmpl string, input interface{}) string {

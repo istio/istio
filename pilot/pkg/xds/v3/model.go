@@ -40,8 +40,6 @@ func GetShortType(typeURL string) string {
 		return "EDS"
 	case SecretType:
 		return "SDS"
-	case NameTableType:
-		return "NDS"
 	default:
 		return typeURL
 	}
@@ -60,8 +58,6 @@ func GetMetricType(typeURL string) string {
 		return "eds"
 	case SecretType:
 		return "sds"
-	case NameTableType:
-		return "nds"
 	default:
 		return typeURL
 	}

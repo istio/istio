@@ -26,18 +26,12 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestConvertResources(t *testing.T) {
-	cases := []string{
-		"http",
-		"tcp",
-		"tls",
-		"mismatch",
-		"weighted",
-		"backendpolicy",
-	}
+	cases := []string{"simple", "mismatch", "tls", "weighted"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
@@ -46,7 +40,6 @@ func TestConvertResources(t *testing.T) {
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
 			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
-				res = append(res, output.DestinationRule...)
 				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0644); err != nil {
 					t.Fatal(err)
 				}
@@ -61,9 +54,8 @@ func TestConvertResources(t *testing.T) {
 
 func splitOutput(configs []config.Config) IstioResources {
 	out := IstioResources{
-		Gateway:         []config.Config{},
-		VirtualService:  []config.Config{},
-		DestinationRule: []config.Config{},
+		Gateway:        []config.Config{},
+		VirtualService: []config.Config{},
 	}
 	for _, c := range configs {
 		switch c.GroupVersionKind {
@@ -71,8 +63,6 @@ func splitOutput(configs []config.Config) IstioResources {
 			out.Gateway = append(out.Gateway, c)
 		case gvk.VirtualService:
 			out.VirtualService = append(out.VirtualService, c)
-		case gvk.DestinationRule:
-			out.DestinationRule = append(out.DestinationRule, c)
 		}
 	}
 	return out
@@ -82,18 +72,14 @@ func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
 	for _, c := range configs {
 		switch c.GroupVersionKind {
-		case gvk.GatewayClass:
+		case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 			out.GatewayClass = append(out.GatewayClass, c)
-		case gvk.ServiceApisGateway:
+		case collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind():
 			out.Gateway = append(out.Gateway, c)
-		case gvk.HTTPRoute:
+		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
 			out.HTTPRoute = append(out.HTTPRoute, c)
-		case gvk.TCPRoute:
+		case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
 			out.TCPRoute = append(out.TCPRoute, c)
-		case gvk.TLSRoute:
-			out.TLSRoute = append(out.TLSRoute, c)
-		case gvk.BackendPolicy:
-			out.BackendPolicy = append(out.BackendPolicy, c)
 		}
 	}
 	return out
@@ -141,8 +127,6 @@ func TestStandardizeWeight(t *testing.T) {
 	}{
 		{"single", []int{1}, []int{100}},
 		{"double", []int{1, 1}, []int{50, 50}},
-		{"zero", []int{1, 0}, []int{100, 0}},
-		{"all zero", []int{0, 0}, []int{50, 50}},
 		{"overflow", []int{1, 1, 1}, []int{34, 33, 33}},
 		{"skewed", []int{9, 1}, []int{90, 10}},
 		{"multiple overflow", []int{1, 1, 1, 1, 1, 1}, []int{17, 17, 17, 17, 16, 16}},

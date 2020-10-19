@@ -194,9 +194,6 @@ type Options struct {
 	// credential fetcher.
 	CredFetcher CredFetcher
 
-	// credential identity provider
-	CredIdentityProvider string
-
 	// whether need to skip parsing token to inspect information like expiration time
 	// Default is false.
 	SkipParseToken bool

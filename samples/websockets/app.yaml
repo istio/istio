@@ -4,7 +4,6 @@ metadata:
   name: tornado
   labels:
     app: tornado
-    service: tornado
 spec:
   ports:
   - port: 8888
