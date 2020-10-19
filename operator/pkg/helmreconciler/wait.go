@@ -272,19 +272,25 @@ func daemonsetsReady(daemonsets []*appsv1.DaemonSet) (bool, []string) {
 	var notReady []string
 	for _, ds := range daemonsets {
 		// Make sure all the updated pods have been scheduled
-		if ds.Spec.UpdateStrategy.Type == appsv1.OnDeleteDaemonSetStrategyType && ds.Status.UpdatedNumberScheduled != ds.Status.DesiredNumberScheduled {
-			scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods have been scheduled", ds.Namespace, ds.Name, ds.Status.UpdatedNumberScheduled, ds.Status.DesiredNumberScheduled)
+		if ds.Spec.UpdateStrategy.Type == appsv1.OnDeleteDaemonSetStrategyType &&
+			ds.Status.UpdatedNumberScheduled != ds.Status.DesiredNumberScheduled {
+			scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods have been scheduled",
+				ds.Namespace, ds.Name, ds.Status.UpdatedNumberScheduled, ds.Status.DesiredNumberScheduled)
 			notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 		}
 		if ds.Spec.UpdateStrategy.Type == appsv1.RollingUpdateDaemonSetStrategyType {
-			maxUnavailable, err := intstr.GetValueFromIntOrPercent(ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable, int(ds.Status.DesiredNumberScheduled), true)
+			maxUnavailable, err := intstr.GetValueFromIntOrPercent(
+				ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable,
+				int(ds.Status.DesiredNumberScheduled),
+				true)
 			if err != nil {
 				// set max unavailable to the number of desired replicas if the value is invalid
 				maxUnavailable = int(ds.Status.DesiredNumberScheduled)
 			}
 			expectedReady := int(ds.Status.DesiredNumberScheduled) - maxUnavailable
 			if !(int(ds.Status.NumberReady) >= expectedReady) {
-				scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods are ready", ds.Namespace, ds.Name, ds.Status.NumberReady, expectedReady)
+				scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods are ready",
+					ds.Namespace, ds.Name, ds.Status.NumberReady, expectedReady)
 				notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 			}
 		}
@@ -296,8 +302,10 @@ func statefulsetsReady(statefulsets []*appsv1.StatefulSet) (bool, []string) {
 	var notReady []string
 	for _, sts := range statefulsets {
 		// Make sure all the updated pods have been scheduled
-		if sts.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType && sts.Status.UpdatedReplicas != sts.Status.Replicas {
-			scope.Infof("StatefulSet is not ready: %s/%s. %d out of %d expected pods have been scheduled", sts.Namespace, sts.Name, sts.Status.UpdatedReplicas, sts.Status.Replicas)
+		if sts.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType &&
+			sts.Status.UpdatedReplicas != sts.Status.Replicas {
+			scope.Infof("StatefulSet is not ready: %s/%s. %d out of %d expected pods have been scheduled",
+				sts.Namespace, sts.Name, sts.Status.UpdatedReplicas, sts.Status.Replicas)
 			notReady = append(notReady, "StatefulSet/"+sts.Namespace+"/"+sts.Name)
 		}
 		if sts.Spec.UpdateStrategy.Type == appsv1.RollingUpdateStatefulSetStrategyType {
@@ -306,7 +314,8 @@ func statefulsetsReady(statefulsets []*appsv1.StatefulSet) (bool, []string) {
 			// default replicasfor sts is 1
 			var replicas = 1
 			// the rollingUpdate field can be nil even if the update strategy is a rolling update.
-			if sts.Spec.UpdateStrategy.RollingUpdate != nil && sts.Spec.UpdateStrategy.RollingUpdate.Partition != nil {
+			if sts.Spec.UpdateStrategy.RollingUpdate != nil &&
+				sts.Spec.UpdateStrategy.RollingUpdate.Partition != nil {
 				partition = int(*sts.Spec.UpdateStrategy.RollingUpdate.Partition)
 			}
 			if sts.Spec.Replicas != nil {
@@ -315,7 +324,8 @@ func statefulsetsReady(statefulsets []*appsv1.StatefulSet) (bool, []string) {
 			expectedReplicas := replicas - partition
 			// Make sure all the updated pods have been scheduled
 			if int(sts.Status.UpdatedReplicas) != expectedReplicas {
-				scope.Infof("StatefulSet is not ready: %s/%s. %d out of %d expected pods have been scheduled", sts.Namespace, sts.Name, sts.Status.UpdatedReplicas, expectedReplicas)
+				scope.Infof("StatefulSet is not ready: %s/%s. %d out of %d expected pods have been scheduled",
+					sts.Namespace, sts.Name, sts.Status.UpdatedReplicas, expectedReplicas)
 				notReady = append(notReady, "StatefulSet/"+sts.Namespace+"/"+sts.Name)
 				continue
 			}
