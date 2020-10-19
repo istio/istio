@@ -353,6 +353,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 
 	cached := 0
 	regenerated := 0
+	proxy.Lock()
+	defer proxy.Unlock()
 	for _, clusterName := range w.ResourceNames {
 		if edsUpdatedServices != nil {
 			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
