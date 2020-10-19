@@ -60,7 +60,7 @@ var (
 	}
 )
 
-func TestNonAutoregisteredWorklaods(t *testing.T) {
+func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
 	ig.Store = store
