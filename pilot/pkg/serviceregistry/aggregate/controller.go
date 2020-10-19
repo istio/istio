@@ -231,7 +231,7 @@ func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfCluster
 		registryClusterID = selfClusterID
 	}
 
-	// We can't be certain either way
+	// Kube registries can have WorkloadEntry instances
 	if registryClusterID == "" || nodeClusterID == "" {
 		return false
 	}

@@ -184,12 +184,13 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 
 	for _, c := range ctx.Clusters().ByNetwork() {
 		builder.With(nil, echo.Config{
-			Service:    VMSvc,
-			Namespace:  apps.Namespace,
-			Ports:      EchoPorts,
-			DeployAsVM: true,
-			Subsets:    []echo.SubsetConfig{{}},
-			Cluster:    c[0],
+			Service:        VMSvc,
+			Namespace:      apps.Namespace,
+			Ports:          EchoPorts,
+			DeployAsVM:     true,
+			AutoRegisterVM: true,
+			Subsets:        []echo.SubsetConfig{{}},
+			Cluster:        c[0],
 		})
 	}
 

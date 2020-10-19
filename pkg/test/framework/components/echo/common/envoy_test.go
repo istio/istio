@@ -75,6 +75,11 @@ func (e *testConfig) Workloads() ([]echo.Workload, error) {
 	return []echo.Workload{e}, nil
 }
 
+func (e *testConfig) PodName() string {
+	panic("not implemented")
+
+}
+
 func (*testConfig) ID() resource.ID {
 	panic("not implemented")
 }

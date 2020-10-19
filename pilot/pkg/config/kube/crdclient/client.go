@@ -244,18 +244,14 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 	return meta.GetResourceVersion(), nil
 }
 
-// PatchFunc provides the cached config as a base for modification. The diff between the input value and the modified
-// return will be used to apply a patch in Kubrenetes.
-type PatchFunc func(cfg config.Config) config.Config
-
 // Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
 // read-modify-write conflicts when there are many concurrent-writers to the same resource.
-func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn PatchFunc) (string, error) {
+func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
 	// it is okay if orig is stale - we just care about the diff
 	orig := cl.Get(typ, name, namespace)
 	if orig == nil {
-		// TODO error from GET
-		return "", fmt.Errorf("failed getting base config")
+		// TODO error from Get
+		return "", fmt.Errorf("item not found")
 	}
 	modified := patchFn(orig.DeepCopy())
 
@@ -354,10 +350,11 @@ func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix
 
 func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
-		Name:        config.Name,
-		Namespace:   config.Namespace,
-		Labels:      config.Labels,
-		Annotations: config.Annotations,
+		Name:            config.Name,
+		Namespace:       config.Namespace,
+		Labels:          config.Labels,
+		Annotations:     config.Annotations,
+		ResourceVersion: config.ResourceVersion,
 	}
 }
 

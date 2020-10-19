@@ -119,6 +119,8 @@ type Port struct {
 
 // Workload provides an interface for a single deployed echo server.
 type Workload interface {
+	// PodName gets the original pod name for the workload.
+	PodName() string
 	// Address returns the network address of the endpoint.
 	Address() string
 
