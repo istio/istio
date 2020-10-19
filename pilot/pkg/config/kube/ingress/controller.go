@@ -343,6 +343,10 @@ func (c *controller) Update(_ config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
+func (c *controller) UpdateStatus(config.Config) (string, error) {
+	return "", errUnsupportedOp
+}
+
 func (c *controller) Delete(_ config.GroupVersionKind, _, _ string) error {
 	return errUnsupportedOp
 }
