@@ -177,7 +177,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		return nil
 	}
 
-	gkStr := obj.GetObjectKind().GroupVersionKind().GroupKind().String()
+	gvk := obj.GetObjectKind().GroupVersionKind()
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
 		err := h.client.Get(context.TODO(), objectKey, receiver)
@@ -190,7 +190,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
 			}
 			metrics.ResourceCreationTotal.
-				With(metrics.ResourceKindLabel.Value(util.GVKString(obj.GetObjectKind().GroupVersionKind()))).
+				With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
 				Increment()
 			return nil
 		case err == nil:
@@ -205,7 +205,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 				return err
 			}
 			metrics.ResourceUpdateTotal.
-				With(metrics.ResourceKindLabel.Value(gkStr)).
+				With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
 				Increment()
 			return nil
 		}
