@@ -112,7 +112,7 @@ telemetry:
       enabled: true
       # Indicates whether to enable WebAssembly runtime for stats filter.
       wasmEnabled: false
-      # overrides stats EnvoyFilter configuration. 
+      # overrides stats EnvoyFilter configuration.
       configOverride:
         gateway: {}
         inboundSidecar: {}
@@ -140,6 +140,9 @@ telemetry:
       logWindowDuration: "43200s"
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
+
+# For Helm compatibility.
+ownerName: ""
 
 # meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
 # See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options

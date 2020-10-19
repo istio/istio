@@ -1126,6 +1126,8 @@ message Values {
 
   string revision = 21;
 
+  string ownerName = 22;
+
   // TODO can this import the real mesh config API?
   TypeInterface meshConfig = 36;
 
