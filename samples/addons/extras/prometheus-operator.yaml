@@ -15,12 +15,12 @@ spec:
   jobLabel: envoy-stats
   endpoints:
   - path: /stats/prometheus
-    targetPort: 15020
+    targetPort: 15090
     interval: 15s
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_container_port_name]
       action: keep
-      regex: '.*-agent-prom'
+      regex: '.*-envoy-prom'
     - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
     - sourceLabels: [__meta_kubernetes_namespace]
