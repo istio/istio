@@ -15,12 +15,16 @@
 package helmreconciler
 
 import (
+	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/kubectl/pkg/scheme"
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/pkg/log"
@@ -110,12 +114,30 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 }
 
 // applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
-func applyOverlay(current, overlay runtime.Object) error {
+func applyOverlay(current, overlay *unstructured.Unstructured) error {
 	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
 	if err != nil {
 		return err
 	}
-	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlay)
+
+	overlayUpdated := overlay.DeepCopy()
+	if strings.EqualFold(current.GetKind(), "service") {
+		// Save the value of spec.clusterIP set by the cluster
+		if clusterIP, found, err := unstructured.NestedString(current.Object, "spec", "clusterIP"); err != nil {
+			return err
+		} else if found {
+			if err := unstructured.SetNestedField(overlayUpdated.Object, clusterIP, "spec",
+				"clusterIP"); err != nil {
+				return err
+			}
+		}
+
+		if err := saveNodePorts(current, overlayUpdated); err != nil {
+			return err
+		}
+	}
+
+	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlayUpdated)
 	if err != nil {
 		return err
 	}
@@ -124,4 +146,30 @@ func applyOverlay(current, overlay runtime.Object) error {
 		return err
 	}
 	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
+}
+
+// saveNodePorts transfers the port values from the current cluster into the overlay
+func saveNodePorts(current, overlay *unstructured.Unstructured) error {
+	var svc = &v1.Service{}
+	if err := scheme.Scheme.Convert(current, svc, nil); err != nil {
+		return err
+	}
+
+	portMap := make(map[string]string)
+	for _, p := range svc.Spec.Ports {
+		portMap[strconv.Itoa(int(p.Port))] = strconv.Itoa(int(p.NodePort))
+	}
+
+	ports, _, _ := unstructured.NestedFieldNoCopy(overlay.Object, "spec", "ports")
+	for _, port := range ports.([]interface{}) {
+		m := port.(map[string]interface{})
+		if nodePortNum, ok := m["nodePort"]; ok && nodePortNum == "0" {
+			if portNum, ok := m["port"]; ok {
+				if v, ok := portMap[fmt.Sprintf("%v", portNum)]; ok {
+					m["nodePort"] = v
+				}
+			}
+		}
+	}
+	return nil
 }
