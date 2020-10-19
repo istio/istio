@@ -79,6 +79,7 @@ var (
 			[]string{
 				"galley_",
 				"istio_tcp_",
+				`max(pilot_k8s_cfg_events{type="RequestAuthentication", event="add"}) - (max(pilot_k8s_cfg_events{type="RequestAuthentication", event="delete"}) or max(up * 0))`,
 			},
 		},
 		{
