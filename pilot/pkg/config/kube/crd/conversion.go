@@ -26,6 +26,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -43,6 +44,22 @@ func FromJSON(s collection.Schema, js string) (config.Spec, error) {
 		return nil, err
 	}
 	return c, nil
+}
+
+func IstioStatusJSONFromMap(jsonMap map[string]interface{}) (config.Status, error) {
+	if jsonMap == nil {
+		return nil, nil
+	}
+	js, err := json.Marshal(jsonMap)
+	if err != nil {
+		return nil, err
+	}
+	var status v1alpha1.IstioStatus
+	err = json.Unmarshal(js, &status)
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
 }
 
 // FromYAML converts a canonical YAML to a proto message
@@ -78,9 +95,13 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 	if err != nil {
 		return nil, err
 	}
-	data, err := FromJSON(schema, string(js))
+	spec, err := FromJSON(schema, string(js))
 	if err != nil {
 		return nil, err
+	}
+	status, err := IstioStatusJSONFromMap(object.GetStatus())
+	if err != nil {
+		log.Errorf("could not get istio status from map %v, err %v", object.GetStatus(), err)
 	}
 	meta := object.GetObjectMeta()
 
@@ -95,13 +116,18 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 			ResourceVersion:   meta.ResourceVersion,
 			CreationTimestamp: meta.CreationTimestamp.Time,
 		},
-		Spec: data,
+		Spec:   spec,
+		Status: status,
 	}, nil
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(cfg config.Config) (IstioObject, error) {
 	spec, err := config.ToMap(cfg.Spec)
+	if err != nil {
+		return nil, err
+	}
+	status, err := config.ToMap(cfg.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +148,8 @@ func ConvertConfig(cfg config.Config) (IstioObject, error) {
 			Annotations:       cfg.Annotations,
 			CreationTimestamp: meta_v1.NewTime(cfg.CreationTimestamp),
 		},
-		Spec: spec,
+		Spec:   spec,
+		Status: status,
 	}, nil
 }
 
