@@ -16,6 +16,7 @@ package kube
 
 import (
 	"context"
+	v1 "k8s.io/api/core/v1"
 
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -24,18 +25,25 @@ import (
 )
 
 type ClusterMeta struct {
-	ID      string
+	// Network is the default network to use for pods/endpoints in a given cluster if neither meshNetworks.fromRegistry
+	// for the cluster, nor topology.istio.io/network on pods are set.
 	Network string
 }
 
-// ClusterMetaFromConfigMap attempts to load the istio multicluster config to get overrides for cluster and network names.
-func ClusterMetaFromConfigMap(client kubernetes.Interface, namespace string) *ClusterMeta {
-	log.Infof("looking for istio-cluster vm in namespace %s", namespace)
+// FetchClusterMeta attempts to load the istio multicluster config to get overrides for cluster and network names.
+func FetchClusterMeta(client kubernetes.Interface, namespace string) *ClusterMeta {
 	cm, err := client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), "istio-cluster", metaV1.GetOptions{})
 	if err != nil {
-		log.Errorf("error fetching istio-cluster configmap: %v", err)
+		log.Errorf("error fetching istio-cluster ConfigMap: %v", err)
 		return nil
 	}
 
-	return &ClusterMeta{ID: cm.Data["cluster"], Network: cm.Data["network"]}
+	return ClusterMetaFromConfigMap(cm)
+}
+
+func ClusterMetaFromConfigMap(cm *v1.ConfigMap) *ClusterMeta {
+	if cm == nil {
+		return nil
+	}
+	return &ClusterMeta{Network: cm.Data["network"]}
 }

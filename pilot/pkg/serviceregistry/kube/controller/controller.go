@@ -106,6 +106,9 @@ type Options struct {
 	ResyncPeriod      time.Duration
 	DomainSuffix      string
 
+	// SystemNamespace where istio-cluster ConfigMap is found
+	SystemNamespace string
+
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
@@ -173,6 +176,8 @@ type kubernetesNode struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
+	kubelib.ClusterMeta
+
 	client kubernetes.Interface
 
 	queue queue.Instance
@@ -253,6 +258,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		networkGateways:             make(map[host.Name]map[string][]*model.Gateway),
 		networksWatcher:             options.NetworksWatcher,
 		metrics:                     options.Metrics,
+	}
+
+	// TODO allow watching this ConfigMap and re-sync registries
+	// TODO fetch this configmap outside of controller, to use in simplified bootstrap
+	if cm := kubelib.FetchClusterMeta(c.client, options.SystemNamespace); cm != nil {
+		c.ClusterMeta = *cm
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()

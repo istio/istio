@@ -133,6 +133,6 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 		return b.metaNetwork
 	}
 
-	// Fallback to legacy fromRegistry setting, all endpoints from this cluster are on that network.
-	return b.controller.networkForRegistry
+	// Fallback to cluster's default network. Can come from istio-cluster ConfigMap or legacy meshNetworks
+	return b.controller.DefaultNetwork()
 }

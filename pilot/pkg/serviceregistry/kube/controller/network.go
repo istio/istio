@@ -32,9 +32,16 @@ type namedRangerEntry struct {
 	network net.IPNet
 }
 
-// returns the IPNet for the network
+// Network returns the IPNet for the network
 func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
+}
+
+func (c *Controller) DefaultNetwork() string {
+	if c.networkForRegistry != "" {
+		return c.networkForRegistry
+	}
+	return c.Network
 }
 
 // reloadNetworkLookup refreshes the meshNetworks configuration, network for each endpoint, and
