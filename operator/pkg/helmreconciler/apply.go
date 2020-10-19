@@ -216,4 +216,16 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		}
 		return nil
 	})
+
+}
+
+// use server-side apply, require kubernetes 1.16+
+func (h *HelmReconciler) serverSideApply(obj *unstructured.Unstructured) error {
+	scope.Info("using server side apply to update obj")
+	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
+	opts := []client.PatchOption{client.ForceOwnership, client.FieldOwner(fieldOwnerOperator)}
+	if err := h.client.Patch(context.TODO(), obj, client.Apply, opts...); err != nil {
+		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)
+	}
+	return nil
 }

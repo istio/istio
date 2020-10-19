@@ -11,6 +11,7 @@ subsets:
   ports:
   - port: 15012
     name: tcp-istiod
+    protocol: TCP
   {{- else if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
 apiVersion: v1
 kind: Endpoints
@@ -23,6 +24,7 @@ subsets:
   ports:
   - port: 15012
     name: tcp-istiod
+    protocol: TCP
   {{- end }}
 ---
 {{- end }}
