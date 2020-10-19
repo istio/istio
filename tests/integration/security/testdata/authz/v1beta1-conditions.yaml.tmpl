@@ -205,7 +205,7 @@ spec:
         paths: ["/destination-ip-good"]
     when:
     - key: destination.ip
-      values: ["{{ .IpC }}"]
+      values: [{{ .IpC }}]
   - to:
     - operation:
         paths: ["/destination-ip-bad"]
@@ -235,7 +235,7 @@ spec:
         paths: ["/destination-ip-notValues-a-or-b-or-c"]
     when:
     - key: destination.ip
-      notValues: ["{{ .IpA }}", "{{ .IpB }}", "{{ .IpC }}"]
+      notValues: ["{{ .IpA }}", "{{ .IpB }}", {{ .IpC }}]
 ---
 
 apiVersion: security.istio.io/v1beta1
