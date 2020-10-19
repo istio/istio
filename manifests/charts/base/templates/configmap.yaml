@@ -9,8 +9,5 @@ metadata:
     release: {{ .Release.Name }}
     istio/multiCluster: true
 data:
-  cluster: {{ .Values.global.multiCluster.clusterName }}
-{{- if .Values.global.network }}
-  network: {{ .Values.global.network }}
-{{- end }}
+  network: {{ .Values.global.network | default "" }}
 {{- end }}
