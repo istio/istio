@@ -46,18 +46,23 @@ type Protocol string
 const (
 	HTTP  Protocol = "http"
 	HTTP2 Protocol = "http2"
-	HTTPS Protocol = "https"
-	GRPC  Protocol = "grpc"
 	TCP   Protocol = "tcp"
-	TLS   Protocol = "tls"
 )
 
-func (p Protocol) IsHTTP() bool {
-	return httpProtocols.Contains(string(p))
+type TlsMode string
+
+const (
+	Plaintext TlsMode = "plaintext"
+	TLS       TlsMode = "tls"
+	MTLS      TlsMode = "mtls"
+)
+
+func (c Call) IsHTTP() bool {
+	return httpProtocols.Contains(string(c.Protocol)) && (c.TLS == Plaintext || c.TLS == "")
 }
 
 var (
-	httpProtocols = sets.NewSet(string(HTTP), string(GRPC), string(HTTP2))
+	httpProtocols = sets.NewSet(string(HTTP), string(HTTP2))
 )
 
 var (
@@ -68,6 +73,7 @@ var (
 	ErrMultipleFilterChain = errors.New("multiple filter chains matched")
 	// ErrProtocolError happens when sending TLS/TCP request to HCM, for example
 	ErrProtocolError = errors.New("protocol error")
+	ErrTLSError      = errors.New("invalid TLS")
 )
 
 type Expect struct {
@@ -76,18 +82,37 @@ type Expect struct {
 	Result Result
 }
 
+type CallMode string
+
+var (
+	// simulate no iptables
+	CallModeGateway CallMode = "gateway"
+	// simulate iptables redirect to 15001
+	CallModeOutbound CallMode = "outbound"
+	// simulate iptables redirect to 15006
+	CallModeInbound CallMode = "inbound"
+)
+
 type Call struct {
-	Address  string
-	Port     int
-	Path     string
+	Address string
+	Port    int
+	Path    string
+
+	// Protocol describes the protocol type. TLS encapsulation is separate
 	Protocol Protocol
-	Alpn     string
+	// TLS describes the connection tls parameters
+	// TODO: currently this does not verify TLS vs mTLS
+	TLS  TlsMode
+	Alpn string
 
 	// HostHeader is a convenience field for Headers
 	HostHeader string
 	Headers    http.Header
 
 	Sni string
+
+	// CallMode describes the type of call to make.
+	CallMode CallMode
 }
 
 func (c Call) FillDefaults() Call {
@@ -97,11 +122,15 @@ func (c Call) FillDefaults() Call {
 	if c.HostHeader != "" {
 		c.Headers["Host"] = []string{c.HostHeader}
 	}
-	if c.Sni == "" && (c.Protocol == HTTPS || c.Protocol == TLS) {
+	// For simplicity, set SNI automatically for TLS traffic.
+	if c.Sni == "" && (c.TLS == TLS) {
 		c.Sni = c.HostHeader
 	}
 	if c.Path == "" {
 		c.Path = "/"
+	}
+	if c.TLS == "" {
+		c.TLS = Plaintext
 	}
 	return c
 }
@@ -114,12 +143,22 @@ type Result struct {
 	RouteConfigMatched string
 	VirtualHostMatched string
 	ClusterMatched     string
-	t                  test.Failer
+	// StrictMatch controls whether we will strictly match the result. If not set,
+	// empty fields will be ignored, allowing testing only fields we care about This
+	// allows asserting that the result is *exactly* equal, allowing asserting a
+	// field is empty
+	StrictMatch bool
+	t           test.Failer
 }
 
 func (r Result) Matches(t *testing.T, want Result) {
+	r.StrictMatch = want.StrictMatch // to make diff pass
 	diff := cmp.Diff(want, r, cmpopts.IgnoreUnexported(Result{}), cmpopts.EquateErrors())
-	if want.Error != nil && want.Error != r.Error {
+	if want.StrictMatch && diff != "" {
+		t.Errorf("Diff: %v", diff)
+		return
+	}
+	if want.Error != r.Error {
 		t.Errorf("want error %v got %v", want.Error, r.Error)
 	}
 	if want.ListenerMatched != "" && want.ListenerMatched != r.ListenerMatched {
@@ -195,30 +234,41 @@ func (sim *Simulation) Run(input Call) (result Result) {
 
 	// Apply listener filters. This will likely need the TLS inspector in the future as well
 	if _, f := xdstest.ExtractListenerFilters(l)[xdsfilters.HTTPInspector.Name]; f {
-		if alpn := protocolToAlpn(input.Protocol); alpn != "" {
+		if alpn := protocolToAlpn(input.Protocol); alpn != "" && input.TLS == Plaintext {
 			input.Alpn = alpn
 		}
 	}
-	fc, err := sim.matchFilterChain(l.FilterChains, input)
+	_, hasTlsInspector := xdstest.ExtractListenerFilters(l)[xdsfilters.TLSInspector.Name]
+	fc, err := sim.matchFilterChain(l.FilterChains, input, hasTlsInspector)
 	if err != nil {
 		result.Error = err
 		return
 	}
 	result.FilterChainMatched = fc.Name
+	if fc.TransportSocket != nil && input.TLS == Plaintext {
+		result.Error = ErrTLSError
+		return
+	}
 
 	if hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc); hcm != nil {
-		if !input.Protocol.IsHTTP() && fc.TransportSocket == nil {
+		if input.TLS != Plaintext && fc.TransportSocket == nil {
 			result.Error = ErrProtocolError
 			return
 		}
-		routeName := hcm.GetRds().RouteConfigName
-		result.RouteConfigMatched = routeName
-		rc := xdstest.ExtractRouteConfigurations(sim.Routes)[routeName]
-		if len(input.Headers["Host"]) != 1 {
-			result.Error = errors.New("http requests require a host header")
-			return
+
+		// Fetch inline route
+		rc := hcm.GetRouteConfig()
+		if rc == nil {
+			// If not set, fallback to RDS
+			routeName := hcm.GetRds().RouteConfigName
+			result.RouteConfigMatched = routeName
+			rc = xdstest.ExtractRouteConfigurations(sim.Routes)[routeName]
 		}
-		vh := sim.matchVirtualHost(rc, input.Headers["Host"][0])
+		hostHeader := ""
+		if len(input.Headers["Host"]) > 0 {
+			hostHeader = input.Headers["Host"][0]
+		}
+		vh := sim.matchVirtualHost(rc, hostHeader)
 		if vh == nil {
 			result.Error = ErrNoVirtualHost
 			return
@@ -331,7 +381,7 @@ func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host strin
 // Envoy algorithm - at each level we will filter out all FilterChains that do
 // not match. This means an empty match (`{}`) may not match if another chain
 // matches one criteria but not another.
-func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Call) (*listener.FilterChain, error) {
+func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Call, hasTlsInspector bool) (*listener.FilterChain, error) {
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetDestinationPort() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
@@ -370,11 +420,15 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Ca
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetTransportProtocol() == ""
 	}, func(fc *listener.FilterChainMatch) bool {
+		if !hasTlsInspector {
+			// Without tls inspector, transport protocol will always be raw buffer
+			return fc.GetTransportProtocol() == xdsfilters.RawBufferTransportProtocol
+		}
 		switch fc.GetTransportProtocol() {
 		case xdsfilters.TLSTransportProtocol:
-			return input.Protocol == HTTPS || input.Protocol == TLS
+			return input.TLS == TLS || input.TLS == MTLS
 		case xdsfilters.RawBufferTransportProtocol:
-			return input.Protocol != HTTPS && input.Protocol != TLS
+			return input.TLS == Plaintext
 		}
 		return false
 	})
@@ -431,14 +485,15 @@ func protocolToAlpn(s Protocol) string {
 		return "http/1.1"
 	case HTTP2:
 		return "h2c"
-	case GRPC:
-		return "h2c"
 	default:
 		return ""
 	}
 }
 
 func matchListener(listeners []*listener.Listener, input Call) *listener.Listener {
+	if input.CallMode == CallModeInbound {
+		return xdstest.ExtractListener(v1alpha3.VirtualInboundListenerName, listeners)
+	}
 	// First find exact match for the IP/Port, then fallback to wildcard IP/Port
 	// There is no wildcard port
 	for _, l := range listeners {

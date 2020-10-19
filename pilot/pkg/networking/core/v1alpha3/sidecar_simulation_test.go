@@ -46,14 +46,14 @@ func TestHeadlessServices(t *testing.T) {
 
 		// Auto port should support any protocol
 		{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "headless.default.svc.cluster.local"},
-		{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTPS, HostHeader: "headless.default.svc.cluster.local"},
+		{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "headless.default.svc.cluster.local"},
 		{Address: "1.2.3.4", Port: 81, Protocol: simulation.TCP, HostHeader: "headless.default.svc.cluster.local"},
 
 		{Address: "1.2.3.4", Port: 82, Protocol: simulation.TCP, HostHeader: "headless.default.svc.cluster.local"},
 
 		// TODO: https://github.com/istio/istio/issues/27677 use short host name
-		{Address: "1.2.3.4", Port: 83, Protocol: simulation.TLS, HostHeader: "headless.default.svc.cluster.local"},
-		{Address: "1.2.3.4", Port: 84, Protocol: simulation.HTTPS, HostHeader: "headless.default.svc.cluster.local"},
+		{Address: "1.2.3.4", Port: 83, Protocol: simulation.TCP, TLS: simulation.TLS, HostHeader: "headless.default.svc.cluster.local"},
+		{Address: "1.2.3.4", Port: 84, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "headless.default.svc.cluster.local"},
 	} {
 		calls = append(calls, simulation.Expect{
 			Name: fmt.Sprintf("%s-%d", call.Protocol, call.Port),
@@ -94,17 +94,17 @@ func TestPassthroughTraffic(t *testing.T) {
 	calls := map[string]simulation.Call{}
 	for port := 80; port < 87; port++ {
 		for _, call := range []simulation.Call{
-			{Port: port, Protocol: simulation.HTTP, HostHeader: "foo"},
-			{Port: port, Protocol: simulation.HTTPS, HostHeader: "foo"},
-			{Port: port, Protocol: simulation.HTTPS, HostHeader: "foo", Alpn: "http/1.1"},
-			{Port: port, Protocol: simulation.TCP, HostHeader: "foo"},
-			{Port: port, Protocol: simulation.GRPC, HostHeader: "foo"},
+			{Port: port, Protocol: simulation.HTTP, TLS: simulation.Plaintext, HostHeader: "foo"},
+			{Port: port, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo"},
+			{Port: port, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "foo", Alpn: "http/1.1"},
+			{Port: port, Protocol: simulation.TCP, TLS: simulation.Plaintext, HostHeader: "foo"},
+			{Port: port, Protocol: simulation.HTTP2, TLS: simulation.TLS, HostHeader: "foo"},
 		} {
 			suffix := ""
 			if call.Alpn != "" {
 				suffix = "-" + call.Alpn
 			}
-			calls[fmt.Sprintf("%v-%v%v", call.Protocol, port, suffix)] = call
+			calls[fmt.Sprintf("%v-%v-%v%v", call.Protocol, call.TLS, port, suffix)] = call
 		}
 	}
 	ports := `
@@ -132,9 +132,15 @@ func TestPassthroughTraffic(t *testing.T) {
 
 	// TODO: https://github.com/istio/istio/issues/26079 this should be empty list
 	expectedFailures := sets.NewSet(
-		"https-80-http/1.1",
-		"https-85-http/1.1",
-		"https-86-http/1.1",
+		"http-tls-80-http/1.1",
+		"http-tls-85-http/1.1",
+		"http-tls-86-http/1.1",
+	)
+	withoutVipExpectedFailures := sets.NewSet(
+		"http-tls-80-http/1.1",
+		"http-tls-81-http/1.1",
+		"http-tls-85-http/1.1",
+		"http-tls-86-http/1.1",
 	)
 	isHTTPPort := func(p int) bool {
 		switch p {
@@ -180,7 +186,7 @@ func TestPassthroughTraffic(t *testing.T) {
 					}
 					// For blackhole, we will 502 where possible instead of blackhole cluster
 					// This only works for HTTP on HTTP
-					if expectedCluster == util.BlackHoleCluster && call.Protocol.IsHTTP() && isHTTPPort(call.Port) {
+					if expectedCluster == util.BlackHoleCluster && call.IsHTTP() && isHTTPPort(call.Port) {
 						e.Result.ClusterMatched = ""
 						e.Result.VirtualHostMatched = util.BlackHole
 					}
@@ -221,17 +227,17 @@ spec:
 					}
 					// For blackhole, we will 502 where possible instead of blackhole cluster
 					// This only works for HTTP on HTTP
-					if expectedCluster == util.BlackHoleCluster && call.Protocol.IsHTTP() && (isHTTPPort(call.Port) || isAutoPort(call.Port)) {
+					if expectedCluster == util.BlackHoleCluster && call.IsHTTP() && (isHTTPPort(call.Port) || isAutoPort(call.Port)) {
 						e.Result.ClusterMatched = ""
 						e.Result.VirtualHostMatched = util.BlackHole
 					}
 					// TCP without a VIP will capture everything.
 					// Auto without a VIP is similar, but HTTP happens to work because routing is done on header
-					if call.Port == 82 || (call.Port == 81 && !call.Protocol.IsHTTP()) {
+					if call.Port == 82 || (call.Port == 81 && !call.IsHTTP()) {
 						e.Result.Error = nil
 						e.Result.ClusterMatched = ""
 					}
-					if expectedFailures.Contains(name) {
+					if withoutVipExpectedFailures.Contains(name) {
 						e.Result.Error = simulation.ErrProtocolError
 						e.Result.ClusterMatched = ""
 					}
