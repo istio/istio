@@ -247,7 +247,7 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 	name := strings.Join(p, "-")
 	if len(name) > 253 {
 		name = name[len(name)-253:]
-		adsLog.Warnf("generated WorkloadEntry name is too long, consider making the WorkloadGroup name shorter. Shortening from beginning to: %s")
+		adsLog.Warnf("generated WorkloadEntry name is too long, consider making the WorkloadGroup name shorter. Shortening from beginning to: %s", name)
 	}
 	return name
 }
