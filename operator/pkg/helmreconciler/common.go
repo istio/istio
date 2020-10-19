@@ -122,14 +122,8 @@ func applyOverlay(current, overlay *unstructured.Unstructured) error {
 
 	overlayUpdated := overlay.DeepCopy()
 	if strings.EqualFold(current.GetKind(), "service") {
-		// Save the value of spec.clusterIP set by the cluster
-		if clusterIP, found, err := unstructured.NestedString(current.Object, "spec", "clusterIP"); err != nil {
+		if err := saveClusterIP(current, overlayUpdated); err != nil {
 			return err
-		} else if found {
-			if err := unstructured.SetNestedField(overlayUpdated.Object, clusterIP, "spec",
-				"clusterIP"); err != nil {
-				return err
-			}
 		}
 
 		if err := saveNodePorts(current, overlayUpdated); err != nil {
@@ -148,27 +142,47 @@ func applyOverlay(current, overlay *unstructured.Unstructured) error {
 	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
 }
 
-// saveNodePorts transfers the port values from the current cluster into the overlay
-func saveNodePorts(current, overlay *unstructured.Unstructured) error {
+// createPortMap returns a map, mapping the value of the port and value of the nodePort
+func createPortMap(current *unstructured.Unstructured) map[string]uint32 {
+	portMap := make(map[string]uint32)
 	var svc = &v1.Service{}
 	if err := scheme.Scheme.Convert(current, svc, nil); err != nil {
-		return err
+		log.Error(err.Error())
+		return portMap
 	}
-
-	portMap := make(map[string]string)
 	for _, p := range svc.Spec.Ports {
-		portMap[strconv.Itoa(int(p.Port))] = strconv.Itoa(int(p.NodePort))
+		portMap[strconv.Itoa(int(p.Port))] = uint32(p.NodePort)
 	}
+	return portMap
+}
 
+// saveNodePorts transfers the port values from the current cluster into the overlay
+func saveNodePorts(current, overlay *unstructured.Unstructured) error {
+	portMap := createPortMap(current)
 	ports, _, _ := unstructured.NestedFieldNoCopy(overlay.Object, "spec", "ports")
 	for _, port := range ports.([]interface{}) {
 		m := port.(map[string]interface{})
-		if nodePortNum, ok := m["nodePort"]; ok && nodePortNum == "0" {
+		if nodePortNum, ok := m["nodePort"]; ok && fmt.Sprintf("%v", nodePortNum) == "0" {
 			if portNum, ok := m["port"]; ok {
 				if v, ok := portMap[fmt.Sprintf("%v", portNum)]; ok {
 					m["nodePort"] = v
 				}
 			}
+		}
+	}
+	return nil
+}
+
+// saveClusterIP copies the cluster IP from the current cluster into the overlay
+func saveClusterIP(current, overlay *unstructured.Unstructured) error {
+	// Save the value of spec.clusterIP set by the cluster
+	if clusterIP, found, err := unstructured.NestedString(current.Object, "spec",
+		"clusterIP"); err != nil {
+		return err
+	} else if found {
+		if err := unstructured.SetNestedField(overlay.Object, clusterIP, "spec",
+			"clusterIP"); err != nil {
+			return err
 		}
 	}
 	return nil
