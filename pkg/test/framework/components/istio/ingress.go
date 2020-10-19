@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -132,6 +133,7 @@ func (c *ingressImpl) HTTPSAddress() net.TCPAddr {
 func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
 	address, err := c.getAddressInner(discoveryPort)
 	if err != nil {
+		scopes.Framework.Errorf(err)
 		return net.TCPAddr{}
 	}
 	return address

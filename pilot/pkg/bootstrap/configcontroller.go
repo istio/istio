@@ -142,6 +142,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		}
 	}
 	s.initStatusController(args, features.EnableStatus)
+	s.XDSServer.InternalGen.Store = configController
 	return nil
 }
 

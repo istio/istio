@@ -154,6 +154,10 @@ func (c controller) UpdateStatus(config config.Config) (newRevision string, err 
 	return "", errUnsupportedOp
 }
 
+func (c controller) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+	return "", errUnsupportedOp
+}
+
 func (c controller) Delete(typ config.GroupVersionKind, name, namespace string) error {
 	return errUnsupportedOp
 }

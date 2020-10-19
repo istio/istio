@@ -198,6 +198,13 @@ func (cr *store) UpdateStatus(c config.Config) (string, error) {
 	return cr.writer.UpdateStatus(c)
 }
 
+func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+	if cr.writer == nil {
+		return "", errorUnsupported
+	}
+	return cr.writer.Patch(typ, name, namespace, patchFn)
+}
+
 type storeCache struct {
 	model.ConfigStore
 	caches []model.ConfigStoreCache
