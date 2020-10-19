@@ -49,12 +49,12 @@ const (
 	TCP   Protocol = "tcp"
 )
 
-type TlsMode string
+type TLSMode string
 
 const (
-	Plaintext TlsMode = "plaintext"
-	TLS       TlsMode = "tls"
-	MTLS      TlsMode = "mtls"
+	Plaintext TLSMode = "plaintext"
+	TLS       TLSMode = "tls"
+	MTLS      TLSMode = "mtls"
 )
 
 func (c Call) IsHTTP() bool {
@@ -85,11 +85,11 @@ type Expect struct {
 type CallMode string
 
 var (
-	// simulate no iptables
+	// CallModeGateway simulate no iptables
 	CallModeGateway CallMode = "gateway"
-	// simulate iptables redirect to 15001
+	// CallModeOutbound simulate iptables redirect to 15001
 	CallModeOutbound CallMode = "outbound"
-	// simulate iptables redirect to 15006
+	// CallModeInbound simulate iptables redirect to 15006
 	CallModeInbound CallMode = "inbound"
 )
 
@@ -102,7 +102,7 @@ type Call struct {
 	Protocol Protocol
 	// TLS describes the connection tls parameters
 	// TODO: currently this does not verify TLS vs mTLS
-	TLS  TlsMode
+	TLS  TLSMode
 	Alpn string
 
 	// HostHeader is a convenience field for Headers
@@ -238,8 +238,8 @@ func (sim *Simulation) Run(input Call) (result Result) {
 			input.Alpn = alpn
 		}
 	}
-	_, hasTlsInspector := xdstest.ExtractListenerFilters(l)[xdsfilters.TLSInspector.Name]
-	fc, err := sim.matchFilterChain(l.FilterChains, input, hasTlsInspector)
+	_, hasTLSInspector := xdstest.ExtractListenerFilters(l)[xdsfilters.TLSInspector.Name]
+	fc, err := sim.matchFilterChain(l.FilterChains, input, hasTLSInspector)
 	if err != nil {
 		result.Error = err
 		return
@@ -381,7 +381,7 @@ func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host strin
 // Envoy algorithm - at each level we will filter out all FilterChains that do
 // not match. This means an empty match (`{}`) may not match if another chain
 // matches one criteria but not another.
-func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Call, hasTlsInspector bool) (*listener.FilterChain, error) {
+func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Call, hasTLSInspector bool) (*listener.FilterChain, error) {
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetDestinationPort() == nil
 	}, func(fc *listener.FilterChainMatch) bool {
@@ -420,7 +420,7 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, input Ca
 	chains = filter(chains, func(fc *listener.FilterChainMatch) bool {
 		return fc.GetTransportProtocol() == ""
 	}, func(fc *listener.FilterChainMatch) bool {
-		if !hasTlsInspector {
+		if !hasTLSInspector {
 			// Without tls inspector, transport protocol will always be raw buffer
 			return fc.GetTransportProtocol() == xdsfilters.RawBufferTransportProtocol
 		}
