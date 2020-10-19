@@ -58,6 +58,8 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	proxy.Lock()
+	defer proxy.Unlock()
 	if !rdsNeedsPush(req) {
 		return nil
 	}
