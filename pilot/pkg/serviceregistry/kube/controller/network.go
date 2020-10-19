@@ -38,17 +38,15 @@ func (n namedRangerEntry) Network() net.IPNet {
 }
 
 func (c *Controller) DefaultNetwork() string {
+	c.RLock()
+	defer c.RUnlock()
 	if c.networkForRegistry != "" {
 		return c.networkForRegistry
 	}
 	return c.Network
 }
 
-// reloadNetworkLookup refreshes the meshNetworks configuration, network for each endpoint, and
-// recomputes network gateways.
-func (c *Controller) reloadNetworkLookup() {
-	c.reloadMeshNetworks()
-
+func (c *Controller) onNetworkChanged() {
 	// the network for endpoints are computed when we process the events; this will fix the cache
 	// NOTE: this must run before the other network watcher handler that creates a force push
 	if err := c.syncPods(); err != nil {
@@ -58,6 +56,13 @@ func (c *Controller) reloadNetworkLookup() {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 	c.reloadNetworkGateways()
+}
+
+// reloadNetworkLookup refreshes the meshNetworks configuration, network for each endpoint, and
+// recomputes network gateways.
+func (c *Controller) reloadNetworkLookup() {
+	c.reloadMeshNetworks()
+	c.onNetworkChanged()
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup

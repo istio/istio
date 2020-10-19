@@ -16,13 +16,14 @@ package controller
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/watch"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/yl2chen/cidranger"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -111,6 +112,8 @@ type Options struct {
 
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
+
+	Revision string
 
 	// FetchCaRoot defines the function to get caRoot
 	FetchCaRoot func() map[string]string
@@ -204,6 +207,8 @@ type Controller struct {
 	serviceHandlers  []func(*model.Service, model.Event)
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
+	cmWatch watch.Interface
+
 	// This is only used for test
 	stop chan struct{}
 
@@ -260,10 +265,14 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 	}
 
-	// TODO allow watching this ConfigMap and re-sync registries
-	// TODO fetch this configmap outside of controller, to use in simplified bootstrap
-	if cm := kubelib.FetchClusterMeta(c.client, options.SystemNamespace); cm != nil {
+	if cm := kubelib.FetchClusterMeta(c.client, options.SystemNamespace, options.Revision); cm != nil {
 		c.ClusterMeta = *cm
+	}
+
+	var err error
+	c.cmWatch, err = kubelib.WatchClusterMeta(c.client, options.SystemNamespace, options.Revision)
+	if err != nil {
+		log.Warnf("failed to setup watch for istio-cluster ConfigMap: %v", err)
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -324,14 +333,14 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
-	svc, ok := curr.(*v1.Service)
+	svc, ok := curr.(*corev1.Service)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			log.Errorf("Couldn't get object from tombstone %#v", curr)
 			return nil
 		}
-		svc, ok = tombstone.Obj.(*v1.Service)
+		svc, ok = tombstone.Obj.(*corev1.Service)
 		if !ok {
 			log.Errorf("Tombstone contained object that is not a service %#v", curr)
 			return nil
@@ -397,14 +406,14 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 }
 
 func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
-	node, ok := obj.(*v1.Node)
+	node, ok := obj.(*corev1.Node)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			log.Errorf("couldn't get object from tombstone %+v", obj)
 			return nil
 		}
-		node, ok = tombstone.Obj.(*v1.Node)
+		node, ok = tombstone.Obj.(*corev1.Node)
 		if !ok {
 			log.Errorf("tombstone contained object that is not a node %#v", obj)
 			return nil
@@ -419,7 +428,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	} else {
 		k8sNode := kubernetesNode{labels: node.Labels}
 		for _, address := range node.Status.Addresses {
-			if address.Type == v1.NodeExternalIP && address.Address != "" {
+			if address.Type == corev1.NodeExternalIP && address.Address != "" {
 				k8sNode.address = address.Address
 				break
 			}
@@ -586,6 +595,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
 	}
+	if c.cmWatch != nil {
+		go c.watchClusterMeta(stop)
+	}
 	// TODO(https://github.com/kubernetes/kubernetes/issues/95262) remove this
 	time.Sleep(time.Millisecond * 5)
 	cache.WaitForCacheSync(stop, c.HasSynced)
@@ -622,7 +634,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 }
 
 // getPodLocality retrieves the locality for a pod.
-func (c *Controller) getPodLocality(pod *v1.Pod) string {
+func (c *Controller) getPodLocality(pod *corev1.Pod) string {
 	// if pod has `istio-locality` label, skip below ops
 	if len(pod.Labels[model.LocalityLabel]) > 0 {
 		return model.GetLocalityLabelOrDefault(pod.Labels[model.LocalityLabel], "")
@@ -843,7 +855,7 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*mode
 	out := []*model.ServiceInstance{}
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
-	dummyPod := &v1.Pod{
+	dummyPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Namespace: si.Namespace, Labels: si.Endpoint.Labels},
 	}
 
@@ -901,7 +913,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
-	dummyPod := &v1.Pod{
+	dummyPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Namespace: si.Namespace, Labels: si.Endpoint.Labels},
 	}
 
@@ -957,7 +969,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	}
 
 	// Create a pod with just the information needed to find the associated Services
-	dummyPod := &v1.Pod{
+	dummyPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: proxy.ConfigNamespace,
 			Labels:    proxy.Metadata.Labels,
@@ -1022,8 +1034,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	return out, nil
 }
 
-func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
-	service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
+func (c *Controller) getProxyServiceInstancesByPod(pod *corev1.Pod,
+	service *corev1.Service, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(service.Name, service.Namespace, c.domainSuffix)
@@ -1072,6 +1084,36 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 		}
 	}
 	return out
+}
+
+func (c *Controller) watchClusterMeta(stop <-chan struct{}) {
+	for {
+		select {
+		case ev := <-c.cmWatch.ResultChan():
+			c.queue.Push(func() error {
+				c.clusterMetaHandler(ev)
+				return nil
+			})
+		case <-stop:
+			c.cmWatch.Stop()
+		}
+	}
+}
+
+func (c *Controller) clusterMetaHandler(ev watch.Event) {
+	cm, ok := ev.Object.(*corev1.ConfigMap)
+	if !ok {
+		log.Warnf("ConfigMap watch getting wrong type in event: %T", ev.Object)
+	}
+	if nextMeta := kubelib.ClusterMetaFromConfigMap(cm); nextMeta != nil {
+		c.Lock()
+		oldMeta := c.ClusterMeta
+		c.ClusterMeta = *nextMeta
+		c.Unlock()
+		if oldMeta.Network != c.Network && c.Network == c.DefaultNetwork() {
+			c.onNetworkChanged()
+		}
+	}
 }
 
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {

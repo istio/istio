@@ -51,6 +51,7 @@ type kubeController struct {
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
+	revision          string
 	WatchedNamespaces string
 	DomainSuffix      string
 	ResyncPeriod      time.Duration
@@ -94,6 +95,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		caBundlePath:          opts.CABundlePath,
 		secretNamespace:       secretNamespace,
 		endpointMode:          opts.EndpointMode,
+		revision:              opts.Revision,
 	}
 	mc.initSecretController(kc)
 
@@ -115,6 +117,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 		DomainSuffix:      m.DomainSuffix,
 		XDSUpdater:        m.XDSUpdater,
 		ClusterID:         clusterID,
+		Revision:          m.revision,
 		NetworksWatcher:   m.networksWatcher,
 		Metrics:           m.metrics,
 		EndpointMode:      m.endpointMode,
