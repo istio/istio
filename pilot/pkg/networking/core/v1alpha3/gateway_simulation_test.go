@@ -17,13 +17,12 @@ package v1alpha3_test
 import (
 	"testing"
 
-	"istio.io/pkg/env"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/pkg/env"
 )
 
 func TestHTTPGateway(t *testing.T) {

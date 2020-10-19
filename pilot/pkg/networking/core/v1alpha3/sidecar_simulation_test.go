@@ -27,6 +27,482 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 )
 
+func TestInbound(t *testing.T) {
+	mtlsMode := func(m string) string {
+		return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: %s
+`, m)
+	}
+	svc := `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: se
+spec:
+  hosts:
+  - foo.bar
+  endpoints:
+  - address: 1.1.1.1
+  location: MESH_INTERNAL
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: auto
+    number: 81
+---
+`
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		name:   "disable",
+		config: svc + mtlsMode("DISABLE"),
+		calls: []simulation.Expect{
+			{
+				Name: "http inbound",
+				Call: simulation.Call{
+					Port:     80,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					VirtualHostMatched: "inbound|http|80",
+					ClusterMatched:     "inbound|80|http|foo.bar",
+				},
+			},
+			{
+				Name: "auto port inbound",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					VirtualHostMatched: "inbound|http|81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+				},
+			},
+			{
+				Name: "auto port2 inbound",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.HTTP2,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					VirtualHostMatched: "inbound|http|81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+				},
+			},
+			{
+				Name: "auto tcp inbound",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.TCP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ListenerMatched:    "virtualInbound",
+					FilterChainMatched: "0.0.0.0_81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+					StrictMatch:        true,
+				},
+			},
+			{
+				Name: "passthrough http",
+				Call: simulation.Call{
+					Address:  "1.2.3.4",
+					Port:     82,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched: "InboundPassthroughClusterIpv4",
+				},
+			},
+			{
+				Name: "passthrough tcp",
+				Call: simulation.Call{
+					Address:  "1.2.3.4",
+					Port:     82,
+					Protocol: simulation.TCP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched: "InboundPassthroughClusterIpv4",
+				},
+			},
+			{
+				Name: "passthrough tls",
+				Call: simulation.Call{
+					Address:  "1.2.3.4",
+					Port:     82,
+					Protocol: simulation.TCP,
+					TLS:      simulation.TLS,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched: "InboundPassthroughClusterIpv4",
+				},
+			},
+		},
+	})
+
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		name:           "permissive",
+		config:         svc + mtlsMode("PERMISSIVE"),
+		skipValidation: true, // TODO this is a bug
+		calls: []simulation.Expect{
+			{
+				Name: "http port",
+				Call: simulation.Call{
+					Port:     80,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					VirtualHostMatched: "inbound|http|80",
+					ClusterMatched:     "inbound|80|http|foo.bar",
+				},
+			},
+			{
+				Name: "http port tls",
+				Call: simulation.Call{
+					Port:     80,
+					Protocol: simulation.HTTP,
+					TLS:      simulation.TLS,
+					Alpn:     "http/1.1",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					// BUG: We incorrectly match HTTP plaintext filter chain
+					Error: simulation.ErrProtocolError,
+				},
+			},
+			{
+				Name: "http port mtls",
+				Call: simulation.Call{
+					Port:     80,
+					Protocol: simulation.HTTP,
+					TLS:      simulation.MTLS,
+					Alpn:     "istio-http/1.1",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					VirtualHostMatched: "inbound|http|80",
+					ClusterMatched:     "inbound|80|http|foo.bar",
+				},
+			},
+			{
+				Name: "auto port port",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					VirtualHostMatched: "inbound|http|81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+				},
+			},
+			{
+				Name: "auto port port https",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.HTTP,
+					TLS:      simulation.TLS,
+					Alpn:     "http/1.1",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					// Passed through as plain tcp
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ListenerMatched:    "virtualInbound",
+					FilterChainMatched: "0.0.0.0_81",
+					StrictMatch:        true,
+				},
+			},
+			{
+				Name: "auto port port https mtls",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.HTTP,
+					TLS:      simulation.MTLS,
+					Alpn:     "istio-http/1.1",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ListenerMatched:    "virtualInbound",
+					FilterChainMatched: "0.0.0.0_81",
+					VirtualHostMatched: "inbound|http|81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+					RouteMatched:       "default",
+					StrictMatch:        true,
+				},
+			},
+			{
+				Name: "auto port tcp",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.TCP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ListenerMatched:    "virtualInbound",
+					FilterChainMatched: "0.0.0.0_81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+					StrictMatch:        true,
+				},
+			},
+			{
+				Name: "auto port tls",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.TCP,
+					TLS:      simulation.TLS,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ListenerMatched:    "virtualInbound",
+					FilterChainMatched: "0.0.0.0_81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+					StrictMatch:        true,
+				},
+			},
+			{
+				Name: "auto port mtls",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.TCP,
+					TLS:      simulation.MTLS,
+					Alpn:     "istio",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ListenerMatched:    "virtualInbound",
+					FilterChainMatched: "0.0.0.0_81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+					StrictMatch:        true,
+				},
+			},
+			{
+				Name: "passthrough http",
+				Call: simulation.Call{
+					Address:  "1.2.3.4",
+					Port:     82,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched:     "InboundPassthroughClusterIpv4",
+					FilterChainMatched: "virtualInbound-catchall-http",
+				},
+			},
+			{
+				Name: "passthrough tcp",
+				Call: simulation.Call{
+					Address:  "1.2.3.4",
+					Port:     82,
+					Protocol: simulation.TCP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched:     "InboundPassthroughClusterIpv4",
+					FilterChainMatched: "virtualInbound",
+				},
+			},
+			{
+				Name: "passthrough tls",
+				Call: simulation.Call{
+					Address:  "1.2.3.4",
+					Port:     82,
+					Protocol: simulation.TCP,
+					TLS:      simulation.TLS,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					// TODO: This is a bug, see https://github.com/istio/istio/issues/26079#issuecomment-673699228
+					Error: simulation.ErrNoFilterChain,
+				},
+			},
+			{
+				Name: "passthrough mtls",
+				Call: simulation.Call{
+					Address:  "1.2.3.4",
+					Port:     82,
+					Alpn:     "istio",
+					Protocol: simulation.TCP,
+					TLS:      simulation.MTLS,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched:     "InboundPassthroughClusterIpv4",
+					ListenerMatched:    "virtualInbound",
+					FilterChainMatched: "virtualInbound",
+					StrictMatch:        true,
+				},
+			},
+			{
+				Name: "passthrough https",
+				Call: simulation.Call{
+					Address:  "1.2.3.4",
+					Port:     82,
+					Alpn:     "http/1.1",
+					Protocol: simulation.HTTP,
+					TLS:      simulation.TLS,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched:     "InboundPassthroughClusterIpv4",
+					ListenerMatched:    "virtualInbound",
+					FilterChainMatched: "virtualInbound-catchall-http",
+					RouteMatched:       "default",
+					VirtualHostMatched: "inbound|http|0",
+					// TODO: This is a bug, see https://github.com/istio/istio/issues/26079#issuecomment-673699228
+					// We should NOT be terminating TLs here, this is supposed to be passthrough. This breaks traffic
+					// sending TLS with ALPN (ie curl, or many other clients) to a port not exposed in the service.
+					StrictMatch: true,
+				},
+			},
+		},
+	})
+
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		name:           "strict",
+		config:         svc + mtlsMode("STRICT"),
+		skipValidation: false,
+		calls: []simulation.Expect{
+			{
+				Name: "http port",
+				Call: simulation.Call{
+					Port:     80,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					// Plaintext to strict, should fail
+					Error: simulation.ErrTLSError,
+				},
+			},
+			{
+				Name: "auto port http",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.HTTP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					// Plaintext to strict, should fail
+					Error: simulation.ErrTLSError,
+				},
+			},
+			{
+				Name: "auto port http mtls",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.HTTP,
+					TLS:      simulation.MTLS,
+					Alpn:     "istio-http/1.1",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					VirtualHostMatched: "inbound|http|81",
+					ClusterMatched:     "inbound|81|auto|foo.bar",
+				},
+			},
+			{
+				Name: "auto port tcp",
+				Call: simulation.Call{
+					Port:     81,
+					Protocol: simulation.TCP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					// Plaintext to strict, should fail
+					Error: simulation.ErrTLSError,
+				},
+			},
+			{
+				Name: "passthrough plaintext",
+				Call: simulation.Call{
+					Port:     82,
+					Address:  "1.2.3.4",
+					Protocol: simulation.TCP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					// Cannot send plaintext with strict
+					Error: simulation.ErrNoFilterChain,
+				},
+			},
+			{
+				Name: "passthrough tls",
+				Call: simulation.Call{
+					Port:     82,
+					Address:  "1.2.3.4",
+					Protocol: simulation.TCP,
+					TLS:      simulation.TLS,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched:     "InboundPassthroughClusterIpv4",
+					FilterChainMatched: "virtualInbound",
+				},
+			},
+			{
+				Name: "passthrough mtls",
+				Call: simulation.Call{
+					Port:     82,
+					Address:  "1.2.3.4",
+					Protocol: simulation.TCP,
+					TLS:      simulation.MTLS,
+					Alpn:     "istio",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched:     "InboundPassthroughClusterIpv4",
+					FilterChainMatched: "virtualInbound",
+				},
+			},
+			{
+				Name: "passthrough mtls http",
+				Call: simulation.Call{
+					Port:     82,
+					Address:  "1.2.3.4",
+					Protocol: simulation.TCP,
+					TLS:      simulation.TLS,
+					Alpn:     "istio-http/1.1",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched:     "InboundPassthroughClusterIpv4",
+					VirtualHostMatched: "inbound|http|0",
+				},
+			},
+			{
+				Name: "passthrough mtls http legacy",
+				Call: simulation.Call{
+					Port:     82,
+					Address:  "1.2.3.4",
+					Protocol: simulation.TCP,
+					TLS:      simulation.MTLS,
+					Alpn:     "http/1.1",
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched:     "InboundPassthroughClusterIpv4",
+					VirtualHostMatched: "inbound|http|0",
+				},
+			},
+		},
+	})
+}
+
 func TestHeadlessServices(t *testing.T) {
 	ports := `
   - name: http
