@@ -97,9 +97,10 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 		// we failed to create the workload entry in the first place
 		return
 	}
+	wle := cfg.DeepCopy()
 	delete(cfg.Annotations, WorkloadControllerAnnotation)
-	cfg.Annotations[DisconnectedAtAnnotation] = strconv.FormatInt(time.Now().UnixNano(), 10)
-	_, err := sg.Store.Update(*cfg)
+	wle.Annotations[DisconnectedAtAnnotation] = strconv.FormatInt(time.Now().UnixNano(), 10)
+	_, err := sg.Store.Update(wle)
 	if err != nil {
 		adsLog.Warnf("disconnect: failed patching WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 		return
