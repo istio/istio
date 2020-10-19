@@ -1078,20 +1078,8 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 		// At outbound, the service corresponding to the cluster has to be provided.
 		return
 	}
-	if opts.cluster.Metadata == nil {
-		opts.cluster.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
-		}
-	}
 
-	// Create Istio metadata if does not exist yet
-	if _, ok := opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey]; !ok {
-		opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
-		}
-	}
-
-	im := opts.cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
+	im := getOrCreateIstioMetadata(opts.cluster)
 
 	// Add services field into istio metadata
 	im.Fields["services"] = &structpb.Value{
@@ -1104,7 +1092,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 
 	svcMetaList := im.Fields["services"].GetListValue()
 
-	// Add servie related metadata. This will be consumed by telemetry v2 filter for metric labels.
+	// Add service related metadata. This will be consumed by telemetry v2 filter for metric labels.
 	if direction == model.TrafficDirectionInbound {
 		// For inbound cluster, add all services on the cluster port
 		have := make(map[host.Name]bool)
@@ -1128,13 +1116,37 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	}
 }
 
+// Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
+// Server side car uses this port after de-multiplexed from tunnel.
+func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
+	if opts.cluster == nil || direction == model.TrafficDirectionInbound {
+		return
+	}
+	if service == nil {
+		// At outbound, the service corresponding to the cluster has to be provided.
+		return
+	}
+
+	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
+		im := getOrCreateIstioMetadata(opts.cluster)
+
+		// Add original_port field into istio metadata
+		// Endpoint could override this port but the chance should be small.
+		im.Fields["default_original_port"] = &structpb.Value{
+			Kind: &structpb.Value_NumberValue{
+				NumberValue: float64(port.Port),
+			},
+		}
+	}
+}
+
 // Build a struct which contains service metadata and will be added into cluster label.
 func buildServiceMetadata(svc *model.Service) *structpb.Value {
 	return &structpb.Value{
 		Kind: &structpb.Value_StructValue{
 			StructValue: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					// serivce fqdn
+					// service fqdn
 					"host": {
 						Kind: &structpb.Value_StringValue{
 							StringValue: string(svc.Hostname),
@@ -1156,4 +1168,19 @@ func buildServiceMetadata(svc *model.Service) *structpb.Value {
 			},
 		},
 	}
+}
+
+func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
+	if cluster.Metadata == nil {
+		cluster.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+	// Create Istio metadata if does not exist yet
+	if _, ok := cluster.Metadata.FilterMetadata[util.IstioMetadataKey]; !ok {
+		cluster.Metadata.FilterMetadata[util.IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
 }
