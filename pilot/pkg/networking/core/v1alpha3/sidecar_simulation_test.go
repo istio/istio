@@ -154,9 +154,8 @@ spec:
 	})
 
 	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		name:           "permissive",
-		config:         svc + mtlsMode("PERMISSIVE"),
-		skipValidation: true, // TODO this is a bug
+		name:   "permissive",
+		config: svc + mtlsMode("PERMISSIVE"),
 		calls: []simulation.Expect{
 			{
 				Name: "http port",
@@ -180,8 +179,8 @@ spec:
 					CallMode: simulation.CallModeInbound,
 				},
 				Result: simulation.Result{
-					// BUG: We incorrectly match HTTP plaintext filter chain
-					Error: simulation.ErrProtocolError,
+					// This is expected. Protocol is explicitly declared HTTP but we send TLS traffic
+					Error: simulation.ErrNoFilterChain,
 				},
 			},
 			{
@@ -386,7 +385,7 @@ spec:
 				},
 				Result: simulation.Result{
 					// Plaintext to strict, should fail
-					Error: simulation.ErrTLSError,
+					Error: simulation.ErrNoFilterChain,
 				},
 			},
 			{
@@ -398,7 +397,7 @@ spec:
 				},
 				Result: simulation.Result{
 					// Plaintext to strict, should fail
-					Error: simulation.ErrTLSError,
+					Error: simulation.ErrNoFilterChain,
 				},
 			},
 			{
@@ -424,7 +423,7 @@ spec:
 				},
 				Result: simulation.Result{
 					// Plaintext to strict, should fail
-					Error: simulation.ErrTLSError,
+					Error: simulation.ErrNoFilterChain,
 				},
 			},
 			{
