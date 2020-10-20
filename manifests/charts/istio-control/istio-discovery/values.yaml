@@ -480,3 +480,6 @@ global:
 
   # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
+
+  # Deprecated, use meshConfig.trustDomain
+  trustDomain: ""

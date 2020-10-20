@@ -185,6 +185,7 @@ data:
             "address": ""
           }
         },
+        "trustDomain": "",
         "useMCP": false
       },
       "revision": "",

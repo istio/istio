@@ -317,8 +317,12 @@ global:
     # Setting this port to a non-zero value enables STS server.
     servicePort: 0
 
+  # Deprecated, use meshConfig.trustDomain
+#  trustDomain: ""
+
 meshConfig:
   enablePrometheusMerge: true
+#  trustDomain: ""
   defaultConfig:
     proxyMetadata: {}
     tracing:
