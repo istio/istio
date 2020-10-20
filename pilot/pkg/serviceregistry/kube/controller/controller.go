@@ -616,6 +616,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
 	}
+	if c.nsInformer != nil {
+		go c.nsInformer.Run(stop)
+	}
 	// TODO(https://github.com/kubernetes/kubernetes/issues/95262) remove this
 	time.Sleep(time.Millisecond * 5)
 	cache.WaitForCacheSync(stop, c.HasSynced)
