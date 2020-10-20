@@ -419,7 +419,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 
 		action.Timeout = d
-		action.MaxGrpcTimeout = d
+		if maxDuration := action.MaxStreamDuration; maxDuration != nil {
+			maxDuration.MaxStreamDuration = d
+		} else {
+			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+				MaxStreamDuration: d,
+			}
+		}
 
 		out.Action = &route.Route_Route{Route: action}
 
@@ -845,7 +851,9 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 				Timeout:          notimeout,
-				MaxGrpcTimeout:   notimeout,
+				MaxStreamDuration: &route.RouteAction_MaxStreamDuration{
+					MaxStreamDuration: notimeout,
+				},
 			},
 		},
 	}

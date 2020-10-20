@@ -519,9 +519,9 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
 							// Disable timeout instead of assuming some defaults.
 							Timeout: notimeout,
-							// If not configured at all, the grpc-timeout header is not used and
-							// gRPC requests time out like any other requests using timeout or its default.
-							MaxGrpcTimeout: notimeout,
+							MaxStreamDuration: &route.RouteAction_MaxStreamDuration{
+								MaxStreamDuration: notimeout,
+							},
 						},
 					},
 				},
