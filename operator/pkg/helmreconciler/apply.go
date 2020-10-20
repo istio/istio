@@ -17,8 +17,6 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 	"strings"
 	"time"
 
@@ -183,6 +181,18 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	}
 
 	gvk := obj.GetObjectKind().GroupVersionKind()
+
+	// check minor version only
+	if h.restConfig != nil {
+		k8sVer, err := k8sversion.GetKubernetesVersion(h.restConfig)
+		if err != nil {
+			scope.Errorf("failed to get k8s version: %s", err)
+		}
+		if k8sVer >= 16 {
+			return h.serverSideApply(obj)
+		}
+	}
+	// for k8s version before 1.16
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
 		err := h.client.Get(context.TODO(), objectKey, receiver)
