@@ -267,7 +267,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			err := s.pushConnection(con, pushEv)
 			pushEv.done()
 			if err != nil {
-				return nil
+				return err
 			}
 		case <-con.stop:
 			return nil
@@ -484,9 +484,7 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
 	s.InternalGen.RegisterWorkload(proxy, con)
 
-	if err = s.setProxyState(proxy, s.globalPushContext()); err != nil {
-		return nil, err
-	}
+	s.setProxyState(proxy, s.globalPushContext())
 
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality.
@@ -512,10 +510,8 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 	return proxy, nil
 }
 
-func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) error {
-	if err := s.setProxyState(proxy, push); err != nil {
-		return err
-	}
+func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) {
+	s.setProxyState(proxy, push)
 	if util.IsLocalityEmpty(proxy.Locality) {
 		// Get the locality from the proxy's service instances.
 		// We expect all instances to have the same locality. So its enough to look at the first instance
@@ -523,18 +519,11 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContex
 			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 		}
 	}
-
-	return nil
 }
 
-func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) error {
-	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
-		return err
-	}
-
-	if err := proxy.SetServiceInstances(push.ServiceDiscovery); err != nil {
-		return err
-	}
+func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) {
+	proxy.SetWorkloadLabels(s.Env)
+	proxy.SetServiceInstances(push.ServiceDiscovery)
 
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
@@ -542,7 +531,6 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 	// applicable to this proxy
 	proxy.SetSidecarScope(push)
 	proxy.SetGatewaysForProxy(push)
-	return nil
 }
 
 // DeltaAggregatedResources is not implemented.
@@ -564,9 +552,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		if err := s.updateProxy(con.proxy, pushRequest.Push); err != nil {
-			return nil
-		}
+		s.updateProxy(con.proxy, pushRequest.Push)
 	}
 
 	if !ProxyNeedsPush(con.proxy, pushEv) {

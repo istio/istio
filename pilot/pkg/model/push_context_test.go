@@ -1198,11 +1198,11 @@ func (l *localServiceDiscovery) InstancesByPort(svc *Service, servicePort int, l
 	return l.serviceInstances
 }
 
-func (l *localServiceDiscovery) GetProxyServiceInstances(proxy *Proxy) ([]*ServiceInstance, error) {
+func (l *localServiceDiscovery) GetProxyServiceInstances(proxy *Proxy) []*ServiceInstance {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) GetProxyWorkloadLabels(proxy *Proxy) (labels.Collection, error) {
+func (l *localServiceDiscovery) GetProxyWorkloadLabels(proxy *Proxy) labels.Collection {
 	panic("implement me")
 }
 

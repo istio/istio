@@ -486,9 +486,9 @@ type ServiceDiscovery interface {
 	// though with a different ServicePort and IstioEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
-	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
+	GetProxyServiceInstances(*Proxy) []*ServiceInstance
 
-	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
+	GetProxyWorkloadLabels(*Proxy) labels.Collection
 
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
