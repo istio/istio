@@ -76,4 +76,7 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.FailOnDeprecation, "istio.test.deprecation_failure", settingsFromCommandLine.FailOnDeprecation,
 		"Make tests fail if any usage of deprecated stuff (e.g. Envoy flags) is detected.")
+
+	flag.StringVar(&settingsFromCommandLine.Revision, "istio.test.revision", settingsFromCommandLine.Revision,
+		"If set to XXX, overwrite the default namespace label (istio-injection=enabled) with istio.io/rev=XXX.")
 }
