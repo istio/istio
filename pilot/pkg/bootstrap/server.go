@@ -713,6 +713,11 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
+		// Ensure we allow clients sufficient ability to send keep alives. If this is higher than client
+		// keep alive setting, it will prematurely get a GOAWAY sent.
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: options.Time / 2,
+		}),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:                  options.Time,
 			Timeout:               options.Timeout,
