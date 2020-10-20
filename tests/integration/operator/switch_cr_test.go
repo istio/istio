@@ -52,11 +52,10 @@ import (
 )
 
 const (
-	IstioNamespace     = "istio-system"
-	OperatorNamespace  = "istio-operator"
-	CanaryRevisionName = "canary"
-	retryDelay         = time.Second
-	retryTimeOut       = 20 * time.Minute
+	IstioNamespace    = "istio-system"
+	OperatorNamespace = "istio-operator"
+	retryDelay        = time.Second
+	retryTimeOut      = 20 * time.Minute
 )
 
 var (
@@ -87,6 +86,7 @@ func TestController(t *testing.T) {
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
 				"--manifests=" + ManifestPath,
+				"--revision=" + "v1",
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
@@ -105,20 +105,20 @@ func TestController(t *testing.T) {
 			}
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
-			installWithCRFile(t, ctx, cs, s, istioCtl, "demo", "")
-			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "")
+			installWithCRFile(t, ctx, cs, s, istioCtl, "demo", "v1")
+			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "v2")
 
 			initCmd = []string{
 				"operator", "init",
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
 				"--manifests=" + ManifestPath,
-				"--revision=" + CanaryRevisionName,
+				"--revision=" + "v2",
 			}
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
 
-			verifyInstallation(t, ctx, istioCtl, "default", CanaryRevisionName, cs)
+			verifyInstallation(t, ctx, istioCtl, "default", "v2", cs)
 
 			t.Cleanup(func() {
 				scopes.Framework.Infof("cleaning up resources")
