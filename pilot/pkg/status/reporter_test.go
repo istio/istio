@@ -15,7 +15,6 @@
 package status
 
 import (
-	"fmt"
 	"testing"
 	"time"
 

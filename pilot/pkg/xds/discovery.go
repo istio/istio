@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/log"
-
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
