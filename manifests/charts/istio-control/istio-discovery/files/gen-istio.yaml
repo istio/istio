@@ -799,8 +799,6 @@ spec:
             value: "false"
           - name: CENTRAL_ISTIOD
             value: "false"
-          - name: PILOT_ENDPOINT_TELEMETRY_LABEL
-            value: "true"
           resources:
             requests:
               cpu: 500m
