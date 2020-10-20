@@ -78,6 +78,11 @@ func TestVersion(t *testing.T) {
 			yamlStr: ".1.1.1-something",
 			wantErr: `Malformed version: .1.1.1-something`,
 		},
+		{
+			desc:    "Malformed version fail",
+			yamlStr: "istio-testing-distroless",
+			wantErr: `Malformed version: istio-testing-distroless`,
+		},
 	}
 
 	for _, tt := range tests {

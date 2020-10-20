@@ -36,10 +36,10 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
+	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
-	buildversion "istio.io/pkg/version"
 )
 
 const (
@@ -132,7 +132,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return err
 	}
-	tag, err := GetTagVersion(buildversion.DockerInfo.Tag)
+	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.Exte
 		// when the revision is not passed
 		if iArgs.revision == "" && tag != icpTag {
 			cmd.Printf("! Istio control planes installed: %s.\n"+
-				"! Use --revision=%s or --force to install Istio.\n", strings.Join(icpTags, ", "), tag)
+				"! Use --revision or --force to install Istio.\n", strings.Join(icpTags, ", "))
 		}
 		// when the revision is passed
 		if icpTag != "" && tag != icpTag && iArgs.revision != "" {
