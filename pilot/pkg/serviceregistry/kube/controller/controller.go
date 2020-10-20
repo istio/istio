@@ -190,6 +190,8 @@ type Controller struct {
 
 	queue queue.Instance
 
+	nsInformer cache.SharedIndexInformer
+
 	serviceInformer cache.SharedIndexInformer
 	serviceLister   listerv1.ServiceLister
 
@@ -204,7 +206,6 @@ type Controller struct {
 	pods *PodCache
 
 	metrics         model.Metrics
-	nsWatch         watch.Interface
 	networksWatcher mesh.NetworksWatcher
 	xdsUpdater      model.XDSUpdater
 	domainSuffix    string
@@ -272,15 +273,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	if options.SystemNamespace != "" {
-		// TODO watch and allow dynamic updates
-		sysNs, err := c.client.CoreV1().Namespaces().Get(context.TODO(), options.SystemNamespace, metav1.GetOptions{})
-		if err == nil {
-			if nw := sysNs.Labels[label.IstioNetwork]; nw != "" {
-				c.network = nw
+		c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
+		registerHandlers(c.nsInformer, c.queue, "Namespaces", c.onNamespaceEvent, func(old, cur interface{}) bool {
+			if ns, ok := cur.(*v1.Namespace); ok && ns != nil {
+				return ns.Name != options.SystemNamespace
 			}
-		} else {
-			log.Warnf("failed fetching namespace %q: %v", options.SystemNamespace, err)
-		}
+			return true
+		})
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -476,7 +475,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
-// Filter func for filtering out objects during update callback
+// FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc func(old, cur interface{}) bool
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
@@ -546,7 +545,8 @@ func tryGetLatestObject(informer cache.SharedIndexInformer, obj interface{}) int
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if !c.serviceInformer.HasSynced() ||
+	if !c.nsInformer.HasSynced() ||
+		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodeInformer.HasSynced() {
@@ -613,9 +613,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.networksWatcher != nil {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
-	}
-	if c.nsWatch != nil {
-		go c.watchNamespace(stop)
 	}
 	// TODO(https://github.com/kubernetes/kubernetes/issues/95262) remove this
 	time.Sleep(time.Millisecond * 5)
@@ -969,55 +966,26 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func (c *Controller) initNamespaceWatch(opts Options) {
-	var err error
-	c.nsWatch, err = c.client.CoreV1().Namespaces().Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + opts.SystemNamespace})
-	if err != nil {
-		log.Warnf("failed to setup watch on system namespace %q: %v", opts.SystemNamespace, err)
-	}
-	// drain the ResultChan to avoid churning on startup
-	var ev watch.Event
-Drain:
-	for {
-		select {
-		case ev = <-c.nsWatch.ResultChan():
-		default:
-			break Drain
+func (c *Controller) onNamespaceEvent(obj interface{}, ev model.Event) error {
+	var nw string
+	if ev != model.EventDelete {
+		ns, ok := obj.(*v1.Namespace)
+		if !ok {
+			log.Warnf("Namespace watch getting wrong type in event: %T", obj)
+			return nil
 		}
-	}
-	if ev.Type != "" {
-		c.namespaceHandler(ev)
-	}
-}
-
-func (c *Controller) watchNamespace(stop <-chan struct{}) {
-	for {
-		select {
-		case ev := <-c.nsWatch.ResultChan():
-			c.queue.Push(func() error {
-				c.namespaceHandler(ev)
-				return nil
-			})
-		case <-stop:
-			c.nsWatch.Stop()
-		}
-	}
-}
-
-func (c *Controller) namespaceHandler(ev watch.Event) {
-	ns, ok := ev.Object.(*v1.Namespace)
-	if !ok {
-		log.Warnf("Namespace watch getting wrong type in event: %T", ev.Object)
+		nw = ns.Labels[label.IstioNetwork]
 	}
 	c.Lock()
 	oldDefaultNetwork := c.network
-	c.network = ns.Labels[label.IstioNetwork]
+	c.network = nw
 	c.Unlock()
 	// network changed, not using mesh networks, and controller has been initialized
 	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.HasSynced() {
 		// refresh pods/endpoints/services
 		c.onNetworkChanged()
 	}
+	return nil
 }
 
 // isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
