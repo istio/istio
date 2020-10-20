@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -70,6 +71,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		allObjectsMap[oh] = true
 		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
+			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
 			deployedObjects++
 			continue
 		}
@@ -103,6 +105,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 				continue
 			}
 			plog.ReportProgress()
+			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
 			processedObjects = append(processedObjects, obj)
 			// Update the cache with the latest object.
 			objectCache.Cache[obj.Hash()] = obj
@@ -164,7 +167,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	}
 
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	receiver.SetGroupVersionKind(obj.GroupVersionKind())
 	objectKey, _ := client.ObjectKeyFromObject(obj)
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
@@ -174,9 +177,11 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		return nil
 	}
 
+	gvk := obj.GetObjectKind().GroupVersionKind()
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
 		err := h.client.Get(context.TODO(), objectKey, receiver)
+
 		switch {
 		case errors2.IsNotFound(err):
 			scope.Infof("creating resource: %s", objectStr)
@@ -184,6 +189,9 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err != nil {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
 			}
+			metrics.ResourceCreationTotal.
+				With(metrics.ResourceKindLabel.Value(util.GKString(gvk.GroupKind()))).
+				Increment()
 			return nil
 		case err == nil:
 			scope.Infof("updating resource: %s", objectStr)
@@ -193,7 +201,13 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			if err := applyOverlay(receiver, obj); err != nil {
 				return err
 			}
-			return h.client.Update(context.TODO(), receiver)
+			if err := h.client.Update(context.TODO(), receiver); err != nil {
+				return err
+			}
+			metrics.ResourceUpdateTotal.
+				With(metrics.ResourceKindLabel.Value(util.GKString(gvk.GroupKind()))).
+				Increment()
+			return nil
 		}
 		return nil
 	})
