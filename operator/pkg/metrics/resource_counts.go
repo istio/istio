@@ -26,7 +26,7 @@ import (
 // IstioOperator resource. The reported metric is the sum across all these.
 type resourceCounts struct {
 	mu        *sync.Mutex
-	resources map[schema.GroupVersionKind]map[string]struct{}
+	resources map[schema.GroupKind]map[string]struct{}
 }
 
 var rc *resourceCounts
@@ -34,12 +34,12 @@ var rc *resourceCounts
 func initOperatorCrdResourceMetrics() {
 	rc = &resourceCounts{
 		mu:        &sync.Mutex{},
-		resources: map[schema.GroupVersionKind]map[string]struct{}{},
+		resources: map[schema.GroupKind]map[string]struct{}{},
 	}
 }
 
 // AddResource adds the resource of given kind to the set of owned objects
-func AddResource(name string, gk schema.GroupVersionKind) {
+func AddResource(name string, gk schema.GroupKind) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 	if _, present := rc.resources[gk]; !present {
@@ -49,7 +49,7 @@ func AddResource(name string, gk schema.GroupVersionKind) {
 }
 
 // RemoveResource removes the resource of given kind to the set of owned objects
-func RemoveResource(name string, gk schema.GroupVersionKind) {
+func RemoveResource(name string, gk schema.GroupKind) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 	delete(rc.resources[gk], name)
@@ -60,9 +60,9 @@ func RemoveResource(name string, gk schema.GroupVersionKind) {
 func ReportOwnedResourceCounts() {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	for gvk, r := range rc.resources {
+	for gk, r := range rc.resources {
 		OwnedResourceTotal.
-			With(ResourceKindLabel.Value(util.GVKString(gvk))).
+			With(ResourceKindLabel.Value(util.GKString(gk))).
 			Record(float64(len(r)))
 	}
 }

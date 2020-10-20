@@ -62,10 +62,9 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 				ProgressLog: progress.NewLog(),
 				Log:         clog.NewDefaultLogger(),
 			},
-			iop:               iop,
-			countLock:         &sync.Mutex{},
-			ownedObjectsCount: map[schema.GroupVersionKind]int{},
-			prunedKindSet:     map[schema.GroupVersionKind]struct{}{},
+			iop:           iop,
+			countLock:     &sync.Mutex{},
+			prunedKindSet: map[schema.GroupKind]struct{}{},
 		}
 		manifestMap, err := h.RenderCharts()
 		if err != nil {

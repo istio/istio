@@ -65,9 +65,8 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 						Namespace: "istio-operator-test",
 					},
 				},
-				countLock:         &sync.Mutex{},
-				ownedObjectsCount: map[schema.GroupVersionKind]int{},
-				prunedKindSet:     map[schema.GroupVersionKind]struct{}{},
+				countLock:     &sync.Mutex{},
+				prunedKindSet: map[schema.GroupKind]struct{}{},
 			}
 			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v, wantErr %v", err, tt.wantErr)

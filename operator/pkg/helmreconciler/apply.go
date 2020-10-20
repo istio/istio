@@ -71,7 +71,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		allObjectsMap[oh] = true
 		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
-			metrics.AddResource(obj.FullName(), obj.GroupVersionKind())
+			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
 			deployedObjects++
 			continue
 		}
@@ -105,7 +105,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 				continue
 			}
 			plog.ReportProgress()
-			metrics.AddResource(obj.FullName(), obj.GroupVersionKind())
+			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
 			processedObjects = append(processedObjects, obj)
 			// Update the cache with the latest object.
 			objectCache.Cache[obj.Hash()] = obj
@@ -190,7 +190,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
 			}
 			metrics.ResourceCreationTotal.
-				With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
+				With(metrics.ResourceKindLabel.Value(util.GKString(gvk.GroupKind()))).
 				Increment()
 			return nil
 		case err == nil:
@@ -205,7 +205,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 				return err
 			}
 			metrics.ResourceUpdateTotal.
-				With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
+				With(metrics.ResourceKindLabel.Value(util.GKString(gvk.GroupKind()))).
 				Increment()
 			return nil
 		}

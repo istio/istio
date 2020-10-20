@@ -56,9 +56,8 @@ type HelmReconciler struct {
 	dependencyWaitCh map[name.ComponentName]chan struct{}
 
 	// The fields below are for metrics and reporting
-	countLock         *sync.Mutex
-	ownedObjectsCount map[schema.GroupVersionKind]int
-	prunedKindSet     map[schema.GroupVersionKind]struct{}
+	countLock     *sync.Mutex
+	prunedKindSet map[schema.GroupKind]struct{}
 }
 
 // Options are options for HelmReconciler.
@@ -127,7 +126,7 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		opts:             opts,
 		dependencyWaitCh: initDependencies(),
 		countLock:        &sync.Mutex{},
-		prunedKindSet:    make(map[schema.GroupVersionKind]struct{}),
+		prunedKindSet:    make(map[schema.GroupKind]struct{}),
 	}, nil
 }
 
@@ -457,10 +456,10 @@ func (h *HelmReconciler) getClient() client.Client {
 	return h.client
 }
 
-func (h *HelmReconciler) addPrunedKind(gvk schema.GroupVersionKind) {
+func (h *HelmReconciler) addPrunedKind(gk schema.GroupKind) {
 	h.countLock.Lock()
 	defer h.countLock.Unlock()
-	h.prunedKindSet[gvk] = struct{}{}
+	h.prunedKindSet[gk] = struct{}{}
 }
 
 func (h *HelmReconciler) reportPrunedObjectKind() {
@@ -468,7 +467,7 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 	defer h.countLock.Unlock()
 	for gvk := range h.prunedKindSet {
 		metrics.ResourcePruneTotal.
-			With(metrics.ResourceKindLabel.Value(util.GVKString(gvk))).
+			With(metrics.ResourceKindLabel.Value(util.GKString(gvk))).
 			Increment()
 	}
 }

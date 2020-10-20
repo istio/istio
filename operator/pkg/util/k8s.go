@@ -64,8 +64,7 @@ func DetectSupportedJWTPolicy(config *rest.Config) (JWTPolicy, error) {
 	return FirstPartyJWT, nil
 }
 
-// GVKString differs from default representation. Each one
-// is separated by slashes.
-func GVKString(gvk schema.GroupVersionKind) string {
-	return fmt.Sprintf("%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind)
+// GKString differs from default representation of GroupKind
+func GKString(gvk schema.GroupKind) string {
+	return fmt.Sprintf("%s/%s", gvk.Group, gvk.Kind)
 }

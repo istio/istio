@@ -151,10 +151,10 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 			} else {
 				objGvk := o.GroupVersionKind()
 				metrics.ResourceDeletionTotal.
-					With(metrics.ResourceKindLabel.Value(util.GVKString(objGvk))).
+					With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
 					Increment()
-				h.addPrunedKind(objGvk)
-				metrics.RemoveResource(obj.FullName(), objGvk)
+				h.addPrunedKind(objGvk.GroupKind())
+				metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 		}
@@ -203,7 +203,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		}
 		for _, obj := range objects.Items {
 			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
-			metrics.AddResource(objName, gvk)
+			metrics.AddResource(objName, gvk.GroupKind())
 		}
 		usList = append(usList, objects)
 	}
@@ -287,7 +287,7 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		}
 		for _, obj := range objects.Items {
 			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
-			metrics.AddResource(objName, gvk)
+			metrics.AddResource(objName, gvk.GroupKind())
 		}
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
@@ -333,10 +333,10 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			h.removeFromObjectCache(componentName, oh)
 		}
 		metrics.ResourceDeletionTotal.
-			With(metrics.ResourceKindLabel.Value(util.GVKString(objGvk))).
+			With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
 			Increment()
-		h.addPrunedKind(objGvk)
-		metrics.RemoveResource(obj.FullName(), objGvk)
+		h.addPrunedKind(objGvk.GroupKind())
+		metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
 	if all {
