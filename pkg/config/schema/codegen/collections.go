@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+    "reflect"
 {{- range .Packages}}
 	{{.ImportName}} "{{.PackageName}}"
 {{- end}}
@@ -67,8 +68,11 @@ var (
 			Plural: "{{ .Resource.Plural }}",
 			Version: "{{ .Resource.Version }}",
 			Proto: "{{ .Resource.Proto }}",
+			{{- if ne .Resource.StatusProto "" }}StatusProto: "{{ .Resource.StatusProto }}",{{end}}
 			ReflectType: {{ .Type }},
+			{{- if ne .StatusType "" }}StatusType: {{ .StatusType }}, {{end}}
 			ProtoPackage: "{{ .Resource.ProtoPackage }}",
+			{{- if ne "" .Resource.StatusProtoPackage}}StatusPackage: "{{ .Resource.StatusProtoPackage }}", {{end}}
 			ClusterScoped: {{ .Resource.ClusterScoped }},
 			ValidateProto: validation.{{ .Resource.Validate }},
 		}.MustBuild(),
@@ -133,6 +137,7 @@ type colEntry struct {
 	Collection *ast.Collection
 	Resource   *ast.Resource
 	Type       string
+	StatusType string
 }
 
 func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
@@ -184,11 +189,17 @@ func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
 
 		spl := strings.Split(r.Proto, ".")
 		tname := spl[len(spl)-1]
-		entries = append(entries, colEntry{
+		stat := strings.Split(r.StatusProto, ".")
+		statName := stat[len(stat)-1]
+		e := colEntry{
 			Collection: c,
 			Resource:   r,
 			Type:       fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.ProtoPackage), tname),
-		})
+		}
+		if r.StatusProtoPackage != "" {
+			e.StatusType = fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.StatusProtoPackage), statName)
+		}
+		entries = append(entries, e)
 	}
 	// Single instance and sort names
 	names := make(map[string]struct{})
@@ -196,6 +207,9 @@ func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
 	for _, r := range m.Resources {
 		if r.ProtoPackage != "" {
 			names[r.ProtoPackage] = struct{}{}
+		}
+		if r.StatusProtoPackage != "" {
+			names[r.StatusProtoPackage] = struct{}{}
 		}
 	}
 

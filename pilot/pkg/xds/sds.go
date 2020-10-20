@@ -106,7 +106,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 	}
 	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
-		adsLog.Warnf("proxy %v is from and unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		adsLog.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		return nil
 	}
 	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {

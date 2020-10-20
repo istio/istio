@@ -116,14 +116,15 @@ func TestAgent(t *testing.T) {
 		}
 
 		// connect to the local XDS proxy - it's using a transient port.
-		ldsr, err := adsc.Dial(sa.GetLocalXDSGeneratorListener().Addr().String(), "",
+		ldsr, err := adsc.New(sa.GetLocalXDSGeneratorListener().Addr().String(),
 			&adsc.Config{
 				IP:        "10.11.10.1",
 				Namespace: "test",
 				RootCert:  creds.RootCert,
-				Watch: []string{
-					v3.ClusterType,
-					collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
+				InitialDiscoveryRequests: []*discovery.DiscoveryRequest{
+					{TypeUrl: v3.ClusterType},
+					{TypeUrl: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
+				},
 			})
 		if err != nil {
 			t.Fatal("Failed to connect", err)
@@ -148,15 +149,16 @@ func TestAgent(t *testing.T) {
 // testAdscTLS tests that ADSC helper can connect using TLS to Istiod
 func testAdscTLS(t *testing.T, creds security.SecretManager) {
 	// connect to the local XDS proxy - it's using a transient port.
-	ldsr, err := adsc.Dial(util.MockPilotSGrpcAddr, "",
+	ldsr, err := adsc.New(util.MockPilotSGrpcAddr,
 		&adsc.Config{
-			IP:        "10.11.10.1",
-			Namespace: "test",
-			Secrets:   creds,
-			Watch: []string{
-				v3.ClusterType,
-				xds.TypeURLConnections,
-				collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
+			IP:            "10.11.10.1",
+			Namespace:     "test",
+			SecretManager: creds,
+			InitialDiscoveryRequests: []*discovery.DiscoveryRequest{
+				{TypeUrl: v3.ClusterType},
+				{TypeUrl: xds.TypeURLConnections},
+				{TypeUrl: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
+			},
 		})
 	if err != nil {
 		t.Fatal("Failed to connect", err)

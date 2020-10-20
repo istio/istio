@@ -27,11 +27,12 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	caserver "istio.io/istio/security/pkg/server/ca"
@@ -66,6 +67,9 @@ var (
 	// requires a secret named "cacerts" with specific files inside.
 	LocalCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
 		"Location of a local or mounted CA root")
+
+	useRemoteCerts = env.RegisterBoolVar("USE_REMOTE_CERTS", false,
+		"Whether to try to load CA certs from a remote Kubernetes cluster. Used for external Istiod.")
 
 	workloadCertTTL = env.RegisterDurationVar("DEFAULT_WORKLOAD_CERT_TTL",
 		cmd.DefaultWorkloadCertTTL,
@@ -285,6 +289,42 @@ func (s *Server) initPublicKey() error {
 	return nil
 }
 
+// loadRemoteCACerts mounts an existing cacerts Secret if the files aren't mounted locally.
+// By default, a cacerts Secret would be mounted during pod startup due to the
+// Istiod Deployment configuration. But with external Istiod, we want to be
+// able to load cacerts from a remote cluster instead.
+func (s *Server) loadRemoteCACerts(caOpts *CAOptions, dir string) error {
+	if s.kubeClient == nil {
+		return nil
+	}
+
+	signingKeyFile := path.Join(dir, "ca-key.pem")
+	if _, err := os.Stat(signingKeyFile); !os.IsNotExist(err) {
+		return fmt.Errorf("signing key file %s already exists", signingKeyFile)
+	}
+
+	secret, err := s.kubeClient.Kube().CoreV1().Secrets(caOpts.Namespace).Get(
+		context.TODO(), "cacerts", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	log.Infof("cacerts Secret found in remote cluster, saving contents to %s", dir)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	for key, data := range secret.Data {
+		filename := path.Join(dir, key)
+		if err := ioutil.WriteFile(filename, data, 0600); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // createIstioCA initializes the Istio CA signing functionality.
 // - for 'plugged in', uses ./etc/cacert directory, mounted from 'cacerts' secret in k8s.
 //   Inside, the key/cert are 'ca-key.pem' and 'ca-cert.pem'. The root cert signing the intermeidate is root-cert.pem,
@@ -313,7 +353,6 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 	if _, err := os.Stat(signingKeyFile); err != nil && client != nil {
 		// The user-provided certs are missing - create a self-signed cert.
 		log.Info("Use self-signed certificate as the CA certificate")
-		spiffe.SetTrustDomain(opts.TrustDomain)
 		// Abort after 20 minutes.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
 		defer cancel()

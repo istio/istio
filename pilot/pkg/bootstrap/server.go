@@ -192,7 +192,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins),
+		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins, args.PodName),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
 		monitoringMux:   http.NewServeMux(),
@@ -226,6 +226,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s.initMeshConfiguration(args, s.fileWatcher)
+	spiffe.SetTrustDomain(s.environment.Mesh().TrustDomain)
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -239,8 +240,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
-
-	s.XDSServer.InternalGen.Store = s.configController
 
 	s.initJwtPolicy()
 
@@ -397,7 +396,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	}
 
 	// Inform Discovery Server so that it can start accepting connections.
-	log.Infof("All caches have been synced up, marking server ready")
 	s.XDSServer.CachesSynced()
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
@@ -710,6 +708,7 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	maxStreams := features.MaxConcurrentStreams
 	maxRecvMsgSize := features.MaxRecvMsgSize
 
+	log.Infof("using max conn age of %v", options.MaxServerConnectionAge)
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
@@ -1070,6 +1069,11 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 		var corev1 v1.CoreV1Interface
 		if s.kubeClient != nil {
 			corev1 = s.kubeClient.CoreV1()
+		}
+		if useRemoteCerts.Get() {
+			if err = s.loadRemoteCACerts(caOpts, LocalCertDir.Get()); err != nil {
+				return fmt.Errorf("failed to load remote CA certs: %v", err)
+			}
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
 		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {

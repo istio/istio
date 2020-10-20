@@ -50,6 +50,12 @@ spec:
             cpu: 10m
             memory: 40Mi
 
+    pilot:
+      env:
+        PILOT_ENABLED_SERVICE_APIS: true
+        ENABLE_ADMIN_ENDPOINTS: true
+        PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION: true
+
     gateways:
       istio-ingressgateway:
         autoscaleMax: 1

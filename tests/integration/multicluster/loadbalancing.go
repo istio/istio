@@ -40,8 +40,9 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 							Run(func(ctx framework.TestContext) {
 								srcNetwork := src.Config().Cluster.NetworkName()
 								callOrFail(ctx, src, apps.LBEchos[0],
-									checkReachedAllSubsets(apps.LBEchos),
-									checkEqualIntraNetworkTraffic(ctx.Clusters(), srcNetwork))
+									echo.And(
+										checkReachedAllSubsets(apps.LBEchos),
+										checkEqualIntraNetworkTraffic(ctx.Clusters(), srcNetwork)))
 							})
 					}
 				})
@@ -49,7 +50,7 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 }
 
 func checkReachedAllSubsets(echos echo.Instances) echo.Validator {
-	return func(res client.ParsedResponses) error {
+	return echo.ValidatorFunc(func(res client.ParsedResponses, _ error) error {
 		// make sure we reached all cluster/subset combos
 		for _, e := range echos {
 			for _, ss := range e.Config().Subsets {
@@ -63,13 +64,13 @@ func checkReachedAllSubsets(echos echo.Instances) echo.Validator {
 			}
 		}
 		return nil
-	}
+	})
 }
 
 func checkEqualIntraNetworkTraffic(clusters resource.Clusters, srcNetwork string) echo.Validator {
 	// expect same network traffic to have very equal distribution (20% error)
 	intraNetworkClusters := clusters.ByNetwork()[srcNetwork]
-	return func(res client.ParsedResponses) error {
+	return echo.ValidatorFunc(func(res client.ParsedResponses, _ error) error {
 		intraNetworkRes := res.Match(func(r *client.ParsedResponse) bool {
 			return srcNetwork == clusters.GetByName(r.Cluster).NetworkName()
 		})
@@ -77,5 +78,5 @@ func checkEqualIntraNetworkTraffic(clusters resource.Clusters, srcNetwork string
 			return fmt.Errorf("same network traffic was not even: %v", err)
 		}
 		return nil
-	}
+	})
 }

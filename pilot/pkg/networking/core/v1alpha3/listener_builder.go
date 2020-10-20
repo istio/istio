@@ -336,6 +336,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 		FilterChains:                        filterChains,
 		TrafficDirection:                    core.TrafficDirection_OUTBOUND,
 	}
+	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, ipTablesListener)
 	lb.virtualOutboundListener = ipTablesListener
 	return lb
 }
@@ -362,6 +363,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		TrafficDirection:                    core.TrafficDirection_INBOUND,
 		FilterChains:                        filterChains,
 	}
+	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, lb.virtualInboundListener)
 	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
 
 	return lb
