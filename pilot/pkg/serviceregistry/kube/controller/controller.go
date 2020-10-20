@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -100,6 +101,8 @@ func incrementEvent(kind, event string) {
 
 // Options stores the configurable attributes of a Controller.
 type Options struct {
+	SystemNamespace string
+
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
 	WatchedNamespaces string
 	ResyncPeriod      time.Duration
@@ -232,6 +235,8 @@ type Controller struct {
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
 
+	// Network name for to be used when the meshNetworks for registry nor network label on pod is specified
+	network string
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
 	// tracks which services on which ports should act as a gateway for networkForRegistry
@@ -262,6 +267,18 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		networkGateways:             make(map[host.Name]map[string][]*model.Gateway),
 		networksWatcher:             options.NetworksWatcher,
 		metrics:                     options.Metrics,
+	}
+
+	if options.SystemNamespace != "" {
+		// TODO watch and allow dynamic updates
+		sysNs, err := c.client.CoreV1().Namespaces().Get(context.TODO(), options.SystemNamespace, metav1.GetOptions{})
+		if err == nil {
+			if nw := sysNs.Labels[label.IstioNetwork]; nw != "" {
+				c.network = nw
+			}
+		} else {
+			log.Warnf("failed fetching namespace %q: %v", options.SystemNamespace, err)
+		}
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -312,7 +329,10 @@ func (c *Controller) cidrRanger() cidranger.Ranger {
 }
 
 func (c *Controller) defaultNetwork() string {
-	return c.networkForRegistry
+	if c.networkForRegistry != "" {
+		return c.networkForRegistry
+	}
+	return c.network
 }
 
 func (c *Controller) Cleanup() error {
