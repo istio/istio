@@ -30,6 +30,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -53,8 +54,6 @@ const (
 	NodeRegionLabelGA = "topology.kubernetes.io/region"
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
-	// IstioSubzoneLabel is custom subzone label for locality-based routing in Kubernetes see: https://github.com/istio/istio/issues/19114
-	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 
@@ -169,6 +168,16 @@ type kubernetesNode struct {
 	address string
 	labels  labels.Instance
 }
+
+// controllerInterface is a simplified interface for the Controller used for testing.
+type controllerInterface interface {
+	getPodLocality(pod *v1.Pod) string
+	cidrRanger() cidranger.Ranger
+	defaultNetwork() string
+	Cluster() string
+}
+
+var _ controllerInterface = &Controller{}
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
@@ -296,6 +305,14 @@ func (c *Controller) Provider() serviceregistry.ProviderID {
 
 func (c *Controller) Cluster() string {
 	return c.clusterID
+}
+
+func (c *Controller) cidrRanger() cidranger.Ranger {
+	return c.ranger
+}
+
+func (c *Controller) defaultNetwork() string {
+	return c.networkForRegistry
 }
 
 func (c *Controller) Cleanup() error {
@@ -633,7 +650,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(nodeMeta, IstioSubzoneLabel, "")
+	subzone := getLabelValue(nodeMeta, label.IstioSubZone, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""
