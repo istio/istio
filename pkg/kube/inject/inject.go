@@ -478,6 +478,7 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 	}
 
 	cluster := valuesStruct.GetGlobal().GetMultiCluster().GetClusterName()
+	// TODO allow overriding the values.global network in injection with the system namespace label
 	network := valuesStruct.GetGlobal().GetNetwork()
 	// params may be set from webhook URL, take priority over values yaml
 	if params.proxyEnvs["ISTIO_META_CLUSTER"] != "" {
