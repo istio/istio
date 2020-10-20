@@ -29,6 +29,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -147,6 +148,13 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 					h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists",
 						obj.Hash())
 				}
+			} else {
+				objGvk := o.GroupVersionKind()
+				metrics.ResourceDeletionTotal.
+					With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
+					Increment()
+				h.addPrunedKind(objGvk.GroupKind())
+				metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 		}
@@ -192,6 +200,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		}
 		if err != nil {
 			continue
+		}
+		for _, obj := range objects.Items {
+			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
+			metrics.AddResource(objName, gvk.GroupKind())
 		}
 		usList = append(usList, objects)
 	}
@@ -273,7 +285,10 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
 		}
-
+		for _, obj := range objects.Items {
+			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
+			metrics.AddResource(objName, gvk.GroupKind())
+		}
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
 	return errs.ToError()
@@ -304,6 +319,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			continue
 		}
 		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		objGvk := o.GroupVersionKind()
 		if err != nil {
 			if !strings.Contains(err.Error(), "not found") {
 				errs = util.AppendErr(errs, err)
@@ -316,6 +332,11 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		if !all {
 			h.removeFromObjectCache(componentName, oh)
 		}
+		metrics.ResourceDeletionTotal.
+			With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
+			Increment()
+		h.addPrunedKind(objGvk.GroupKind())
+		metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
 	if all {
