@@ -16,10 +16,10 @@ package kube
 
 import (
 	"context"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/watch"
 
+	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/pkg/log"

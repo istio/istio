@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/pkg/log"
 	"net"
 	"os"
 	"path"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/pkg/log"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
