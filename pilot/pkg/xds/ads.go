@@ -280,8 +280,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
-	con.proxy.Lock()
-	defer con.proxy.Unlock()
+	con.proxy.RLock()
+	defer con.proxy.RUnlock()
 
 	// If there is an error in request that means previous response is erroneous.
 	// We do not have to respond in that case. In this case request's version info
