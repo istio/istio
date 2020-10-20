@@ -444,7 +444,7 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 		}
 		server.Version, err = pkgversion.TagToVersionString(pv)
 		if err != nil {
-			tagErr := fmt.Errorf("unable to convert tag %s into version in pod: %v", pv, pod.Spec.Containers)
+			tagErr := fmt.Errorf("unable to convert tag %s into version in pod: %v", pv, pod.Spec.Containers[0].Name)
 			errs = util.AppendErr(errs, tagErr)
 		}
 		res = append(res, server)
