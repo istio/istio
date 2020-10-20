@@ -211,5 +211,3 @@ spec:
               value: "300s"
             - name: REVISION
               value: ""
-            - name: RENEW_DEADLINE
-              value: "10s"
