@@ -140,6 +140,9 @@ func (b *AccessLogBuilder) setHTTPAccessLog(mesh *meshconfig.MeshConfig, connect
 }
 
 func (b *AccessLogBuilder) setListenerAccessLog(mesh *meshconfig.MeshConfig, listener *listener.Listener) {
+	if mesh.DisableEnvoyListenerLog {
+		return
+	}
 	if mesh.AccessLogFile != "" {
 		listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
 	}
