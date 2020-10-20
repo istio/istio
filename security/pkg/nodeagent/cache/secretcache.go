@@ -236,7 +236,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
-
 	// If request is for root certificate,
 	// retry since rootCert may be empty until there is CSR response returned from CA.
 	rootCert, rootCertExpr := sc.getRootCert()
