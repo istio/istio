@@ -1,3 +1,4 @@
+revision: ""
 global:
 
   # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace

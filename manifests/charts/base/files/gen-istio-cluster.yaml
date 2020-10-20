@@ -3572,6 +3572,19 @@ metadata:
     app: istiod
     release: istio
 ---
+# Source: base/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-cluster
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+    release: istio
+    istio/multiCluster: true
+data:
+  network:
+---
 # Source: base/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

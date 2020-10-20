@@ -1,4 +1,3 @@
-{{- if .Values.global.multiCluster.clusterName }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,4 +9,3 @@ metadata:
     istio/multiCluster: true
 data:
   network: {{ .Values.global.network | default "" }}
-{{- end }}
