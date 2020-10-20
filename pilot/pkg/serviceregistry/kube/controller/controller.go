@@ -265,15 +265,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 	}
 
-	if cm := kubelib.FetchClusterMeta(c.client, options.SystemNamespace, options.Revision); cm != nil {
-		c.ClusterMeta = *cm
-	}
-
-	var err error
-	c.cmWatch, err = kubelib.WatchClusterMeta(c.client, options.SystemNamespace, options.Revision)
-	if err != nil {
-		log.Warnf("failed to setup watch for istio-cluster ConfigMap: %v", err)
-	}
+	c.initClusterMetaWatch(options)
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
 	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
@@ -1084,6 +1076,30 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *corev1.Pod,
 		}
 	}
 	return out
+}
+
+// initClusterMetaWatch sets up a watch on the istio-cluster ConfigMap and drains the watch to the most
+// recent state of the ConfigMap.
+func (c *Controller) initClusterMetaWatch(options Options) {
+	var err error
+	c.cmWatch, err = kubelib.WatchClusterMeta(c.client, options.SystemNamespace, options.Revision)
+	if err != nil {
+		log.Warnf("failed to setup watch for istio-cluster ConfigMap: %v", err)
+		return
+	}
+	// drain the ResultChan
+	var ev watch.Event
+Drain:
+	for {
+		select {
+		case ev = <-c.cmWatch.ResultChan():
+		default:
+			break Drain
+		}
+	}
+	if ev.Type != "" {
+		c.clusterMetaHandler(ev)
+	}
 }
 
 func (c *Controller) watchClusterMeta(stop <-chan struct{}) {
