@@ -32,6 +32,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 
 		// SDS requires Kubernetes 1.13
@@ -51,9 +52,6 @@ components:
   egressGateways:
   - enabled: true
     name: istio-egressgateway
-  ingressGateways:
-  - enabled: false
-    name: istio-ingressgateway
 values:
    gateways:
       istio-egressgateway:

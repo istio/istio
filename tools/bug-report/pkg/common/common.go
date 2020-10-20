@@ -112,7 +112,5 @@ func getVersionKey(clusterVersion string) string {
 
 func LogAndPrintf(format string, a ...interface{}) {
 	fmt.Printf(format, a...)
-	o := []interface{}{format}
-	o = append(o, a...)
-	log.Infof(format, o)
+	log.Info(fmt.Sprintf(format, a...))
 }

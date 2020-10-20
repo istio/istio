@@ -565,6 +565,9 @@ The test framework supports the following command-line flags:
 
   -istio.test.kube.loadbalancer bool
         Used to obtain the right IP address for ingress gateway. This should be false for any environment that doesn't support a LoadBalancer type.
+
+  -istio.test.revision string
+        Overwrite the default namespace label (istio-enabled=true) with revision lable (istio.io/rev=XXX). (default is no overwrite)
 ```
 
 }

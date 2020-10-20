@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -67,12 +68,12 @@ func TestRequestAuthentication(t *testing.T) {
 
 			var a, b, c, d, e, f echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil)).
-				With(&e, util.EchoConfig("e", ns, false, nil)).
-				With(&f, util.EchoConfig("f", ns, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
+				With(&e, util.EchoConfig("e", ns, false, nil, nil)).
+				With(&f, util.EchoConfig("f", ns, false, nil, nil)).
 				BuildOrFail(t)
 
 			testCases := []authn.TestCase{
@@ -331,7 +332,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			// Apply the policy.
 			namespaceTmpl := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": rootNamespace,
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
@@ -348,8 +349,8 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			var a, b echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
 				BuildOrFail(t)
 
 			// These test cases verify in-mesh traffic doesn't need tokens.
@@ -460,11 +461,8 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			}
 
 			for _, c := range ingTestCases {
-				t.Run(c.Name, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, func() error {
-						return authn.CheckIngress(ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
-					},
-						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+				ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
+					authn.CheckIngressOrFail(ctx, ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
 				})
 			}
 		})

@@ -19,6 +19,7 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -77,6 +78,7 @@ func (p *Probe) isEnvoyReady() error {
 
 	err := checkEnvoyStats(p.LocalHostAddr, p.AdminPort)
 	if err == nil {
+		metrics.RecordStartupTime()
 		p.atleastOnceReady = true
 	}
 	return err

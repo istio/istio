@@ -17,9 +17,12 @@ the default north-south ingress gateway.
 Run the following command to deploy the east-west gateway to a primary cluster:
 
 ```bash
+export MESH=mesh1
 export CLUSTER=cluster1
 export NETWORK=network1
-./samples/multicluster/gen-eastwest-gateway.sh | kubectl apply -f -
+./samples/multicluster/gen-eastwest-gateway.sh | \
+    istioctl manifest generate -f - | \
+    kubectl apply -f -
 ```
 
 The `CLUSTER` and `NETWORK` environment variables should match the values used to deploy the control plane

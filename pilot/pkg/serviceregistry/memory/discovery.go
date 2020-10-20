@@ -57,7 +57,8 @@ func (c *ServiceController) HasSynced() bool { return true }
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
-	services map[host.Name]*model.Service
+	services        map[host.Name]*model.Service
+	networkGateways map[string][]*model.Gateway
 	// EndpointShards table. Key is the fqdn of the service, ':', port
 	instancesByPortNum  map[string][]*model.ServiceInstance
 	instancesByPortName map[string][]*model.ServiceInstance
@@ -98,6 +99,7 @@ func NewServiceDiscovery(services []*model.Service) *ServiceDiscovery {
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]*labels.Instance{},
+		networkGateways:     map[string][]*model.Gateway{},
 	}
 }
 
@@ -283,14 +285,14 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, _ labe
 
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
 // 'in' services.
-func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.GetProxyServiceInstancesError != nil {
-		return nil, sd.GetProxyServiceInstancesError
+		return nil
 	}
 	if sd.WantGetProxyServiceInstances != nil {
-		return sd.WantGetProxyServiceInstances, nil
+		return sd.WantGetProxyServiceInstances
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, ip := range node.IPAddresses {
@@ -299,10 +301,10 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 			out = append(out, si...)
 		}
 	}
-	return out, sd.GetProxyServiceInstancesError
+	return out
 }
 
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	out := make(labels.Collection, 0)
@@ -312,7 +314,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 			out = append(out, *l)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
@@ -326,4 +328,12 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 		}
 	}
 	return make([]string, 0)
+}
+
+func (sd *ServiceDiscovery) SetGatewaysForNetwork(nw string, gws ...*model.Gateway) {
+	sd.networkGateways[nw] = gws
+}
+
+func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
+	return sd.networkGateways
 }

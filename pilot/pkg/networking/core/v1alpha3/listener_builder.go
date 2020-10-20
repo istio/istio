@@ -336,6 +336,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 		FilterChains:                        filterChains,
 		TrafficDirection:                    core.TrafficDirection_OUTBOUND,
 	}
+	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, ipTablesListener)
 	lb.virtualOutboundListener = ipTablesListener
 	return lb
 }
@@ -362,6 +363,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		TrafficDirection:                    core.TrafficDirection_INBOUND,
 		FilterChains:                        filterChains,
 	}
+	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, lb.virtualInboundListener)
 	lb.aggregateVirtualInboundListener(needTLSForPassThroughFilterChain)
 
 	return lb
@@ -523,12 +525,14 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 				Filters:          append(chain.TCP, tcpProxyFilter),
 			}
 			if chain.TLSContext != nil {
-				filterChain.FilterChainMatch.TransportProtocol = "tls"
+				filterChain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
 				// Update transport socket from the TLS context configured by the plugin.
 				filterChain.TransportSocket = &core.TransportSocket{
 					Name:       util.EnvoyTLSSocketName,
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(chain.TLSContext)},
 				}
+			} else {
+				filterChain.FilterChainMatch.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 			}
 			for _, filter := range chain.ListenerFilters {
 				if filter.Name == wellknown.TlsInspector {
@@ -630,7 +634,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *
 				Filters:          []*listener.Filter{filter},
 			}
 			if chain.TLSContext != nil {
-				filterChain.FilterChainMatch.TransportProtocol = "tls"
+				filterChain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
 				filterChain.FilterChainMatch.ApplicationProtocols =
 					append(filterChain.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
 
@@ -639,6 +643,8 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *
 					Name:       util.EnvoyTLSSocketName,
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(chain.TLSContext)},
 				}
+			} else {
+				filterChain.FilterChainMatch.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 			}
 			filterChain.Name = virtualInboundCatchAllHTTPFilterChainName
 			filterChains = append(filterChains, filterChain)

@@ -20,9 +20,10 @@ import (
 	"math"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -32,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/util"
-	"istio.io/pkg/log"
 )
 
 //	Virtual service topology
@@ -163,7 +163,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 										}
 
 										return verifyTrafficMirror(apps.PodB, expected, c, testID)
-									}, retry.Delay(time.Second))
+									}, echo.DefaultCallRetryOptions()...)
 								})
 							}
 						})

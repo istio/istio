@@ -82,6 +82,9 @@ type Connection struct {
 	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
 	node *core.Node
+
+	// stop can be used to end the connection manually via debug endpoints. Only to be used for testing.
+	stop chan struct{}
 }
 
 // Event represents a config or registry event that results in a push.
@@ -96,6 +99,7 @@ type Event struct {
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
 		pushChannel: make(chan *Event),
+		stop:        make(chan struct{}),
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
@@ -218,7 +222,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
-
 	con := newConnection(peerAddr, stream)
 	con.Identities = ids
 
@@ -264,8 +267,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			err := s.pushConnection(con, pushEv)
 			pushEv.done()
 			if err != nil {
-				return nil
+				return err
 			}
+		case <-con.stop:
+			return nil
 		}
 	}
 }
@@ -326,7 +331,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if request.ResponseNonce != previousInfo.NonceSent {
 		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
-		xdsExpiredNonce.Increment()
+		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		return false
 	}
 
@@ -403,7 +408,7 @@ func listEqualUnordered(a []string, b []string) bool {
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
-	proxy, err := s.initProxy(node)
+	proxy, err := s.initProxy(node, con)
 	if err != nil {
 		return err
 	}
@@ -436,6 +441,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	if s.InternalGen != nil {
 		s.InternalGen.OnConnect(con)
 	}
+
 	return nil
 }
 
@@ -462,7 +468,7 @@ func connectionID(node string) string {
 }
 
 // initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
+func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -474,9 +480,11 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
-	if err = s.setProxyState(proxy, s.globalPushContext()); err != nil {
-		return nil, err
-	}
+	// this should be done before we look for service instances, but after we load metadata
+	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
+	s.InternalGen.RegisterWorkload(proxy, con)
+
+	s.setProxyState(proxy, s.globalPushContext())
 
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality.
@@ -502,10 +510,8 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	return proxy, nil
 }
 
-func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) error {
-	if err := s.setProxyState(proxy, push); err != nil {
-		return err
-	}
+func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) {
+	s.setProxyState(proxy, push)
 	if util.IsLocalityEmpty(proxy.Locality) {
 		// Get the locality from the proxy's service instances.
 		// We expect all instances to have the same locality. So its enough to look at the first instance
@@ -513,18 +519,11 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContex
 			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 		}
 	}
-
-	return nil
 }
 
-func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) error {
-	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
-		return err
-	}
-
-	if err := proxy.SetServiceInstances(push.ServiceDiscovery); err != nil {
-		return err
-	}
+func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) {
+	proxy.SetWorkloadLabels(s.Env)
+	proxy.SetServiceInstances(push.ServiceDiscovery)
 
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
@@ -532,7 +531,6 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 	// applicable to this proxy
 	proxy.SetSidecarScope(push)
 	proxy.SetGatewaysForProxy(push)
-	return nil
 }
 
 // DeltaAggregatedResources is not implemented.
@@ -554,9 +552,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		if err := s.updateProxy(con.proxy, pushRequest.Push); err != nil {
-			return nil
-		}
+		s.updateProxy(con.proxy, pushRequest.Push)
 	}
 
 	if !ProxyNeedsPush(con.proxy, pushEv) {
@@ -621,7 +617,7 @@ func reportAllEvents(s DistributionStatusCache, id, version string, ignored map[
 	}
 	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
 	// inform distribution status reporter that this connection has been updated, because it effectively has
-	for _, distributionType := range AllEventTypes {
+	for distributionType := range AllEventTypes {
 		if _, f := ignored[distributionType]; f {
 			// Skip this type
 			continue
@@ -752,7 +748,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 
 	if s.StatusReporter != nil {
-		go s.StatusReporter.RegisterDisconnect(conID, AllEventTypes)
+		s.StatusReporter.RegisterDisconnect(conID, AllEventTypesList)
 	}
 }
 
@@ -762,6 +758,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(sendTimeout)
 	go func() {
+		start := time.Now()
+		defer func() { recordSendTime(time.Since(start)) }()
 		errChan <- conn.stream.Send(res)
 		close(errChan)
 	}()
@@ -855,4 +853,8 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 		return conn.proxy.WatchedResources[typeUrl]
 	}
 	return nil
+}
+
+func (conn *Connection) Stop() {
+	conn.stop <- struct{}{}
 }

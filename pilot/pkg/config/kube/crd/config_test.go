@@ -32,6 +32,12 @@ func TestKind(t *testing.T) {
 		t.Errorf("GetSpec() => got %v, want %v", got, spec)
 	}
 
+	status := map[string]interface{}{"yo": "lit"}
+	obj.Status = status
+	if got := obj.GetStatus(); !reflect.DeepEqual(status, got) {
+		t.Errorf("GetStatus() => got %v, want %v", got, status)
+	}
+
 	meta := meta_v1.ObjectMeta{Name: "test"}
 	obj.ObjectMeta = meta
 	if got := obj.GetObjectMeta(); !reflect.DeepEqual(meta, got) {

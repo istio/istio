@@ -84,7 +84,7 @@ func NewXDS() *SimpleServer {
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
-	ds := NewDiscoveryServer(env, nil)
+	ds := NewDiscoveryServer(env, nil, "pilot-123")
 	ds.CachesSynced()
 
 	// Config will have a fixed format:

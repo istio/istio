@@ -34,6 +34,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		RequireSingleCluster().
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
@@ -45,10 +46,6 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
-components:
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: false
 values:
   meshConfig:
     trustDomainAliases: [some-other, trust-domain-foo]

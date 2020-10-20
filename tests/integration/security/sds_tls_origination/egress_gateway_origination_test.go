@@ -52,12 +52,12 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				CaCert: sdstlsutil.FakeRoot,
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{credName}, "SIMPLE", credentialA, false)
-			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credName})
+			sdstlsutil.CreateKubeSecret(ctx, []string{credName}, "SIMPLE", credentialA, false)
+			defer ingressutil.DeleteKubeSecret(ctx, []string{credName})
 
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredName}, "SIMPLE", CredentialB, false)
-			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredName})
+			sdstlsutil.CreateKubeSecret(ctx, []string{fakeCredName}, "SIMPLE", CredentialB, false)
+			defer ingressutil.DeleteKubeSecret(ctx, []string{fakeCredName})
 
 			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
 
@@ -98,8 +98,8 @@ func TestSimpleTlsOrigination(t *testing.T) {
 					bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "SIMPLE", tc.credentialToUse)
 
 					// Get namespace for gateway pod.
-					istioCfg := istio.DefaultConfigOrFail(t, ctx)
-					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+					istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
+					systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
 
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
@@ -178,20 +178,20 @@ func TestMutualTlsOrigination(t *testing.T) {
 				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{credNameGeneric}, "MUTUAL", credentialAGeneric, false)
-			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credNameGeneric})
+			sdstlsutil.CreateKubeSecret(ctx, []string{credNameGeneric}, "MUTUAL", credentialAGeneric, false)
+			defer ingressutil.DeleteKubeSecret(ctx, []string{credNameGeneric})
 
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{credNameNotGeneric}, "MUTUAL", credentialANonGeneric, true)
-			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credNameNotGeneric})
+			sdstlsutil.CreateKubeSecret(ctx, []string{credNameNotGeneric}, "MUTUAL", credentialANonGeneric, true)
+			defer ingressutil.DeleteKubeSecret(ctx, []string{credNameNotGeneric})
 
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameA}, "MUTUAL", credentialBCert, false)
-			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameA})
+			sdstlsutil.CreateKubeSecret(ctx, []string{fakeCredNameA}, "MUTUAL", credentialBCert, false)
+			defer ingressutil.DeleteKubeSecret(ctx, []string{fakeCredNameA})
 
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
-			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameB})
+			sdstlsutil.CreateKubeSecret(ctx, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
+			defer ingressutil.DeleteKubeSecret(ctx, []string{fakeCredNameB})
 
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{simpleCredName}, "SIMPLE", credentialASimple, false)
-			defer ingressutil.DeleteKubeSecret(t, ctx, []string{simpleCredName})
+			sdstlsutil.CreateKubeSecret(ctx, []string{simpleCredName}, "SIMPLE", credentialASimple, false)
+			defer ingressutil.DeleteKubeSecret(ctx, []string{simpleCredName})
 
 			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
 
@@ -249,7 +249,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 
 						// Get namespace for gateway pod.
 						istioCfg := istio.DefaultConfigOrFail(t, ctx)
-						systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+						systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
 
 						ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())

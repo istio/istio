@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -40,10 +41,18 @@ import (
 	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
 )
 
-type rootNS struct{}
+type rootNS struct {
+	rootNamespace string
+}
 
 func (i rootNS) Name() string {
-	return rootNamespace
+	return i.rootNamespace
+}
+
+func newRootNS(ctx framework.TestContext) rootNS {
+	return rootNS{
+		rootNamespace: istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
+	}
 }
 
 // TestAuthorization_mTLS tests v1beta1 authorization with mTLS.
@@ -64,9 +73,9 @@ func TestAuthorization_mTLS(t *testing.T) {
 			// Create services
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns2, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns2, false, nil, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -125,10 +134,10 @@ func TestAuthorization_JWT(t *testing.T) {
 
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -201,10 +210,10 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 
 			var a, bInNS1, cInNS1, cInNS2 echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns1, false, nil)).
-				With(&bInNS1, util.EchoConfig("b", ns1, false, nil)).
-				With(&cInNS1, util.EchoConfig("c", ns1, false, nil)).
-				With(&cInNS2, util.EchoConfig("c", ns2, false, nil)).
+				With(&a, util.EchoConfig("a", ns1, false, nil, nil)).
+				With(&bInNS1, util.EchoConfig("b", ns1, false, nil, nil)).
+				With(&cInNS1, util.EchoConfig("c", ns1, false, nil, nil)).
+				With(&cInNS2, util.EchoConfig("c", ns2, false, nil, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(namePrefix string, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -251,7 +260,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			args := map[string]string{
 				"Namespace1":    ns1.Name(),
 				"Namespace2":    ns2.Name(),
-				"RootNamespace": rootNamespace,
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
@@ -260,12 +269,13 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 				return policy
 			}
 
+			rootns := newRootNS(ctx)
 			policyNS1 := applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns1.Name(), policyNS1...)
 			policyNS2 := applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns2.Name(), policyNS2...)
-			policyNSRoot := applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootNS{})
-			defer ctx.Config().DeleteYAMLOrFail(t, rootNS{}.Name(), policyNSRoot...)
+			policyNSRoot := applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootns)
+			defer ctx.Config().DeleteYAMLOrFail(t, rootns.Name(), policyNSRoot...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
@@ -283,9 +293,9 @@ func TestAuthorization_Deny(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -323,7 +333,7 @@ func TestAuthorization_Deny(t *testing.T) {
 
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": rootNamespace,
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
@@ -332,10 +342,11 @@ func TestAuthorization_Deny(t *testing.T) {
 				return policy
 			}
 
+			rootns := newRootNS(ctx)
 			policy := applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
-			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootNS{})
-			defer ctx.Config().DeleteYAMLOrFail(t, rootNS{}.Name(), policyNSRoot...)
+			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
+			defer ctx.Config().DeleteYAMLOrFail(t, rootns.Name(), policyNSRoot...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
@@ -375,11 +386,11 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 
 			var a, b, c, d, x echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil)).
-				With(&x, util.EchoConfig("x", ns2, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
+				With(&x, util.EchoConfig("x", ns2, false, nil, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -443,7 +454,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 			})
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": rootNamespace,
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string) []string {
@@ -456,7 +467,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 
 			var b echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
 				BuildOrFail(t)
 
 			ingr := ist.IngressFor(ctx.Clusters().Default())
@@ -500,13 +511,9 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 			}
 
 			for _, tc := range cases {
-				t.Run(tc.Name, func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, func() error {
-						return authn.CheckIngress(ingr, tc.Host, tc.Path, "", tc.WantCode)
-					},
-						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
-				},
-				)
+				ctx.NewSubTest(tc.Name).Run(func(ctx framework.TestContext) {
+					authn.CheckIngressOrFail(ctx, ingr, tc.Host, tc.Path, "", tc.WantCode)
+				})
 			}
 		})
 }
@@ -516,6 +523,10 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.egress-gateway").
 		Run(func(ctx framework.TestContext) {
+			//TODO: Convert into multicluster support. Currently 503 is received
+			if len(ctx.Clusters()) > 1 {
+				ctx.Skip()
+			}
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-egress-gateway",
 				Inject: true,
@@ -523,7 +534,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
@@ -536,12 +547,12 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						},
 					},
 				}).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
 				BuildOrFail(t)
 
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": rootNamespace,
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
@@ -729,7 +740,7 @@ func TestAuthorization_TCP(t *testing.T) {
 				},
 			}
 			echoboot.NewBuilder(ctx).
-				With(&x, util.EchoConfig("x", ns2, false, nil)).
+				With(&x, util.EchoConfig("x", ns2, false, nil, nil)).
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
 					Namespace:      ns,
@@ -852,8 +863,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 			portC := 8090
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", nsA, false, nil)).
-				With(&b, util.EchoConfig("b", nsB, false, nil)).
+				With(&a, util.EchoConfig("a", nsA, false, nil, nil)).
+				With(&b, util.EchoConfig("b", nsB, false, nil, nil)).
 				With(&c, echo.Config{
 					Service:   "c",
 					Namespace: nsC,
@@ -967,10 +978,10 @@ func TestAuthorization_GRPC(t *testing.T) {
 			})
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
 				BuildOrFail(t)
 
 			cases := []rbacUtil.TestCase{
@@ -1107,10 +1118,10 @@ func TestAuthorization_Audit(t *testing.T) {
 
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil)).
-				With(&d, util.EchoConfig("d", ns, false, nil)).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -1138,7 +1149,7 @@ func TestAuthorization_Audit(t *testing.T) {
 
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": rootNamespace,
+				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {

@@ -7,6 +7,8 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istiod-remote
 data:
 
@@ -17,6 +19,7 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
+      meshId: cluster.local
       proxyMetadata:
         DNS_AGENT: ""
       tracing:
@@ -34,6 +37,8 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istiod-remote
 data:
 
@@ -59,6 +64,7 @@ data:
           }
         },
         "defaultTolerations": [],
+        "externalIstiod": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -660,6 +666,8 @@ metadata:
 
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: istiod-remote
 webhooks:
@@ -669,7 +677,8 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/inject"
-      caBundle: 
+      caBundle: ""
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
@@ -677,7 +686,6 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     admissionReviewVersions: ["v1beta1", "v1"]
-    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

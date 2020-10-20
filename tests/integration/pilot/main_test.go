@@ -63,40 +63,7 @@ func TestMain(m *testing.M) {
 			}
 			return nil
 		}).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
-			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
-			cfg.ControlPlaneValues = `
-# Add TCP port, not in the default install
-components:
-  ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
-      k8s:
-        service:
-          ports:
-            - port: 15021
-              targetPort: 15021
-              name: status-port
-            - port: 80
-              targetPort: 8080
-              name: http2
-            - port: 443
-              targetPort: 8443
-              name: https
-            - port: 15443
-              targetPort: 15443
-              name: tls
-            - port: 31400
-              name: tcp
-            - port: 15012
-              targetPort: 15012
-              name: tcp-istiod
-values:
-  pilot:
-    env:
-      PILOT_ENABLED_SERVICE_APIS: "true"`
-		})).
+		Setup(istio.Setup(&i, nil)).
 		Setup(func(ctx resource.Context) error {
 			return common.SetupApps(ctx, i, apps)
 		}).

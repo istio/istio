@@ -32,9 +32,9 @@ messages:
 
   - name: "NamespaceNotInjected"
     code: IST0102
-    level: Warning
+    level: Info
     description: "A namespace is not enabled for Istio injection."
-    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection"
+    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection."
     args:
       - name: namespace
         type: string

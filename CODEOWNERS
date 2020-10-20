@@ -1,4 +1,4 @@
-*                                                                @costinm @linsun @rshriram @howardjohn
+*                                                                @costinm @linsun @howardjohn
 /.gitattributes                                                  @istio/wg-test-and-release-maintainers
 /.gitignore                                                      @istio/wg-test-and-release-maintainers
 /Makefile.core.mk                                                @istio/wg-test-and-release-maintainers
@@ -56,3 +56,5 @@ Makefile*                                                        @istio/wg-test-
 /tools/packaging/common/envoy_bootstrap.json                  @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
+manifests/charts/global.yaml                                     @costinm @ostromart @sdake
+**/values.yaml                                                   @costinm @ostromart @sdake

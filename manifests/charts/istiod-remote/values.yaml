@@ -63,6 +63,9 @@ istiodRemote:
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
 
+# For Helm compatibility.
+ownerName: ""
+
 telemetry:
   enabled: false
   v2:
@@ -76,7 +79,7 @@ telemetry:
       enabled: true
       # Indicates whether to enable WebAssembly runtime for stats filter.
       wasmEnabled: false
-      # overrides stats EnvoyFilter configuration. 
+      # overrides stats EnvoyFilter configuration.
       configOverride:
         gateway: {}
         inboundSidecar: {}
@@ -108,5 +111,7 @@ pilot:
   configMap: true
 global:
 
-  # One central istiod controls all remote clusters: disabled by default
+  # External istiod controls all remote clusters: disabled by default
+  externalIstiod: false
+  # Deprecated: central istiod controls all remote clusters: disabled by default
   centralIstiod: false

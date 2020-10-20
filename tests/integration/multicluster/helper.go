@@ -17,22 +17,14 @@ package multicluster
 
 import (
 	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
-)
-
-var (
-	retryTimeout = time.Second * 10
-	retryDelay   = time.Millisecond * 100
 )
 
 type AppContext struct {
@@ -150,35 +142,13 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 	}
 }
 
-type callChecker func(client.ParsedResponses) error
-
-func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...callChecker) {
+func callOrFail(ctx framework.TestContext, src, dest echo.Instance, validator echo.Validator) {
 	ctx.Helper()
-	var results client.ParsedResponses
-	retry.UntilSuccessOrFail(ctx, func() (err error) {
-		results, err = src.Call(echo.CallOptions{
-			Target:   dest,
-			PortName: "http",
-			Scheme:   scheme.HTTP,
-			Count:    20 * len(ctx.Clusters()),
-		})
-
-		checkers = append([]callChecker{func(responses client.ParsedResponses) error {
-			return responses.CheckOK()
-		}}, checkers...)
-
-		if err == nil {
-			for _, c := range checkers {
-				err = c(results)
-				if err != nil {
-					break
-				}
-			}
-		}
-		if err != nil {
-			return fmt.Errorf("%s to %s:%s using %s: %v",
-				src.Config().Service, dest.Config().Service, "http", scheme.HTTP, err)
-		}
-		return nil
-	}, retry.Timeout(retryTimeout), retry.Delay(retryDelay))
+	_ = src.CallWithRetryOrFail(ctx, echo.CallOptions{
+		Target:     dest,
+		PortName:   "http",
+		Scheme:     scheme.HTTP,
+		Count:      20 * len(ctx.Clusters()),
+		Validator: echo.And(echo.ExpectOK(), validator),
+	})
 }

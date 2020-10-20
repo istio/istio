@@ -19,5 +19,11 @@ import (
 )
 
 var (
-	Secret = collections.K8SCoreV1Secrets.Resource().GroupVersionKind()
+	Secret             = collections.K8SCoreV1Secrets.Resource().GroupVersionKind()
+	GatewayClass       = collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind()
+	ServiceApisGateway = collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind()
+	HTTPRoute          = collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind()
+	TCPRoute           = collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind()
+	TLSRoute           = collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind()
+	BackendPolicy      = collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind()
 )

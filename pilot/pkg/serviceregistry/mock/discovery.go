@@ -36,6 +36,8 @@ var (
 	}
 )
 
+var _ model.ServiceDiscovery = &ServiceDiscovery{}
+
 // NewDiscovery builds a memory ServiceDiscovery
 func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceDiscovery {
 	return &ServiceDiscovery{
@@ -199,12 +201,12 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int, labels 
 }
 
 // GetProxyServiceInstances implements discovery interface
-func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	if sd.GetProxyServiceInstancesError != nil {
-		return nil, sd.GetProxyServiceInstancesError
+		return nil
 	}
 	if sd.WantGetProxyServiceInstances != nil {
-		return sd.WantGetProxyServiceInstances, nil
+		return sd.WantGetProxyServiceInstances
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range sd.services {
@@ -220,15 +222,15 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 
 		}
 	}
-	return out, sd.GetProxyServiceInstancesError
+	return out
 }
 
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	if sd.GetProxyServiceInstancesError != nil {
-		return nil, sd.GetProxyServiceInstancesError
+		return nil
 	}
 	// no useful labels from the ServiceInstances created by newServiceInstance()
-	return nil, nil
+	return nil
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
@@ -239,6 +241,11 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 		}
 	}
 	return make([]string, 0)
+}
+
+func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
+	// TODO use logic from kube controller if needed
+	panic("implement me")
 }
 
 type Controller struct{}

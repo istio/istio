@@ -146,13 +146,13 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 				oldWorkloadLabels := labels.Collection{oldWle.Labels}
 				if oldWorkloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
 					selected = true
-					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry)
+					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry, &key)
 					instancesDeleted = append(instancesDeleted, instance...)
 				}
 			}
 		} else {
 			selected = true
-			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry)
+			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key)
 			instancesUpdated = append(instancesUpdated, instance...)
 		}
 
@@ -573,12 +573,13 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 				EndpointPort:    instance.Endpoint.EndpointPort,
 				ServicePortName: port.Name,
 				Labels:          instance.Endpoint.Labels,
-				UID:             instance.Endpoint.UID,
 				ServiceAccount:  instance.Endpoint.ServiceAccount,
 				Network:         instance.Endpoint.Network,
 				Locality:        instance.Endpoint.Locality,
 				LbWeight:        instance.Endpoint.LbWeight,
 				TLSMode:         instance.Endpoint.TLSMode,
+				WorkloadName:    instance.Endpoint.WorkloadName,
+				Namespace:       instance.Endpoint.Namespace,
 			})
 	}
 
@@ -674,7 +675,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 				// Not a match, skip this one
 				continue
 			}
-			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry), instanceMap, ip2instances)
+			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key), instanceMap, ip2instances)
 		}
 	}
 
@@ -732,7 +733,7 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 // NOTE: The service objects in these instances do not have the auto allocated IP set.
-func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	s.maybeRefreshIndexes()
 
 	s.storeMutex.RLock()
@@ -746,10 +747,10 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 			out = append(out, instances...)
 		}
 	}
-	return out, nil
+	return out
 }
 
-func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	s.maybeRefreshIndexes()
 
 	s.storeMutex.RLock()
@@ -765,7 +766,7 @@ func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 			}
 		}
 	}
-	return out, nil
+	return out
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
@@ -775,6 +776,11 @@ func (s *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []
 	// service entries with built in endpoints have SANs as a dedicated field.
 	// Those with selector labels will have service accounts embedded inside workloadEntries and pods as well.
 	return model.GetServiceAccounts(svc, ports, s)
+}
+
+func (s *ServiceEntryStore) NetworkGateways() map[string][]*model.Gateway {
+	// TODO implement mesh networks loading logic from kube controller if needed
+	return nil
 }
 
 func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, []*model.Service, []*model.Service, []*model.Service) {
