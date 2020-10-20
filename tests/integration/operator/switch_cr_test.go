@@ -254,6 +254,7 @@ kind: IstioOperator
 metadata:
   name: test-istiocontrolplane
   namespace: istio-system
+  istio.io/rev: %s
 spec:
   profile: %s
   installPackagePath: %s
@@ -263,7 +264,7 @@ spec:
     global:
       imagePullPolicy: %s
 `
-	overlayYAML := fmt.Sprintf(metadataYAML, profileName, ManifestPathContainer, s.Hub, s.Tag, s.PullPolicy)
+	overlayYAML := fmt.Sprintf(metadataYAML, revision, profileName, ManifestPathContainer, s.Hub, s.Tag, s.PullPolicy)
 	if err := ioutil.WriteFile(iopCRFile, []byte(overlayYAML), os.ModePerm); err != nil {
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}
@@ -319,8 +320,8 @@ func sanityCheck(t *testing.T, ctx resource.Context) {
 		}).
 		BuildOrFail(t)
 	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:     server,
-		PortName:   "http",
+		Target:    server,
+		PortName:  "http",
 		Validator: echo.ExpectOK(),
 	})
 }
