@@ -188,7 +188,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 			Namespace:      apps.Namespace,
 			Ports:          EchoPorts,
 			DeployAsVM:     true,
-			AutoRegisterVM: true,
+			AutoRegisterVM: false, // TODO support auto-registration with multi-primary
 			Subsets:        []echo.SubsetConfig{{}},
 			Cluster:        c[0],
 		})
