@@ -101,7 +101,7 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 	}
 
 	certChain, caCert, err := SignCSRK8s(certClient,
-		csrName, csrSpec, dnsName, caFilePath)
+		csrName, csrSpec, dnsName, caFilePath, true)
 	return certChain, keyPEM, caCert, err
 }
 
@@ -112,7 +112,7 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 // 4. Clean up the artifacts (e.g., delete CSR)
 func SignCSRK8s(certClient certclient.CertificateSigningRequestInterface,
 	csrName string, csrSpec *cert.CertificateSigningRequestSpec,
-	dnsName, caFilePath string) ([]byte, []byte, error) {
+	dnsName, caFilePath string, appendCaCert bool) ([]byte, []byte, error) {
 
 	// 1. Submit the CSR
 	numRetries := 3
@@ -144,7 +144,7 @@ func SignCSRK8s(certClient certclient.CertificateSigningRequestInterface,
 
 	// 3. Read the signed certificate
 	certChain, caCert, err := readSignedCertificate(certClient,
-		csrName, certReadInterval, certWatchTimeout, maxNumCertRead, caFilePath)
+		csrName, certReadInterval, certWatchTimeout, maxNumCertRead, caFilePath, appendCaCert)
 	if err != nil {
 		log.Errorf("failed to read signed cert. (%v): %v", csrName, err)
 		errCsr := cleanUpCertGen(certClient, csrName)
@@ -261,7 +261,7 @@ func submitCSR(certClient certclient.CertificateSigningRequestInterface,
 // verify and append CA certificate to certChain if verify is true
 func readSignedCertificate(certClient certclient.CertificateSigningRequestInterface, csrName string,
 	readInterval, watchTimeout time.Duration,
-	maxNumRead int, caCertPath string) ([]byte, []byte, error) {
+	maxNumRead int, caCertPath string, appendCaCert bool) ([]byte, []byte, error) {
 	// First try to read the signed CSR through a watching mechanism
 	reqSigned := readSignedCsr(certClient, csrName, watchTimeout)
 	if reqSigned == nil {
@@ -361,8 +361,10 @@ func readSignedCertificate(certClient certclient.CertificateSigningRequestInterf
 	}
 	certChain := []byte{}
 	certChain = append(certChain, certPEM...)
-	certChain = append(certChain, caCert...)
 
+	if appendCaCert {
+		certChain = append(certChain, caCert...)
+	}
 	return certChain, caCert, nil
 }
 
