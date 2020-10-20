@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -207,8 +206,6 @@ type Controller struct {
 	serviceHandlers  []func(*model.Service, model.Event)
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
-	cmWatch watch.Interface
-
 	// This is only used for test
 	stop chan struct{}
 
@@ -265,7 +262,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 	}
 
-	c.initClusterMetaWatch(options)
+	if cm := kubelib.FetchClusterMeta(c.client, options.SystemNamespace, options.Revision); cm != nil {
+		c.ClusterMeta = *cm
+	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
 	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
@@ -586,9 +585,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.networksWatcher != nil {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
-	}
-	if c.cmWatch != nil {
-		go c.watchClusterMeta(stop)
 	}
 	// TODO(https://github.com/kubernetes/kubernetes/issues/95262) remove this
 	time.Sleep(time.Millisecond * 5)
@@ -1076,60 +1072,6 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *corev1.Pod,
 		}
 	}
 	return out
-}
-
-// initClusterMetaWatch sets up a watch on the istio-cluster ConfigMap and drains the watch to the most
-// recent state of the ConfigMap.
-func (c *Controller) initClusterMetaWatch(options Options) {
-	var err error
-	c.cmWatch, err = kubelib.WatchClusterMeta(c.client, options.SystemNamespace, options.Revision)
-	if err != nil {
-		log.Warnf("failed to setup watch for istio-cluster ConfigMap: %v", err)
-		return
-	}
-	// drain the ResultChan
-	var ev watch.Event
-Drain:
-	for {
-		select {
-		case ev = <-c.cmWatch.ResultChan():
-		default:
-			break Drain
-		}
-	}
-	if ev.Type != "" {
-		c.clusterMetaHandler(ev)
-	}
-}
-
-func (c *Controller) watchClusterMeta(stop <-chan struct{}) {
-	for {
-		select {
-		case ev := <-c.cmWatch.ResultChan():
-			c.queue.Push(func() error {
-				c.clusterMetaHandler(ev)
-				return nil
-			})
-		case <-stop:
-			c.cmWatch.Stop()
-		}
-	}
-}
-
-func (c *Controller) clusterMetaHandler(ev watch.Event) {
-	cm, ok := ev.Object.(*corev1.ConfigMap)
-	if !ok {
-		log.Warnf("ConfigMap watch getting wrong type in event: %T", ev.Object)
-	}
-	if nextMeta := kubelib.ClusterMetaFromConfigMap(cm); nextMeta != nil {
-		c.Lock()
-		oldMeta := c.ClusterMeta
-		c.ClusterMeta = *nextMeta
-		c.Unlock()
-		if oldMeta.Network != c.Network && c.Network == c.DefaultNetwork() {
-			c.onNetworkChanged()
-		}
-	}
 }
 
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
