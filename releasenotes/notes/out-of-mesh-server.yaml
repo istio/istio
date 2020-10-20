@@ -5,4 +5,4 @@ issue:
   - 20538
 releaseNotes:
 - |
-  **Fixed** client side metric reporting missing destination workload labels for non-mesh destination or request that fails to reach destination.
+  **Fixed** client side metric  missing destination workload labels for out-of-mesh destination or request that fails to reach destination.
