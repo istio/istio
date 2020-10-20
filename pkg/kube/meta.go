@@ -34,7 +34,7 @@ type ClusterMeta struct {
 }
 
 func configMapName(revision string) string {
-	if revision == "" {
+	if revision == "" || revision == "default" {
 		return IstioClusterConfigMap
 	}
 	return IstioClusterConfigMap + "-" + revision
