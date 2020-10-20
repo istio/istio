@@ -5,7 +5,7 @@ issue:
 - 24379
 releaseNotes:
 - |
-  **Disabled** the protocol detection timeout by default, reducing traffic failures during slow connections.
+  **Removed** the protocol detection timeout by default, reducing traffic failures during slow connections.
 upgradeNotes:
 - title: Protocol Detection Timeout Changes
   content: |
