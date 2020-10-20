@@ -41,8 +41,6 @@ const (
 	IstioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
-	// IstioRevisionLabel indicates the Istio revision of the installation.
-	IstioRevisionLabelStr = "istio.io/rev"
 )
 
 var (
