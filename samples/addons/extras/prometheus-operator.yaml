@@ -1,5 +1,5 @@
 apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
+kind: PodMonitor
 metadata:
   name: envoy-stats-monitor
   namespace: istio-system
@@ -13,14 +13,20 @@ spec:
   namespaceSelector:
     any: true
   jobLabel: envoy-stats
-  endpoints:
+  podMetricsEndpoints:
   - path: /stats/prometheus
-    targetPort: 15090
     interval: 15s
     relabelings:
-    - sourceLabels: [__meta_kubernetes_pod_container_port_name]
-      action: keep
-      regex: '.*-envoy-prom'
+    - action: keep
+      sourceLabels: [__meta_kubernetes_pod_container_name]
+      regex: "istio-proxy"
+    - action: keep
+      sourceLabels: [__meta_kubernetes_pod_annotationpresent_prometheus_io_scrape]
+    - sourceLabels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+      action: replace
+      regex: ([^:]+)(?::\d+)?;(\d+)
+      replacement: $1:$2
+      targetLabel: __address__
     - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
     - sourceLabels: [__meta_kubernetes_namespace]
