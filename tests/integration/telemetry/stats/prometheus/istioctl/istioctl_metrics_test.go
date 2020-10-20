@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/telemetry/stats/prometheus/http"
 )
@@ -53,7 +54,9 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(http.GetIstioInstance(), nil)).
-		Setup(http.TestSetup).
+		Setup(func(ctx resource.Context) error {
+			return http.TestSetup(ctx, http.SetupOption{ServerSidecar: true})
+		}).
 		Run()
 }
 

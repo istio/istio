@@ -32,15 +32,26 @@ import (
 // proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
 // of metrics, which should be covered by integration test in proxy repo.
 func TestWasmStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.wasm"))
+	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.wasm"),
+		common.QueryOptions{
+			QueryClient:    true,
+			QueryServer:    true,
+			QueryApp:       true,
+			BuildQueryFunc: common.BuildCommonQuery,
+		},
+	)
 }
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
-		Setup(common.TestSetup).
+		Setup(testSetup).
 		Run()
+}
+
+func testSetup(ctx resource.Context) (err error) {
+	return common.TestSetup(ctx, common.SetupOption{ServerSidecar: true})
 }
 
 func setupConfig(_ resource.Context, cfg *istio.Config) {

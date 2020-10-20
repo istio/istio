@@ -17,6 +17,7 @@ package http
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -41,6 +42,17 @@ var (
 	promInst       prometheus.Instance
 )
 
+type QueryOptions struct {
+	QueryClient    bool
+	QueryServer    bool
+	QueryApp       bool
+	BuildQueryFunc func() (sourceQuery, destinationQuery, appQuery string)
+}
+
+type SetupOption struct {
+	ServerSidecar bool
+}
+
 // GetIstioInstance gets Istio instance.
 func GetIstioInstance() *istio.Instance {
 	return &ist
@@ -58,42 +70,61 @@ func GetPromInstance() prometheus.Instance {
 
 // TestStatsFilter includes common test logic for stats and mx exchange filters running
 // with nullvm and wasm runtime.
-func TestStatsFilter(t *testing.T, feature features.Feature) {
+func TestStatsFilter(t *testing.T, feature features.Feature, opts QueryOptions) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
-			sourceQuery, destinationQuery, appQuery := buildQuery()
+			sourceQuery, destinationQuery, appQuery := opts.BuildQueryFunc()
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := SendTraffic(); err != nil {
 					return err
 				}
-				// Query client side metrics
-				if err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
-					return err
+				if opts.QueryClient {
+					// Query client side metrics
+					if err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
+						return err
+					}
 				}
-				if err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
-					return err
+				if opts.QueryServer {
+					if err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
+						return err
+					}
 				}
-				// This query will continue to increase due to readiness probe; don't wait for it to converge
-				if err := promUtil.QueryFirstPrometheus(t, appQuery, GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_echo_http_requests_total: \n%s", util.PromDump(promInst, "istio_echo_http_requests_total"))
-					return err
+				if opts.QueryApp {
+					// This query will continue to increase due to readiness probe; don't wait for it to converge
+					if err := promUtil.QueryFirstPrometheus(t, appQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_echo_http_requests_total: \n%s", util.PromDump(promInst, "istio_echo_http_requests_total"))
+						return err
+					}
 				}
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 		})
 }
 
-// TestSetup set up bookinfo app for stats testing.
-func TestSetup(ctx resource.Context) (err error) {
+// TestSetup set up echo app for stats testing.
+func TestSetup(ctx resource.Context, opt SetupOption) (err error) {
 	appNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
 		Inject: true,
 	})
 	if err != nil {
 		return
+	}
+
+	serverSubset := []echo.SubsetConfig{{}}
+	if !opt.ServerSidecar {
+		serverSubset = []echo.SubsetConfig{
+			{
+				Annotations: map[echo.Annotation]*echo.AnnotationValue{
+					echo.SidecarInject: {
+						Value: strconv.FormatBool(false),
+					},
+				},
+			},
+		}
 	}
 
 	_, err = echoboot.NewBuilder(ctx).
@@ -106,7 +137,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		With(&server, echo.Config{
 			Service:   "server",
 			Namespace: appNsInst,
-			Subsets:   []echo.SubsetConfig{{}},
+			Subsets:   serverSubset,
 			Ports: []echo.Port{
 				{
 					Name:         "http",
@@ -135,7 +166,7 @@ func SendTraffic() error {
 	return err
 }
 
-func buildQuery() (sourceQuery, destinationQuery, appQuery string) {
+func BuildCommonQuery() (sourceQuery, destinationQuery, appQuery string) {
 	ns := GetAppNamespace()
 	sourceQuery = `istio_requests_total{reporter="source",`
 	destinationQuery = `istio_requests_total{reporter="destination",`
