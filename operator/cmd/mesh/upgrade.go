@@ -438,13 +438,13 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 			if pv == "" {
 				pv = cv
 			} else if pv != cv {
-				err := fmt.Errorf("differrent versions of containers in the same pod: %v", pod.Spec.Containers)
+				err := fmt.Errorf("differrent versions of containers in the same pod: %v", pod.Name)
 				errs = util.AppendErr(errs, err)
 			}
 		}
 		server.Version, err = pkgversion.TagToVersionString(pv)
 		if err != nil {
-			tagErr := fmt.Errorf("unable to convert tag %s into version in pod: %v", pv, pod.Spec.Containers[0].Name)
+			tagErr := fmt.Errorf("unable to convert tag %s into version in pod: %v", pv, pod.Name)
 			errs = util.AppendErr(errs, tagErr)
 		}
 		res = append(res, server)
