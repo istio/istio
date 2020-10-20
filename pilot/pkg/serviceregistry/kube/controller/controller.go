@@ -1126,6 +1126,7 @@ func (c *Controller) clusterMetaHandler(ev watch.Event) {
 		oldMeta := c.ClusterMeta
 		c.ClusterMeta = *nextMeta
 		c.Unlock()
+		log.Infof("default network for %s: %s", c.clusterID, c.Network)
 		if oldMeta.Network != c.Network && c.Network == c.DefaultNetwork() && c.HasSynced() {
 			c.onNetworkChanged()
 		}

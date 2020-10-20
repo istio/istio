@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/pkg/log"
 	"net"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -68,10 +69,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*endpoint.Localit
 				lbEndpoints = append(lbEndpoints, clonedLbEp)
 			} else {
 				if !b.canViewNetwork(epNetwork) {
+					log.Infof("filtered out %s in network %s due to network view %v", epNetwork, b.clusterName, b.networkView)
 					continue
 				}
 				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
 					// dont allow cross-network endpoints for uninjected traffic
+					log.Infof("filtered out %s in network %s due to tlsMode", epNetwork, b.clusterName)
 					continue
 				}
 
