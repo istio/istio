@@ -358,7 +358,15 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 		labels[OwningResourceNamespace] = crNamespace
 	}
 	labels[istioVersionLabelStr] = version.Info.Version
-	labels[IstioRevisionLabelStr] = h.iop.Spec.Revision
+
+	revision := ""
+	if h.iop != nil {
+		revision = h.iop.Spec.Revision
+	}
+	if revision == "" {
+		revision = "default"
+	}
+	labels[label.IstioRev] = revision
 
 	return labels, nil
 }
@@ -368,14 +376,6 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 	for k, v := range coreLabels {
 		labels[k] = v
 	}
-	revision := ""
-	if h.iop != nil {
-		revision = h.iop.Spec.Revision
-	}
-	if revision == "" {
-		revision = "default"
-	}
-	labels[label.IstioRev] = revision
 
 	labels[IstioComponentLabelStr] = componentName
 
