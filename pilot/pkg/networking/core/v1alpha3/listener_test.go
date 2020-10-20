@@ -995,8 +995,10 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 				len(plaintextHTTPALPNs), plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 		}
 
-		if fc.FilterChainMatch.TransportProtocol != "" {
+		if direction == model.TrafficDirectionOutbound && fc.FilterChainMatch.TransportProtocol != "" {
 			t.Fatalf("exepct %q transport protocol, found %q", "", fc.FilterChainMatch.TransportProtocol)
+		} else if direction == model.TrafficDirectionInbound && fc.FilterChainMatch.TransportProtocol != xdsfilters.RawBufferTransportProtocol {
+			t.Fatalf("exepct %q transport protocol, found %q", xdsfilters.RawBufferTransportProtocol, fc.FilterChainMatch.TransportProtocol)
 		}
 	}
 
