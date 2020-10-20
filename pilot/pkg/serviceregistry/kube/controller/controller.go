@@ -30,6 +30,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -53,8 +54,6 @@ const (
 	NodeRegionLabelGA = "topology.kubernetes.io/region"
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
-	// IstioSubzoneLabel is custom subzone label for locality-based routing in Kubernetes see: https://github.com/istio/istio/issues/19114
-	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 
@@ -169,6 +168,16 @@ type kubernetesNode struct {
 	address string
 	labels  labels.Instance
 }
+
+// controllerInterface is a simplified interface for the Controller used for testing.
+type controllerInterface interface {
+	getPodLocality(pod *v1.Pod) string
+	cidrRanger() cidranger.Ranger
+	defaultNetwork() string
+	Cluster() string
+}
+
+var _ controllerInterface = &Controller{}
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
@@ -296,6 +305,14 @@ func (c *Controller) Provider() serviceregistry.ProviderID {
 
 func (c *Controller) Cluster() string {
 	return c.clusterID
+}
+
+func (c *Controller) cidrRanger() cidranger.Ranger {
+	return c.ranger
+}
+
+func (c *Controller) defaultNetwork() string {
+	return c.networkForRegistry
 }
 
 func (c *Controller) Cleanup() error {
@@ -633,7 +650,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(nodeMeta, IstioSubzoneLabel, "")
+	subzone := getLabelValue(nodeMeta, label.IstioSubZone, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""
@@ -780,7 +797,7 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
-func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
@@ -788,10 +805,11 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 
 		pod := c.pods.getPodByIP(proxyIP)
 		if workload, f := c.workloadInstancesByIP[proxyIP]; f {
-			return c.hydrateWorkloadInstance(workload), nil
+			return c.hydrateWorkloadInstance(workload)
 		} else if pod != nil {
 			if !c.isControllerForProxy(proxy) {
-				return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
+				log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
+				return nil
 			}
 
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
@@ -801,10 +819,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 				}
-				return out, nil
+				return out
 			}
 			// 2. Headless service without selector
-			return c.endpoints.GetProxyServiceInstances(c, proxy), nil
+			return c.endpoints.GetProxyServiceInstances(c, proxy)
 		} else {
 			var err error
 			// 3. The pod is not present when this is called
@@ -816,7 +834,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			if err != nil {
 				log.Warnf("getProxyServiceInstancesFromMetadata for %v failed: %v", proxy.ID, err)
 			}
-			return out, nil
+			return out
 		}
 	}
 	if c.metrics != nil {
@@ -824,7 +842,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	} else {
 		log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
 	}
-	return nil, nil
+	return nil
 }
 
 func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*model.ServiceInstance {
@@ -1062,15 +1080,15 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
 	pod := c.pods.getPodByIP(proxyIP)
 	if pod != nil {
-		return labels.Collection{pod.Labels}, nil
+		return labels.Collection{pod.Labels}
 	}
-	return nil, nil
+	return nil
 }
 
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce

@@ -22,6 +22,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/mesh"
@@ -79,10 +80,12 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 		return nil
 	}
 	if !util.IsPtr(structPtr) {
+		metrics.CRValidationErrorTotal.Increment()
 		return util.NewErrs(fmt.Errorf("validate path %s, value: %v, expected ptr, got %T", path, structPtr, structPtr))
 	}
 	structElems := reflect.ValueOf(structPtr).Elem()
 	if !util.IsStruct(structElems) {
+		metrics.CRValidationErrorTotal.Increment()
 		return util.NewErrs(fmt.Errorf("validate path %s, value: %v, expected struct, got %T", path, structElems, structElems))
 	}
 
@@ -134,6 +137,9 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 				errs = util.AppendErrs(errs, validateLeaf(validations, append(path, fieldName), fieldValue.Interface(), checkRequired))
 			}
 		}
+	}
+	if len(errs) > 0 {
+		metrics.CRValidationErrorTotal.Increment()
 	}
 	return errs
 }

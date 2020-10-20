@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+- 26851
+releaseNotes:
+- |
+  **Added** Listener Access Logs when ResponseFlag from Envoy is set.

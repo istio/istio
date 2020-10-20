@@ -19,7 +19,10 @@ import (
 	"os"
 	"strings"
 
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
+	"go.opencensus.io/stats/view"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -27,11 +30,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/controller"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 // Should match deploy/service.yaml
@@ -134,6 +140,17 @@ func run() {
 		log.Fatalf("Could not create a controller manager: %v", err)
 	}
 
+	log.Info("Creating operator metrics exporter")
+	exporter, err := ocprom.NewExporter(ocprom.Options{
+		Registry:  ctrlmetrics.Registry.(*prometheus.Registry),
+		Namespace: "istio_install_operator",
+	})
+	if err != nil {
+		log.Warnf("Error while building exporter: %v", err)
+	} else {
+		view.RegisterExporter(exporter)
+	}
+
 	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
@@ -145,6 +162,11 @@ func run() {
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Fatalf("Could not add all controllers to operator manager: %v", err)
 	}
+
+	// Record version of operator in metrics
+	metrics.Version.
+		With(metrics.OperatorVersionLabel.Value(version.Info.String())).
+		Record(1.0)
 
 	log.Info("Starting the Cmd.")
 

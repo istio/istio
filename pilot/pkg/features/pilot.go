@@ -312,6 +312,9 @@ var (
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
 
+	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
+		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()
+
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
 
@@ -372,4 +375,11 @@ var (
 	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", false,
 		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()
+
+	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", false,
+		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
+
+	WorkloadEntryCleanupGracePeriod = env.RegisterDurationVar("PILOT_WORKLOAD_ENTRY_GRACE_PERIOD", 10*time.Second,
+		"The amount of time an auto-registered workload can remain disconnected from all Pilot instances before the "+
+			"associated WorkloadEntry is cleaned up.").Get()
 )

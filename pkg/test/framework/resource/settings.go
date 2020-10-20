@@ -66,6 +66,10 @@ type Settings struct {
 	// EnvironmentFactory allows caller to override the environment creation. If nil, a default is used based
 	// on the known environment names.
 	EnvironmentFactory EnvironmentFactory
+
+	// The revision label on a namespace for injection webhook.
+	// If set to XXX, all the namespaces created with istio-injection=enabled will be replaced with istio.io/rev=XXX.
+	Revision string
 }
 
 // RunDir is the name of the dir to output, for this particular run.

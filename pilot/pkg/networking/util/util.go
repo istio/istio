@@ -291,7 +291,7 @@ func ConvertLocality(locality string) *core.Locality {
 		return &core.Locality{}
 	}
 
-	region, zone, subzone := SplitLocality(locality)
+	region, zone, subzone := model.SplitLocalityLabel(locality)
 	return &core.Locality{
 		Region:  region,
 		Zone:    zone,
@@ -325,7 +325,7 @@ func IsLocalityEmpty(locality *core.Locality) bool {
 }
 
 func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
-	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
+	ruleRegion, ruleZone, ruleSubzone := model.SplitLocalityLabel(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
 	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
 	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
@@ -334,18 +334,6 @@ func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
 		return true
 	}
 	return false
-}
-
-func SplitLocality(locality string) (region, zone, subzone string) {
-	items := strings.Split(locality, "/")
-	switch len(items) {
-	case 1:
-		return items[0], "", ""
-	case 2:
-		return items[0], items[1], ""
-	default:
-		return items[0], items[1], items[2]
-	}
 }
 
 func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {

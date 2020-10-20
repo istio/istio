@@ -192,7 +192,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins),
+		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins, args.PodName),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
 		monitoringMux:   http.NewServeMux(),
@@ -226,6 +226,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s.initMeshConfiguration(args, s.fileWatcher)
+	spiffe.SetTrustDomain(s.environment.Mesh().TrustDomain)
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -239,8 +240,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
-
-	s.XDSServer.InternalGen.Store = s.configController
 
 	s.initJwtPolicy()
 
@@ -709,6 +708,7 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	maxStreams := features.MaxConcurrentStreams
 	maxRecvMsgSize := features.MaxRecvMsgSize
 
+	log.Infof("using max conn age of %v", options.MaxServerConnectionAge)
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),

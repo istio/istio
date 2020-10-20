@@ -117,6 +117,10 @@ func (w *workload) checkDeprecation() error {
 	return errors.FindDeprecatedMessagesInEnvoyLog(logs, info)
 }
 
+func (w *workload) PodName() string {
+	return w.pod.Name
+}
+
 func (w *workload) Address() string {
 	return w.pod.Status.PodIP
 }

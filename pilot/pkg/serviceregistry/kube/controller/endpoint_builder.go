@@ -30,7 +30,7 @@ import (
 
 // A stateful IstioEndpoint builder with metadata used to build IstioEndpoint
 type EndpointBuilder struct {
-	controller *Controller
+	controller controllerInterface
 
 	labels         labels.Instance
 	metaNetwork    string
@@ -41,7 +41,7 @@ type EndpointBuilder struct {
 	namespace      string
 }
 
-func NewEndpointBuilder(c *Controller, pod *v1.Pod) *EndpointBuilder {
+func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 	locality, sa, wn, namespace := "", "", "", ""
 	var podLabels labels.Instance
 	if pod != nil {
@@ -57,11 +57,11 @@ func NewEndpointBuilder(c *Controller, pod *v1.Pod) *EndpointBuilder {
 
 	return &EndpointBuilder{
 		controller:     c,
-		labels:         podLabels,
+		labels:         augmentLabels(podLabels, c.Cluster(), locality),
 		serviceAccount: sa,
 		locality: model.Locality{
 			Label:     locality,
-			ClusterID: c.clusterID,
+			ClusterID: c.Cluster(),
 		},
 		tlsMode:      kube.PodTLSMode(pod),
 		workloadName: wn,
@@ -69,18 +69,44 @@ func NewEndpointBuilder(c *Controller, pod *v1.Pod) *EndpointBuilder {
 	}
 }
 
-func NewEndpointBuilderFromMetadata(c *Controller, proxy *model.Proxy) *EndpointBuilder {
+func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *EndpointBuilder {
+	locality := util.LocalityToString(proxy.Locality)
 	return &EndpointBuilder{
 		controller:     c,
 		metaNetwork:    proxy.Metadata.Network,
-		labels:         proxy.Metadata.Labels,
+		labels:         augmentLabels(proxy.Metadata.Labels, c.Cluster(), locality),
 		serviceAccount: proxy.Metadata.ServiceAccount,
 		locality: model.Locality{
-			Label:     util.LocalityToString(proxy.Locality),
-			ClusterID: c.clusterID,
+			Label:     locality,
+			ClusterID: c.Cluster(),
 		},
 		tlsMode: model.GetTLSModeFromEndpointLabels(proxy.Metadata.Labels),
 	}
+}
+
+// augmentLabels adds additional labels to the those provided.
+func augmentLabels(in labels.Instance, clusterID, locality string) labels.Instance {
+	// Copy the original labels to a new map.
+	out := make(labels.Instance)
+	for k, v := range in {
+		out[k] = v
+	}
+
+	// Don't need to add label.IstioNetwork, since that's already added by injection.
+	region, zone, subzone := model.SplitLocalityLabel(locality)
+	if len(region) > 0 {
+		out[NodeRegionLabelGA] = region
+	}
+	if len(zone) > 0 {
+		out[NodeZoneLabelGA] = zone
+	}
+	if len(subzone) > 0 {
+		out[label.IstioSubZone] = subzone
+	}
+	if len(clusterID) > 0 {
+		out[label.IstioCluster] = clusterID
+	}
+	return out
 }
 
 func (b *EndpointBuilder) buildIstioEndpoint(
@@ -109,8 +135,8 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 	// Try to determine the network by checking whether the endpoint IP belongs
 	// to any of the configure networks' CIDR ranges
-	if b.controller.ranger != nil {
-		entries, err := b.controller.ranger.ContainingNetworks(net.ParseIP(endpointIP))
+	if b.controller.cidrRanger() != nil {
+		entries, err := b.controller.cidrRanger().ContainingNetworks(net.ParseIP(endpointIP))
 		if err != nil {
 			log.Errora(err)
 			return ""
@@ -134,5 +160,5 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 	}
 
 	// Fallback to legacy fromRegistry setting, all endpoints from this cluster are on that network.
-	return b.controller.networkForRegistry
+	return b.controller.defaultNetwork()
 }

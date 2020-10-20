@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
@@ -203,10 +204,12 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			metrics.CRDeletionTotal.Increment()
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		scope.Warnf(errdict.OperatorFailedToGetObjectFromAPIServer, "error getting IstioOperator %s: %s", iopName, err)
+		metrics.CountCRFetchFail(errors.ReasonForError(err))
 		return reconcile.Result{}, err
 	}
 	if iop.Spec == nil {
@@ -223,6 +226,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	if deleted {
 		if !finalizers.Has(finalizer) {
 			scope.Infof("IstioOperator %s deleted", iopName)
+			metrics.CRDeletionTotal.Increment()
 			return reconcile.Result{}, nil
 		}
 		scope.Infof("Deleting IstioOperator %s", iopName)
@@ -248,6 +252,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		if finalizerError != nil {
 			if errors.IsNotFound(finalizerError) {
 				scope.Infof("Did not remove finalizer from %s: the object was previously deleted.", iopName)
+				metrics.CRDeletionTotal.Increment()
 				return reconcile.Result{}, nil
 			} else if errors.IsConflict(finalizerError) {
 				scope.Infof("Could not remove finalizer from %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
@@ -265,6 +270,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		if err != nil {
 			if errors.IsNotFound(err) {
 				scope.Infof("Could not add finalizer to %s: the object was deleted.", iopName)
+				metrics.CRDeletionTotal.Increment()
 				return reconcile.Result{}, nil
 			} else if errors.IsConflict(err) {
 				scope.Infof("Could not add finalizer to %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
@@ -326,6 +332,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperatorSpec, error) {
 	profileYAML, err := helm.GetProfileYAML(iop.Spec.InstallPackagePath, iop.Spec.Profile)
 	if err != nil {
+		metrics.CountCRMergeFail(metrics.CannotFetchProfileError)
 		return nil, err
 	}
 
@@ -336,36 +343,43 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 	if hub != "" && hub != "unknown" && tag != "" && tag != "unknown" {
 		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
+			metrics.CountCRMergeFail(metrics.OverlayError)
 			return nil, err
 		}
 		profileYAML, err = util.OverlayYAML(profileYAML, buildHubTagOverlayYAML)
 		if err != nil {
+			metrics.CountCRMergeFail(metrics.OverlayError)
 			return nil, err
 		}
 	}
 
 	overlayYAML, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
+		metrics.CountCRMergeFail(metrics.IOPFormatError)
 		return nil, err
 	}
 	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {
+		metrics.CountCRMergeFail(metrics.TranslateValuesError)
 		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
 
 	mergedYAML, err := util.OverlayIOP(profileYAML, overlayYAML)
 	if err != nil {
+		metrics.CountCRMergeFail(metrics.OverlayError)
 		return nil, err
 	}
 
 	mergedYAML, err = translate.OverlayValuesEnablement(mergedYAML, overlayYAML, "")
 	if err != nil {
+		metrics.CountCRMergeFail(metrics.TranslateValuesError)
 		return nil, err
 	}
 
 	mergedYAMLSpec, err := tpath.GetSpecSubtree(mergedYAML)
 	if err != nil {
+		metrics.CountCRMergeFail(metrics.InternalYAMLParseError)
 		return nil, err
 	}
 

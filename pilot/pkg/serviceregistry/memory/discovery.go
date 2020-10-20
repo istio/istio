@@ -285,14 +285,14 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, _ labe
 
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
 // 'in' services.
-func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.GetProxyServiceInstancesError != nil {
-		return nil, sd.GetProxyServiceInstancesError
+		return nil
 	}
 	if sd.WantGetProxyServiceInstances != nil {
-		return sd.WantGetProxyServiceInstances, nil
+		return sd.WantGetProxyServiceInstances
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, ip := range node.IPAddresses {
@@ -301,10 +301,10 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 			out = append(out, si...)
 		}
 	}
-	return out, sd.GetProxyServiceInstancesError
+	return out
 }
 
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	out := make(labels.Collection, 0)
@@ -314,7 +314,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 			out = append(out, *l)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
