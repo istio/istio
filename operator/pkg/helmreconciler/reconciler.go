@@ -358,6 +358,7 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 		labels[OwningResourceNamespace] = crNamespace
 	}
 	labels[istioVersionLabelStr] = version.Info.Version
+	labels[IstioRevisionLabelStr] = h.iop.Spec.Revision
 
 	return labels, nil
 }
