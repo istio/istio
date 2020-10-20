@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+releaseNotes: 
+  - |
+    **Fixed** an issue periodically causing a deadlock in Pilot's `syncz` debug endpoint
