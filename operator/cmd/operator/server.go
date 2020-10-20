@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -90,6 +91,21 @@ func getLeaderElectionNamespace() (string, bool) {
 	return os.LookupEnv("LEADER_ELECTION_NAMESPACE")
 }
 
+// getRenewDeadline returns the renew deadline for active control plane to refresh leadership.
+func getRenewDeadline() *time.Duration {
+	ddl, found := os.LookupEnv("RENEW_DEADLINE")
+	df := time.Second * 10
+	if !found {
+		return &df
+	}
+	duration, err := time.ParseDuration(ddl)
+	if err != nil {
+		log.Errorf("failed to parse renewDeadline: %v, use default value", err)
+		return &df
+	}
+	return &duration
+}
+
 func run() {
 	watchNS, err := getWatchNamespace()
 	if err != nil {
@@ -101,6 +117,7 @@ func run() {
 		log.Warn("Leader election namespace not set. Leader election is disabled. NOT APPROPRIATE FOR PRODUCTION USE!")
 	}
 
+	renewDeadline := getRenewDeadline()
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -122,6 +139,7 @@ func run() {
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
+			RenewDeadline:           renewDeadline,
 		}
 	} else {
 		// Create manager option for watching all namespaces.
@@ -131,6 +149,7 @@ func run() {
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
+			RenewDeadline:           renewDeadline,
 		}
 	}
 
