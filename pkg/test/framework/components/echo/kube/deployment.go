@@ -267,6 +267,9 @@ spec:
           {{- if $.VM.AutoRegister }}
           sudo sh -c 'echo ISTIO_META_AUTO_REGISTER_GROUP={{$.Service}} >> /var/lib/istio/envoy/cluster.env'
           {{- end }}
+          {{- if $.Network }}
+          sudo sh -c 'echo ISTIO_META_NETWORK={{$.Network}} >> /var/lib/istio/envoy/cluster.env'
+          {{- end }}
           # Capture all DNS traffic in the VM and forward to Envoy
           sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=true >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
@@ -449,6 +452,7 @@ func generateYAMLWithSettings(
 		"TLSSettings":        cfg.TLSSettings,
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
+		"Network":            cfg.Cluster.NetworkName(),
 		"VM": map[string]interface{}{
 			"Image":        vmImage,
 			"IstiodIP":     istiodIP,
