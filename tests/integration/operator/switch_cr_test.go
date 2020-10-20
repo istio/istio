@@ -179,7 +179,7 @@ func TestOperatorRemove(t *testing.T) {
 }
 
 // checkInstallStatus check the status of IstioOperator CR from the cluster
-func checkInstallStatus(cs istioKube.ExtendedClient) error {
+func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 	scopes.Framework.Infof("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
@@ -195,7 +195,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient) error {
 		}
 		usIOPStatus := us.UnstructuredContent()["status"]
 		if usIOPStatus == nil {
-			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator",
+			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator-"+revision,
 				kubeApiMeta.GetOptions{}); err != nil {
 				return fmt.Errorf("istio operator svc is not ready: %v", err)
 			}
@@ -284,7 +284,7 @@ spec:
 func verifyInstallation(t *testing.T, ctx resource.Context,
 	istioCtl istioctl.Instance, profileName string, revision string, cs resource.Cluster) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
-	if err := checkInstallStatus(cs); err != nil {
+	if err := checkInstallStatus(cs, revision); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
 
