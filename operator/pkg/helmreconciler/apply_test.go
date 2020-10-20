@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 )
@@ -64,6 +65,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 						Name:      "test-operator",
 						Namespace: "istio-operator-test",
 					},
+					Spec: &v1alpha12.IstioOperatorSpec{},
 				},
 				countLock:     &sync.Mutex{},
 				prunedKindSet: map[schema.GroupKind]struct{}{},
