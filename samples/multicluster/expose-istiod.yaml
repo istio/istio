@@ -48,7 +48,8 @@ spec:
   - match:
     - port: 15017
       sniHosts:
-      - istiod.istio-system.svc.cluster.local    
+      - istiod.istio-system.svc.cluster.local
+      - istiod-remote.istio-system.svc.cluster.local
     route:
     - destination:
         host: istiod.istio-system.svc.cluster.local
