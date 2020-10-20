@@ -39,6 +39,7 @@ spec:
     - port: 15012
       sniHosts:
       - istiod.istio-system.svc.cluster.local
+      - istiod-remote.istio-system.svc.cluster.local
     route:
     - destination:
         host: istiod.istio-system.svc.cluster.local
@@ -53,4 +54,3 @@ spec:
         host: istiod.istio-system.svc.cluster.local
         port:
           number: 443
-
