@@ -572,6 +572,13 @@ func (c *Controller) HasSynced() bool {
 func (c *Controller) SyncAll() error {
 	var err *multierror.Error
 
+	if c.nsInformer != nil {
+		ns := c.nsInformer.GetStore().List()
+		for _, ns := range ns {
+			err = multierror.Append(err, c.onNamespaceEvent(ns, model.EventAdd))
+		}
+	}
+
 	nodes := c.nodeInformer.GetStore().List()
 	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
