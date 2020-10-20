@@ -55,8 +55,9 @@ func TestValidateConfig(t *testing.T) {
 					},
 				},
 			},
-			warnings: `! values.grafana.enabled is deprecated; use the samples/addons/ deployments instead
-! addonComponents.grafana.enabled is deprecated; use the samples/addons/ deployments instead`,
+			errors: `! values.grafana.enabled is deprecated; use the samples/addons/ deployments instead
+, ! addonComponents.grafana.enabled is deprecated; use the samples/addons/ deployments instead
+`,
 		},
 		{
 			name: "global",
