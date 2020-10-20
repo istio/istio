@@ -424,7 +424,18 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.Action = &route.Route_Route{Route: action}
 
 		if rewrite := in.Rewrite; rewrite != nil {
-			action.PrefixRewrite = rewrite.Uri
+			//TODO: Error handling as either of prefix_rewrite or regex_rewrite is supported
+			if regexRewrite := rewrite.GetUriRegex(); regexRewrite != nil {
+				action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
+					Pattern: &matcher.RegexMatcher{
+						Regex:      regexRewrite.GetPattern(),
+						EngineType: regexMatcher(node),
+					},
+					Substitution: regexRewrite.GetSubstitution(),
+				}
+			} else {
+				action.PrefixRewrite = rewrite.Uri
+			}
 			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
 				HostRewriteLiteral: rewrite.Authority,
 			}

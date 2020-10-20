@@ -166,6 +166,19 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
 	})
 
+	t.Run("for virtual service with regex rewrite URI", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithUriRegexRewrite, serviceRegistry, 8080, gatewayNames)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+		g.Expect(routes[0].GetRoute().GetPrefixRewrite()).To(gomega.Equal(""))
+		g.Expect(routes[0].GetRoute().GetRegexRewrite().GetSubstitution()).To(gomega.Equal("foostatus"))
+		g.Expect(routes[0].GetRoute().GetRegexRewrite().GetPattern().GetRegex()).To(gomega.Equal("status"))
+	})
+
 	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
@@ -1100,6 +1113,48 @@ var virtualServiceWithRegexMatchingOnHeader = config.Config{
 					Uri:          "example.org",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithUriRegexRewrite = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "status",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "\\/(.?)\\/status",
+							},
+						},
+					},
+				},
+				Rewrite: &networking.HTTPRewrite{
+					UriRegex: &networking.UriRegexRewrite{
+						Pattern:      "status",
+						Substitution: "foostatus",
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
 				},
 			},
 		},
