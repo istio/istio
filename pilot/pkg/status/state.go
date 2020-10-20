@@ -192,7 +192,7 @@ func (c *DistributionController) writeStatus(ctx context.Context, config Resourc
 		return
 	}
 	// check if status needs updating
-	if needsReconcile, desiredStatus := ReconcileStatuses(current.Object, distributionState, c.clock); needsReconcile {
+	if needsReconcile, desiredStatus := ReconcileStatuses(current.Object, distributionState, current.GetGeneration()); needsReconcile {
 		// technically, we should be updating probe time even when reconciling isn't needed, but
 		// I'm skipping that for efficiency.
 		current.Object["status"] = desiredStatus
@@ -236,7 +236,7 @@ func boolToConditionStatus(b bool) string {
 	return "False"
 }
 
-func ReconcileStatuses(current map[string]interface{}, desired Progress, clock clock.Clock) (bool, *v1alpha1.IstioStatus) {
+func ReconcileStatuses(current map[string]interface{}, desired Progress, generation int64) (bool, *v1alpha1.IstioStatus) {
 	needsReconcile := false
 	currentStatus, err := GetTypedStatus(current["status"])
 	desiredCondition := v1alpha1.IstioCondition{
@@ -273,6 +273,7 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 	} else {
 		currentStatus.Conditions = append(currentStatus.Conditions, &desiredCondition)
 	}
+	currentStatus.ObservedGeneration = generation
 	return needsReconcile, &currentStatus
 }
 
