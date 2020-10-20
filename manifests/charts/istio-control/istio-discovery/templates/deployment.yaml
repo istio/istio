@@ -156,14 +156,6 @@ spec:
             value: "{{ $.Values.global.externalIstiod | default "false" }}"
           - name: CENTRAL_ISTIOD
             value: "{{ $.Values.global.centralIstiod | default "false" }}"
-          {{- if .Values.global.ca }}
-          {{- if eq .Values.global.ca.type "KUBERNETES" }}
-          - name: EXTERNAL_CA
-            value: {{ .Values.global.ca.type }}
-          - name: K8S_SIGNER
-            value: {{ .Values.global.ca.kubernetesConfig.signerName }}
-          {{- end }}
-          {{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -190,11 +182,6 @@ spec:
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
-          {{- if .Values.global.ca }}
-          - name: external-ca-cert
-            mountPath: /etc/external-ca-cert
-            readOnly: true 
-          {{- end }}
           - name: istio-kubeconfig
             mountPath: /var/run/secrets/remote
             readOnly: true
@@ -225,12 +212,6 @@ spec:
         secret:
           secretName: cacerts
           optional: true
-      {{- if .Values.global.ca }}
-      - name: external-ca-cert
-        secret:
-          secretName: external-ca-cert 
-          optional: true
-      {{- end }} 
       - name: istio-kubeconfig
         secret:
           secretName: istio-kubeconfig

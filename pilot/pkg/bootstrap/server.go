@@ -252,6 +252,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		Namespace:    args.Namespace,
 		CAType:       externalCA,
 		CASignerName: k8sSigner,
+		CACertPath:   externalCACert,
 	}
 
 	// CA signing certificate must be created first if needed.

@@ -48,7 +48,7 @@ type caOptions struct {
 	// Either extCAK8s or extCAGrpc
 	CAType       string
 	CASignerName string
-
+	CACertPath   string
 	// domain to use in SPIFFE identity URLs
 	TrustDomain    string
 	Namespace      string
@@ -57,10 +57,8 @@ type caOptions struct {
 
 const (
 	//KubernatesCA : Kubernates acts as the Certificate Authority
-	extCAK8s string = "KUBERNETES"
-
+	extCAK8s string = "KUBERNATES"
 	// extCAGrpc string = "GRPC"
-	ExternalCertDir = "./etc/external-ca-cert"
 )
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -146,6 +144,10 @@ var (
 	//TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.RegisterStringVar("K8S_SIGNER", "",
 		"Kubernates CA Signer type. Valid from Kubernates 1.18").Get()
+
+	//TODO: Likely to be removed and added to mesh config
+	externalCACert = env.RegisterStringVar("EXT_CA_ROOT_PATH", defaultCACertPath,
+		"Location of RootCA file of external CA").Get()
 )
 
 // EnableCA returns whether CA functionality is enabled in istiod.
@@ -432,16 +434,10 @@ func (s *Server) createIstioRA(client kubelib.Client,
 
 	spiffe.SetTrustDomain(opts.TrustDomain)
 	maxCertTTL := maxWorkloadCertTTL.Get()
-
-	caCertFile := path.Join(ExternalCertDir, "root-cert.pem")
-	if _, err := os.Stat(caCertFile); err != nil {
-		caCertFile = defaultCACertPath
-	}
-
 	if opts.CAType == extCAK8s {
 		raOpts := ra.NewK8sRAOptions(workloadCertTTL.Get(),
 			maxCertTTL,
-			caCertFile,
+			opts.CACertPath,
 			opts.CASignerName)
 		istioRA, err := ra.NewK8sRA(raOpts, client.CertificatesV1beta1())
 		if err != nil {

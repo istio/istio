@@ -457,7 +457,7 @@ func TestReadSignedCertificate(t *testing.T) {
 		// 4. Read the signed certificate
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
 		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName,
-			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile, true)
+			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile)
 
 		if tc.expectFail {
 			if err == nil {

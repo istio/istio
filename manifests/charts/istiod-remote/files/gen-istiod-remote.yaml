@@ -46,7 +46,6 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
-        "ca": {},
         "caAddress": "",
         "centralIstiod": false,
         "configValidation": true,

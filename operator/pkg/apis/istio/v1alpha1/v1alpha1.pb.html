@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 66
+number_of_entries: 62
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -1447,18 +1447,6 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 <p>Controls whether one central istiod is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GlobalConfig-ca">
-<td><code>ca</code></td>
-<td><code><a href="#GlobalConfig-CA">CA</a></code></td>
-<td>
-<p>If specified, Istiod will authorize and forward the CSRs from the workloads to the specified external CA
-using the Istio CA gRPC API or using k8s CSR API.</p>
 
 </td>
 <td>
@@ -3941,73 +3929,6 @@ No
 <p>GOTYPE: interface{}</p>
 
 </section>
-<h2 id="GlobalConfig-CA">GlobalConfig.CA</h2>
-<section>
-<p>Configuration of CustomCA integrated with the Istiod</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="GlobalConfig-CA-kubernetes_config">
-<td><code>kubernetesConfig</code></td>
-<td><code><a href="#GlobalConfig-CA-KubernetesCAConfig">KubernetesCAConfig</a></code></td>
-<td>
-<p>Configs for integrating with Kubernetes External CA
-Required if type is Kubernetes</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GlobalConfig-CA-type">
-<td><code>type</code></td>
-<td><code><a href="#GlobalConfig-CA-IntegrationType">IntegrationType</a></code></td>
-<td>
-<p>REQUIRED: CA Integration Type</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="GlobalConfig-CA-KubernetesCAConfig">GlobalConfig.CA.KubernetesCAConfig</h2>
-<section>
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="GlobalConfig-CA-KubernetesCAConfig-signer_name">
-<td><code>signerName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refer to https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
-for details regarding how signer_name is used by external CAs plugged into Kubernetes system</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="TelemetryV2PrometheusConfig-ConfigOverride">TelemetryV2PrometheusConfig.ConfigOverride</h2>
 <section>
 <table class="message-fields">
@@ -4056,42 +3977,6 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="GlobalConfig-CA-IntegrationType">GlobalConfig.CA.IntegrationType</h2>
-<section>
-<p>Different Integration types for CA</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="GlobalConfig-CA-IntegrationType-ISTIOD">
-<td><code>ISTIOD</code></td>
-<td>
-<p>Istiod is Self signed CA. No External CA</p>
-
-</td>
-</tr>
-<tr id="GlobalConfig-CA-IntegrationType-KUBERNETES">
-<td><code>KUBERNETES</code></td>
-<td>
-<p>Integration with external CA’s plugged into K8s system</p>
-
-</td>
-</tr>
-<tr id="GlobalConfig-CA-IntegrationType-GRPC">
-<td><code>GRPC</code></td>
-<td>
-<p>Integration with external CA’s supporting the Istio CA gRPC API</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
 <section>
 <p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
@@ -4425,42 +4310,6 @@ response_flag != &quot;-&quot;</code></p>
 <tr id="tracer-openCensusAgent">
 <td><code>openCensusAgent</code></td>
 <td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="GlobalConfig-CA-IntegrationType">GlobalConfig.CA.IntegrationType</h2>
-<section>
-<p>Different Integration types for CA</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="GlobalConfig-CA-IntegrationType-ISTIOD">
-<td><code>ISTIOD</code></td>
-<td>
-<p>Istiod is Self signed CA. No External CA</p>
-
-</td>
-</tr>
-<tr id="GlobalConfig-CA-IntegrationType-KUBERNETES">
-<td><code>KUBERNETES</code></td>
-<td>
-<p>Integration with external CA’s plugged into K8s system</p>
-
-</td>
-</tr>
-<tr id="GlobalConfig-CA-IntegrationType-GRPC">
-<td><code>GRPC</code></td>
-<td>
-<p>Integration with external CA’s supporting the Istio CA gRPC API</p>
-
 </td>
 </tr>
 </tbody>

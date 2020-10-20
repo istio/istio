@@ -106,4 +106,3 @@ test.integration.kube.reachability: | $(JUNIT_REPORT) check-go-tag
 	${_INTEGRATION_TEST_FLAGS} \
 	--test.run=TestReachability \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-

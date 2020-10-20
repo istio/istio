@@ -64,7 +64,6 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
-        "ca": {},
         "caAddress": "",
         "centralIstiod": false,
         "configValidation": true,
@@ -845,7 +844,7 @@ spec:
       - name: cacerts
         secret:
           secretName: cacerts
-          optional: true 
+          optional: true
       - name: istio-kubeconfig
         secret:
           secretName: istio-kubeconfig

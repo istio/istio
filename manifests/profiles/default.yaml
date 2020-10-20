@@ -231,7 +231,6 @@ spec:
         servicePort: 0
       meshNetworks: {}
       mountMtlsCerts: false
-      ca: {}
     base:
       enableCRDTemplates: false
       validationURL: ""
