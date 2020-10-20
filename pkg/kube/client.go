@@ -184,7 +184,7 @@ var _ ExtendedClient = &client{}
 const resyncInterval = 0
 
 // NewFakeClient creates a new, fake, client
-func NewFakeClient(objects ...runtime.Object) Client {
+func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	var c client
 	c.Interface = fake.NewSimpleClientset(objects...)
 	c.kube = c.Interface

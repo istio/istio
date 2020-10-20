@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -254,10 +255,10 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 	env := newFakeEnvironmentOrDie(t, testCase.config)
 	mesh := NewMesh(&MeshDesc{MeshID: "MyMeshID"}, testCase.clusters...)
 
-	fakeClients := make(map[string]*fake.Clientset, len(testCase.clusters))
+	fakeClients := make(map[string]kube.Client, len(testCase.clusters))
 	for _, cluster := range testCase.clusters {
 		// create fake client with initial set of objections
-		client := fake.NewSimpleClientset(testCase.initObjs[cluster.clusterName]...)
+		client := kube.NewFakeClient(testCase.initObjs[cluster.clusterName]...)
 		fakeClients[cluster.clusterName] = client
 		cluster.client = client
 
@@ -294,7 +295,7 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 
 			wantActions := testCase.wantActions[cluster.clusterName]
 			gotActions := make(map[string]int)
-			for _, a := range fakeClient.Actions() {
+			for _, a := range fakeClient.Kube().(*fake.Clientset).Actions() {
 				gotActions[action(a.GetVerb(), a.GetResource().Resource)]++
 			}
 
