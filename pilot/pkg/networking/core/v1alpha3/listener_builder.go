@@ -28,8 +28,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -39,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -168,15 +167,17 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	lb.virtualInboundListener.ListenerFiltersTimeout = ptypes.DurationProto(timeout)
 	lb.virtualInboundListener.ContinueOnListenerFiltersTimeout = true
 
-	// All listeners except bind_to_port=true listeners are now a part of virtual inbound and not needed
-	// we can filter these ones out.
-	bindToPortInbound := make([]*xdsapi.Listener, 0, len(lb.inboundListeners))
-	for _, i := range lb.inboundListeners {
-		if isBindtoPort(i) {
-			bindToPortInbound = append(bindToPortInbound, i)
+	if !features.EnableLegacyInboundListeners {
+		// All listeners except bind_to_port=true listeners are now a part of virtual inbound and not needed
+		// we can filter these ones out.
+		bindToPortInbound := make([]*xdsapi.Listener, 0, len(lb.inboundListeners))
+		for _, i := range lb.inboundListeners {
+			if isBindtoPort(i) {
+				bindToPortInbound = append(bindToPortInbound, i)
+			}
 		}
+		lb.inboundListeners = bindToPortInbound
 	}
-	lb.inboundListeners = bindToPortInbound
 
 	return lb
 }

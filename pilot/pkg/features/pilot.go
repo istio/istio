@@ -21,7 +21,6 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/istio/pkg/jwt"
-
 	"istio.io/pkg/env"
 )
 
@@ -191,6 +190,14 @@ var (
 		false,
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
+	).Get()
+
+	EnableLegacyInboundListeners = env.RegisterBoolVar(
+		"PILOT_ENABLE_LEGACY_INBOUND_LISTENERS",
+		false,
+		"Enable legacy inbound listeners. When enabled, inbound redirection to port 15001 will be supported. "+
+			"If disabled, inbound requests must be directed to port 15006 and will be routed by a single listener. "+
+			"This is intended for migration purposes only.",
 	).Get()
 
 	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
