@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/clock"
@@ -74,7 +75,7 @@ const dataField = "distribution-report"
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
 // with distribution information.  To run in read-only mode, (for supporting istioctl wait), set writeMode = false
-func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, ledger ledger.Ledger, writeMode bool, stop <-chan struct{}) {
+func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, ledger ledger.Ledger, writeMode bool, stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
@@ -102,6 +103,16 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, ledge
 	}
 	t := r.clock.Tick(r.UpdateInterval)
 	ctx := NewIstioContext(stop)
+	x, err := clientSet.CoreV1().Pods(namespace).Get(ctx, podname, metav1.GetOptions{})
+	if err != nil {
+		scope.Errorf("can't identify pod context: %s", err)
+	}
+	r.cm.OwnerReferences = []metav1.OwnerReference{
+		*metav1.NewControllerRef(x, schema.GroupVersionKind{
+			Version: "v1",
+			Kind:    "Pod",
+		}),
+	}
 	go func() {
 		for {
 			select {
@@ -233,7 +244,7 @@ func (r *Reporter) writeReport(ctx context.Context) {
 // this is lifted with few modifications from kubeadm's apiclient
 func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v1.ConfigMapInterface) (res *corev1.ConfigMap, err error) {
 	if res, err = client.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
-		if !apierrors.IsAlreadyExists(err) && !apierrors.IsInvalid(err) {
+		if !apierrors.IsAlreadyExists(err) {
 			scope.Errorf("%v", err)
 			return nil, errors.Wrap(err, "unable to create ConfigMap")
 		}
