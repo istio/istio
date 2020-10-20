@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -26,8 +25,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -273,7 +273,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	if options.SystemNamespace != "" {
-		c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
+		c.nsInformer = informers.NewSharedInformerFactoryWithOptions(c.client, 30*time.Minute, informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
+			listOpts.FieldSelector = fields.OneTermEqualSelector("metadata.name", options.SystemNamespace).String()
+		})).Core().V1().Namespaces().Informer()
 		registerHandlers(c.nsInformer, c.queue, "Namespaces", c.onNamespaceEvent, func(old, cur interface{}) bool {
 			if ns, ok := cur.(*v1.Namespace); ok && ns != nil {
 				return ns.Name != options.SystemNamespace
