@@ -48,6 +48,4 @@ spec:
               value: {{.Values.waitForResourcesTimeout | quote}}
             - name: REVISION
               value: {{.Values.revision | quote}}
-            - name: RENEW_DEADLINE
-              value: {{.Values.renewDeadline | quote}}
 ---

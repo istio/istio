@@ -13,9 +13,6 @@ enableCRDTemplates: false
 # revision for the operator resources
 revision: ""
 
-# renew deadline for active control plane to refresh leadership
-renewDeadline: 10s
-
 # Operator resource defaults
 operator:
   resources:
