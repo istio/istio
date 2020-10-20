@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/watch"
 	"sort"
 	"sync"
 	"time"
@@ -203,6 +204,7 @@ type Controller struct {
 	pods *PodCache
 
 	metrics         model.Metrics
+	nsWatch         watch.Interface
 	networksWatcher mesh.NetworksWatcher
 	xdsUpdater      model.XDSUpdater
 	domainSuffix    string
@@ -612,6 +614,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
 	}
+	if c.nsWatch != nil {
+		go c.watchNamespace(stop)
+	}
 	// TODO(https://github.com/kubernetes/kubernetes/issues/95262) remove this
 	time.Sleep(time.Millisecond * 5)
 	cache.WaitForCacheSync(stop, c.HasSynced)
@@ -961,6 +966,57 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 			// fire off eds update
 			c.xdsUpdater.EDSUpdate(c.clusterID, string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
+	}
+}
+
+func (c *Controller) initNamespaceWatch(opts Options) {
+	var err error
+	c.nsWatch, err = c.client.CoreV1().Namespaces().Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + opts.SystemNamespace})
+	if err != nil {
+		log.Warnf("failed to setup watch on system namespace %q: %v", opts.SystemNamespace, err)
+	}
+	// drain the ResultChan to avoid churning on startup
+	var ev watch.Event
+Drain:
+	for {
+		select {
+		case ev = <-c.nsWatch.ResultChan():
+		default:
+			break Drain
+		}
+	}
+	if ev.Type != "" {
+		c.namespaceHandler(ev)
+	}
+}
+
+func (c *Controller) watchNamespace(stop <-chan struct{}) {
+	for {
+		select {
+		case ev := <-c.nsWatch.ResultChan():
+			c.queue.Push(func() error {
+				c.namespaceHandler(ev)
+				return nil
+			})
+		case <-stop:
+			c.nsWatch.Stop()
+		}
+	}
+}
+
+func (c *Controller) namespaceHandler(ev watch.Event) {
+	ns, ok := ev.Object.(*v1.Namespace)
+	if !ok {
+		log.Warnf("Namespace watch getting wrong type in event: %T", ev.Object)
+	}
+	c.Lock()
+	oldDefaultNetwork := c.network
+	c.network = ns.Labels[label.IstioNetwork]
+	c.Unlock()
+	// network changed, not using mesh networks, and controller has been initialized
+	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.HasSynced() {
+		// refresh pods/endpoints/services
+		c.onNetworkChanged()
 	}
 }
 
