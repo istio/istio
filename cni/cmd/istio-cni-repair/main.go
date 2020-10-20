@@ -84,7 +84,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 
 	pflag.Parse()
 	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
-		log.Fatal("Error parsing command line args: %+v")
+		log.Fatal("Error parsing command line args: %+v", err)
 	}
 
 	if viper.GetBool("help") {
