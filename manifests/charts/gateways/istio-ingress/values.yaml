@@ -127,6 +127,9 @@ gateways:
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
 
+# For Helm compatibility.
+ownerName: ""
+
 global:
   # set the default set of namespaces to which services, service entries, virtual services, destination
   # rules should be exported to. Currently only one value can be provided in this list. This value
