@@ -174,6 +174,7 @@ var (
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	).Get()
 
+	// nolint
 	InboundProtocolDetectionTimeout, InboundProtocolDetectionTimeoutSet = env.RegisterDurationVar(
 		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
 		1*time.Second,
