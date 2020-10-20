@@ -542,9 +542,7 @@ func TestSetServiceInstances(t *testing.T) {
 	}
 
 	proxy := &model.Proxy{}
-	if err := proxy.SetServiceInstances(env); err != nil {
-		t.Errorf("SetServiceInstances => Got error %v", err)
-	}
+	proxy.SetServiceInstances(env)
 
 	assert.Equal(t, len(proxy.ServiceInstances), 3)
 	assert.Equal(t, proxy.ServiceInstances[0].Service.Hostname, host.Name("test2.com"))

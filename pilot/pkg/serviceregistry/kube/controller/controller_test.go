@@ -360,10 +360,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			svcNode.ID = "pod1.nsa"
 			svcNode.DNSDomain = "nsa.svc.cluster.local"
 			svcNode.Metadata = &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID}
-			serviceInstances, err := controller.GetProxyServiceInstances(&svcNode)
-			if err != nil {
-				t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
-			}
+			serviceInstances := controller.GetProxyServiceInstances(&svcNode)
 
 			if len(serviceInstances) != 1 {
 				t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
@@ -376,7 +373,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			}
 
 			// Test that we can look up instances just by Proxy metadata
-			metaServices, err := controller.GetProxyServiceInstances(&model.Proxy{
+			metaServices := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"1.1.1.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
@@ -388,9 +385,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						label.TLSMode: "mutual",
 					}},
 			})
-			if err != nil {
-				t.Fatalf("got err getting service instances")
-			}
 
 			expected := &model.ServiceInstance{
 
@@ -438,7 +432,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				map[string]string{"app": "prod-app"}, nil)
 			addPods(t, controller, fx, p)
 
-			podServices, err := controller.GetProxyServiceInstances(&model.Proxy{
+			podServices := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
@@ -449,9 +443,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"app": "prod-app",
 					}},
 			})
-			if err != nil {
-				t.Fatalf("got err getting service instances")
-			}
 
 			expected = &model.ServiceInstance{
 
@@ -496,7 +487,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				map[string]string{"app": "prod-app", "istio-locality": "region.zone"}, nil)
 			addPods(t, controller, fx, p)
 
-			podServices, err = controller.GetProxyServiceInstances(&model.Proxy{
+			podServices = controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.2"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
@@ -507,9 +498,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"app": "prod-app",
 					}},
 			})
-			if err != nil {
-				t.Fatalf("got err getting service instances")
-			}
 
 			expected = &model.ServiceInstance{
 
@@ -696,10 +684,8 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 				if ev == nil {
 					t.Fatal("Timeout creating service")
 				}
-				serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
-				if err != nil {
-					t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
-				}
+				serviceInstances := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
+
 				if len(serviceInstances) != c.wantNum {
 					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(serviceInstances), c.wantNum)
 				}
