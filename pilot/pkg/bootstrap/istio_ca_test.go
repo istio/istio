@@ -41,7 +41,7 @@ func TestRemoteCerts(t *testing.T) {
 	s := Server{
 		kubeClient: kube.NewFakeClient(),
 	}
-	caOpts := &CAOptions{
+	caOpts := &caOptions{
 		Namespace: namespace,
 	}
 
