@@ -289,7 +289,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
 			if !have[instance.ServicePort] {
-				localCluster := cb.buildInboundClusterForPortOrUDS(instance, actualLocalHost)
+				localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, instance, actualLocalHost)
 				clusters = cp.conditionallyAppend(clusters, localCluster)
 				have[instance.ServicePort] = true
 			}
@@ -334,7 +334,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			instance.Endpoint.ServicePortName = listenPort.Name
 			instance.Endpoint.EndpointPort = uint32(port)
 
-			localCluster := cb.buildInboundClusterForPortOrUDS(instance, endpointAddress)
+			localCluster := cb.buildInboundClusterForPortOrUDS(nil, instance, endpointAddress)
 			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
 	}
