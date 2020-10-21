@@ -133,6 +133,18 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, m
 	}
 }
 
+func (e *Environment) Version() string {
+	return e.GetLedger().RootHash()
+}
+
+func (e *Environment) GetLedger() ledger.Ledger {
+	return e.ledger
+}
+
+func (e *Environment) SetLedger(l ledger.Ledger) {
+	e.ledger = l
+}
+
 // Request is an alias for array of marshaled resources.
 type Resources = []*any.Any
 
@@ -940,16 +952,4 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	}
 
 	return InterceptionRedirect
-}
-
-func (env *Environment) Version() string {
-	return env.GetLedger().RootHash()
-}
-
-func (env *Environment) GetLedger() ledger.Ledger {
-	return env.ledger
-}
-
-func (env *Environment) SetLedger(l ledger.Ledger) {
-	env.ledger = l
 }
