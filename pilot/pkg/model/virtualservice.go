@@ -155,7 +155,7 @@ func mergeVirtualServicesIfNeeded(vServices []config.Config, defaultExportTo map
 						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue
 				}
-				// DeepCopy to prevent mutate the original delegate, it can conflict
+				// DeepCopySpec to prevent mutate the original delegate, it can conflict
 				// when multiple routes delegate to one single VS.
 				copiedDelegate := delegate.DeepCopy()
 				vs := copiedDelegate.Spec.(*networking.VirtualService)
