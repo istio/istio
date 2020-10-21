@@ -273,15 +273,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	if options.SystemNamespace != "" {
-		c.nsInformer = informers.NewSharedInformerFactoryWithOptions(c.client, 30*time.Minute, informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
+		c.nsInformer = informers.NewSharedInformerFactoryWithOptions(c.client, options.ResyncPeriod, informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
 			listOpts.FieldSelector = fields.OneTermEqualSelector("metadata.name", options.SystemNamespace).String()
 		})).Core().V1().Namespaces().Informer()
-		registerHandlers(c.nsInformer, c.queue, "Namespaces", c.onNamespaceEvent, func(old, cur interface{}) bool {
-			if ns, ok := cur.(*v1.Namespace); ok && ns != nil {
-				return ns.Name != options.SystemNamespace
-			}
-			return true
-		})
+		registerHandlers(c.nsInformer, c.queue, "Namespaces", c.onNamespaceEvent, nil)
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
