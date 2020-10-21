@@ -22,7 +22,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/mesh"
 )
@@ -605,18 +604,6 @@ func TestPassthroughTraffic(t *testing.T) {
     number: 86
     protocol: HTTP2`
 
-	// TODO: https://github.com/istio/istio/issues/26079 this should be empty list
-	expectedFailures := sets.NewSet(
-		"http-tls-80-http/1.1",
-		"http-tls-85-http/1.1",
-		"http-tls-86-http/1.1",
-	)
-	withoutVipExpectedFailures := sets.NewSet(
-		"http-tls-80-http/1.1",
-		"http-tls-81-http/1.1",
-		"http-tls-85-http/1.1",
-		"http-tls-86-http/1.1",
-	)
 	isHTTPPort := func(p int) bool {
 		switch p {
 		case 80, 85, 86:
@@ -665,10 +652,6 @@ func TestPassthroughTraffic(t *testing.T) {
 						e.Result.ClusterMatched = ""
 						e.Result.VirtualHostMatched = util.BlackHole
 					}
-					if expectedFailures.Contains(name) {
-						e.Result.Error = simulation.ErrProtocolError
-						e.Result.ClusterMatched = ""
-					}
 					testCalls = append(testCalls, e)
 				}
 				sort.Slice(testCalls, func(i, j int) bool {
@@ -710,10 +693,6 @@ spec:
 					// Auto without a VIP is similar, but HTTP happens to work because routing is done on header
 					if call.Port == 82 || (call.Port == 81 && !call.IsHTTP()) {
 						e.Result.Error = nil
-						e.Result.ClusterMatched = ""
-					}
-					if withoutVipExpectedFailures.Contains(name) {
-						e.Result.Error = simulation.ErrProtocolError
 						e.Result.ClusterMatched = ""
 					}
 					testCalls = append(testCalls, e)
