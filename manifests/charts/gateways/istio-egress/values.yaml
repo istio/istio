@@ -7,13 +7,16 @@ gateways:
     - port: 80
       targetPort: 8080
       name: http2
+      protocol: TCP
     - port: 443
       name: https
       targetPort: 8443
+      protocol: TCP
       # This is the port where sni routing happens
     - port: 15443
       targetPort: 15443
       name: tls
+      protocol: TCP
 
     # Enable cross-cluster access using SNI matching.
     # Make sure you set suffix if deploying multiple egress gateways.
