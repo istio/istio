@@ -64,6 +64,7 @@ features:
     peer:
       secure-naming:
       trust-domain-validation:
+      trust-domain-validation-alias-client:
     user:
     ingress:
       mtls:
