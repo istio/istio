@@ -716,6 +716,11 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
+		// Ensure we allow clients sufficient ability to send keep alives. If this is higher than client
+		// keep alive setting, it will prematurely get a GOAWAY sent.
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: options.Time / 2,
+		}),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:                  options.Time,
 			Timeout:               options.Timeout,
@@ -1035,14 +1040,21 @@ func (s *Server) initControllers(args *PilotArgs) error {
 // initNamespaceController initializes namespace controller to sync config map.
 func (s *Server) initNamespaceController(args *PilotArgs) {
 	if s.CA != nil && s.kubeClient != nil {
-		// create namespace controller
-		nsController := kubecontroller.NewNamespaceController(s.fetchCARoot, s.kubeClient)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient.Kube())
-			le.AddRunFunction(func(leaderStop <-chan struct{}) {
-				nsController.Run(leaderStop)
-			})
-			le.Run(stop)
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient.Kube()).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("Starting namespace controller")
+					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, s.kubeClient)
+					// Start informers again. This fixes the case where informers for namespace do not start,
+					// as we create them only after acquiring the leader lock
+					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+					// basically lazy loading the informer, if we stop it when we lose the lock we will never
+					// recreate it again.
+					s.kubeClient.RunAndWait(stop)
+					nc.Run(leaderStop)
+				}).
+				Run(stop)
 			return nil
 		})
 	}

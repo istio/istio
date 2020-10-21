@@ -65,7 +65,7 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 }
 
 // NewStatusSyncer creates a new instance
-func NewStatusSyncer(mesh *meshconfig.MeshConfig, client kubelib.Client) (*StatusSyncer, error) {
+func NewStatusSyncer(mesh *meshconfig.MeshConfig, client kubelib.Client) *StatusSyncer {
 
 	// we need to use the defined ingress class to allow multiple leaders
 	// in order to update information about ingress status
@@ -74,7 +74,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig, client kubelib.Client) (*Statu
 	// queue requires a time duration for a retry delay after a handler error
 	q := queue.NewQueue(1 * time.Second)
 
-	st := StatusSyncer{
+	return &StatusSyncer{
 		client:              client,
 		ingressLister:       client.KubeInformer().Networking().V1beta1().Ingresses().Lister(),
 		podLister:           client.KubeInformer().Core().V1().Pods().Lister(),
@@ -85,8 +85,6 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig, client kubelib.Client) (*Statu
 		defaultIngressClass: defaultIngressClass,
 		ingressService:      mesh.IngressService,
 	}
-
-	return &st, nil
 }
 
 func (s *StatusSyncer) onEvent() error {

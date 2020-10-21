@@ -78,18 +78,25 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}
-		whController, err := controller.New(o, s.kubeClient)
-		if err != nil {
-			log.Errorf("failed to start validation controller: %v", err)
-			return err
-		}
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient)
-			le.AddRunFunction(func(leaderStop <-chan struct{}) {
-				log.Infof("Starting validation controller")
-				whController.Start(leaderStop)
-			})
-			le.Run(stop)
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					whController, err := controller.New(o, s.kubeClient)
+					if err != nil {
+						log.Errorf("failed to start validation controller")
+						return
+					}
+					log.Infof("Starting validation controller")
+					// Start informers again. This fixes the case where informers for namespace do not start,
+					// as we create them only after acquiring the leader lock
+					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+					// basically lazy loading the informer, if we stop it when we lose the lock we will never
+					// recreate it again.
+					s.kubeClient.RunAndWait(stop)
+					whController.Start(leaderStop)
+				}).
+				Run(stop)
 			return nil
 		})
 	}
