@@ -880,6 +880,9 @@ message PortsConfig {
 
   // Target port number.
   int32 targetPort = 4;
+
+  // Protocol name.
+  string protocol = 5;
 }
 
 // Configuration for Proxy.

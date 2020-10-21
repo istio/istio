@@ -92,9 +92,13 @@ spec:
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
           ports:
           - containerPort: 8080
+            protocol: TCP
           - containerPort: 15010
+            protocol: TCP
           - containerPort: 15017
+            protocol: TCP
           - containerPort: 15053
+            protocol: TCP
           readinessProbe:
             httpGet:
               path: /ready
