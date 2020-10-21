@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/istio-agent/health"
-	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/spiffe"
 	istiolog "istio.io/pkg/log"
 )
