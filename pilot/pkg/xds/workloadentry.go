@@ -158,7 +158,6 @@ func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event Healt
 	if err != nil {
 		adsLog.Errorf("error while updating WorkloadEntry status: %v", err)
 	}
-	return
 }
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
