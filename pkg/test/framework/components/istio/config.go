@@ -284,6 +284,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IOPFile:                        %s\n", c.IOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
+	result += fmt.Sprintf("ControlPlaneValues:             \"%s\"\n", c.ControlPlaneValues)
 
 	return result
 }
