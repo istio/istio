@@ -1345,6 +1345,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 						// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 						opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+						opt.match.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 					}
 
 					listenerOpts.needHTTPInspector = true
@@ -1419,6 +1420,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 				// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 				opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+				opt.match.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 			}
 
 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -1975,35 +1977,54 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 	return listener
 }
 
+func getMatchAllFilterChain(l *listener.Listener) (int, *listener.FilterChain) {
+	for i, fc := range l.FilterChains {
+		if isMatchAllFilterChain(fc) {
+			return i, fc
+		}
+	}
+	return 0, nil
+}
+
 // Create pass through filter chain for the listener assuming all the other filter chains are ready.
 // The match member of pass through filter chain depends on the existing non-passthrough filter chain.
 // TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
-	for _, fc := range l.FilterChains {
-		if isMatchAllFilterChain(fc) {
-			// We can only have one wildcard match. If the filter chain already has one, skip it
-			// This happens in the case of HTTP, which will get a fallthrough route added later,
-			// or TCP, which is not supported
-			return
-		}
+	matchIndex, matchAll := getMatchAllFilterChain(l)
+	if matchAll != nil && !util.IsIstioVersionGE18(node) {
+		// We can only have one wildcard match. If the filter chain already has one, skip it
+		// This happens in the case of HTTP, which will get a fallthrough route added later,
+		// or TCP, which is not supported
+		// This check is skipped for Proxy's newer than 1.8, as we can use DefaultFilterChain
+		return
 	}
 
 	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 
-	mutable := &istionetworking.MutableObjects{
-		FilterChains: []istionetworking.FilterChain{
-			{
-				TCP: fallthroughNetworkFilters,
-			},
-		},
-	}
-
 	outboundPassThroughFilterChain := &listener.FilterChain{
 		FilterChainMatch: &listener.FilterChainMatch{},
 		Name:             util.PassthroughFilterChain,
-		Filters:          mutable.FilterChains[0].TCP,
+		Filters:          fallthroughNetworkFilters,
 	}
-	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
+
+	// On proxy 1.8+, we can set a default filter chain. This allows us to avoid issues where
+	// traffic starts to match a filter chain but then doesn't match latter criteria, leading to
+	// dropped requests. See https://github.com/istio/istio/issues/26079 for details.
+	if util.IsIstioVersionGE18(node) {
+		// If there are multiple filter chains and a match all chain, move it to DefaultFilterChain
+		// This ensures it will always be used as the fallback
+		if matchAll != nil && len(l.FilterChains) > 1 {
+			copy(l.FilterChains[matchIndex:], l.FilterChains[matchIndex+1:]) // Shift l.FilterChains[i+1:] left one index.
+			l.FilterChains[len(l.FilterChains)-1] = nil                      // Erase last element (write zero value).
+			l.FilterChains = l.FilterChains[:len(l.FilterChains)-1]          // Truncate slice.
+			l.DefaultFilterChain = matchAll
+		} else if matchAll == nil {
+			// Otherwise, if there is no match all already, set a passthrough match all
+			l.DefaultFilterChain = outboundPassThroughFilterChain
+		}
+	} else {
+		l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
+	}
 }
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
