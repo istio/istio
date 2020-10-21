@@ -62,7 +62,7 @@ type operatorComponent struct {
 	mu sync.Mutex
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
-	installManifest map[string]string
+	installManifest map[string][]string
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -107,8 +107,10 @@ func (i *operatorComponent) Close() (err error) {
 	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
 		for _, cluster := range i.environment.KubeClusters {
-			if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
-				err = multierror.Append(err, e)
+			for _, manifest := range i.installManifest[cluster.Name()] {
+				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
+					err = multierror.Append(err, e)
+				}
 			}
 			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
 			for _, cm := range leaderElectionConfigMaps {
@@ -140,6 +142,14 @@ func (i *operatorComponent) Dump() {
 			scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 			return
 		}
+
+		for index, manifest := range i.installManifest[cluster.Name()] {
+			outPath := path.Join(d, fmt.Sprintf("manifest_generate_%s_%d.yaml", cluster.Name(), index+1))
+			if err := ioutil.WriteFile(outPath, []byte(manifest), os.ModePerm); err != nil {
+				scopes.Framework.Infof("Error writing out manifest to file: %v", err)
+			}
+		}
+
 		kube2.DumpPods(cluster, d, i.settings.SystemNamespace)
 	}
 }
@@ -147,7 +157,7 @@ func (i *operatorComponent) Dump() {
 func (i *operatorComponent) saveInstallManifest(name string, out string) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	i.installManifest[name] = out
+	i.installManifest[name] = append(i.installManifest[name], out)
 }
 
 func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
@@ -159,7 +169,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		environment:     env,
 		settings:        cfg,
 		ctx:             ctx,
-		installManifest: map[string]string{},
+		installManifest: map[string][]string{},
 	}
 	i.id = ctx.TrackResource(i)
 
