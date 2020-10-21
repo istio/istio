@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -65,6 +64,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/ra"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
@@ -156,6 +156,7 @@ type Server struct {
 
 	certController *chiron.WebhookController
 	CA             *ca.IstioCA
+	RA             *ra.IstioRA
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -244,9 +245,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.initJwtPolicy()
 
 	// Options based on the current 'defaults' in istio.
-	caOpts := &CAOptions{
-		TrustDomain: s.environment.Mesh().TrustDomain,
-		Namespace:   args.Namespace,
+	caOpts := &caOptions{
+		TrustDomain:  s.environment.Mesh().TrustDomain,
+		Namespace:    args.Namespace,
+		CAType:       externalCA,
+		CASignerName: k8sSigner,
 	}
 
 	// CA signing certificate must be created first if needed.
@@ -316,7 +319,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		s.XDSServer.Authenticators = authenticators
 	}
 
-	// Start CA. This should be called after CA and Istiod certs have been created.
+	// Start CA or RA server. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
 
 	s.initNamespaceController(args)
@@ -971,20 +974,21 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
 			return err
 		}
-	} else if s.CA != nil {
-		rootCertBytes = s.CA.GetCAKeyCertBundle().GetRootCertPem()
+	} else {
+		if s.RA != nil {
+			rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
+		}
+		if s.CA != nil {
+			rootCertBytes = append(rootCertBytes, s.CA.GetCAKeyCertBundle().GetRootCertPem()...)
+		}
 	}
 
 	if len(rootCertBytes) != 0 {
-		block, _ := pem.Decode(rootCertBytes)
-		if block == nil {
-			return fmt.Errorf("failed to decode root cert PEM")
-		}
-		rootCert, err := x509.ParseCertificate(block.Bytes)
+		err := s.peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
 		if err != nil {
-			return fmt.Errorf("failed to parse certificate: %v", err)
+			log.Errorf("Add Root CAs into peerCertVerifier failed: %v", err)
+			return fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
-		s.peerCertVerifier.AddMapping(spiffe.GetTrustDomain(), []*x509.Certificate{rootCert})
 	}
 
 	if features.SpiffeBundleEndpoints != "" {
@@ -1061,7 +1065,7 @@ func (s *Server) initJwtPolicy() {
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
-func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
+func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	// CA signing certificate must be created only if CA is enabled.
 	if s.EnableCA() {
 		log.Info("creating CA and initializing public key")
@@ -1076,8 +1080,15 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 			}
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
+
+		// TODO: Issue #27606 If External CA is configured, use that to sign DNS Certs as well. IstioCA need not be initialized
 		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
 			return fmt.Errorf("failed to create CA: %v", err)
+		}
+		if caOpts.CAType != "" {
+			if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
+				return fmt.Errorf("failed to create RA: %v", err)
+			}
 		}
 		if err = s.initPublicKey(); err != nil {
 			return fmt.Errorf("error initializing public key: %v", err)
@@ -1086,19 +1097,26 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 	return nil
 }
 
-// startCA starts the CA server if configured.
-func (s *Server) startCA(caOpts *CAOptions) {
-	if s.CA != nil {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			log.Infof("staring CA")
-			grpcServer := s.secureGrpcServer
-			if s.secureGrpcServer == nil {
-				grpcServer = s.grpcServer
-			}
-			s.RunCA(grpcServer, s.CA, caOpts)
-			return nil
-		})
+// StartCA starts the CA or RA server if configured.
+func (s *Server) startCA(caOpts *caOptions) {
+	if s.CA == nil && s.RA == nil {
+		return
 	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		grpcServer := s.secureGrpcServer
+		if s.secureGrpcServer == nil {
+			grpcServer = s.grpcServer
+		}
+		// Start the RA server if configured, else start the CA server
+		if s.RA != nil {
+			log.Infof("Starting RA")
+			s.RunCA(grpcServer, s.RA, caOpts)
+		} else if s.CA != nil {
+			log.Infof("Starting IstioD CA")
+			s.RunCA(grpcServer, s.CA, caOpts)
+		}
+		return nil
+	})
 }
 
 func (s *Server) fetchCARoot() map[string]string {
