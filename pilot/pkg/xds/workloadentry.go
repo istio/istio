@@ -139,12 +139,14 @@ func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event Healt
 	// we assume that the workload entry exists
 	entryName := autoregisteredWorkloadEntryName(proxy)
 	if entryName == "" {
+		adsLog.Errorf("unable to derive WorkloadEntry Name, blank name")
 		return
 	}
 
 	// get previous status
 	cfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
+		adsLog.Debugf("cfg nil when getting WorkloadEntry %v", entryName)
 		return
 	}
 

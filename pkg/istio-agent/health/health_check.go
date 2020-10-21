@@ -20,10 +20,6 @@ import (
 	"istio.io/api/networking/v1alpha3"
 )
 
-const (
-	HealthInfoTypeURL string = "type.googleapis.com/istio.v1.HealthInformation"
-)
-
 type WorkloadHealthChecker struct {
 	config applicationHealthCheckConfig
 	prober Prober

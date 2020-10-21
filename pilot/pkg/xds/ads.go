@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/spiffe"
 	istiolog "istio.io/pkg/log"
 )
@@ -283,7 +282,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	// get health checks out of the way. we do not want to respond
 	// to health info
-	if request.TypeUrl == health.HealthInfoTypeURL {
+	if request.TypeUrl == v3.HealthInfoType {
 		event := HealthEvent{}
 		if request.ErrorDetail == nil {
 			event.Healthy = true
