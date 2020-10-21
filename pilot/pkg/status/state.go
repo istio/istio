@@ -253,6 +253,7 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, generat
 		currentStatus = v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{&desiredCondition},
 		}
+		currentStatus.ObservedGeneration = generation
 		return true, &currentStatus
 	}
 	var currentCondition *v1alpha1.IstioCondition

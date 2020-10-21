@@ -106,12 +106,13 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 	x, err := clientSet.CoreV1().Pods(namespace).Get(ctx, podname, metav1.GetOptions{})
 	if err != nil {
 		scope.Errorf("can't identify pod context: %s", err)
-	}
-	r.cm.OwnerReferences = []metav1.OwnerReference{
-		*metav1.NewControllerRef(x, schema.GroupVersionKind{
-			Version: "v1",
-			Kind:    "Pod",
-		}),
+	} else {
+		r.cm.OwnerReferences = []metav1.OwnerReference{
+			*metav1.NewControllerRef(x, schema.GroupVersionKind{
+				Version: "v1",
+				Kind:    "Pod",
+			}),
+		}
 	}
 	go func() {
 		for {
