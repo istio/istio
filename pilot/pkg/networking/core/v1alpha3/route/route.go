@@ -419,6 +419,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 
 		action.Timeout = d
+		// nolint: staticcheck
 		action.MaxGrpcTimeout = d
 
 		out.Action = &route.Route_Route{Route: action}
