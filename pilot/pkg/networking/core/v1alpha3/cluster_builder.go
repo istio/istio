@@ -86,8 +86,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
-		clusterMetadata = util.BuildConfigInfoMetadata(destRule.Meta)
-		c.Metadata = clusterMetadata
+		c.Metadata = util.AddConfigInfoMetadata(c.Metadata, destRule.Meta)
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.Subsets {
