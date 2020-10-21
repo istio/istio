@@ -90,6 +90,18 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		scope.Infof("Generated manifest objects are the same as cached for component %s.", cname)
 	}
 
+	// check minor version only
+	serverSideApply := false
+	if h.restConfig != nil {
+		k8sVer, err := k8sversion.GetKubernetesVersion(h.restConfig)
+		if err != nil {
+			scope.Errorf("failed to get k8s version: %s", err)
+		}
+		if k8sVer >= 16 {
+			serverSideApply = true
+		}
+	}
+
 	// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
 	nsObjs := object.KindObjects(changedObjects, name.NamespaceStr)
 	crdObjs := object.KindObjects(changedObjects, name.CRDStr)
@@ -102,7 +114,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 				return nil, 0, err
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
+			if err := h.ApplyObject(obj.UnstructuredObject(), serverSideApply); err != nil {
 				scope.Error(err.Error())
 				errs = util.AppendErr(errs, err)
 				continue
@@ -148,7 +160,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
-func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
+func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideApply bool) error {
 	if obj.GetKind() == "List" {
 		var errs util.Errors
 		list, err := obj.ToList()
@@ -157,7 +169,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			return err
 		}
 		for _, item := range list.Items {
-			err = h.ApplyObject(&item)
+			err = h.ApplyObject(&item, serverSideApply)
 			if err != nil {
 				errs = util.AppendErr(errs, err)
 			}
@@ -182,16 +194,10 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 
 	gvk := obj.GetObjectKind().GroupVersionKind()
 
-	// check minor version only
-	if h.restConfig != nil {
-		k8sVer, err := k8sversion.GetKubernetesVersion(h.restConfig)
-		if err != nil {
-			scope.Errorf("failed to get k8s version: %s", err)
-		}
-		if k8sVer >= 16 {
-			return h.serverSideApply(obj)
-		}
+	if serverSideApply {
+		return h.serverSideApply(obj)
 	}
+
 	// for k8s version before 1.16
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
@@ -231,8 +237,8 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 
 // use server-side apply, require kubernetes 1.16+
 func (h *HelmReconciler) serverSideApply(obj *unstructured.Unstructured) error {
-	scope.Info("using server side apply to update obj")
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
+	scope.Infof("using server side apply to update obj: %v", objectStr)
 	opts := []client.PatchOption{client.ForceOwnership, client.FieldOwner(fieldOwnerOperator)}
 	if err := h.client.Patch(context.TODO(), obj, client.Apply, opts...); err != nil {
 		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)

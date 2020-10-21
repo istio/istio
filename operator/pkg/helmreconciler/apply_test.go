@@ -70,7 +70,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 				countLock:     &sync.Mutex{},
 				prunedKindSet: map[schema.GroupKind]struct{}{},
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
+			if err := h.ApplyObject(obj.UnstructuredObject(), false); (err != nil) != tt.wantErr {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v, wantErr %v", err, tt.wantErr)
 			}
 

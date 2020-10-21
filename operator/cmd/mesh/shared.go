@@ -275,5 +275,5 @@ func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) err
 	if err != nil {
 		return err
 	}
-	return reconciler.ApplyObject(obj.UnstructuredObject())
+	return reconciler.ApplyObject(obj.UnstructuredObject(), false)
 }
