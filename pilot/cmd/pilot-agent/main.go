@@ -84,6 +84,7 @@ var (
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
 
@@ -125,10 +126,6 @@ var (
 	// This is also disabled by presence of the SDS socket directory
 	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
 		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
-
-	// TODO: This is already present in ProxyConfig !!!
-	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
-		"The trust domain for spiffe certificates").Get()
 
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
@@ -264,6 +261,8 @@ var (
 				CAEndpoint:         caEndpointEnv,
 				UseTokenForCSR:     useTokenForCSREnv,
 				CredFetcher:        nil,
+				WorkloadNamespace:  podNamespace,
+				ServiceAccount:     serviceAccountVar.Get(),
 			}
 			// If not set explicitly, default to the discovery address.
 			if caEndpointEnv == "" {
@@ -277,7 +276,7 @@ var (
 			secOpts.CAProviderName = caProviderEnv
 
 			// TODO: extract from ProxyConfig
-			secOpts.TrustDomain = trustDomainEnv
+			secOpts.TrustDomain = trustDomain
 			secOpts.Pkcs8Keys = pkcs8KeysEnv
 			secOpts.ECCSigAlg = eccSigAlgEnv
 			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
