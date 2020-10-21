@@ -222,9 +222,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	pc := f.PushContext()
 	p.SetSidecarScope(pc)
 	p.SetGatewaysForProxy(pc)
-	if err := p.SetServiceInstances(f.env.ServiceDiscovery); err != nil {
-		f.t.Fatal(err)
-	}
+	p.SetServiceInstances(f.env.ServiceDiscovery)
 	p.DiscoverIPVersions()
 	return p
 }

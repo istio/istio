@@ -361,8 +361,17 @@ func TestSubmitCSR(t *testing.T) {
 				continue
 			}
 		}
-
-		r, err := submitCSR(wc.certClient.CertificateSigningRequests(), csrName, []byte(csrPEM), numRetries)
+		csrSpec := &cert.CertificateSigningRequestSpec{
+			Request: []byte(csrPEM),
+			Groups:  []string{"system:authenticated"},
+			Usages: []cert.KeyUsage{
+				cert.UsageDigitalSignature,
+				cert.UsageKeyEncipherment,
+				cert.UsageServerAuth,
+				cert.UsageClientAuth,
+			},
+		}
+		r, err := submitCSR(wc.certClient.CertificateSigningRequests(), csrName, csrSpec, numRetries)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -448,7 +457,7 @@ func TestReadSignedCertificate(t *testing.T) {
 		// 4. Read the signed certificate
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
 		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName,
-			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile)
+			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile, true)
 
 		if tc.expectFail {
 			if err == nil {

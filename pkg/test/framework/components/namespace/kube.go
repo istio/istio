@@ -86,26 +86,22 @@ func (n *kubeNamespace) Close() (err error) {
 	return
 }
 
-func claimKube(ctx resource.Context, name string, injectSidecar bool) (Instance, error) {
+func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 
 	for _, cluster := range env.KubeClusters {
-		if !kube2.NamespaceExists(cluster, name) {
-			nsConfig := Config{
-				Inject: injectSidecar,
-			}
-
+		if !kube2.NamespaceExists(cluster, nsConfig.Prefix) {
 			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
-					Name:   name,
-					Labels: createNamespaceLabels(&nsConfig),
+					Name:   nsConfig.Prefix,
+					Labels: createNamespaceLabels(nsConfig),
 				},
 			}, kubeApiMeta.CreateOptions{}); err != nil {
 				return nil, err
 			}
 		}
 	}
-	return &kubeNamespace{name: name}, nil
+	return &kubeNamespace{name: nsConfig.Prefix}, nil
 }
 
 // NewNamespace allocates a new testing namespace.

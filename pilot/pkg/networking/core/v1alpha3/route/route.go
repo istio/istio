@@ -419,14 +419,18 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 
 		action.Timeout = d
-		if maxDuration := action.MaxStreamDuration; maxDuration != nil {
-			maxDuration.MaxStreamDuration = d
-		} else {
-			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-				MaxStreamDuration: d,
+		if util.IsIstioVersionGE18(node) {
+			if maxDuration := action.MaxStreamDuration; maxDuration != nil {
+				maxDuration.MaxStreamDuration = d
+			} else {
+				action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+					MaxStreamDuration: d,
+				}
 			}
+		} else {
+			// nolint: staticcheck
+			action.MaxGrpcTimeout = d
 		}
-
 		out.Action = &route.Route_Route{Route: action}
 
 		if rewrite := in.Rewrite; rewrite != nil {
@@ -841,20 +845,27 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
 	notimeout := ptypes.DurationProto(0)
-
+	routeAction := &route.RouteAction{
+		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+		Timeout:          notimeout,
+	}
+	if util.IsIstioVersionGE18(node) {
+		routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+			// If not configured at all, the grpc-timeout header is not used and
+			// gRPC requests time out like any other requests using timeout or its default.
+			MaxStreamDuration: notimeout,
+		}
+	} else {
+		// nolint: staticcheck
+		routeAction.MaxGrpcTimeout = notimeout
+	}
 	val := &route.Route{
 		Match: translateRouteMatch(nil, node),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
 		Action: &route.Route_Route{
-			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-				Timeout:          notimeout,
-				MaxStreamDuration: &route.RouteAction_MaxStreamDuration{
-					MaxStreamDuration: notimeout,
-				},
-			},
+			Route: routeAction,
 		},
 	}
 

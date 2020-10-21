@@ -663,14 +663,6 @@ func TestInboundListenerFilters(t *testing.T) {
 				81:   false,
 				1000: false,
 			},
-			tls: map[int]bool{
-				// No inspector on named ports
-				80: true,
-				82: true,
-				// Unnamed ports still get the inspector
-				81:   false,
-				1000: false,
-			},
 		},
 		{
 			name:   "strict",
@@ -685,7 +677,6 @@ func TestInboundListenerFilters(t *testing.T) {
 			},
 			tls: map[int]bool{
 				// strict mode: inspector is set everywhere.
-				// TODO: do we need the inspector set if its strict mode? We don't do any FCM with it
 				80:   false,
 				82:   false,
 				81:   false,
@@ -704,7 +695,13 @@ func TestInboundListenerFilters(t *testing.T) {
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 			filters := xdstest.ExtractListenerFilters(virtualInbound)
 			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].FilterDisabled, tt.http)
-			evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, tt.tls)
+			if filters[wellknown.TlsInspector] == nil {
+				if len(tt.tls) > 0 {
+					t.Fatalf("Expected tls inspector, got none")
+				}
+			} else {
+				evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, tt.tls)
+			}
 		})
 	}
 }

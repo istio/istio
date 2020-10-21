@@ -289,7 +289,7 @@ func TestReadRemoteSecrets(t *testing.T) {
 				reaction := func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 					return true, nil, c.injectListFailure
 				}
-				env.client.PrependReactor("list", "secrets", reaction)
+				env.client.Kube().(*fake.Clientset).PrependReactor("list", "secrets", reaction)
 			}
 			got := cluster.readRemoteSecrets(env)
 			g.Expect(got).To(Equal(c.want))
@@ -500,14 +500,14 @@ func TestReadCACerts(t *testing.T) {
 				reaction := func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 					return true, nil, c.listFailure
 				}
-				env.client.PrependReactor("list", "secrets", reaction)
+				env.client.Kube().(*fake.Clientset).PrependReactor("list", "secrets", reaction)
 			}
 
 			if c.getFailure != nil {
 				reaction := func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 					return true, nil, c.getFailure
 				}
-				env.client.PrependReactor("get", "secrets", reaction)
+				env.client.Kube().(*fake.Clientset).PrependReactor("get", "secrets", reaction)
 			}
 
 			got := cluster.readCACerts(env)

@@ -36,7 +36,6 @@ import (
 
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -623,10 +622,6 @@ func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context,
 
 func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
 	cluster resource.Cluster) error {
-	// Ensure the istio-reader-service-account exists
-	if err := i.createServiceAccount(ctx, cluster); err != nil {
-		return err
-	}
 	// Create a secret.
 	secret, err := createRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
@@ -636,30 +631,6 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
-}
-
-func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster resource.Cluster) error {
-	// TODO(landow) we should not have users do this. instead this could be a part of create-remote-secret
-	sa, err := cluster.CoreV1().ServiceAccounts("istio-system").
-		Get(context.TODO(), constants.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
-	if err == nil && sa != nil {
-		scopes.Framework.Infof("service account exists in %s", cluster.Name())
-		return nil
-	}
-	scopes.Framework.Infof("creating service account in %s", cluster.Name())
-
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{
-		Cluster: cluster,
-	})
-	if err != nil {
-		return err
-	}
-	return install(i, []string{
-		"--set", "profile=empty",
-		"--set", "components.base.enabled=true",
-		"--set", "values.global.configValidation=false",
-		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
-	}, istioCtl, cluster.Name())
 }
 
 func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Config) (string, error) {
@@ -673,6 +644,7 @@ func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Conf
 		"x", "create-remote-secret",
 		"--name", cluster.Name(),
 		"--namespace", cfg.SystemNamespace,
+		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
 
 	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
