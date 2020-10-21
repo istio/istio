@@ -160,7 +160,7 @@ func containerRestarted(pod corev1.Pod, container string) bool {
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodLogs(r resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
 	for _, pod := range pods {
@@ -179,6 +179,10 @@ func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace stri
 
 			// Get previous container logs, if applicable
 			if containerRestarted(pod, container.Name) {
+				// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
+				// a log which will get highlighted in the test logs
+				// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
+				scopes.Framework.Errorf("FAIL: pod %v restarted", pod)
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
 					scopes.Framework.Errorf("Unable to get previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
