@@ -993,7 +993,7 @@ func (c *Controller) onNamespaceEvent(obj interface{}, ev model.Event) error {
 	c.network = nw
 	c.Unlock()
 	// network changed, not using mesh networks, and controller has been initialized
-	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.HasSynced() {
+	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.nsInformer.HasSynced() {
 		// refresh pods/endpoints/services
 		c.onNetworkChanged()
 	}
