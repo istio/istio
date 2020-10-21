@@ -46,7 +46,7 @@ func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorS
 	var warningMessage string
 	iopvalString := util.ToYAML(iopls.Values)
 	values := &valuesv1alpha1.Values{}
-	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
+	if err := util.UnmarshalWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
 	}
 
