@@ -237,6 +237,7 @@ func TestEnvoyFilters(t *testing.T) {
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
 	env := &Environment{}
+	env.SetLedger(&DisabledLedger{})
 	store := istioConfigStore{ConfigStore: NewFakeStore()}
 
 	env.IstioConfigStore = &store
@@ -328,6 +329,7 @@ func serviceNames(svcs []*Service) []string {
 
 func TestInitPushContext(t *testing.T) {
 	env := &Environment{}
+	env.SetLedger(&DisabledLedger{})
 	configStore := NewFakeStore()
 	configStore.Create(config.Config{
 		Meta: config.Meta{

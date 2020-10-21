@@ -133,6 +133,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	env := &model.Environment{}
+	env.SetLedger(&model.DisabledLedger{})
 	env.PushContext = model.NewPushContext()
 	env.ServiceDiscovery = serviceDiscovery
 	env.IstioConfigStore = model.MakeIstioStore(configController)
