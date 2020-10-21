@@ -33,6 +33,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/istio-agent/health"
+	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/spiffe"
 	istiolog "istio.io/pkg/log"
 )
@@ -279,6 +281,20 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 // using WatchedResource for previous state and discovery request for the current state.
 func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
+
+	// get health checks out of the way. we do not want to respond
+	// to health info
+	if request.TypeUrl == health.HealthInfoTypeURL {
+		event := HealthEvent{}
+		if request.ErrorDetail == nil {
+			event.Healthy = true
+		} else {
+			event.Healthy = false
+			event.Message = request.ErrorDetail.Message
+		}
+		s.InternalGen.UpdateWorkloadEntryHealth(con.proxy, event)
+		return false
+	}
 
 	// If there is an error in request that means previous response is erroneous.
 	// We do not have to respond in that case. In this case request's version info
