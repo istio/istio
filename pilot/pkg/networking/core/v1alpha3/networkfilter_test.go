@@ -62,7 +62,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 		{
 			"no pattern",
 			"",
-			"inbound|9999|http|v0.default.example.org",
+			"inbound|9999||",
 		},
 		{
 			"service only pattern",
@@ -99,7 +99,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				Endpoint: &model.IstioEndpoint{},
 			}
 
-			listeners := buildInboundNetworkFilters(env.PushContext, instance)
+			listeners := buildInboundNetworkFilters(env.PushContext, instance, &model.Proxy{})
 			tcp := &tcp.TcpProxy{}
 			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
