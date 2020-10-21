@@ -61,7 +61,7 @@ func initReporterWithoutStarting() (out Reporter) {
 func TestBuildReport(t *testing.T) {
 	RegisterTestingT(t)
 	r := initReporterWithoutStarting()
-	l := ledger.Make(time.Minute)
+	r.ledger = ledger.Make(time.Minute)
 	resources := []*config.Config{
 		{
 			Meta: config.Meta{
@@ -91,15 +91,12 @@ func TestBuildReport(t *testing.T) {
 	for _, res := range resources {
 		// Set Group Version and GroupVersionKind to real world values from VS
 		res.GroupVersionKind = col.GroupVersionKind()
-		resStr := res.Key()
 		myResources = append(myResources, *ResourceFromModelConfig(*res))
 		// Add each resource to our ledger for tracking history
-		_, err := l.Put(resStr, res.ResourceVersion)
 		// mark each of our resources as in flight so they are included in the report.
 		r.AddInProgressResource(*res)
-		Expect(err).NotTo(HaveOccurred())
 	}
-	firstNoncePrefix := l.RootHash()
+	firstNoncePrefix := r.ledger.RootHash()
 	connections := []string{
 		"conA", "conB", "conC",
 	}
@@ -111,15 +108,11 @@ func TestBuildReport(t *testing.T) {
 	resources[1].ResourceVersion = "2"
 	myResources[1].ResourceVersion = "2"
 	// notify the ledger of the new version
-	_, err := l.Put(resources[1].Key(), "2")
 	r.AddInProgressResource(*resources[1])
-	Expect(err).NotTo(HaveOccurred())
 	// mark only one connection as having acked version 2
-	r.processEvent(connections[1], "", l.RootHash())
+	r.processEvent(connections[1], "", r.ledger.RootHash())
 	// mark one connection as having disconnected.
 	r.RegisterDisconnect(connections[2], []xds.EventType{""})
-	r.ledger = l
-	Expect(err).NotTo(HaveOccurred())
 	// build a report, which should have only two dataplanes, with 50% acking v2 of config
 	rpt, prunes := r.buildReport()
 	r.removeCompletedResource(prunes)
