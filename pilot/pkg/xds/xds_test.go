@@ -212,7 +212,7 @@ func TestServiceScoping(t *testing.T) {
 		proxy := s.SetupProxy(p)
 
 		endpoints := xdstest.ExtractClusterEndpoints(s.Clusters(proxy))
-		eps := endpoints["inbound|9080||inbound"]
+		eps := endpoints["inbound|9080||"]
 		if !listEqualUnordered(eps, []string{"/var/run/someuds.sock"}) {
 			t.Fatalf("expected /var/run/someuds.sock, got %v", eps)
 		}
