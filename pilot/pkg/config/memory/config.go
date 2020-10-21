@@ -218,10 +218,6 @@ func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
 
 	rev := time.Now().String()
 	cfg.ResourceVersion = rev
-	_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
-	if err != nil {
-		log.Warnf(ledgerLogf, err)
-	}
 	ns.Store(cfg.Name, cfg)
 	return rev, nil
 }
@@ -255,10 +251,6 @@ func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patc
 
 	rev := time.Now().String()
 	cfg.ResourceVersion = rev
-	_, err := cr.ledger.Put(config.Key(typ.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
-	if err != nil {
-		log.Warnf(ledgerLogf, err)
-	}
 	ns.Store(cfg.Name, cfg)
 
 	return rev, nil
