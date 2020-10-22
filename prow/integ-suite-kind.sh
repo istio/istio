@@ -100,11 +100,7 @@ if [[ -n "${VARIANT:-}" ]]; then
   export TAG="${TAG}-${VARIANT}"
 fi
 
-# Run the test target if provided.
-if [[ -n "${PARAMS:-}" ]]; then
-  #make "${PARAMS[*]}"
-  make debug-TestMultiRevision
-fi
+make debug-TestMultiRevision
 
 # Check if the user is running the clusters in manual mode.
 if [[ -n "${MANUAL:-}" ]]; then
