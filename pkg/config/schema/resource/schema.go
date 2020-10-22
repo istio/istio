@@ -65,6 +65,13 @@ type Schema interface {
 	// NewInstance returns a new instance of the protocol buffer message for this resource.
 	NewInstance() (config.Spec, error)
 
+	// Status returns the associated status of the schema
+	Status() (config.Status, error)
+
+	StatusKind() string
+
+	StatusPackage() string
+
 	// MustNewInstance calls NewInstance and panics if an error occurs.
 	MustNewInstance() config.Spec
 
@@ -100,11 +107,19 @@ type Builder struct {
 	// Proto refers to the protobuf message type name corresponding to the type
 	Proto string
 
+	StatusProto string
+
 	// ReflectType is the type of the go struct
 	ReflectType reflect.Type
 
+	// StatusType is the type of the associated status.
+	StatusType reflect.Type
+
 	// ProtoPackage refers to the name of golang package for the protobuf message.
 	ProtoPackage string
+
+	// StatusPackage refers to the name of the golang status package.
+	StatusPackage string
 
 	// ValidateProto performs validation on protobuf messages based on this schema.
 	ValidateProto validation.ValidateFunc
@@ -150,6 +165,8 @@ func (b Builder) BuildNoValidate() Schema {
 		goPackage:      b.ProtoPackage,
 		reflectType:    b.ReflectType,
 		validateConfig: b.ValidateProto,
+		statusType:     b.StatusType,
+		statusPackage:  b.StatusPackage,
 	}
 }
 
@@ -162,6 +179,8 @@ type schemaImpl struct {
 	goPackage      string
 	validateConfig validation.ValidateFunc
 	reflectType    reflect.Type
+	statusType     reflect.Type
+	statusPackage  string
 }
 
 func (s *schemaImpl) GroupVersionKind() config.GroupVersionKind {
@@ -208,6 +227,10 @@ func (s *schemaImpl) ProtoPackage() string {
 	return s.goPackage
 }
 
+func (s *schemaImpl) StatusPackage() string {
+	return s.statusPackage
+}
+
 func (s *schemaImpl) Validate() (err error) {
 	if !labels.IsDNS1123Label(s.Kind()) {
 		err = multierror.Append(err, fmt.Errorf("invalid kind: %s", s.Kind()))
@@ -242,6 +265,23 @@ func (s *schemaImpl) NewInstance() (config.Spec, error) {
 			s.Kind(), rt, instance)
 	}
 	return p, nil
+}
+
+func (s *schemaImpl) Status() (config.Status, error) {
+	statTyp := s.statusType
+	if statTyp == nil {
+		return nil, errors.New("unknown status type")
+	}
+	instance := reflect.New(statTyp).Interface()
+	p, ok := instance.(config.Status)
+	if !ok {
+		return nil, fmt.Errorf("status: statusType not an instance of config.Status. type: %v, value: %v", statTyp, instance)
+	}
+	return p, nil
+}
+
+func (s *schemaImpl) StatusKind() string {
+	return s.statusType.Name()
 }
 
 func (s *schemaImpl) MustNewInstance() config.Spec {

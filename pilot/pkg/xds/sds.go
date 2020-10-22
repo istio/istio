@@ -87,11 +87,6 @@ func needsUpdate(proxy *model.Proxy, updates model.XdsUpdates) bool {
 
 // Currently only same namespace is allowed. In the future this will be expanded.
 func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResource) error {
-	// In the initial experimental mode, only istio-system will be allowed. Prior to
-	// being launched, this must be revisited, along with the authorization model for SDS.
-	if proxy.ConfigNamespace != "istio-system" {
-		return fmt.Errorf("SDS is currently only supported in istio-system, proxy runs in %v", proxy.ConfigNamespace)
-	}
 	if proxy.ConfigNamespace != sr.Namespace {
 		return fmt.Errorf("SDS is currently only supporting accessing secret within the same namespace. Secret namespace %q does not match proxy namespace %q",
 			sr.Namespace, proxy.ConfigNamespace)
@@ -106,7 +101,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 	}
 	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
-		adsLog.Warnf("proxy %v is from and unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		adsLog.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		return nil
 	}
 	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {

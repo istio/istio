@@ -58,18 +58,23 @@ spec:
             - port: 15021
               targetPort: 15021
               name: status-port
+              protocol: TCP
             - port: 80
               targetPort: 8080
               name: http2
+              protocol: TCP
             - port: 443
               targetPort: 8443
               name: https
+              protocol: TCP
             - port: 15012
               targetPort: 15012
               name: tcp-istiod
+              protocol: TCP
             - port: 15443
               targetPort: 15443
               name: tls
+              protocol: TCP
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -106,12 +111,15 @@ spec:
             - port: 80
               name: http2
               targetPort: 8080
+              protocol: TCP
             - port: 443
               name: https
               targetPort: 8443
+              protocol: TCP
             - port: 15443
               targetPort: 15443
               name: tls
+              protocol: TCP
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1

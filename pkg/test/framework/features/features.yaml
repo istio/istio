@@ -125,3 +125,5 @@ features:
   infrastructure:
     # the testing framework
     framework:
+  vm:
+    autoregistration:

@@ -207,12 +207,12 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 }
 
 // Create implements store interface
-func (cl *Client) Create(config config.Config) (string, error) {
-	if config.Spec == nil {
-		return "", fmt.Errorf("nil spec for %v/%v", config.Name, config.Namespace)
+func (cl *Client) Create(cfg config.Config) (string, error) {
+	if cfg.Spec == nil {
+		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := create(cl.istioClient, cl.serviceApisClient, config, getObjectMetadata(config))
+	meta, err := create(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -220,30 +220,38 @@ func (cl *Client) Create(config config.Config) (string, error) {
 }
 
 // Update implements store interface
-func (cl *Client) Update(config config.Config) (string, error) {
-	if config.Spec == nil {
-		return "", fmt.Errorf("nil spec for %v/%v", config.Name, config.Namespace)
+func (cl *Client) Update(cfg config.Config) (string, error) {
+	if cfg.Spec == nil {
+		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := update(cl.istioClient, cl.serviceApisClient, config, getObjectMetadata(config))
+	meta, err := update(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
 	return meta.GetResourceVersion(), nil
 }
 
-// PatchFunc provides the cached config as a base for modification. The diff between the input value and the modified
-// return will be used to apply a patch in Kubrenetes.
-type PatchFunc func(cfg config.Config) config.Config
+func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
+	if cfg.Status == nil {
+		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
+	}
+
+	meta, err := updateStatus(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
+	if err != nil {
+		return "", err
+	}
+	return meta.GetResourceVersion(), nil
+}
 
 // Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
 // read-modify-write conflicts when there are many concurrent-writers to the same resource.
-func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn PatchFunc) (string, error) {
+func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
 	// it is okay if orig is stale - we just care about the diff
 	orig := cl.Get(typ, name, namespace)
 	if orig == nil {
-		// TODO error from GET
-		return "", fmt.Errorf("failed getting base config")
+		// TODO error from Get
+		return "", fmt.Errorf("item not found")
 	}
 	modified := patchFn(orig.DeepCopy())
 
@@ -342,10 +350,11 @@ func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix
 
 func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
-		Name:        config.Name,
-		Namespace:   config.Namespace,
-		Labels:      config.Labels,
-		Annotations: config.Annotations,
+		Name:            config.Name,
+		Namespace:       config.Namespace,
+		Labels:          config.Labels,
+		Annotations:     config.Annotations,
+		ResourceVersion: config.ResourceVersion,
 	}
 }
 

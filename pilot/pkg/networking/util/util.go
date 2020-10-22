@@ -269,8 +269,16 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 
 // IsIstioVersionGE18 checks whether the given Istio version is greater than or equals 1.8.
 func IsIstioVersionGE18(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
+	return node == nil || node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 8, Patch: -1}) >= 0
+}
+
+func BuildInboundSubsetKey(node *model.Proxy, subsetName string, hostname host.Name, port int) string {
+	if IsIstioVersionGE18(node) {
+		// On 1.8+ Proxies, we use format inbound|port||. Telemetry no longer requires the hostname
+		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", "", port)
+	}
+	return model.BuildSubsetKey(model.TrafficDirectionInbound, subsetName, hostname, port)
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -291,7 +299,7 @@ func ConvertLocality(locality string) *core.Locality {
 		return &core.Locality{}
 	}
 
-	region, zone, subzone := SplitLocality(locality)
+	region, zone, subzone := model.SplitLocalityLabel(locality)
 	return &core.Locality{
 		Region:  region,
 		Zone:    zone,
@@ -325,7 +333,7 @@ func IsLocalityEmpty(locality *core.Locality) bool {
 }
 
 func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
-	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
+	ruleRegion, ruleZone, ruleSubzone := model.SplitLocalityLabel(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
 	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
 	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
@@ -334,18 +342,6 @@ func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
 		return true
 	}
 	return false
-}
-
-func SplitLocality(locality string) (region, zone, subzone string) {
-	items := strings.Split(locality, "/")
-	switch len(items) {
-	case 1:
-		return items[0], "", ""
-	case 2:
-		return items[0], items[1], ""
-	default:
-		return items[0], items[1], items[2]
-	}
 }
 
 func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {

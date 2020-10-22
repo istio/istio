@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -45,13 +46,16 @@ func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorS
 	var warningMessage string
 	iopvalString := util.ToYAML(iopls.Values)
 	values := &valuesv1alpha1.Values{}
-	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
+	if err := util.UnmarshalWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
 	}
 
 	validationErrors = util.AppendErrs(validationErrors, ValidateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	validationErrors = util.AppendErrs(validationErrors, validateFeatures(values, iopls))
-	warningMessage += deprecatedSettingsMessage(iopls)
+	deprecatedErrors, warningMessage := checkDeprecatedSettings(iopls)
+	if deprecatedErrors != nil {
+		validationErrors = util.AppendErr(validationErrors, deprecatedErrors)
+	}
 	return validationErrors, warningMessage
 }
 
@@ -74,9 +78,10 @@ func firstCharsToLower(s string) string {
 		s)
 }
 
-func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
+func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
+	var errs util.Errors
 	messages := []string{}
-	deprecations := []deprecatedSettings{
+	warningSettings := []deprecatedSettings{
 		{"Values.global.certificates", "meshConfig.certificates", nil},
 		{"Values.global.trustDomainAliases", "meshConfig.trustDomainAliases", nil},
 		{"Values.global.outboundTrafficPolicy", "meshConfig.outboundTrafficPolicy", nil},
@@ -93,10 +98,6 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
 		{"Values.global.mtls.enabled", "the PeerAuthentication resource", nil},
 		{"Values.global.mtls.auto", "meshConfig.enableAutoMtls", nil},
-		{"Values.grafana.enabled", "the samples/addons/ deployments", false},
-		{"Values.tracing.enabled", "the samples/addons/ deployments", false},
-		{"Values.kiali.enabled", "the samples/addons/ deployments", false},
-		{"Values.prometheus.enabled", "the samples/addons/ deployments", false},
 		{"Values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", ""},
 		{"Values.global.tracer.lightstep.accessToken", "meshConfig.defaultConfig.tracing.lightstep.accessToken", ""},
 		{"Values.global.tracer.zipkin.address", "meshConfig.defaultConfig.tracing.zipkin.address", nil},
@@ -108,17 +109,25 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/istiod-gateway/", false},
 		{"Values.global.trustDomain", "meshConfig.trustDomain", false},
 		{"Values.gateways.istio-ingressgateway.meshExpansionPorts", "components.ingressGateways[name=istio-ingressgateway].k8s.service.ports", nil},
-		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false},
-		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
-		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
-		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.istiocoredns.Enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		{"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
 			false},
 		{"Values.global.centralIstiod", "Values.global.externallIstiod", false},
 	}
-	for _, d := range deprecations {
+
+	failHardSettings := []deprecatedSettings{
+		{"Values.grafana.enabled", "the samples/addons/ deployments", false},
+		{"Values.tracing.enabled", "the samples/addons/ deployments", false},
+		{"Values.kiali.enabled", "the samples/addons/ deployments", false},
+		{"Values.prometheus.enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
+		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
+	}
+
+	for _, d := range warningSettings {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
 		// the types, but since this is deprecated this is easier
 		v, f, _ := tpath.GetFromStructPath(iop, d.old)
@@ -133,8 +142,21 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 			}
 		}
 	}
-
-	return strings.Join(messages, "\n")
+	for _, d := range failHardSettings {
+		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		if f {
+			switch t := v.(type) {
+			// need to do conversion for bool value defined in IstioOperator component spec.
+			case *v1alpha1.BoolValueForPB:
+				v = t.Value
+			}
+			if v != d.def {
+				ms := fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new)
+				errs = util.AppendErr(errs, errors.New(ms+"\n"))
+			}
+		}
+	}
+	return errs, strings.Join(messages, "\n")
 }
 
 // validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.

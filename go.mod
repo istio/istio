@@ -22,26 +22,26 @@ replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20
 require (
 	cloud.google.com/go v0.65.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
-	fortio.org/fortio v1.6.8
+	fortio.org/fortio v1.10.0
 	github.com/Masterminds/sprig/v3 v3.1.0
-	github.com/aws/aws-sdk-go v1.34.20
+	github.com/aws/aws-sdk-go v1.35.11
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.3.0
 	github.com/cheggaaa/pb/v3 v3.0.5
-	github.com/cncf/udpa/go v0.0.0-20200909154343-1f710aca26a9
+	github.com/cncf/udpa/go v0.0.0-20201001150855-7e6fe0510fb5
 	github.com/containernetworking/cni v0.7.0-alpha1
 	github.com/containernetworking/plugins v0.7.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/envoyproxy/go-control-plane v0.9.7-0.20200916010546-233296ddbe82
+	github.com/envoyproxy/go-control-plane v0.9.8-0.20201019204000-12785f608982
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fatih/color v1.9.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.4.2
+	github.com/golang/protobuf v1.4.3
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/go-cmp v0.5.2
 	github.com/google/gofuzz v1.2.0
@@ -57,10 +57,10 @@ require (
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/kr/pretty v0.2.1
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lestrrat-go/jwx v1.0.4
+	github.com/lestrrat-go/jwx v1.0.5
 	github.com/mattn/go-isatty v0.0.12
-	github.com/mholt/archiver/v3 v3.3.0
-	github.com/miekg/dns v1.1.31
+	github.com/mholt/archiver/v3 v3.3.2
+	github.com/miekg/dns v1.1.34
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/gomega v1.10.2
@@ -69,7 +69,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.10.0
+	github.com/prometheus/common v0.14.0
+	github.com/prometheus/procfs v0.2.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/soheilhy/cmux v0.1.4
@@ -79,19 +80,21 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/yl2chen/cidranger v1.0.1
-	go.opencensus.io v0.22.4
-	go.uber.org/atomic v1.6.0
-	go.uber.org/multierr v1.5.0
+	github.com/yl2chen/cidranger v1.0.2
+	go.opencensus.io v0.22.5
+	go.uber.org/atomic v1.7.0
+	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0 // indirect
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	gomodules.xyz/jsonpatch/v2 v2.0.1
-	google.golang.org/genproto v0.0.0-20200904004341-0bd0a958aa1d
-	google.golang.org/grpc v1.33.0-dev.0.20200828165940-d8ef479ab79a
+	golang.org/x/tools v0.0.0-20201017001424-6003fad69a88 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.1.0
+	google.golang.org/genproto v0.0.0-20201019141844-1ed22bb0c154
+	google.golang.org/grpc v1.33.1
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
@@ -99,18 +102,18 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20201015213320-71b2976a5168
+	istio.io/api v0.0.0-20201020203241-fb96fd157ea9
 	istio.io/client-go v0.0.0-20200908160912-f99162621a1a
-	istio.io/gogo-genproto v0.0.0-20200908160912-66171252e3db
-	istio.io/pkg v0.0.0-20200922180714-670b76a68558
-	k8s.io/api v0.19.2
-	k8s.io/apiextensions-apiserver v0.19.1
-	k8s.io/apimachinery v0.19.2
-	k8s.io/cli-runtime v0.19.1
-	k8s.io/client-go v0.19.2
-	k8s.io/kubectl v0.19.1
-	k8s.io/utils v0.0.0-20200821003339-5e75c0163111
-	sigs.k8s.io/controller-runtime v0.6.2
+	istio.io/gogo-genproto v0.0.0-20201015184601-1e80d26d6249
+	istio.io/pkg v0.0.0-20201015213546-1aa862fb504f
+	k8s.io/api v0.19.3
+	k8s.io/apiextensions-apiserver v0.19.3
+	k8s.io/apimachinery v0.19.3
+	k8s.io/cli-runtime v0.19.3
+	k8s.io/client-go v0.19.3
+	k8s.io/kubectl v0.19.3
+	k8s.io/utils v0.0.0-20201015054608-420da100c033
+	sigs.k8s.io/controller-runtime v0.6.3
 	sigs.k8s.io/service-apis v0.0.0-20201013190827-799dbbe3a3ba
 	sigs.k8s.io/yaml v1.2.0
 )

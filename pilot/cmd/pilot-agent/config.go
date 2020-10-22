@@ -33,6 +33,7 @@ import (
 	"istio.io/pkg/log"
 )
 
+// return proxyConfig and trustDomain
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
 	if err != nil {
