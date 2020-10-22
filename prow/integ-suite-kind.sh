@@ -38,56 +38,13 @@ TOPOLOGY=SINGLE_CLUSTER
 
 PARAMS=()
 
-NODE_IMAGE="kindest/node:v1.16.9"
-
-while (( "$#" )); do
-  case "$1" in
-    # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
-    # For example, kindest/node:v1.14.0
-    --node-image)
-      NODE_IMAGE=$2
-      shift 2
-    ;;
-    --skip-setup)
-      SKIP_SETUP=true
-      shift
-    ;;
-    --skip-cleanup)
-      SKIP_CLEANUP=true
-      shift
-    ;;
-    --skip-build)
-      SKIP_BUILD=true
-      shift
-    ;;
-    --manual)
-      MANUAL=true
-      shift
-    ;;
-    --topology)
-      case $2 in
-        # TODO(landow) get rid of MULTICLUSTER_SINGLE_NETWORK after updating Prow job
-        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER )
-          TOPOLOGY=$2
-          echo "Running with topology ${TOPOLOGY}"
-          ;;
-        *)
-          echo "Error: Unsupported topology ${TOPOLOGY}" >&2
-          exit 1
-          ;;
-      esac
-      shift 2
-    ;;
-    -*)
-      echo "Error: Unsupported flag $1" >&2
-      exit 1
-      ;;
-    *) # preserve positional arguments
-      PARAMS+=("$1")
-      shift
-      ;;
-  esac
-done
+if [ "${1:-}" == "test.integration.pilot.kube.presubmit" ]; then
+  NODE_IMAGE="kindest/node:v1.16.9"
+elif [ "${1:-}" == "test.integration.galley.kube.presubmit" ]; then
+  NODE_IMAGE="kindest/node:v1.17.5"
+elif [ "${1:-}" == "test.integration.mixer.kube.presubmit" ]; then
+  NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.19.0-rc.1"
+fi
 
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
