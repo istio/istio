@@ -18,7 +18,6 @@ package customizemetrics
 import (
 	"fmt"
 	"io/ioutil"
-
 	"strings"
 	"testing"
 	"time"
@@ -55,14 +54,14 @@ func TestCustomizeMetrics(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := sendTraffic(t); err != nil {
 					t.Errorf("failed to send traffic")
+					return err
 				}
-				if err := promUtil.QueryPrometheus(t, destinationQuery, promInst); err != nil {
+				var err error
+				metricVal, err = promUtil.QueryPrometheus(t, destinationQuery, promInst)
+				if err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
-				} else {
-					metricVal = util.PromDump(promInst, "istio_requests_total")
 				}
-
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(90*time.Second))
 			// check tag removed
