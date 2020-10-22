@@ -241,8 +241,8 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return c
 }
 
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.ServiceInstance, bind string) *cluster.Cluster {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, instance *model.ServiceInstance, bind string) *cluster.Cluster {
+	clusterName := util.BuildInboundSubsetKey(proxy, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
