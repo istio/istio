@@ -71,7 +71,7 @@ func TestLocalRateLimiting(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Could not setup envoy filter patches.")
 			}
-			defer cleanupEnvoyFilter(yaml)
+			defer cleanupEnvoyFilter(ctx, yaml)
 
 			if !sendTrafficAndCheckIfRatelimited(t) {
 				t.Errorf("No request received StatusTooMantRequest Error.")
@@ -181,8 +181,8 @@ func setupEnvoyFilter(ctx resource.Context, isLocal bool) (string, error) {
 	return con, nil
 }
 
-func cleanupEnvoyFilter(yaml string) error {
-	err = ctx.Config().DeleteYAML(ist.Settings().SystemNamespace, yaml)
+func cleanupEnvoyFilter(ctx resource.Context, yaml string) error {
+	err := ctx.Config().DeleteYAML(ist.Settings().SystemNamespace, yaml)
 	if err != nil {
 		return err
 	}
