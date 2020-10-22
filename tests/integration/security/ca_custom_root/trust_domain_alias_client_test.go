@@ -135,7 +135,7 @@ func TestTrustDomainAliasClient(t *testing.T) {
 					opt := echo.CallOptions{
 						Target:   dest,
 						PortName: HTTPS,
-						Host:     dest.Config().Service,
+						Address:  dest.Config().Service,
 						Scheme:   s,
 					}
 					checker := connection.Checker{
