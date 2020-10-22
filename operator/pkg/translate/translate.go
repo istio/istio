@@ -357,6 +357,12 @@ func applyGatewayTranslations(iop []byte, componentName name.ComponentName, comp
 	switch componentName {
 	case name.IngressComponentName:
 		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.name"), gwSpec.Name)
+		if len(gwSpec.Hub) != 0 {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.hub"), gwSpec.Hub)
+		}
+		if gwSpec.Tag != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.tag"), gwSpec.Tag)
+		}
 		if len(gwSpec.Label) != 0 {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.labels"), gwSpec.Label)
 		}
@@ -365,6 +371,12 @@ func applyGatewayTranslations(iop []byte, componentName name.ComponentName, comp
 		}
 	case name.EgressComponentName:
 		setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.name"), gwSpec.Name)
+		if len(gwSpec.Hub) != 0 {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.hub"), gwSpec.Hub)
+		}
+		if gwSpec.Tag != nil {
+			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.tag"), gwSpec.Tag)
+		}
 		if len(gwSpec.Label) != 0 {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.labels"), gwSpec.Label)
 		}
