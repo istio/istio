@@ -505,6 +505,22 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 				nil, 0)
 		}
 
+		routeAction := &route.RouteAction{
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
+			// Disable timeout instead of assuming some defaults.
+			Timeout: notimeout,
+		}
+		if util.IsIstioVersionGE18(node) {
+			routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+				MaxStreamDuration: notimeout,
+			}
+		} else {
+			// If not configured at all, the grpc-timeout header is not used and
+			// gRPC requests time out like any other requests using timeout or its default.
+			// nolint: staticcheck
+			routeAction.MaxGrpcTimeout = notimeout
+		}
+
 		return &route.VirtualHost{
 			Name:    util.Passthrough,
 			Domains: []string{"*"},
@@ -515,15 +531,7 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 					},
 					Action: &route.Route_Route{
-						Route: &route.RouteAction{
-							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
-							// Disable timeout instead of assuming some defaults.
-							Timeout: notimeout,
-							// If not configured at all, the grpc-timeout header is not used and
-							// gRPC requests time out like any other requests using timeout or its default.
-							// nolint: staticcheck
-							MaxGrpcTimeout: notimeout,
-						},
+						Route: routeAction,
 					},
 				},
 			},
