@@ -4986,9 +4986,6 @@ data:
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
-      {{- if .Values.global.trustDomain }}
-        - --trust-domain={{ .Values.global.trustDomain }}
-      {{- end }}
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
@@ -5391,7 +5388,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - istio-egressgateway
-        - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -5624,7 +5620,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - istio-ingressgateway
-        - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -5925,7 +5920,6 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
         env:
@@ -6295,12 +6289,15 @@ spec:
   ports:
   - name: http2
     port: 80
+    protocol: TCP
     targetPort: 8080
   - name: https
     port: 443
+    protocol: TCP
     targetPort: 8443
   - name: tls
     port: 15443
+    protocol: TCP
     targetPort: 15443
   selector:
     app: istio-egressgateway
@@ -6321,18 +6318,23 @@ spec:
   ports:
   - name: status-port
     port: 15021
+    protocol: TCP
     targetPort: 15021
   - name: http2
     port: 80
+    protocol: TCP
     targetPort: 8080
   - name: https
     port: 443
+    protocol: TCP
     targetPort: 8443
   - name: tcp-istiod
     port: 15012
+    protocol: TCP
     targetPort: 15012
   - name: tls
     port: 15443
+    protocol: TCP
     targetPort: 15443
   selector:
     app: istio-ingressgateway

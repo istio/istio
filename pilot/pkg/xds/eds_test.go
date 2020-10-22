@@ -167,7 +167,6 @@ func TestEds(t *testing.T) {
 		}
 		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
-
 	})
 }
 
@@ -348,7 +347,7 @@ func fullPush(s *xds.FakeDiscoveryServer) {
 }
 
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
-	adscConn, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+	adscConn, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
 		IP: testIP(uint32(ip)),
 	})
 	if err != nil {

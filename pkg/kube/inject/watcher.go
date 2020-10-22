@@ -15,32 +15,56 @@
 package inject
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
 
 	"github.com/howeyc/fsnotify"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/configmapwatcher"
 	"istio.io/pkg/log"
 )
 
 // Watcher watches for and reacts to injection config updates.
 type Watcher interface {
-	// Run starts the Watcher.
+	// SetHandler sets the handler that is run when the config changes.
+	// Must call this before Run.
+	SetHandler(func(*Config, string))
+
+	// Run starts the Watcher. Must call this after SetHandler.
 	Run(<-chan struct{})
+
+	// Get returns the sidecar and values configuration.
+	Get() (*Config, string, error)
 }
 
 var _ Watcher = &fileWatcher{}
+
+var _ Watcher = &configMapWatcher{}
 
 type fileWatcher struct {
 	watcher    *fsnotify.Watcher
 	configFile string
 	valuesFile string
-	callback   func(*Config, string)
+	handler    func(*Config, string)
+}
+
+type configMapWatcher struct {
+	c         *configmapwatcher.Controller
+	client    kube.Client
+	namespace string
+	name      string
+	configKey string
+	valuesKey string
+	handler   func(*Config, string)
 }
 
 // NewFileWatcher creates a Watcher for local config and values files.
-func NewFileWatcher(configFile, valuesFile string, callback func(*Config, string)) (Watcher, error) {
+func NewFileWatcher(configFile, valuesFile string) (Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -55,7 +79,6 @@ func NewFileWatcher(configFile, valuesFile string, callback func(*Config, string
 		watcher:    watcher,
 		configFile: configFile,
 		valuesFile: valuesFile,
-		callback:   callback,
 	}, nil
 }
 
@@ -66,12 +89,14 @@ func (w *fileWatcher) Run(stop <-chan struct{}) {
 		select {
 		case <-timerC:
 			timerC = nil
-			sidecarConfig, valuesConfig, err := loadConfig(w.configFile, w.valuesFile)
+			sidecarConfig, valuesConfig, err := w.Get()
 			if err != nil {
 				log.Errorf("update error: %v", err)
 				break
 			}
-			w.callback(sidecarConfig, valuesConfig)
+			if w.handler != nil {
+				w.handler(sidecarConfig, valuesConfig)
+			}
 		case event := <-w.watcher.Event:
 			log.Debugf("Injector watch update: %+v", event)
 			// use a timer to debounce configuration updates
@@ -84,4 +109,72 @@ func (w *fileWatcher) Run(stop <-chan struct{}) {
 			return
 		}
 	}
+}
+
+func (w *fileWatcher) Get() (*Config, string, error) {
+	return loadConfig(w.configFile, w.valuesFile)
+}
+
+func (w *fileWatcher) SetHandler(handler func(*Config, string)) {
+	w.handler = handler
+}
+
+// NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
+func NewConfigMapWatcher(client kube.Client, namespace, name, configKey, valuesKey string) Watcher {
+	w := &configMapWatcher{
+		client:    client,
+		namespace: namespace,
+		name:      name,
+		configKey: configKey,
+		valuesKey: valuesKey,
+	}
+	w.c = configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
+		sidecarConfig, valuesConfig, err := readConfigMap(cm, configKey, valuesKey)
+		if err != nil {
+			log.Warnf("failed to read injection config from ConfigMap: %v", err)
+			return
+		}
+		if w.handler != nil {
+			w.handler(sidecarConfig, valuesConfig)
+		}
+	})
+	return w
+}
+
+func (w *configMapWatcher) Run(stop <-chan struct{}) {
+	w.c.Run(stop)
+}
+
+func (w *configMapWatcher) Get() (*Config, string, error) {
+	cms := w.client.CoreV1().ConfigMaps(w.namespace)
+	cm, err := cms.Get(context.TODO(), w.name, metav1.GetOptions{})
+	if err != nil {
+		return nil, "", err
+	}
+	return readConfigMap(cm, w.configKey, w.valuesKey)
+}
+
+func (w *configMapWatcher) SetHandler(handler func(*Config, string)) {
+	w.handler = handler
+}
+
+func readConfigMap(cm *v1.ConfigMap, configKey, valuesKey string) (*Config, string, error) {
+	if cm == nil {
+		return nil, "", fmt.Errorf("no ConfigMap found")
+	}
+
+	configYaml, exists := cm.Data[configKey]
+	if !exists {
+		return nil, "", fmt.Errorf("missing ConfigMap config key %q", configKey)
+	}
+	c, err := unmarshalConfig([]byte(configYaml))
+	if err != nil {
+		return nil, "", fmt.Errorf("failed reading config: %v. YAML:\n%s", err, configYaml)
+	}
+
+	valuesConfig, exists := cm.Data[valuesKey]
+	if !exists {
+		return nil, "", fmt.Errorf("missing ConfigMap values key %q", valuesKey)
+	}
+	return c, valuesConfig, nil
 }

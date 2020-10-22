@@ -38,7 +38,7 @@ set -x
 # Note: Cluster configuration topology file specifies basic configuration of each
 # KinD cluster like its name, pod and service subnets and network_id. If two cluster
 # have the same network_id then they belong to the same network and their pods can
-# talk to each other directly. 
+# talk to each other directly.
 #
 # [{ "cluster_name": "cluster1","pod_subnet": "10.10.0.0/16","svc_subnet": "10.255.10.0/24","network_id": "0" },
 #  { "cluster_name": "cluster2","pod_subnet": "10.20.0.0/16","svc_subnet": "10.255.20.0/24","network_id": "0" },
@@ -115,7 +115,7 @@ function check_default_cluster_yaml() {
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
   NAME="${1:-istio-testing}"
-  IMAGE="${2:-kindest/node:v1.19.1}"
+  IMAGE="${2:-gcr.io/istio-testing/kindest/node:v1.19.1}"
   CONFIG="${3:-}"
 
   check_default_cluster_yaml
@@ -172,13 +172,13 @@ function cleanup_kind_clusters() {
 
 # setup_kind_clusters sets up a given number of kind clusters with given topology
 # as specified in cluster topology configuration file.
-# 1. IMAGE = docker image used as node by KinD 
+# 1. IMAGE = docker image used as node by KinD
 # 2. IP_FAMILY = either ipv4 or ipv6
-# 
+#
 # NOTE: Please call load_cluster_topology before calling this method as it expects
 # cluster topology information to be loaded in advance
 function setup_kind_clusters() {
-  IMAGE="${1:-kindest/node:v1.19.1}"
+  IMAGE="${1:-gcr.io/istio-testing/kindest/node:v1.19.1}"
   KUBECONFIG_DIR="$(mktemp -d)"
   IP_FAMILY="${2:-ipv4}"
 
@@ -205,7 +205,7 @@ EOF
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
     # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}"  
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}"
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
@@ -215,7 +215,7 @@ EOF
     kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
       sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
   }
-  
+
   # Now deploy the specified number of KinD clusters and
   # wait till they are provisioned successfully.
   declare -a DEPLOY_KIND_JOBS

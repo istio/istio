@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: MyApp
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      nodePort: 0
+    - name: https
+      protocol: TCP
+      port: 443
+      nodePort: 9379
+  type: LoadBalancer

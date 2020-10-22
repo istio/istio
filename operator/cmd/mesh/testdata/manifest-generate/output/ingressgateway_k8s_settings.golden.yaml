@@ -76,7 +76,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - istio-ingressgateway
-        - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -254,18 +253,23 @@ spec:
   ports:
   - name: status-port
     port: 15021
+    protocol: TCP
     targetPort: 15021
   - name: http2
     port: 80
+    protocol: TCP
     targetPort: 8080
   - name: https
     port: 443
+    protocol: TCP
     targetPort: 8443
   - name: tcp-istiod
     port: 15012
+    protocol: TCP
     targetPort: 15012
   - name: tls
     port: 15443
+    protocol: TCP
     targetPort: 15443
   selector:
     app: istio-ingressgateway

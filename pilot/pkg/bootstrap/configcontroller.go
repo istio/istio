@@ -92,20 +92,23 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores,
 			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
-		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient)
-		if err != nil {
-			log.Warnf("Disabled ingress status syncer due to %v", err)
-		} else {
-			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-				le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube())
-				le.AddRunFunction(func(leaderStop <-chan struct{}) {
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					ingressSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient)
+					// Start informers again. This fixes the case where informers for namespace do not start,
+					// as we create them only after acquiring the leader lock
+					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+					// basically lazy loading the informer, if we stop it when we lose the lock we will never
+					// recreate it again.
+					s.kubeClient.RunAndWait(stop)
 					log.Infof("Starting ingress controller")
 					ingressSyncer.Run(leaderStop)
-				})
-				le.Run(stop)
-				return nil
-			})
-		}
+				}).
+				Run(stop)
+			return nil
+		})
 	}
 
 	// Wrap the config controller with a cache.
@@ -142,6 +145,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		}
 	}
 	s.initStatusController(args, features.EnableStatus)
+	s.XDSServer.InternalGen.Store = configController
 	return nil
 }
 
@@ -202,12 +206,11 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return fmt.Errorf("invalid XDS config URL %s %v", configSource.Address, err)
 			}
 			// TODO: use a query param or schema to specify insecure
-			xdsMCP, err := adsc.New(&meshconfig.ProxyConfig{
-				DiscoveryAddress: srcAddress.Host,
-			}, &adsc.Config{
+			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
 				Meta: model.NodeMetadata{
 					Generator: "api",
 				}.ToStruct(),
+				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 			})
 			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
@@ -216,7 +219,6 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
-			go xdsMCP.WatchConfig()
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Warna("Started XDS config ", s.ConfigStores)
 			continue

@@ -32,7 +32,9 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/tools/bug-report/pkg/archive"
@@ -97,11 +99,6 @@ var (
 	// Aggregated errors for all fetch operations.
 	gErrors util.Errors
 	lock    = sync.RWMutex{}
-
-	isSystemNamespace = map[string]bool{
-		"kube-system": true,
-		"kube-public": true,
-	}
 )
 
 func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
@@ -390,7 +387,7 @@ func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *c
 
 func runAnalyze(config *config.BugReportConfig, resources *cluster2.Resources, params *content.Params) {
 	for ns := range resources.Root {
-		if isSystemNamespace[ns] {
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) {
 			continue
 		}
 		common.LogAndPrintf("Running istio analyze on namespace %s.\n", ns)

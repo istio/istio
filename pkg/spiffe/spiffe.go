@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -100,16 +101,6 @@ func GetTrustDomain() string {
 	trustDomainMutex.RLock()
 	defer trustDomainMutex.RUnlock()
 	return trustDomain
-}
-
-func DetermineTrustDomain(commandLineTrustDomain string, isKubernetes bool) string {
-	if len(commandLineTrustDomain) != 0 {
-		return commandLineTrustDomain
-	}
-	if isKubernetes {
-		return defaultTrustDomain
-	}
-	return ""
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate.
@@ -307,6 +298,27 @@ func (v *PeerCertVerifier) AddMapping(trustDomain string, certs []*x509.Certific
 		v.generalCertPool.AddCert(cert)
 	}
 	spiffeLog.Infof("Added %d certs to trust domain %s in peer cert verifier", len(certs), trustDomain)
+}
+
+// AddMappingFromPEM adds multiple RootCA's to the spiffe Trust bundle in the trustDomain namespace
+func (v *PeerCertVerifier) AddMappingFromPEM(trustDomain string, rootCertBytes []byte) error {
+	block, rest := pem.Decode(rootCertBytes)
+	var blockBytes []byte
+
+	// Loop while there are no block are found
+	for block != nil {
+		blockBytes = append(blockBytes, block.Bytes...)
+		block, rest = pem.Decode(rest)
+	}
+
+	rootCAs, err := x509.ParseCertificates(blockBytes)
+	if err != nil {
+		spiffeLog.Errorf("parse certificate from rootPEM got error: %v", err)
+		return fmt.Errorf("parse certificate from rootPEM got error: %v", err)
+	}
+
+	v.AddMapping(trustDomain, rootCAs)
+	return nil
 }
 
 // AddMappings merges a trust domain to certs map to the certPools map.

@@ -294,7 +294,11 @@ func ClaimSystemNamespace(ctx resource.Context) (namespace.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	return namespace.Claim(ctx, istioCfg.SystemNamespace, false)
+	nsCfg := namespace.Config{
+		Prefix: istioCfg.SystemNamespace,
+		Inject: false,
+	}
+	return namespace.Claim(ctx, nsCfg)
 }
 
 // ClaimSystemNamespaceOrFail calls ClaimSystemNamespace, failing the test if an error occurs.

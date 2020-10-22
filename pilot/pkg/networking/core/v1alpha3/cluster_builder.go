@@ -96,7 +96,6 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		if clusterMode == DefaultClusterMode {
 			subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 			defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-
 		} else {
 			subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 		}
@@ -122,7 +121,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		}
 		setUpstreamProtocol(cb.proxy, subsetCluster, port, model.TrafficDirectionOutbound)
 
-		// Apply traffic policy for subset cluster with the destination rule traffice policy.
+		// Apply traffic policy for subset cluster with the destination rule traffic policy.
 		opts.cluster = subsetCluster
 		opts.istioMtlsSni = defaultSni
 
@@ -238,12 +237,12 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	}
 	applyTrafficPolicy(opts)
 	addTelemetryMetadata(opts, service, direction)
-
+	addNetworkingMetadata(opts, service, direction)
 	return c
 }
 
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.ServiceInstance, bind string) *cluster.Cluster {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, instance *model.ServiceInstance, bind string) *cluster.Cluster {
+	clusterName := util.BuildInboundSubsetKey(proxy, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
@@ -313,7 +312,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode)
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
+			instance.Endpoint.Namespace, instance.Endpoint.Labels)
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}

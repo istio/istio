@@ -40,9 +40,10 @@ helm3 template kiali-server \
 } > "${ADDONS}/kiali.yaml"
 
 # Set up prometheus
-helm3 template prometheus stable/prometheus \
+helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 11.7.0 \
+  --version 11.16.2 \
+  --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
 
@@ -52,9 +53,10 @@ function compressDashboard() {
 
 # Set up grafana
 {
-  helm3 template grafana stable/grafana \
+  helm3 template grafana grafana \
     --namespace istio-system \
-    --version 5.3.5 \
+    --version 5.8.10 \
+    --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-grafana.yaml"
 
   # Set up grafana dashboards. Split into 2 and compress to single line json to avoid Kubernetes size limits

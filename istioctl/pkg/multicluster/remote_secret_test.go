@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -27,10 +28,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -288,33 +290,47 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 
 	cases := []struct {
 		name string
-
-		saNamespace string
-		saName      string
-		objs        []runtime.Object
+		opts RemoteSecretOptions
+		objs []runtime.Object
 
 		want       *v1.Secret
 		wantErrStr string
 	}{
 		{
-			name:        "missing service account",
-			saName:      testServiceAccountName,
-			saNamespace: testNamespace,
-			wantErrStr:  fmt.Sprintf("serviceaccounts %q not found", testServiceAccountName),
+			name: "missing service account",
+			opts: RemoteSecretOptions{
+				ServiceAccountName: testServiceAccountName,
+				KubeOptions: KubeOptions{
+					Namespace: testNamespace,
+				},
+				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+			},
+			wantErrStr: fmt.Sprintf("serviceaccounts %q not found", testServiceAccountName),
 		},
 		{
-			name:        "wrong number of secrets",
-			saName:      testServiceAccountName,
-			saNamespace: testNamespace,
+			name: "wrong number of secrets",
+			opts: RemoteSecretOptions{
+				ServiceAccountName:   testServiceAccountName,
+				CreateServiceAccount: false,
+				KubeOptions: KubeOptions{
+					Namespace: testNamespace,
+				},
+				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+			},
 			objs: []runtime.Object{
 				makeServiceAccount("secret", "extra-secret"),
 			},
 			wantErrStr: "wrong number of secrets",
 		},
 		{
-			name:        "missing service account token secret",
-			saName:      testServiceAccountName,
-			saNamespace: testNamespace,
+			name: "missing service account token secret",
+			opts: RemoteSecretOptions{
+				ServiceAccountName: testServiceAccountName,
+				KubeOptions: KubeOptions{
+					Namespace: testNamespace,
+				},
+				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+			},
 			objs: []runtime.Object{
 				makeServiceAccount("wrong-secret"),
 				secret,
@@ -322,9 +338,14 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 			wantErrStr: `secrets "wrong-secret" not found`,
 		},
 		{
-			name:        "success",
-			saName:      testServiceAccountName,
-			saNamespace: testNamespace,
+			name: "success",
+			opts: RemoteSecretOptions{
+				ServiceAccountName: testServiceAccountName,
+				KubeOptions: KubeOptions{
+					Namespace: testNamespace,
+				},
+				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+			},
 			objs: []runtime.Object{
 				makeServiceAccount("secret"),
 				secret,
@@ -336,9 +357,9 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			kube := fake.NewSimpleClientset(c.objs...)
+			client := kube.NewFakeClient(c.objs...)
 
-			got, err := getServiceAccountSecret(kube, c.saName, c.saNamespace)
+			got, err := getServiceAccountSecret(client, c.opts)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)

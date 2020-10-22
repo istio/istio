@@ -23,10 +23,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"golang.org/x/time/rate"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
 )
 
@@ -52,10 +54,26 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
-	Store model.ConfigStore
+	// Store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
+	// do not support writing.
+	Store model.ConfigStoreCache
+
+	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
+	cleanupLimit *rate.Limiter
+
+	cleanupQueue queue.Delayed
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
+}
+
+func NewInternalGen(s *DiscoveryServer) *InternalGen {
+	return &InternalGen{
+		Server: s,
+		// TODO make this configurable
+		cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
+		cleanupQueue: queue.NewDelayed(),
+	}
 }
 
 func (sg *InternalGen) OnConnect(con *Connection) {
@@ -75,6 +93,8 @@ func (sg *InternalGen) OnConnect(con *Connection) {
 }
 
 func (sg *InternalGen) OnDisconnect(con *Connection) {
+	sg.QueueUnregisterWorkload(con.proxy)
+
 	sg.startPush(TypeURLDisconnect, []proto.Message{con.node})
 
 	if con.node.Metadata != nil && con.node.Metadata.Fields != nil {
@@ -86,6 +106,13 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 	}
 
 	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
+}
+
+func (sg *InternalGen) Run(stop <-chan struct{}) {
+	if sg.Store != nil && sg.cleanupQueue != nil {
+		go sg.periodicWorkloadEntryCleanup(stop)
+		go sg.cleanupQueue.Run(stop)
+	}
 }
 
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {

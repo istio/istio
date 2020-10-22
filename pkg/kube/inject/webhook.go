@@ -91,8 +91,8 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil {
+	var c *Config
+	if c, err = unmarshalConfig(data); err != nil {
 		log.Warnf("Failed to parse injectFile %s", string(data))
 		return nil, "", err
 	}
@@ -101,23 +101,28 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	return c, string(valuesConfig), nil
+}
+
+func unmarshalConfig(data []byte) (*Config, error) {
+	var c Config
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return nil, err
+	}
 
 	log.Debugf("New inject configuration: sha256sum %x", sha256.Sum256(data))
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
 	log.Debugf("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
-
-	return &c, string(valuesConfig), nil
+	return &c, nil
 }
 
 // WebhookParameters configures parameters for the sidecar injection
 // webhook.
 type WebhookParameters struct {
-	// ConfigFile is the path to the sidecar injection configuration file.
-	ConfigFile string
-
-	ValuesFile string
+	// Watcher watches the sidecar injection configuration.
+	Watcher Watcher
 
 	// Port is the webhook port, e.g. typically 443 for https.
 	// This is mainly used for tests. Webhook runs on the port started by Istiod.
@@ -150,27 +155,22 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if p.Mux == nil {
 		return nil, errors.New("expected mux to be passed, but was not passed")
 	}
-	sidecarConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.ValuesFile)
-	if err != nil {
-		return nil, err
-	}
 
 	wh := &Webhook{
-		Config:                 sidecarConfig,
-		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
-		meshConfig:             p.Env.Mesh(),
-		valuesConfig:           valuesConfig,
-		healthCheckInterval:    p.HealthCheckInterval,
-		healthCheckFile:        p.HealthCheckFile,
-		env:                    p.Env,
-		revision:               p.Revision,
+		watcher:             p.Watcher,
+		meshConfig:          p.Env.Mesh(),
+		healthCheckInterval: p.HealthCheckInterval,
+		healthCheckFile:     p.HealthCheckFile,
+		env:                 p.Env,
+		revision:            p.Revision,
 	}
 
-	watcher, err := NewFileWatcher(p.ConfigFile, p.ValuesFile, wh.updateConfig)
+	p.Watcher.SetHandler(wh.updateConfig)
+	sidecarConfig, valuesConfig, err := p.Watcher.Get()
 	if err != nil {
 		return nil, err
 	}
-	wh.watcher = watcher
+	wh.updateConfig(sidecarConfig, valuesConfig)
 
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 	p.Mux.HandleFunc("/inject/", wh.serveInject)
@@ -675,59 +675,6 @@ type InjectionParameters struct {
 	injectedAnnotations map[string]string
 }
 
-func getDeployMetaFromPod(pod *corev1.Pod) (*metav1.ObjectMeta, *metav1.TypeMeta) {
-	// try to capture more useful namespace/name info for deployments, etc.
-	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
-	deployMeta := pod.ObjectMeta.DeepCopy()
-	deployMeta.Namespace = pod.ObjectMeta.Namespace
-
-	typeMetadata := &metav1.TypeMeta{
-		Kind:       "Pod",
-		APIVersion: "v1",
-	}
-	if len(pod.GenerateName) > 0 {
-		// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
-		var controllerRef metav1.OwnerReference
-		controllerFound := false
-		for _, ref := range pod.GetOwnerReferences() {
-			if *ref.Controller {
-				controllerRef = ref
-				controllerFound = true
-				break
-			}
-		}
-		if controllerFound {
-			typeMetadata.APIVersion = controllerRef.APIVersion
-			typeMetadata.Kind = controllerRef.Kind
-
-			// heuristic for deployment detection
-			deployMeta.Name = controllerRef.Name
-			if typeMetadata.Kind == "ReplicaSet" && pod.Labels["pod-template-hash"] != "" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
-				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
-				deployMeta.Name = name
-				typeMetadata.Kind = "Deployment"
-			} else if typeMetadata.Kind == "Job" && len(controllerRef.Name) > 11 {
-				// If job name suffixed with `-<ten-digit-timestamp>`, trim the suffix and set kind to cron job.
-				l := len(controllerRef.Name)
-				if _, err := strconv.Atoi(controllerRef.Name[l-10:]); err == nil && string(controllerRef.Name[l-11]) == "-" {
-					deployMeta.Name = controllerRef.Name[:l-11]
-					typeMetadata.Kind = "CronJob"
-					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
-					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
-					typeMetadata.APIVersion = "batch/v1beta1"
-				}
-			}
-		}
-	}
-
-	if deployMeta.Name == "" {
-		// if we haven't been able to extract a deployment name, then just give it the pod name
-		deployMeta.Name = pod.Name
-	}
-
-	return deployMeta, typeMetadata
-}
-
 func injectPod(req InjectionParameters) ([]byte, error) {
 	pod := req.pod
 
@@ -792,7 +739,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
-	deploy, typeMeta := getDeployMetaFromPod(&pod)
+	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,
 		deployMeta:          deploy,

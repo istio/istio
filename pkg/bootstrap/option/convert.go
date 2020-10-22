@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -169,6 +170,17 @@ func addressConverter(addr string) convertFunc {
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse %s address %q: %v", o.name, addr, err)
+		}
+		if host == "$(HOST_IP)" {
+			// Replace host with HOST_IP env var if it is "$(HOST_IP)".
+			// This is to support some tracer setting (Datadog, Zipkin), where "$(HOST_IP)"" is used for address.
+			// Tracer address used to be specified within proxy container params, and thus could be interpreted with pod HOST_IP env var.
+			// Now tracer config is passed in with mesh config volumn at gateway, k8s env var interpretation does not work.
+			// This is to achieve the same interpretation as k8s.
+			hostIPEnv := os.Getenv("HOST_IP")
+			if hostIPEnv != "" {
+				host = hostIPEnv
+			}
 		}
 
 		return fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port), nil
