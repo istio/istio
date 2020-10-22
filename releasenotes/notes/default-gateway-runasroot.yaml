@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 27755
-releaseNotes:
-- |
-  **Fixed** Run the gateway deployments as root by default.
