@@ -132,7 +132,7 @@ func TestDeepCopyTypes(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%T", tt.input), func(t *testing.T) {
-			cpy := DeepCopySpec(tt.input)
+			cpy := DeepCopy(tt.input)
 			if diff := cmp.Diff(tt.input, cpy, tt.option); diff != "" {
 				t.Fatalf("Type was %T now is %T. Diff: %v", tt.input, cpy, diff)
 			}

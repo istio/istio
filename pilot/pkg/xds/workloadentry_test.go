@@ -22,6 +22,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
@@ -35,6 +37,7 @@ import (
 
 func init() {
 	features.WorkloadEntryAutoRegistration = true
+	features.WorkloadEntryHealthChecks = true
 }
 
 var (
@@ -90,9 +93,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 }
 
 func TestAutoregistrationLifecycle(t *testing.T) {
-	if features.WorkloadEntryCleanupGracePeriod != 200*time.Millisecond {
-		features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
-	}
+	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
 	ig1, ig2, store := setup(t)
 	stopped1 := false
 	stop1, stop2 := make(chan struct{}), make(chan struct{})
@@ -162,6 +163,25 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
+}
+
+func TestUpdateHealthCondition(t *testing.T) {
+	ig, _, store := setup(t)
+	p := fakeProxy("1.2.3.4", wgA, "litNw")
+	ig.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+	t.Run("auto registered healthy health", func(t *testing.T) {
+		ig.UpdateWorkloadEntryHealth(p, HealthEvent{
+			Healthy: true,
+		})
+		checkHealthOrFail(t, store, p, true)
+	})
+	t.Run("auto registered unhealthy health :(", func(t *testing.T) {
+		ig.UpdateWorkloadEntryHealth(p, HealthEvent{
+			Healthy: false,
+			Message: "lol health bad",
+		})
+		checkHealthOrFail(t, store, p, false)
+	})
 }
 
 func setup(t *testing.T) (*InternalGen, *InternalGen, model.ConfigStoreCache) {
@@ -260,6 +280,45 @@ func checkEntryOrFail(
 	connectedTo string,
 ) {
 	if err := checkEntry(store, wg, proxy, connectedTo); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func checkEntryHealth(store model.ConfigStoreCache, proxy *model.Proxy, healthy bool) (err error) {
+	name := autoregisteredWorkloadEntryName(proxy)
+	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
+	if cfg == nil || cfg.Status == nil {
+		err = multierror.Append(fmt.Errorf("expected workloadEntry %s/%s to exist", name, proxy.Metadata.Namespace))
+		return
+	}
+	stat := cfg.Status.(*v1alpha1.IstioStatus)
+	found := false
+	idx := 0
+	for i, cond := range stat.Conditions {
+		if cond.Type == "Healthy" {
+			idx = i
+			found = true
+		}
+	}
+	if !found {
+		multierror.Append(fmt.Errorf("expected condition of type Health on WorkloadEntry %s/%s",
+			name, proxy.Metadata.Namespace))
+	} else {
+		statStr := stat.Conditions[idx].Status
+		if healthy && statStr != "True" {
+			multierror.Append(fmt.Errorf("expected healthy condition on WorkloadEntry %s/%s",
+				name, proxy.Metadata.Namespace))
+		}
+		if !healthy && statStr != "False" {
+			multierror.Append(fmt.Errorf("expected unhealthy condition on WorkloadEntry %s/%s",
+				name, proxy.Metadata.Namespace))
+		}
+	}
+	return
+}
+
+func checkHealthOrFail(t test.Failer, store model.ConfigStoreCache, proxy *model.Proxy, healthy bool) {
+	if err := checkEntryHealth(store, proxy, healthy); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -141,35 +141,36 @@ func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event Healt
 	// up in NodeMetadata
 	entryName := autoregisteredWorkloadEntryName(proxy)
 	if entryName == "" {
-		// todo make this env var a constant somewhere
-		name, ok := proxy.Metadata.ProxyConfig.ProxyMetadata["WORKLOAD_ENTRY_NAME"]
-		if !ok {
-			// at this point we could not find the WorkloadEntry Name,
-			// just return.
-			adsLog.Errorf("unable to derive WorkloadEntry Name, blank name")
-			return
-		}
-		// set entryName to the manually provided name.
-		entryName = name
+		adsLog.Errorf("unable to derive WorkloadEntry for health update for %v", proxy.ID)
+		return
 	}
 
 	// get previous status
 	cfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
-		adsLog.Debugf("cfg nil when getting WorkloadEntry %v", entryName)
+		adsLog.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
 		return
 	}
 	wle := cfg.DeepCopy()
 
 	// replace the updated status
-	status := wle.Status.(*v1alpha1.IstioStatus)
+	// should this status nil check be in the initial auto registration?
+	var status *v1alpha1.IstioStatus
+	if wle.Status == nil {
+		status = &v1alpha1.IstioStatus{
+			Conditions: []*v1alpha1.IstioCondition{},
+		}
+	} else {
+		status = wle.Status.(*v1alpha1.IstioStatus)
+
+	}
 	status.Conditions = UpdateHealthCondition(status.Conditions, event)
 	wle.Status = status
 
 	// update the status
 	_, err := sg.Store.UpdateStatus(wle)
 	if err != nil {
-		adsLog.Errorf("error while updating WorkloadEntry status: %v", err)
+		adsLog.Errorf("error while updating WorkloadEntry status: %v for %v", err, proxy.ID)
 	}
 }
 

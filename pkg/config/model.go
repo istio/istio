@@ -223,7 +223,7 @@ func ApplyJSON(s Spec, js string) error {
 	return json.Unmarshal([]byte(js), &s)
 }
 
-func DeepCopySpec(s Spec) Spec {
+func DeepCopy(s interface{}) interface{} {
 	// If deep copy is defined, use that
 	if dc, ok := s.(deepCopier); ok {
 		return dc.DeepCopyInterface()
@@ -255,48 +255,10 @@ func DeepCopySpec(s Spec) Spec {
 	if err != nil {
 		return nil
 	}
-
 	return data
 }
 
 type Status interface{}
-
-// is this the same as spec?
-func DeepCopyStatus(s Status) Status {
-	// If deep copy is defined, use that
-	if dc, ok := s.(deepCopier); ok {
-		return dc.DeepCopyInterface()
-	}
-
-	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
-	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
-	// but also not used by Istio at all.
-	if _, ok := s.(protoreflect.ProtoMessage); ok {
-		if pb, ok := s.(proto.Message); ok {
-			return proto.Clone(pb)
-		}
-	}
-
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		return gogoproto.Clone(pb)
-	}
-
-	// If we don't have a deep copy method, we will have to do some reflection magic. Its not ideal,
-	// but all Istio types have an efficient deep copy.
-	js, err := json.Marshal(s)
-	if err != nil {
-		return nil
-	}
-
-	data := reflect.New(reflect.TypeOf(s).Elem()).Interface()
-	err = json.Unmarshal(js, &data)
-	if err != nil {
-		return nil
-	}
-
-	return data
-}
 
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {
@@ -324,8 +286,10 @@ func (c Config) DeepCopy() Config {
 			clone.Annotations[k] = v
 		}
 	}
-	clone.Spec = DeepCopySpec(c.Spec)
-	clone.Status = DeepCopyStatus(c.Status)
+	clone.Spec = DeepCopy(c.Spec)
+	if c.Status != nil {
+		clone.Status = DeepCopy(c.Status)
+	}
 	return clone
 }
 
