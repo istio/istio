@@ -182,7 +182,7 @@ func DumpPodLogs(r resource.Context, c resource.Cluster, workDir, namespace stri
 				// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
 				// a log which will get highlighted in the test logs
 				// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-				scopes.Framework.Errorf("FAIL: pod %v restarted", pod)
+				scopes.Framework.Errorf("FAIL: pod %v/%v restarted", pod.Name, pod.Namespace)
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
 					scopes.Framework.Errorf("Unable to get previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
