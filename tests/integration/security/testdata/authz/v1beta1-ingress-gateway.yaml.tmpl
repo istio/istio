@@ -16,6 +16,24 @@ spec:
             hosts: ["internal.company.com"]
         - operation:
             paths: ["/private"]
+    - from:
+        - source:
+            remoteIpBlocks: ["172.17.72.46", "192.168.4.0/23"]
+      to:
+        - operation:
+            hosts: ["remoteipblocks.company.com"]
+    - from:
+        - source:
+            notRemoteIpBlocks: ["172.23.240.0/22"]
+      to:
+        - operation:
+            hosts: ["notremoteipblocks.company.com"]
+    - to:
+        - operation:
+            hosts: ["remoteipattr.company.com"]
+      when:
+        - key: remote.ip
+          values: ["10.242.5.7", "10.124.99.0/24"]
 ---
 
 # The following gateway allows request to "*.company.com"
