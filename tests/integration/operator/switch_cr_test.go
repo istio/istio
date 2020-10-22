@@ -133,6 +133,7 @@ func TestController(t *testing.T) {
 }
 
 func TestOperatorRemove(t *testing.T) {
+	t.Skip("testing")
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
