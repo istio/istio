@@ -15,11 +15,19 @@
 #   limitations under the License.
 
 name=${1:-foo}
-san="spiffe://trust-domain-$name/ns/$name/sa/$name"
+ns=${2:-$name}
+sa=${3:-$name}
+dir=${4:-"."}
+tmp=${5:-""}
+san="spiffe://trust-domain-$name/ns/$ns/sa/$sa"
 
-openssl genrsa -out "workload-$name-key.pem" 2048
+if [ ! -d "$dir/$tmp" ]; then
+  mkdir "$dir/$tmp"
+fi
 
-cat > workload.cfg <<EOF
+openssl genrsa -out "$dir/$tmp/workload-$name-key.pem" 2048
+
+cat > $dir/workload.cfg <<EOF
 [req]
 distinguished_name = req_distinguished_name
 req_extensions = v3_req
@@ -36,15 +44,15 @@ subjectAltName = critical, @alt_names
 URI = $san
 EOF
 
-openssl req -new -key "workload-$name-key.pem" -subj "/" -out workload.csr -config workload.cfg
+openssl req -new -key "$dir/$tmp/workload-$name-key.pem" -subj "/" -out $dir/workload.csr -config $dir/workload.cfg
 
-openssl x509 -req -in workload.csr -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial \
--out "workload-$name-cert.pem" -days 3650 -extensions v3_req -extfile workload.cfg
+openssl x509 -req -in $dir/workload.csr -CA $dir/ca-cert.pem -CAkey $dir/ca-key.pem -CAcreateserial \
+-out "$dir/$tmp/workload-$name-cert.pem" -days 3650 -extensions v3_req -extfile $dir/workload.cfg
 
-cat cert-chain.pem >> "workload-$name-cert.pem"
+cat $dir/cert-chain.pem >> "$dir/$tmp/workload-$name-cert.pem"
 
 echo "Generated workload-$name-[cert|key].pem with URI SAN $san"
-openssl verify -CAfile <(cat cert-chain.pem root-cert.pem) "workload-$name-cert.pem"
+openssl verify -CAfile <(cat $dir/cert-chain.pem $dir/root-cert.pem) "$dir/$tmp/workload-$name-cert.pem"
 
 # clean temporary files
-rm ca-cert.srl workload.cfg workload.csr
+rm $dir/.srl $dir/ca-cert.srl $dir/workload.cfg $dir/workload.csr
