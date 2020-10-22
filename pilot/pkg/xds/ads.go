@@ -85,6 +85,9 @@ type Connection struct {
 
 	// stop can be used to end the connection manually via debug endpoints. Only to be used for testing.
 	stop chan struct{}
+
+	// A map of semaphores by resources (not resource types!,.
+	semmap map[string]chan struct{}
 }
 
 // Event represents a config or registry event that results in a push.
@@ -103,6 +106,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
+		semmap:      make(map[string]chan struct{}),
 	}
 }
 
@@ -756,12 +760,34 @@ func (s *DiscoveryServer) removeCon(conID string) {
 // Send with timeout
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	errChan := make(chan error, 1)
-	// hardcoded for now - not sure if we need a setting
+
+	// Flow control - release any acquired semaphores on this conneciton. This heavily
+	// relies on the request & response behavior of Envoy. Once you understand this
+	// behavior, perhaps you could consider improving it
+
+	// I don't think this is safe.
+	for k := range conn.semmap {
+		adsLog.Infof("sem Release %v", k)
+		conn.semmap[k] <- struct{}{}
+		adsLog.Infof("sem Release Done %v", k)
+		close(conn.semmap[k])
+		delete(conn.semmap, k)
+	}
+
+	// Allocate a semaphore for the map for this unique resource
+	curResource := res.Nonce + res.VersionInfo
+	conn.semmap[curResource] = make(chan struct{})
+
+	// sendTimeout may be modified via environment
 	t := time.NewTimer(sendTimeout)
 	go func() {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
 		errChan <- conn.stream.Send(res)
+		// Flow control - Acquire a semaphore - locking this thread for sendTimeout.
+		adsLog.Infof("sem Acquire %v", curResource)
+		<-conn.semmap[curResource]
+		adsLog.Infof("sem Done Acquire %v", curResource)
 		close(errChan)
 	}()
 
