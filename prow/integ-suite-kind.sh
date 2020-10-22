@@ -100,7 +100,7 @@ if [[ -n "${VARIANT:-}" ]]; then
   export TAG="${TAG}-${VARIANT}"
 fi
 
-make debug-TestMultiRevision
+make test.integration.kube.presubmit
 
 # Check if the user is running the clusters in manual mode.
 if [[ -n "${MANUAL:-}" ]]; then
