@@ -215,8 +215,6 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		sc.Close()
 	}()
 
-	checkBool(t, "opt.SkipParseToken default", opt.SkipParseToken, false)
-
 	conID := "proxy1-id"
 	ctx := context.Background()
 	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
@@ -740,6 +738,7 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false)
 }
 
+// nolint: unparam
 func checkBool(t *testing.T, name string, got bool, want bool) {
 	if got != want {
 		t.Errorf("%s: got: %v, want: %v", name, got, want)
@@ -821,7 +820,6 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		RotationInterval: 2 * time.Hour,
 		EvictionDuration: 0,
 		UseTokenForCSR:   true,
-		SkipParseToken:   false,
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{

@@ -88,7 +88,6 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 60m
         env:
