@@ -76,7 +76,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - istio-egressgateway
-        - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
           value: third-party-jwt
