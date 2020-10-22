@@ -269,8 +269,16 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 
 // IsIstioVersionGE18 checks whether the given Istio version is greater than or equals 1.8.
 func IsIstioVersionGE18(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
+	return node == nil || node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 8, Patch: -1}) >= 0
+}
+
+func BuildInboundSubsetKey(node *model.Proxy, subsetName string, hostname host.Name, port int) string {
+	if IsIstioVersionGE18(node) {
+		// On 1.8+ Proxies, we use format inbound|port||. Telemetry no longer requires the hostname
+		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", "", port)
+	}
+	return model.BuildSubsetKey(model.TrafficDirectionInbound, subsetName, hostname, port)
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {

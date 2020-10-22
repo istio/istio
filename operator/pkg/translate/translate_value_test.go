@@ -193,7 +193,7 @@ values:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			valueStruct := v1alpha1.Values{}
-			err := util.UnmarshalValuesWithJSONPB(tt.valueYAML, &valueStruct, false)
+			err := util.UnmarshalWithJSONPB(tt.valueYAML, &valueStruct, false)
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}

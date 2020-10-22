@@ -79,7 +79,7 @@ var (
 )
 
 func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	checkClusters := []string{"outbound|8080||*.example.org", "inbound|8080|default|*.example.org"}
+	checkClusters := []string{"outbound|8080||*.example.org", "inbound|8080||"}
 	settings := []*networking.ConnectionPoolSettings{
 		nil,
 		{
@@ -149,7 +149,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			proxyType:                 model.SidecarProxy,
 			clusters:                  8,
 		}, {
-			clusterName:               "inbound|8080|default|*.example.org",
+			clusterName:               "inbound|8080||",
 			useDownStreamProtocol:     false,
 			sniffingEnabledForInbound: false,
 			proxyType:                 model.SidecarProxy,
@@ -162,7 +162,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusters:                  8,
 		},
 		{
-			clusterName:               "inbound|9090|auto|*.example.org",
+			clusterName:               "inbound|9090||",
 			useDownStreamProtocol:     true,
 			sniffingEnabledForInbound: true,
 			proxyType:                 model.SidecarProxy,
@@ -1069,7 +1069,7 @@ func TestStatNamePattern(t *testing.T) {
 			Host: "*.example.org",
 		}})
 	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(xdstest.ExtractCluster("inbound|8080|default|*.example.org", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(xdstest.ExtractCluster("inbound|8080||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestDuplicateClusters(t *testing.T) {

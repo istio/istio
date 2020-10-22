@@ -31,10 +31,10 @@ spec:
               ## Extra ports for testing
               - port: 15012
                 targetPort: 15012
-                name: tcp-istiod
+                name: tls-istiod
               - port: 15017
                 targetPort: 15017
-                name: tcp-webhook
+                name: tls-webhook
               - port: 31400
                 targetPort: 31400
                 name: tcp

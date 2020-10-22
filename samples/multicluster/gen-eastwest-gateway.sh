@@ -92,13 +92,13 @@ $IOP
               - name: status-port
                 port: 15021
                 targetPort: 15021
-              - name: mtls
+              - name: tls
                 port: 15443
                 targetPort: 15443
-              - name: tcp-istiod
+              - name: tls-istiod
                 port: 15012
                 targetPort: 15012
-              - name: tcp-webhook
+              - name: tls-webhook
                 port: 15017
                 targetPort: 15017
 EOF
