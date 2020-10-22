@@ -819,12 +819,10 @@ func (s *Server) initRegistryEventHandlers() error {
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
-			if features.EnableStatus {
-				if event != model.EventDelete {
-					s.statusReporter.AddInProgressResource(curr)
-				} else {
-					s.statusReporter.DeleteInProgressResource(curr)
-				}
+			if event != model.EventDelete {
+				s.statusReporter.AddInProgressResource(curr)
+			} else {
+				s.statusReporter.DeleteInProgressResource(curr)
 			}
 		}
 		schemas := collections.Pilot.All()

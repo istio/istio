@@ -156,6 +156,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt.env.SetLedger(&model.DisabledLedger{})
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
 			_ = push.InitContext(tt.env, nil, nil)
