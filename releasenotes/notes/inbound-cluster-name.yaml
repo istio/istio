@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issues:
+  - 26861
+releaseNotes:
+- |
+  **Updated** the inbound Envoy cluster name format to reduce 503 errors during Service changes.
+
+upgradeNotes:
+- title: Inbound Cluster Name Format
+  content: |
+    The format of inbound Envoy cluster names has changed. Previously, they included the Service hostname
+    and port name, such as `inbound|80|http|httpbin.default.svc.cluster.local`. This lead to issues when multiple
+    Services select the same pod. As a result, we have removed the port name and hostname - the new format will
+    instead resemble `inbound|80||`.
+
+    For most users, this is an implementation detail, and will only impact debugging or tooling that directly
+    interacts with Envoy configuration.
