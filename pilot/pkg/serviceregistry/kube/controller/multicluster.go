@@ -66,6 +66,7 @@ type Multicluster struct {
 	// fetchCaRoot maps the certificate name to the certificate
 	fetchCaRoot      func() map[string]string
 	caBundlePath     string
+	systemNamespace  string
 	secretNamespace  string
 	secretController *secretcontroller.Controller
 }
@@ -92,6 +93,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		metrics:               opts.Metrics,
 		fetchCaRoot:           opts.FetchCaRoot,
 		caBundlePath:          opts.CABundlePath,
+		systemNamespace:       opts.SystemNamespace,
 		secretNamespace:       secretNamespace,
 		endpointMode:          opts.EndpointMode,
 	}
@@ -110,6 +112,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
 	options := Options{
+		SystemNamespace:   m.systemNamespace,
 		WatchedNamespaces: m.WatchedNamespaces,
 		ResyncPeriod:      m.ResyncPeriod,
 		DomainSuffix:      m.DomainSuffix,
