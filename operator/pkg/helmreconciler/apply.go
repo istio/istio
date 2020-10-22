@@ -50,7 +50,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		return nil, 0, err
 	}
 
-	scope.Infof("Processing resources from manifest: %s for CR %s", cname, crHash)
+	scope.Infof("Processing resources from manifest: %s for CR %s:\n\n%s", cname, crHash, manifest.Content)
 	allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 	if err != nil {
 		return nil, 0, err

@@ -15,6 +15,8 @@
 package mesh
 
 import (
+	"fmt"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
@@ -96,7 +98,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	}
 
 	installerScope.Debugf("Installing operator charts with the following values:\n%s", vals)
-	installerScope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
+	fmt.Printf("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &applyOptions{
 		DryRun:     args.dryRun,
