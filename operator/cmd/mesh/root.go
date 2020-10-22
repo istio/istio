@@ -47,6 +47,7 @@ If set to true, the user is not prompted and a Yes response is assumed in all ca
 This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
 	installationCompleteStr  = `Installation complete`
 	ForceFlagHelpStr         = `Proceed even with validation errors.`
+	skipVerificationHelpStr  = `Skips post-install verification. Run verify-install manually in case you want to verify.`
 	KubeConfigFlagHelpStr    = `Path to kube config.`
 	ContextFlagHelpStr       = `The name of the kubeconfig context to use.`
 	HubFlagHelpStr           = `The hub for the operator controller image.`
