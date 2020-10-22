@@ -141,7 +141,7 @@ var (
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
 		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
-	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", true,
+	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", false,
 		"If set to true, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
 	// This is a copy of the env var in the init code.

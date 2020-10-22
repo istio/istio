@@ -86,7 +86,7 @@ type Connection struct {
 	// stop can be used to end the connection manually via debug endpoints. Only to be used for testing.
 	stop chan struct{}
 
-	// A map of semaphores by resources (not resource types!,.
+	// A map of semaphores by resources. This is not mapped by resource type.
 	semmap map[string]chan struct{}
 }
 
@@ -760,25 +760,17 @@ func (s *DiscoveryServer) removeCon(conID string) {
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	errChan := make(chan error, 1)
 
-	// Identify the resource name for acking
-	curResource := res.Nonce + res.VersionInfo
-
+	// Flow control - release any acquired semaphores on this connection. This heavily
+	// relies on the request & response behavior of Envoy. Once you understand this
+	// behavior, perhaps you could consider improving it. This value should almost always
+	// be 1, although it may not be.
 	if features.EnableFlowControl {
-		// Flow control - release any acquired semaphores on this conneciton. This heavily
-		// relies on the request & response behavior of Envoy. Once you understand this
-		// behavior, perhaps you could consider improving it
-
-		// I don't think this iterative map delete is safe.
 		for k := range conn.semmap {
-			//		adsLog.Infof("sem Release %v", k)
 			conn.semmap[k] <- struct{}{}
-			//			adsLog.Infof("sem Release Done %v", k)
+			// Flow control - Acquire a semaphore - locking this thread for sendTimeout.
 			close(conn.semmap[k])
 			delete(conn.semmap, k)
 		}
-
-		// Allocate a channel for this unique resource
-		conn.semmap[curResource] = make(chan struct{})
 	}
 
 	// sendTimeout may be modified via environment
@@ -786,12 +778,22 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	go func() {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
+
 		errChan <- conn.stream.Send(res)
+
+		// acquire the semaphore after the stream has been sent. Acquire per resource, not per
+		// resource type. Keep a map of the resources acquired. Typically this should contain
+		// one entry.
 		if features.EnableFlowControl {
-			// Flow control - Acquire a semaphore - locking this thread for sendTimeout.
-			//			adsLog.Infof("sem Acquire %v", curResource)
-			<-conn.semmap[curResource]
-			//			adsLog.Infof("sem Done Acquire %v", curResource)
+			// Identify the resource name for acking
+			resource := res.Nonce + res.VersionInfo
+
+			// Allocate a channel for this unique resource
+			// This channel must be acquired after Send(), otherwise there is no further request
+			// from Envoy and this goroutine times out on sendTimeout
+			conn.semmap[resource] = make(chan struct{})
+			<-conn.semmap[resource]
+
 		}
 		close(errChan)
 	}()
