@@ -38,6 +38,8 @@ TOPOLOGY=SINGLE_CLUSTER
 
 PARAMS=()
 
+NODE_IMAGE="kindest/node:v1.16.9"
+
 while (( "$#" )); do
   case "$1" in
     # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
@@ -143,7 +145,8 @@ fi
 
 # Run the test target if provided.
 if [[ -n "${PARAMS:-}" ]]; then
-  make "${PARAMS[*]}"
+  #make "${PARAMS[*]}"
+  make debug-TestMultiRevision
 fi
 
 # Check if the user is running the clusters in manual mode.

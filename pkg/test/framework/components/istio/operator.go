@@ -533,6 +533,7 @@ func applyManifest(c *operatorComponent, installSettings []string, istioCtl isti
 
 	// Actually run the install command
 	cmd := []string{
+		"--log_output_level=all:debug",
 		"install",
 		"--skip-confirmation",
 	}

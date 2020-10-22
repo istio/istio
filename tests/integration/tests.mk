@@ -101,3 +101,9 @@ test.integration.kube.reachability: | $(JUNIT_REPORT)
 	${_INTEGRATION_TEST_FLAGS} \
 	--test.run=TestReachability \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+
+.PHONY: debug-TestMultiRevision
+debug-TestMultiRevision: | $(JUNIT_REPORT)
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/pilot/revisions/ -timeout 10m \
+	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} --test.run=TestMultiRevision \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
