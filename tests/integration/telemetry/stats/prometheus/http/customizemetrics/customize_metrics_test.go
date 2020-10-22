@@ -16,16 +16,19 @@
 package customizemetrics
 
 import (
+	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
+
+	"strings"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -41,11 +44,14 @@ var (
 	promInst       prometheus.Instance
 )
 
+const removedTag = "source_principal"
+
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.prometheus.customize-metric").
 		Run(func(ctx framework.TestContext) {
 			destinationQuery := buildQuery()
+			var metricVal string
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := sendTraffic(t); err != nil {
 					t.Errorf("failed to send traffic")
@@ -53,10 +59,16 @@ func TestCustomizeMetrics(t *testing.T) {
 				if err := promUtil.QueryPrometheus(t, destinationQuery, promInst); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
+				} else {
+					metricVal = util.PromDump(promInst, "istio_requests_total")
 				}
+
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(90*time.Second))
-
+			// check tag removed
+			if strings.Contains(metricVal, removedTag) {
+				t.Errorf("failed to remove tag: %v", removedTag)
+			}
 			promUtil.ValidateMetric(t, promInst, destinationQuery, "istio_requests_total", 1)
 		})
 }
@@ -113,7 +125,7 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.ControlPlaneValues = `
+	cfValue := `
 values:
  telemetry:
    v2:
@@ -127,9 +139,10 @@ values:
              dimensions:
                response_code: istio_responseClass
                request_operation: istio_operationId
+             tags_to_remove:
+             - %s
 `
-	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
-	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
+	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
 }
 
 func setupEnvoyFilter(ctx resource.Context) error {
