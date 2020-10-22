@@ -227,7 +227,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 		return err
 	}
 	con := newConnection(peerAddr, stream)
-
 	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
@@ -761,22 +760,26 @@ func (s *DiscoveryServer) removeCon(conID string) {
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	errChan := make(chan error, 1)
 
-	// Flow control - release any acquired semaphores on this conneciton. This heavily
-	// relies on the request & response behavior of Envoy. Once you understand this
-	// behavior, perhaps you could consider improving it
-
-	// I don't think this is safe.
-	for k := range conn.semmap {
-		adsLog.Infof("sem Release %v", k)
-		conn.semmap[k] <- struct{}{}
-		adsLog.Infof("sem Release Done %v", k)
-		close(conn.semmap[k])
-		delete(conn.semmap, k)
-	}
-
-	// Allocate a semaphore for the map for this unique resource
+	// Identify the resource name for acking
 	curResource := res.Nonce + res.VersionInfo
-	conn.semmap[curResource] = make(chan struct{})
+
+	if features.EnableFlowControl {
+		// Flow control - release any acquired semaphores on this conneciton. This heavily
+		// relies on the request & response behavior of Envoy. Once you understand this
+		// behavior, perhaps you could consider improving it
+
+		// I don't think this iterative map delete is safe.
+		for k := range conn.semmap {
+			adsLog.Infof("sem Release %v", k)
+			conn.semmap[k] <- struct{}{}
+			adsLog.Infof("sem Release Done %v", k)
+			close(conn.semmap[k])
+			delete(conn.semmap, k)
+		}
+
+		// Allocate a channel for this unique resource
+		conn.semmap[curResource] = make(chan struct{})
+	}
 
 	// sendTimeout may be modified via environment
 	t := time.NewTimer(sendTimeout)
@@ -784,10 +787,12 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
 		errChan <- conn.stream.Send(res)
-		// Flow control - Acquire a semaphore - locking this thread for sendTimeout.
-		adsLog.Infof("sem Acquire %v", curResource)
-		<-conn.semmap[curResource]
-		adsLog.Infof("sem Done Acquire %v", curResource)
+		if features.EnableFlowControl {
+			// Flow control - Acquire a semaphore - locking this thread for sendTimeout.
+			adsLog.Infof("sem Acquire %v", curResource)
+			<-conn.semmap[curResource]
+			adsLog.Infof("sem Done Acquire %v", curResource)
+		}
 		close(errChan)
 	}()
 
