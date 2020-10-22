@@ -770,9 +770,9 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 
 		// I don't think this iterative map delete is safe.
 		for k := range conn.semmap {
-			adsLog.Infof("sem Release %v", k)
+			//		adsLog.Infof("sem Release %v", k)
 			conn.semmap[k] <- struct{}{}
-			adsLog.Infof("sem Release Done %v", k)
+			//			adsLog.Infof("sem Release Done %v", k)
 			close(conn.semmap[k])
 			delete(conn.semmap, k)
 		}
@@ -789,9 +789,9 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		errChan <- conn.stream.Send(res)
 		if features.EnableFlowControl {
 			// Flow control - Acquire a semaphore - locking this thread for sendTimeout.
-			adsLog.Infof("sem Acquire %v", curResource)
+			//			adsLog.Infof("sem Acquire %v", curResource)
 			<-conn.semmap[curResource]
-			adsLog.Infof("sem Done Acquire %v", curResource)
+			//			adsLog.Infof("sem Done Acquire %v", curResource)
 		}
 		close(errChan)
 	}()
