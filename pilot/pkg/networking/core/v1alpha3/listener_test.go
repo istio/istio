@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -146,10 +147,6 @@ var (
 )
 
 func TestInboundListenerConfig(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForInbound
-	features.EnableProtocolSniffingForInbound = true
-	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
-
 	for _, p := range []*model.Proxy{getProxy(), &proxyHTTP10} {
 		testInboundListenerConfig(t, p,
 			buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
@@ -877,7 +874,7 @@ func getHTTPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChai
 
 func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
-	p := &fakePlugin{}
+	p := registry.NewPlugins([]string{plugin.Authn})[0]
 	listeners := buildInboundListeners(t, p, proxy, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -903,7 +900,7 @@ func testInboundListenerConfigWithGrpc(t *testing.T, proxy *model.Proxy, service
 
 func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
-	p := &fakePlugin{}
+	p := registry.NewPlugins([]string{plugin.Authn})[0]
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
 			Name:      "foo",
@@ -932,7 +929,8 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 
 func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *model.Proxy) {
 	t.Helper()
-	p := &fakePlugin{}
+
+	p := registry.NewPlugins([]string{plugin.Authn})[0]
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
 			Name:      "foo-without-service",
@@ -997,8 +995,10 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 				len(plaintextHTTPALPNs), plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 		}
 
-		if fc.FilterChainMatch.TransportProtocol != "" {
+		if direction == model.TrafficDirectionOutbound && fc.FilterChainMatch.TransportProtocol != "" {
 			t.Fatalf("exepct %q transport protocol, found %q", "", fc.FilterChainMatch.TransportProtocol)
+		} else if direction == model.TrafficDirectionInbound && fc.FilterChainMatch.TransportProtocol != xdsfilters.RawBufferTransportProtocol {
+			t.Fatalf("exepct %q transport protocol, found %q", xdsfilters.RawBufferTransportProtocol, fc.FilterChainMatch.TransportProtocol)
 		}
 	}
 
@@ -1442,7 +1442,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, nil, env)
+	listeners := buildAllListeners(p, env)
 	found := false
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
@@ -1468,10 +1468,45 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter users the new format.
-	listeners = buildAllListeners(p, nil, env)
+	listeners = buildAllListeners(p, env)
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
+		}
+	}
+}
+
+func TestListenerAccessLogs(t *testing.T) {
+	t.Helper()
+	p := &fakePlugin{}
+	env := buildListenerEnv(nil)
+	env.Mesh().AccessLogFile = "foo"
+	listeners := buildAllListeners(p, env)
+	for _, l := range listeners {
+
+		if l.AccessLog == nil {
+			t.Fatalf("expected access log configuration for %v", l)
+		}
+		if l.AccessLog[0].Filter == nil {
+			t.Fatal("expected filter config in listener access log configuration")
+		}
+	}
+	// Update MeshConfig
+	env.Mesh().AccessLogFormat = "format modified"
+
+	// Trigger MeshConfig change and validate that access log is recomputed.
+	accessLogBuilder.reset()
+
+	// Validate that access log filter users the new format.
+	listeners = buildAllListeners(p, env)
+	for _, l := range listeners {
+		if l.AccessLog[0].Filter == nil {
+			t.Fatal("expected filter config in listener access log configuration")
+		}
+		cfg, _ := conversion.MessageToStruct(l.AccessLog[0].GetTypedConfig())
+		textFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format"].GetStringValue()
+		if textFormat != env.Mesh().AccessLogFormat {
+			t.Fatalf("expected format to be %s, but got %s", env.Mesh().AccessLogFormat, textFormat)
 		}
 	}
 }
@@ -1486,8 +1521,9 @@ func validateAccessLog(t *testing.T, l *listener.Listener, format string) {
 		t.Fatal("expected access log configuration")
 	}
 	cfg, _ := conversion.MessageToStruct(fc.AccessLog[0].GetTypedConfig())
-	if cfg.GetFields()["format"].GetStringValue() != format {
-		t.Fatalf("expected format to be %s, but got %s", format, cfg.GetFields()["format"].GetStringValue())
+	textFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format"].GetStringValue()
+	if textFormat != format {
+		t.Fatalf("expected format to be %s, but got %s", format, textFormat)
 	}
 }
 
@@ -2057,7 +2093,7 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, sidecarConfig *config.Config, env model.Environment) []*listener.Listener {
+func buildAllListeners(p plugin.Plugin, env model.Environment) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -2066,11 +2102,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *config.Config, env model.
 
 	proxy := getProxy()
 	proxy.ServiceInstances = nil
-	if sidecarConfig == nil {
-		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	} else {
-		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
-	}
+	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	builder := NewListenerBuilder(proxy, env.PushContext)
 	return configgen.buildSidecarListeners(builder).getListeners()
 }
@@ -2105,9 +2137,7 @@ func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, si
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
-	if err := proxy.SetServiceInstances(&env); err != nil {
-		return nil
-	}
+	proxy.SetServiceInstances(&env)
 
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	if sidecarConfig == nil {

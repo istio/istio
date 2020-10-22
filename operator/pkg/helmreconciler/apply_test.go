@@ -18,12 +18,18 @@ import (
 	"context"
 	"io/ioutil"
 	"reflect"
+	"sync"
 	"testing"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 )
 
@@ -49,11 +55,22 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cl := fake.NewFakeClient(loadData(t, tt.input).UnstructuredObject())
 			obj := loadData(t, tt.input)
-
-			h := &HelmReconciler{client: cl, opts: &Options{}}
-			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
+			cl := &fakeClientWrapper{fake.NewFakeClientWithScheme(runtime.NewScheme(),
+				loadData(t, tt.input).UnstructuredObject())}
+			h := &HelmReconciler{
+				client: cl,
+				opts:   &Options{},
+				iop: &v1alpha1.IstioOperator{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test-operator",
+						Namespace: "istio-operator-test",
+					},
+				},
+				countLock:     &sync.Mutex{},
+				prunedKindSet: map[schema.GroupKind]struct{}{},
+			}
+			if err := h.ApplyObject(obj.UnstructuredObject(), false); (err != nil) != tt.wantErr {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -77,6 +94,31 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 
 		})
 	}
+}
+
+type fakeClientWrapper struct {
+	client.Client
+}
+
+// Patch converts apply patches to merge patches because fakeclient does not support apply patch.
+func (c *fakeClientWrapper) Patch(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
+	patch, opts = convertApplyToMergePatch(patch, opts...)
+	return c.Client.Patch(ctx, obj, patch, opts...)
+}
+
+func convertApplyToMergePatch(patch client.Patch, opts ...client.PatchOption) (client.Patch, []client.PatchOption) {
+	if patch.Type() == types.ApplyPatchType {
+		patch = client.Merge
+		patchOptions := make([]client.PatchOption, 0, len(opts))
+		for _, opt := range opts {
+			if opt == client.ForceOwnership {
+				continue
+			}
+			patchOptions = append(patchOptions, opt)
+		}
+		opts = patchOptions
+	}
+	return patch, opts
 }
 
 func loadData(t *testing.T, file string) *object.K8sObject {

@@ -421,7 +421,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "avg(galley_istio_networking_virtualservices)",
+          "expr": "max(pilot_k8s_cfg_events{type=\"VirtualService\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"VirtualService\", event=\"delete\"}) or max(up * 0))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -503,7 +503,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "avg(galley_istio_networking_destinationrules)",
+          "expr": "max(pilot_k8s_cfg_events{type=\"DestinationRule\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"DestinationRule\", event=\"delete\"}) or max(up * 0))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -585,7 +585,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "avg(galley_istio_networking_gateways)",
+          "expr": "max(pilot_k8s_cfg_events{type=\"Gateway\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"Gateway\", event=\"delete\"}) or max(up * 0))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -1191,7 +1191,27 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "default",
+          "value": "default"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": null,
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
   },
   "time": {
     "from": "now-5m",

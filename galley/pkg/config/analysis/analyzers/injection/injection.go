@@ -72,7 +72,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 
-			m := msg.NewNamespaceNotInjected(r, r.Metadata.FullName.String(), r.Metadata.FullName.String())
+			m := msg.NewNamespaceNotInjected(r, ns, ns)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
 				m.Line = line
@@ -85,9 +85,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		if okNewInjectionLabel {
 			if injectionLabel != "" {
 
-				m := msg.NewNamespaceMultipleInjectionLabels(r,
-					r.Metadata.FullName.String(),
-					r.Metadata.FullName.String())
+				m := msg.NewNamespaceMultipleInjectionLabels(r, ns, ns)
 
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
 					m.Line = line
@@ -101,7 +99,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		injectedNamespaces[r.Metadata.FullName.String()] = true
+		injectedNamespaces[ns] = true
 
 		return true
 	})

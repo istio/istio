@@ -12,6 +12,9 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "IngressGateways"
 spec:
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"

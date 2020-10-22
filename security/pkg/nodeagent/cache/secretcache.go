@@ -34,10 +34,10 @@ import (
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -237,7 +237,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
-
 	// If request is for root certificate,
 	// retry since rootCert may be empty until there is CSR response returned from CA.
 	rootCert, rootCertExpr := sc.getRootCert()
@@ -847,8 +846,15 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		numFailedOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
 		return nil, err
 	}
+	csrHostName := &spiffe.Identity{
+		TrustDomain:    sc.configOptions.TrustDomain,
+		Namespace:      sc.configOptions.WorkloadNamespace,
+		ServiceAccount: sc.configOptions.ServiceAccount,
+	}
 
+	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())
 	options := pkiutil.CertOptions{
+		Host:       csrHostName.String(),
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
@@ -874,10 +880,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	cacheLog.Debugf("%s received CSR response with certificate chain %+v \n",
 		logPrefix, certChainPEM)
 
-	certChain := []byte{}
-	for _, c := range certChainPEM {
-		certChain = append(certChain, []byte(c)...)
-	}
+	certChain := concatCerts(certChainPEM)
 
 	var expireTime time.Time
 	// Cert expire time by default is createTime + sc.configOptions.SecretTTL.
@@ -927,22 +930,6 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	cacheLog.Debugf("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
 		secret.ResourceName, secretLifeTime, gracePeriod, secret.ExpireTime, rotate)
 	return rotate
-}
-
-func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
-	// Skip check if the token should not be parsed in proxy.
-	// Parsing token may not always be possible because token may not be a JWT.
-	// If SkipParseToken is true, we should assume token is valid and leave token validation to CA.
-	if sc.configOptions.SkipParseToken {
-		return false
-	}
-
-	expired, err := util.IsJwtExpired(secret.Token, time.Now())
-	if err != nil {
-		cacheLog.Errorf("JWT expiration checking error: %v. Consider as expired.", err)
-		return true
-	}
-	return expired
 }
 
 // sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
@@ -1061,4 +1048,19 @@ func (sc *SecretCache) useCertToRotate() bool {
 		return false
 	}
 	return true
+}
+
+// concatCerts concatenates PEM certificates, making sure each one starts on a new line
+func concatCerts(certsPEM []string) []byte {
+	if len(certsPEM) == 0 {
+		return []byte{}
+	}
+	var certChain bytes.Buffer
+	for i, c := range certsPEM {
+		certChain.WriteString(c)
+		if i < len(certsPEM)-1 && !strings.HasSuffix(c, "\n") {
+			certChain.WriteString("\n")
+		}
+	}
+	return certChain.Bytes()
 }

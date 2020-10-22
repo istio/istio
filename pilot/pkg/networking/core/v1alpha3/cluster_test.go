@@ -29,6 +29,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
@@ -78,7 +79,7 @@ var (
 )
 
 func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	checkClusters := []string{"outbound|8080||*.example.org", "inbound|8080|default|*.example.org"}
+	checkClusters := []string{"outbound|8080||*.example.org", "inbound|8080||"}
 	settings := []*networking.ConnectionPoolSettings{
 		nil,
 		{
@@ -148,7 +149,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			proxyType:                 model.SidecarProxy,
 			clusters:                  8,
 		}, {
-			clusterName:               "inbound|8080|default|*.example.org",
+			clusterName:               "inbound|8080||",
 			useDownStreamProtocol:     false,
 			sniffingEnabledForInbound: false,
 			proxyType:                 model.SidecarProxy,
@@ -161,7 +162,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusters:                  8,
 		},
 		{
-			clusterName:               "inbound|9090|auto|*.example.org",
+			clusterName:               "inbound|9090||",
 			useDownStreamProtocol:     true,
 			sniffingEnabledForInbound: true,
 			proxyType:                 model.SidecarProxy,
@@ -777,17 +778,16 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 		Sni:             "custom.foo.com",
 	}
 	tests := []struct {
-		name                 string
-		tls                  *networking.ClientTLSSettings
-		sans                 []string
-		sni                  string
-		proxy                *model.Proxy
-		autoMTLSEnabled      bool
-		meshExternal         bool
-		serviceMTLSMode      model.MutualTLSMode
-		clusterDiscoveryType cluster.Cluster_DiscoveryType
-		want                 *networking.ClientTLSSettings
-		wantCtxType          mtlsContextType
+		name            string
+		tls             *networking.ClientTLSSettings
+		sans            []string
+		sni             string
+		proxy           *model.Proxy
+		autoMTLSEnabled bool
+		meshExternal    bool
+		serviceMTLSMode model.MutualTLSMode
+		want            *networking.ClientTLSSettings
+		wantCtxType     mtlsContextType
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
@@ -795,7 +795,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
+			false, false, model.MTLSUnknown,
 			tlsSettings,
 			userSupplied,
 		},
@@ -812,7 +812,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
+			false, false, model.MTLSUnknown,
 			&networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
@@ -830,7 +830,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
+			false, false, model.MTLSUnknown,
 			&networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -847,7 +847,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSStrict, cluster.Cluster_EDS,
+			true, false, model.MTLSStrict,
 			&networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
@@ -861,7 +861,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSPermissive, cluster.Cluster_EDS,
+			true, false, model.MTLSPermissive,
 			&networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
@@ -875,7 +875,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSDisable, cluster.Cluster_EDS,
+			true, false, model.MTLSDisable,
 			nil,
 			userSupplied,
 		},
@@ -885,7 +885,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSUnknown, cluster.Cluster_EDS,
+			true, false, model.MTLSUnknown,
 			nil,
 			userSupplied,
 		},
@@ -895,7 +895,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, true, model.MTLSUnknown, cluster.Cluster_EDS,
+			true, true, model.MTLSUnknown,
 			nil,
 			userSupplied,
 		},
@@ -905,17 +905,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSDisable, cluster.Cluster_EDS,
-			nil,
-			userSupplied,
-		},
-		{
-			"Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSPermissive, cluster.Cluster_ORIGINAL_DST,
+			false, false, model.MTLSDisable,
 			nil,
 			userSupplied,
 		},
@@ -924,7 +914,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotTLS, gotCtxType := buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.proxy,
-				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.clusterDiscoveryType)
+				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
@@ -1079,7 +1069,7 @@ func TestStatNamePattern(t *testing.T) {
 			Host: "*.example.org",
 		}})
 	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(xdstest.ExtractCluster("inbound|8080|default|*.example.org", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(xdstest.ExtractCluster("inbound|8080||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestDuplicateClusters(t *testing.T) {
@@ -3284,6 +3274,482 @@ func TestEnvoyFilterPatching(t *testing.T) {
 			sort.Strings(tt.want)
 			if !cmp.Equal(clusterNames, tt.want) {
 				t.Fatalf("want %v got %v", tt.want, clusterNames)
+			}
+		})
+	}
+}
+
+func TestTelemetryMetadata(t *testing.T) {
+	cases := []struct {
+		name      string
+		direction model.TrafficDirection
+		cluster   *cluster.Cluster
+		svcInsts  []*model.ServiceInstance
+		service   *model.Service
+		want      *core.Metadata
+	}{
+		{
+			name:      "no cluster",
+			direction: model.TrafficDirectionInbound,
+			cluster:   nil,
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name:      "inbound no service",
+			direction: model.TrafficDirectionInbound,
+			cluster:   &cluster.Cluster{},
+			svcInsts:  []*model.ServiceInstance{},
+			want:      nil,
+		},
+		{
+			name:      "inbound existing metadata",
+			direction: model.TrafficDirectionInbound,
+			cluster: &cluster.Cluster{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						"some-metadata": {
+							Fields: map[string]*structpb.Value{
+								"some-key": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+							},
+						},
+					},
+				},
+			},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"some-metadata": {
+						Fields: map[string]*structpb.Value{
+							"some-key": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+						},
+					},
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "inbound existing istio metadata",
+			direction: model.TrafficDirectionInbound,
+			cluster: &cluster.Cluster{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								"some-key": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+							},
+						},
+					},
+				},
+			},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"some-key": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "inbound multiple services",
+			direction: model.TrafficDirectionInbound,
+			cluster:   &cluster.Cluster{},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "b",
+							Namespace: "default",
+						},
+						Hostname: "b.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "b.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "b",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "inbound existing services metadata",
+			direction: model.TrafficDirectionInbound,
+			cluster: &cluster.Cluster{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								"services": {Kind: &structpb.Value_StringValue{StringValue: "some-val"}},
+							},
+						},
+					},
+				},
+			},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "outbound service metadata",
+			direction: model.TrafficDirectionOutbound,
+			cluster:   &cluster.Cluster{},
+			service: &model.Service{
+				Attributes: model.ServiceAttributes{
+					Name:      "a",
+					Namespace: "default",
+				},
+				Hostname: "a.default",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "inbound duplicated metadata",
+			direction: model.TrafficDirectionInbound,
+			cluster:   &cluster.Cluster{},
+			svcInsts: []*model.ServiceInstance{
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+				{
+					Service: &model.Service{
+						Attributes: model.ServiceAttributes{
+							Name:      "a",
+							Namespace: "default",
+						},
+						Hostname: "a.default",
+					},
+					ServicePort: &model.Port{
+						Port: 80,
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"services": {
+								Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											{
+												Kind: &structpb.Value_StructValue{
+													StructValue: &structpb.Struct{
+														Fields: map[string]*structpb.Value{
+															"host": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a.default",
+																},
+															},
+															"name": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "a",
+																},
+															},
+															"namespace": {
+																Kind: &structpb.Value_StringValue{
+																	StringValue: "default",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := buildClusterOpts{
+				cluster: tt.cluster,
+				port:    &model.Port{Port: 80},
+				proxy: &model.Proxy{
+					ServiceInstances: tt.svcInsts,
+				},
+			}
+			addTelemetryMetadata(opt, tt.service, tt.direction)
+			if opt.cluster != nil && !reflect.DeepEqual(opt.cluster.Metadata, tt.want) {
+				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.cluster.Metadata)
 			}
 		})
 	}

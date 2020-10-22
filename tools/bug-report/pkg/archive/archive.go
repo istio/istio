@@ -29,6 +29,7 @@ const (
 	proxyLogsPathSubdir = "proxies"
 	istioLogsPathSubdir = "istio"
 	clusterInfoSubdir   = "cluster"
+	analyzeSubdir       = "analyze"
 )
 
 var (
@@ -36,6 +37,12 @@ var (
 	initDir sync.Once
 )
 
+// DirToArchive is the dir to archive.
+func DirToArchive(rootDir string) string {
+	return filepath.Dir(getRootDir(rootDir))
+}
+
+// OutputRootDir is the root dir of output artifacts.
 func OutputRootDir(rootDir string) string {
 	return getRootDir(rootDir)
 }
@@ -45,13 +52,15 @@ func ProxyOutputPath(rootDir, namespace, pod string) string {
 }
 
 func IstiodPath(rootDir, namespace, pod string) string {
-	dir := filepath.Join(getRootDir(rootDir), istioLogsPathSubdir, namespace)
-	return filepath.Join(dir, pod)
+	return filepath.Join(getRootDir(rootDir), istioLogsPathSubdir, namespace, pod)
+}
+
+func AnalyzePath(rootDir, namespace string) string {
+	return filepath.Join(getRootDir(rootDir), analyzeSubdir, namespace)
 }
 
 func ClusterInfoPath(rootDir string) string {
-	dir := filepath.Join(getRootDir(rootDir), clusterInfoSubdir)
-	return dir
+	return filepath.Join(getRootDir(rootDir), clusterInfoSubdir)
 }
 
 // Create creates a gzipped tar file from srcDir and writes it to outPath.
@@ -102,7 +111,8 @@ func getRootDir(rootDir string) string {
 		return rootDir
 	}
 	initDir.Do(func() {
-		tmpDir = filepath.Join(os.TempDir(), bugReportSubdir)
+		// Extra subdir so archive extracts under new ./bug-report subdir.
+		tmpDir = filepath.Join(os.TempDir(), bugReportSubdir, bugReportSubdir)
 	})
 	return tmpDir
 }

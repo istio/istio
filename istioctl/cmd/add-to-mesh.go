@@ -71,12 +71,9 @@ func addToMeshCmd() *cobra.Command {
 		Aliases: []string{"add"},
 		Short:   "Add workloads into Istio service mesh",
 		Long: `'istioctl experimental add-to-mesh' restarts pods with an Istio sidecar or configures meshed pod access to external services.
-
 Use 'add-to-mesh' as an alternate to namespace-wide auto injection for troubleshooting compatibility.
 
-The 'remove-from-mesh' command can be used to restart with the sidecar removed.
-
-THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
+The 'remove-from-mesh' command can be used to restart with the sidecar removed.`,
 		Example: `  # Restart all productpage pods with an Istio sidecar
   istioctl experimental add-to-mesh service productpage
 
@@ -114,6 +111,8 @@ THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 	addToMeshCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
+
+	addToMeshCmd.Long += "\n\n" + ExperimentalMsg
 	return addToMeshCmd
 }
 
@@ -131,10 +130,7 @@ to test deployments for compatibility with Istio.  It can be used instead of nam
 If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
 See ` + url.DeploymentRequirements + `
 
-See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.`,
 		Example: `  # Restart pods from the productpage-v1 deployment with Istio sidecar
   istioctl experimental add-to-mesh deployment productpage-v1
 
@@ -163,15 +159,13 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
-			deps := make([]appsv1.Deployment, 0)
-			deps = append(deps, *dep)
-			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
+			return injectSideCarIntoDeployment(client, dep, sidecarTemplate, valuesConfig,
 				args[0], ns, opts.Revision, meshConfig, writer, func(warning string) {
 					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				})
 		},
 	}
-
+	cmd.Long += "\n\n" + ExperimentalMsg
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
@@ -190,10 +184,7 @@ to test deployments for compatibility with Istio.  It can be used instead of nam
 If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
 See ` + url.DeploymentRequirements + `
 
-See also 'istioctl experimental remove-from-mesh service' which does the reverse.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+See also 'istioctl experimental remove-from-mesh service' which does the reverse.`,
 		Example: `  # Restart all productpage pods with an Istio sidecar
   istioctl experimental add-to-mesh service productpage
 
@@ -226,15 +217,28 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				_, _ = fmt.Fprintf(writer, "No deployments found for service %s.%s\n", args[0], ns)
 				return nil
 			}
-			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
+			return injectSideCarIntoDeployments(client, matchingDeployments, sidecarTemplate, valuesConfig,
 				args[0], ns, opts.Revision, meshConfig, writer, func(warning string) {
 					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				})
 		},
 	}
-
+	cmd.Long += "\n\n" + ExperimentalMsg
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
+}
+
+func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate, valuesConfig,
+	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+	var errs error
+	for _, dep := range deps {
+		err := injectSideCarIntoDeployment(client, &dep, sidecarTemplate, valuesConfig,
+			name, namespace, revision, meshConfig, writer, warningHandler)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
 }
 
 func externalSvcMeshifyCmd() *cobra.Command {
@@ -246,10 +250,7 @@ func externalSvcMeshifyCmd() *cobra.Command {
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
 
-See also 'istioctl experimental remove-from-mesh external-service' which does the reverse.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+See also 'istioctl experimental remove-from-mesh external-service' which does the reverse.`,
 		Example: ` # Control how meshed pods contact 172.12.23.125 and .126
   istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126 \
    http:9080 tcp:8888 --labels app=test,version=v1 --annotations env=stage --serviceaccount stageAdmin`,
@@ -280,6 +281,8 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 		nil, "List of string annotations to apply if creating a service/endpoint; e.g. -a foo=bar,x=y")
 	cmd.PersistentFlags().StringVarP(&svcAcctAnn, "serviceaccount", "s",
 		"default", "Service account to link to the service")
+
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
@@ -320,48 +323,45 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 	return meshConfig, err
 }
 
-func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate, valuesConfig,
+func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate, valuesConfig,
 	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
-	for _, dep := range deps {
-		log.Debugf("updating deployment %s.%s with Istio sidecar injected",
-			dep.Name, dep.Namespace)
-		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep, warningHandler)
-		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
-				dep.Name, dep.Namespace, svcName, svcNamespace, err))
-			continue
-		}
-		res, b := newDep.(*appsv1.Deployment)
-		if !b {
-			errs = multierror.Append(errs, fmt.Errorf("failed to create new deployment resource %s.%s for service %s.%s due to %v",
-				dep.Name, dep.Namespace, svcName, svcNamespace, err))
-			continue
-		}
-		if _, err =
-			client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
-				dep.Name, dep.Namespace, svcName, svcNamespace, err))
-			continue
-
-		}
-		d := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            dep.Name,
-				Namespace:       dep.Namespace,
-				UID:             dep.UID,
-				OwnerReferences: dep.OwnerReferences,
-			},
-		}
-		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %s.%s for service %s.%s due to %v",
-				dep.Name, dep.Namespace, svcName, svcNamespace, err))
-			continue
-		}
-		_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
-			"Next Step: Add related labels to the deployment to align with Istio's requirement: %s\n",
-			dep.Name, dep.Namespace, url.DeploymentRequirements)
+	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
+		dep.Name, dep.Namespace)
+	newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
+	if err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
+			dep.Name, dep.Namespace, svcName, svcNamespace, err))
+		return errs
 	}
+	res, b := newDep.(*appsv1.Deployment)
+	if !b {
+		errs = multierror.Append(errs, fmt.Errorf("failed to create new deployment resource %s.%s for service %s.%s due to %v",
+			dep.Name, dep.Namespace, svcName, svcNamespace, err))
+		return errs
+	}
+	if _, err =
+		client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
+			dep.Name, dep.Namespace, svcName, svcNamespace, err))
+		return errs
+	}
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            dep.Name,
+			Namespace:       dep.Namespace,
+			UID:             dep.UID,
+			OwnerReferences: dep.OwnerReferences,
+		},
+	}
+	if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("failed to update deployment status %s.%s for service %s.%s due to %v",
+			dep.Name, dep.Namespace, svcName, svcNamespace, err))
+		return errs
+	}
+	_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
+		"Next Step: Add related labels to the deployment to align with Istio's requirement: %s\n",
+		dep.Name, dep.Namespace, url.DeploymentRequirements)
 	return errs
 }
 

@@ -52,8 +52,13 @@ func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 			return nil, err
 		}
 
-		certPool := x509.NewCertPool()
-		if !certPool.AppendCertsFromPEM([]byte(tlsSettings.RootCert)) {
+		var certPool *x509.CertPool
+		certPool, err = x509.SystemCertPool()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch Cert from SystemCertPool: %v", err)
+		}
+
+		if tlsSettings.RootCert != "" && !certPool.AppendCertsFromPEM([]byte(tlsSettings.RootCert)) {
 			return nil, fmt.Errorf("failed to create cert pool")
 		}
 		cfg := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool})
@@ -93,5 +98,5 @@ func (c *Instance) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRe
 		return nil, err
 	}
 
-	return parseForwardedResponse(resp), nil
+	return ParseForwardedResponse(resp), nil
 }

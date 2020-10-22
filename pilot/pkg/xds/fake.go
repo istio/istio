@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -47,10 +48,14 @@ import (
 )
 
 type FakeOptions struct {
-	// If provided, these objects will be used directly
+	// If provided, a service registry with the name of each map key will be created with the given objects.
+	KubernetesObjectsByCluster map[string][]runtime.Object
+	// If provided, these objects will be used directly for the default cluster ("Kubernetes")
 	KubernetesObjects []runtime.Object
-	// If provided, the yaml string will be parsed and used as objects
+	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes")
 	KubernetesObjectString string
+	// Endpoint mode for the Kubernetes service registry
+	KubernetesEndpointMode kube.EndpointMode
 	// If provided, these configs will be used directly
 	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -64,10 +69,11 @@ type FakeOptions struct {
 
 type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
-	t          test.Failer
-	Discovery  *DiscoveryServer
-	Listener   *bufconn.Listener
-	kubeClient kubelib.Client
+	t            test.Failer
+	Discovery    *DiscoveryServer
+	Listener     *bufconn.Listener
+	kubeClient   kubelib.Client
+	KubeRegistry *kube.FakeController
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -76,8 +82,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		close(stop)
 	})
 
+	m := opts.MeshConfig
+	if m == nil {
+		def := mesh.DefaultMeshConfig()
+		m = &def
+	}
+
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.Authn, plugin.Authz})
+	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.Authn, plugin.Authz}, "pilot-123")
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -92,20 +104,39 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.ConfigUpdate(pushReq)
 	}
 
-	kubeClient := kubelib.NewFakeClient(getKubernetesObjects(t, opts)...)
-	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
-		ServiceHandler:  serviceHandler,
-		Client:          kubeClient,
-		ClusterID:       "Kubernetes",
-		DomainSuffix:    "cluster.local",
-		XDSUpdater:      s,
-		NetworksWatcher: opts.NetworksWatcher,
-	})
+	k8sObjects := getKubernetesObjects(t, opts)
+	var defaultKubeClient kubelib.Client
+	var defaultKubeController *kube.FakeController
+	var registries []serviceregistry.Instance
+	for cluster, objs := range k8sObjects {
+		client := kubelib.NewFakeClient(objs...)
+		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
+			ServiceHandler:  serviceHandler,
+			Client:          client,
+			ClusterID:       cluster,
+			DomainSuffix:    "cluster.local",
+			XDSUpdater:      s,
+			NetworksWatcher: opts.NetworksWatcher,
+			Mode:            opts.KubernetesEndpointMode,
+		})
+		// start default client informers after creating ingress/secret controllers
+		if defaultKubeClient == nil || cluster == "Kubernetes" {
+			defaultKubeClient = client
+			defaultKubeController = k8s
+		} else {
+			client.RunAndWait(stop)
+		}
+		registries = append(registries, k8s)
+	}
 
-	sc := kubesecrets.NewSecretsController(kubeClient, "", nil)
-	sc.DisableAuthorization()
-	kubeClient.RunAndWait(stop)
+	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "")
 	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
+	defaultKubeClient.RunAndWait(stop)
+
+	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
+		DomainSuffix: "cluster.local",
+	})
+	defaultKubeClient.RunAndWait(stop)
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 		Configs:             opts.Configs,
@@ -113,8 +144,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigTemplateInput: opts.ConfigTemplateInput,
 		MeshConfig:          opts.MeshConfig,
 		NetworksWatcher:     opts.NetworksWatcher,
-		ServiceRegistries:   []serviceregistry.Instance{k8s},
+		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,
+		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
+		SkipRun:             true,
 	})
 	if err := cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler); err != nil {
 		t.Fatal(err)
@@ -158,11 +191,17 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 		cg.Store().RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 	}
-	if err := cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
-		t.Fatal(err)
-	}
-	if err := k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler); err != nil {
-		t.Fatal(err)
+	for _, registry := range registries {
+		k8s, ok := registry.(*kube.FakeController)
+		if !ok {
+			continue
+		}
+		if err := cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
+			t.Fatal(err)
+		}
+		if err := k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// Start in memory gRPC listener
@@ -171,7 +210,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	grpcServer := grpc.NewServer()
 	s.Register(grpcServer)
 	go func() {
-		if err := grpcServer.Serve(listener); err != nil && err != grpc.ErrServerStopped {
+		if err := grpcServer.Serve(listener); err != nil && !(err == grpc.ErrServerStopped || err.Error() == "closed") {
 			t.Fatal(err)
 		}
 	}()
@@ -185,12 +224,16 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.Start(stop)
 	cg.ServiceEntryRegistry.ResyncEDS()
 
+	// Now that handlers are added, get everything started
+	cg.Run()
+
 	fake := &FakeDiscoveryServer{
 		t:             t,
 		Discovery:     s,
 		Listener:      listener,
 		ConfigGenTest: cg,
-		kubeClient:    kubeClient,
+		kubeClient:    defaultKubeClient,
+		KubeRegistry:  defaultKubeController,
 	}
 
 	// currently meshNetworks gateways are stored on the push context
@@ -230,24 +273,29 @@ func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_
 	return client
 }
 
-// ConnectADS starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
+// Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
 // watch can be configured to determine the resources to watch initially, and wait can be configured to determine what
 // resources we should initially wait for.
 func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
 	f.t.Helper()
 	p = f.SetupProxy(p)
+	initialWatch := []*discovery.DiscoveryRequest{}
 	if watch == nil {
-		watch = []string{v3.ClusterType}
+		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
+	} else {
+		for _, typeURL := range watch {
+			initialWatch = append(initialWatch, &discovery.DiscoveryRequest{TypeUrl: typeURL})
+		}
 	}
 	if wait == nil {
-		watch = []string{v3.ClusterType}
+		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
 	}
-	adscConn, err := adsc.Dial("buffcon", "", &adsc.Config{
-		IP:        p.IPAddresses[0],
-		Meta:      p.Metadata.ToStruct(),
-		Locality:  p.Locality,
-		Namespace: p.ConfigNamespace,
-		Watch:     watch,
+	adscConn, err := adsc.New("buffcon", &adsc.Config{
+		IP:                       p.IPAddresses[0],
+		Meta:                     p.Metadata.ToStruct(),
+		Locality:                 p.Locality,
+		Namespace:                p.ConfigNamespace,
+		InitialDiscoveryRequests: initialWatch,
 		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return f.Listener.Dial()
 		}),
@@ -286,12 +334,12 @@ func (f *FakeDiscoveryServer) refreshPushContext() {
 	}
 }
 
-func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
-	if len(opts.KubernetesObjects) > 0 {
-		return opts.KubernetesObjects
-	}
+func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.Object {
+	objects := map[string][]runtime.Object{}
 
-	objects := make([]runtime.Object, 0)
+	if len(opts.KubernetesObjects) > 0 {
+		objects["Kuberentes"] = append(objects["Kuberenetes"], opts.KubernetesObjects...)
+	}
 	if len(opts.KubernetesObjectString) > 0 {
 		decode := scheme.Codecs.UniversalDeserializer().Decode
 		objectStrs := strings.Split(opts.KubernetesObjectString, "---")
@@ -303,8 +351,16 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
 			if err != nil {
 				t.Fatalf("failed deserializing kubernetes object: %v", err)
 			}
-			objects = append(objects, o)
+			objects["Kubernetes"] = append(objects["Kubernetes"], o)
 		}
+	}
+
+	for cluster, clusterObjs := range opts.KubernetesObjectsByCluster {
+		objects[cluster] = append(objects[cluster], clusterObjs...)
+	}
+
+	if len(objects) == 0 {
+		return map[string][]runtime.Object{"Kubernetes": {}}
 	}
 
 	return objects

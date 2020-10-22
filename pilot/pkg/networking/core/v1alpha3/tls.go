@@ -182,6 +182,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		// having to generate expensive permutations of the host name just like RDS does..
 		// NOTE that we cannot have two services with the same VIP as our listener build logic will treat it as a collision and
 		// ignore one of the services.
+		// TODO: https://github.com/istio/istio/issues/27677 reconsider this logic
 		svcListenAddress := service.GetServiceAddressForProxy(node, push)
 		if strings.Contains(svcListenAddress, "/") {
 			// Address is a CIDR, already captured by destinationCIDR parameter.

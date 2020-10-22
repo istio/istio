@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +18,6 @@ package multicluster
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/features"
@@ -37,9 +37,7 @@ func ClusterLocalTest(t *testing.T, apps AppContext, features ...features.Featur
 						Label(label.Multicluster).
 						Run(func(ctx framework.TestContext) {
 							local := apps.LocalEchos.GetOrFail(ctx, echo.InCluster(c))
-							callOrFail(ctx, local, local, func(responses client.ParsedResponses) error {
-								return responses.CheckCluster(c.Name())
-							})
+							callOrFail(ctx, local, local, echo.ExpectCluster(c.Name()))
 						})
 				}
 			})

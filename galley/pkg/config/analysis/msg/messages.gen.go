@@ -23,7 +23,7 @@ var (
 
 	// NamespaceNotInjected defines a diag.MessageType for message "NamespaceNotInjected".
 	// Description: A namespace is not enabled for Istio injection.
-	NamespaceNotInjected = diag.NewMessageType(diag.Warning, "IST0102", "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection")
+	NamespaceNotInjected = diag.NewMessageType(diag.Info, "IST0102", "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection.")
 
 	// PodMissingProxy defines a diag.MessageType for message "PodMissingProxy".
 	// Description: A pod is missing the Istio proxy.
@@ -127,7 +127,7 @@ var (
 
 	// NoServerCertificateVerificationPortLevel defines a diag.MessageType for message "NoServerCertificateVerificationPortLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port.
-	NoServerCertificateVerificationPortLevel = diag.NewMessageType(diag.Error, "IST0129", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s")
+	NoServerCertificateVerificationPortLevel = diag.NewMessageType(diag.Warning, "IST0129", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s")
 
 	// VirtualServiceUnreachableRule defines a diag.MessageType for message "VirtualServiceUnreachableRule".
 	// Description: A VirtualService rule will never be used because a previous rule uses the same match.

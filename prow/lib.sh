@@ -62,7 +62,7 @@ function download_untar_istio_release() {
 function buildx-create() {
   export DOCKER_CLI_EXPERIMENTAL=enabled
   if ! docker buildx ls | grep -q container-builder; then
-    docker buildx create --driver-opt network=host --name container-builder
+    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:buildx-stable-1 --name container-builder
   fi
   docker buildx use container-builder
 }
@@ -76,14 +76,19 @@ function build_images() {
   targets="docker.pilot docker.proxyv2 "
 
   # use ubuntu:bionic to test vms by default
-  targets+="docker.app docker.app_sidecar_ubuntu_bionic "
+  nonDistrolessTargets="docker.app docker.app_sidecar_ubuntu_bionic "
   if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" ]]; then
-    targets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
-    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 "
+    nonDistrolessTargets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
+    nonDistrolessTargets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 docker.app_sidecar_centos_7 docker.app_sidecar_centos_8 "
   fi
   targets+="docker.operator "
   targets+="docker.install-cni "
-  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx.pushx
+  if [[ "${VARIANT:-default}" == "distroless" ]]; then
+    DOCKER_BUILD_VARIANTS="distroless" DOCKER_TARGETS="${targets}" make dockerx.pushx
+    DOCKER_BUILD_VARIANTS="default" DOCKER_TARGETS="${nonDistrolessTargets}" make dockerx.pushx
+  else
+    DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets} ${nonDistrolessTargets}" make dockerx.pushx
+  fi
 }
 
 # Creates a local registry for kind nodes to pull images from. Expects that the "kind" network already exists.

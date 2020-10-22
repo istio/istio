@@ -18,8 +18,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
+	"go.opencensus.io/stats/view"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -27,11 +31,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/controller"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 // Should match deploy/service.yaml
@@ -84,6 +91,21 @@ func getLeaderElectionNamespace() (string, bool) {
 	return os.LookupEnv("LEADER_ELECTION_NAMESPACE")
 }
 
+// getRenewDeadline returns the renew deadline for active control plane to refresh leadership.
+func getRenewDeadline() *time.Duration {
+	ddl, found := os.LookupEnv("RENEW_DEADLINE")
+	df := time.Second * 10
+	if !found {
+		return &df
+	}
+	duration, err := time.ParseDuration(ddl)
+	if err != nil {
+		log.Errorf("failed to parse renewDeadline: %v, use default value", err)
+		return &df
+	}
+	return &duration
+}
+
 func run() {
 	watchNS, err := getWatchNamespace()
 	if err != nil {
@@ -95,6 +117,7 @@ func run() {
 		log.Warn("Leader election namespace not set. Leader election is disabled. NOT APPROPRIATE FOR PRODUCTION USE!")
 	}
 
+	renewDeadline := getRenewDeadline()
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -116,6 +139,7 @@ func run() {
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
+			RenewDeadline:           renewDeadline,
 		}
 	} else {
 		// Create manager option for watching all namespaces.
@@ -125,6 +149,7 @@ func run() {
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
+			RenewDeadline:           renewDeadline,
 		}
 	}
 
@@ -132,6 +157,17 @@ func run() {
 	mgr, err := manager.New(cfg, mgrOpt)
 	if err != nil {
 		log.Fatalf("Could not create a controller manager: %v", err)
+	}
+
+	log.Info("Creating operator metrics exporter")
+	exporter, err := ocprom.NewExporter(ocprom.Options{
+		Registry:  ctrlmetrics.Registry.(*prometheus.Registry),
+		Namespace: "istio_install_operator",
+	})
+	if err != nil {
+		log.Warnf("Error while building exporter: %v", err)
+	} else {
+		view.RegisterExporter(exporter)
 	}
 
 	log.Info("Registering Components.")
@@ -145,6 +181,11 @@ func run() {
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Fatalf("Could not add all controllers to operator manager: %v", err)
 	}
+
+	// Record version of operator in metrics
+	metrics.Version.
+		With(metrics.OperatorVersionLabel.Value(version.Info.String())).
+		Record(1.0)
 
 	log.Info("Starting the Cmd.")
 

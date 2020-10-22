@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 25276
+  - 27797
+releaseNotes:
+ - |
+   **Added** New command `istioctl experimental istiod log` to enable managing logging levels
+   of `istiod` components.
+

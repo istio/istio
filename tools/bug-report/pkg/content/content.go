@@ -17,7 +17,15 @@ package content
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/analysis/local"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
+	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
@@ -35,6 +43,7 @@ type Params struct {
 	Verbose        bool
 	ClusterVersion string
 	Namespace      string
+	IstioNamespace string
 	Pod            string
 	Container      string
 }
@@ -60,6 +69,12 @@ func (p *Params) SetVerbose(verbose bool) *Params {
 func (p *Params) SetNamespace(namespace string) *Params {
 	out := *p
 	out.Namespace = namespace
+	return &out
+}
+
+func (p *Params) SetIstioNamespace(namespace string) *Params {
+	out := *p
+	out.IstioNamespace = namespace
 	return &out
 }
 
@@ -115,16 +130,31 @@ func GetCRs(p *Params) (map[string]string, error) {
 
 // GetClusterInfo returns the cluster info.
 func GetClusterInfo(p *Params) (map[string]string, error) {
-	out, err := kubectlcmd.RunCmd("cluster-info dump", "", p.DryRun)
-	return retMap("cluster-info", out, err)
+	out, err := kubectlcmd.RunCmd("config current-context", "", p.DryRun)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]string)
+	ret["cluster-context"] = out
+	out, err = kubectlcmd.RunCmd("version", "", p.DryRun)
+	if err != nil {
+		return nil, err
+	}
+	ret["kubectl-version"] = out
+	return ret, nil
+}
+
+// GetClusterContext returns the cluster context.
+func GetClusterContext() (string, error) {
+	return kubectlcmd.RunCmd("config current-context", "", false)
 }
 
 // GetDescribePods returns describe pods for istioNamespace.
 func GetDescribePods(p *Params) (map[string]string, error) {
-	if p.Namespace == "" {
+	if p.IstioNamespace == "" {
 		return nil, fmt.Errorf("getDescribePods requires the Istio namespace")
 	}
-	out, err := kubectlcmd.RunCmd("describe pods", p.Namespace, p.DryRun)
+	out, err := kubectlcmd.RunCmd("describe pods", p.IstioNamespace, p.DryRun)
 	return retMap("describe-pods", out, err)
 }
 
@@ -150,6 +180,22 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 	return ret, nil
 }
 
+// GetProxyInfo returns internal proxy debug info.
+func GetProxyInfo(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
+	}
+	ret := make(map[string]string)
+	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
+		out, err := kubectlcmd.EnvoyGet(p.Client, p.Namespace, p.Pod, url, p.DryRun)
+		if err != nil {
+			return nil, err
+		}
+		ret[url] = out
+	}
+	return ret, nil
+}
+
 // GetNetstat returns netstat for the given container.
 func GetNetstat(p *Params) (map[string]string, error) {
 	if p.Namespace == "" || p.Pod == "" {
@@ -161,6 +207,46 @@ func GetNetstat(p *Params) (map[string]string, error) {
 		return nil, err
 	}
 	return retMap("netstat", out, err)
+}
+
+// GetAnalyze returns the output of istioctl analyze.
+func GetAnalyze(p *Params) (map[string]string, error) {
+	out := make(map[string]string)
+	sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
+		resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, 5*time.Minute)
+
+	k := cfgKube.NewInterfaces(p.Client.RESTConfig())
+	sa.AddRunningKubeSource(k)
+
+	cancel := make(chan struct{})
+	result, err := sa.Analyze(cancel)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.SkippedAnalyzers) > 0 {
+		log.Infof("Skipped analyzers:")
+		for _, a := range result.SkippedAnalyzers {
+			log.Infof("\t: %s", a)
+		}
+	}
+	if len(result.ExecutedAnalyzers) > 0 {
+		log.Infof("Executed analyzers:")
+		for _, a := range result.ExecutedAnalyzers {
+			log.Infof("\t: %s", a)
+		}
+	}
+
+	// Get messages for output
+	outputMessages := result.Messages.SetDocRef("istioctl-analyze").FilterOutLowerThan(diag.Info)
+
+	// Print all the messages to stdout in the specified format
+	output, err := formatting.Print(outputMessages, formatting.LogFormat, false)
+	if err != nil {
+		return nil, err
+	}
+	out[p.Namespace] = output
+	return out, nil
 }
 
 // GetNetfilter returns netfilter for the given container.

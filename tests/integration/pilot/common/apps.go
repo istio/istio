@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +22,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -31,6 +34,9 @@ type EchoDeployments struct {
 	Namespace namespace.Instance
 	// Namespace where external echo app will be deployed
 	ExternalNamespace namespace.Instance
+
+	// Ingressgateway instance
+	Ingress ingress.Instance
 
 	// Standard echo app to be used by tests
 	PodA echo.Instances
@@ -87,7 +93,7 @@ func serviceEntryPorts() []echo.Port {
 	return res
 }
 
-func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
+func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
 	apps.Namespace, err = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
@@ -103,6 +109,9 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
+
+	apps.Ingress = i.IngressFor(ctx.Clusters().Default())
+
 	// Headless services don't work with targetPort, set to same port
 	headlessPorts := make([]echo.Port, len(EchoPorts))
 	for i, p := range EchoPorts {
@@ -175,12 +184,13 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 
 	for _, c := range ctx.Clusters().ByNetwork() {
 		builder.With(nil, echo.Config{
-			Service:    VMSvc,
-			Namespace:  apps.Namespace,
-			Ports:      EchoPorts,
-			DeployAsVM: true,
-			Subsets:    []echo.SubsetConfig{{}},
-			Cluster:    c[0],
+			Service:        VMSvc,
+			Namespace:      apps.Namespace,
+			Ports:          EchoPorts,
+			DeployAsVM:     true,
+			AutoRegisterVM: false, // TODO support auto-registration with multi-primary
+			Subsets:        []echo.SubsetConfig{{}},
+			Cluster:        c[0],
 		})
 	}
 
@@ -236,4 +246,8 @@ spec:
 		return err
 	}
 	return nil
+}
+
+func (d EchoDeployments) IsMulticluster() bool {
+	return d.All.Clusters().IsMulticluster()
 }

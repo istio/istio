@@ -20,11 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
+	"sort"
 	"time"
 
 	ingress "k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/informers/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -102,17 +103,23 @@ var (
 	errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 )
 
-func ingressClassSupported(client kubernetes.Interface) bool {
-	_, s, _ := client.Discovery().ServerGroupsAndResources()
-	// This may fail if any api service is down, but the result will still be populated, so we skip the error
-	for _, res := range s {
-		for _, api := range res.APIResources {
-			if api.Kind == "IngressClass" && strings.HasPrefix(res.GroupVersion, "networking.k8s.io/") {
-				return true
-			}
-		}
+// Check if the "networking" group Ingress is available. Implementation borrowed from ingress-nginx
+func NetworkingIngressAvailable(client kubernetes.Interface) bool {
+	// check kubernetes version to use new ingress package or not
+	version118, _ := version.ParseGeneric("v1.18.0")
+
+	serverVersion, err := client.Discovery().ServerVersion()
+	if err != nil {
+		return false
 	}
-	return false
+
+	runningVersion, err := version.ParseGeneric(serverVersion.String())
+	if err != nil {
+		log.Errorf("unexpected error parsing running Kubernetes version: %v", err)
+		return false
+	}
+
+	return runningVersion.AtLeast(version118)
 }
 
 // NewController creates a new Kubernetes controller
@@ -127,12 +134,11 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	}
 
 	ingressInformer := client.KubeInformer().Networking().V1beta1().Ingresses().Informer()
-	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespaces)
 
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
 	var classes v1beta1.IngressClassInformer
-	if ingressClassSupported(client) {
+	if NetworkingIngressAvailable(client) {
 		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
 		// Register the informer now, so it will be properly started
 		_ = classes.Informer()
@@ -269,6 +275,26 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 	return nil
 }
 
+// sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
+func sortIngressByCreationTime(configs []interface{}) []*ingress.Ingress {
+	ingr := make([]*ingress.Ingress, 0, len(configs))
+	for _, i := range configs {
+		ingr = append(ingr, i.(*ingress.Ingress))
+	}
+	sort.SliceStable(ingr, func(i, j int) bool {
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if ingr[i].CreationTimestamp == ingr[j].CreationTimestamp {
+			in := ingr[i].Name + "." + ingr[i].Namespace
+			jn := ingr[j].Name + "." + ingr[j].Namespace
+			return in < jn
+		}
+		return ingr[i].CreationTimestamp.Before(&ingr[j].CreationTimestamp)
+	})
+	return ingr
+}
+
 func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	if typ != gvk.Gateway &&
 		typ != gvk.VirtualService {
@@ -279,8 +305,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 
 	ingressByHost := map[string]*config.Config{}
 
-	for _, obj := range c.ingressInformer.GetStore().List() {
-		ingress := obj.(*ingress.Ingress)
+	for _, ingress := range sortIngressByCreationTime(c.ingressInformer.GetStore().List()) {
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
 		}
@@ -315,6 +340,14 @@ func (c *controller) Create(_ config.Config) (string, error) {
 }
 
 func (c *controller) Update(_ config.Config) (string, error) {
+	return "", errUnsupportedOp
+}
+
+func (c *controller) UpdateStatus(config.Config) (string, error) {
+	return "", errUnsupportedOp
+}
+
+func (c *controller) Patch(_ config.GroupVersionKind, _, _ string, _ config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 

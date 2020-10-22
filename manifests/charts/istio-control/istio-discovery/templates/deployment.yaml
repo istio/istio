@@ -6,6 +6,8 @@ metadata:
   labels:
     app: istiod
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
     istio: pilot
     release: {{ .Release.Name }}
 {{- range $key, $val := .Values.pilot.deploymentLabels }}
@@ -80,9 +82,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
-{{- end }}
 {{- if .Values.pilot.plugins }}
           - --plugins={{ .Values.pilot.plugins }}
 {{- end }}
@@ -90,9 +89,13 @@ spec:
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
           ports:
           - containerPort: 8080
+            protocol: TCP
           - containerPort: 15010
+            protocol: TCP
           - containerPort: 15017
+            protocol: TCP
           - containerPort: 15053
+            protocol: TCP
           readinessProbe:
             httpGet:
               path: /ready
@@ -138,20 +141,28 @@ spec:
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
+{{- if not (hasKey .Values.pilot.env "INJECTION_WEBHOOK_CONFIG_NAME") }}
           - name: INJECTION_WEBHOOK_CONFIG_NAME
           {{- if eq .Release.Namespace "istio-system" }}
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           {{- else }}
             value: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
           {{- end }}
+{{- end }}
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: EXTERNAL_ISTIOD
+            value: "{{ $.Values.global.externalIstiod | default "false" }}"
           - name: CENTRAL_ISTIOD
             value: "{{ $.Values.global.centralIstiod | default "false" }}"
+{{- if not .Values.telemetry.v2.enabled }}
+          - name: PILOT_ENDPOINT_TELEMETRY_LABEL
+            value: "false"
+{{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}

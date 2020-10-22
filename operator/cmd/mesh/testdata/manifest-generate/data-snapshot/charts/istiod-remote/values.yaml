@@ -76,6 +76,11 @@ telemetry:
       enabled: true
       # Indicates whether to enable WebAssembly runtime for stats filter.
       wasmEnabled: false
+      # overrides stats EnvoyFilter configuration. 
+      configOverride:
+        gateway: {}
+        inboundSidecar: {}
+        outboundSidecar: {}
     # stackdriver filter settings.
     stackdriver:
       enabled: false
@@ -103,5 +108,7 @@ pilot:
   configMap: true
 global:
 
+  # One external istiod controls all remote clusters: disabled by default
+  externalIstiod: false
   # One central istiod controls all remote clusters: disabled by default
   centralIstiod: false

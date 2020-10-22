@@ -22,12 +22,12 @@ import (
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 )
 
-func NewCredFetcher(credtype, trustdomain, jwtPath string) (security.CredFetcher, error) {
+func NewCredFetcher(credtype, trustdomain, jwtPath, identityProvider string) (security.CredFetcher, error) {
 	switch credtype {
 	case security.GCE:
-		return plugin.CreateGCEPlugin(trustdomain, jwtPath), nil
+		return plugin.CreateGCEPlugin(trustdomain, jwtPath, identityProvider), nil
 	case security.Mock: // for test only
-		return plugin.CreateMockPlugin(), nil
+		return plugin.CreateMockPlugin("test_token"), nil
 	default:
 		return nil, fmt.Errorf("invalid credential fetcher type %s", credtype)
 	}

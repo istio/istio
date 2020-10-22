@@ -25,6 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
 	"istio.io/pkg/log"
@@ -67,6 +69,10 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 		return nil, err
 	}
 	for _, ns := range namespaces.Items {
+		// skip system namesapces
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) {
+			continue
+		}
 		pods, err := clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, err
@@ -194,7 +200,6 @@ func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) string {
 			}
 		}
 	}
-	log.Infof("no owning Deployment found for pod %s", pod.Name)
 	return ""
 }
 

@@ -461,9 +461,12 @@ message GlobalConfig {
   // The address of the CA for CSR.
   string caAddress = 61;
 
+  // Controls whether one external istiod is enabled.
+  google.protobuf.BoolValue externalIstiod = 62;
+
   // Controls whether one central istiod is enabled.
-  google.protobuf.BoolValue centralIstiod = 62;
-  // The next available key is 63
+  google.protobuf.BoolValue centralIstiod = 63;
+  // The next available key is 64
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -606,6 +609,8 @@ message MultiClusterConfig {
   google.protobuf.BoolValue enabled = 1;
 
   string clusterName = 2;
+  string globalDomainSuffix = 3;
+  google.protobuf.BoolValue includeEnvoyFilter = 4;
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
@@ -875,6 +880,9 @@ message PortsConfig {
 
   // Target port number.
   int32 targetPort = 4;
+
+  // Protocol name.
+  string protocol = 5;
 }
 
 // Configuration for Proxy.
@@ -1091,6 +1099,7 @@ message BaseConfig {
 
   // URL to use for validating webhook.
   string validationURL = 2;
+
 }
 
 message IstiodRemoteConfig {
@@ -1119,6 +1128,8 @@ message Values {
   CNIConfig istio_cni = 19;
 
   string revision = 21;
+
+  string ownerName = 22;
 
   // TODO can this import the real mesh config API?
   TypeInterface meshConfig = 36;

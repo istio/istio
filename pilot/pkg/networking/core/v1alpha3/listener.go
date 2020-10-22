@@ -154,27 +154,29 @@ var (
 			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
 			ApplicationProtocols: mtlsHTTPALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolHTTP,
 		},
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
 			ApplicationProtocols: plaintextHTTPALPNs,
 			// No transport protocol match as this filter chain (+match) will be used for plain text connections
-			Protocol: istionetworking.ListenerProtocolHTTP,
+			Protocol:          istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, but sent over mTLS
 			ApplicationProtocols: mtlsTCPALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolTCP,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over plaintext
 			// or it could be that the client has no sidecar. In this case, this filter chain is simply
 			// receiving plaintext TCP traffic.
-			Protocol: istionetworking.ListenerProtocolTCP,
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over one-way
@@ -183,7 +185,7 @@ var (
 			// this sidecar. In this case, this filter chain is receiving plaintext one-way TLS traffic. The TLS
 			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
 			// this filter chain match will treat the traffic as just another TCP proxy.
-			TransportProtocol: "tls",
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolTCP,
 		},
 	}
@@ -195,27 +197,29 @@ var (
 			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
 			ApplicationProtocols: mtlsHTTPALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolHTTP,
 		},
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
 			ApplicationProtocols: plaintextHTTPALPNs,
 			// No transport protocol match as this filter chain (+match) will be used for plain text connections
-			Protocol: istionetworking.ListenerProtocolHTTP,
+			Protocol:          istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, but sent over mTLS
 			ApplicationProtocols: mtlsTCPWithMxcALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolTCP,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over plaintext
 			// or it could be that the client has no sidecar. In this case, this filter chain is simply
 			// receiving plaintext TCP traffic.
-			Protocol: istionetworking.ListenerProtocolTCP,
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over one-way
@@ -224,7 +228,7 @@ var (
 			// this sidecar. In this case, this filter chain is receiving plaintext one-way TLS traffic. The TLS
 			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
 			// this filter chain match will treat the traffic as just another TCP proxy.
-			TransportProtocol: "tls",
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          istionetworking.ListenerProtocolTCP,
 		},
 	}
@@ -235,10 +239,12 @@ var (
 			// If we are in strict mode, we will get mTLS HTTP ALPNS only.
 			ApplicationProtocols: mtlsHTTPALPNs,
 			Protocol:             istionetworking.ListenerProtocolHTTP,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
 		},
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
-			Protocol: istionetworking.ListenerProtocolTCP,
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
 		},
 	}
 
@@ -246,10 +252,12 @@ var (
 		{
 			ApplicationProtocols: plaintextHTTPALPNs,
 			Protocol:             istionetworking.ListenerProtocolHTTP,
+			TransportProtocol:    xdsfilters.RawBufferTransportProtocol,
 		},
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
-			Protocol: istionetworking.ListenerProtocolTCP,
+			Protocol:          istionetworking.ListenerProtocolTCP,
+			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
 
@@ -458,7 +466,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.ServicePort.Name,
+		clusterName = util.BuildInboundSubsetKey(node, pluginParams.ServiceInstance.ServicePort.Name,
 			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port)
 	}
 
@@ -501,7 +509,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.ServicePort.Name,
+	clusterName := util.BuildInboundSubsetKey(pluginParams.Node, pluginParams.ServiceInstance.ServicePort.Name,
 		pluginParams.ServiceInstance.Service.Hostname, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 
 	thriftOpts := &thriftListenerOpts{
@@ -576,7 +584,6 @@ allChainsLabel:
 			} else {
 				filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
 			}
-
 		} else {
 			if hasTLSContext {
 				filterChainMatchOption = inboundStrictFilterChainMatchOptions
@@ -595,15 +602,24 @@ allChainsLabel:
 		var tcpNetworkFilters []*listener.Filter
 		var filterChainMatch *listener.FilterChainMatch
 
+		if chain.FilterChainMatch == nil {
+			chain.FilterChainMatch = &listener.FilterChainMatch{}
+		}
+		if chain.TLSContext == nil {
+			chain.FilterChainMatch.TransportProtocol = xdsfilters.RawBufferTransportProtocol
+		} else {
+			chain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
+		}
 		switch pluginParams.ListenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
 			filterChainMatch = chain.FilterChainMatch
-			if filterChainMatch != nil && len(filterChainMatch.ApplicationProtocols) > 0 {
+			if len(filterChainMatch.ApplicationProtocols) > 0 {
 				// This is the filter chain used by permissive mTLS. Append mtlsHTTPALPNs as the client side will
 				// override the ALPN with mtlsHTTPALPNs.
 				// TODO: This should move to authN code instead of us appending additional ALPNs here.
 				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
 			}
+
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
 
 		case istionetworking.ListenerProtocolThrift:
@@ -612,7 +628,7 @@ allChainsLabel:
 
 		case istionetworking.ListenerProtocolTCP:
 			filterChainMatch = chain.FilterChainMatch
-			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance)
+			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
 
 		case istionetworking.ListenerProtocolAuto:
 			// Make sure id is not out of boundary of filterChainMatchOption
@@ -636,7 +652,7 @@ allChainsLabel:
 						chain.TLSContext.CommonTlsContext.AlpnProtocols, tcpMxcALPN)
 				}
 			} else {
-				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance)
+				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
 			}
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
@@ -1693,7 +1709,6 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	if listenerOpts.push.Mesh.EnableTracing {
 		proxyConfig := listenerOpts.proxy.Metadata.ProxyConfigOrDefault(listenerOpts.push.Mesh.DefaultConfig)
 		connectionManager.Tracing = buildTracingConfig(proxyConfig)
-		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
@@ -1857,7 +1872,16 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 			break
 		}
 	}
-	if needTLSInspector || opts.needHTTPInspector {
+
+	// We add a TLS inspector when http inspector is needed for outbound only. This
+	// is because if we ever set ALPN in the match without
+	// transport_protocol=raw_buffer, Envoy will automatically inject a tls
+	// inspector: https://github.com/envoyproxy/envoy/issues/13601. This leads to
+	// excessive logging and loss of control over the config For inbound this is not
+	// needed, since we are explicitly setting transport protocol in every single
+	// match. We can do this for outbound as well, at which point this could be
+	// removed, but have not yet
+	if needTLSInspector || (opts.class == ListenerClassSidecarOutbound && opts.needHTTPInspector) {
 		listenerFiltersMap[wellknown.TlsInspector] = true
 		listenerFilters = append(listenerFilters, xdsfilters.TLSInspector)
 	}
@@ -1939,6 +1963,8 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
+	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener)
+
 	if opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
 		if listener.ListenerFiltersTimeout != nil {
@@ -1988,7 +2014,7 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 // chain)
 func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buildListenerOpts) error {
 	if len(opts.filterChainOpts) == 0 {
-		return fmt.Errorf("must have more than 0 chains in listener: %#v", mutable.Listener)
+		return fmt.Errorf("must have more than 0 chains in listener %q", mutable.Listener.Name)
 	}
 
 	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(mutable.FilterChains))

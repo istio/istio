@@ -43,9 +43,7 @@ func removeFromMeshCmd() *cobra.Command {
 		Short:   "Remove workloads from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh' restarts pods without an Istio sidecar or removes external service access configuration.
 Use 'remove-from-mesh' to quickly test uninjected behavior as part of compatibility troubleshooting.
-The 'add-to-mesh' command can be used to add or restore the sidecar.
-
-THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
+The 'add-to-mesh' command can be used to add or restore the sidecar.`,
 		Example: `  # Restart all productpage pods without an Istio sidecar
   istioctl experimental remove-from-mesh service productpage
 
@@ -65,6 +63,7 @@ THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
 	removeFromMeshCmd.AddCommand(svcUnMeshifyCmd())
 	removeFromMeshCmd.AddCommand(deploymentUnMeshifyCmd())
 	removeFromMeshCmd.AddCommand(externalSvcUnMeshifyCmd())
+	removeFromMeshCmd.Long += "\n\n" + ExperimentalMsg
 	return removeFromMeshCmd
 }
 
@@ -74,10 +73,7 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 		Aliases: []string{"deploy", "dep"},
 		Short:   "Remove deployment from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh deployment' restarts pods with the Istio sidecar un-injected.
-'remove-from-mesh' is a compatibility troubleshooting tool.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+'remove-from-mesh' is a compatibility troubleshooting tool.`,
 		Example: `  # Restart all productpage-v1 pods without an Istio sidecar
   istioctl experimental remove-from-mesh deployment productpage-v1
 
@@ -105,6 +101,7 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			return unInjectSideCarFromDeployment(client, deps, args[0], ns, writer)
 		},
 	}
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
@@ -114,10 +111,7 @@ func svcUnMeshifyCmd() *cobra.Command {
 		Aliases: []string{"svc"},
 		Short:   "Remove Service from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh service' restarts pods with the Istio sidecar un-injected.
-'remove-from-mesh' is a compatibility troubleshooting tool.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+'remove-from-mesh' is a compatibility troubleshooting tool.`,
 		Example: `  # Restart all productpage pods without an Istio sidecar
   istioctl experimental remove-from-mesh service productpage
 
@@ -151,6 +145,7 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			return unInjectSideCarFromDeployment(client, matchingDeployments, args[0], ns, writer)
 		},
 	}
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
@@ -161,10 +156,7 @@ func externalSvcUnMeshifyCmd() *cobra.Command {
 		Short:   "Remove Service Entry and Kubernetes Service for the external service from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh external-service' removes the ServiceEntry and
 the Kubernetes Service for the specified external service (e.g. services running on a VM) from Istio service mesh.
-The typical usage scenario is Mesh Expansion on VMs.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+The typical usage scenario is Mesh Expansion on VMs.`,
 		Example: `  # Remove "vmhttp" service entry rules
   istioctl experimental remove-from-mesh external-service vmhttp
 
@@ -194,6 +186,7 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			return fmt.Errorf("service %q does not exist, skip", args[0])
 		},
 	}
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 

@@ -15,6 +15,12 @@
 // Package common contains resource names, which may vary from version to version.
 package common
 
+import (
+	"fmt"
+
+	"istio.io/pkg/log"
+)
+
 const (
 	// latestKey is an arbitrary value that represents the fallback version (master).
 	latestKey = "latest"
@@ -31,6 +37,7 @@ type kv struct {
 type resourceNames struct {
 	discoveryLabels []kv
 	istioDebugURLs  []string
+	proxyDebugURLs  []string
 }
 
 var (
@@ -52,6 +59,16 @@ var (
 				"debug/push_status",
 				"debug/inject",
 			},
+			proxyDebugURLs: []string{
+				"certs",
+				"clusters",
+				"config_dump?include_eds",
+				"listeners",
+				"memory",
+				"server_info",
+				"stats/prometheus",
+				"runtime",
+			},
 		},
 	}
 )
@@ -59,6 +76,11 @@ var (
 // IstiodDebugURLs returns a list of Istiod debug URLs for the given version.
 func IstiodDebugURLs(clusterVersion string) []string {
 	return versionMap[getVersionKey(clusterVersion)].istioDebugURLs
+}
+
+// ProxyDebugURLs returns a list of proxy debug URLs for the given version.
+func ProxyDebugURLs(clusterVersion string) []string {
+	return versionMap[getVersionKey(clusterVersion)].proxyDebugURLs
 }
 
 // IsDiscoveryContainer reports whether the given container is an Istio discovery container for the given version.
@@ -86,4 +108,9 @@ func getVersionKey(clusterVersion string) string {
 		return latestKey
 	}
 	return clusterVersion
+}
+
+func LogAndPrintf(format string, a ...interface{}) {
+	fmt.Printf(format, a...)
+	log.Info(fmt.Sprintf(format, a...))
 }

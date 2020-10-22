@@ -15,21 +15,30 @@
 package mesh
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	pkgversion "istio.io/istio/operator/pkg/version"
+	operatorVer "istio.io/istio/operator/version"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -85,7 +94,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 	ic := &cobra.Command{
 		Use:   "install",
 		Short: "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
-		Long:  "The install generates an Istio install manifest and applies it to a cluster.",
+		Long:  "The install command generates an Istio install manifest and applies it to a cluster.",
 		// nolint: lll
 		Example: `  # Apply a default Istio installation
   istioctl install
@@ -100,6 +109,13 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
   istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
 `,
 		Args: cobra.ExactArgs(0),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			errs := validation.IsQualifiedName(iArgs.revision)
+			if len(errs) != 0 && cmd.PersistentFlags().Changed("revision") {
+				return fmt.Errorf("invalid revision specified:\n%v", strings.Join(errs, "\n"))
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runApplyCmd(cmd, rootArgs, iArgs, logOpts)
 		}}
@@ -111,9 +127,22 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
+	var opts clioptions.ControlPlaneOptions
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
+	if err != nil {
+		return err
+	}
+	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
+	if err != nil {
+		return err
+	}
+	// Ignore the err because we don't want to show
+	// "no running Istio pods in istio-system" for the first time
+	_ = DetectIstioVersionDiff(cmd, tag, kubeClient, iArgs)
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
-		if !confirm("This will install the Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+		prompt := fmt.Sprintf("This will install the Istio %s profile into the cluster. Proceed? (y/N)", tag)
+		if !confirm(prompt, cmd.OutOrStdout()) {
 			cmd.Print("Cancelled.\n")
 			os.Exit(1)
 		}
@@ -143,16 +172,7 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
 		return err
 	}
-	_, iops, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
-	if err != nil {
-		return err
-	}
-
-	crName := installedSpecCRPrefix
-	if iops.Revision != "" {
-		crName += "-" + iops.Revision
-	}
-	iop, err := translate.IOPStoIOP(iops, crName, iopv1alpha1.Namespace(iops))
+	_, iop, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
 		return err
 	}
@@ -171,7 +191,7 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 	}
 	status, err := reconciler.Reconcile()
 	if err != nil {
-		return fmt.Errorf("errors occurred during operation")
+		return fmt.Errorf("errors occurred during operation: %v", err)
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
 		return fmt.Errorf("errors occurred during operation")
@@ -179,11 +199,75 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 
 	opts.ProgressLog.SetState(progress.StateComplete)
 
-	// Save state to cluster in IstioOperator CR.
-	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))
+	// Save a copy of what was installed as a CR in the cluster under an internal name.
+	iop.Name = savedIOPName(iop)
+	iopStr, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
 		return err
 	}
 
 	return saveIOPToCluster(reconciler, iopStr)
+}
+
+func savedIOPName(iop *v1alpha12.IstioOperator) string {
+	ret := installedSpecCRPrefix
+	if iop.Name != "" {
+		ret += "-" + iop.Name
+	}
+	if iop.Spec.Revision != "" {
+		ret += "-" + iop.Spec.Revision
+	}
+	return ret
+}
+
+// DetectIstioVersionDiff will show warning if istioctl version and control plane version are different
+// nolint: interfacer
+func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.ExtendedClient, iArgs *installArgs) error {
+	icps, err := kubeClient.GetIstioVersions(context.TODO(), controller.IstioNamespace)
+	if err != nil {
+		return err
+	}
+	if len(*icps) != 0 {
+		var icpTags []string
+		var icpTag string
+		// create normalized tags for multiple control plane revisions
+		for _, icp := range *icps {
+			tagVer, err := GetTagVersion(icp.Info.GitTag)
+			if err != nil {
+				return err
+			}
+			icpTags = append(icpTags, tagVer)
+		}
+		// sort different versions of control plane revsions
+		sort.Strings(icpTags)
+		// capture latest revision installed for comparison
+		for _, val := range icpTags {
+			if val != "" {
+				icpTag = val
+			}
+		}
+		// when the revision is not passed
+		if iArgs.revision == "" && tag != icpTag {
+			cmd.Printf("! Istio control planes installed: %s.\n"+
+				"! Use --revision or --force to install Istio.\n", strings.Join(icpTags, ", "))
+		}
+		// when the revision is passed
+		if icpTag != "" && tag != icpTag && iArgs.revision != "" {
+			cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
+				"! Before upgrading, you may wish to 'istioctl analyze' to check for IST0002 deprecation warnings.\n", icpTag, tag)
+		}
+	}
+	return nil
+}
+
+// GetTagVersion returns istio tag version
+func GetTagVersion(tagInfo string) (string, error) {
+	if pkgversion.IsVersionString(tagInfo) {
+		tagInfo = pkgversion.TagToVersionStringGrace(tagInfo)
+	}
+	tag, err := pkgversion.NewVersionFromString(tagInfo)
+	if err != nil {
+		return "", err
+	}
+	return tag.String(), nil
 }

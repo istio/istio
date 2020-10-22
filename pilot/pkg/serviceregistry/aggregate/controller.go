@@ -143,15 +143,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					smap[s.Hostname] = sp
 					services = append(services, sp)
 				}
-
-				sp.Mutex.Lock()
-				// If the registry has a cluster ID, keep track of the cluster and the
-				// local address inside the cluster.
-				if sp.ClusterVIPs == nil {
-					sp.ClusterVIPs = make(map[string]string)
-				}
-				sp.ClusterVIPs[r.Cluster()] = s.Address
-				sp.Mutex.Unlock()
+				mergeService(sp, s, r.Cluster())
 			}
 		}
 		clusterAddressesMutex.Unlock()
@@ -160,8 +152,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by hostname if exists
-// Currently only used to get get gateway service
-// TODO: merge with Services()
 func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	var errs error
 	var out *model.Service
@@ -174,38 +164,43 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if service == nil {
 			continue
 		}
-		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
-			// If the service does not have a cluster ID (ServiceEntries, CloudFoundry, etc.)
-			// Do not bother checking for the cluster ID.
-			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
-			// VIPs or CIDR ranges in the address field
+		if r.Cluster() == "" {
 			return service, nil
 		}
-
-		// This is K8S typically
 		service.Mutex.RLock()
 		if out == nil {
 			out = service.DeepCopy()
-		} else {
-			// ClusterExternalAddresses and ClusterExternalPorts are only used for getting gateway address
-			externalAddrs := service.Attributes.ClusterExternalAddresses[r.Cluster()]
-			if len(externalAddrs) > 0 {
-				if out.Attributes.ClusterExternalAddresses == nil {
-					out.Attributes.ClusterExternalAddresses = make(map[string][]string)
-				}
-				out.Attributes.ClusterExternalAddresses[r.Cluster()] = externalAddrs
-			}
-			externalPorts := service.Attributes.ClusterExternalPorts[r.Cluster()]
-			if len(externalPorts) > 0 {
-				if out.Attributes.ClusterExternalPorts == nil {
-					out.Attributes.ClusterExternalPorts = make(map[string]map[uint32]uint32)
-				}
-				out.Attributes.ClusterExternalPorts[r.Cluster()] = externalPorts
-			}
 		}
+		mergeService(out, service, r.Cluster())
 		service.Mutex.RUnlock()
 	}
 	return out, errs
+}
+
+func mergeService(dst, src *model.Service, srcCluster string) {
+	dst.Mutex.Lock()
+	// If the registry has a cluster ID, keep track of the cluster and the
+	// local address inside the cluster.
+	if dst.ClusterVIPs == nil {
+		dst.ClusterVIPs = make(map[string]string)
+	}
+	dst.ClusterVIPs[srcCluster] = src.Address
+	dst.Mutex.Unlock()
+}
+
+// NetworkGateways merges the service-based cross-network gateways from each registry.
+func (c *Controller) NetworkGateways() map[string][]*model.Gateway {
+	gws := map[string][]*model.Gateway{}
+	for _, r := range c.GetRegistries() {
+		gwMap := r.NetworkGateways()
+		if gwMap == nil {
+			continue
+		}
+		for net, regGws := range gwMap {
+			gws[net] = append(gws[net], regGws...)
+		}
+	}
+	return gws
 }
 
 // InstancesByPort retrieves instances for a service on a given port that match
@@ -236,7 +231,7 @@ func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfCluster
 		registryClusterID = selfClusterID
 	}
 
-	// We can't be certain either way
+	// Kube registries can have WorkloadEntry instances
 	if registryClusterID == "" || nodeClusterID == "" {
 		return false
 	}
@@ -245,9 +240,8 @@ func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfCluster
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
-func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	var errs error
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
@@ -258,48 +252,29 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 			continue
 		}
 
-		instances, err := r.GetProxyServiceInstances(node)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		} else if len(instances) > 0 {
+		instances := r.GetProxyServiceInstances(node)
+		if len(instances) > 0 {
 			out = append(out, instances...)
 			break
 		}
 	}
 
-	if len(out) > 0 {
-		if errs != nil {
-			log.Debugf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
-		}
-		return out, nil
-	}
-
-	return out, errs
+	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	var out labels.Collection
-	var errs error
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
-		wlLabels, err := r.GetProxyWorkloadLabels(proxy)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		} else if len(wlLabels) > 0 {
+		wlLabels := r.GetProxyWorkloadLabels(proxy)
+		if len(wlLabels) > 0 {
 			out = append(out, wlLabels...)
 			break
 		}
 	}
 
-	if len(out) > 0 {
-		if errs != nil {
-			log.Warnf("GetProxyWorkloadLabels() found match but encountered an error: %v", errs)
-		}
-		return out, nil
-	}
-
-	return out, errs
+	return out
 }
 
 // Run starts all the controllers

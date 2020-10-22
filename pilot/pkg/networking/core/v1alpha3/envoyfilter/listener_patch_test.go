@@ -25,6 +25,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -442,6 +443,101 @@ func TestApplyListenerPatches(t *testing.T) {
 }`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 6379,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: "filter1",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REPLACE,
+				Value: buildPatchStruct(`
+{"name": "envoy.redis_proxy",
+ "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.redis_proxy.v3.RedisProxy",
+         "stat_prefix": "redis_stats",
+         "prefix_routes": {
+             "catch_all_route": {
+                 "cluster": "custom-redis-cluster"
+             }
+         }
+ }
+}`),
+			},
+		},
+		// This patch should not be applied because network filter name doesn't match
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 6380,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: "network-filter-should-not-be-replaced-not-match",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REPLACE,
+				Value:     buildPatchStruct(`{"name": "network-filter-replaced-should-not-be-applied"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						Name: "listener-http-filter-to-be-replaced",
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{
+									Name: "http-filter-to-be-replaced",
+								},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REPLACE,
+				Value:     buildPatchStruct(`{"name": "http-filter-replaced"}`),
+			},
+		},
+		// This patch should not be applied because the subfilter name doesn't match
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						Name: "listener-http-filter-to-be-replaced-not-found",
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{
+									Name: "http-filter-should-not-be-replaced-not-match",
+								},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REPLACE,
+				Value:     buildPatchStruct(`{"name": "http-filter-replaced-should-not-be-applied"}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*listener.Listener{
@@ -466,7 +562,96 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 		{
+			Name: "network-filter-to-be-replaced",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 6379,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{Name: "filter1"},
+						{Name: "filter2"},
+					},
+				},
+			},
+		},
+		{
+			Name: "network-filter-to-be-replaced-not-found",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 6380,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{Name: "network-filter-should-not-be-replaced"},
+					},
+				},
+			},
+		},
+		{
 			Name: "another-listener",
+		},
+		{
+			Name: "listener-http-filter-to-be-replaced",
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 80,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter-to-be-replaced"},
+										{Name: "another-http-filter"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "listener-http-filter-to-be-replaced-not-found",
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 80,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter-should-not-be-replaced"},
+										{Name: "another-http-filter"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -492,7 +677,107 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 		{
+			Name: "network-filter-to-be-replaced",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 6379,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{Name: "envoy.redis_proxy",
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
+									StatPrefix: "redis_stats",
+									PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
+										CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+											Cluster: "custom-redis-cluster",
+										},
+									},
+								}),
+							},
+						},
+						{Name: "filter2"},
+					},
+				},
+			},
+		},
+		{
+			Name: "network-filter-to-be-replaced-not-found",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 6380,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{Name: "network-filter-should-not-be-replaced"},
+					},
+				},
+			},
+		},
+		{
 			Name: "another-listener",
+		},
+		{
+			Name: "listener-http-filter-to-be-replaced",
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 80,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter-replaced"},
+										{Name: "another-http-filter"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "listener-http-filter-to-be-replaced-not-found",
+			FilterChains: []*listener.FilterChain{
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 80,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter-should-not-be-replaced"},
+										{Name: "another-http-filter"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			Name: "new-outbound-listener1",

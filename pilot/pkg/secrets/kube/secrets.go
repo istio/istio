@@ -24,9 +24,12 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/secrets"
@@ -58,18 +61,13 @@ type SecretsController struct {
 	secrets informersv1.SecretInformer
 	sar     authorizationv1client.SubjectAccessReviewInterface
 
-	clusterID    string
-	remoteGetter RemoteKubeClientGetter
+	clusterID string
 
-	mu                   sync.RWMutex
-	authorizationCache   map[authorizationKey]authorizationResponse
-	authorizationEnabled bool
+	mu                 sync.RWMutex
+	authorizationCache map[authorizationKey]authorizationResponse
 }
 
-type authorizationKey struct {
-	cluster string
-	user    string
-}
+type authorizationKey string
 
 type authorizationResponse struct {
 	expiration time.Time
@@ -80,18 +78,16 @@ var _ secrets.Controller = &SecretsController{}
 
 type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
-func NewSecretsController(client kube.Client, clusterID string, remoteClientGetter RemoteKubeClientGetter) *SecretsController {
+func NewSecretsController(client kube.Client, clusterID string) *SecretsController {
 	// Informer is lazy loaded, load it now
 	_ = client.KubeInformer().Core().V1().Secrets().Informer()
 
 	return &SecretsController{
 		secrets: client.KubeInformer().Core().V1().Secrets(),
 
-		authorizationEnabled: true,
-		sar:                  client.AuthorizationV1().SubjectAccessReviews(),
-		clusterID:            clusterID,
-		remoteGetter:         remoteClientGetter,
-		authorizationCache:   make(map[authorizationKey]authorizationResponse),
+		sar:                client.AuthorizationV1().SubjectAccessReviews(),
+		clusterID:          clusterID,
+		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
 }
 
@@ -112,13 +108,10 @@ func (s *SecretsController) clearExpiredCache() {
 
 // cachedAuthorization checks the authorization cache
 // nolint
-func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, bool) {
-	key := authorizationKey{cluster: clusterID, user: user}
+func (s *SecretsController) cachedAuthorization(user string) (error, bool) {
+	key := authorizationKey(user)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.authorizationEnabled {
-		return nil, true
-	}
 	s.clearExpiredCache()
 	// No need to check expiration, we will evict expired entries above
 	got, f := s.authorizationCache[key]
@@ -129,10 +122,10 @@ func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, 
 }
 
 // cachedAuthorization checks the authorization cache
-func (s *SecretsController) insertCache(user, clusterID string, response error) {
+func (s *SecretsController) insertCache(user string, response error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	key := authorizationKey{cluster: clusterID, user: user}
+	key := authorizationKey(user)
 	expDelta := cacheTTL
 	if response == nil {
 		// Cache success a bit longer, there is no need to quickly revoke access
@@ -145,32 +138,20 @@ func (s *SecretsController) insertCache(user, clusterID string, response error) 
 	}
 }
 
-func (s *SecretsController) getAccessReviewClient(clusterID string) authorizationv1client.SubjectAccessReviewInterface {
-	// first match local/primary cluster
-	if s.clusterID == clusterID || clusterID == "" {
-		return s.sar
-	}
-
-	// secondly try other remote clusters
-	if s.remoteGetter != nil {
-		if res := s.remoteGetter(clusterID); res != nil {
-			return res.AuthorizationV1().SubjectAccessReviews()
-		}
-	}
-
-	return nil
+// DisableAuthorizationForTest makes the authorization check always pass. Should be used only for tests.
+func DisableAuthorizationForTest(fake *fake.Clientset) {
+	fake.Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, &authorizationv1.SubjectAccessReview{
+			Status: authorizationv1.SubjectAccessReviewStatus{
+				Allowed: true,
+			},
+		}, nil
+	})
 }
 
-// DisableAuthorization makes the authorization check always pass. Should be used only for tests.
-func (s *SecretsController) DisableAuthorization() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.authorizationEnabled = false
-}
-
-func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID string) error {
+func (s *SecretsController) Authorize(serviceAccount, namespace string) error {
 	user := toUser(serviceAccount, namespace)
-	if cached, f := s.cachedAuthorization(user, clusterID); f {
+	if cached, f := s.cachedAuthorization(user); f {
 		return cached
 	}
 	resp := func() error {
@@ -193,7 +174,7 @@ func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID strin
 		}
 		return nil
 	}()
-	s.insertCache(user, clusterID, resp)
+	s.insertCache(user, resp)
 	return resp
 }
 

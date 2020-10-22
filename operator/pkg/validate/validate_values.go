@@ -39,7 +39,7 @@ func CheckValues(root interface{}) util.Errors {
 		return util.Errors{err}
 	}
 	val := &v1alpha1.Values{}
-	if err := util.UnmarshalValuesWithJSONPB(string(vs), val, false); err != nil {
+	if err := util.UnmarshalWithJSONPB(string(vs), val, false); err != nil {
 		return util.Errors{err}
 	}
 	return ValuesValidate(DefaultValuesValidations, root, nil)

@@ -20,12 +20,47 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/pkg/log"
 )
+
+const (
+	// maxRequestsPerSecond is the max rate of requests to the API server.
+	maxRequestsPerSecond = 10
+	// maxLogFetchConcurrency is the max number of logs to fetch simultaneously.
+	maxLogFetchConcurrency = 10
+
+	// reportInterval controls how frequently to output progress reports on running tasks.
+	reportInterval = 30 * time.Second
+)
+
+var (
+	requestLimiter  = rate.NewLimiter(maxRequestsPerSecond, maxRequestsPerSecond)
+	logFetchLimitCh = make(chan struct{}, maxLogFetchConcurrency)
+
+	// runningTasks tracks the in-flight fetch operations for user feedback.
+	runningTasks   = make(map[string]struct{})
+	runningTasksMu sync.RWMutex
+
+	// runningTasksTicker is the report interval for running tasks.
+	runningTasksTicker = time.NewTicker(reportInterval)
+)
+
+func init() {
+	go func() {
+		time.Sleep(reportInterval)
+		for range runningTasksTicker.C {
+			printRunningTasks()
+		}
+	}()
+}
 
 // Options contains the Run options.
 type Options struct {
@@ -55,7 +90,29 @@ func Logs(client kube.ExtendedClient, namespace, pod, container string, previous
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.PodLogs(%s, %s, %s)", pod, namespace, container), nil
 	}
+	// ignore cancellation errors since this is subject to global timeout.
+	_ = requestLimiter.Wait(context.TODO())
+	logFetchLimitCh <- struct{}{}
+	defer func() {
+		<-logFetchLimitCh
+	}()
+	task := fmt.Sprintf("PodLogs %s/%s/%s", namespace, pod, container)
+	addRunningTask(task)
+	defer removeRunningTask(task)
 	return client.PodLogs(context.TODO(), pod, namespace, container, previous)
+}
+
+// EnvoyGet sends a GET request for the URL in the Envoy container in the given namespace/pod and returns the result.
+func EnvoyGet(client kube.ExtendedClient, namespace, pod, url string, dryRun bool) (string, error) {
+	if dryRun {
+		return fmt.Sprintf("Dry run: would be running client.EnvoyDo(%s, %s, %s)", pod, namespace, url), nil
+	}
+	_ = requestLimiter.Wait(context.TODO())
+	task := fmt.Sprintf("ProxyGet %s/%s:%s", namespace, pod, url)
+	addRunningTask(task)
+	defer removeRunningTask(task)
+	out, err := client.EnvoyDo(context.TODO(), pod, namespace, "GET", url, nil)
+	return string(out), err
 }
 
 // Cat runs the cat command for the given path in the given namespace/pod/container.
@@ -64,7 +121,14 @@ func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dry
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
-	log.Infof("podExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
+	_ = requestLimiter.Wait(context.TODO())
+	logFetchLimitCh <- struct{}{}
+	defer func() {
+		<-logFetchLimitCh
+	}()
+	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
+	addRunningTask(task)
+	defer removeRunningTask(task)
 	stdout, stderr, err := client.PodExec(pod, namespace, container, cmdStr)
 	if err != nil {
 		return "", fmt.Errorf("podExec error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
@@ -78,7 +142,10 @@ func Exec(client kube.ExtendedClient, namespace, pod, container, cmdStr string, 
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
-	log.Infof("podExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
+	_ = requestLimiter.Wait(context.TODO())
+	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
+	addRunningTask(task)
+	defer removeRunningTask(task)
 	stdout, stderr, err := client.PodExec(pod, namespace, container, cmdStr)
 	if err != nil {
 		return "", fmt.Errorf("podExec error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
@@ -125,11 +192,41 @@ func Run(subcmds []string, opts *Options) (string, error) {
 		return "", nil
 	}
 
-	log.Infof("running command: kubectl %s", cmdStr)
+	_ = requestLimiter.Wait(context.TODO())
+	task := fmt.Sprintf("kubectl %s", cmdStr)
+	addRunningTask(task)
+	defer removeRunningTask(task)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
 			err, util.ConsolidateLog(stderr.String()), stdout.String())
 	}
 
 	return stdout.String(), nil
+}
+
+func printRunningTasks() {
+	runningTasksMu.RLock()
+	defer runningTasksMu.RUnlock()
+	if len(runningTasks) == 0 {
+		return
+	}
+	common.LogAndPrintf("The following fetches are still running: \n")
+	for t := range runningTasks {
+		common.LogAndPrintf("  %s\n", t)
+	}
+	common.LogAndPrintf("\n")
+}
+
+func addRunningTask(task string) {
+	runningTasksMu.Lock()
+	defer runningTasksMu.Unlock()
+	log.Infof("STARTING %s", task)
+	runningTasks[task] = struct{}{}
+}
+
+func removeRunningTask(task string) {
+	runningTasksMu.Lock()
+	defer runningTasksMu.Unlock()
+	log.Infof("COMPLETED %s", task)
+	delete(runningTasks, task)
 }

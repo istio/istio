@@ -37,7 +37,7 @@ spec:
         {{- end }}
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
-        prometheus.io/port: "15090"
+        prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         prometheus.io/path: "/stats/prometheus"
         {{- end }}
@@ -72,7 +72,7 @@ spec:
             - /bin/sh
           args:
             - -c
-            - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+            - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
           securityContext:
             runAsUser: 0
             runAsGroup: 0
@@ -122,9 +122,6 @@ spec:
           - {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
         {{- if not $gateway.runAsRoot }}
           securityContext:
@@ -252,6 +249,8 @@ spec:
             mountPath: /etc/certs
             readOnly: true
           {{- end }}
+          - mountPath: /var/lib/istio/data
+            name: istio-data
           - name: podinfo
             mountPath: /etc/istio/pod
           {{- range $gateway.secretVolumes }}
@@ -287,6 +286,8 @@ spec:
       - name: istio-envoy
         emptyDir: {}
       - name: gatewaysdsudspath
+        emptyDir: {}
+      - name: istio-data
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token

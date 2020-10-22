@@ -89,9 +89,10 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 
 // AdsClient defines the data that is displayed on "/adsz" endpoint.
 type AdsClient struct {
-	ConnectionID string    `json:"connectionId"`
-	ConnectedAt  time.Time `json:"connectedAt"`
-	PeerAddress  string    `json:"address"`
+	ConnectionID string              `json:"connectionId"`
+	ConnectedAt  time.Time           `json:"connectedAt"`
+	PeerAddress  string              `json:"address"`
+	Watches      map[string][]string `json:"watches"`
 }
 
 // AdsClients is collection of AdsClient connected to this Istiod.
@@ -154,6 +155,10 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	}
 
 	mux.HandleFunc("/debug", s.Debug)
+
+	if features.EnableAdminEndpoints {
+		s.addDebugHandler(mux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
+	}
 
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
 	s.addDebugHandler(mux, "/debug/ndsz", "Status and debug interface for NDS", s.Ndsz)
@@ -459,7 +464,17 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 			ConnectionID: c.ConID,
 			ConnectedAt:  c.Connect,
 			PeerAddress:  c.PeerAddr,
+			Watches:      map[string][]string{},
 		}
+		c.proxy.RLock()
+		for k, wr := range c.proxy.WatchedResources {
+			r := wr.ResourceNames
+			if r == nil {
+				r = []string{}
+			}
+			adsClient.Watches[k] = r
+		}
+		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
 	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {
@@ -732,6 +747,26 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	_, _ = fmt.Fprintln(w, "]")
+}
+
+func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Request) {
+	var con *Connection
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		con = s.getProxyConnection(proxyID)
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		if con == nil {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+		return
+	}
+	con.Stop()
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {

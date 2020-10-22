@@ -16,7 +16,6 @@ package namespace
 
 import (
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -38,14 +37,19 @@ type Instance interface {
 }
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.
-func Claim(ctx resource.Context, name string, injectSidecar bool) (i Instance, err error) {
-	return claimKube(ctx, name, injectSidecar)
+func Claim(ctx resource.Context, nsConfig Config) (i Instance, err error) {
+	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
+	return claimKube(ctx, &nsConfig)
 }
 
 // ClaimOrFail calls Claim and fails test if it returns error
 func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
 	t.Helper()
-	i, err := Claim(ctx, name, true)
+	nsCfg := Config{
+		Prefix: name,
+		Inject: true,
+	}
+	i, err := Claim(ctx, nsCfg)
 	if err != nil {
 		t.Fatalf("namespace.ClaimOrFail:: %v", err)
 	}
@@ -54,8 +58,9 @@ func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
 
 // New creates a new Namespace in all clusters.
 func New(ctx resource.Context, nsConfig Config) (i Instance, err error) {
+	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
 	if ctx.Settings().StableNamespaces {
-		return Claim(ctx, nsConfig.Prefix, nsConfig.Inject)
+		return Claim(ctx, nsConfig)
 	}
 	return newKube(ctx, &nsConfig)
 }
@@ -70,21 +75,11 @@ func NewOrFail(t test.Failer, ctx resource.Context, nsConfig Config) Instance {
 	return i
 }
 
-// ClaimSystemNamespace retrieves the namespace for the Istio system components from the environment.
-func ClaimSystemNamespace(ctx resource.Context) (Instance, error) {
-	istioCfg, err := istio.DefaultConfig(ctx)
-	if err != nil {
-		return nil, err
+func overwriteRevisionIfEmpty(nsConfig *Config, revision string) {
+	// Overwrite the default namespace label (istio-injection=enabled)
+	// with istio.io/rev=XXX. If a revision label is already provided,
+	// the label will remain as is.
+	if nsConfig.Revision == "" {
+		nsConfig.Revision = revision
 	}
-	return Claim(ctx, istioCfg.SystemNamespace, false)
-}
-
-// ClaimSystemNamespaceOrFail calls ClaimSystemNamespace, failing the test if an error occurs.
-func ClaimSystemNamespaceOrFail(t test.Failer, ctx resource.Context) Instance {
-	t.Helper()
-	i, err := ClaimSystemNamespace(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return i
 }

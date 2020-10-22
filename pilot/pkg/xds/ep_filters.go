@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
@@ -112,7 +113,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*endpoint.Localit
 					},
 				}
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel)
+				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, "", "", labels.Instance{})
 				lbEndpoints = append(lbEndpoints, gwEp)
 			}
 		}

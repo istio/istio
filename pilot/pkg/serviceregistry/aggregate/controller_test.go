@@ -261,10 +261,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
@@ -275,10 +272,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
@@ -294,10 +288,7 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	// This ensures callers can distinguish between no labels, and labels not found.
 	aggregateCtl := buildMockController()
 
-	instances, err := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if instances != nil {
 		t.Fatalf("expected nil workload labels, got: %v", instances)
 	}
@@ -309,20 +300,13 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	discovery1.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err == nil {
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no instances are found")
-	}
+	instances := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if len(instances) != 0 {
 		t.Fatal("GetProxyServiceInstances() should return no instances is client experiences error")
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
-	if err != nil {
-		t.Fatal("Aggregate controller should not return error if instances are found")
-	}
+	instances = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}

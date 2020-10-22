@@ -45,6 +45,25 @@ import (
 
 var _ kube.ExtendedClient = MockClient{}
 
+type MockPortForwarder struct {
+}
+
+func (m MockPortForwarder) Start() error {
+	return nil
+}
+
+func (m MockPortForwarder) Address() string {
+	return "localhost:3456"
+}
+
+func (m MockPortForwarder) Close() {
+}
+
+func (m MockPortForwarder) WaitForStop() {
+}
+
+var _ kube.PortForwarder = MockPortForwarder{}
+
 // MockClient for tests that rely on kube.Client.
 type MockClient struct {
 	kubernetes.Interface
@@ -182,7 +201,10 @@ func (c MockClient) Dynamic() dynamic.Interface {
 }
 
 func (c MockClient) GetKubernetesVersion() (*kubeVersion.Info, error) {
-	return nil, fmt.Errorf("TODO MockClient doesn't implement kubernetes version")
+	return &kubeVersion.Info{
+		Major: "1",
+		Minor: "16",
+	}, nil
 }
 
 func (c MockClient) GetIstioPods(_ context.Context, _ string, _ map[string]string) ([]v1.Pod, error) {
@@ -198,7 +220,7 @@ func (c MockClient) PodLogs(_ context.Context, _ string, _ string, _ string, _ b
 }
 
 func (c MockClient) NewPortForwarder(_, _, _ string, _, _ int) (kube.PortForwarder, error) {
-	return nil, fmt.Errorf("TODO MockClient doesn't implement port forwarding")
+	return MockPortForwarder{}, nil
 }
 
 // UtilFactory mock's kubectl's utility factory.  This code sets up a fake factory,

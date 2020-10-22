@@ -64,6 +64,15 @@ type serviceIndex struct {
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 	Hostname             map[host.Name]*Service            `json:"-"`
+
+	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
+	// to avoid locking each service for every proxy during push.
+	ClusterVIPs map[*Service]map[string]string
+
+	// instancesByPort contains a map of service and instances by port. It is stored here
+	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
+	// Call InstancesByPort directly when instances need to be filtered by actual labels.
+	instancesByPort map[*Service]map[int][]*ServiceInstance
 }
 
 func newServiceIndex() serviceIndex {
@@ -73,6 +82,8 @@ func newServiceIndex() serviceIndex {
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		Hostname:             map[host.Name]*Service{},
+		ClusterVIPs:          map[*Service]map[string]string{},
+		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -151,15 +162,6 @@ type PushContext struct {
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
-	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
-	// to avoid locking each service for every proxy during push.
-	ClusterVIPs map[*Service]map[string]string
-
-	// instancesByPort contains a map of service and instances by port. It is stored here
-	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
-	// Call InstancesByPort directly when instances need to be filtered by actual labels.
-	instancesByPort map[*Service]map[int][]*ServiceInstance
-
 	// virtualServiceIndex is the index of virtual services by various fields.
 	virtualServiceIndex virtualServiceIndex
 
@@ -189,7 +191,7 @@ type PushContext struct {
 	Mesh *meshconfig.MeshConfig `json:"-"`
 
 	// Networks configuration.
-	Networks *meshconfig.MeshNetworks `json:"-"`
+	MeshNetworks *meshconfig.MeshNetworks `json:"-"`
 
 	// Discovery interface for listing services and instances.
 	ServiceDiscovery `json:"-"`
@@ -519,8 +521,6 @@ func NewPushContext() *PushContext {
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
-		ClusterVIPs:             map[*Service]map[string]string{},
-		instancesByPort:         map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -704,7 +704,6 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
-		var defaultSidecar *SidecarScope
 		for _, wrapper := range sidecars {
 			if wrapper.Config != nil && wrapper.Config.Spec != nil {
 				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
@@ -712,22 +711,19 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
 					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
+					// exclude workload selector that not match
 					if !workloadLabels.IsSupersetOf(workloadSelector) {
 						continue
 					}
-					return wrapper
 				}
-				defaultSidecar = wrapper
-				continue
+
+				// it is guaranteed sidecars with selectors are put in front
+				// and the sidecars are sorted by creation timestamp,
+				// return exact/wildcard matching one directly
+				return wrapper
 			}
-			// Not sure when this can happen (Config = nil ?)
-			if defaultSidecar != nil {
-				return defaultSidecar // still return the valid one
-			}
+			// this happens at last, it is the default sidecar scope
 			return wrapper
-		}
-		if defaultSidecar != nil {
-			return defaultSidecar // still return the valid one
 		}
 	}
 
@@ -862,7 +858,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.Networks = env.Networks()
+	ps.MeshNetworks = env.Networks()
 	ps.ServiceDiscovery = env
 	ps.IstioConfigStore = env
 	ps.Version = env.Version()
@@ -971,6 +967,7 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
+		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
 	}
@@ -1047,6 +1044,29 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
+		s.Mutex.RLock()
+		ps.ServiceIndex.ClusterVIPs[s] = make(map[string]string)
+		for k, v := range s.ClusterVIPs {
+			ps.ServiceIndex.ClusterVIPs[s][k] = v
+		}
+		s.Mutex.RUnlock()
+
+		// Precache instances
+		for _, port := range s.Ports {
+			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
+				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
+			}
+			instances := make([]*ServiceInstance, 0)
+			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
+			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
+		}
+
+		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		}
+		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		ps.ServiceIndex.Hostname[s.Hostname] = s
+
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
 			if ps.exportToDefaults.service[visibility.Private] {
@@ -1075,25 +1095,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 					}
 				}
 			}
-		}
-		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
-			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
-		}
-		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
-		ps.ServiceIndex.Hostname[s.Hostname] = s
-		s.Mutex.RLock()
-		ps.ClusterVIPs[s] = make(map[string]string)
-		for k, v := range s.ClusterVIPs {
-			ps.ClusterVIPs[s][k] = v
-		}
-		s.Mutex.RUnlock()
-		for _, port := range s.Ports {
-			if _, ok := ps.instancesByPort[s]; !ok {
-				ps.instancesByPort[s] = make(map[int][]*ServiceInstance)
-			}
-			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
-			ps.instancesByPort[s][port.Port] = instances
 		}
 	}
 
@@ -1608,30 +1609,28 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 // pre computes gateways for each network
 func (ps *PushContext) initMeshNetworks() {
-	if ps.Networks == nil || len(ps.Networks.Networks) == 0 {
-		return
-	}
-
 	ps.networkGateways = map[string][]*Gateway{}
-	for network, networkConf := range ps.Networks.Networks {
-		gws := networkConf.Gateways
-		if len(gws) == 0 {
-			// all endpoints in this network are reachable directly from others. nothing to do.
-			continue
+
+	// First, use addresses directly specified in meshNetworks
+	if ps.MeshNetworks != nil {
+		for network, networkConf := range ps.MeshNetworks.Networks {
+			gws := networkConf.Gateways
+			for _, gw := range gws {
+				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+					ps.networkGateways[network] = append(ps.networkGateways[network], &Gateway{gw.GetAddress(), gw.Port})
+				}
+			}
+
 		}
-
-		registryNames := getNetworkRegistries(networkConf)
-		gateways := make([]*Gateway, 0, len(gws))
-
-		for _, gw := range gws {
-			gateways = append(gateways, getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)...)
-		}
-
-		log.Debugf("Endpoints from registries %v on network %v reachable through %d gateways",
-			registryNames, network, len(gateways))
-
-		ps.networkGateways[network] = gateways
 	}
+
+	// Second, load registry specific gateways.
+	for network, gateways := range ps.ServiceDiscovery.NetworkGateways() {
+		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
+		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
+		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
+	}
+
 }
 
 func (ps *PushContext) initClusterLocalHosts(e *Environment) {
@@ -1682,57 +1681,6 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 	ps.clusterLocalHosts = clusterLocalHosts
 }
 
-func getNetworkRegistries(network *meshconfig.Network) []string {
-	registryNames := make([]string, 0, len(network.Endpoints))
-	for _, eps := range network.Endpoints {
-		if eps != nil && len(eps.GetFromRegistry()) > 0 {
-			registryNames = append(registryNames, eps.GetFromRegistry())
-		}
-	}
-	return registryNames
-}
-
-func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []*Gateway {
-	// First, if a gateway address is provided in the configuration use it. If the gateway address
-	// in the config was a hostname it got already resolved and replaced with an IP address
-	// when loading the config
-	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-		return []*Gateway{{gw.GetAddress(), gw.Port}}
-	}
-
-	// Second, try to find the gateway addresses by the provided service name
-	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
-		svc, _ := discovery.GetService(host.Name(gwSvcName))
-		if svc == nil {
-			return nil
-		}
-		// No need lock here as the service returned is a new one
-		if svc.Attributes.ClusterExternalAddresses != nil {
-			var gateways []*Gateway
-			for _, clusterName := range registryNames {
-				remotePort := gw.Port
-				// check if we have node port mappings
-				if svc.Attributes.ClusterExternalPorts != nil {
-					if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[clusterName]; exists {
-						// what we now have is a service port. If there is a mapping for cluster external ports,
-						// look it up and get the node port for the remote port
-						if nodePort, exists := nodePortMap[remotePort]; exists {
-							remotePort = nodePort
-						}
-					}
-				}
-				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
-				for _, ip := range ips {
-					gateways = append(gateways, &Gateway{ip, remotePort})
-				}
-			}
-			return gateways
-		}
-	}
-
-	return nil
-}
-
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
 	return ps.networkGateways
 }
@@ -1747,7 +1695,7 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
 // policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
-// The resulst is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
+// The result is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
@@ -1757,13 +1705,27 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 		return MTLSUnknown
 	}
 
-	// First , check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// 1. Check service instances' tls mode, mainly used for headless service.
+	if service.Resolution == Passthrough {
+		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
+		if len(instances) == 0 {
+			return MTLSDisable
+		}
+		for _, i := range instances {
+			// Infer mTls disabled if any of the endpoint is with tls disabled
+			if i.Endpoint.TLSMode == DisabledTLSModeLabel {
+				return MTLSDisable
+			}
+		}
+	}
+
+	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
 	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
 	}
 
-	// When all are failed, default to permissive.
+	// Fallback to permissive.
 	return MTLSPermissive
 }
 
@@ -1772,7 +1734,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	// Use cached version of instances by port when labels are empty. If there are labels,
 	// we will have to make actual call and filter instances by pod labels.
 	if len(labels) == 0 {
-		if instances, exists := ps.instancesByPort[svc][port]; exists {
+		if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
 			return instances
 		}
 	}

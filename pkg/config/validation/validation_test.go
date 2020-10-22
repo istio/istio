@@ -121,6 +121,35 @@ func TestValidateWildcardDomain(t *testing.T) {
 	}
 }
 
+func TestValidateTrustDomain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		err  string
+	}{
+		{"empty", "", "empty"},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"multi-segment", "foo.bar.com", ""},
+		{"middle dash", "f-oo.bar.com", ""},
+		{"trailing dot", "foo.bar.com.", ""},
+		{"prefix dash", "-foo.bar.com", "invalid"},
+		{"forward slash separated", "foo/bar/com", "invalid"},
+		{"colon separated", "foo:bar:com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTrustDomain(tt.in)
+			if err == nil && tt.err != "" {
+				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.err)
+			} else if err != nil && tt.err == "" {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.err) {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.err)
+			}
+		})
+	}
+}
+
 func TestValidatePort(t *testing.T) {
 	ports := map[int]bool{
 		0:     false,
@@ -319,9 +348,11 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		ProxyListenPort: 0,
-		ConnectTimeout:  types.DurationProto(-1 * time.Second),
-		DefaultConfig:   &meshconfig.ProxyConfig{},
+		ProxyListenPort:    0,
+		ConnectTimeout:     types.DurationProto(-1 * time.Second),
+		DefaultConfig:      &meshconfig.ProxyConfig{},
+		TrustDomain:        "",
+		TrustDomainAliases: []string{"a.$b", "a/b", ""},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -331,7 +362,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 6 {
+			if len(err.Errors) < 7 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -2470,7 +2501,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			valid: false},
 	}
 	for _, c := range cases {
-		if got := validateTrafficPolicy(&c.in); (got == nil) != c.valid {
+		if got := validateTrafficPolicy(&c.in).Err; (got == nil) != c.valid {
 			t.Errorf("ValidateTrafficPolicy failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -2638,6 +2669,7 @@ func TestValidateOutlierDetection(t *testing.T) {
 		name  string
 		in    networking.OutlierDetection
 		valid bool
+		warn  bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
 			Interval:           &types.Duration{Seconds: 2},
@@ -2664,12 +2696,22 @@ func TestValidateOutlierDetection(t *testing.T) {
 			MinHealthPercent: 101,
 		},
 			valid: false},
+		{name: "deprecated outlier detection, ConsecutiveErrors", in: networking.OutlierDetection{
+			ConsecutiveErrors: 101,
+		},
+			valid: true,
+			warn:  true},
 	}
 
 	for _, c := range cases {
-		if got := validateOutlierDetection(&c.in); (got == nil) != c.valid {
+		got := validateOutlierDetection(&c.in)
+		if (got.Err == nil) != c.valid {
 			t.Errorf("ValidateOutlierDetection failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
+				c.name, got.Err == nil, c.valid, got.Err)
+		}
+		if (got.Warning == nil) == c.warn {
+			t.Errorf("ValidateOutlierDetection failed on %v: got warn=%v but wanted warn=%v: %v",
+				c.name, got.Warning == nil, c.warn, got.Warning)
 		}
 	}
 }

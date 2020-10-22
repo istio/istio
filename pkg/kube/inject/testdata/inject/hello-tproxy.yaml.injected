@@ -44,7 +44,6 @@ spec:
         - hello.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
         - --concurrency
         - "2"
         env:
@@ -84,7 +83,7 @@ spec:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"interceptionMode":"TPROXY","proxyMetadata":{"DNS_AGENT":""}}
+            {"interceptionMode":"TPROXY","proxyMetadata":{"DNS_AGENT":""},"meshId":"cluster.local"}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [

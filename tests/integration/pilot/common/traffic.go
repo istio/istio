@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,87 +19,82 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
-const callsPerCluster = 10
+const callsPerCluster = 5
+
+var (
+	// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
+	retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
+)
+
+type TrafficCall struct {
+	name string
+	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
+	opts echo.CallOptions
+}
 
 type TrafficTestCase struct {
 	name   string
 	config string
 
-	// Multiple calls. Cannot be used with call/validator
-	calls []TrafficCall
+	// Multiple calls. Cannot be used with call/opts
+	children []TrafficCall
 
-	// Single call
-	call      func() (echoclient.ParsedResponses, error)
-	validator func(echoclient.ParsedResponses) error
+	// Single call. Cannot be used with children.
+	call     func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
+	opts     echo.CallOptions
 
-	// if enabled, we will assert the request fails, rather than the request succeeds
-	expectFailure bool
+	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
+	skip bool
 }
 
-type TrafficCall struct {
-	call          func() (echoclient.ParsedResponses, error)
-	validator     func(echoclient.ParsedResponses) error
-	expectFailure bool
-}
-
-func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase, namespace string) {
-	ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
-		if len(tt.config) > 0 {
-			ctx.Config().ApplyYAMLOrFail(ctx, namespace, tt.config)
-			ctx.WhenDone(func() error {
-				return ctx.Config().DeleteYAML(namespace, tt.config)
+func (c TrafficTestCase) Run(ctx framework.TestContext, namespace string) {
+	ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
+		if c.skip {
+			ctx.SkipNow()
+		}
+		if len(c.config) > 0 {
+			ctx.Config().ApplyYAMLOrFail(ctx, namespace, c.config)
+			ctx.Cleanup(func() {
+				_ = ctx.Config().DeleteYAML(namespace, c.config)
 			})
 		}
-		if tt.call != nil {
-			if tt.calls != nil {
-				ctx.Fatalf("defined calls and calls; may only define on or the other")
-			}
-			tt.calls = []TrafficCall{{tt.call, tt.validator, tt.expectFailure}}
-		}
-		for i, c := range tt.calls {
-			name := fmt.Sprintf("%s/%d", tt.name, i)
-			retry.UntilSuccessOrFail(ctx, func() error {
-				r, err := c.call()
-				if !c.expectFailure && err != nil {
-					ctx.Logf("call for %v failed, retrying: %v", name, err)
-					return err
-				} else if c.expectFailure && err == nil {
-					e := fmt.Errorf("call for %v did not fail, retrying", name)
-					ctx.Log(e)
-					return e
-				}
 
-				err = c.validator(r)
-				if !c.expectFailure && err != nil {
-					ctx.Logf("validation for call for %v failed, retrying: %v", name, err)
-					return err
-				} else if c.expectFailure && err == nil {
-					e := fmt.Errorf("validation for %v did not fail, retrying", name)
-					ctx.Log(e)
-					return e
-				}
-				return nil
-			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10), retry.Converge(3))
+		if c.call != nil && len(c.children) > 0 {
+			ctx.Fatal("TrafficTestCase: must not specify both call and children")
+		}
+
+		if c.call != nil {
+			// Call the function with a few custom retry options.
+			c.call(ctx, c.opts, retryOptions...)
+		}
+
+		for _, child := range c.children {
+			ctx.NewSubTest(child.name).Run(func(ctx framework.TestContext) {
+				child.call(ctx, child.opts, retryOptions...)
+			})
 		}
 	})
 }
 
-func RunTrafficTest(ctx framework.TestContext, apps *EchoDeployments) {
+func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(apps)
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
+	cases["gateway"] = gatewayCases(apps)
 	cases["vm"] = VMTestCases(apps.VM, apps)
-	for n, tts := range cases {
-		ctx.NewSubTest(n).Run(func(ctx framework.TestContext) {
+	for name, tts := range cases {
+		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 			for _, tt := range tts {
-				ExecuteTrafficTest(ctx, tt, apps.Namespace.Name())
+				tt.Run(ctx, apps.Namespace.Name())
 			}
 		})
 	}

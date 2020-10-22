@@ -95,7 +95,7 @@ func (b EndpointBuilder) Key() string {
 
 // MultiNetworkConfigured determines if we have gateways to use for building cross-network endpoints.
 func (b *EndpointBuilder) MultiNetworkConfigured() bool {
-	return b.push.NetworkGateways() != nil
+	return b.push.NetworkGateways() != nil && len(b.push.NetworkGateways()) > 0
 }
 
 func (b EndpointBuilder) Cacheable() bool {
@@ -213,7 +213,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not removepilot/pkg/xds/fake.go
-	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Labels)
 
 	return ep
 }

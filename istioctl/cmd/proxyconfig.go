@@ -295,17 +295,15 @@ func clusterConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("cluster requires pod name or --file parameter")
 			}
-			if len(args) == 1 {
-				var err error
-				podName, podNamespace, err = getPodName(args[0])
-				return err
-			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -367,17 +365,15 @@ func listenerConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("listener requires pod name or --file parameter")
 			}
-			if len(args) == 1 {
-				var err error
-				podName, podNamespace, err = getPodName(args[0])
-				return err
-			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -443,14 +439,13 @@ func logCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--level cannot be combined with --reset")
 			}
-			if len(args) == 1 {
-				var err error
-				podName, podNamespace, err = getPodName(args[0])
-				return err
-			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			var err error
+			if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				return err
+			}
 			loggerNames, err := setupEnvoyLogConfig("", podName, podNamespace)
 			if err != nil {
 				return err
@@ -559,17 +554,15 @@ func routeConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("route requires pod name or --file parameter")
 			}
-			if len(args) == 1 {
-				var err error
-				podName, podNamespace, err = getPodName(args[0])
-				return err
-			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -632,17 +625,15 @@ func endpointConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("endpoints requires pod name or --file parameter")
 			}
-			if len(args) == 1 {
-				var err error
-				podName, podNamespace, err = getPodName(args[0])
-				return err
-			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *clusters.ConfigWriter
 			var err error
 			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
 				configWriter, err = setupPodClustersWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout())
@@ -700,17 +691,15 @@ func bootstrapConfigCmd() *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("bootstrap requires pod name or --file parameter")
 			}
-			if len(args) == 1 {
-				var err error
-				podName, podNamespace, err = getPodName(args[0])
-				return err
-			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -740,20 +729,12 @@ func secretConfigCmd() *cobra.Command {
 
   # Retrieve full bootstrap without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
-  istioctl proxy-config secret --file envoy-config.json
-
-  THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
-		Aliases: []string{"s"},
+  istioctl proxy-config secret --file envoy-config.json`,
+		Aliases: []string{"secrets", "s"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("secret requires pod name or --file parameter")
-			}
-			if len(args) == 1 {
-				var err error
-				podName, podNamespace, err = getPodName(args[0])
-				return err
 			}
 			return nil
 		},
@@ -761,6 +742,9 @@ func secretConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
 				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -782,7 +766,7 @@ func secretConfigCmd() *cobra.Command {
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-
+	secretConfigCmd.Long += "\n\n" + ExperimentalMsg
 	return secretConfigCmd
 }
 

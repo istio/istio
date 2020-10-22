@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +46,7 @@ func ReachabilityTest(t *testing.T, apps AppContext, features ...features.Featur
 								"/")
 							ctx.NewSubTest(subTestName).
 								RunParallel(func(ctx framework.TestContext) {
-									callOrFail(ctx, src, dest)
+									callOrFail(ctx, src, dest, nil)
 								})
 						}
 					}

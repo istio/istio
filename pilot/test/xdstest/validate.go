@@ -31,7 +31,12 @@ import (
 
 func ValidateListeners(t testing.TB, ls []*listener.Listener) {
 	t.Helper()
+	found := sets.String{}
 	for _, l := range ls {
+		if found.Has(l.Name) {
+			t.Errorf("duplicate listener name %v", l.Name)
+		}
+		found.Insert(l.Name)
 		ValidateListener(t, l)
 	}
 }
@@ -44,6 +49,24 @@ func ValidateListener(t testing.TB, l *listener.Listener) {
 	validateInspector(t, l)
 	validateListenerTLS(t, l)
 	validateFilterChainMatch(t, l)
+	validateInboundListener(t, l)
+}
+
+func validateInboundListener(t testing.TB, l *listener.Listener) {
+	if l.GetAddress().GetSocketAddress().GetPortValue() != 15006 {
+		// Not an inbound port
+		return
+	}
+	for i, fc := range l.GetFilterChains() {
+		if fc.FilterChainMatch == nil {
+			t.Errorf("nil filter chain %d", i)
+			continue
+		}
+		if fc.FilterChainMatch.TransportProtocol == "" {
+			// Not setting transport protocol may lead to unexpected matching behavior due to https://github.com/istio/istio/issues/26079
+			t.Errorf("filter chain %d had no transport protocol set", i)
+		}
+	}
 }
 
 func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
@@ -111,13 +134,14 @@ func validateListenerTLS(t testing.TB, l *listener.Listener) {
 			continue
 		}
 		// if we are matching TLS traffic and doing HTTP traffic, we must terminate the TLS
-		if m.TransportProtocol == xdsfilters.TLSTransportProtocol && fc.TransportSocket != nil && ExtractHTTPConnectionManager(t, fc) == nil {
+		if m.TransportProtocol == xdsfilters.TLSTransportProtocol && fc.TransportSocket == nil && ExtractHTTPConnectionManager(t, fc) != nil {
 			t.Errorf("listener %v is invalid: tls traffic may not be terminated: %v", l.Name, Dump(t, fc))
 		}
 	}
 }
 
 // Validate a tls inspect filter is added whenever it is needed
+// matches logic in https://github.com/envoyproxy/envoy/blob/22683a0a24ffbb0cdeb4111eec5ec90246bec9cb/source/server/listener_impl.cc#L41
 func validateInspector(t testing.TB, l *listener.Listener) {
 	t.Helper()
 	for _, lf := range l.ListenerFilters {
@@ -133,19 +157,24 @@ func validateInspector(t testing.TB, l *listener.Listener) {
 		if m.TransportProtocol == xdsfilters.TLSTransportProtocol {
 			t.Errorf("transport protocol set, but missing tls inspector: %v", Dump(t, l))
 		}
-		if len(m.ServerNames) > 0 {
+		if m.TransportProtocol == "" && len(m.ServerNames) > 0 {
 			t.Errorf("server names set, but missing tls inspector: %v", Dump(t, l))
 		}
 		// This is a bit suspect; I suspect this could be done with just http inspector without tls inspector,
 		// but this mirrors Envoy validation logic
-		if len(m.ApplicationProtocols) > 0 {
+		if m.TransportProtocol == "" && len(m.ApplicationProtocols) > 0 {
 			t.Errorf("application protocol set, but missing tls inspector: %v", Dump(t, l))
 		}
 	}
 }
 
 func ValidateClusters(t testing.TB, ls []*cluster.Cluster) {
+	found := sets.String{}
 	for _, l := range ls {
+		if found.Has(l.Name) {
+			t.Errorf("duplicate cluster name %v", l.Name)
+		}
+		found.Insert(l.Name)
 		ValidateCluster(t, l)
 	}
 }
@@ -175,7 +204,12 @@ func ValidateRoute(t testing.TB, r *route.Route) {
 	}
 }
 func ValidateRouteConfigurations(t testing.TB, ls []*route.RouteConfiguration) {
+	found := sets.String{}
 	for _, l := range ls {
+		if found.Has(l.Name) {
+			t.Errorf("duplicate route config name %v", l.Name)
+		}
+		found.Insert(l.Name)
 		ValidateRouteConfiguration(t, l)
 	}
 }

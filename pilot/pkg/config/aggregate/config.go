@@ -64,7 +64,7 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 		} else {
 			err := store.SetLedger(l)
 			if err != nil {
-				log.Warnf("Config Store %v cannot track distribution in aggregate: %v", store, err)
+				log.Debugf("Config Store %v cannot track distribution in aggregate: %v", store, err)
 			}
 		}
 	}
@@ -189,6 +189,20 @@ func (cr *store) Update(c config.Config) (string, error) {
 		return "", errorUnsupported
 	}
 	return cr.writer.Update(c)
+}
+
+func (cr *store) UpdateStatus(c config.Config) (string, error) {
+	if cr.writer == nil {
+		return "", errorUnsupported
+	}
+	return cr.writer.UpdateStatus(c)
+}
+
+func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+	if cr.writer == nil {
+		return "", errorUnsupported
+	}
+	return cr.writer.Patch(typ, name, namespace, patchFn)
 }
 
 type storeCache struct {

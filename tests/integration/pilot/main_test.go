@@ -16,6 +16,7 @@
 package pilot
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -23,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/pilot/common"
@@ -32,13 +32,20 @@ import (
 var (
 	i istio.Instance
 
-	ingr ingress.Instance
-
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
 	apps = &common.EchoDeployments{}
 )
+
+func supportsCRDv1(ctx resource.Context) bool {
+	ver, err := ctx.Clusters()[0].GetKubernetesVersion()
+	if err != nil {
+		return true
+	}
+	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+	return serverVersion >= "1.16"
+}
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
@@ -47,52 +54,18 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(func(ctx resource.Context) (err error) {
-			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
-			if err != nil {
-				return err
+			if supportsCRDv1(ctx) {
+				crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+				if err != nil {
+					return err
+				}
+				return ctx.Config().ApplyYAML("", string(crd))
 			}
-			return ctx.Config().ApplyYAML("", string(crd))
-		}).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
-			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
-			cfg.ControlPlaneValues = `
-# Add TCP port, not in the default install
-components:
-  ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
-      k8s:
-        service:
-          ports:
-            - port: 15021
-              targetPort: 15021
-              name: status-port
-            - port: 80
-              targetPort: 8080
-              name: http2
-            - port: 443
-              targetPort: 8443
-              name: https
-            - port: 15443
-              targetPort: 15443
-              name: tls
-            - port: 31400
-              name: tcp
-            - port: 15012
-              targetPort: 15012
-              name: tcp-istiod
-values:
-  pilot:
-    env:
-      PILOT_ENABLED_SERVICE_APIS: "true"`
-		})).
-		Setup(func(ctx resource.Context) error {
-			return common.SetupApps(ctx, apps)
-		}).
-		Setup(func(ctx resource.Context) (err error) {
-			ingr = i.IngressFor(ctx.Clusters().Default())
 			return nil
+		}).
+		Setup(istio.Setup(&i, nil)).
+		Setup(func(ctx resource.Context) error {
+			return common.SetupApps(ctx, i, apps)
 		}).
 		Run()
 }

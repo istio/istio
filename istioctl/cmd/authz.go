@@ -42,10 +42,7 @@ the Envoy configuration of the pod. The command is especially useful for inspect
 the policy propagation from Istiod to Envoy and the final AuthorizationPolicy list merged 
 from multiple sources (mesh-level, namespace-level and workload-level).
 
-The command also supports reading from a standalone config dump file with flag -f.
-
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+The command also supports reading from a standalone config dump file with flag -f.`,
 		Example: `  # Check AuthorizationPolicy applied to pod httpbin-88ddbcfdd-nt5jb:
   istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
@@ -156,6 +153,7 @@ func AuthZ() *cobra.Command {
 	}
 
 	cmd.AddCommand(checkCmd)
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 

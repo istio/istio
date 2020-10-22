@@ -34,7 +34,6 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
         env:
@@ -79,6 +78,8 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: EXTERNAL_ISTIOD
+          value: "false"
         - name: CENTRAL_ISTIOD
           value: "false"
         image: docker.io/istio/pilot:1.1.4

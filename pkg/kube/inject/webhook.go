@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,7 +28,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/howeyc/fsnotify"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,6 +40,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -79,10 +78,7 @@ type Webhook struct {
 	healthCheckInterval time.Duration
 	healthCheckFile     string
 
-	configFile string
-	valuesFile string
-
-	watcher *fsnotify.Watcher
+	watcher Watcher
 
 	mon      *monitor
 	env      *model.Environment
@@ -95,8 +91,8 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil {
+	var c *Config
+	if c, err = unmarshalConfig(data); err != nil {
 		log.Warnf("Failed to parse injectFile %s", string(data))
 		return nil, "", err
 	}
@@ -105,23 +101,28 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	return c, string(valuesConfig), nil
+}
+
+func unmarshalConfig(data []byte) (*Config, error) {
+	var c Config
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return nil, err
+	}
 
 	log.Debugf("New inject configuration: sha256sum %x", sha256.Sum256(data))
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
 	log.Debugf("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
-
-	return &c, string(valuesConfig), nil
+	return &c, nil
 }
 
 // WebhookParameters configures parameters for the sidecar injection
 // webhook.
 type WebhookParameters struct {
-	// ConfigFile is the path to the sidecar injection configuration file.
-	ConfigFile string
-
-	ValuesFile string
+	// Watcher watches the sidecar injection configuration.
+	Watcher Watcher
 
 	// Port is the webhook port, e.g. typically 443 for https.
 	// This is mainly used for tests. Webhook runs on the port started by Istiod.
@@ -154,36 +155,23 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if p.Mux == nil {
 		return nil, errors.New("expected mux to be passed, but was not passed")
 	}
-	sidecarConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.ValuesFile)
-	if err != nil {
-		return nil, err
-	}
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
-	// watch the parent directory of the target files so we can catch
-	// symlink updates of k8s ConfigMaps volumes.
-	for _, file := range []string{p.ConfigFile} {
-		watchDir, _ := filepath.Split(file)
-		if err := watcher.Watch(watchDir); err != nil {
-			return nil, fmt.Errorf("could not watch %v: %v", file, err)
-		}
-	}
 
 	wh := &Webhook{
-		Config:                 sidecarConfig,
-		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
-		meshConfig:             p.Env.Mesh(),
-		configFile:             p.ConfigFile,
-		valuesFile:             p.ValuesFile,
-		valuesConfig:           valuesConfig,
-		watcher:                watcher,
-		healthCheckInterval:    p.HealthCheckInterval,
-		healthCheckFile:        p.HealthCheckFile,
-		env:                    p.Env,
-		revision:               p.Revision,
+		watcher:             p.Watcher,
+		meshConfig:          p.Env.Mesh(),
+		healthCheckInterval: p.HealthCheckInterval,
+		healthCheckFile:     p.HealthCheckFile,
+		env:                 p.Env,
+		revision:            p.Revision,
 	}
+
+	p.Watcher.SetHandler(wh.updateConfig)
+	sidecarConfig, valuesConfig, err := p.Watcher.Get()
+	if err != nil {
+		return nil, err
+	}
+	wh.updateConfig(sidecarConfig, valuesConfig)
+
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 	p.Mux.HandleFunc("/inject/", wh.serveInject)
 
@@ -206,7 +194,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
-	defer wh.watcher.Close()
+	go wh.watcher.Run(stop)
 
 	if wh.mon != nil {
 		defer wh.mon.monitoringServer.Close()
@@ -218,36 +206,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		healthC = t.C
 		defer t.Stop()
 	}
-	var timerC <-chan time.Time
 
 	for {
 		select {
-		case <-timerC:
-			timerC = nil
-			sidecarConfig, valuesConfig, err := loadConfig(wh.configFile, wh.valuesFile)
-			if err != nil {
-				log.Errorf("update error: %v", err)
-				break
-			}
-
-			version := sidecarTemplateVersionHash(sidecarConfig.Template)
-			if err != nil {
-				log.Errorf("reload cert error: %v", err)
-				break
-			}
-			wh.mu.Lock()
-			wh.Config = sidecarConfig
-			wh.valuesConfig = valuesConfig
-			wh.sidecarTemplateVersion = version
-			wh.mu.Unlock()
-		case event := <-wh.watcher.Event:
-			log.Debugf("Injector watch update: %+v", event)
-			// use a timer to debounce configuration updates
-			if (event.IsModify() || event.IsCreate()) && timerC == nil {
-				timerC = time.After(watchDebounceDelay)
-			}
-		case err := <-wh.watcher.Error:
-			log.Errorf("Watcher error: %v", err)
 		case <-healthC:
 			content := []byte(`ok`)
 			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
@@ -257,6 +218,15 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			return
 		}
 	}
+}
+
+func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
+	version := sidecarTemplateVersionHash(sidecarConfig.Template)
+	wh.mu.Lock()
+	wh.Config = sidecarConfig
+	wh.valuesConfig = valuesConfig
+	wh.sidecarTemplateVersion = version
+	wh.mu.Unlock()
 }
 
 // It would be great to use https://github.com/mattbaird/jsonpatch to
@@ -705,72 +675,21 @@ type InjectionParameters struct {
 	injectedAnnotations map[string]string
 }
 
-func getDeployMetaFromPod(pod *corev1.Pod) (*metav1.ObjectMeta, *metav1.TypeMeta) {
-	// try to capture more useful namespace/name info for deployments, etc.
-	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
-	deployMeta := pod.ObjectMeta.DeepCopy()
-	deployMeta.Namespace = pod.ObjectMeta.Namespace
-
-	typeMetadata := &metav1.TypeMeta{
-		Kind:       "Pod",
-		APIVersion: "v1",
-	}
-	if len(pod.GenerateName) > 0 {
-		// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
-		var controllerRef metav1.OwnerReference
-		controllerFound := false
-		for _, ref := range pod.GetOwnerReferences() {
-			if *ref.Controller {
-				controllerRef = ref
-				controllerFound = true
-				break
-			}
-		}
-		if controllerFound {
-			typeMetadata.APIVersion = controllerRef.APIVersion
-			typeMetadata.Kind = controllerRef.Kind
-
-			// heuristic for deployment detection
-			deployMeta.Name = controllerRef.Name
-			if typeMetadata.Kind == "ReplicaSet" && pod.Labels["pod-template-hash"] != "" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
-				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
-				deployMeta.Name = name
-				typeMetadata.Kind = "Deployment"
-			} else if typeMetadata.Kind == "Job" && len(controllerRef.Name) > 11 {
-				// If job name suffixed with `-<ten-digit-timestamp>`, trim the suffix and set kind to cron job.
-				l := len(controllerRef.Name)
-				if _, err := strconv.Atoi(controllerRef.Name[l-10:]); err == nil && string(controllerRef.Name[l-11]) == "-" {
-					deployMeta.Name = controllerRef.Name[:l-11]
-					typeMetadata.Kind = "CronJob"
-					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
-					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
-					typeMetadata.APIVersion = "batch/v1beta1"
-				}
-			}
-		}
-	}
-
-	if deployMeta.Name == "" {
-		// if we haven't been able to extract a deployment name, then just give it the pod name
-		deployMeta.Name = pod.Name
-	}
-
-	return deployMeta, typeMetadata
-}
-
 func injectPod(req InjectionParameters) ([]byte, error) {
 	pod := req.pod
 
-	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
-	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
-	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	var grp = int64(1337)
-	if pod.Spec.SecurityContext == nil {
-		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
+	if features.EnableLegacyFSGroupInjection {
+		// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
+		// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
+		// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+		var grp = int64(1337)
+		if pod.Spec.SecurityContext == nil {
+			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+				FSGroup: &grp,
+			}
+		} else {
+			pod.Spec.SecurityContext.FSGroup = &grp
 		}
-	} else {
-		pod.Spec.SecurityContext.FSGroup = &grp
 	}
 
 	spec, iStatus, err := InjectionData(req, req.typeMeta, req.deployMeta)
@@ -820,7 +739,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
-	deploy, typeMeta := getDeployMetaFromPod(&pod)
+	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,
 		deployMeta:          deploy,

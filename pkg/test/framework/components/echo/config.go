@@ -80,6 +80,9 @@ type Config struct {
 	// disable sidecar injection, etc.
 	DeployAsVM bool
 
+	// If enabled, ISTIO_META_AUTO_REGISTER will be set on the VM and the WorkloadEntry will be created automatically.
+	AutoRegisterVM bool
+
 	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
 	VMImage string
 
@@ -99,6 +102,16 @@ type SubsetConfig struct {
 // String implements the Configuration interface (which implements fmt.Stringer)
 func (c Config) String() string {
 	return fmt.Sprint("{service: ", c.Service, ", version: ", c.Version, "}")
+}
+
+// PortByName looks up a given port by name
+func (c Config) PortByName(name string) *Port {
+	for _, p := range c.Ports {
+		if p.Name == name {
+			return &p
+		}
+	}
+	return nil
 }
 
 // FQDN returns the fully qualified domain name for the service.

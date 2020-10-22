@@ -149,6 +149,23 @@ var httpDNSnoEndpoints = &config.Config{
 	},
 }
 
+var dnsTargetPort = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "dnsTargetPort",
+		Namespace:         "dnsTargetPort",
+		CreationTimestamp: GlobalTime,
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"google.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http", TargetPort: 8080},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+	},
+}
+
 var httpDNS = &config.Config{
 	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
@@ -537,6 +554,13 @@ func TestConvertService(t *testing.T) {
 			},
 		},
 		{
+			// service entry dns with target port
+			externalSvc: dnsTargetPort,
+			services: []*model.Service{makeService("google.com", "dnsTargetPort", constants.UnspecifiedIP,
+				map[string]int{"http-port": 80}, true, model.DNSLB),
+			},
+		},
+		{
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
 			services: []*model.Service{makeService("tcpdns.com", "tcpDNS", constants.UnspecifiedIP,
@@ -657,6 +681,13 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
+			// service entry dns with target port
+			externalSvc: dnsTargetPort,
+			out: []*model.ServiceInstance{
+				makeInstance(dnsTargetPort, "google.com", 8080, dnsTargetPort.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+			},
+		},
+		{
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
 			out: []*model.ServiceInstance{
@@ -748,7 +779,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			services := convertServices(*tt.se)
-			instances := convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry))
+			instances := convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{})
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {

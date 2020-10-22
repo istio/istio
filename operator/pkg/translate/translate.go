@@ -172,6 +172,7 @@ func NewTranslator() *Translator {
 			"Components.{{.ComponentName}}.K8S.Tolerations":         {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"},
 			"Components.{{.ComponentName}}.K8S.ServiceAnnotations":  {OutPath: "[Service:{{.ResourceName}}].metadata.annotations"},
 			"Components.{{.ComponentName}}.K8S.Service":             {OutPath: "[Service:{{.ResourceName}}].spec"},
+			"Components.{{.ComponentName}}.K8S.SecurityContext":     {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.securityContext"},
 		},
 	}
 	return t
@@ -195,30 +196,42 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		if err != nil {
 			return "", err
 		}
-		inPath = strings.Replace(inPath, "gressGateways.", "gressGateways."+fmt.Sprint(index)+".", 1)
-		scope.Debugf("Checking for path %s in IstioOperatorSpec", inPath)
+		renderedInPath := strings.Replace(inPath, "gressGateways.", "gressGateways."+fmt.Sprint(index)+".", 1)
+		scope.Debugf("Checking for path %s in IstioOperatorSpec", renderedInPath)
 
-		m, found, err := getK8SSpecFromIOP(iop, componentName, inPath, addonName)
+		m, found, err := getK8SSpecFromIOP(iop, componentName, renderedInPath, addonName)
 		if err != nil {
 			return "", err
 		}
 		if !found {
-			scope.Debugf("path %s not found in IstioOperatorSpec, skip mapping.", inPath)
+			scope.Debugf("path %s not found in IstioOperatorSpec, skip mapping.", renderedInPath)
 			continue
 		}
 		if mstr, ok := m.(string); ok && mstr == "" {
-			scope.Debugf("path %s is empty string, skip mapping.", inPath)
+			scope.Debugf("path %s is empty string, skip mapping.", renderedInPath)
 			continue
 		}
 		// Zero int values are due to proto3 compiling to scalars rather than ptrs. Skip these because values of 0 are
 		// the default in destination fields and need not be set explicitly.
 		if mint, ok := util.ToIntValue(m); ok && mint == 0 {
-			scope.Debugf("path %s is int 0, skip mapping.", inPath)
+			scope.Debugf("path %s is int 0, skip mapping.", renderedInPath)
 			continue
 		}
 		if componentName == name.IstioBaseComponentName {
 			return "", fmt.Errorf("base component can only have k8s.overlays, not other K8s settings")
 		}
+		// for server-side apply, make sure service port has protocol defined.
+		// TODO(richardwxn): remove after https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 is fixed.
+		if strings.HasSuffix(inPath, "Service") {
+			if msvc, ok := m.(*v1alpha1.ServiceSpec); ok {
+				for _, port := range msvc.Ports {
+					if port.Protocol == "" {
+						port.Protocol = "TCP"
+					}
+				}
+			}
+		}
+
 		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName, iop.Revision)
 		if err != nil {
 			return "", err
