@@ -19,6 +19,7 @@ COPY operator /usr/local/bin/
 
 # add operator manifests
 COPY manifests/ /var/lib/istio/manifests/
+RUN chown 1337:1337 -R /var/lib/istio/manifests/
 
 USER 1337:1337
 

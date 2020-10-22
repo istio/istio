@@ -152,6 +152,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
 	pruneErr := h.Prune(manifestMap, false)
+	scope.Info("Completed prune.")
 	h.reportPrunedObjectKind()
 	return status, pruneErr
 }
