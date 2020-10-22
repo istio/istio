@@ -72,7 +72,7 @@ spec:
 				},
 				Result: simulation.Result{
 					VirtualHostMatched: "inbound|http|80",
-					ClusterMatched:     "inbound|80|http|foo.bar",
+					ClusterMatched:     "inbound|80||",
 				},
 			},
 			{
@@ -84,7 +84,7 @@ spec:
 				},
 				Result: simulation.Result{
 					VirtualHostMatched: "inbound|http|81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 				},
 			},
 			{
@@ -96,7 +96,7 @@ spec:
 				},
 				Result: simulation.Result{
 					VirtualHostMatched: "inbound|http|81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 				},
 			},
 			{
@@ -109,7 +109,7 @@ spec:
 				Result: simulation.Result{
 					ListenerMatched:    "virtualInbound",
 					FilterChainMatched: "0.0.0.0_81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 					StrictMatch:        true,
 				},
 			},
@@ -166,7 +166,7 @@ spec:
 				},
 				Result: simulation.Result{
 					VirtualHostMatched: "inbound|http|80",
-					ClusterMatched:     "inbound|80|http|foo.bar",
+					ClusterMatched:     "inbound|80||",
 				},
 			},
 			{
@@ -194,7 +194,7 @@ spec:
 				},
 				Result: simulation.Result{
 					VirtualHostMatched: "inbound|http|80",
-					ClusterMatched:     "inbound|80|http|foo.bar",
+					ClusterMatched:     "inbound|80||",
 				},
 			},
 			{
@@ -206,7 +206,7 @@ spec:
 				},
 				Result: simulation.Result{
 					VirtualHostMatched: "inbound|http|81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 				},
 			},
 			{
@@ -220,7 +220,7 @@ spec:
 				},
 				Result: simulation.Result{
 					// Passed through as plain tcp
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 					ListenerMatched:    "virtualInbound",
 					FilterChainMatched: "0.0.0.0_81",
 					StrictMatch:        true,
@@ -239,7 +239,7 @@ spec:
 					ListenerMatched:    "virtualInbound",
 					FilterChainMatched: "0.0.0.0_81",
 					VirtualHostMatched: "inbound|http|81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 					RouteMatched:       "default",
 					StrictMatch:        true,
 				},
@@ -254,7 +254,7 @@ spec:
 				Result: simulation.Result{
 					ListenerMatched:    "virtualInbound",
 					FilterChainMatched: "0.0.0.0_81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 					StrictMatch:        true,
 				},
 			},
@@ -269,7 +269,7 @@ spec:
 				Result: simulation.Result{
 					ListenerMatched:    "virtualInbound",
 					FilterChainMatched: "0.0.0.0_81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 					StrictMatch:        true,
 				},
 			},
@@ -285,7 +285,7 @@ spec:
 				Result: simulation.Result{
 					ListenerMatched:    "virtualInbound",
 					FilterChainMatched: "0.0.0.0_81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 					StrictMatch:        true,
 				},
 			},
@@ -411,7 +411,7 @@ spec:
 				},
 				Result: simulation.Result{
 					VirtualHostMatched: "inbound|http|81",
-					ClusterMatched:     "inbound|81|auto|foo.bar",
+					ClusterMatched:     "inbound|81||",
 				},
 			},
 			{
