@@ -15,6 +15,6 @@ upgradeNotes:
     If using the Proxy Protocol on a load balancer in front an ingress gateway in conjunction with ipBlocks/notIpBlocks on an AuthorizationPolicy to perform IP-based access control, then please update the AuthorizationPolicy to use remoteIpBlocks/notRemoteIpBlocks instead after upgrading. The ipBlocks/notIpBlocks fields now strictly refer to the source IP address of the packet that arrives at the sidecar. 
 
 docs:
-  - https://istio.io/latest/docs/reference/config/security/authorization-policy/
-  - https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/
-  - https://istio.io/latest/docs/tasks/security/authorization/authz-ingress/
+  - [reference] https://istio.io/latest/docs/reference/config/security/authorization-policy/
+  - [usage] https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/
+  - [usage] https://istio.io/latest/docs/tasks/security/authorization/authz-ingress/
