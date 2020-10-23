@@ -45,16 +45,20 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 					t.Fatalf("Could not send traffic; err %v", err)
 				}
 			}
-			retry.UntilSuccessOrFail(t, func() error {
-				for index, _ := range ctx.Clusters() {
+
+			for index, _ := range ctx.Clusters() {
+				scopes.Framework.Infof("Validating Telemetry for Cluster %v", cl)
+				retry.UntilSuccessOrFail(t, func() error {
 					if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, index); err != nil {
 						return err
 					}
 					if err := validateLogs(t, tcpServerLogEntry, index); err != nil {
 						return err
 					}
-				}
-				return nil
-			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
+
+					return nil
+				}, retry.Delay(3*time.Second), retry.Timeout(2*time.Minute))
+			}
 		})
+
 }
