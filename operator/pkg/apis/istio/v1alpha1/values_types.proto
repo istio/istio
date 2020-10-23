@@ -118,63 +118,6 @@ message Resources {
   map<string, string> requests = 2;
 }
 
-// Configuration for Core DNS.
-message CoreDNSConfig {
-  // Controls whether CoreDNS is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  // Image for Core DNS.
-  string coreDNSImage = 2;
-
-  string coreDNSTag = 3;
-
-  string coreDNSPluginImage = 4;
-
-  // K8s node selector.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 5 [deprecated=true];
-
-  // Number of replicas for Core DNS.
-  uint32 replicaCount = 6 [deprecated=true];
-
-  // K8s annotations for pods.
-  //
-  // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 7 [deprecated=true];
-
-  // K8s resources settings.
-  //
-  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 8 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge = 9 [deprecated=true];
-
-  // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 10 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 11 [deprecated=true];
-
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 12 [deprecated=true];
-
-  TypeSliceOfMapStringInterface tolerations = 13 [deprecated=true];
-
-  // Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.
-  google.protobuf.BoolValue autoscaleEnabled = 14;
-
-  // maxReplicas setting for HorizontalPodAutoscaler.
-  uint32 autoscaleMax = 15;
-
-  // minReplicas setting for HorizontalPodAutoscaler.
-  uint32 autoscaleMin = 16;
-
-  // K8s utilization setting for HorizontalPodAutoscaler target.
-  //
-  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 17 [deprecated=true];
-}
-
 // DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.
 //
 // See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
@@ -1109,8 +1052,6 @@ message IstiodRemoteConfig {
 
 message Values {
   CNIConfig cni = 2;
-
-  CoreDNSConfig istiocoredns = 3;
 
   GatewaysConfig gateways = 5;
 

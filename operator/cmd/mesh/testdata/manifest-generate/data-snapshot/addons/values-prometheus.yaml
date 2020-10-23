@@ -8,6 +8,8 @@ kubeStateMetrics:
 nodeExporter:
   enabled: false
 server:
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
   persistentVolume:
     enabled: false
   # Use port 9090 to match Istio documentation

@@ -5,7 +5,6 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   meshConfig:
-    accessLogFile: /dev/stdout
     defaultConfig:
       proxyMetadata:
         # Enable Istio agent to handle DNS requests for known hosts
