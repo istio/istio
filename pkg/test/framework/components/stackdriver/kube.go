@@ -143,7 +143,7 @@ func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 			delete(t.Resource.Labels, "project_id")
 			delete(t.Resource.Labels, "pod_name")
 		} else {
-			// Otherwise remove the whole MR since it is correctly filled on other platform yet.
+			// Otherwise remove the whole MR since it is not correctly filled on other platform yet.
 			t.Resource = nil
 		}
 		ret = append(ret, t)
