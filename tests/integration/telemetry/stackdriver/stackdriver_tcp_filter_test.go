@@ -47,7 +47,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 				}
 			}
 
-			for index, _ := range ctx.Clusters() {
+			for index, cl := range ctx.Clusters() {
 				scopes.Framework.Infof("Validating Telemetry for Cluster %v", cl)
 				retry.UntilSuccessOrFail(t, func() error {
 					if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, index); err != nil {
