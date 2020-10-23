@@ -28,7 +28,7 @@ import (
 )
 
 // QueryPrometheus queries prometheus and returns the result once the query stabilizes
-func QueryPrometheus(t *testing.T, cluster resource.Cluster, query string, promInst prometheus.Instance) error {
+func QueryPrometheus(t *testing.T, cluster resource.Cluster, query string, promInst prometheus.Instance) (string, error) {
 	t.Logf("query prometheus with: %v", query)
 	val, err := promInst.WaitForQuiesce(cluster, query)
 	if err != nil {

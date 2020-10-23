@@ -86,7 +86,7 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 			retry.UntilSuccessOrFail(t, func() error {
 				util.SendTraffic(ing, t, "Sending traffic", url, "", 200)
 				// TODO(gargnupur): Use TCP metrics like in Telemetry V1 (https://github.com/istio/istio/issues/20283)
-				if err := util_prometheus.QueryPrometheus(t, ctx.Clusters().Default(), destinationQuery, prom); err != nil {
+				if _, err := util_prometheus.QueryPrometheus(t, ctx.Clusters().Default(), destinationQuery, prom); err != nil {
 					t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(ctx.Clusters().Default(), prom, "istio_tcp_connections_opened_total"))
 					return err
 				}
