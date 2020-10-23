@@ -163,14 +163,14 @@ typedConfig:
                 - header:
                     name: X-header
                     presentMatch: true
-            - orIds:                                                                                                                                                                                                             
-                ids:                                                                                                                                                                                                             
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 10.99.10.8                                                                                                                                                                                    
-                    prefixLen: 32                                                                                                                                                                                                
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 10.80.64.0                                                                                                                                                                                    
-                    prefixLen: 18  
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 10.99.10.8
+                    prefixLen: 32
+                - remoteIp:
+                    addressPrefix: 10.80.64.0
+                    prefixLen: 18
         - andIds:
             ids:
             - orIds:
@@ -225,14 +225,14 @@ typedConfig:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/rule[0]-from[1]-ns[2]/.*
-            - orIds:                                                                                                                                                                                                             
-                ids:                                                                                                                                                                                                             
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 172.17.8.0                                                                                                                                                                                    
-                    prefixLen: 24                                                                                                                                                                                                
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 172.17.9.4                                                                                                                                                                                    
-                    prefixLen: 32  
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 172.17.8.0
+                    prefixLen: 24
+                - remoteIp:
+                    addressPrefix: 172.17.9.4
+                    prefixLen: 32
             - orIds:
                 ids:
                 - directRemoteIp:
@@ -255,13 +255,13 @@ typedConfig:
                 - header:
                     name: X-header
                     presentMatch: true
-            - orIds:                                                                                                                                                                                                             
-                ids:                                                                                                                                                                                                             
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 10.99.10.8                                                                                                                                                                                    
-                    prefixLen: 32                                                                                                                                                                                                
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 10.80.64.0                                                                                                                                                                                    
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 10.99.10.8
+                    prefixLen: 32
+                - remoteIp:
+                    addressPrefix: 10.80.64.0
                     prefixLen: 18
       ns[foo]-policy[httpbin]-rule[1]:
         permissions:
@@ -380,14 +380,14 @@ typedConfig:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/rule[1]-from[0]-ns[2]/.*
-            - orIds:                                                                                                                                                                                                             
-                ids:                                                                                                                                                                                                             
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 172.22.2.0                                                                                                                                                                                    
-                    prefixLen: 23                                                                                                                                                                                                
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 172.21.234.254                                                                                                                                                                                
-                    prefixLen: 32  
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 172.22.2.0
+                    prefixLen: 23
+                - remoteIp:
+                    addressPrefix: 172.21.234.254
+                    prefixLen: 32
             - orIds:
                 ids:
                 - directRemoteIp:
@@ -450,14 +450,14 @@ typedConfig:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/rule[1]-from[1]-ns[2]/.*
-            - orIds:                                                                                                                                                                                                             
-                ids:                                                                                                                                                                                                             
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 192.168.4.0                                                                                                                                                                                   
-                    prefixLen: 24                                                                                                                                                                                                
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 192.168.7.8                                                                                                                                                                                   
-                    prefixLen: 32 
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 192.168.4.0
+                    prefixLen: 24
+                - remoteIp:
+                    addressPrefix: 192.168.7.8
+                    prefixLen: 32
             - orIds:
                 ids:
                 - directRemoteIp:

@@ -90,17 +90,17 @@ typedConfig:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/not-ns/.*
-            - orIds:                                                                                                                                                                                                             
-                ids:                                                                                                                                                                                                             
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 10.250.90.4                                                                                                                                                                                   
-                    prefixLen: 32                                                                                                                                                                                                
-            - notId:                                                                                                                                                                                                             
-                orIds:                                                                                                                                                                                                           
-                  ids:                                                                                                                                                                                                           
-                  - remoteIp:                                                                                                                                                                                                    
-                      addressPrefix: 10.133.154.65                                                                                                                                                                               
-                      prefixLen: 32 
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 10.250.90.4
+                    prefixLen: 32
+            - notId:
+                orIds:
+                  ids:
+                  - remoteIp:
+                      addressPrefix: 10.133.154.65
+                      prefixLen: 32
             - orIds:
                 ids:
                 - directRemoteIp:
@@ -123,17 +123,17 @@ typedConfig:
                   - directRemoteIp:
                       addressPrefix: 90.10.10.10
                       prefixLen: 32
-            - orIds:                                                                                                                                                                                                             
-                ids:                                                                                                                                                                                                             
-                - remoteIp:                                                                                                                                                                                                      
-                    addressPrefix: 192.168.7.7                                                                                                                                                                                   
-                    prefixLen: 32                                                                                                                                                                                                
-            - notId:                                                                                                                                                                                                             
-                orIds:                                                                                                                                                                                                           
-                  ids:                                                                                                                                                                                                           
-                  - remoteIp:                                                                                                                                                                                                    
-                      addressPrefix: 192.168.10.9                                                                                                                                                                                
-                      prefixLen: 32 
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 192.168.7.7
+                    prefixLen: 32
+            - notId:
+                orIds:
+                  ids:
+                  - remoteIp:
+                      addressPrefix: 192.168.10.9
+                      prefixLen: 32
             - orIds:
                 ids:
                 - authenticated:
