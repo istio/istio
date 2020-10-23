@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	jsonpb "github.com/golang/protobuf/jsonpb"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
@@ -134,12 +135,17 @@ func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 	}
 	var ret []*monitoringpb.TimeSeries
 	for _, t := range r.TimeSeries {
-		// Remove fields that do not need verification
 		t.Points = nil
-		delete(t.Resource.Labels, "cluster_name")
-		delete(t.Resource.Labels, "location")
-		delete(t.Resource.Labels, "project_id")
-		delete(t.Resource.Labels, "pod_name")
+		if metadata.OnGCE() {
+			// If the test runs on GCE, only remove MR fields that do not need verification
+			delete(t.Resource.Labels, "cluster_name")
+			delete(t.Resource.Labels, "location")
+			delete(t.Resource.Labels, "project_id")
+			delete(t.Resource.Labels, "pod_name")
+		} else {
+			// Otherwise remove the whole MR since it is correctly filled on other platform yet.
+			t.Resource = nil
+		}
 		ret = append(ret, t)
 		t.Metadata = nil
 	}
