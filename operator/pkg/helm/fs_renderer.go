@@ -16,6 +16,7 @@ package helm
 
 import (
 	"fmt"
+	"os"
 
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -58,10 +59,28 @@ func (h *FileTemplateRenderer) RenderManifest(values string) (string, error) {
 	return renderChart(h.namespace, values, h.chart)
 }
 
+var removedComponents = map[string]struct{}{
+	"prometheus": {},
+	"grafana":    {},
+	"tracing":    {},
+	"kiali":      {},
+}
+
+func missingComponentMessages(component string) error {
+	if _, f := removedComponents[component]; f {
+		// nolint: lll
+		return fmt.Errorf("component %q is not longer supported. Please remove it from the addonComponent configuration. See https://istio.io/latest/blog/2020/addon-rework/ for more info", component)
+	}
+	return fmt.Errorf("component %q does not exist", component)
+}
+
 // loadChart implements the TemplateRenderer interface.
 func (h *FileTemplateRenderer) loadChart() error {
 	var err error
 	if h.chart, err = loader.Load(h.helmChartDirPath); err != nil {
+		if os.IsNotExist(err) {
+			return missingComponentMessages(h.componentName)
+		}
 		return err
 	}
 	return nil
