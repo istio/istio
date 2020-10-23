@@ -29,12 +29,11 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/networking"
-
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
