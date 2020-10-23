@@ -75,12 +75,11 @@ const dataField = "distribution-report"
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
 // with distribution information.  To run in read-only mode, (for supporting istioctl wait), set writeMode = false
-func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, ledger ledger.Ledger, writeMode bool, stop <-chan struct{}) {
+func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, writeMode bool, stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
 	}
-	r.ledger = ledger
 	// default UpdateInterval
 	if r.UpdateInterval == 0 {
 		r.UpdateInterval = 500 * time.Millisecond
@@ -340,4 +339,8 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}
+}
+
+func (r *Reporter) SetLedger(l ledger.Ledger) {
+	r.ledger = l
 }
