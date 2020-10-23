@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -759,18 +760,21 @@ func (s *DiscoveryServer) removeCon(conID string) {
 // Send with timeout
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	errChan := make(chan error, 1)
+	var lock sync.RWMutex
 
 	// Flow control - release any acquired semaphores on this connection. This heavily
 	// relies on the request & response behavior of Envoy. Once you understand this
 	// behavior, perhaps you could consider improving it. This value should almost always
 	// be 1, although it may not be.
 	if features.EnableFlowControl {
+		lock.Lock()
 		for k := range conn.semmap {
 			conn.semmap[k] <- struct{}{}
 			// Flow control - Acquire a semaphore - locking this thread for sendTimeout.
 			close(conn.semmap[k])
 			delete(conn.semmap, k)
 		}
+		lock.Unlock()
 	}
 
 	// sendTimeout may be modified via environment
@@ -788,10 +792,12 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			// Identify the resource name for acking
 			resource := res.Nonce + res.VersionInfo
 
+			lock.Lock()
 			// Allocate a channel for this unique resource
 			// This channel must be acquired after Send(), otherwise there is no further request
 			// from Envoy and this goroutine times out on sendTimeout
 			conn.semmap[resource] = make(chan struct{})
+			lock.Unlock()
 			<-conn.semmap[resource]
 
 		}
