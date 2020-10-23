@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
@@ -79,6 +80,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, index int) error 
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
 		"ClusterIndex":  fmt.Sprintf("%d", index),
+		"OnGCE":         metadata.OnGCE(),
 	})
 	if err != nil {
 		return err

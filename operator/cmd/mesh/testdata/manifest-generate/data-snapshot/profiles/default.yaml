@@ -52,24 +52,29 @@ spec:
       k8s:
         env:
           - name: ISTIO_META_ROUTER_MODE
-            value: "sni-dnat"
+            value: "standard"
         service:
           ports:
             - port: 15021
               targetPort: 15021
               name: status-port
+              protocol: TCP
             - port: 80
               targetPort: 8080
               name: http2
+              protocol: TCP
             - port: 443
               targetPort: 8443
               name: https
+              protocol: TCP
             - port: 15012
               targetPort: 15012
               name: tcp-istiod
+              protocol: TCP
             - port: 15443
               targetPort: 15443
               name: tls
+              protocol: TCP
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -100,18 +105,21 @@ spec:
       k8s:
         env:
           - name: ISTIO_META_ROUTER_MODE
-            value: "sni-dnat"
+            value: "standard"
         service:
           ports:
             - port: 80
               name: http2
               targetPort: 8080
+              protocol: TCP
             - port: 443
               name: https
               targetPort: 8443
+              protocol: TCP
             - port: 15443
               targetPort: 15443
               name: tls
+              protocol: TCP
         hpaSpec:
           maxReplicas: 5
           minReplicas: 1
@@ -141,10 +149,6 @@ spec:
     
     # istiod remote configuration wwhen istiod isn't installed on the cluster
     istiodRemote:
-      enabled: false
-
-  addonComponents:
-    istiocoredns:
       enabled: false
 
   # Global values passed through to helm global.yaml.
@@ -224,7 +228,6 @@ spec:
         enabled: true
       priorityClassName: ""
       useMCP: false
-      trustDomain: "cluster.local"
       sds:
         token:
           aud: istio-ca
@@ -306,10 +309,5 @@ spec:
       objectSelector:
         enabled: false
         autoInject: true
-
-    istiocoredns:
-      coreDNSImage: coredns/coredns
-      coreDNSTag: 1.6.2
-      coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     clusterResources: true

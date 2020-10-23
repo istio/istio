@@ -117,6 +117,7 @@ rules:
   - events
   - namespaces
   - pods
+  - pods/proxy
   - persistentvolumeclaims
   - secrets
   - services
@@ -151,6 +152,7 @@ spec:
   - name: http-metrics
     port: 8383
     targetPort: 8383
+    protocol: TCP
   selector:
     name: istio-operator
 ---

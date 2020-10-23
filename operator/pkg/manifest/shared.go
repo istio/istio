@@ -182,9 +182,6 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
 
-	if err := name.ScanBundledAddonComponents(installPackagePath); err != nil {
-		return "", nil, err
-	}
 	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
 	outYAML, err = translate.OverlayValuesEnablement(outYAML, overlayYAML, overlayYAML)
 	if err != nil {
