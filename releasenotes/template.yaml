@@ -32,8 +32,8 @@ releaseNotes:
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes.
 upgradeNotes:
-  title:
-  content:
+  - title:
+    content:
 
 # docs is a list of related docs to the change.
 docs:
