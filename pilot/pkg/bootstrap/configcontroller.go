@@ -63,6 +63,7 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
+	s.initStatusController(args, features.EnableStatus)
 	meshConfig := s.environment.Mesh()
 	if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
@@ -141,7 +142,6 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
-	s.initStatusController(args, features.EnableStatus)
 	s.XDSServer.InternalGen.Store = configController
 	return nil
 }
