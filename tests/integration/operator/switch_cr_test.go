@@ -83,8 +83,8 @@ func TestController(t *testing.T) {
 			cleanupInClusterCRs(t, cs)
 			initCmd := []string{
 				"operator", "init",
-				"--hub=" + s.Hub,
-				"--tag=" + s.Tag,
+				"--hub=" + "docker.io/richardwxn",
+				"--tag=" + "latest",
 				"--manifests=" + ManifestPath,
 				"--revision=" + "v1",
 			}
@@ -113,14 +113,15 @@ func TestController(t *testing.T) {
 
 			initCmd = []string{
 				"operator", "init",
-				"--hub=" + s.Hub,
-				"--tag=" + s.Tag,
+				"--hub=" + "docker.io/richardwxn",
+				"--tag=" + "latest",
 				"--manifests=" + ManifestPath,
 				"--revision=" + "v2",
 			}
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
 
+		    installWithCRFile(t, ctx, cs, s, istioCtl, "default", "v2")
 			verifyInstallation(t, ctx, istioCtl, "default", "v2", cs)
 
 			t.Cleanup(func() {
@@ -295,16 +296,17 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 	if err := compareInClusterAndGeneratedResources(t, istioCtl, profileName, revision, cs); err != nil {
 		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
 	}
-	sanityCheck(t, ctx)
+	sanityCheck(t, revision, ctx)
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
-func sanityCheck(t *testing.T, ctx resource.Context) {
+func sanityCheck(t *testing.T, revision string, ctx resource.Context) {
 	scopes.Framework.Infof("running sanity test")
 	var client, server echo.Instance
 	test := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "default",
 		Inject: true,
+		Revision: revision,
 	})
 	echoboot.NewBuilder(ctx).
 		With(&client, echo.Config{
