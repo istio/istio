@@ -1510,6 +1510,7 @@ telemetry,TestDashboard/istio-performance-dashboard.json
 telemetry,TestDashboard/istio-service-dashboard.json
 telemetry,TestDashboard/istio-workload-dashboard.json
 telemetry,TestDashboard/pilot-dashboard.json
+telemetry,TestDashboard/istio-extension-dashboard.json
 telemetry_outboundtrafficpolicy,TestOutboundTrafficPolicy_AllowAny
 telemetry_outboundtrafficpolicy,TestOutboundTrafficPolicy_RegistryOnly
 telemetry_requestclassification,TestRequestClassification
@@ -1523,6 +1524,7 @@ telemetry_test,TestDashboard/istio-performance-dashboard.json
 telemetry_test,TestDashboard/istio-service-dashboard.json
 telemetry_test,TestDashboard/istio-workload-dashboard.json
 telemetry_test,TestDashboard/pilot-dashboard.json
+telemetry_test,TestDashboard/istio-extension-dashboard.json
 telemetry_tracing_clienttracing,TestClientTracing
 telemetry_tracing_servertracing,TestProxyTracing
 tracing_test,TestProxyTracing

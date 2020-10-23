@@ -107,6 +107,11 @@ var (
 				"container_fs_usage_bytes",
 			},
 		},
+		{
+			"istio-services-grafana-dashboards",
+			"istio-extension-dashboard.json",
+			[]string{},
+		},
 	}
 )
 
