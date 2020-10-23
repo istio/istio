@@ -515,27 +515,6 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 					WantCode: 403,
 				},
 				{
-					Name:     "allow remoteipblocks.company.com",
-					Host:     "www.company.com",
-					Path:     "/",
-					IP:       "172.16.0.1",
-					WantCode: 200,
-				},
-				{
-					Name:     "allow notremoteipblocks.company.com",
-					Host:     "www.company.com",
-					Path:     "/",
-					IP:       "172.16.0.1",
-					WantCode: 200,
-				},
-				{
-					Name:     "allow remoteipattr.company.com",
-					Host:     "www.company.com",
-					Path:     "/",
-					IP:       "172.16.0.1",
-					WantCode: 200,
-				},
-				{
 					Name:     "deny 172.17.72.46",
 					Host:     "remoteipblocks.company.com",
 					Path:     "/",
