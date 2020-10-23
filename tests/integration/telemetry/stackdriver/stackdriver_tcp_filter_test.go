@@ -39,7 +39,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 				_, err := cltInstance.Call(echo.CallOptions{
 					Target:   srv[0],
 					PortName: "tcp",
-					Count:    1,
+					Count:    len(srv),
 				})
 				if err != nil {
 					t.Fatalf("Could not send traffic; err %v", err)

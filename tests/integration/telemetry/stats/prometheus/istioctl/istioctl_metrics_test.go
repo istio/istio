@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/telemetry/stats/prometheus/http"
+	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 // TestIstioctlMetrics contains a basic validation of the experimental
@@ -38,7 +38,7 @@ func TestIstioctlMetrics(t *testing.T) {
 		Features("observability.telemetry.istioctl").
 		Run(func(ctx framework.TestContext) {
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := http.SendTraffic(); err != nil {
+				if err := common.SendTraffic(); err != nil {
 					return err
 				}
 				return validateDefaultOutput(t, ctx, "server")
@@ -52,8 +52,8 @@ func TestIstioctlMetrics(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
-		Setup(istio.Setup(http.GetIstioInstance(), nil)).
-		Setup(http.TestSetup).
+		Setup(istio.Setup(common.GetIstioInstance(), nil)).
+		Setup(common.TestSetup).
 		Run()
 }
 

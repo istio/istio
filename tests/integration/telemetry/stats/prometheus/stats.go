@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package http
+package prometheus
 
 import (
 	"fmt"
@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
-	promUtil "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 var (
@@ -69,16 +68,16 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 				}
 				for _, c := range ctx.Clusters() {
 					// Query client side metrics
-					if _, err := promUtil.QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
+					if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
 						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(c, promInst, "istio_requests_total"))
 						return err
 					}
-					if _, err := promUtil.QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
+					if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
 						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(c, promInst, "istio_requests_total"))
 						return err
 					}
 					// This query will continue to increase due to readiness probe; don't wait for it to converge
-					if err := promUtil.QueryFirstPrometheus(t, c, appQuery, GetPromInstance()); err != nil {
+					if err := QueryFirstPrometheus(t, c, appQuery, GetPromInstance()); err != nil {
 						t.Logf("prometheus values for istio_echo_http_requests_total: \n%s", util.PromDump(c, promInst, "istio_echo_http_requests_total"))
 						return err
 					}
@@ -88,7 +87,29 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		})
 }
 
-// TestSetup set up bookinfo app for stats testing.
+// TestStatsTCPFilter includes common test logic for stats and mx exchange filters running
+// with nullvm and wasm runtime for TCP.
+func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
+	framework.NewTest(t).
+		Features(feature).
+		Run(func(ctx framework.TestContext) {
+			destinationQuery := buildTCPQuery()
+			retry.UntilSuccessOrFail(t, func() error {
+				if err := SendTCPTraffic(); err != nil {
+					return err
+				}
+				for _, c := range ctx.Clusters() {
+					if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
+						return err
+					}
+				}
+				return nil
+			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+		})
+}
+
+// TestSetup set up echo app for stats testing.
 func TestSetup(ctx resource.Context) (err error) {
 	appNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
@@ -119,6 +140,12 @@ func TestSetup(ctx resource.Context) (err error) {
 						Protocol:     protocol.HTTP,
 						InstancePort: 8090,
 					},
+					{
+						Name:     "tcp",
+						Protocol: protocol.TCP,
+						// We use a port > 1024 to not require root
+						InstancePort: 9000,
+					},
 				},
 			}).
 			Build()
@@ -142,6 +169,22 @@ func SendTraffic() error {
 		_, err := cltInstance.Call(echo.CallOptions{
 			Target:   server[0],
 			PortName: "http",
+			Count:    len(server),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// SendTCPTraffic makes a client call to the "server" service on the tcp port.
+func SendTCPTraffic() error {
+	for _, cltInstance := range client {
+		_, err := cltInstance.Call(echo.CallOptions{
+			Target:   server[0],
+			PortName: "tcp",
+			Count:    len(server),
 		})
 		if err != nil {
 			return err
@@ -183,4 +226,28 @@ func buildQuery() (sourceQuery, destinationQuery, appQuery string) {
 	}
 
 	return BuildQueryCommon(labels, ns.Name())
+}
+
+func buildTCPQuery() (destinationQuery string) {
+	ns := GetAppNamespace()
+	destinationQuery = `istio_tcp_connections_opened_total{reporter="destination",`
+	labels := map[string]string{
+		"request_protocol":               "tcp",
+		"destination_service_name":       "server",
+		"destination_canonical_revision": "v1",
+		"destination_canonical_service":  "server",
+		"destination_app":                "server",
+		"destination_version":            "v1",
+		"destination_workload_namespace": ns.Name(),
+		"destination_service_namespace":  ns.Name(),
+		"source_app":                     "client",
+		"source_version":                 "v1",
+		"source_workload":                "client-v1",
+		"source_workload_namespace":      ns.Name(),
+	}
+	for k, v := range labels {
+		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
+	}
+	destinationQuery += "}"
+	return
 }
