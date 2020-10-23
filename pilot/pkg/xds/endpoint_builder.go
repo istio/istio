@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-
 const (
 	NoTunnelName = "notunnel"
 	H2TunnelName = "H2Tunnel"
@@ -40,9 +39,10 @@ type TunnelType int
 type TunnelAbility int
 
 const (
-	NoTunnel TunnelType = 1<< iota
+	NoTunnel TunnelType = 1 << iota
 	H2Tunnel
 )
+
 func (t TunnelType) toString() string {
 	switch t {
 	case H2Tunnel:
@@ -158,12 +158,24 @@ func (b *EndpointBuilder) canViewNetwork(network string) bool {
 	return b.networkView[network]
 }
 
+// TODO(lambdai): add
+type EndpointTunnelMetadata int
+
+type LocLbEndpointsAndOptions struct {
+	llbEndpoints   endpoint.LocalityLbEndpoints
+	tunnelMetadata []EndpointTunnelMetadata
+}
+
+func (e *LocLbEndpointsAndOptions) append(le *endpoint.LbEndpoint, tunnelOpt TunnelAbility) {
+
+}
+
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
 	svcPort *model.Port,
-) []*endpoint.LocalityLbEndpoints {
-	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
+) []*LocLbEndpointsAndOptions{
+	localityEpMap := make(map[string]*LocLbEndpointsAndOptions)
 
 	// get the subset labels
 	epLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
@@ -193,27 +205,30 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
-				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality:    util.ConvertLocality(ep.Locality.Label),
-					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
+				locLbEps = &LocLbEndpointsAndOptions{
+					endpoint.LocalityLbEndpoints{
+						Locality:    util.ConvertLocality(ep.Locality.Label),
+						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
+					},
+					make([]EndpointTunnelMetadata, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
-			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
+			locLbEps.append(ep.EnvoyEndpoint, ep.TunnelAbility)
 		}
 	}
 	shards.mutex.Unlock()
 
-	locEps := make([]*endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
+	locEps := make([]*LocLbEndpointsAndOptions, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		var weight uint32
-		for _, ep := range locLbEps.LbEndpoints {
+		for _, ep := range locLbEps.llbEndpoints.LbEndpoints {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		locLbEps.LoadBalancingWeight = &wrappers.UInt32Value{
+		locLbEps.llbEndpoints.LoadBalancingWeight = &wrappers.UInt32Value{
 			Value: weight,
 		}
 		locEps = append(locEps, locLbEps)

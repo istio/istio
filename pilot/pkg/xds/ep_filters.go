@@ -31,7 +31,7 @@ import (
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
+func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
