@@ -375,8 +375,9 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
 		PodName:        args.PodName,
 	}
+	s.statusReporter.SetLedger(s.environment.GetLedger())
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, s.environment.GetLedger(), writeStatus, stop)
+		s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, writeStatus, stop)
 		return nil
 	})
 	s.XDSServer.StatusReporter = s.statusReporter
