@@ -35,8 +35,6 @@ import (
 )
 
 const (
-	// addonsChartDirName is the default subdir for all addon charts.
-	addonsChartDirName = "addons"
 	// String to emit for any component which is disabled.
 	componentDisabledStr = "component is disabled."
 	yamlCommentStr       = "#"
@@ -76,8 +74,6 @@ type IstioComponent interface {
 type CommonComponentFields struct {
 	*Options
 	ComponentName name.ComponentName
-	// addonName is the name of the addon component.
-	addonName string
 	// resourceName is the name of all resources for this component.
 	ResourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
@@ -391,55 +387,6 @@ func (c *EgressComponent) Enabled() bool {
 	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
 }
 
-// AddonComponent is an external component.
-type AddonComponent struct {
-	*CommonComponentFields
-}
-
-// NewAddonComponent creates a new IngressComponent and returns a pointer to it.
-func NewAddonComponent(addonName, resourceName string, spec *v1alpha1.ExternalComponentSpec, opts *Options) *AddonComponent {
-	return &AddonComponent{
-		CommonComponentFields: &CommonComponentFields{
-			Options:       opts,
-			ComponentName: name.AddonComponentName,
-			ResourceName:  resourceName,
-			addonName:     addonName,
-			componentSpec: spec,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *AddonComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *AddonComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *AddonComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.ComponentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *AddonComponent) ResourceName() string {
-	return c.CommonComponentFields.ResourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *AddonComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *AddonComponent) Enabled() bool {
-	// type assert is guaranteed to work in this context.
-	return boolValue(c.componentSpec.(*v1alpha1.ExternalComponentSpec).Enabled)
-}
-
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
 func runComponent(c *CommonComponentFields) error {
 	r, err := createHelmRenderer(c)
@@ -483,28 +430,21 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	scope.Debugf("Initial manifest with merged values:\n%s\n", my)
 
 	// Add the k8s resources from IstioOperatorSpec.
-	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.ComponentName, cf.ResourceName, cf.addonName, cf.index)
+	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.ComponentName, cf.ResourceName, cf.index)
 	if err != nil {
 		metrics.CountManifestRenderError(c.ComponentName(), metrics.K8SSettingsOverlayError)
 		return "", err
 	}
 	cnOutput := string(cf.ComponentName)
-	if !cf.ComponentName.IsCoreComponent() && !cf.ComponentName.IsGateway() {
-		cnOutput += " " + cf.addonName
-	}
 	my = "# Resources for " + cnOutput + " component\n\n" + my
 	scope.Debugf("Manifest after k8s API settings:\n%s\n", my)
 
 	// Add the k8s resource overlays from IstioOperatorSpec.
-	pathToK8sOverlay := ""
-	if !cf.ComponentName.IsCoreComponent() && !cf.ComponentName.IsGateway() {
-		pathToK8sOverlay += fmt.Sprintf("AddonComponents.%s.", cf.addonName)
-	} else {
-		pathToK8sOverlay += fmt.Sprintf("Components.%s.", cf.ComponentName)
-		if cf.ComponentName == name.IngressComponentName || cf.ComponentName == name.EgressComponentName {
-			pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
-		}
+	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.ComponentName)
+	if cf.ComponentName == name.IngressComponentName || cf.ComponentName == name.EgressComponentName {
+		pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
 	}
+
 	pathToK8sOverlay += "K8S.Overlays"
 	var overlays []*v1alpha1.K8SObjectOverlay
 	found, err := tpath.SetFromPath(cf.InstallSpec, pathToK8sOverlay, &overlays)
@@ -537,14 +477,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 func createHelmRenderer(c *CommonComponentFields) (helm.TemplateRenderer, error) {
 	iop := c.InstallSpec
 	cns := string(c.ComponentName)
-	if c.ComponentName.IsAddon() {
-		// For addons, distinguish the chart path using the addon name.
-		cns = c.addonName
-	}
-	helmSubdir := addonsChartDirName + "/" + cns
-	if cm := c.Translator.ComponentMap(cns); cm != nil {
-		helmSubdir = cm.HelmSubdir
-	}
+	helmSubdir := c.Translator.ComponentMap(cns).HelmSubdir
 	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace)
 }
 

@@ -1,57 +1,64 @@
-# Helm3 support
+# Helm v3 support
 
 ## Install
 
-The manifests/ templates support both helm2 and helm3. Please do not introduce helm3-specific changes, many
-users are still using helm2 and the operator is currently using the helm2 code to generate.
+The Helm charts are supported both by Helm v2 and Helm v3. Please do not introduce Helm v3 specific changes as many
+users are still using Helm v2 and the operator is currently using the Helm v2 code to generate.
 
-To install in helm3 you must first create a namespace that you wish to install the following charts to:
+To install with Helm v3, you must first create the namespace that you wish to install in if the namespace does not exist already. The default namespace used is `istio-system` and can be created as follows:
 
-```shell script
- kubectl create namespace istio-system
+```console
+kubectl create namespace istio-system
 ```
 
-We have few charts:
+The charts are as follows:
 
-- 'base' creates cluster-wide CRDs, cluster bindings, cluster resources and the istio-system namespace.
-  It is possible to customize the namespace, but not recommended.
+- `base` creates cluster-wide CRDs, cluster bindings and cluster resources. It is possible to change the namespace from `istio-system` but it is not recommended.
 
-```shell script
- helm3 install istio-base -n istio-system manifests/charts/base
+```console
+helm install istio-base -n istio-system manifests/charts/base
 ```
 
-- 'istio-control/istio-discovery' installs a revision of istiod.  You can install it multiple times, with different revisions.
-TODO: remove the need to pass -n istio-system
+- `istio-control/istio-discovery` installs a revision of istiod.  You can install it multiple times, with different revisions.
 
-```shell script
- helm3 install -n istio-system istio-17 manifests/charts/istio-control/istio-discovery
+```console
+ helm install -n istio-system istio-17 manifests/charts/istio-control/istio-discovery
 
- helm3 install -n istio-system istio-canary manifests/charts/istio-control/istio-discovery \
+ helm install -n istio-system istio-canary manifests/charts/istio-control/istio-discovery \
     -f manifests/charts/global.yaml  --set revision=canary --set clusterResources=false
 
- helm3 install -n istio-system istio-mytest manifests/charts/istio-control/istio-discovery \
+ helm install -n istio-system istio-mytest manifests/charts/istio-control/istio-discovery \
     -f manifests/charts/global.yaml  --set revision=mytest --set clusterResources=false
 ```
 
-- 'ingress' to install a Gateway
+- `gateways` install a load balancer with `ingress` and `egress`. You can install it multiple times with different revisions but they must be installed in separate namespaces.
 
-Helm3 requires namespaces to be created explicitly, currently we don't support installing multiple gateways in same
-namespace - nor is it a good practice. Ingress secrets and access should be separated from control plane.
+Ingress secrets and access should be separated from the control plane.
 
-```shell script
-    helm3 install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress -f manifests/charts/global.yaml
+```console
+helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress -f manifests/charts/global.yaml
 
-    kubectl create ns istio-ingress-canary
-    helm3 install -n istio-ingress-canary istio-ingress-canary manifests/charts/gateways/istio-ingress \
-      -f manifests/charts/global.yaml --set revision=canary
+kubectl create ns istio-ingress-canary
+helm install -n istio-ingress-canary istio-ingress-canary manifests/charts/gateways/istio-ingress \
+-f manifests/charts/global.yaml --set revision=canary
+```
+
+Egress secrets and access should be separated from the control plane.
+
+```console
+helm install -n istio-system istio-egress manifests/charts/gateways/istio-egress -f manifests/charts/global.yaml
+
+kubectl create ns istio-egress-canary
+helm install -n istio-egress-canary istio-egress-canary manifests/charts/gateways/istio-egress \
+-f manifests/charts/global.yaml --set revision=canary
+```
+
+- 'istio-cni' installs the CNI plugin. This should be installed after the 'base' chart and prior to `istiod`. Need to add `--set istio_cni.enabled=true` to the `istiod` install to enable its usage.
+
+```console
+helm install istio-cni -n istio-system manifests/charts/istio-cni -f manifests/charts/global.yaml
 ```
 
 ## Namespaces
 
-One of the major changes in helm3 is that the 'release namespace' is no longer created.
-That means the first step can't use "-n istio-system" flag, instead we use .global.istioNamespace.
-It is possible - but not supported - to install multiple versions of the global, for example in
-multi-tenant cases. Each namespace will have a separate root CA, if the built-in CA is used.
-
-TODO: apply the same change for discovery and ingress, so passing -n is no longer needed.
-
+One of the changes in Helm v3 is that the namespace is no longer created on the fly when installing a chart. This means that the namespace being used needs to be created prior to installing the charts if it does not exist already. If the default `istio-system` namespace if not being used then you need to add the setting `--set global.istioNamespace=<namespace>` to the installs, to match the control plane namespace.

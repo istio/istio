@@ -127,8 +127,6 @@ global:
   tag: 1.2.3
 pilot:
   enabled: true
-istiocoredns:
-  enabled: true
 gateways:
   enabled: true
   istio-ingressgateway:
@@ -158,9 +156,6 @@ components:
         rollingUpdate:
           maxSurge: 4
           maxUnavailable: 1
-addonComponents:
-   istiocoredns:
-      enabled: true
 values:
   global:
     istioNamespace: istio-system

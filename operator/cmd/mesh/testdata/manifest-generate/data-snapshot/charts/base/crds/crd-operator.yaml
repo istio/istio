@@ -30,6 +30,7 @@ spec:
     singular: istiooperator
     shortNames:
     - iop
+    - io
   scope: Namespaced
   subresources:
     status: {}
