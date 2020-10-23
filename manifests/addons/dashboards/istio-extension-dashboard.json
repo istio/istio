@@ -82,7 +82,7 @@
         {
           "expr": "avg(envoy_wasm_vm_null_created)",
           "interval": "",
-          "legendFormat": "null",
+          "legendFormat": "native",
           "refId": "A"
         },
         {
@@ -203,7 +203,7 @@
         {
           "expr": "avg(envoy_wasm_vm_null_active)",
           "interval": "",
-          "legendFormat": "null",
+          "legendFormat": "native",
           "refId": "A"
         },
         {
@@ -267,7 +267,7 @@
       },
       "id": 7,
       "panels": [],
-      "title": "Wasm module remote load",
+      "title": "Wasm Module Remote Load",
       "type": "row"
     },
     {
@@ -543,7 +543,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Fetch",
+      "title": "Remote Fetch",
       "tooltip": {
         "shared": true,
         "sort": 0,
