@@ -134,6 +134,9 @@ func (h *VFSRenderer) loadChart() error {
 	prefix := h.helmChartDirPath
 	fnames, err := vfs.GetFilesRecursive(prefix)
 	if err != nil {
+		if err.Error() == fmt.Sprintf("Asset %s not found", prefix) {
+			return missingComponentMessages(h.componentName)
+		}
 		return err
 	}
 	var bfs []*loader.BufferedFile
