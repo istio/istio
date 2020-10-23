@@ -49,11 +49,11 @@ func TestRateLimiting(t *testing.T) {
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
 			isLocal := false
-			err := setupEnvoyFilter(ctx, isLocal)
+			yaml, err := setupEnvoyFilter(ctx, isLocal)
 			if err != nil {
 				t.Fatalf("Could not setup envoy filter patches.")
 			}
-			defer cleanupEnvoyFilter(ctx, isLocal)
+			defer cleanupEnvoyFilter(ctx, yaml)
 
 			if !sendTrafficAndCheckIfRatelimited(t) {
 				t.Errorf("No request received StatusTooMantRequest Error.")
