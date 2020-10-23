@@ -304,7 +304,7 @@ var (
 
 	EnableFlowControl = env.RegisterBoolVar(
 		"PILOT_ENABLE_FLOW_CONTROL",
-		false,
+		true,
 		"If enabled, pilot will wait for the completion of a receive operation before"+
 			"executing a push operation. This is a form of flow control and is useful in"+
 			"environments with high rates of push requests to each gateway. By default,"+

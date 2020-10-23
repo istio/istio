@@ -62,7 +62,7 @@ const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
 	defaultInitialConnWindowSize       = 1024 * 1024            // default gRPC InitialWindowSize
 	defaultInitialWindowSize           = 1024 * 1024            // default gRPC ConnWindowSize
-	sendTimeout                        = 5 * time.Second        // default upstream send timeout.
+	sendTimeout                        = 35 * time.Second       // default upstream send timeout.
 	watchDebounceDelay                 = 100 * time.Millisecond // file watcher event debounce delay.
 )
 
