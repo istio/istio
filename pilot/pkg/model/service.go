@@ -24,6 +24,7 @@ package model
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/xds"
 	"strconv"
 	"strings"
 	"sync"
@@ -409,6 +410,9 @@ type IstioEndpoint struct {
 
 	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
 	WorkloadName string
+
+	// The tunnel supportability of this endpoint. Including elder proxy, istio gateway, external service.
+	TunnelAbility xds.TunnelAbility
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.

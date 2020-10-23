@@ -290,6 +290,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		l = util.CloneClusterLoadAssignment(l)
 		loadbalancer.ApplyLocalityLBSetting(b.locality, l, lbSetting, enableFailover)
 	}
+	l = b.ApplyTunnelSetting(l)
 	return l
 }
 

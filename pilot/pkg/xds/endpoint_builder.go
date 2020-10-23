@@ -30,6 +30,39 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
+
+const (
+	NoTunnelName = "notunnel"
+	H2TunnelName = "H2Tunnel"
+)
+
+type TunnelType int
+type TunnelAbility int
+
+const (
+	NoTunnel TunnelType = 1<< iota
+	H2Tunnel
+)
+func (t TunnelType) toString() string {
+	switch t {
+	case H2Tunnel:
+		return H2TunnelName
+	default:
+		return NoTunnelName
+	}
+}
+
+func (t TunnelAbility) supportH2Tunnel() bool {
+	return (int(t) | int(H2Tunnel)) != 0
+}
+
+type TunnelInfo struct {
+}
+
+func GetEndpointTunnelAbility(clusterName string, proxy *model.Proxy, push *model.PushContext) string {
+	return NoTunnelName
+}
+
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
@@ -39,6 +72,7 @@ type EndpointBuilder struct {
 	locality        *core.Locality
 	destinationRule *config.Config
 	service         *model.Service
+	tunnelType      string
 
 	// These fields are provided for convenience only
 	subsetName string
@@ -58,6 +92,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		locality:        proxy.Locality,
 		service:         svc,
 		destinationRule: push.DestinationRule(proxy, svc),
+		tunnelType:      GetEndpointTunnelType(clusterName, proxy, push),
 
 		push:       push,
 		subsetName: subsetName,
@@ -75,7 +110,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
-	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality)}
+	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality), b.tunnelType}
 	if b.destinationRule != nil {
 		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
 	}
@@ -189,6 +224,10 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 
 	return locEps
+}
+
+func (b *EndpointBuilder) ApplyTunnelSetting(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
+	return endpoints
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
