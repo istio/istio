@@ -55,4 +55,10 @@ echo "Generated workload-$name-[cert|key].pem with URI SAN $san"
 openssl verify -CAfile <(cat $dir/cert-chain.pem $dir/root-cert.pem) "$dir/$tmp/workload-$name-cert.pem"
 
 # clean temporary files
-rm $dir/.srl $dir/ca-cert.srl $dir/workload.cfg $dir/workload.csr
+if [ -f $dir/.srl ]; then
+  rm $dir/.srl
+fi
+if [ -f $dir/ca-cert.srl ]; then
+  rm $dir/ca-cert.srl
+fi
+rm $dir/workload.cfg $dir/workload.csr
