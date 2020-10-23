@@ -291,8 +291,9 @@ func resolveNamedPort(backend *v1beta1.IngressBackend, namespace string, service
 }
 
 // shouldProcessIngress determines whether the given ingress resource should be processed
-// by the controller, based on its ingress class annotation.
-// See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
+// by the controller, based on its ingress class annotation or, in more recent versions of
+// kubernetes (v1.18+), based on the Ingress's specified IngressClass
+// See https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class
 func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress, ingressClass *v1beta1.IngressClass) bool {
 	if class, exists := ingress.Annotations[kube.IngressClassAnnotation]; exists {
 		switch mesh.IngressControllerMode {
