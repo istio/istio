@@ -404,7 +404,19 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			},
 			nil,
-			nil,
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			"empty metadata",
@@ -519,9 +531,9 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
-			AddConfigInfoMetadata(v.meta, v.in)
-			if diff, equal := messagediff.PrettyDiff(v.meta, v.want); !equal {
-				tt.Errorf("AddConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.meta, v.want, diff)
+			got := AddConfigInfoMetadata(v.meta, v.in)
+			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+				tt.Errorf("AddConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
 			}
 		})
 	}
