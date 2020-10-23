@@ -18,211 +18,17 @@
   "links": [],
   "panels": [
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "hiddenSeries": false,
-      "id": 12,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "7.2.1",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "max(pilot_k8s_cfg_events{type=\"EnvoyFilter\", event=\"add\"}) - (max(pilot_k8s_cfg_events{type=\"EnvoyFilter\", event=\"delete\"}) or max(up * 0))",
-          "interval": "",
-          "legendFormat": "Total # of extensions",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Total Extensions",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:65",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "$$hashKey": "object:66",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "hiddenSeries": false,
-      "id": 14,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "7.2.1",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "avg(proxy_wasm_config_errors_total)",
-          "interval": "",
-          "legendFormat": "proxy_wasm_config_errors_total ",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Total WASM Config Errors",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:124",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "$$hashKey": "object:125",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
       "collapsed": false,
       "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 0
       },
       "id": 3,
       "panels": [],
-      "title": "envoy_wasm resource status (active/created/cloned)",
+      "title": "Wasm VMs",
       "type": "row"
     },
     {
@@ -242,9 +48,9 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
-        "y": 9
+        "y": 1
       },
       "hiddenSeries": false,
       "id": 6,
@@ -276,13 +82,13 @@
         {
           "expr": "avg(envoy_wasm_vm_null_created)",
           "interval": "",
-          "legendFormat": "envoy_wasm_vm_null_created",
+          "legendFormat": "null",
           "refId": "A"
         },
         {
           "expr": "avg(envoy_wasm_vm_v8_created)",
           "interval": "",
-          "legendFormat": "envoy_wasm_vm_v8_created",
+          "legendFormat": "v8",
           "refId": "B"
         }
       ],
@@ -290,7 +96,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "envoy_wasm_created",
+      "title": "Created",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -306,6 +112,7 @@
       },
       "yaxes": [
         {
+          "$$hashKey": "object:68",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -314,6 +121,7 @@
           "show": true
         },
         {
+          "$$hashKey": "object:69",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -361,9 +169,9 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 9
+        "w": 12,
+        "x": 12,
+        "y": 1
       },
       "hiddenSeries": false,
       "id": 2,
@@ -395,13 +203,13 @@
         {
           "expr": "avg(envoy_wasm_vm_null_active)",
           "interval": "",
-          "legendFormat": "envoy_wasm_vm_null_active",
+          "legendFormat": "null",
           "refId": "A"
         },
         {
           "expr": "avg(envoy_wasm_vm_v8_active)",
           "interval": "",
-          "legendFormat": "envoy_wasm_vm_v8_active",
+          "legendFormat": "v8",
           "refId": "B"
         }
       ],
@@ -409,7 +217,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "envoy_wasm_active",
+      "title": "Active",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -425,6 +233,7 @@
       },
       "yaxes": [
         {
+          "$$hashKey": "object:123",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -433,6 +242,229 @@
           "show": true
         },
         {
+          "$$hashKey": "object:124",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 7,
+      "panels": [],
+      "title": "Wasm module remote load",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 10
+      },
+      "hiddenSeries": false,
+      "id": 11,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "avg(envoy_wasm_remote_load_cache_entries)",
+          "interval": "",
+          "legendFormat": "entries",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Cache Entry",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:178",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:179",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 10
+      },
+      "hiddenSeries": false,
+      "id": 8,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "avg(envoy_wasm_remote_load_cache_hits)",
+          "interval": "",
+          "legendFormat": "hits",
+          "refId": "A"
+        },
+        {
+          "expr": "avg(envoy_wasm_remote_load_cache_misses)",
+          "interval": "",
+          "legendFormat": "misses",
+          "refId": "B"
+        },
+        {
+          "expr": "avg(envoy_wasm_remote_load_cache_negative_hits)",
+          "interval": "",
+          "legendFormat": "negative hits",
+          "refId": "C"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Cache Visit",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:233",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:234",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -465,240 +497,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 9
-      },
-      "hiddenSeries": false,
-      "id": 4,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "7.2.1",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "avg(envoy_wasm_vm_null_cloned)",
-          "interval": "",
-          "legendFormat": "envoy_wasm_vm_null_cloned",
-          "refId": "A"
-        },
-        {
-          "expr": "avg(envoy_wasm_vm_v8_cloned)",
-          "interval": "",
-          "legendFormat": "envoy_wasm_vm_v8_cloned",
-          "refId": "B"
-        },
-        {
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "envoy_wasm_cloned",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "datasource": null,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 17
-      },
-      "id": 7,
-      "panels": [],
-      "title": "envoy_wasm_remote_load",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 18
-      },
-      "hiddenSeries": false,
-      "id": 8,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "7.2.1",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "avg(envoy_wasm_remote_load_cache_entries)",
-          "interval": "",
-          "legendFormat": "envoy_wasm_remote_load_cache_entries",
-          "refId": "A"
-        },
-        {
-          "expr": "avg(envoy_wasm_remote_load_cache_hits)",
-          "interval": "",
-          "legendFormat": "envoy_wasm_remote_load_cache_hits",
-          "refId": "B"
-        },
-        {
-          "expr": "avg(envoy_wasm_remote_load_cache_misses)",
-          "interval": "",
-          "legendFormat": "envoy_wasm_remote_load_cache_misses",
-          "refId": "C"
-        },
-        {
-          "expr": "avg(envoy_wasm_remote_load_cache_negative_hits)",
-          "interval": "",
-          "legendFormat": "envoy_wasm_remote_load_cache_negative_hits",
-          "refId": "D"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "envoy_wasm_remote_load_cache",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 18
+        "y": 10
       },
       "hiddenSeries": false,
       "id": 10,
@@ -730,13 +529,13 @@
         {
           "expr": "avg(envoy_wasm_remote_load_fetch_failures)",
           "interval": "",
-          "legendFormat": "envoy_wasm_remote_load_fetch_failures",
+          "legendFormat": "failures",
           "refId": "A"
         },
         {
           "expr": "avg(envoy_wasm_remote_load_fetch_successes)",
           "interval": "",
-          "legendFormat": "envoy_wasm_remote_load_fetch_successes",
+          "legendFormat": "successes",
           "refId": "B"
         }
       ],
@@ -744,7 +543,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "envoy_wasm_remote_load_fetch",
+      "title": "Fetch",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -760,6 +559,7 @@
       },
       "yaxes": [
         {
+          "$$hashKey": "object:288",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -768,6 +568,223 @@
           "show": true
         },
         {
+          "$$hashKey": "object:289",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 71,
+      "panels": [],
+      "title": "Proxy Resource Usage",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "hiddenSeries": false,
+      "id": 72,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.1",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(container_memory_working_set_bytes{container=\"istio-proxy\"})",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 2,
+          "legendFormat": "Total (k8s)",
+          "refId": "A",
+          "step": 2
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Memory",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:396",
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:397",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "hiddenSeries": false,
+      "id": 73,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.1",
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container=\"istio-proxy\"}[1m]))",
+          "format": "time_series",
+          "hide": false,
+          "intervalFactor": 2,
+          "legendFormat": "Total (k8s)",
+          "refId": "A",
+          "step": 2
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "vCPU",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:447",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:448",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -807,7 +824,7 @@
     ]
   },
   "timezone": "",
-  "title": "Istio WASM Extension Dashboard",
+  "title": "Istio Wasm Extension Dashboard",
   "uid": "7PAV7ctGz",
-  "version": 12
+  "version": 17
 }
