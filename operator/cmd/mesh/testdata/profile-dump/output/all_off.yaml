@@ -1,9 +1,6 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  addonComponents:
-    istiocoredns:
-      enabled: false
   components:
     base:
       enabled: true
@@ -14,7 +11,7 @@ spec:
       k8s:
         env:
         - name: ISTIO_META_ROUTER_MODE
-          value: sni-dnat
+          value: standard
         hpaSpec:
           maxReplicas: 5
           metrics:
@@ -38,12 +35,15 @@ spec:
           ports:
           - name: http2
             port: 80
+            protocol: TCP
             targetPort: 8080
           - name: https
             port: 443
+            protocol: TCP
             targetPort: 8443
           - name: tls
             port: 15443
+            protocol: TCP
             targetPort: 15443
         strategy:
           rollingUpdate:
@@ -55,7 +55,7 @@ spec:
       k8s:
         env:
         - name: ISTIO_META_ROUTER_MODE
-          value: sni-dnat
+          value: standard
         hpaSpec:
           maxReplicas: 5
           metrics:
@@ -79,18 +79,23 @@ spec:
           ports:
           - name: status-port
             port: 15021
+            protocol: TCP
             targetPort: 15021
           - name: http2
             port: 80
+            protocol: TCP
             targetPort: 8080
           - name: https
             port: 443
+            protocol: TCP
             targetPort: 8443
           - name: tcp-istiod
             port: 15012
+            protocol: TCP
             targetPort: 15012
           - name: tls
             port: 15443
+            protocol: TCP
             targetPort: 15443
         strategy:
           rollingUpdate:
@@ -242,12 +247,7 @@ spec:
         lightstep: {}
         stackdriver: {}
         zipkin: {}
-      trustDomain: cluster.local
       useMCP: false
-    istiocoredns:
-      coreDNSImage: coredns/coredns
-      coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
-      coreDNSTag: 1.6.2
     istiodRemote:
       injectionURL: ""
     pilot:

@@ -2,7 +2,7 @@
 {{- define "mesh" }}
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-    trustDomain: {{ .Values.global.trustDomain | quote }}
+    trustDomain: {{ .Values.global.trustDomain | default "cluster.local" | quote }}
 
     defaultConfig:
       {{- if .Values.global.meshID }}
@@ -68,6 +68,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
 data:
 
