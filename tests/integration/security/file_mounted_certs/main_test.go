@@ -17,7 +17,6 @@ package filemountedcerts
 
 import (
 	"context"
-
 	"io/ioutil"
 	"path"
 	"strings"
@@ -40,20 +39,20 @@ var (
 )
 
 const (
+	PilotCertsPath = "tests/testdata/certs/pilot"
+	PilotSecretName = "test-istiod-server-cred"
+
 	ProxyMetadataJson = `
 	{
-      "JWT_POLICY": "third-party-jwt",
       "PILOT_CERT_PROVIDER": "mycopki",
       "FILE_MOUNTED_CERTS": "true",
-      "ISTIO_META_TLS_CLIENT_CERT_CHAIN": "/client-certs/cert.pem",
+      "ISTIO_META_TLS_CLIENT_CERT_CHAIN": "/client-certs/cert-chain.pem",
       "ISTIO_META_TLS_CLIENT_KEY": "/client-certs/key.pem",
-      "ISTIO_META_TLS_CLIENT_ROOT_CERT": "/client-certs/ca.pem",
-      "ISTIO_META_TLS_SERVER_CERT_CHAIN": "/server-certs/cert.pem",
+      "ISTIO_META_TLS_CLIENT_ROOT_CERT": "/client-certs/root-cert.pem",
+      "ISTIO_META_TLS_SERVER_CERT_CHAIN": "/server-certs/cert-chain.pem",
       "ISTIO_META_TLS_SERVER_KEY": "/server-certs/key.pem",
-      "ISTIO_META_TLS_SERVER_ROOT_CERT": "/server-certs/ca.pem",
+      "ISTIO_META_TLS_SERVER_ROOT_CERT": "/server-certs/root-cert.pem",
       "PROXY_XDS_VIA_AGENT": "false",
-      "ISTIO_METAJSON_METRICS_INCLUSIONS": '{\"sidecar.istio.io/statsInclusionPrefixes\": \"access_log_file,cluster,cluster_manager,control_plane,http,http2,http_mixer_filter,listener,listener_manager,redis,runtime,server,stats,tcp,tcp_mixer_filter,tracing\"}',
-      "ISTIO_META_DNS_CAPTURE": "false",
 	}
 `
 )
@@ -91,32 +90,19 @@ components:
         - kind: Deployment
           name: istiod
           patches:
-            - path: spec.template.spec.containers.[name:discovery].args
-              value: [
-                "discovery",
-                "--monitoringAddr=:15014",
-                "--log_output_level=default:info",
-                "--domain",
-                "cluster.local",
-                "--trust-domain=cluster.local",
-                "--keepaliveMaxServerConnectionAge",
-                "30m",
-                "--resync",
-                "5m",
-                "--caCertFile",
-                "/server-certs/ca.pem",
-                "--tlsCertFile",
-                "/server-certs/cert.pem",
-                "--tlsKeyFile",
-                "/server-certs/key.pem"
-              ]
-            - path: spec.template.spec.volumes[8]
+            - path: spec.template.spec.containers.[name:discovery].args[1001]
+              value: "--caCertFile=/server-certs/root-cert.pem"
+            - path: spec.template.spec.containers.[name:discovery].args[1002]
+              value: "--tlsCertFile=/server-certs/cert-chain.pem"
+            - path: spec.template.spec.containers.[name:discovery].args[1003]
+              value: "--tlsKeyFile=/server-certs/key.pem"
+            - path: spec.template.spec.volumes[-1]
               value: |-
                 name: server-certs
                 secret:
-                  secretName: test-istiod-server-cred
+                  secretName: ` + PilotSecretName + `
                   defaultMode: 420
-            - path: spec.template.spec.containers[name:discovery].volumeMounts[7]
+            - path: spec.template.spec.containers[name:discovery].volumeMounts[-1]
               value: |-
                 name: server-certs
                 mountPath: /server-certs
@@ -124,7 +110,6 @@ components:
 meshConfig:
   defaultConfig:
     controlPlaneAuthPolicy: "MUTUAL_TLS"
-    discoveryAddress: istiod.istio-system:15012
     proxyMetadata: ` + strings.Replace(ProxyMetadataJson, "\n", "", -1) +
 `
 values:
@@ -137,11 +122,7 @@ values:
       componentLogLevel: "misc:debug"
   pilot:
     env:
-      PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND: "true"
-      PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND: "true"
       XDS_AUTH: "false"
-      PILOT_ENABLE_CRD_VALIDATION: "true"
-      DNS_ADDR: ""
       ENABLE_CA_SERVER: "false"
 `
 }
@@ -153,15 +134,15 @@ func CreateCustomIstiodSecret(ctx resource.Context) error {
 	}
 
 
-	CreateCustomSecret(ctx, "test-istiod-server-cred", systemNs, "tests/testdata/certs/pilot")
+	err = CreateCustomSecret(ctx, PilotSecretName, systemNs, PilotCertsPath)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.Instance, certsPath string) error {
-	if certsPath == "" {
-		certsPath = "tests/testdata/certs/dns"
-	}
-
 	var privateKey, clientCert, caCert []byte
 	var err error
 	if privateKey, err = ReadCustomCertFromFile(certsPath,"key.pem"); err != nil {
@@ -181,9 +162,9 @@ func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.I
 			Namespace: namespace.Name(),
 		},
 		Data: map[string][]byte{
-			"key.pem":     privateKey,
-			"cert.pem":    clientCert,
-			"ca.pem":      caCert,
+			"key.pem"       : privateKey,
+			"cert-chain.pem": clientCert,
+			"root-cert.pem" : caCert,
 		},
 	}
 
