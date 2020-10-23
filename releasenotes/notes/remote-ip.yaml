@@ -11,9 +11,9 @@ releaseNotes:
     **Updated** The ipBlocks/notIpBlocks fields of an AuthorizationPolicy now strictly refer to the source IP address of the IP packet as it arrives to the sidecar.  Prior to this release, if using the Proxy Protocol, then the ipBlocks/notIpBlocks would refer to the IP address determined by the Proxy Protocol.  Now the remoteIpBlocks/notRemoteIpBlocks fields must be used to refer to the client IP address from the Proxy Protocol.
 
 upgradeNotes:
-  title: Update AuthorizationPolicy resources to use remoteIpBlocks/notRemoteIpBlocks instead of ipBlocks/notIpBlocks if using the Proxy Protocol.
-  content: |
-    If using the Proxy Protocol on a load balancer in front an ingress gateway in conjunction with ipBlocks/notIpBlocks on an AuthorizationPolicy to perform IP-based access control, then please update the AuthorizationPolicy to use remoteIpBlocks/notRemoteIpBlocks instead after upgrading. The ipBlocks/notIpBlocks fields now strictly refer to the source IP address of the packet that arrives at the sidecar. 
+  - title: Update AuthorizationPolicy resources to use remoteIpBlocks/notRemoteIpBlocks instead of ipBlocks/notIpBlocks if using the Proxy Protocol.
+    content: |
+      If using the Proxy Protocol on a load balancer in front an ingress gateway in conjunction with ipBlocks/notIpBlocks on an AuthorizationPolicy to perform IP-based access control, then please update the AuthorizationPolicy to use remoteIpBlocks/notRemoteIpBlocks instead after upgrading. The ipBlocks/notIpBlocks fields now strictly refer to the source IP address of the packet that arrives at the sidecar. 
 
 docs:
   - '[reference] https://istio.io/latest/docs/reference/config/security/authorization-policy/'
