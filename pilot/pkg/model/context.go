@@ -383,9 +383,6 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 type BootstrapNodeMetadata struct {
 	NodeMetadata
 
-	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
-	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
-
 	// InstanceName is the short name for the workload instance (ex: pod name)
 	// replaces POD_NAME
 	InstanceName string `json:"NAME,omitempty"`

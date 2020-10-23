@@ -56,22 +56,6 @@ const (
 	v2Suffix   = ",component"
 )
 
-var (
-	// These must match the json field names in model.nodeMetadata
-	metadataExchangeKeys = []string{
-		"NAME",
-		"NAMESPACE",
-		"INSTANCE_IPS",
-		"LABELS",
-		"OWNER",
-		"PLATFORM_METADATA",
-		"WORKLOAD_NAME",
-		"MESH_ID",
-		"SERVICE_ACCOUNT",
-		"CLUSTER_ID",
-	}
-)
-
 // Config for creating a bootstrap file.
 type Config struct {
 	Node                string
