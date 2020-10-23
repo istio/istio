@@ -110,7 +110,9 @@ var (
 		{
 			"istio-services-grafana-dashboards",
 			"istio-extension-dashboard.json",
-			[]string{},
+			[]string{
+				"avg(envoy_wasm_vm_v8_",
+			},
 		},
 	}
 )
