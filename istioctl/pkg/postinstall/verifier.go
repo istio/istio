@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package install
+package postinstall
 
 import (
 	"context"
@@ -22,6 +22,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -40,6 +42,12 @@ import (
 
 var (
 	scope = log.RegisterScope("postinstall", "postinstall verification logger", 0)
+
+	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+		Group:    v1alpha1.SchemeGroupVersion.Group,
+		Version:  v1alpha1.SchemeGroupVersion.Version,
+		Resource: "istiooperators",
+	}
 )
 
 // Verifier runs after installation and is run after installation.
@@ -268,7 +276,7 @@ func (v *StatusBasedVerifier) operatorFromCluster(revision string) (*v1alpha1.Is
 	if err != nil {
 		return nil, err
 	}
-	iops, err := allOperatorsInCluster(client)
+	iops, err := AllOperatorsInCluster(client)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +298,7 @@ func fixTimestampRelatedUnmarshalIssues(un *unstructured.Unstructured) {
 }
 
 // Find all IstioOperator in the cluster.
-func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator, error) {
+func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator, error) {
 	ul, err := client.
 		Resource(istioOperatorGVR).
 		List(context.TODO(), meta_v1.ListOptions{})

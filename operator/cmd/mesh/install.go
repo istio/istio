@@ -24,10 +24,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	"istio.io/istio/istioctl/pkg/postinstall"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -53,10 +55,9 @@ const (
 type installArgs struct {
 	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilenames []string
-	// kubeConfigPath is the path to kube config file.
-	kubeConfigPath string
-	// context is the cluster context in the kube config
-	context string
+	// kubeConfigFlags defines the flags to reach api-server like kubeconfig,
+	// context, credentials etc.
+	kubeConfigFlags *genericclioptions.ConfigFlags
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
 	// to take effect.
 	readinessTimeout time.Duration
@@ -78,8 +79,7 @@ type installArgs struct {
 
 func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
+	args.kubeConfigFlags.AddFlags(cmd.PersistentFlags())
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
 		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
@@ -94,7 +94,12 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 // InstallCmd generates an Istio install manifest and applies it to a cluster
 func InstallCmd(logOpts *log.Options) *cobra.Command {
 	rootArgs := &rootArgs{}
-	iArgs := &installArgs{}
+	iArgs := &installArgs{
+		kubeConfigFlags: &genericclioptions.ConfigFlags{
+			KubeConfig: strPtr(""),
+			Context:    strPtr(""),
+		},
+	}
 
 	ic := &cobra.Command{
 		Use:   "install",
@@ -133,7 +138,7 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	var opts clioptions.ControlPlaneOptions
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(*iArgs.kubeConfigFlags.KubeConfig, *iArgs.kubeConfigFlags.Context), opts.Revision)
 	if err != nil {
 		return err
 	}
@@ -163,13 +168,25 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := InstallManifests(setFlags, iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
-		iArgs.kubeConfigPath, iArgs.context, iArgs.readinessTimeout, l); err != nil {
+	if err := InstallManifests(applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision), iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
+		*iArgs.kubeConfigFlags.KubeConfig, *iArgs.kubeConfigFlags.Context, iArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
 	if !iArgs.skipVerification {
-
+		l.LogAndPrintf("Verify installation with revision %s", iArgs.revision)
+		verifier := postinstall.StatusBasedVerifier{
+			IstioNamespace:   "istio-system", // TODO: figure out some way to find it
+			ManifestsPath:    iArgs.manifestsPath,
+			Filenames:        iArgs.inFilenames,
+			RestClientGetter: iArgs.kubeConfigFlags,
+			Opts: clioptions.ControlPlaneOptions{
+				Revision: iArgs.revision,
+			},
+		}
+		if err := verifier.Verify(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -326,4 +343,8 @@ func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, f
 		}
 	}
 	return profile, enabledComponents, nil
+}
+
+func strPtr(val string) *string {
+	return &val
 }

@@ -18,21 +18,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/postinstall"
 	"istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-)
-
-var (
-	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "istiooperators",
-	}
 )
 
 // NewVerifyCommand creates a new command for verifying Istio Installation Status
@@ -81,7 +72,7 @@ istioctl experimental precheck.
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			verifier := &StatusBasedVerifier{
+			verifier := &postinstall.StatusBasedVerifier{
 				IstioNamespace:   istioNamespace,
 				RestClientGetter: kubeConfigFlags,
 				ManifestsPath:    manifestsPath,
