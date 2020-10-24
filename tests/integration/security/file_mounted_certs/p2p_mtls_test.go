@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	dto "github.com/prometheus/client_model/go"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -238,33 +237,4 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		BuildOrFail(t)
 
 	return internalClient, internalServer, appsNamespace
-}
-
-
-func clusterName(target echo.Instance, port echo.Port) string {
-	cfg := target.Config()
-	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
-}
-
-
-func getMetricForCluster(metrics []*dto.Metric, clusterName string) *dto.Metric {
-	for _, metric := range metrics {
-		for _, label := range metric.Label {
-			if (*label.Name == "cluster_name" && *label.Value == clusterName) {
-				return metric
-			}
-		}
-	}
-	return nil
-}
-
-func getMetricForListener(metrics []*dto.Metric, listenerName string) *dto.Metric {
-	for _, metric := range metrics {
-		for _, label := range metric.Label {
-			if (*label.Name == "listener_address" && *label.Value == listenerName) {
-				return metric
-			}
-		}
-	}
-	return nil
 }
