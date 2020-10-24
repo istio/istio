@@ -44,12 +44,7 @@ func NewVerifyCommand() *cobra.Command {
 			KubeConfig: strPtr(""),
 		}
 
-		filenames     = []string{}
-		fileNameFlags = &genericclioptions.FileNameFlags{
-			Filenames: &filenames,
-			Recursive: boolPtr(false),
-			Usage:     "Istio YAML installation file.",
-		}
+		filenames      = []string{}
 		istioNamespace string
 		opts           clioptions.ControlPlaneOptions
 		manifestsPath  string
@@ -78,7 +73,8 @@ istioctl experimental precheck.
   # Verify the deployment matches the Istio Operator deployment definition
   istioctl verify-install --revision <canary>`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(fileNameFlags.ToOptions().Filenames) > 0 && opts.Revision != "" {
+
+			if len(filenames) > 0 && opts.Revision != "" {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("supply either a file or revision, but not both")
 			}
@@ -90,7 +86,7 @@ istioctl experimental precheck.
 				RestClientGetter: kubeConfigFlags,
 				ManifestsPath:    manifestsPath,
 				Opts:             opts,
-				FOpts:            fileNameFlags.ToOptions(),
+				Filenames:        filenames,
 			}
 			return verifier.Verify()
 		},
@@ -100,7 +96,7 @@ istioctl experimental precheck.
 	flags.StringVarP(&istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
 		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
-	fileNameFlags.AddFlags(flags)
+	flags.StringSliceVarP(&filenames, "filename", "f", filenames, "Istio YAML installation file.")
 	verifyInstallCmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	opts.AttachControlPlaneFlags(verifyInstallCmd)
 	return verifyInstallCmd

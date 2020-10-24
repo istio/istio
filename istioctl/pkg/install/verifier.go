@@ -16,7 +16,6 @@ package install
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -51,61 +50,56 @@ type Verifier interface {
 }
 
 // StatusBasedVerifier checks status of certain resources like deployment,
-// jobs and also verifies count of certain resource types
+// jobs and also verifies count of certain resource types.
+// TODO(su225) - think of reducing number of exported fields with a constructor
 type StatusBasedVerifier struct {
 	IstioNamespace   string
-	RestClientGetter genericclioptions.RESTClientGetter
 	ManifestsPath    string
+	Filenames        []string
+	RestClientGetter genericclioptions.RESTClientGetter
 	Opts             clioptions.ControlPlaneOptions
-	FOpts            resource.FilenameOptions
 }
 
 // Verify implements Verifier interface. Here we check status of deployment
 // and jobs, count various resources for verification.
 func (v *StatusBasedVerifier) Verify() error {
-	if len(v.FOpts.Filenames) == 0 {
-		return v.verifyInstallIOPrevision()
+	if len(v.Filenames) == 0 {
+		return v.verifyInstallIOPRevision()
 	}
 	return v.verifyInstall()
 }
 
-func (v *StatusBasedVerifier) verifyInstallIOPrevision() error {
-	iop, err := operatorFromCluster(v.IstioNamespace, v.Opts.Revision, v.RestClientGetter)
+func (v *StatusBasedVerifier) verifyInstallIOPRevision() error {
+	iop, err := v.operatorFromCluster(v.Opts.Revision)
 	if err != nil {
 		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
 	}
 	if v.ManifestsPath != "" {
 		iop.Spec.InstallPackagePath = v.ManifestsPath
 	}
-	crdCount, istioDeploymentCount, err := verifyPostInstallIstioOperator(
-		v.IstioNamespace,
-		iop,
-		fmt.Sprintf("in cluster operator %s", iop.GetName()),
-		v.RestClientGetter)
-	return show(crdCount, istioDeploymentCount, err)
+	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
+		iop, fmt.Sprintf("in cluster operator %s", iop.GetName()))
+	return reportStatus(crdCount, istioDeploymentCount, err)
 }
 
 func (v *StatusBasedVerifier) verifyInstall() error {
 	// This is not a pre-check.  Check that the supplied resources exist in the cluster
 	r := resource.NewBuilder(v.RestClientGetter).
 		Unstructured().
-		FilenameParam(false, &v.FOpts).
+		FilenameParam(false, &resource.FilenameOptions{Filenames: v.Filenames}).
 		Flatten().
 		Do()
 	if r.Err() != nil {
 		return r.Err()
 	}
 	visitor := genericclioptions.ResourceFinderForResult(r).Do()
-	crdCount, istioDeploymentCount, err := verifyPostInstall(
-		v.IstioNamespace,
-		visitor,
-		strings.Join(v.FOpts.Filenames, ","),
-		v.RestClientGetter)
-	return show(crdCount, istioDeploymentCount, err)
+	crdCount, istioDeploymentCount, err := v.verifyPostInstall(
+		visitor, strings.Join(v.Filenames, ","))
+	return reportStatus(crdCount, istioDeploymentCount, err)
 }
 
 // nolint: lll
-func verifyPostInstallIstioOperator(istioNamespaceFlag string, iop *v1alpha1.IstioOperator, filename string, restClientGetter genericclioptions.RESTClientGetter) (int, int, error) {
+func (v *StatusBasedVerifier) verifyPostInstallIstioOperator( /*istioNamespaceFlag string, iop *v1alpha1.IstioOperator, filename string, restClientGetter genericclioptions.RESTClientGetter*/ iop *v1alpha1.IstioOperator, filename string) (int, int, error) {
 	// Generate the manifest this IstioOperator will make
 	t := translate.NewTranslator()
 
@@ -122,7 +116,7 @@ func verifyPostInstallIstioOperator(istioNamespaceFlag string, iop *v1alpha1.Ist
 		return 0, 0, errs.ToError()
 	}
 
-	builder := resource.NewBuilder(restClientGetter).Unstructured()
+	builder := resource.NewBuilder(v.RestClientGetter).Unstructured()
 	for cat, manifest := range manifests {
 		for i, manitem := range manifest {
 			reader := strings.NewReader(manitem)
@@ -136,11 +130,9 @@ func verifyPostInstallIstioOperator(istioNamespaceFlag string, iop *v1alpha1.Ist
 	}
 	visitor := genericclioptions.ResourceFinderForResult(r).Do()
 	// Indirectly RECURSE back into verifyPostInstall with the manifest we just generated
-	generatedCrds, generatedDeployments, err := verifyPostInstall(
-		istioNamespaceFlag,
+	generatedCrds, generatedDeployments, err := v.verifyPostInstall(
 		visitor,
-		fmt.Sprintf("generated from %s", filename),
-		restClientGetter)
+		fmt.Sprintf("generated from %s", filename))
 	if err != nil {
 		return generatedCrds, generatedDeployments, err
 	}
@@ -148,8 +140,7 @@ func verifyPostInstallIstioOperator(istioNamespaceFlag string, iop *v1alpha1.Ist
 	return generatedCrds, generatedDeployments, nil
 }
 
-func verifyPostInstall(istioNamespaceFlag string,
-	visitor resource.Visitor, filename string, restClientGetter genericclioptions.RESTClientGetter) (int, int, error) {
+func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filename string) (int, int, error) {
 	crdCount := 0
 	istioDeploymentCount := 0
 	err := visitor.Visit(func(info *resource.Info, err error) error {
@@ -185,11 +176,11 @@ func verifyPostInstall(istioNamespaceFlag string,
 			if err != nil {
 				return err
 			}
-			err = getDeploymentStatus(deployment, name, filename)
+			err = getDeploymentStatus(deployment)
 			if err != nil {
-				return err
+				return istioVerificationFailureError(filename, err)
 			}
-			if namespace == istioNamespaceFlag && strings.HasPrefix(name, "istio-") {
+			if namespace == v.IstioNamespace && strings.HasPrefix(name, "istio") {
 				istioDeploymentCount++
 			}
 		case "Job":
@@ -205,12 +196,8 @@ func verifyPostInstall(istioNamespaceFlag string,
 			if err != nil {
 				return err
 			}
-			for _, c := range job.Status.Conditions {
-				if c.Type == v1batch.JobFailed {
-					msg := fmt.Sprintf("Istio installation failed, incomplete or"+
-						" does not match \"%s\" - the required Job %s failed", filename, name)
-					return errors.New(msg)
-				}
+			if err := v.verifyJobPostInstall(job); err != nil {
+				return istioVerificationFailureError(filename, err)
 			}
 		case "IstioOperator":
 			// It is not a problem if the cluster does not include the IstioOperator
@@ -227,7 +214,7 @@ func verifyPostInstall(istioNamespaceFlag string,
 			if err != nil {
 				return err
 			}
-			generatedCrds, generatedDeployments, err := verifyPostInstallIstioOperator(istioNamespaceFlag, iop, filename, restClientGetter)
+			generatedCrds, generatedDeployments, err := v.verifyPostInstallIstioOperator(iop, filename)
 			if err != nil {
 				return err
 			}
@@ -247,9 +234,9 @@ func verifyPostInstall(istioNamespaceFlag string,
 					Name(name).
 					Do(context.TODO())
 				if result.Error() != nil {
-					msg := fmt.Sprintf("Istio installation failed, incomplete or"+
-						" does not match \"%s\" - the required %s:%s is not ready due to: %v", filename, kind, name, result.Error())
-					return errors.New(msg)
+					return istioVerificationFailureError(filename,
+						fmt.Errorf("the required %s:%s is not ready due to: %v",
+							kind, name, result.Error()))
 				}
 			}
 			if kind == "CustomResourceDefinition" {
@@ -265,10 +252,21 @@ func verifyPostInstall(istioNamespaceFlag string,
 	return crdCount, istioDeploymentCount, nil
 }
 
+func (v *StatusBasedVerifier) verifyJobPostInstall(job *v1batch.Job) error {
+	for _, c := range job.Status.Conditions {
+		if c.Type == v1batch.JobFailed {
+			// msg := fmt.Sprintf("Istio installation failed, incomplete or"+
+			// 	" does not match \"%s\" - the required Job %s failed", filename, name)
+			return fmt.Errorf("the required Job %s/%s failed", job.Namespace, job.Name)
+		}
+	}
+	return nil
+}
+
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
-func operatorFromCluster(istioNamespaceFlag string, revision string, restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
-	restConfig, err := restClientGetter.ToRESTConfig()
+func (v *StatusBasedVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOperator, error) {
+	restConfig, err := v.RestClientGetter.ToRESTConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -276,31 +274,25 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 	if err != nil {
 		return nil, err
 	}
-	ul, err := client.
-		Resource(istioOperatorGVR).
-		Namespace(istioNamespaceFlag).
-		List(context.TODO(), meta_v1.ListOptions{})
+	iops, err := allOperatorsInCluster(client)
 	if err != nil {
 		return nil, err
 	}
-	for _, un := range ul.Items {
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-
-		// UnmarshalIstioOperator fails because managedFields could contain time
-		// and gogo/protobuf/jsonpb(v1.3.1) tries to unmarshal it as struct (the type
-		// meta_v1.Time is really a struct) and fails.
-		un.SetManagedFields([]meta_v1.ManagedFieldsEntry{})
-
-		by := util.ToYAML(un.Object)
-		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
-		if err != nil {
-			return nil, err
-		}
+	for _, iop := range iops {
 		if iop.Spec.Revision == revision {
 			return iop, nil
 		}
 	}
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
+}
+
+func fixTimestampRelatedUnmarshalIssues(un *unstructured.Unstructured) {
+	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+
+	// UnmarshalIstioOperator fails because managedFields could contain time
+	// and gogo/protobuf/jsonpb(v1.3.1) tries to unmarshal it as struct (the type
+	// meta_v1.Time is really a struct) and fails.
+	un.SetManagedFields([]meta_v1.ManagedFieldsEntry{})
 }
 
 // Find all IstioOperator in the cluster.
@@ -313,7 +305,7 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 	}
 	retval := make([]*v1alpha1.IstioOperator, 0)
 	for _, un := range ul.Items {
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		fixTimestampRelatedUnmarshalIssues(&un)
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
@@ -324,7 +316,7 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 	return retval, nil
 }
 
-func show(crdCount, istioDeploymentCount int, err error) error {
+func reportStatus(crdCount, istioDeploymentCount int, err error) error {
 	if err != nil {
 		return err
 	}
@@ -338,30 +330,22 @@ func show(crdCount, istioDeploymentCount int, err error) error {
 	return nil
 }
 
-func getDeploymentStatus(deployment *appsv1.Deployment, name, fileName string) error {
+func getDeploymentStatus(deployment *appsv1.Deployment) error {
 	cond := getDeploymentCondition(deployment.Status, appsv1.DeploymentProgressing)
 	if cond != nil && cond.Reason == "ProgressDeadlineExceeded" {
-		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
-			" - deployment %q exceeded its progress deadline", fileName, name)
-		return errors.New(msg)
+		return fmt.Errorf("deployment %q exceeded its progress deadline", deployment.Name)
 	}
 	if deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas {
-		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
-			" - waiting for deployment %q rollout to finish: %d out of %d new replicas have been updated",
-			fileName, name, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas)
-		return errors.New(msg)
+		return fmt.Errorf("waiting for deployment %q rollout to finish: %d out of %d new replicas have been updated",
+			deployment.Name, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas)
 	}
 	if deployment.Status.Replicas > deployment.Status.UpdatedReplicas {
-		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
-			" - waiting for deployment %q rollout to finish: %d old replicas are pending termination",
-			fileName, name, deployment.Status.Replicas-deployment.Status.UpdatedReplicas)
-		return errors.New(msg)
+		return fmt.Errorf("waiting for deployment %q rollout to finish: %d old replicas are pending termination",
+			deployment.Name, deployment.Status.Replicas-deployment.Status.UpdatedReplicas)
 	}
 	if deployment.Status.AvailableReplicas < deployment.Status.UpdatedReplicas {
-		msg := fmt.Sprintf("Istio installation failed, incomplete or does not match \"%s\""+
-			" - waiting for deployment %q rollout to finish: %d of %d updated replicas are available",
-			fileName, name, deployment.Status.AvailableReplicas, deployment.Status.UpdatedReplicas)
-		return errors.New(msg)
+		return fmt.Errorf("waiting for deployment %q rollout to finish: %d of %d updated replicas are available",
+			deployment.Name, deployment.Status.AvailableReplicas, deployment.Status.UpdatedReplicas)
 	}
 	return nil
 }
@@ -383,4 +367,8 @@ func findResourceInSpec(kind string) string {
 		}
 	}
 	return ""
+}
+
+func istioVerificationFailureError(filename string, reason error) error {
+	return fmt.Errorf("Istio installation failed, incomplete or does not match \"%s\": %v", filename, reason)
 }
