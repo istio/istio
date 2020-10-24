@@ -32,6 +32,8 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -136,12 +138,18 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return err
 	}
+	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
 	_ = DetectIstioVersionDiff(cmd, tag, kubeClient, iArgs)
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
-		prompt := fmt.Sprintf("This will install the Istio %s profile into the cluster. Proceed? (y/N)", tag)
+		profile, enabledComponents, err := getProfileAndEnabledComponents(setFlags, iArgs.inFilenames, iArgs.force,
+			rootArgs.dryRun, iArgs.kubeConfigPath, iArgs.context, iArgs.readinessTimeout, l)
+		if err != nil {
+			return fmt.Errorf("failed to get profile and enabled components: %v", err)
+		}
+		prompt := fmt.Sprintf("This will install the Istio %s profile %s with %q into the cluster. Proceed? (y/N)", tag, profile, enabledComponents)
 		if !confirm(prompt, cmd.OutOrStdout()) {
 			cmd.Print("Cancelled.\n")
 			os.Exit(1)
@@ -150,7 +158,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := InstallManifests(applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision), iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
+	if err := InstallManifests(setFlags, iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
 		iArgs.kubeConfigPath, iArgs.context, iArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
@@ -270,4 +278,48 @@ func GetTagVersion(tagInfo string) (string, error) {
 		return "", err
 	}
 	return tag.String(), nil
+}
+
+// GetProfileAndEnabledComponents get the profile and all the enabled components
+// from the given input files and --set flag overlays.
+func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, force bool, dryRun bool,
+	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) (string, []string, error) {
+	overlayYAML, profile, err := manifest.ReadYamlProfile(inFilenames, setOverlay, force, l)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to read profile: %v", err)
+	}
+	kubeConfig, _, err := InitK8SRestClient(kubeConfigPath, context)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to init kubeconfig: %v", err)
+	}
+	_, iop, err := manifest.GenIOPFromProfile(profile, overlayYAML, setOverlay, force, false, kubeConfig, l)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to generate IOP from profile %s: %v", profile, err)
+	}
+
+	var enabledComponents []string
+	if iop.Spec.Components != nil {
+		for _, c := range name.AllCoreComponentNames {
+			enabled, err := translate.IsComponentEnabledInSpec(c, iop.Spec)
+			if err != nil {
+				return "", nil, fmt.Errorf("failed to check if component: %s is enabled or not: %v", string(c), err)
+			}
+			if enabled {
+				enabledComponents = append(enabledComponents, string(c))
+			}
+		}
+		for _, c := range iop.Spec.Components.IngressGateways {
+			if c.Enabled.Value == true {
+				enabledComponents = append(enabledComponents, string(name.IngressComponentName))
+				break
+			}
+		}
+		for _, c := range iop.Spec.Components.EgressGateways {
+			if c.Enabled.Value == true {
+				enabledComponents = append(enabledComponents, string(name.EgressComponentName))
+				break
+			}
+		}
+	}
+	return profile, enabledComponents, nil
 }
