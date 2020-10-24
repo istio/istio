@@ -23,7 +23,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
