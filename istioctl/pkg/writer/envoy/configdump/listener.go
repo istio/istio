@@ -67,11 +67,19 @@ func (l *ListenerFilter) Verify(listener *listener.Listener) bool {
 	return true
 }
 
+func getFilterChains(l *listener.Listener) []*listener.FilterChain {
+	res := l.FilterChains
+	if l.DefaultFilterChain != nil {
+		res = append(res, l.DefaultFilterChain)
+	}
+	return res
+}
+
 // retrieveListenerType classifies a Listener as HTTP|TCP|HTTP+TCP|UNKNOWN
 func retrieveListenerType(l *listener.Listener) string {
 	nHTTP := 0
 	nTCP := 0
-	for _, filterChain := range l.GetFilterChains() {
+	for _, filterChain := range getFilterChains(l) {
 		for _, filter := range filterChain.GetFilters() {
 			if filter.Name == HTTPListener {
 				nHTTP++
@@ -179,7 +187,7 @@ var (
 )
 
 func retrieveListenerMatches(l *listener.Listener) []filterchain {
-	fChains := l.GetFilterChains()
+	fChains := getFilterChains(l)
 	resp := make([]filterchain, 0, len(fChains))
 	for _, filterChain := range fChains {
 		match := filterChain.FilterChainMatch

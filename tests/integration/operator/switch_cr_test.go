@@ -123,7 +123,11 @@ func TestController(t *testing.T) {
 			t.Cleanup(func() {
 				scopes.Framework.Infof("cleaning up resources")
 				if err := cs.DeleteYAMLFiles(IstioNamespace, iopCRFile); err != nil {
-					t.Errorf("faild to delete test IstioOperator CR: %v", err)
+					t.Errorf("failed to delete test IstioOperator CR: %v", err)
+				}
+				if err := cs.AppsV1().Deployments(IstioNamespace).DeleteCollection(context.TODO(),
+					kube2.DeleteOptionsForeground(), kubeApiMeta.ListOptions{LabelSelector: "app=istiod"}); err != nil {
+					t.Errorf("failed to remove istiod deployments: %v", err)
 				}
 			})
 		})

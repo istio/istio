@@ -8,15 +8,19 @@ spec:
     istio: eastwestgateway
   servers:
     - port:
-        name: tcp-istiod
+        name: tls-istiod
         number: 15012
-        protocol: TCP
+        protocol: tls
+      tls:
+        mode: PASSTHROUGH        
       hosts:
         - "*"
     - port:
-        name: tcp-istiodwebhook
+        name: tls-istiodwebhook
         number: 15017
-        protocol: TCP
+        protocol: tls
+      tls:
+        mode: PASSTHROUGH          
       hosts:
         - "*"
 ---
@@ -27,12 +31,14 @@ metadata:
   namespace: istio-system
 spec:
   hosts:
-  - istiod.istio-system.svc.cluster.local
+  - "*"
   gateways:
   - istiod-gateway
-  tcp:
+  tls:
   - match:
     - port: 15012
+      sniHosts:
+      - "*"
     route:
     - destination:
         host: istiod.istio-system.svc.cluster.local
@@ -40,26 +46,11 @@ spec:
           number: 15012
   - match:
     - port: 15017
+      sniHosts:
+      - "*"
     route:
     - destination:
         host: istiod.istio-system.svc.cluster.local
         port:
           number: 443
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: istiod-dr
-  namespace: istio-system
-spec:
-  host: istiod.istio-system.svc.cluster.local
-  trafficPolicy:
-    portLevelSettings:
-    - port:
-        number: 15012
-      tls:
-        mode: DISABLE
-    - port:
-        number: 15017
-      tls:
-        mode: DISABLE
+

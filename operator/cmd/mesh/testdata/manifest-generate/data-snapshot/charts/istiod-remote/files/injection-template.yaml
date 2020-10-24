@@ -161,9 +161,6 @@ template: |
   {{- if .Values.global.sts.servicePort }}
     - --stsPort={{ .Values.global.sts.servicePort }}
   {{- end }}
-  {{- if .Values.global.trustDomain }}
-    - --trust-domain={{ .Values.global.trustDomain }}
-  {{- end }}
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
@@ -289,6 +286,7 @@ template: |
         port: 15021
       initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
       periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
+      timeoutSeconds: 3
       failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:

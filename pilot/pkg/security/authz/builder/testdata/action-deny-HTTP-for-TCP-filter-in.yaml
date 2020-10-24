@@ -57,10 +57,12 @@ spec:
         requestPrincipals: ["requestPrincipals"]
         namespaces: ["ns", "*ns-suffix", "ns-prefix*", "*"]
         ipBlocks: ["1.2.3.4"]
+        remoteIpBlocks: ["172.18.4.0/22"]
         notPrincipals: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*"]
         notRequestPrincipals: ["not-requestPrincipals"]
         notNamespaces: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*"]
         notIpBlocks: ["9.0.0.1"]
+        notRemoteIpBlocks: ["192.168.244.139"]
     to:
     - operation:
         methods: ["method"]
@@ -78,6 +80,9 @@ spec:
       - key: "source.ip"
         values: ["10.10.10.10"]
         notValues: ["90.10.10.10"]
+      - key: "remote.ip"
+        values: ["192.168.3.3"]
+        notValues: ["172.19.31.3"]
       - key: "source.namespace"
         values: ["ns", "*ns-suffix", "ns-prefix*", "*"]
         notValues: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*"]

@@ -40,9 +40,10 @@ helm3 template kiali-server \
 } > "${ADDONS}/kiali.yaml"
 
 # Set up prometheus
-helm3 template prometheus stable/prometheus \
+helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 11.7.0 \
+  --version 11.16.2 \
+  --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
 
@@ -52,9 +53,10 @@ function compressDashboard() {
 
 # Set up grafana
 {
-  helm3 template grafana stable/grafana \
+  helm3 template grafana grafana \
     --namespace istio-system \
-    --version 5.3.5 \
+    --version 5.8.10 \
+    --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-grafana.yaml"
 
   # Set up grafana dashboards. Split into 2 and compress to single line json to avoid Kubernetes size limits
@@ -63,6 +65,7 @@ function compressDashboard() {
   compressDashboard "istio-workload-dashboard.json"
   compressDashboard "istio-service-dashboard.json"
   compressDashboard "istio-mesh-dashboard.json"
+  compressDashboard "istio-extension-dashboard.json"
   echo -e "\n---\n"
   kubectl create configmap -n istio-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
@@ -74,5 +77,6 @@ function compressDashboard() {
     --dry-run=client -oyaml \
     --from-file=istio-workload-dashboard.json="${TMP}/istio-workload-dashboard.json" \
     --from-file=istio-service-dashboard.json="${TMP}/istio-service-dashboard.json" \
-    --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.json"
+    --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.json" \
+    --from-file=istio-extension-dashboard.json="${TMP}/istio-extension-dashboard.json"
 } > "${ADDONS}/grafana.yaml"

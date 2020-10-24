@@ -98,10 +98,12 @@ spec:
           ports:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}
+              protocol: {{ $val.protocol | default "TCP" }}
             {{- end }}
             {{- if $.Values.global.meshExpansion.enabled }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
             - containerPort: {{ $val.targetPort | default $val.port }}
+              protocol: {{ $val.protocol | default "TCP" }}
             {{- end }}
             {{- end }}
             - containerPort: 15090
@@ -128,9 +130,6 @@ spec:
           - {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
         {{- if not $gateway.runAsRoot }}
           securityContext:

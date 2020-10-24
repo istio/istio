@@ -51,7 +51,6 @@ spec:
         - traffic.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
         - --concurrency
         - "4"
         env:

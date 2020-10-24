@@ -7,6 +7,8 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istiod-remote
 data:
 
@@ -17,6 +19,7 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
+      meshId: cluster.local
       proxyMetadata:
         DNS_AGENT: ""
       tracing:
@@ -34,6 +37,8 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istiod-remote
 data:
 
@@ -46,7 +51,6 @@ data:
           "s390x": 2
         },
         "caAddress": "",
-        "externalIstiod": false,
         "centralIstiod": false,
         "configValidation": true,
         "defaultConfigVisibilitySettings": [],
@@ -60,6 +64,7 @@ data:
           }
         },
         "defaultTolerations": [],
+        "externalIstiod": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -81,7 +86,9 @@ data:
         "mountMtlsCerts": false,
         "multiCluster": {
           "clusterName": "",
-          "enabled": false
+          "enabled": false,
+          "globalDomainSuffix": "global",
+          "includeEnvoyFilter": true
         },
         "network": "",
         "omitSidecarInjectorConfigMap": false,
@@ -351,9 +358,6 @@ data:
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
-      {{- if .Values.global.trustDomain }}
-        - --trust-domain={{ .Values.global.trustDomain }}
-      {{- end }}
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
@@ -479,6 +483,7 @@ data:
             port: 15021
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
+          timeoutSeconds: 3
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
         {{ end -}}
         securityContext:
@@ -658,6 +663,8 @@ metadata:
 
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: istiod-remote
 webhooks:
@@ -667,7 +674,8 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/inject"
-      caBundle: 
+      caBundle: ""
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
@@ -675,7 +683,6 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     admissionReviewVersions: ["v1beta1", "v1"]
-    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

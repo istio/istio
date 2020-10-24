@@ -1,0 +1,23 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+- 24379
+releaseNotes:
+- |
+  **Removed** the protocol detection timeout by default, reducing traffic failures during slow connections.
+upgradeNotes:
+- title: Protocol Detection Timeout Changes
+  content: |
+    In order to support permissive mTLS traffic as well as [automatic protocol detection](istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/#automatic-protocol-selection),
+    the proxy will sniff the first few bytes of traffic to determine the protocol used. For certain "server first" protocols, such
+    as the protocol used by `MySQL`, there will be no initial bytes to sniff. To mitigate this issue in the past, Istio introduced
+    a detection timeout. However, we found this caused frequent telemetry and traffic failures during slow connections, while increasing latency
+    for misconfigured server first protocols rather than failing fast.
+
+    This timeout has been disabled by default. This has the following impacts:
+
+    - Non "server first" protocols will no longer have a risk of telemetry or traffic failures during slow connections
+    - Properly configured "server first" protocols will no longer have an extra 5s latency on each connection
+    - Improperly configured "server first" protocols will experience connection timeouts. Please ensure you follow the steps listed in [Server First Protocols](https://preliminary.istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/#server-first-protocols)
+      to ensure you do not run into traffic issues.

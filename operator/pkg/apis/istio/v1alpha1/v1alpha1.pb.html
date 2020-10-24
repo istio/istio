@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 62
+number_of_entries: 61
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -400,208 +400,6 @@ No
 <td><code>requests</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="CoreDNSConfig">CoreDNSConfig</h2>
-<section>
-<p>Configuration for Core DNS.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="CoreDNSConfig-enabled">
-<td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether CoreDNS is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-coreDNSImage">
-<td><code>coreDNSImage</code></td>
-<td><code>string</code></td>
-<td>
-<p>Image for Core DNS.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-coreDNSTag">
-<td><code>coreDNSTag</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-coreDNSPluginImage">
-<td><code>coreDNSPluginImage</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-autoscaleEnabled">
-<td><code>autoscaleEnabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-autoscaleMax">
-<td><code>autoscaleMax</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>maxReplicas setting for HorizontalPodAutoscaler.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-autoscaleMin">
-<td><code>autoscaleMin</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>minReplicas setting for HorizontalPodAutoscaler.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-nodeSelector" class="deprecated ">
-<td><code>nodeSelector</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s node selector.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-replicaCount" class="deprecated ">
-<td><code>replicaCount</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>Number of replicas for Core DNS.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-podAnnotations" class="deprecated ">
-<td><code>podAnnotations</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
-<td>
-<p>K8s annotations for pods.</p>
-
-<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-resources" class="deprecated ">
-<td><code>resources</code></td>
-<td><code><a href="#Resources">Resources</a></code></td>
-<td>
-<p>K8s resources settings.</p>
-
-<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-rollingMaxSurge" class="deprecated ">
-<td><code>rollingMaxSurge</code></td>
-<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
-<td>
-<p>K8s rolling update strategy</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-rollingMaxUnavailable" class="deprecated ">
-<td><code>rollingMaxUnavailable</code></td>
-<td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
-<td>
-<p>K8s rolling update strategy</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-podAntiAffinityLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityTermLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-tolerations" class="deprecated ">
-<td><code>tolerations</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="CoreDNSConfig-cpu" class="deprecated ">
-<td><code>cpu</code></td>
-<td><code><a href="#CPUTargetUtilizationConfig">CPUTargetUtilizationConfig</a></code></td>
-<td>
-<p>K8s utilization setting for HorizontalPodAutoscaler target.</p>
-
-<p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
-
 </td>
 <td>
 No
@@ -2911,6 +2709,17 @@ No
 No
 </td>
 </tr>
+<tr id="PortsConfig-protocol">
+<td><code>protocol</code></td>
+<td><code>string</code></td>
+<td>
+<p>Protocol name.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -3746,15 +3555,6 @@ No
 <tr id="Values-cni">
 <td><code>cni</code></td>
 <td><code><a href="#CNIConfig">CNIConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="Values-istiocoredns">
-<td><code>istiocoredns</code></td>
-<td><code><a href="#CoreDNSConfig">CoreDNSConfig</a></code></td>
 <td>
 </td>
 <td>

@@ -86,7 +86,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
-		clusterMetadata = util.BuildConfigInfoMetadata(destRule.Meta)
+		clusterMetadata = util.AddConfigInfoMetadata(c.Metadata, destRule.Meta)
 		c.Metadata = clusterMetadata
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
@@ -241,8 +241,8 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return c
 }
 
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.ServiceInstance, bind string) *cluster.Cluster {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, instance *model.ServiceInstance, bind string) *cluster.Cluster {
+	clusterName := util.BuildInboundSubsetKey(proxy, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,

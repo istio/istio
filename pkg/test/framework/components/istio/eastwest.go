@@ -49,17 +49,15 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	}
 
 	// generate istio operator yaml
-	cmd := exec.Command(genGatewayScript)
-	cmd.Env = os.Environ()
-	customEnv := []string{
-		"CLUSTER=" + cluster.Name(),
-		"NETWORK=" + cluster.NetworkName(),
-		"MESH=" + meshID,
+	args := []string{
+		"--cluster", cluster.Name(),
+		"--network", cluster.NetworkName(),
+		"--mesh", meshID,
 	}
 	if !i.environment.IsMulticluster() {
-		customEnv = append(customEnv, "SINGLE_CLUSTER=1")
+		args = []string{"--single-cluster"}
 	}
-	cmd.Env = append(cmd.Env, customEnv...)
+	cmd := exec.Command(genGatewayScript, args...)
 	gwIOP, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed generating eastwestgateway operator yaml: %v", err)

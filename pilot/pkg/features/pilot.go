@@ -174,11 +174,12 @@ var (
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	).Get()
 
-	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
+	// nolint
+	InboundProtocolDetectionTimeout, InboundProtocolDetectionTimeoutSet = env.RegisterDurationVar(
 		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
 		1*time.Second,
 		"Protocol detection timeout for inbound listener",
-	).Get()
+	).Lookup()
 
 	EnableHeadlessService = env.RegisterBoolVar(
 		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
@@ -372,7 +373,7 @@ var (
 		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
 	).Get()
 
-	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", false,
+	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", true,
 		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()
 
