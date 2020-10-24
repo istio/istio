@@ -73,10 +73,10 @@ var _ xds.DistributionStatusCache = &Reporter{}
 const labelKey = "internal.istio.io/distribution-report"
 const dataField = "distribution-report"
 
-// Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
-// with distribution information.  To run in read-only mode, (for supporting istioctl wait), set writeMode = false
-func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, writeMode bool, stop <-chan struct{}) {
-	scope.Info("Starting status follower controller")
+// Init starts all the read only features of the reporter, used for nonce generation
+// and responding to istioctl wait.
+func (r *Reporter) Init(ledger ledger.Ledger) {
+	r.ledger = ledger
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
 	}
@@ -89,9 +89,12 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 	r.reverseStatus = make(map[string]map[string]struct{})
 	r.inProgressResources = make(map[string]*inProgressEntry)
 	go r.readFromEventQueue()
-	if !writeMode {
-		return
-	}
+}
+
+// Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
+// with distribution information.  To run in read-only mode, (for supporting istioctl wait), set writeMode = false
+func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, stop <-chan struct{}) {
+	scope.Info("Starting status follower controller")
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -339,8 +342,4 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}
-}
-
-func (r *Reporter) SetLedger(l ledger.Ledger) {
-	r.ledger = l
 }
