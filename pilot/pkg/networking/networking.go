@@ -119,3 +119,29 @@ type MutableObjects struct {
 	// FilterChains is the set of filter chains that will be attached to Listener.
 	FilterChains []FilterChain
 }
+
+const (
+	NoTunnelTypeName = "notunnel"
+	H2TunnelTypeName = "H2Tunnel"
+)
+
+type TunnelType int
+type TunnelAbility int
+
+const (
+	NoTunnel TunnelType = 1 << iota
+	H2Tunnel
+)
+
+func (t TunnelType) toString() string {
+	switch t {
+	case H2Tunnel:
+		return H2TunnelTypeName
+	default:
+		return NoTunnelTypeName
+	}
+}
+
+func (t TunnelAbility) supportH2Tunnel() bool {
+	return (int(t) | int(H2Tunnel)) != 0
+}

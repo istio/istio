@@ -24,43 +24,18 @@ import (
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-const (
-	NoTunnelName = "notunnel"
-	H2TunnelName = "H2Tunnel"
-)
 
-type TunnelType int
-type TunnelAbility int
-
-const (
-	NoTunnel TunnelType = 1 << iota
-	H2Tunnel
-)
-
-func (t TunnelType) toString() string {
-	switch t {
-	case H2Tunnel:
-		return H2TunnelName
-	default:
-		return NoTunnelName
-	}
-}
-
-func (t TunnelAbility) supportH2Tunnel() bool {
-	return (int(t) | int(H2Tunnel)) != 0
-}
-
-type TunnelInfo struct {
-}
-
-func GetEndpointTunnelAbility(clusterName string, proxy *model.Proxy, push *model.PushContext) string {
-	return NoTunnelName
+// Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
+// collection includes only the endpoints which support H2 tunnel.
+func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.PushContext) string {
+	return networking.NoTunnelTypeName
 }
 
 type EndpointBuilder struct {
@@ -92,7 +67,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		locality:        proxy.Locality,
 		service:         svc,
 		destinationRule: push.DestinationRule(proxy, svc),
-		tunnelType:      GetEndpointTunnelType(clusterName, proxy, push),
+		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
 
 		push:       push,
 		subsetName: subsetName,
@@ -241,7 +216,8 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	return locEps
 }
 
-func (b *EndpointBuilder) ApplyTunnelSetting(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
+// TODO(lambdai): For h2tunnel: mutate endpoint port to 15009 if the endpoint supports h2 tunnel.
+func (b *EndpointBuilder) ApplyTunnelSetting(endpoints *endpoint.ClusterLoadAssignment) *endpoint.ClusterLoadAssignment {
 	return endpoints
 }
 
