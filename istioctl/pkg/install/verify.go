@@ -429,6 +429,12 @@ func operatorFromCluster(enableVerbose bool, istioNamespaceFlag string, revision
 	}
 	for _, un := range ul.Items {
 		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+
+		// UnmarshalIstioOperator fails because managedFields could contain time
+		// and gogo/protobuf/jsonpb(v1.3.1) thinks it is a struct and fails to
+		// unmarshal to map[string][]byte. So we simply set empty managed fields.
+		un.SetManagedFields([]meta_v1.ManagedFieldsEntry{})
+
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
