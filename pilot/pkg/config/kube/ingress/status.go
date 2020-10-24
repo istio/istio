@@ -165,7 +165,6 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	if s.ingressService != "" {
 		svc, err := s.serviceLister.Services(ingressNs).Get(s.ingressService)
 		if err != nil {
-			log.Warnf("error retrieving ingress service with name %s in namespace %s", s.ingressService, ingressNs)
 			return nil, err
 		}
 
