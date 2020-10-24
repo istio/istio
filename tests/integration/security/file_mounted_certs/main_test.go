@@ -52,7 +52,6 @@ const (
       "ISTIO_META_TLS_SERVER_CERT_CHAIN": "/server-certs/cert-chain.pem",
       "ISTIO_META_TLS_SERVER_KEY": "/server-certs/key.pem",
       "ISTIO_META_TLS_SERVER_ROOT_CERT": "/server-certs/root-cert.pem",
-      "PROXY_XDS_VIA_AGENT": "false",
 	}
 `
 )
@@ -123,7 +122,6 @@ values:
   pilot:
     env:
       XDS_AUTH: "false"
-      ENABLE_CA_SERVER: "false"
 `
 }
 

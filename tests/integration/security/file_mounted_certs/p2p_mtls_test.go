@@ -32,18 +32,17 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
 	ServerSecretName = "test-server-cred"
-	DnsCertsPath = "tests/testdata/certs/dns"
+	ServerCertsPath = "tests/testdata/certs/mountedcerts-server"
 
 	ClientSecretName = "test-client-cred"
-	DefaultCertsPath = "tests/testdata/certs/default"
+	ClientCertsPath = "tests/testdata/certs/mountedcerts-client"
 
-	ExpectedXfccHeader = "Hash=868c862d13ce14ffe6f1ac398365f4af706d0bbd1c2e264b0f3b945f1dd4ae8e;Subject=\"CN=cluster.local\";URI=spiffe://cluster.local/ns/default/sa/default"
+	ExpectedXfccHeader = "By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=865a56be3583d64bb9dc447da34e39e45d9314313310c879a35f7be6e391ac3e;Subject=\"CN=cluster.local\";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc"
 )
 
 var (
@@ -62,9 +61,6 @@ func TestClientToServiceTls(t *testing.T) {
 
 			bufPeerAuthentication := createObject(t, ctx, "istio-system", PeerAuthenticationConfig)
 			defer ctx.Config().DeleteYAMLOrFail(ctx, "istio-system", bufPeerAuthentication)
-
-			bufEnvoyFilter := createObject(t, ctx, serviceNamespace.Name(), EnvoyFilterConfig)
-			defer ctx.Config().DeleteYAMLOrFail(ctx, serviceNamespace.Name(), bufEnvoyFilter)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				resp, err := echoClient.Call(echo.CallOptions{
@@ -87,7 +83,7 @@ func TestClientToServiceTls(t *testing.T) {
 				for _, r := range resp {
 					if xfcc, f := r.RawResponse["X-Forwarded-Client-Cert"]; f {
 						if xfcc != ExpectedXfccHeader {
-							return fmt.Errorf("XFCC header's value doesn't match the expectations: %+v", r.RawResponse)
+							return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r.RawResponse)
 						}
 					} else {
 						return fmt.Errorf("expected to see XFCC header, but none found. response: %+v", r.RawResponse)
@@ -95,8 +91,6 @@ func TestClientToServiceTls(t *testing.T) {
 				}
 				return nil
 			}, retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
-
-			verifyUsingFileBasedCerts(t, echoClient, echoServer)
 	})
 }
 
@@ -116,7 +110,7 @@ spec:
       clientCertificate: /client-certs/cert-chain.pem
       privateKey: /client-certs/key.pem
       subjectAltNames:
-        - server.default.svc
+        - server.mounted-certs.svc
 
 `
 
@@ -129,30 +123,6 @@ metadata:
 spec:
   mtls:
     mode: STRICT
-`
-
-	EnvoyFilterConfig = `
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: test
-  namespace: {{.AppNamespace}}
-spec:
-  workloadSelector:
-    labels:
-      app: server
-  configPatches:
-  - applyTo: HTTP_FILTER
-    match:
-      context: SIDECAR_INBOUND
-      listener:
-        filterChain:
-          filter:
-            name: "envoy.filters.network.http_connection_manager"
-            subFilter:
-              name: "istio_authn"
-    patch:
-      operation: REMOVE
 `
 )
 
@@ -172,15 +142,26 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 	})
 
 
-	// Server certificate has "server.default.svc" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
-	// This cert is going to be used as a "server certificate" on Echo Server's side
-	CreateCustomSecret(ctx, ServerSecretName, appsNamespace, DnsCertsPath)
+	// Server certificate has "server.file-mounted.svc" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
+	// This cert is going to be used as a server and "client" certificate on the "Echo Server"'s side
+	err := CreateCustomSecret(ctx, ServerSecretName, appsNamespace, ServerCertsPath)
+	if err != nil {
+		t.Fatalf("Unable to create server secret. %v", err)
+	}
 
-	// test-istiod-client-cred will be used for connections to the control plane.
-	CreateCustomSecret(ctx, PilotSecretName, appsNamespace, PilotCertsPath)
+	// Pilot secret will be used for xds connections from echo-server & echo-client to the control plane.
+	err = CreateCustomSecret(ctx, PilotSecretName, appsNamespace, PilotCertsPath)
+	if err != nil {
+		t.Fatalf("Unable to create pilot secret. %v", err)
+	}
 
-	// test-client-cred will be used for client connections from EchoClient to EchoServer
-	CreateCustomSecret(ctx, ClientSecretName, appsNamespace, DefaultCertsPath)
+	// Client secret will be used as a "server" and client certificate on the "Echo Client"'s side.
+	// ie. it is going to be used for connections from EchoClient to EchoServer
+	err = CreateCustomSecret(ctx, ClientSecretName, appsNamespace, ClientCertsPath)
+	if err != nil {
+		t.Fatalf("Unable to create client secret. %v", err)
+	}
+
 
 	var internalClient, internalServer echo.Instance
 
@@ -200,6 +181,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		}
 	`
 
+	// workload-certs are needed in order to load the "default" SDS resource, which will be used for the xds-grpc mTLS (tls_certificate_sds_secret_configs.name == "default")
 	sidecarVolumeMounts := `
 		{
 			"server-certs": {
@@ -223,11 +205,10 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				Version: "v1",
 				// Set up custom annotations to mount the certs.
 				Annotations: echo.NewAnnotations().
-					// workload-certs are needed in order to load the "default" SDS resource, which will be used for the xds-grpc mTLS (tls_certificate_sds_secret_configs.name == "default")
-					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
-					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
 					Set(echo.SidecarVolume, clientSidecarVolumes).
 					Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
+					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
+					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
 					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
 			}},
 		}).
@@ -247,11 +228,10 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				Version:     "v1",
 				// Set up custom annotations to mount the certs.
 				Annotations: echo.NewAnnotations().
-					// workload-certs are needed in order to load the "default" SDS resource, which will be used for the xds-grpc mTLS (tls_certificate_sds_secret_configs.name == "default")
-					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
-					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
 					Set(echo.SidecarVolume, serverSidecarVolumes).
 					Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
+					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
+					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
 					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
 			}},
 		}).
@@ -287,47 +267,4 @@ func getMetricForListener(metrics []*dto.Metric, listenerName string) *dto.Metri
 		}
 	}
 	return nil
-}
-
-
-func verifyUsingFileBasedCerts(t *testing.T, client echo.Instance, server echo.Instance) {
-	// Verify client side configs
-	clientWorkloads, _ := client.Workloads()
-	if clientWorkloads[0].Sidecar() == nil {
-		t.Fatalf("Sidcecar is expected, but was not found")
-	}
-
-	configDump, err := clientWorkloads[0].Sidecar().Config()
-	if err != nil {
-		t.Fatalf("Unable to retrieve config_dump from the client. %v", err)
-	}
-
-	clusterName := clusterName(server, echo.Port{ServicePort: 8443})
-
-	validator := structpath.ForProto(configDump)
-	destCluster := validator.Select("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", clusterName)
-	// Ensure that the Destination/Server cluster is using file based tls configs
-	err = destCluster.Exists("{.cluster.transportSocket.typedConfig.commonTlsContext.tlsCertificateSdsSecretConfigs[?(@.name == 'file-cert:/client-certs/cert-chain.pem~/client-certs/key.pem')]}}").Check()
-	if err != nil {
-		t.Fatalf("Destination cluster on the Client side is expected to use FileBased SDS configs. %v", err)
-	}
-
-
-	// Verify server side configs
-	serverWorkloads, _ := server.Workloads()
-	if serverWorkloads[0].Sidecar() == nil {
-		t.Fatalf("Sidcecar is expected, but was not found")
-	}
-
-	configDump, err = serverWorkloads[0].Sidecar().Config()
-	if err != nil {
-		t.Fatalf("Unable to retrieve config_dump from the server. %v", err)
-	}
-
-	validator = structpath.ForProto(configDump)
-	virtualInboundListener := validator.Select("{.configs[*].dynamicListeners[?(@.name == 'virtualInbound')]}")
-	err = virtualInboundListener.Select("{.activeState.listener.filterChains[*].transportSocket.typedConfig.commonTlsContext.tlsCertificateSdsSecretConfigs[?(@.name == 'file-cert:/server-certs/cert-chain.pem~/server-certs/key.pem')]}").Check()
-	if err != nil {
-		t.Fatalf("Server is expected to use FileBased SDS configs with DownstreamTlsContext. %v", err)
-	}
 }
