@@ -56,22 +56,6 @@ const (
 	v2Suffix   = ",component"
 )
 
-var (
-	// These must match the json field names in model.nodeMetadata
-	metadataExchangeKeys = []string{
-		"NAME",
-		"NAMESPACE",
-		"INSTANCE_IPS",
-		"LABELS",
-		"OWNER",
-		"PLATFORM_METADATA",
-		"WORKLOAD_NAME",
-		"MESH_ID",
-		"SERVICE_ACCOUNT",
-		"CLUSTER_ID",
-	}
-)
-
 // Config for creating a bootstrap file.
 type Config struct {
 	Node                string
@@ -431,7 +415,6 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 }
 
 func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.BootstrapNodeMetadata) {
-	var additionalMetaExchangeKeys []string
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
 		switch name {
@@ -450,18 +433,11 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.WorkloadName = val
 		case "SERVICE_ACCOUNT":
 			meta.ServiceAccount = val
-		case "ISTIO_ADDITIONAL_METADATA_EXCHANGE_KEYS":
-			// comma separated list of keys
-			additionalMetaExchangeKeys = strings.Split(val, ",")
 		}
 	}
 	if plat != nil && len(plat.Metadata()) > 0 {
 		meta.PlatformMetadata = plat.Metadata()
 	}
-	meta.ExchangeKeys = []string{}
-	meta.ExchangeKeys = append(meta.ExchangeKeys, metadataExchangeKeys...)
-	meta.ExchangeKeys = append(meta.ExchangeKeys, additionalMetaExchangeKeys...)
-
 }
 
 // getNodeMetaData function uses an environment variable contract
