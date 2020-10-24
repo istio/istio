@@ -169,7 +169,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		{
 			"server-certs": {"secret": {"secretName":"` + ClientSecretName + `"}},
 			"client-certs": {"secret": {"secretName":"` + ClientSecretName + `"}},
-			"workload-certs": {"secret": {"secretName": "` + PilotSecretName + `"}}
+			"workload-certs": {"secret": {"secretName": "` + ClientSecretName + `"}}
 		}
 	`
 
@@ -177,7 +177,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		{
 			"server-certs": {"secret": {"secretName":"` + ServerSecretName + `"}},
 			"client-certs": {"secret": {"secretName":"` + ServerSecretName + `"}},
-			"workload-certs": {"secret": {"secretName":"` + PilotSecretName + `"}}
+			"workload-certs": {"secret": {"secretName":"` + ServerSecretName + `"}}
 		}
 	`
 

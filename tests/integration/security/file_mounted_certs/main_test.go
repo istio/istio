@@ -76,12 +76,6 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 
 	cfg.ControlPlaneValues = `
 components:
-  egressGateways:
-  - enabled: false
-    name: istio-egressgateway
-  ingressGateways:
-  - enabled: false
-    name: istio-ingressgateway
   pilot:
     enabled: true
     k8s:
