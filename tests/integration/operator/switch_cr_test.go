@@ -86,7 +86,6 @@ func TestController(t *testing.T) {
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
 				"--manifests=" + ManifestPath,
-				"--revision=" + "v1",
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
@@ -94,9 +93,6 @@ func TestController(t *testing.T) {
 			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
 					Name: IstioNamespace,
-					Labels: map[string]string{
-						"istio.io/rev": "v1",
-					},
 				},
 			}, kubeApiMeta.CreateOptions{}); err != nil {
 				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
@@ -108,8 +104,8 @@ func TestController(t *testing.T) {
 			}
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
-			installWithCRFile(t, ctx, cs, s, istioCtl, "demo", "v1")
-			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "v1")
+			installWithCRFile(t, ctx, cs, s, istioCtl, "demo", "")
+			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "")
 
 			initCmd = []string{
 				"operator", "init",
@@ -120,6 +116,7 @@ func TestController(t *testing.T) {
 			}
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
+			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "v2")
 
 			verifyInstallation(t, ctx, istioCtl, "default", "v2", cs)
 
@@ -188,13 +185,13 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 
 	var unhealthyCN []string
 	retryFunc := func() error {
-		us, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), "test-istiocontrolplane-"+revision, kubeApiMeta.GetOptions{})
+		us, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), revName("test-istiocontrolplane", revision), kubeApiMeta.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
 		usIOPStatus := us.UnstructuredContent()["status"]
 		if usIOPStatus == nil {
-			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator-"+revision,
+			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), revName("istio-operator", revision),
 				kubeApiMeta.GetOptions{}); err != nil {
 				return fmt.Errorf("istio operator svc is not ready: %v", err)
 			}
@@ -255,11 +252,15 @@ func installWithCRFile(t *testing.T, ctx resource.Context, cs resource.Cluster, 
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  name: test-istiocontrolplane-%s
+  name: %s
   namespace: istio-system
 spec:
-  revision: %s
-  profile: %s
+`
+	if revision != "" {
+		metadataYAML += "  revision: " + revision + "\n"
+	}
+
+	metadataYAML += `  profile: %s
   installPackagePath: %s
   hub: %s
   tag: %s
@@ -267,7 +268,11 @@ spec:
     global:
       imagePullPolicy: %s
 `
-	overlayYAML := fmt.Sprintf(metadataYAML, revision, revision, profileName, ManifestPathContainer, s.Hub, s.Tag, s.PullPolicy)
+
+	overlayYAML := fmt.Sprintf(metadataYAML, revName("test-istiocontrolplane", revision), profileName, ManifestPathContainer, s.Hub, s.Tag, s.PullPolicy)
+
+	scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", metadataYAML)
+
 	if err := ioutil.WriteFile(iopCRFile, []byte(overlayYAML), os.ModePerm); err != nil {
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}
@@ -282,7 +287,7 @@ spec:
 // verifyInstallation verify IOP CR status and compare in-cluster resources with generated ones.
 func verifyInstallation(t *testing.T, ctx resource.Context,
 	istioCtl istioctl.Instance, profileName string, revision string, cs resource.Cluster) {
-	scopes.Framework.Infof("=== verifying istio installation === ")
+	scopes.Framework.Infof("=== verifying istio installation revision %s === ", revision)
 	if err := checkInstallStatus(cs, revision); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
@@ -357,7 +362,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 		kind := genK8SObject.Kind
 		ns := genK8SObject.Namespace
 		name := genK8SObject.Name
-		log.Infof("checking kind: %s, namespace: %s, name: %s", kind, ns, name)
+		scopes.Framework.Infof("checking kind: %s, namespace: %s, name: %s", kind, ns, name)
 		retry.UntilSuccessOrFail(t, func() error {
 			switch kind {
 			case "Service":
@@ -413,3 +418,12 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 	}
 	return nil
 }
+
+func revName(name, revision string) string {
+	if revision == "" {
+		return name
+	}
+	return name + "-" + revision
+
+}
+
