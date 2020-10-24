@@ -157,6 +157,8 @@ func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event Healt
 	// should this status nil check be in the initial auto registration?
 	var status *v1alpha1.IstioStatus
 	if wle.Status == nil {
+		// for some reason we have a nil status, just make conditions
+		//an empty array
 		status = &v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{},
 		}

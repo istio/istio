@@ -172,6 +172,10 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
+
+	if !s.preProcessRequest(con.proxy, req) {
+		return nil
+	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
@@ -279,20 +283,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 // using WatchedResource for previous state and discovery request for the current state.
 func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
-
-	// get health checks out of the way. we do not want to respond
-	// to health info
-	if request.TypeUrl == v3.HealthInfoType {
-		event := HealthEvent{}
-		if request.ErrorDetail == nil {
-			event.Healthy = true
-		} else {
-			event.Healthy = false
-			event.Message = request.ErrorDetail.Message
-		}
-		s.InternalGen.UpdateWorkloadEntryHealth(con.proxy, event)
-		return false
-	}
 
 	// If there is an error in request that means previous response is erroneous.
 	// We do not have to respond in that case. In this case request's version info
@@ -545,6 +535,22 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 	// applicable to this proxy
 	proxy.SetSidecarScope(push)
 	proxy.SetGatewaysForProxy(push)
+}
+
+// pre-process request. returns whether or not to continue.
+func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) bool {
+	if req.TypeUrl == v3.HealthInfoType {
+		event := HealthEvent{}
+		if req.ErrorDetail == nil {
+			event.Healthy = true
+		} else {
+			event.Healthy = false
+			event.Message = req.ErrorDetail.Message
+		}
+		s.InternalGen.UpdateWorkloadEntryHealth(proxy, event)
+		return false
+	}
+	return true
 }
 
 // DeltaAggregatedResources is not implemented.
