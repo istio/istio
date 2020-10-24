@@ -16,20 +16,41 @@
 
 set -euo pipefail
 
+SINGLE_CLUSTER=0
+while (( "$#" )); do
+  case "$1" in
+    # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
+    # For example, kindest/node:v1.14.0
+    --single-cluster)
+      SINGLE_CLUSTER=1
+      shift
+    ;;
+    --cluster)
+      CLUSTER=$2
+      shift 2
+    ;;
+    --network)
+      NETWORK=$2
+      shift 2
+    ;;
+    --mesh)
+      MESH=$2
+      shift 2
+    ;;
+    -*)
+      echo "Error: Unsupported flag $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+
 # single-cluster installations may need this gateway to allow VMs to get discovery
 # for non-single cluster, we add additional topology information
 SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
-  if [[ -z "${CLUSTER:-}" ]]; then
-  echo The CLUSTER environment variable must be set.
-  exit 1
-  fi
-  if [[ -z "${NETWORK:-}" ]]; then
-    echo The NETWORK environment variable must be set.
-    exit 1
-  fi
-  if [[ -z "${MESH:-}" ]]; then
-    echo The MESH environment variable must be set.
+  if [[ -z "${CLUSTER:-}" ]] || [[ -z "${NETWORK:-}" ]] || [[ -z "${MESH:-}" ]]; then
+    echo "Must specify either --single-cluster or --mesh, --cluster, and --network."
     exit 1
   fi
 fi
@@ -92,13 +113,13 @@ $IOP
               - name: status-port
                 port: 15021
                 targetPort: 15021
-              - name: mtls
+              - name: tls
                 port: 15443
                 targetPort: 15443
-              - name: tcp-istiod
+              - name: tls-istiod
                 port: 15012
                 targetPort: 15012
-              - name: tcp-webhook
+              - name: tls-webhook
                 port: 15017
                 targetPort: 15017
 EOF

@@ -315,7 +315,7 @@ messages:
 
   - name: "NoServerCertificateVerificationPortLevel"
     code: IST0129
-    level: Error
+    level: Warning
     description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port."
     template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s"
     args:

@@ -35,6 +35,7 @@ spec:
     shortNames:
     - dr
     singular: destinationrule
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -105,6 +106,10 @@ spec:
                               maxRetries:
                                 format: int32
                                 type: integer
+                              useClientProtocol:
+                                description: If set to true, client protocol will
+                                  be preserved while initiating connection to backend.
+                                type: boolean
                             type: object
                           tcp:
                             description: Settings common to both HTTP and TCP upstream
@@ -336,6 +341,11 @@ spec:
                                     maxRetries:
                                       format: int32
                                       type: integer
+                                    useClientProtocol:
+                                      description: If set to true, client protocol
+                                        will be preserved while initiating connection
+                                        to backend.
+                                      type: boolean
                                   type: object
                                 tcp:
                                   description: Settings common to both HTTP and TCP
@@ -649,6 +659,10 @@ spec:
                         maxRetries:
                           format: int32
                           type: integer
+                        useClientProtocol:
+                          description: If set to true, client protocol will be preserved
+                            while initiating connection to backend.
+                          type: boolean
                       type: object
                     tcp:
                       description: Settings common to both HTTP and TCP upstream connections.
@@ -876,6 +890,10 @@ spec:
                               maxRetries:
                                 format: int32
                                 type: integer
+                              useClientProtocol:
+                                description: If set to true, client protocol will
+                                  be preserved while initiating connection to backend.
+                                type: boolean
                             type: object
                           tcp:
                             description: Settings common to both HTTP and TCP upstream
@@ -1208,6 +1226,7 @@ spec:
                     - VIRTUAL_HOST
                     - HTTP_ROUTE
                     - CLUSTER
+                    - EXTENSION_CONFIG
                     type: string
                   match:
                     description: Match on listener/route configuration/cluster.
@@ -1293,7 +1312,7 @@ spec:
                                 format: string
                                 type: string
                               transportProtocol:
-                                description: Applies only to SIDECAR_INBOUND context.
+                                description: Applies only to `SIDECAR_INBOUND` context.
                                 format: string
                                 type: string
                             type: object
@@ -1431,6 +1450,7 @@ spec:
     shortNames:
     - gw
     singular: gateway
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1614,6 +1634,7 @@ spec:
     shortNames:
     - se
     singular: serviceentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1755,6 +1776,7 @@ spec:
     listKind: SidecarList
     plural: sidecars
     singular: sidecar
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1924,6 +1946,7 @@ spec:
     shortNames:
     - vs
     singular: virtualservice
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2441,7 +2464,7 @@ spec:
                     description: Retry policy for HTTP requests.
                     properties:
                       attempts:
-                        description: Number of retries for a given request.
+                        description: Number of retries to be allowed for a given request.
                         format: int32
                         type: integer
                       perTryTimeout:
@@ -2738,6 +2761,7 @@ spec:
     shortNames:
     - we
     singular: workloadentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2814,6 +2838,7 @@ spec:
     shortNames:
     - wg
     singular: workloadgroup
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2837,6 +2862,98 @@ spec:
                     format: string
                     type: string
                   type: object
+              type: object
+            probe:
+              description: '`ReadinessProbe` describes the configuration the user
+                must provide for healthchecking on their workload.'
+              oneOf:
+              - not:
+                  anyOf:
+                  - required:
+                    - httpGet
+                  - required:
+                    - tcpSocket
+                  - required:
+                    - exec
+              - required:
+                - httpGet
+              - required:
+                - tcpSocket
+              - required:
+                - exec
+              properties:
+                exec:
+                  description: health is determined by how the command that is executed
+                    exited.
+                  properties:
+                    command:
+                      description: command to run.
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                failureThreshold:
+                  description: Minimum consecutive failures for the probe to be considered
+                    failed after having succeeded.
+                  format: int32
+                  type: integer
+                httpGet:
+                  properties:
+                    host:
+                      description: Host name to connect to, defaults to the pod IP.
+                      format: string
+                      type: string
+                    httpHeaders:
+                      description: headers the proxy will pass on to make the request.
+                      items:
+                        properties:
+                          name:
+                            format: string
+                            type: string
+                          value:
+                            format: string
+                            type: string
+                        type: object
+                      type: array
+                    path:
+                      description: Path to access on the HTTP server.
+                      format: string
+                      type: string
+                    port:
+                      description: port on which the endpoint lives.
+                      type: integer
+                    scheme:
+                      format: string
+                      type: string
+                  type: object
+                initialDelaySeconds:
+                  description: Number of seconds after the container has started before
+                    readiness probes are initiated.
+                  format: int32
+                  type: integer
+                periodSeconds:
+                  description: How often (in seconds) to perform the probe.
+                  format: int32
+                  type: integer
+                successThreshold:
+                  description: Minimum consecutive successes for the probe to be considered
+                    successful after having failed.
+                  format: int32
+                  type: integer
+                tcpSocket:
+                  description: health is determined by if the proxy is able to connect.
+                  properties:
+                    host:
+                      format: string
+                      type: string
+                    port:
+                      type: integer
+                  type: object
+                timeoutSeconds:
+                  description: Number of seconds after which the probe times out.
+                  format: int32
+                  type: integer
               type: object
             template:
               description: Template to be used for the generation of `WorkloadEntry`
@@ -2903,6 +3020,7 @@ spec:
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
     singular: authorizationpolicy
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2912,6 +3030,13 @@ spec:
         spec:
           description: 'Configuration for access control on workloads. See more details
             at: https://istio.io/docs/reference/config/security/authorization-policy.html'
+          oneOf:
+          - not:
+              anyOf:
+              - required:
+                - external
+          - required:
+            - external
           properties:
             action:
               description: Optional.
@@ -2919,7 +3044,72 @@ spec:
               - ALLOW
               - DENY
               - AUDIT
+              - EXTERNAL
               type: string
+            external:
+              description: Configures how to talk to the external server.
+              properties:
+                http:
+                  properties:
+                    authorizationRequest:
+                      description: Settings used for controlling authorization request
+                        metadata.
+                      properties:
+                        allowedHeaders:
+                          description: Authorization request will include the client
+                            request headers that have a correspondent match.
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                      type: object
+                    authorizationResponse:
+                      description: Settings used for controlling authorization response
+                        metadata.
+                      properties:
+                        forwardToDownstream:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                        forwardToUpstream:
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                      type: object
+                    includePeerCertificate:
+                      description: Specifies if the peer certificate is included in
+                        the external authorization request.
+                      type: boolean
+                    server:
+                      description: Supplies the full URL of the external server that
+                        implements the Envoy ext_authz filter check request API.
+                      format: string
+                      type: string
+                    timeout:
+                      description: Sets the maximum duration in milliseconds for connection
+                        to the external server (default is 200ms).
+                      type: string
+                  type: object
+                tcp:
+                  properties:
+                    includePeerCertificate:
+                      description: Specifies if the peer certificate is included in
+                        the external authorization request.
+                      type: boolean
+                    server:
+                      description: Supplies the full URL of the external server that
+                        implements the Envoy ext_authz filter authorization request
+                        API.
+                      format: string
+                      type: string
+                    timeout:
+                      description: Sets the maximum duration in milliseconds for connection
+                        to the external server (default is 200ms).
+                      type: string
+                  type: object
+              type: object
             rules:
               description: Optional.
               items:
@@ -2961,6 +3151,12 @@ spec:
                                 format: string
                                 type: string
                               type: array
+                            notRemoteIpBlocks:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
                             notRequestPrincipals:
                               description: Optional.
                               items:
@@ -2968,6 +3164,12 @@ spec:
                                 type: string
                               type: array
                             principals:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            remoteIpBlocks:
                               description: Optional.
                               items:
                                 format: string
@@ -3108,6 +3310,7 @@ spec:
     shortNames:
     - pa
     singular: peerauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3189,6 +3392,7 @@ spec:
     shortNames:
     - ra
     singular: requestauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}

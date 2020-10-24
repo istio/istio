@@ -81,13 +81,13 @@ func TestStatsFilter(t *testing.T, feature features.Feature, opts QueryOptions) 
 				}
 				if opts.QueryClient {
 					// Query client side metrics
-					if err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
+					if _, err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
 						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 						return err
 					}
 				}
 				if opts.QueryServer {
-					if err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
+					if _, err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
 						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 						return err
 					}
@@ -166,10 +166,23 @@ func SendTraffic() error {
 	return err
 }
 
-func BuildCommonQuery() (sourceQuery, destinationQuery, appQuery string) {
-	ns := GetAppNamespace()
+// BuildQueryCommon is the shared function to construct prom query for istio_request_total metric.
+func BuildQueryCommon(labels map[string]string, ns string) (sourceQuery, destinationQuery, appQuery string) {
 	sourceQuery = `istio_requests_total{reporter="source",`
 	destinationQuery = `istio_requests_total{reporter="destination",`
+
+	for k, v := range labels {
+		sourceQuery += fmt.Sprintf(`%s=%q,`, k, v)
+		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
+	}
+	sourceQuery += "}"
+	destinationQuery += "}"
+	appQuery += `istio_echo_http_requests_total{kubernetes_namespace="` + ns + `"}`
+	return
+}
+
+func BuildQuery() (sourceQuery, destinationQuery, appQuery string) {
+	ns := GetAppNamespace()
 	labels := map[string]string{
 		"request_protocol":               "http",
 		"response_code":                  "200",
@@ -184,12 +197,6 @@ func BuildCommonQuery() (sourceQuery, destinationQuery, appQuery string) {
 		"source_workload":                "client-v1",
 		"source_workload_namespace":      ns.Name(),
 	}
-	for k, v := range labels {
-		sourceQuery += fmt.Sprintf(`%s=%q,`, k, v)
-		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
-	}
-	sourceQuery += "}"
-	destinationQuery += "}"
-	appQuery += `istio_echo_http_requests_total{kubernetes_namespace="` + ns.Name() + `"}`
-	return
+
+	return BuildQueryCommon(labels, ns.Name())
 }

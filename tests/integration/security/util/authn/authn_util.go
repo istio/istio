@@ -72,15 +72,20 @@ func (c *TestCase) CheckAuthn() error {
 
 // CheckIngressOrFail checks a request for the ingress gateway.
 func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host string, path string,
-	token string, expectResponseCode int) {
+	headers map[string][]string, token string, expectResponseCode int) {
+	if headers == nil {
+		headers = map[string][]string{
+			"Host": {host},
+		}
+	} else {
+		headers["Host"] = []string{host}
+	}
 	opts := echo.CallOptions{
 		Port: &echo.Port{
 			Protocol: protocol.HTTP,
 		},
-		Path: path,
-		Headers: map[string][]string{
-			"Host": {host},
-		},
+		Path:      path,
+		Headers:   headers,
 		Validator: echo.ExpectCode(strconv.Itoa(expectResponseCode)),
 	}
 	if len(token) != 0 {
@@ -88,6 +93,5 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 			fmt.Sprintf("Bearer %s", token),
 		}
 	}
-
 	ingr.CallEchoWithRetryOrFail(ctx, opts)
 }

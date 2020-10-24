@@ -36,7 +36,7 @@ func TestStatsFilter(t *testing.T) {
 			QueryClient:    true,
 			QueryServer:    true,
 			QueryApp:       true,
-			BuildQueryFunc: common.BuildCommonQuery,
+			BuildQueryFunc: common.BuildQuery,
 		},
 	)
 }
