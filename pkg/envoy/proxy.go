@@ -47,6 +47,7 @@ type ProxyConfig struct {
 	Config              meshconfig.ProxyConfig
 	Node                string
 	LogLevel            string
+	LogPath             string
 	ComponentLogLevel   string
 	PilotSubjectAltName []string
 	NodeIPs             []string
@@ -65,6 +66,9 @@ func NewProxy(cfg ProxyConfig) Proxy {
 	var args []string
 	if cfg.LogLevel != "" {
 		args = append(args, "-l", cfg.LogLevel)
+	}
+	if cfg.LogPath != "" {
+		args = append(args, "--log-path", cfg.LogPath)
 	}
 	if cfg.ComponentLogLevel != "" {
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
