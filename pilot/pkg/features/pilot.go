@@ -383,4 +383,7 @@ var (
 	WorkloadEntryCleanupGracePeriod = env.RegisterDurationVar("PILOT_WORKLOAD_ENTRY_GRACE_PERIOD", 10*time.Second,
 		"The amount of time an auto-registered workload can remain disconnected from all Pilot instances before the "+
 			"associated WorkloadEntry is cleaned up.").Get()
+
+	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", false,
+		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
 )
