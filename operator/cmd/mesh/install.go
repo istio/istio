@@ -168,15 +168,16 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := InstallManifests(applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision), iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
-		*iArgs.kubeConfigFlags.KubeConfig, *iArgs.kubeConfigFlags.Context, iArgs.readinessTimeout, l); err != nil {
+	iop, err := InstallManifests(applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision), iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
+		*iArgs.kubeConfigFlags.KubeConfig, *iArgs.kubeConfigFlags.Context, iArgs.readinessTimeout, l)
+	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
 	if !iArgs.skipVerification {
 		l.LogAndPrintf("Verify installation with revision %s", iArgs.revision)
 		verifier := postinstall.StatusBasedVerifier{
-			IstioNamespace:   "istio-system", // TODO: figure out some way to find it
+			IstioNamespace:   iop.Namespace,
 			ManifestsPath:    iArgs.manifestsPath,
 			Filenames:        iArgs.inFilenames,
 			RestClientGetter: iArgs.kubeConfigFlags,
@@ -197,22 +198,22 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
 func InstallManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
-	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) error {
+	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
 
 	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		return err
+		return nil, err
 	}
 	_, iop, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := createNamespace(clientset, iop.Namespace, networkName(iop)); err != nil {
-		return err
+		return iop, err
 	}
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
@@ -221,14 +222,14 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 		Force: force}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
-		return err
+		return iop, err
 	}
 	status, err := reconciler.Reconcile()
 	if err != nil {
-		return fmt.Errorf("errors occurred during operation: %v", err)
+		return iop, fmt.Errorf("errors occurred during operation: %v", err)
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return fmt.Errorf("errors occurred during operation")
+		return iop, fmt.Errorf("errors occurred during operation")
 	}
 
 	opts.ProgressLog.SetState(progress.StateComplete)
@@ -237,10 +238,10 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 	iop.Name = savedIOPName(iop)
 	iopStr, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
-		return err
+		return iop, err
 	}
 
-	return saveIOPToCluster(reconciler, iopStr)
+	return iop, saveIOPToCluster(reconciler, iopStr)
 }
 
 func savedIOPName(iop *v1alpha12.IstioOperator) string {
