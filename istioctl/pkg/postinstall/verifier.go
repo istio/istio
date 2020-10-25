@@ -219,6 +219,9 @@ func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filena
 			if err != nil {
 				return err
 			}
+			if v.ManifestsPath != "" {
+				iop.Spec.InstallPackagePath = v.ManifestsPath
+			}
 			generatedCrds, generatedDeployments, err := v.verifyPostInstallIstioOperator(iop, filename)
 			if err != nil {
 				return err

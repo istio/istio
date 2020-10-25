@@ -182,7 +182,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			Filenames:        iArgs.inFilenames,
 			RestClientGetter: iArgs.kubeConfigFlags,
 			Opts: clioptions.ControlPlaneOptions{
-				Revision: iArgs.revision,
+				Revision: iop.Spec.Revision,
 			},
 		}
 		if err := verifier.Verify(); err != nil {
