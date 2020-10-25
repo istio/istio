@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
 // collection includes only the endpoints which support H2 tunnel.
 func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.PushContext) string {
@@ -137,19 +136,50 @@ func (b *EndpointBuilder) canViewNetwork(network string) bool {
 type EndpointTunnelMetadata int
 
 type LocLbEndpointsAndOptions struct {
+	// The protobuf message which contains LbEndpoint slice.
 	llbEndpoints   endpoint.LocalityLbEndpoints
+	// The runtime information of the LbEndpoint slice. Each LbEndpoint has individual metadata at the same index.
 	tunnelMetadata []EndpointTunnelMetadata
 }
 
-func (e *LocLbEndpointsAndOptions) append(le *endpoint.LbEndpoint, tunnelOpt TunnelAbility) {
-
+func makeTunnelMetadata (le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelMetadata {
+	return EndpointTunnelMetadata(0)
 }
 
+func (e *LocLbEndpointsAndOptions) append(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) {
+	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
+	e.tunnelMetadata = append(e.tunnelMetadata, makeTunnelMetadata(le, tunnelOpt))
+}
+
+func (e *LocLbEndpointsAndOptions) emplace(le *endpoint.LbEndpoint, tunnelMetadata EndpointTunnelMetadata) {
+	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
+	e.tunnelMetadata = append(e.tunnelMetadata, tunnelMetadata)
+}
+
+func (e *LocLbEndpointsAndOptions) refreshWeight() {
+	var weight *wrappers.UInt32Value
+	if len(e.llbEndpoints.LbEndpoints) == 0 {
+		weight = nil
+	} else {
+		weight = &wrappers.UInt32Value{}
+		for _, lbEp := range e.llbEndpoints.LbEndpoints {
+			weight.Value += lbEp.GetLoadBalancingWeight().Value
+		}
+	}
+	e.llbEndpoints.LoadBalancingWeight = weight
+	e.checkInvariance()
+}
+
+func (e *LocLbEndpointsAndOptions) checkInvariance() {
+	if len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata) {
+		panic(" len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata)")
+	}
+}
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
 	svcPort *model.Port,
-) []*LocLbEndpointsAndOptions{
+) []*LocLbEndpointsAndOptions {
 	localityEpMap := make(map[string]*LocLbEndpointsAndOptions)
 
 	// get the subset labels

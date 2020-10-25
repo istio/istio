@@ -129,9 +129,17 @@ type TunnelType int
 type TunnelAbility int
 
 const (
-	NoTunnel TunnelType = 1 << iota
-	H2Tunnel
+	NoTunnel TunnelType = 0
+	H2Tunnel TunnelType = 1 << 0
 )
+
+func MakeTunnelAbility(ttypes... TunnelType) TunnelAbility {
+	ability := int(NoTunnel)
+	for _, tunnelType := range ttypes {
+		ability = ability | int(tunnelType)
+	}
+	return TunnelAbility(ability)
+}
 
 func (t TunnelType) toString() string {
 	switch t {

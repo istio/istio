@@ -223,10 +223,10 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 	}
 }
 
-// loadAssignmentsForCluster return the endpoints for a cluster
+// llbEndpointAndOptionsForCluster return the endpoints for a cluster
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests.
-func (s *DiscoveryServer) loadAssignmentsForCluster(b EndpointBuilder) ([]*LocLbEndpointsAndOptions, error) {
+func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]*LocLbEndpointsAndOptions, error) {
 	if b.service == nil {
 		// Shouldn't happen here
 		adsLog.Debugf("can not find the service for cluster %s", b.clusterName)
@@ -265,7 +265,7 @@ func (s *DiscoveryServer) loadAssignmentsForCluster(b EndpointBuilder) ([]*LocLb
 }
 
 func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
-	l, err := s.loadAssignmentsForCluster(b)
+	l, err := s.llbEndpointAndOptionsForCluster(b)
 	if err != nil {
 		return nil
 	}
