@@ -27,7 +27,7 @@ fi
 
 openssl genrsa -out "$dir/$tmp/workload-$name-key.pem" 2048
 
-cat > $dir/workload.cfg <<EOF
+cat > "$dir"/workload.cfg <<EOF
 [req]
 distinguished_name = req_distinguished_name
 req_extensions = v3_req
@@ -44,21 +44,21 @@ subjectAltName = critical, @alt_names
 URI = $san
 EOF
 
-openssl req -new -key "$dir/$tmp/workload-$name-key.pem" -subj "/" -out $dir/workload.csr -config $dir/workload.cfg
+openssl req -new -key "$dir/$tmp/workload-$name-key.pem" -subj "/" -out "$dir"/workload.csr -config "$dir"/workload.cfg
 
-openssl x509 -req -in $dir/workload.csr -CA $dir/ca-cert.pem -CAkey $dir/ca-key.pem -CAcreateserial \
--out "$dir/$tmp/workload-$name-cert.pem" -days 3650 -extensions v3_req -extfile $dir/workload.cfg
+openssl x509 -req -in "$dir"/workload.csr -CA "$dir"/ca-cert.pem -CAkey "$dir"/ca-key.pem -CAcreateserial \
+-out "$dir/$tmp/workload-$name-cert.pem" -days 3650 -extensions v3_req -extfile "$dir"/workload.cfg
 
-cat $dir/cert-chain.pem >> "$dir/$tmp/workload-$name-cert.pem"
+cat "$dir"/cert-chain.pem >> "$dir/$tmp/workload-$name-cert.pem"
 
 echo "Generated workload-$name-[cert|key].pem with URI SAN $san"
-openssl verify -CAfile <(cat $dir/cert-chain.pem $dir/root-cert.pem) "$dir/$tmp/workload-$name-cert.pem"
+openssl verify -CAfile <(cat "$dir"/cert-chain.pem "$dir"/root-cert.pem) "$dir/$tmp/workload-$name-cert.pem"
 
 # clean temporary files
-if [ -f $dir/.srl ]; then
-  rm $dir/.srl
+if [ -f "$dir"/.srl ]; then
+  rm "$dir"/.srl
 fi
-if [ -f $dir/ca-cert.srl ]; then
-  rm $dir/ca-cert.srl
+if [ -f "$dir"/ca-cert.srl ]; then
+  rm "$dir"/ca-cert.srl
 fi
-rm $dir/workload.cfg $dir/workload.csr
+rm "$dir"/workload.cfg "$dir"/workload.csr
