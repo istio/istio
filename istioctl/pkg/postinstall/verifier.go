@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
 )
 
@@ -60,40 +61,59 @@ type Verifier interface {
 // jobs and also verifies count of certain resource types.
 // TODO(su225) - think of reducing number of exported fields with a constructor
 type StatusBasedVerifier struct {
-	IstioNamespace   string
-	ManifestsPath    string
-	Filenames        []string
-	RestClientGetter genericclioptions.RESTClientGetter
-	Opts             clioptions.ControlPlaneOptions
+	istioNs   string
+	manifestsPath    string
+	filenames        []string
+	k8sClientGetter genericclioptions.RESTClientGetter
+	cpOpts             clioptions.ControlPlaneOptions
+	logger           *clog.ConsoleLogger
+}
+
+// NewStatusBasedVerifier creates a new instance of post-install verifier
+// which checks the status of various resources from the manifest.
+func NewStatusBasedVerifier(istioNs, manifestsPath string, filenames []string,
+	k8sClientConfig genericclioptions.RESTClientGetter, cpOpts clioptions.ControlPlaneOptions,
+	logger *clog.ConsoleLogger) *StatusBasedVerifier {
+	if logger == nil {
+		logger = clog.NewDefaultLogger()
+	}
+	return &StatusBasedVerifier{
+		istioNs:   istioNs,
+		manifestsPath:    manifestsPath,
+		filenames:        filenames,
+		k8sClientGetter: k8sClientConfig,
+		cpOpts:             cpOpts,
+		logger:           logger,
+	}
 }
 
 // Verify implements Verifier interface. Here we check status of deployment
 // and jobs, count various resources for verification.
 func (v *StatusBasedVerifier) Verify() error {
-	if len(v.Filenames) == 0 {
+	if len(v.filenames) == 0 {
 		return v.verifyInstallIOPRevision()
 	}
 	return v.verifyInstall()
 }
 
 func (v *StatusBasedVerifier) verifyInstallIOPRevision() error {
-	iop, err := v.operatorFromCluster(v.Opts.Revision)
+	iop, err := v.operatorFromCluster(v.cpOpts.Revision)
 	if err != nil {
 		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
 	}
-	if v.ManifestsPath != "" {
-		iop.Spec.InstallPackagePath = v.ManifestsPath
+	if v.manifestsPath != "" {
+		iop.Spec.InstallPackagePath = v.manifestsPath
 	}
 	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
 		iop, fmt.Sprintf("in cluster operator %s", iop.GetName()))
-	return reportStatus(crdCount, istioDeploymentCount, err)
+	return v.reportStatus(crdCount, istioDeploymentCount, err)
 }
 
 func (v *StatusBasedVerifier) verifyInstall() error {
 	// This is not a pre-check.  Check that the supplied resources exist in the cluster
-	r := resource.NewBuilder(v.RestClientGetter).
+	r := resource.NewBuilder(v.k8sClientGetter).
 		Unstructured().
-		FilenameParam(false, &resource.FilenameOptions{Filenames: v.Filenames}).
+		FilenameParam(false, &resource.FilenameOptions{Filenames: v.filenames}).
 		Flatten().
 		Do()
 	if r.Err() != nil {
@@ -101,8 +121,8 @@ func (v *StatusBasedVerifier) verifyInstall() error {
 	}
 	visitor := genericclioptions.ResourceFinderForResult(r).Do()
 	crdCount, istioDeploymentCount, err := v.verifyPostInstall(
-		visitor, strings.Join(v.Filenames, ","))
-	return reportStatus(crdCount, istioDeploymentCount, err)
+		visitor, strings.Join(v.filenames, ","))
+	return v.reportStatus(crdCount, istioDeploymentCount, err)
 }
 
 // nolint: lll
@@ -123,7 +143,7 @@ func (v *StatusBasedVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.Istio
 		return 0, 0, errs.ToError()
 	}
 
-	builder := resource.NewBuilder(v.RestClientGetter).Unstructured()
+	builder := resource.NewBuilder(v.k8sClientGetter).Unstructured()
 	for cat, manifest := range manifests {
 		for i, manitem := range manifest {
 			reader := strings.NewReader(manitem)
@@ -186,7 +206,7 @@ func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filena
 			if err = verifyDeploymentStatus(deployment); err != nil {
 				return istioVerificationFailureError(filename, err)
 			}
-			if namespace == v.IstioNamespace && strings.HasPrefix(name, "istio") {
+			if namespace == v.istioNs && strings.HasPrefix(name, "istio") {
 				istioDeploymentCount++
 			}
 		case "Job":
@@ -219,8 +239,8 @@ func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filena
 			if err != nil {
 				return err
 			}
-			if v.ManifestsPath != "" {
-				iop.Spec.InstallPackagePath = v.ManifestsPath
+			if v.manifestsPath != "" {
+				iop.Spec.InstallPackagePath = v.manifestsPath
 			}
 			generatedCrds, generatedDeployments, err := v.verifyPostInstallIstioOperator(iop, filename)
 			if err != nil {
@@ -251,7 +271,7 @@ func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filena
 				crdCount++
 			}
 		}
-		scope.Infof("%s: %s.%s checked successfully", kind, name, namespace)
+		v.logger.LogAndPrintf("%s: %s.%s checked successfully", kind, name, namespace)
 		return nil
 	})
 	return crdCount, istioDeploymentCount, err
@@ -271,7 +291,7 @@ func (v *StatusBasedVerifier) verifyJobPostInstall(job *v1batch.Job) error {
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
 func (v *StatusBasedVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOperator, error) {
-	restConfig, err := v.RestClientGetter.ToRESTConfig()
+	restConfig, err := v.k8sClientGetter.ToRESTConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -289,6 +309,20 @@ func (v *StatusBasedVerifier) operatorFromCluster(revision string) (*v1alpha1.Is
 		}
 	}
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
+}
+
+func (v *StatusBasedVerifier) reportStatus(crdCount, istioDeploymentCount int, err error) error {
+	if err != nil {
+		return err
+	}
+	v.logger.LogAndPrintf("Checked %v custom resource definitions", crdCount)
+	v.logger.LogAndPrintf("Checked %v Istio Deployments", istioDeploymentCount)
+	if istioDeploymentCount == 0 {
+		v.logger.LogAndPrintf("No Istio installation found")
+		return fmt.Errorf("no Istio installation found")
+	}
+	v.logger.LogAndPrintf("Istio is installed successfully")
+	return nil
 }
 
 func fixTimestampRelatedUnmarshalIssues(un *unstructured.Unstructured) {
@@ -319,20 +353,6 @@ func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 		retval = append(retval, iop)
 	}
 	return retval, nil
-}
-
-func reportStatus(crdCount, istioDeploymentCount int, err error) error {
-	if err != nil {
-		return err
-	}
-	scope.Infof("Checked %v custom resource definitions", crdCount)
-	scope.Infof("Checked %v Istio Deployments", istioDeploymentCount)
-	if istioDeploymentCount == 0 {
-		scope.Info("No Istio installation found")
-		return fmt.Errorf("no Istio installation found")
-	}
-	scope.Infof("Istio is installed successfully")
-	return nil
 }
 
 func istioVerificationFailureError(filename string, reason error) error {

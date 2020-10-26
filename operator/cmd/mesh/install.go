@@ -176,15 +176,8 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 
 	if !iArgs.skipVerification {
 		l.LogAndPrintf("Verify installation with revision %s", iArgs.revision)
-		verifier := postinstall.StatusBasedVerifier{
-			IstioNamespace:   iop.Namespace,
-			ManifestsPath:    iArgs.manifestsPath,
-			Filenames:        iArgs.inFilenames,
-			RestClientGetter: iArgs.kubeConfigFlags,
-			Opts: clioptions.ControlPlaneOptions{
-				Revision: iop.Spec.Revision,
-			},
-		}
+		verifier := postinstall.NewStatusBasedVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.inFilenames,
+			iArgs.kubeConfigFlags, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l)
 		if err := verifier.Verify(); err != nil {
 			return err
 		}

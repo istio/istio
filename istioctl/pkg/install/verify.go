@@ -72,13 +72,7 @@ istioctl experimental precheck.
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			verifier := &postinstall.StatusBasedVerifier{
-				IstioNamespace:   istioNamespace,
-				RestClientGetter: kubeConfigFlags,
-				ManifestsPath:    manifestsPath,
-				Opts:             opts,
-				Filenames:        filenames,
-			}
+			verifier := postinstall.NewStatusBasedVerifier(istioNamespace, manifestsPath, filenames, kubeConfigFlags, opts, nil)
 			return verifier.Verify()
 		},
 	}
