@@ -246,10 +246,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
-		TrustDomain:  s.environment.Mesh().TrustDomain,
-		Namespace:    args.Namespace,
-		CAType:       externalCA,
-		CASignerName: k8sSigner,
+		TrustDomain:      s.environment.Mesh().TrustDomain,
+		Namespace:        args.Namespace,
+		ExternalCAType:   CaExternalType(externalCaType),
+		ExternalCASigner: k8sSigner,
 	}
 
 	// CA signing certificate must be created first if needed.
@@ -1097,7 +1097,7 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
 			return fmt.Errorf("failed to create CA: %v", err)
 		}
-		if caOpts.CAType != "" {
+		if caOpts.ExternalCAType != "" {
 			if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
