@@ -740,7 +740,7 @@ func (node *Proxy) DiscoverIPVersions() {
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.IsGlobalUnicast() {
+		if node.GlobalUnicastIP == "" && addr.IsGlobalUnicast() {
 			node.GlobalUnicastIP = addr.String()
 		}
 		if addr.To4() != nil {
