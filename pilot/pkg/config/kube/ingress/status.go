@@ -46,8 +46,9 @@ type StatusSyncer struct {
 	meshHolder mesh.Holder
 	client     kubernetes.Interface
 
-	// Name of service (ingressgateway default) to find the IP
-	ingressService string
+	// Name of service (istio-ingressgateway default) to find the IP
+	ingressService  string
+	ingressSelector string
 
 	queue              queue.Instance
 	ingressLister      listerv1beta1.IngressLister
@@ -85,6 +86,7 @@ func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSynce
 		ingressClassLister: ingressClassLister,
 		queue:              q,
 		ingressService:     meshHolder.Mesh().IngressService,
+		ingressSelector:    meshHolder.Mesh().IngressSelector,
 	}
 }
 
@@ -185,13 +187,14 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 		return addrs, nil
 	}
 
-	// get information about all the pods running the ingress controller (gateway)
-	pods, err := s.podLister.Pods(ingressNamespace).List(labels.SelectorFromSet(map[string]string{"app": "ingressgateway"}))
+	// get all pods acting as ingress gateways
+	igSelector := getIngressGatewaySelector(s.ingressSelector, s.ingressService)
+	igPods, err := s.podLister.Pods(ingressNamespace).List(labels.SelectorFromSet(igSelector))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, pod := range pods {
+	for _, pod := range igPods {
 		// only Running pods are valid
 		if pod.Status.Phase != coreV1.PodRunning {
 			continue

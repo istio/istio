@@ -292,7 +292,6 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 			return false
 		}
 	} else if ingressClass != nil {
-		// TODO support ingressclass.kubernetes.io/is-default-class annotation
 		return ingressClass.Spec.Controller == IstioIngressController
 	} else {
 		switch mesh.IngressControllerMode {
@@ -334,12 +333,7 @@ func createFallbackStringMatch(s string) *networking.StringMatch {
 	}
 }
 
-// defaultSelector defines the default selector that will be used if one is not provided
-// This will select the default ingressgateway deployment provided by the standard installation
-// Configurable by meshConfig.ingressSelector.
-var defaultSelector = labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
-
-func getIngressGatewaySelector(ingressSelector, ingressService string) labels.Instance {
+func getIngressGatewaySelector(ingressSelector, ingressService string) map[string]string {
 	// Setup the selector for the gateway
 	if ingressSelector != "" {
 		// If explicitly defined, use this one
@@ -350,6 +344,8 @@ func getIngressGatewaySelector(ingressSelector, ingressService string) labels.In
 		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
 		return labels.Instance{constants.IstioLabel: ingressService}
 	} else {
-		return defaultSelector
+		// If we have neither an explicitly defined ingressSelector or ingressService then use a selector
+		// pointing to the ingressgateway from the default installation
+		return labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
 	}
 }
