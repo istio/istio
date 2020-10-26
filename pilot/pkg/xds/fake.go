@@ -277,7 +277,7 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 		context:       ctx,
 		cancelContext: cancel,
 		t:             f.t,
-		Id:            "sidecar~1.1.1.1~test.default~default.svc.cluster.local",
+		ID:            "sidecar~1.1.1.1~test.default~default.svc.cluster.local",
 		Type:          v3.ClusterType,
 		responses:     make(chan *discovery.DiscoveryResponse),
 	}
@@ -386,8 +386,9 @@ type AdsTest struct {
 	responses chan *discovery.DiscoveryResponse
 	t         test.Failer
 	conn      *grpc.ClientConn
-	Id        string
-	Type      string
+
+	ID   string
+	Type string
 
 	cancelOnce    sync.Once
 	context       context.Context
@@ -432,7 +433,7 @@ func (a *AdsTest) ExpectResponse() *discovery.DiscoveryResponse {
 	return nil
 }
 
-// ExpectNoResponse waits a short period of time and ensures no response is recieved
+// ExpectNoResponse waits a short period of time and ensures no response is received
 func (a *AdsTest) ExpectNoResponse() {
 	a.t.Helper()
 	select {
@@ -452,7 +453,7 @@ func (a *AdsTest) fillInRequestDefaults(req *discovery.DiscoveryRequest) *discov
 	}
 	if req.Node == nil {
 		req.Node = &core.Node{
-			Id: a.Id,
+			Id: a.ID,
 		}
 	}
 	return req
@@ -490,8 +491,8 @@ func (a *AdsTest) RequestResponseNack(req *discovery.DiscoveryRequest) *discover
 	return resp
 }
 
-func (a *AdsTest) WithId(id string) *AdsTest {
-	a.Id = id
+func (a *AdsTest) WithID(id string) *AdsTest {
+	a.ID = id
 	return a
 }
 

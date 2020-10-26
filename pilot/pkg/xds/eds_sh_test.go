@@ -157,7 +157,7 @@ func TestSplitHorizonEds(t *testing.T) {
 // Tests whether an EDS response from the provided network matches the expected results
 func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, network string, sidecarID string, expected expectedResults) {
 	t.Helper()
-	ads := s.ConnectADS().WithId(sidecarID)
+	ads := s.ConnectADS().WithID(sidecarID)
 
 	metadata := &structpb.Struct{Fields: map[string]*structpb.Value{
 		"ISTIO_VERSION": {Kind: &structpb.Value_StringValue{StringValue: "1.3"}},
@@ -166,7 +166,7 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 
 	ads.RequestResponseAck(&discovery.DiscoveryRequest{
 		Node: &core.Node{
-			Id:       ads.Id,
+			Id:       ads.ID,
 			Metadata: metadata,
 		},
 		TypeUrl: v3.ClusterType,
@@ -175,7 +175,7 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 	clusterName := "outbound|1080||service5.default.svc.cluster.local"
 	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
 		Node: &core.Node{
-			Id:       ads.Id,
+			Id:       ads.ID,
 			Metadata: metadata,
 		},
 		TypeUrl:       v3.EndpointType,
@@ -291,36 +291,4 @@ func addNetwork(server *xds.FakeDiscoveryServer, id string, network *meshconfig.
 	c[id] = network
 	meshNetworks.Networks = c
 	server.Env().SetNetworks(&meshNetworks)
-}
-
-func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
-			Id:       node,
-			Metadata: metadata,
-		},
-		TypeUrl: v3.ClusterType})
-	if err != nil {
-		return fmt.Errorf("CDS request failed: %s", err)
-	}
-
-	return nil
-}
-
-func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.Struct,
-	edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&discovery.DiscoveryRequest{
-		Node: &core.Node{
-			Id:       node,
-			Metadata: metadata,
-		},
-		TypeUrl:       v3.EndpointType,
-		ResourceNames: clusters,
-	})
-	if err != nil {
-		return fmt.Errorf("EDS request failed: %s", err)
-	}
-
-	return nil
 }

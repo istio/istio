@@ -45,7 +45,7 @@ func TestSyncz(t *testing.T) {
 			ResourceNames: []string{"80", "8080"},
 		})
 
-		node, _ := model.ParseServiceNodeWithMetadata(ads.Id, &model.NodeMetadata{})
+		node, _ := model.ParseServiceNodeWithMetadata(ads.ID, &model.NodeMetadata{})
 		verifySyncStatus(t, s.Discovery, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestSyncz(t *testing.T) {
 			TypeUrl:       v3.RouteType,
 			ResourceNames: []string{"80", "8080"},
 		})
-		node, _ := model.ParseServiceNodeWithMetadata(ads.Id, &model.NodeMetadata{})
+		node, _ := model.ParseServiceNodeWithMetadata(ads.ID, &model.NodeMetadata{})
 		verifySyncStatus(t, s.Discovery, node.ID, true, false)
 	})
 }

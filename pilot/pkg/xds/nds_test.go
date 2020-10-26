@@ -36,7 +36,7 @@ func TestNDS(t *testing.T) {
 	ads := s.ConnectADS().WithType(v3.NameTableType)
 	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
 		Node: &corev3.Node{
-			Id: ads.Id,
+			Id: ads.ID,
 			Metadata: model.NodeMetadata{
 				DNSCapture: "agent",
 			}.ToStruct(),

@@ -113,7 +113,7 @@ func startEnvoy(t *testing.T) {
 	envoyStarted = true
 }
 
-func sidecarID(ip, deployment string) string {
+func sidecarID(ip, deployment string) string { // notlint: unparam
 	return fmt.Sprintf("sidecar~%s~%s-644fc65469-96dza.testns~testns.svc.cluster.local", ip, deployment)
 }
 

@@ -259,10 +259,10 @@ func TestLDS(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadfolder(t, "tests/testdata/config")})
 		// Matches Gateway config in test data
 		labels := map[string]string{"version": "v2", "app": "my-gateway-controller"}
-		ads := s.ConnectADS().WithType(v3.ListenerType).WithId(gatewayID(gatewayIP))
+		ads := s.ConnectADS().WithType(v3.ListenerType).WithID(gatewayID(gatewayIP))
 		ads.RequestResponseAck(&discovery.DiscoveryRequest{
 			Node: &core.Node{
-				Id:       ads.Id,
+				Id:       ads.ID,
 				Metadata: model.NodeMetadata{Labels: labels}.ToStruct(),
 			},
 		})

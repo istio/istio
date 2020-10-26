@@ -50,7 +50,7 @@ func TestRDS(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ads := s.ConnectADS().WithType(v3.RouteType).WithId(tt.node)
+			ads := s.ConnectADS().WithType(v3.RouteType).WithID(tt.node)
 			ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: tt.routes})
 		})
 	}
