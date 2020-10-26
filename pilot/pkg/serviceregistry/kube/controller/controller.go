@@ -25,7 +25,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -100,6 +102,8 @@ func incrementEvent(kind, event string) {
 
 // Options stores the configurable attributes of a Controller.
 type Options struct {
+	SystemNamespace string
+
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
 	WatchedNamespaces string
 	ResyncPeriod      time.Duration
@@ -186,6 +190,8 @@ type Controller struct {
 
 	queue queue.Instance
 
+	nsInformer cache.SharedIndexInformer
+
 	serviceInformer cache.SharedIndexInformer
 	serviceLister   listerv1.ServiceLister
 
@@ -232,6 +238,8 @@ type Controller struct {
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
 
+	// Network name for to be used when the meshNetworks for registry nor network label on pod is specified
+	network string
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
 	// tracks which services on which ports should act as a gateway for networkForRegistry
@@ -262,6 +270,14 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		networkGateways:             make(map[host.Name]map[string][]*model.Gateway),
 		networksWatcher:             options.NetworksWatcher,
 		metrics:                     options.Metrics,
+	}
+
+	if options.SystemNamespace != "" {
+		c.nsInformer = informers.NewSharedInformerFactoryWithOptions(c.client, options.ResyncPeriod,
+			informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
+				listOpts.FieldSelector = fields.OneTermEqualSelector("metadata.name", options.SystemNamespace).String()
+			})).Core().V1().Namespaces().Informer()
+		registerHandlers(c.nsInformer, c.queue, "Namespaces", c.onNamespaceEvent, nil)
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -312,7 +328,10 @@ func (c *Controller) cidrRanger() cidranger.Ranger {
 }
 
 func (c *Controller) defaultNetwork() string {
-	return c.networkForRegistry
+	if c.networkForRegistry != "" {
+		return c.networkForRegistry
+	}
+	return c.network
 }
 
 func (c *Controller) Cleanup() error {
@@ -454,7 +473,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
-// Filter func for filtering out objects during update callback
+// FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc func(old, cur interface{}) bool
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
@@ -524,7 +543,8 @@ func tryGetLatestObject(informer cache.SharedIndexInformer, obj interface{}) int
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if !c.serviceInformer.HasSynced() ||
+	if (c.nsInformer != nil && !c.nsInformer.HasSynced()) ||
+		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodeInformer.HasSynced() {
@@ -547,6 +567,13 @@ func (c *Controller) HasSynced() bool {
 // Maybe just sync the cache and trigger one push at last.
 func (c *Controller) SyncAll() error {
 	var err *multierror.Error
+
+	if c.nsInformer != nil {
+		ns := c.nsInformer.GetStore().List()
+		for _, ns := range ns {
+			err = multierror.Append(err, c.onNamespaceEvent(ns, model.EventAdd))
+		}
+	}
 
 	nodes := c.nodeInformer.GetStore().List()
 	log.Debugf("initializing %d nodes", len(nodes))
@@ -591,6 +618,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.networksWatcher != nil {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
+	}
+	if c.nsInformer != nil {
+		go c.nsInformer.Run(stop)
 	}
 	// TODO(https://github.com/kubernetes/kubernetes/issues/95262) remove this
 	time.Sleep(time.Millisecond * 5)
@@ -942,6 +972,28 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 			c.xdsUpdater.EDSUpdate(c.clusterID, string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
 	}
+}
+
+func (c *Controller) onNamespaceEvent(obj interface{}, ev model.Event) error {
+	var nw string
+	if ev != model.EventDelete {
+		ns, ok := obj.(*v1.Namespace)
+		if !ok {
+			log.Warnf("Namespace watch getting wrong type in event: %T", obj)
+			return nil
+		}
+		nw = ns.Labels[label.IstioNetwork]
+	}
+	c.Lock()
+	oldDefaultNetwork := c.network
+	c.network = nw
+	c.Unlock()
+	// network changed, not using mesh networks, and controller has been initialized
+	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.nsInformer.HasSynced() {
+		// refresh pods/endpoints/services
+		c.onNetworkChanged()
+	}
+	return nil
 }
 
 // isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
