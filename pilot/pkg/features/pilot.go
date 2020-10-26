@@ -206,7 +206,7 @@ var (
 
 	DistributionHistoryRetention = env.RegisterDurationVar(
 		"PILOT_DISTRIBUTION_HISTORY_RETENTION",
-		time.Minute*0,
+		time.Minute*1,
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
