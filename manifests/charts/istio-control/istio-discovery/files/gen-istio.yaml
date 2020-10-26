@@ -1085,8 +1085,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1119,8 +1117,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -1153,8 +1149,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio",
                       "disable_host_header_fallback": true
                     }
                 vm_config:
@@ -1198,8 +1192,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -1230,8 +1222,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -1262,8 +1252,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
