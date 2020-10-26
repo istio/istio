@@ -132,17 +132,36 @@ func (b *EndpointBuilder) canViewNetwork(network string) bool {
 	return b.networkView[network]
 }
 
-// TODO(lambdai): add
+// TODO(lambdai): Receive port value(15009 by default), builder to cover wide cases.
 type EndpointTunnelMetadata int
+
+func (t EndpointTunnelMetadata) ApplyTunnel(lep *endpoint.LbEndpoint) {
+	if t == 1 {
+		t.applyH2Tunnel(lep)
+	}
+}
+
+//TODO(lambdai): Set original port if the default cluster original port is not the same.
+func (e EndpointTunnelMetadata) applyH2Tunnel(lep *endpoint.LbEndpoint) {
+	if ep := lep.GetEndpoint(); ep != nil {
+			if port := ep.Address.GetSocketAddress().GetPortSpecifier(); port != nil {
+				if port.(*core.SocketAddress_PortValue) != nil {
+					port.(*core.SocketAddress_PortValue).PortValue = 15009
+
+				}
+			}
+
+	}
+}
 
 type LocLbEndpointsAndOptions struct {
 	// The protobuf message which contains LbEndpoint slice.
-	llbEndpoints   endpoint.LocalityLbEndpoints
+	llbEndpoints endpoint.LocalityLbEndpoints
 	// The runtime information of the LbEndpoint slice. Each LbEndpoint has individual metadata at the same index.
 	tunnelMetadata []EndpointTunnelMetadata
 }
 
-func makeTunnelMetadata (le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelMetadata {
+func makeTunnelMetadata(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelMetadata {
 	return EndpointTunnelMetadata(0)
 }
 
@@ -175,6 +194,7 @@ func (e *LocLbEndpointsAndOptions) checkInvariance() {
 		panic(" len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata)")
 	}
 }
+
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
@@ -247,8 +267,30 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 }
 
 // TODO(lambdai): For h2tunnel: mutate endpoint port to 15009 if the endpoint supports h2 tunnel.
-func (b *EndpointBuilder) ApplyTunnelSetting(endpoints *endpoint.ClusterLoadAssignment) *endpoint.ClusterLoadAssignment {
-	return endpoints
+func (b *EndpointBuilder) ApplyTunnelSetting(llbOpts []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
+	switch "" {
+	case networking.H2TunnelTypeName:
+		for _, llb := range llbOpts {
+			for i, ep := range llb.llbEndpoints.LbEndpoints {
+				llb.tunnelMetadata[i].applyH2Tunnel(ep)
+			}
+		}
+		return llbOpts
+	default:
+		return llbOpts
+	}
+}
+
+// Create the CLusterLoadAssignment. At this moment the options must have been applied to the locality lb endpoints.
+func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsAndOptions) *endpoint.ClusterLoadAssignment {
+	llbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(llbOpts))
+	for _, l := range llbOpts {
+		llbEndpoints = append(llbEndpoints, &l.llbEndpoints)
+	}
+	return &endpoint.ClusterLoadAssignment{
+		ClusterName: b.clusterName,
+		Endpoints:   llbEndpoints,
+	}
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.

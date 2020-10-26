@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/istio/pilot/pkg/networking"
 	"reflect"
 	"sort"
 	"testing"
@@ -71,7 +72,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	// networks and examines the returned filtered endpoints
 	tests := []struct {
 		name      string
-		endpoints []*endpoint.LocalityLbEndpoints
+		endpoints []*LocLbEndpointsAndOptions
 		conn      *Connection
 		env       *model.Environment
 		want      []LocLbEpInfo
@@ -167,21 +168,21 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			}
 
 			sort.Slice(filtered, func(i, j int) bool {
-				addrI := filtered[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-				addrJ := filtered[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+				addrI := filtered[i].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+				addrJ := filtered[j].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
 				return addrI < addrJ
 			})
 
 			for i, ep := range filtered {
-				if len(ep.LbEndpoints) != len(tt.want[i].lbEps) {
-					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v", i, len(ep.LbEndpoints), len(tt.want[i].lbEps))
+				if len(ep.llbEndpoints.LbEndpoints) != len(tt.want[i].lbEps) {
+					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v", i, len(ep.llbEndpoints.LbEndpoints), len(tt.want[i].lbEps))
 				}
 
-				if ep.LoadBalancingWeight.GetValue() != tt.want[i].weight {
-					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), tt.want[i].weight)
+				if ep.llbEndpoints.LoadBalancingWeight.GetValue() != tt.want[i].weight {
+					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.llbEndpoints.LoadBalancingWeight.GetValue(), tt.want[i].weight)
 				}
 
-				for _, lbEp := range ep.LbEndpoints {
+				for _, lbEp := range ep.llbEndpoints.LbEndpoints {
 					if lbEp.Metadata == nil {
 						t.Errorf("Expected endpoint metadata")
 					} else {
@@ -238,7 +239,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	// networks and examines the returned filtered endpoints
 	tests := []struct {
 		name      string
-		endpoints []*endpoint.LocalityLbEndpoints
+		endpoints []*LocLbEndpointsAndOptions
 		conn      *Connection
 		env       *model.Environment
 		want      []LocLbEpInfo
@@ -327,21 +328,21 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			}
 
 			sort.Slice(filtered, func(i, j int) bool {
-				addrI := filtered[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-				addrJ := filtered[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+				addrI := filtered[i].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+				addrJ := filtered[j].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
 				return addrI < addrJ
 			})
 
 			for i, ep := range filtered {
-				if len(ep.LbEndpoints) != len(tt.want[i].lbEps) {
-					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v", i, len(ep.LbEndpoints), len(tt.want[i].lbEps))
+				if len(ep.llbEndpoints.LbEndpoints) != len(tt.want[i].lbEps) {
+					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v", i, len(ep.llbEndpoints.LbEndpoints), len(tt.want[i].lbEps))
 				}
 
-				if ep.LoadBalancingWeight.GetValue() != tt.want[i].weight {
-					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), tt.want[i].weight)
+				if ep.llbEndpoints.LoadBalancingWeight.GetValue() != tt.want[i].weight {
+					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.llbEndpoints.LoadBalancingWeight.GetValue(), tt.want[i].weight)
 				}
 
-				for _, lbEp := range ep.LbEndpoints {
+				for _, lbEp := range ep.llbEndpoints.LbEndpoints {
 					if lbEp.Metadata == nil {
 						t.Errorf("Expected endpoint metadata")
 					} else {
@@ -434,7 +435,7 @@ func environment() *model.Environment {
 
 // testEndpoints creates endpoints to be handed to the filter. It creates
 // 2 endpoints on network1, 1 endpoint on network2 and 1 endpoint on network4.
-func testEndpoints() []*endpoint.LocalityLbEndpoints {
+func testEndpoints() []*LocLbEndpointsAndOptions {
 	lbEndpoints := createLbEndpoints(
 		[]*LbEpInfo{
 			{network: "network1", address: "10.0.0.1"},
@@ -443,12 +444,19 @@ func testEndpoints() []*endpoint.LocalityLbEndpoints {
 			{network: "network4", address: "40.0.0.1"},
 		},
 	)
-
-	return []*endpoint.LocalityLbEndpoints{
-		{
-			LbEndpoints: lbEndpoints,
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: uint32(len(lbEndpoints)),
+	return []*LocLbEndpointsAndOptions{
+		&LocLbEndpointsAndOptions{
+			llbEndpoints: endpoint.LocalityLbEndpoints{
+				LbEndpoints: lbEndpoints,
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: uint32(len(lbEndpoints)),
+				},
+			},
+			tunnelMetadata: []EndpointTunnelMetadata{
+				makeTunnelMetadata(nil, networking.MakeTunnelAbility()),
+				makeTunnelMetadata(nil, networking.MakeTunnelAbility()),
+				makeTunnelMetadata(nil, networking.MakeTunnelAbility()),
+				makeTunnelMetadata(nil, networking.MakeTunnelAbility()),
 			},
 		},
 	}

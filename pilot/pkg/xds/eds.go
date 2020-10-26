@@ -265,16 +265,20 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 }
 
 func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
-	l, err := s.llbEndpointAndOptionsForCluster(b)
+	llbOpts, err := s.llbEndpointAndOptionsForCluster(b)
 	if err != nil {
-		return nil
+		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
 	if b.MultiNetworkConfigured() {
-		l = b.EndpointsByNetworkFilter(l)
+		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 	}
+
+	llbOpts = b.ApplyTunnelSetting(llbOpts)
+
+	l := b.createClusterLoadAssignment(llbOpts)
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
@@ -286,7 +290,6 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		l = util.CloneClusterLoadAssignment(l)
 		loadbalancer.ApplyLocalityLBSetting(b.locality, l, lbSetting, enableFailover)
 	}
-	l = b.ApplyTunnelSetting(l)
 	return l
 }
 
