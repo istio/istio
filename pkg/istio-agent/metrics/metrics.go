@@ -42,6 +42,7 @@ var (
 	)
 
 	// TODO: Add type url as type for requeasts and responses if needed.
+
 	// XdsProxyRequests records total number of downstream requests.
 	XdsProxyRequests = monitoring.NewSum(
 		"xds_proxy_requests",
