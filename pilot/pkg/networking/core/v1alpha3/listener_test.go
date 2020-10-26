@@ -2372,7 +2372,6 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		IstioConfigStore: configStore,
 		Watcher:          mesh.NewFixedWatcher(&m),
 	}
-	env.SetLedger(&model.DisabledLedger{})
 
 	return env
 }

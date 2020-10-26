@@ -92,7 +92,6 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig mesh
 		Watcher:          mesh.NewFixedWatcher(&meshConfig),
 	}
 
-	e.SetLedger(&model.DisabledLedger{})
 	e.PushContext = model.NewPushContext()
 	_ = e.PushContext.InitContext(e, nil, nil)
 
