@@ -22,22 +22,6 @@ import (
 
 func TestCDS(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
-
-	err := sendCDSReq(sidecarID(app3Ip, "app3"), adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := adscon.Recv()
-	if err != nil {
-		t.Fatal("Failed to receive CDS", err)
-		return
-	}
-
-	if len(res.Resources) == 0 {
-		t.Fatal("No response")
-	}
-	if res.Resources[0].GetTypeUrl() != v3.ClusterType {
-		t.Fatalf("Unexpected type url. want: %v, got: %v", v3.ClusterType, res.Resources[0].GetTypeUrl())
-	}
+	ads := s.ConnectADS().WithType(v3.ClusterType)
+	ads.RequestResponseAck(nil)
 }

@@ -16,13 +16,12 @@ package xds_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/proto"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -40,7 +39,6 @@ import (
 	istioagent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/tests/util"
 )
 
@@ -207,178 +205,72 @@ func TestInternalEvents(t *testing.T) {
 
 func TestAdsReconnectAfterRestart(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
-	err := sendEDSReq([]string{"fake-cluster"}, sidecarID(app3Ip, "app3"), "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res == nil {
-		t.Fatal("Expected EDS response, but go nil")
-	}
-	if len(res.Resources) != 1 || res.TypeUrl != v3.EndpointType {
-		t.Fatalf("Expected one EDS resource, but got %v %s resources", len(res.Resources), res.TypeUrl)
-	}
 
+	ads := s.ConnectADS().WithType(v3.EndpointType)
+	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
 	// Close the connection and reconnect
-	_ = adscon.CloseSend()
-	adscon = s.ConnectADS()
+	ads.Cleanup()
+
+	ads = s.ConnectADS().WithType(v3.EndpointType)
 
 	// Reconnect with the same resources
-	err = sendEDSReq([]string{"fake-cluster"}, sidecarID(app3Ip, "app3"), res.VersionInfo, res.Nonce, adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err = adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res == nil {
-		t.Fatal("Expected EDS response, but go nil")
-	}
-	if len(res.Resources) != 1 || res.TypeUrl != v3.EndpointType {
-		t.Fatalf("Expected one EDS resource, but got %v %s resources", len(res.Resources), res.TypeUrl)
-	}
+	ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		ResourceNames: []string{"fake-cluster"},
+		ResponseNonce: res.Nonce,
+		VersionInfo:   res.VersionInfo})
 }
 
 func TestAdsUnsubscribe(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
-	err := sendEDSReq([]string{"fake-cluster"}, sidecarID(app3Ip, "app3"), "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res == nil {
-		t.Fatal("Expected EDS response, but go nil")
-	}
-	if len(res.Resources) != 1 || res.TypeUrl != v3.EndpointType {
-		t.Fatalf("Expected one EDS resource, but got %v %s resources", len(res.Resources), res.TypeUrl)
-	}
 
-	// send empty resources
-	err = sendEDSReq([]string{}, sidecarID(app3Ip, "app3"), res.VersionInfo, res.Nonce, adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// We should get no response
-	_, err = adsReceive(adscon, 250*time.Millisecond)
-	if err == nil || err.Error() != "EOF" {
-		t.Fatalf("got unexpected error: %v", err)
-	}
-}
+	ads := s.ConnectADS().WithType(v3.EndpointType)
+	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
 
-// Regression for envoy restart and overlapping connections
-func TestAdsReconnectWithNonce(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
-	err := sendEDSReq([]string{"fake-cluster"}, sidecarID(app3Ip, "app3"), "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// closes old process and reconnect
-	_ = adscon.CloseSend()
-	adscon = s.ConnectADS()
-
-	err = sendEDSReqReconnect([]string{"fake-cluster"}, adscon, res)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = sendEDSReq([]string{"fake-cluster"}, sidecarID(app3Ip, "app3"), "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, _ = adsReceive(adscon, 15*time.Second)
-
-	if res == nil {
-		t.Fatal("Expected EDS response, but go nil")
-	}
-	if len(res.Resources) != 1 || res.TypeUrl != v3.EndpointType {
-		t.Fatalf("Expected one EDS resource, but got %v %s resources", len(res.Resources), res.TypeUrl)
-	}
+	ads.Request(&discovery.DiscoveryRequest{
+		ResourceNames: nil,
+		ResponseNonce: res.Nonce,
+		VersionInfo:   res.VersionInfo})
+	ads.ExpectNoResponse()
 }
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
-	err := sendCDSReq(sidecarID(app3Ip, "app3"), adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, _ = adsReceive(adscon, 15*time.Second)
+	ads := s.ConnectADS().WithType(v3.ClusterType)
+	ads.RequestResponseAck(nil)
 
 	// envoy restarts and reconnects
-	adscon2 := s.ConnectADS()
-	err = sendCDSReq(sidecarID(app3Ip, "app3"), adscon2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _ = adsReceive(adscon2, 15*time.Second)
+	ads2 := s.ConnectADS().WithType(v3.ClusterType)
+	ads2.RequestResponseAck(nil)
 
 	// closes old process
-	adscon.CloseSend()
+	ads.Cleanup()
 
-	time.Sleep(1 * time.Second)
-
-	// event happens
+	// event happens, expect push to the remaining connection
 	xds.AdsPushAll(s.Discovery)
-
-	m, err := adsReceive(adscon2, 3*time.Second)
-	if err != nil {
-		t.Fatal("Recv failed", err)
-	}
-	if m == nil {
-		t.Fatal("Expected CDS response, but go nil")
-	}
-	if len(m.Resources) == 0 || m.TypeUrl != v3.ClusterType {
-		t.Fatalf("Expected non zero CDS resources, but got %v %s resources", len(m.Resources), m.TypeUrl)
-	}
+	ads2.ExpectResponse()
 }
 
 func TestAdsClusterUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
+	ads := s.ConnectADS().WithType(v3.EndpointType)
 
 	version := ""
 	nonce := ""
 	var sendEDSReqAndVerify = func(clusterName string) {
-		err := sendEDSReq([]string{clusterName}, sidecarID("1.1.1.1", "app3"), version, nonce, adscon)
-		if err != nil {
-			t.Fatal(err)
-		}
-		res, err := adsReceive(adscon, 15*time.Second)
+		res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			ResourceNames: []string{clusterName},
+			VersionInfo:   version,
+			ResponseNonce: nonce,
+		})
 		version = res.VersionInfo
 		nonce = res.Nonce
-		if err != nil {
-			t.Fatal("Recv failed", err)
+		got := xdstest.MapKeys(xdstest.ExtractLoadAssignments(xdstest.UnmarshalClusterLoadAssignment(t, res.Resources)))
+		if len(got) != 1 {
+			t.Fatalf("expected 1 response, got %v", len(got))
 		}
-
-		if res.TypeUrl != v3.EndpointType {
-			t.Errorf("Expecting %v got %v", v3.EndpointType, res.TypeUrl)
-		}
-		if res.Resources[0].TypeUrl != v3.EndpointType {
-			t.Errorf("Expecting %v got %v", v3.EndpointType, res.Resources[0].TypeUrl)
-		}
-
-		cla, err := getLoadAssignment(res)
-		if err != nil {
-			t.Fatal("Invalid EDS response ", err)
-		}
-		if cla.ClusterName != clusterName {
-			t.Error(fmt.Sprintf("Expecting %s got ", clusterName), cla.ClusterName)
+		if got[0] != clusterName {
+			t.Fatalf("expected cluster %v got %v", clusterName, got[0])
 		}
 	}
 
@@ -795,7 +687,7 @@ func TestAdsPushScoping(t *testing.T) {
 
 func TestAdsUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
+	ads := s.ConnectADS()
 
 	s.Discovery.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
 		Hostname: "adsupdate.default.svc.cluster.local",
@@ -817,37 +709,17 @@ func TestAdsUpdate(t *testing.T) {
 	s.Discovery.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
 		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))
 
-	err := sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
+	cluster := "outbound|2080||adsupdate.default.svc.cluster.local"
+	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		ResourceNames: []string{cluster},
+		TypeUrl:       v3.EndpointType,
+	})
+	eps, f := xdstest.ExtractLoadAssignments(xdstest.UnmarshalClusterLoadAssignment(t, res.GetResources()))[cluster]
+	if !f {
+		t.Fatalf("did not find cluster %v", cluster)
 	}
-
-	res1, err := adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal("Recv failed", err)
-	}
-
-	if res1.TypeUrl != v3.EndpointType {
-		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != v3.EndpointType {
-		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
-	}
-	cla, err := getLoadAssignment(res1)
-	if err != nil {
-		t.Fatal("Invalid EDS response ", err)
-	}
-
-	ep := cla.Endpoints
-	if len(ep) == 0 {
-		t.Fatal("No endpoints")
-	}
-	lbe := ep[0].LbEndpoints
-	if len(lbe) == 0 {
-		t.Fatal("No lb endpoints")
-	}
-	if lbe[0].GetEndpoint().Address.GetSocketAddress().Address != "10.2.0.1" {
-		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
+	if !reflect.DeepEqual(eps, []string{"10.2.0.1:80"}) {
+		t.Fatalf("expected endpoints [10.2.0.1:80] got %v", eps)
 	}
 
 	_ = s.Discovery.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
@@ -856,195 +728,62 @@ func TestAdsUpdate(t *testing.T) {
 	// will trigger recompute and push for all clients - including some that may be closing
 	// This reproduced the 'push on closed connection' bug.
 	xds.AdsPushAll(s.Discovery)
-
-	res1, err = adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal("Recv2 failed", err)
-	}
-
-	if res1.TypeUrl != v3.EndpointType {
-		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != v3.EndpointType {
-		t.Errorf("Expecting %v got %v", v3.EndpointType, res1.Resources[0].TypeUrl)
-	}
-	_, err = getLoadAssignment(res1)
-	if err != nil {
-		t.Fatal("Invalid EDS response ", err)
-	}
-}
-
-func expectNoResponse(t test.Failer, c chan *discovery.DiscoveryResponse) {
-	t.Helper()
-	select {
-	case <-time.After(time.Millisecond * 100):
-		return
-	case resp := <-c:
-		t.Fatalf("got unexpected response: %v", resp)
-	}
-}
-
-func expectNonEmptyResource(t test.Failer, c chan *discovery.DiscoveryResponse) *discovery.DiscoveryResponse {
-	t.Helper()
-	select {
-	case <-time.After(time.Second):
-		t.Fatalf("did not get response in time")
-	case resp := <-c:
-		if resp == nil || len(resp.Resources) == 0 {
-			t.Fatalf("got empty response")
-		}
-		return resp
-	}
-	return nil
+	res1 := ads.ExpectResponse()
+	xdstest.UnmarshalClusterLoadAssignment(t, res1.GetResources())
 }
 
 func TestEnvoyRDSProtocolError(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
-	responses := make(chan *discovery.DiscoveryResponse)
-	go adsReceiveChannel(adscon, responses)
+	ads := s.ConnectADS().WithType(v3.RouteType)
+	ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 
-	err := sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectNonEmptyResource(t, responses)
 	xds.AdsPushAll(s.Discovery)
-	res := expectNonEmptyResource(t, responses)
+	res := ads.ExpectResponse()
 
 	// send empty response and validate no response is returned.
-	err = sendRDSReq(gatewayID(gatewayIP), nil, res.VersionInfo, res.Nonce, adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectNoResponse(t, responses)
+	ads.Request(&discovery.DiscoveryRequest{
+		ResourceNames: nil,
+		VersionInfo:   res.VersionInfo,
+		ResponseNonce: res.Nonce,
+	})
+	ads.ExpectNoResponse()
 
 	// Refresh routes
-	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, res.VersionInfo, res.Nonce, adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectNonEmptyResource(t, responses)
+	ads.Request(&discovery.DiscoveryRequest{
+		ResourceNames: []string{routeA, routeB},
+		VersionInfo:   res.VersionInfo,
+		ResponseNonce: res.Nonce,
+	})
 }
 
 func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
+	expectRoutes := func(resp *discovery.DiscoveryResponse, expected ...string) {
+		t.Helper()
+		got := xdstest.MapKeys(xdstest.ExtractRouteConfigurations(xdstest.UnmarshalRouteConfiguration(t, resp.Resources)))
+		if !reflect.DeepEqual(expected, got) {
+			t.Fatalf("expected routes %v got %v", expected, got)
+		}
+	}
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	adscon := s.ConnectADS()
-
-	err := sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res == nil || len(res.Resources) == 0 {
-		t.Fatal("No routes returned")
-	}
-	route1, err := unmarshallRoute(res.Resources[0].Value)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res.Resources) != 1 || route1.Name != routeA {
-		t.Fatal("Expected only the http.80 route to be returned")
-	}
+	ads := s.ConnectADS().WithType(v3.RouteType)
+	resp := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
+	expectRoutes(resp, routeA)
 
 	xds.AdsPushAll(s.Discovery)
-
-	res, err = adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res == nil || len(res.Resources) == 0 {
-		t.Fatal("No routes returned")
-	}
-	if len(res.Resources) != 1 {
-		t.Fatal("Expected only 1 route to be returned")
-	}
-	route1, err = unmarshallRoute(res.Resources[0].Value)
-	if err != nil || len(res.Resources) != 1 || route1.Name != routeA {
-		t.Fatal("Expected only the http.80 route to be returned")
-	}
+	resp = ads.ExpectResponse()
+	expectRoutes(resp, routeA)
 
 	// Test update from A -> B
-	err = sendRDSReq(gatewayID(gatewayIP), []string{routeB}, "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err = adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res == nil || len(res.Resources) == 0 {
-		t.Fatal("No routes returned")
-	}
-	route1, err = unmarshallRoute(res.Resources[0].Value)
-	if err != nil || len(res.Resources) != 1 || route1.Name != routeB {
-		t.Fatal("Expected only the http.80 route to be returned")
-	}
+	resp = ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeB}})
+	expectRoutes(resp, routeB)
 
 	// Test update from B -> A, B
-	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, res.VersionInfo, res.Nonce, adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	res, err = adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if res == nil || len(res.Resources) == 0 {
-		t.Fatal("No routes after protocol error")
-	}
-	if len(res.Resources) != 2 {
-		t.Fatal("Expected 2 routes to be returned")
-	}
-
-	route1, err = unmarshallRoute(res.Resources[0].Value)
-	if err != nil {
-		t.Fatal(err)
-	}
-	route2, err := unmarshallRoute(res.Resources[1].Value)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if (route1.Name == routeA && route2.Name != routeB) || (route2.Name == routeA && route1.Name != routeB) {
-		t.Fatal("Expected http.80 and https.443.http routes to be returned")
-	}
+	resp = ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA, routeB}})
+	expectRoutes(resp, routeA, routeB)
 
 	// Test update from B, B -> A
-
-	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", "", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err = adsReceive(adscon, 15*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res == nil || len(res.Resources) == 0 {
-		t.Fatal("No routes returned")
-	}
-	route1, err = unmarshallRoute(res.Resources[0].Value)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res.Resources) != 1 || route1.Name != routeA {
-		t.Fatal("Expected only the http.80 route to be returned")
-	}
-}
-
-func unmarshallRoute(value []byte) (*route.RouteConfiguration, error) {
-	route := &route.RouteConfiguration{}
-
-	err := proto.Unmarshal(value, route)
-	if err != nil {
-		return nil, err
-	}
-	return route, nil
+	resp = ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
+	expectRoutes(resp, routeA)
 }
 
 func TestXdsCache(t *testing.T) {

@@ -16,10 +16,13 @@ package xds_test
 import (
 	"testing"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -30,28 +33,20 @@ func TestNDS(t *testing.T) {
 		ConfigString: mustReadFile(t, "./testdata/nds-se.yaml"),
 	})
 
-	adscon := s.ConnectADS()
+	ads := s.ConnectADS().WithType(v3.NameTableType)
+	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		Node: &corev3.Node{
+			Id: ads.ID,
+			Metadata: model.NodeMetadata{
+				DNSCapture: "agent",
+			}.ToStruct(),
+		},
+	})
 
-	err := sendNDSReq(sidecarID(app3Ip, "app3"), "ns2", adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := adscon.Recv()
-	if err != nil {
-		t.Fatal("Failed to receive NDS", err)
-		return
-	}
-
-	if len(res.Resources) == 0 {
-		t.Fatal("No response")
-	}
-	if res.Resources[0].GetTypeUrl() != v3.NameTableType {
-		t.Fatalf("Unexpected type url. want: %v, got: %v", v3.NameTableType, res.Resources[0].GetTypeUrl())
-	}
 	var nt nds.NameTable
-	err = ptypes.UnmarshalAny(res.Resources[0], &nt)
+	err := ptypes.UnmarshalAny(res.Resources[0], &nt)
 	if err != nil {
-		t.Fatal("Failed to unmarshall name table", err)
+		t.Fatal("Failed to unmarshal name table", err)
 		return
 	}
 	if len(nt.Table) == 0 {
