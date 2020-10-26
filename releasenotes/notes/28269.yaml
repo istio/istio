@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 28269
+releaseNotes:
+- |
+  **Fixed** when a node has multiple IP addresses (e.g., a VM in the mesh expansion scenario),
+  Istio Proxy will now bind `inbound` listeners to the first applicable address in the list
+  (new behaviour) rather than to the last one (former behaviour).
