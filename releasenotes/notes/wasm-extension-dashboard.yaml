@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 25843
+releaseNotes:
+  - |
+    **Added** Istio Wasm Extension Grafana Dashboard.
