@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -48,7 +47,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 			}
 
 			for index, cl := range ctx.Clusters() {
-				scopes.Framework.Infof("Validating Telemetry for Cluster %v", cl)
+				t.Logf("Validating Telemetry for Cluster %v", cl)
 				retry.UntilSuccessOrFail(t, func() error {
 					if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, index); err != nil {
 						return err

@@ -287,7 +287,7 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount string, index 
 		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
 
-	scopes.Framework.Debugf("number of timeseries: %v", len(ts))
+	t.Logf("number of timeseries: %v", len(ts))
 	var gotServer, gotClient bool
 	for _, tt := range ts {
 		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
@@ -345,7 +345,7 @@ func validateEdges(t *testing.T, index int) error {
 		edge.Source.Uid = ""
 		edge.Source.ClusterName = ""
 		edge.Source.Location = ""
-		scopes.Framework.Debugf("edge: %v", edge)
+		t.Logf("edge: %v", edge)
 		if proto.Equal(edge, &wantEdge) {
 			return nil
 		}
@@ -384,7 +384,7 @@ func validateTraces(t *testing.T, index int) error {
 		return fmt.Errorf("traces: could not retrieve traces from Stackdriver: %v", err)
 	}
 	for _, trace := range traces {
-		scopes.Framework.Debugf("trace: %v\n", trace)
+		t.Logf("trace: %v\n", trace)
 		if trace.ProjectId != projectsPrefix {
 			continue
 		}
