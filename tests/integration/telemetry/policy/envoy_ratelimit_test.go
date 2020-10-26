@@ -82,6 +82,7 @@ func TestLocalRateLimiting(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Skip("https://github.com/istio/istio/issues/28285").
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
