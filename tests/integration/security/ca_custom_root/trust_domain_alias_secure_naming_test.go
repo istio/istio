@@ -49,8 +49,9 @@ spec:
 // 1. Setup Istio with custom CA cert, to make sure all workloads have same root cert because of #3
 // 2. One client workload with istio-proxy sidecar injected
 // 3. Two naked server workloads with custom certs in two different trust domain reflected in the SAN (spiffe)
-// 4. PeerAuthentication with strict mtls, and DestinaitonRule to the server workloads with tls ISTIO_MUTUAL mode
-// 5. MeshConfig.TrustDomainAliases contains one of the trust domain in #3
+// 4. PeerAuthentication with strict mtls, to enforce the mtls connection
+// 5. DestinaitonRule with tls ISTIO_MUTUAL mode, because Istio auto mTLS will let client sends plaintext to naked servers by default
+// 6. MeshConfig.TrustDomainAliases contains one of the trust domain in #3
 //
 // Expectation:
 // 1. When the trust domain of server TLS certificate is in the list of MeshConfig.TrustDomainAliases,
