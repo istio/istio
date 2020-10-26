@@ -83,10 +83,10 @@ var defaultSelector = labels.Instance{constants.IstioLabel: constants.IstioIngre
 func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig, domainSuffix string) config.Config {
 	gateway := &networking.Gateway{}
 	// Setup the selector for the gateway
-	if len(mesh.IngressSelector) > 0 {
+	if mesh.IngressSelector != "" {
 		// If explicitly defined, use this one
 		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressSelector}
-	} else if mesh.IngressService != "istio-ingressgateway" {
+	} else if mesh.IngressService != "istio-ingressgateway" && mesh.IngressService != "" {
 		// Otherwise, we will use the ingress service as the default. It is common for the selector and service
 		// to be the same, so this removes the need for two configurations
 		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
