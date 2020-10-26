@@ -2016,8 +2016,8 @@ func TestValidateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route, false); (err == nil) != tc.valid {
-				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			if err := validateHTTPRoute(tc.route, false); (err.Err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
 			}
 		})
 	}
@@ -2110,9 +2110,10 @@ func TestValidateRouteDestination(t *testing.T) {
 // TODO: add TCP test cases once it is implemented
 func TestValidateVirtualService(t *testing.T) {
 	testCases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
 	}{
 		{name: "simple", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
@@ -2180,7 +2181,7 @@ func TestValidateVirtualService(t *testing.T) {
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
-		}, valid: true},
+		}, valid: true, warning: true},
 		{name: "namespace/name for gateway", in: &networking.VirtualService{
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"ns1/gateway"},
@@ -2244,14 +2245,33 @@ func TestValidateVirtualService(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "deprecated mirror", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/gateway"},
+			Http: []*networking.HTTPRoute{{
+				MirrorPercent: &types.UInt32Value{Value: 5},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true, warning: true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
-				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
-			}
+			warn, err := ValidateVirtualService(config.Config{Spec: tc.in})
+			checkValidation(t, warn, err, tc.valid, tc.warning)
 		})
+	}
+}
+
+func checkValidation(t *testing.T, gotWarning Warning, gotError error, valid bool, warning bool) {
+	t.Helper()
+	if (gotError == nil) != valid {
+		t.Fatalf("got valid=%v but wanted valid=%v: %v", gotError == nil, valid, gotError)
+	}
+	if (gotWarning == nil) == warning {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, warning)
 	}
 }
 
