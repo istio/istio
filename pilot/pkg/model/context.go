@@ -134,7 +134,10 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, m
 }
 
 func (e *Environment) Version() string {
-	return e.GetLedger().RootHash()
+	if x := e.GetLedger(); x != nil {
+		return x.RootHash()
+	}
+	return ""
 }
 
 func (e *Environment) GetLedger() ledger.Ledger {

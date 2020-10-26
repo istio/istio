@@ -265,7 +265,6 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
-	env.SetLedger(&model.DisabledLedger{})
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]config.Config{
@@ -323,7 +322,6 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
-	env.SetLedger(&model.DisabledLedger{})
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]config.Config{

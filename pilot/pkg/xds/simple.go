@@ -80,7 +80,6 @@ func NewXDS() *SimpleServer {
 	env := &model.Environment{
 		PushContext: model.NewPushContext(),
 	}
-	env.SetLedger(&model.DisabledLedger{})
 	mc := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()

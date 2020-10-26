@@ -92,7 +92,7 @@ func (r *Reporter) Init(ledger ledger.Ledger) {
 }
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
-// with distribution information.  To run in read-only mode, (for supporting istioctl wait), set writeMode = false
+// with distribution information.
 func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
@@ -204,7 +204,6 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 // This function must be called every time a resource change is detected by pilot.  This allows us to lookup
 // only the resources we expect to be in flight, not the ones that have already distributed
 func (r *Reporter) AddInProgressResource(res config.Config) {
-	// TODO: I think the key is not quite right here...
 	tryLedgerPut(r.ledger, res)
 	myRes := ResourceFromModelConfig(res)
 	if myRes == nil {
