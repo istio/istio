@@ -19,8 +19,10 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 
@@ -248,39 +250,22 @@ func TestLDSWithIngressGateway(t *testing.T) {
 func TestLDS(t *testing.T) {
 	t.Run("sidecar", func(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		adscon := s.ConnectADS()
-		err := sendLDSReq(sidecarID(app3Ip, "app3"), adscon)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		res, err := adscon.Recv()
-		if err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
-		if len(res.Resources) == 0 {
-			t.Fatal("No response")
-		}
+		ads := s.ConnectADS().WithType(v3.ListenerType)
+		ads.RequestResponseAck(nil)
 	})
 
 	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadfolder(t, "tests/testdata/config")})
-
-		adscon := s.ConnectADS()
-		err := sendLDSReqWithLabels(gatewayID(gatewayIP), adscon, map[string]string{"version": "v2", "app": "my-gateway-controller"})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		res, err := adsReceive(adscon, time.Second*5)
-		if err != nil {
-			t.Fatal("Failed to receive LDS", err)
-		}
-		if len(res.Resources) == 0 {
-			t.Fatal("No response")
-		}
+		// Matches Gateway config in test data
+		labels := map[string]string{"version": "v2", "app": "my-gateway-controller"}
+		ads := s.ConnectADS().WithType(v3.ListenerType).WithId(gatewayID(gatewayIP))
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			Node: &core.Node{
+				Id:       ads.Id,
+				Metadata: model.NodeMetadata{Labels: labels}.ToStruct(),
+			},
+		})
 	})
 }
 
