@@ -276,7 +276,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 	}
 
-	llbOpts = b.ApplyTunnelSetting(llbOpts)
+	llbOpts = b.ApplyTunnelSetting(llbOpts, b.tunnelType)
 
 	l := b.createClusterLoadAssignment(llbOpts)
 

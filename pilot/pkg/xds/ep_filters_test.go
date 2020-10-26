@@ -452,11 +452,11 @@ func testEndpoints() []*LocLbEndpointsAndOptions {
 					Value: uint32(len(lbEndpoints)),
 				},
 			},
-			tunnelMetadata: []EndpointTunnelMetadata{
-				makeTunnelMetadata(nil, networking.MakeTunnelAbility()),
-				makeTunnelMetadata(nil, networking.MakeTunnelAbility()),
-				makeTunnelMetadata(nil, networking.MakeTunnelAbility()),
-				makeTunnelMetadata(nil, networking.MakeTunnelAbility()),
+			tunnelMetadata: []EndpointTunnelApplier{
+				makeTunnelApplier(nil, networking.MakeTunnelAbility()),
+				makeTunnelApplier(nil, networking.MakeTunnelAbility()),
+				makeTunnelApplier(nil, networking.MakeTunnelAbility()),
+				makeTunnelApplier(nil, networking.MakeTunnelAbility()),
 			},
 		},
 	}

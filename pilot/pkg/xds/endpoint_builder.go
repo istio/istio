@@ -32,9 +32,11 @@ import (
 )
 
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
-// collection includes only the endpoints which support H2 tunnel.
-func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.PushContext) string {
-	return networking.NoTunnelTypeName
+// collection includes only the endpoints which support H2 tunnel and the non-tunnel endpoints. The latter case is to
+// support multi-cluster service.
+// Revisit non-tunnel endpoint decision once the gateways supports tunnel.
+func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.PushContext) networking.TunnelType {
+	return networking.NoTunnel
 }
 
 type EndpointBuilder struct {
@@ -46,7 +48,7 @@ type EndpointBuilder struct {
 	locality        *core.Locality
 	destinationRule *config.Config
 	service         *model.Service
-	tunnelType      string
+	tunnelType      networking.TunnelType
 
 	// These fields are provided for convenience only
 	subsetName string
@@ -84,7 +86,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
-	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality), b.tunnelType}
+	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality), b.tunnelType.ToString()}
 	if b.destinationRule != nil {
 		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
 	}
@@ -133,24 +135,36 @@ func (b *EndpointBuilder) canViewNetwork(network string) bool {
 }
 
 // TODO(lambdai): Receive port value(15009 by default), builder to cover wide cases.
-type EndpointTunnelMetadata int
-
-func (t EndpointTunnelMetadata) ApplyTunnel(lep *endpoint.LbEndpoint) {
-	if t == 1 {
-		t.applyH2Tunnel(lep)
-	}
+type EndpointTunnelApplier interface {
+	// Mutate LbEndpoint in place. Return non-nil on failure.
+	ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) error
 }
 
-//TODO(lambdai): Set original port if the default cluster original port is not the same.
-func (e EndpointTunnelMetadata) applyH2Tunnel(lep *endpoint.LbEndpoint) {
-	if ep := lep.GetEndpoint(); ep != nil {
+type EndpointNoTunnelApplier struct{}
+
+// Note that this will not return error if another tunnel typs requested.
+func (t *EndpointNoTunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) error {
+	return nil
+}
+
+type EndpointH2TunnelApplier struct{}
+
+// TODO(lambdai): Set original port if the default cluster original port is not the same.
+func (t *EndpointH2TunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) error {
+	switch tunnelType {
+	case networking.H2Tunnel:
+		if ep := lep.GetEndpoint(); ep != nil {
 			if port := ep.Address.GetSocketAddress().GetPortSpecifier(); port != nil {
 				if port.(*core.SocketAddress_PortValue) != nil {
 					port.(*core.SocketAddress_PortValue).PortValue = 15009
-
 				}
 			}
-
+		}
+		return nil
+	case networking.NoTunnel:
+		return nil
+	default:
+		panic("supported tunnel type")
 	}
 }
 
@@ -158,19 +172,23 @@ type LocLbEndpointsAndOptions struct {
 	// The protobuf message which contains LbEndpoint slice.
 	llbEndpoints endpoint.LocalityLbEndpoints
 	// The runtime information of the LbEndpoint slice. Each LbEndpoint has individual metadata at the same index.
-	tunnelMetadata []EndpointTunnelMetadata
+	tunnelMetadata []EndpointTunnelApplier
 }
 
-func makeTunnelMetadata(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelMetadata {
-	return EndpointTunnelMetadata(0)
+// Return prefer H2 tunnel metadata.
+func makeTunnelApplier(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelApplier {
+	if tunnelOpt.SupportH2Tunnel() {
+		return &EndpointH2TunnelApplier{}
+	}
+	return &EndpointNoTunnelApplier{}
 }
 
 func (e *LocLbEndpointsAndOptions) append(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) {
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
-	e.tunnelMetadata = append(e.tunnelMetadata, makeTunnelMetadata(le, tunnelOpt))
+	e.tunnelMetadata = append(e.tunnelMetadata, makeTunnelApplier(le, tunnelOpt))
 }
 
-func (e *LocLbEndpointsAndOptions) emplace(le *endpoint.LbEndpoint, tunnelMetadata EndpointTunnelMetadata) {
+func (e *LocLbEndpointsAndOptions) emplace(le *endpoint.LbEndpoint, tunnelMetadata EndpointTunnelApplier) {
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
 	e.tunnelMetadata = append(e.tunnelMetadata, tunnelMetadata)
 }
@@ -235,7 +253,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 						Locality:    util.ConvertLocality(ep.Locality.Label),
 						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 					},
-					make([]EndpointTunnelMetadata, 0, len(endpoints)),
+					make([]EndpointTunnelApplier, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
@@ -266,19 +284,17 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	return locEps
 }
 
-// TODO(lambdai): For h2tunnel: mutate endpoint port to 15009 if the endpoint supports h2 tunnel.
-func (b *EndpointBuilder) ApplyTunnelSetting(llbOpts []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
-	switch "" {
-	case networking.H2TunnelTypeName:
-		for _, llb := range llbOpts {
-			for i, ep := range llb.llbEndpoints.LbEndpoints {
-				llb.tunnelMetadata[i].applyH2Tunnel(ep)
+// TODO(lambdai): Handle ApplyTunnel error return value by filter out the failed endpoint.
+func (b *EndpointBuilder) ApplyTunnelSetting(llbOpts []*LocLbEndpointsAndOptions, tunnelType networking.TunnelType) []*LocLbEndpointsAndOptions {
+	for _, llb := range llbOpts {
+		for i, ep := range llb.llbEndpoints.LbEndpoints {
+			err := llb.tunnelMetadata[i].ApplyTunnel(ep, tunnelType)
+			if err != nil {
+				panic("not implemented yet on failing to apply tunnel")
 			}
 		}
-		return llbOpts
-	default:
-		return llbOpts
 	}
+	return llbOpts
 }
 
 // Create the CLusterLoadAssignment. At this moment the options must have been applied to the locality lb endpoints.

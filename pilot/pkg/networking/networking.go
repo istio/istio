@@ -141,7 +141,7 @@ func MakeTunnelAbility(ttypes... TunnelType) TunnelAbility {
 	return TunnelAbility(ability)
 }
 
-func (t TunnelType) toString() string {
+func (t TunnelType) ToString() string {
 	switch t {
 	case H2Tunnel:
 		return H2TunnelTypeName
@@ -150,6 +150,6 @@ func (t TunnelType) toString() string {
 	}
 }
 
-func (t TunnelAbility) supportH2Tunnel() bool {
+func (t TunnelAbility) SupportH2Tunnel() bool {
 	return (int(t) | int(H2Tunnel)) != 0
 }
