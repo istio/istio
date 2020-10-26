@@ -30,7 +30,7 @@ import (
 // QueryPrometheus queries prometheus and returns the result once the query stabilizes
 func QueryPrometheus(t *testing.T, cluster resource.Cluster, query string, promInst prometheus.Instance) (string, error) {
 	t.Logf("query prometheus with: %v", query)
-	val, err := promInst.WaitForQuiesce(cluster, query)
+	val, err := promInst.WaitForQuiesceForCluster(cluster, query)
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +46,7 @@ func QueryPrometheus(t *testing.T, cluster resource.Cluster, query string, promI
 // QueryFirstPrometheus queries prometheus and returns the result once a timeseries exists
 func QueryFirstPrometheus(t *testing.T, cluster resource.Cluster, query string, promInst prometheus.Instance) error {
 	t.Logf("query prometheus with: %v", query)
-	val, err := promInst.WaitForOneOrMore(cluster, query)
+	val, err := promInst.WaitForOneOrMoreForCluster(cluster, query)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func getMetric(t *testing.T, cluster resource.Cluster, prometheus prometheus.Ins
 	t.Helper()
 
 	t.Logf("prometheus query: %s", query)
-	value, err := prometheus.WaitForQuiesce(cluster, query)
+	value, err := prometheus.WaitForQuiesceForCluster(cluster, query)
 	if err != nil {
 		return 0, fmt.Errorf("could not get metrics from prometheus: %v", err)
 	}
@@ -103,7 +103,7 @@ func PromDump(cluster resource.Cluster, prometheus prometheus.Instance, metric s
 // Attributes have to be of format %s=\"%s\"
 // nolint: unparam
 func PromDumpWithAttributes(cluster resource.Cluster, prometheus prometheus.Instance, metric string, attributes []string) string {
-	if value, err := prometheus.WaitForQuiesce(cluster, fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))); err == nil {
+	if value, err := prometheus.WaitForQuiesceForCluster(cluster, fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))); err == nil {
 		return value.String()
 	}
 

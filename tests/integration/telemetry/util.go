@@ -40,7 +40,7 @@ func PromDump(cluster resource.Cluster, prometheus prometheus.Instance, metric s
 // Attributes have to be of format %s=\"%s\"
 // nolint: unparam
 func PromDumpWithAttributes(cluster resource.Cluster, prometheus prometheus.Instance, metric string, attributes []string) string {
-	if value, err := prometheus.WaitForQuiesce(cluster, fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))); err == nil {
+	if value, err := prometheus.WaitForQuiesceForCluster(cluster, fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))); err == nil {
 		return value.String()
 	}
 

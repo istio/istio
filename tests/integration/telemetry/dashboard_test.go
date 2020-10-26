@@ -173,7 +173,7 @@ var (
 
 func checkMetric(cluster resource.Cluster, p prometheus.Instance, query string, excluded []string) error {
 	query = replacer.Replace(query)
-	value, _, err := p.API(cluster).QueryRange(context.Background(), query, promv1.Range{
+	value, _, err := p.API().QueryRange(context.Background(), query, promv1.Range{
 		Start: time.Now().Add(-time.Minute),
 		End:   time.Now(),
 		Step:  time.Second,
