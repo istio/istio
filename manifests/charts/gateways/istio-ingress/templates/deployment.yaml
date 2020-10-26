@@ -38,9 +38,6 @@ spec:
         {{- else}}
         service.istio.io/canonical-revision: latest
         {{- end }}
-{{- if not $gateway.runAsRoot }}
-        istio.io/unprivileged-pod: "true"
-{{- end }}
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
@@ -214,6 +211,10 @@ spec:
           {{- else if $.Values.global.trustDomain }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.trustDomain }}"
+          {{- end }}
+          {{- if not $gateway.runAsRoot }}
+          - name: ISTIO_META_UNPRIVILEGED_POD
+            value: "true"
           {{- end }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}

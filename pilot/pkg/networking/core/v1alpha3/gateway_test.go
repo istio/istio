@@ -1410,9 +1410,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 			"privileged port on unprivileged pod",
 			&pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{
-					Labels: map[string]string{
-						"istio.io/unprivileged-pod": "true",
-					},
+					UnprivilegedPod: "true",
 				},
 			},
 			&networking.Gateway{
