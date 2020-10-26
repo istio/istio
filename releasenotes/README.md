@@ -76,7 +76,7 @@ While many pull requests will only fix a single GitHub issue, some pull requests
 
 ## docs
 
-The `docs` field should be used to list related documentation. These will be turned into links and appended to the note alongside the issues. *NOTE* quotes are required for docs entries or you may see YAML errors such as `did not find expected alphabetic or numeric character`.
+The `docs` field should be used to list related documentation. These will be turned into links and appended to the note alongside the issues. Quotes are **required** for docs entries or you may see YAML errors such as `did not find expected alphabetic or numeric character`.
 
 ### Release Notes
 
