@@ -139,6 +139,16 @@ type Options struct {
 
 	// Maximum burst for throttle when communicating with the kubernetes API
 	KubernetesAPIBurst int
+
+	// Duration to wait for cache syncs
+	SyncInterval time.Duration
+}
+
+func (o Options) GetSyncInterval() time.Duration {
+	if o.SyncInterval != 0 {
+		return o.SyncInterval
+	}
+	return time.Millisecond * 100
 }
 
 // EndpointMode decides what source to use to get endpoint information
@@ -248,6 +258,9 @@ type Controller struct {
 	networkGateways map[host.Name]map[string][]*model.Gateway
 
 	once sync.Once
+
+	// Duration to wait for cache syncs
+	syncInterval time.Duration
 }
 
 // NewController creates a new Kubernetes controller
@@ -270,6 +283,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		networkGateways:             make(map[host.Name]map[string][]*model.Gateway),
 		networksWatcher:             options.NetworksWatcher,
 		metrics:                     options.Metrics,
+		syncInterval:                options.GetSyncInterval(),
 	}
 
 	if options.SystemNamespace != "" {
@@ -622,9 +636,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.nsInformer != nil {
 		go c.nsInformer.Run(stop)
 	}
-	// TODO(https://github.com/kubernetes/kubernetes/issues/95262) remove this
-	time.Sleep(time.Millisecond * 5)
-	cache.WaitForCacheSync(stop, c.HasSynced)
+	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.HasSynced)
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
 }
@@ -668,7 +680,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
 	if err != nil {
-		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+		if pod.Spec.NodeName != "" {
+			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+		}
 		return ""
 	}
 

@@ -1679,7 +1679,6 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendValidation(errs, validateHTTPRoute(httpRoute, isDelegate))
 		}
 		for _, tlsRoute := range virtualService.Tls {
-			log.Errorf("howardjohn: %v~%T", validateTLSRoute(tlsRoute, virtualService), validateTLSRoute(tlsRoute, virtualService))
 			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
 		}
 		for _, tcpRoute := range virtualService.Tcp {
