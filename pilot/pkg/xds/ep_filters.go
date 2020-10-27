@@ -17,13 +17,12 @@ package xds
 import (
 	"net"
 
-	"istio.io/istio/pilot/pkg/networking"
-
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/labels"
 )

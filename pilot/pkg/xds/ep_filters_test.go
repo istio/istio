@@ -19,8 +19,6 @@ import (
 	"sort"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/networking"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -29,6 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"

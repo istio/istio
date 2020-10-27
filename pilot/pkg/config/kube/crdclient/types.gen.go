@@ -24,7 +24,6 @@ package crdclient
 import (
 	"context"
 	"fmt"
-
 	metav1alpha1 "istio.io/api/meta/v1alpha1"
 
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
