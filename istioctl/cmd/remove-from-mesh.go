@@ -33,7 +33,6 @@ import (
 	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
@@ -90,7 +89,7 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 				return fmt.Errorf("expecting deployment name")
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == constants.IstioSystemNamespace {
+			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
 				return fmt.Errorf("namespace %s is a system namesapce and has no Istio sidecar injected", ns)
 			}
 			client, err := interfaceFactory(kubeconfig)
@@ -131,7 +130,7 @@ func svcUnMeshifyCmd() *cobra.Command {
 				return fmt.Errorf("expecting service name")
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == constants.IstioSystemNamespace {
+			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
 				return fmt.Errorf("namespace %s is a system namesapce and has no Istio sidecar injected", ns)
 			}
 			client, err := interfaceFactory(kubeconfig)
