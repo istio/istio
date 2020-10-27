@@ -44,7 +44,6 @@ const (
 
 	ProxyMetadataJson = `
 	{
-      "PILOT_CERT_PROVIDER": "mycopki",
       "FILE_MOUNTED_CERTS": "true",
       "ISTIO_META_TLS_CLIENT_CERT_CHAIN": "/client-certs/cert-chain.pem",
       "ISTIO_META_TLS_CLIENT_KEY": "/client-certs/key.pem",
