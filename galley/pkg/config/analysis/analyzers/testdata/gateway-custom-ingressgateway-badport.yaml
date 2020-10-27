@@ -36,6 +36,6 @@ spec:
     nodePort: 31380
     port: 8003
     protocol: TCP
-    targetPort: 80
+    targetPort: 8003
   selector:
     myapp: private-ingressgateway

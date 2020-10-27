@@ -62,7 +62,7 @@ spec:
     nodePort: 31380
     port: 8002
     protocol: TCP
-    targetPort: 80
+    targetPort: 8002
   selector:
     myapp: ingressgateway-8002
 ---
@@ -75,6 +75,7 @@ spec:
   - name: http2
     port: 8001
     protocol: TCP
+    targetPort: 8001
   selector:
     myapp: ingressgateway-8001
     
