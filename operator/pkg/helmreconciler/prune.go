@@ -139,9 +139,11 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 				continue
 			}
 
-			err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+			err := h.client.Delete(context.TODO(), &o,
+				client.PropagationPolicy(metav1.DeletePropagationBackground), client.GracePeriodSeconds(0))
 			if err != nil {
-				if !strings.Contains(err.Error(), "not found") {
+				if !strings.Contains(err.Error(), "not found") &&
+					!strings.Contains(err.Error(), "could not find the requested resource") {
 					errs = util.AppendErr(errs, err)
 				} else {
 					// do not return error if resources are not found
@@ -183,6 +185,11 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if includeClusterResources {
 		gvkList = append(NamespacedResources, AllClusterResources...)
 	}
+	if includeClusterResources {
+		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
+			usList = append(usList, ioplist)
+		}
+	}
 	for _, gvk := range gvkList {
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
@@ -207,7 +214,25 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		}
 		usList = append(usList, objects)
 	}
+
 	return usList, nil
+}
+
+// getIstioOperatorCR is a helper function to delete IstioOperator CR during purge,
+// otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
+// And it is needed to remove the IstioOperator CRD.
+func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
+	objects := &unstructured.UnstructuredList{}
+	objects.SetGroupVersionKind(schema.GroupVersionKind{Group: "install.istio.io", Version: "v1alpha1", Kind: "IstioOperator"})
+	if err := h.client.List(context.TODO(), objects); err == nil {
+		for _, obj := range objects.Items {
+			obj.SetFinalizers([]string{})
+			if err := h.client.Patch(context.TODO(), &obj, client.Merge); err != nil {
+				scope.Errorf("failed to patch IstioOperator CR: %s, %v", obj.GetName(), err)
+			}
+		}
+	}
+	return objects
 }
 
 // DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
@@ -318,11 +343,13 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 			continue
 		}
-		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		err := h.client.Delete(context.TODO(), &o,
+			client.PropagationPolicy(metav1.DeletePropagationBackground), client.GracePeriodSeconds(0))
 		scope.Infof("Deleting %s (%s/%v)", obj.Hash(), h.iop.Name, h.iop.Spec.Revision)
 		objGvk := o.GroupVersionKind()
 		if err != nil {
-			if !strings.Contains(err.Error(), "not found") {
+			if !strings.Contains(err.Error(), "not found") &&
+				!strings.Contains(err.Error(), "could not find the requested resource") {
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found

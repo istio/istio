@@ -163,7 +163,14 @@ func checkResourcesNotInCluster(cs kube.Cluster, gvr schema.GroupVersionResource
 	if usList != nil && len(usList.Items) != 0 {
 		var stalelist []string
 		for _, item := range usList.Items {
+			// ignore IstioOperator CRD because the operator CR is not in the pruning list
+			if item.GetName() == "istiooperators.install.istio.io" {
+				continue
+			}
 			stalelist = append(stalelist, item.GroupVersionKind().String()+"/"+item.GetName())
+		}
+		if len(stalelist) == 0 {
+			return nil
 		}
 		msg := fmt.Sprintf("resources expected to be pruned but still exist in the cluster: %s",
 			strings.Join(stalelist, " "))
