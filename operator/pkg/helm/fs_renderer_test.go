@@ -127,7 +127,7 @@ keywords:
 				helmChartDirPath: "foo/bar",
 			},
 			wantResult: "",
-			wantErr:    errors.New("stat foo/bar: no such file or directory"),
+			wantErr:    errors.New(`component "foo-component" does not exist`),
 		},
 	}
 	for _, tt := range tests {
