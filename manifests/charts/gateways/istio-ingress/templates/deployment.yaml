@@ -219,6 +219,10 @@ spec:
           - name: TRUST_DOMAIN
             value: "{{ .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}"
           {{- end }}
+          {{- if not $gateway.runAsRoot }}
+          - name: ISTIO_META_UNPRIVILEGED_POD
+            value: "true"
+          {{- end }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}
