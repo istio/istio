@@ -784,6 +784,13 @@ func TestBlockedPush(t *testing.T) {
 		// ACK again, ensure we do not response
 		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
 		ads.ExpectNoResponse()
+
+		// request new resources, expect response
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo"}})
+		res = ads.ExpectResponse()
+		// request new resources, expect response, even without explicit ACK
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo", "bar"}})
+		ads.ExpectResponse()
 	})
 	t.Run("flow control enabled NACK", func(t *testing.T) {
 		log.FindScope("ads").SetOutputLevel(log.DebugLevel)
