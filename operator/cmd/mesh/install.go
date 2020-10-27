@@ -66,8 +66,8 @@ type installArgs struct {
 	skipConfirmation bool
 	// force proceeds even if there are validation errors
 	force bool
-	// skip verification
-	skipVerification bool
+	// verify after installation
+	verify bool
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
 	set []string
@@ -85,7 +85,7 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.skipVerification, "skip-verification", false, skipVerificationHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, verificationHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
@@ -170,7 +170,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	if !iArgs.skipVerification {
+	if iArgs.verify {
 		l.LogAndPrintf("Verifying installation")
 		insVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
 			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l)
