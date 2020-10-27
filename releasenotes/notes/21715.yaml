@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 25744
+releaseNotes:
+- |
+  **Added** support to verify installation
