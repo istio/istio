@@ -61,10 +61,9 @@ var (
 
 const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
-	defaultInitialConnWindowSize       = 1024 * 1024            // default gRPC InitialWindowSize
-	defaultInitialWindowSize           = 1024 * 1024            // default gRPC ConnWindowSize
-	sendTimeout                        = 5 * time.Second        // default upstream send timeout.
-	watchDebounceDelay                 = 100 * time.Millisecond // file watcher event debounce delay.
+	defaultInitialConnWindowSize       = 1024 * 1024     // default gRPC InitialWindowSize
+	defaultInitialWindowSize           = 1024 * 1024     // default gRPC ConnWindowSize
+	sendTimeout                        = 5 * time.Second // default upstream send timeout.
 )
 
 const (
@@ -168,6 +167,7 @@ type ProxyConnection struct {
 	responsesChan   chan *discovery.DiscoveryResponse
 	stopChan        chan struct{}
 	downstream      discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	upstream        discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 }
 
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
@@ -177,8 +177,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	proxyLog.Infof("Envoy ADS stream established")
 
 	con := &ProxyConnection{
-		upstreamError:   make(chan error, 1),
-		downstreamError: make(chan error, 1),
+		upstreamError:   make(chan error, 2), // can be produced by recv and send
+		downstreamError: make(chan error, 2), // can be produced by recv and send
 		requestsChan:    make(chan *discovery.DiscoveryRequest, 10),
 		responsesChan:   make(chan *discovery.DiscoveryResponse, 10),
 		stopChan:        make(chan struct{}),
@@ -238,6 +238,8 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		return err
 	}
 
+	con.upstream = upstream
+
 	// Handle upstream xds recv
 	go func() {
 		for {
@@ -251,6 +253,9 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		}
 	}()
 
+	go p.handleUpstreamRequest(ctx, con)
+	go p.handleUpstreamResponse(con)
+
 	for {
 		select {
 		case err := <-con.upstreamError:
@@ -262,7 +267,6 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
 				metrics.IstiodConnectionErrors.Increment()
 			}
-			_ = upstream.CloseSend()
 			return nil
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
@@ -275,13 +279,33 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
+		case <-con.stopChan:
+			return nil
+		}
+	}
+}
+
+func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnection) {
+	defer con.upstream.CloseSend()
+	for {
+		select {
 		case req := <-con.requestsChan:
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
-			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
+			if err := sendUpstreamWithTimeout(ctx, con.upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
-				return err
+				con.upstreamError <- err
+				return
 			}
+		case <-con.stopChan:
+			return
+		}
+	}
+}
+
+func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
+	for {
+		select {
 		case resp := <-con.responsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
@@ -292,7 +316,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				if p.localDNSServer != nil && len(resp.Resources) > 0 {
 					var nt nds.NameTable
 					// TODO we should probably send ACK and not update nametable here
-					if err = ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
+					if err := ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
 						log.Errorf("failed to unmarshall name table: %v", err)
 					}
 					p.localDNSServer.UpdateLookupTable(&nt)
@@ -306,17 +330,17 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				}
 			default:
 				// TODO: Validate the known type urls before forwarding them to Envoy.
-				if err := con.downstream.Send(resp); err != nil {
+				if err := sendDownstreamWithTimeout(con.downstream, resp); err != nil {
 					proxyLog.Errorf("downstream send error: %v", err)
 					// we cannot return partial error and hope to restart just the downstream
 					// as we are blindly proxying req/responses. For now, the best course of action
 					// is to terminate upstream connection as well and restart afresh.
-					return err
+					con.downstreamError <- err
+					return
 				}
 			}
 		case <-con.stopChan:
-			_ = upstream.CloseSend()
-			return nil
+			return
 		}
 	}
 }
@@ -328,7 +352,7 @@ func (p *XdsProxy) DeltaAggregatedResources(server discovery.AggregatedDiscovery
 func (p *XdsProxy) close() {
 	close(p.stopChan)
 	if p.downstreamGrpcServer != nil {
-		_ = p.downstreamGrpcServer.Stop
+		p.downstreamGrpcServer.Stop()
 	}
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
@@ -508,6 +532,24 @@ func sendUpstreamWithTimeout(ctx context.Context, upstream discovery.AggregatedD
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- upstream.Send(request)
+		close(errChan)
+	}()
+	select {
+	case <-timeoutCtx.Done():
+		return timeoutCtx.Err()
+	case err := <-errChan:
+		return err
+	}
+}
+
+// sendDownstreamWithTimeout sends discovery response with default send timeout.
+func sendDownstreamWithTimeout(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
+	response *discovery.DiscoveryResponse) error {
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), sendTimeout)
+	defer cancel()
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- downstream.Send(response)
 		close(errChan)
 	}()
 	select {
