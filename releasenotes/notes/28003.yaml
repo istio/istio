@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 24471
+
+releaseNotes:
+- |
+  **Added** Istio resource status now includes Observed Generation

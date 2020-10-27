@@ -55,7 +55,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 )
 
@@ -70,9 +69,6 @@ type Client struct {
 
 	// domainSuffix for the config metadata
 	domainSuffix string
-
-	// Ledger for tracking config distribution
-	configLedger ledger.Ledger
 
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
@@ -136,10 +132,9 @@ func (cl *Client) HasSynced() bool {
 	return true
 }
 
-func New(client kube.Client, configLedger ledger.Ledger, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
+func New(client kube.Client, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
 	out := &Client{
 		domainSuffix:      options.DomainSuffix,
-		configLedger:      configLedger,
 		schemas:           collections.PilotServiceApi,
 		revision:          revision,
 		queue:             queue.NewQueue(1 * time.Second),

@@ -63,6 +63,7 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
+	s.initStatusController(args, features.EnableStatus)
 	meshConfig := s.environment.Mesh()
 	if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
@@ -141,7 +142,6 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
-	s.initStatusController(args, features.EnableStatus)
 	s.XDSServer.InternalGen.Store = configController
 	return nil
 }
@@ -170,7 +170,6 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 
 	mcpOptions := &mcp.Options{
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-		ConfigLedger: buildLedger(args.RegistryOptions),
 		XDSUpdater:   s.XDSServer,
 		Revision:     args.Revision,
 	}
@@ -186,7 +185,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				if srcAddress.Path == "" {
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
-				store := memory.MakeWithLedger(collections.Pilot, buildLedger(args.RegistryOptions), false)
+				store := memory.MakeSkipValidation(collections.Pilot, false)
 				configController := memory.NewController(store)
 
 				err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
@@ -376,8 +375,11 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
 		PodName:        args.PodName,
 	}
+	s.statusReporter.Init(s.environment.GetLedger())
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
+		if writeStatus {
+			s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, stop)
+		}
 		return nil
 	})
 	s.XDSServer.StatusReporter = s.statusReporter
@@ -420,7 +422,7 @@ func (s *Server) mcpController(
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
-	c, err := crdclient.New(s.kubeClient, buildLedger(args.RegistryOptions), args.Revision, args.RegistryOptions.KubeOptions)
+	c, err := crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions)
 	if err != nil {
 		return nil, err
 	}

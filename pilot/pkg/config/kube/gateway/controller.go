@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/ledger"
 )
 
 var (
@@ -44,14 +43,6 @@ type controller struct {
 
 func NewController(client kubernetes.Interface, c model.ConfigStoreCache, options controller2.Options) model.ConfigStoreCache {
 	return &controller{client, c, options.DomainSuffix}
-}
-
-func (c *controller) GetLedger() ledger.Ledger {
-	return c.cache.GetLedger()
-}
-
-func (c *controller) SetLedger(l ledger.Ledger) error {
-	return c.cache.SetLedger(l)
 }
 
 func (c *controller) Schemas() collection.Schemas {
@@ -160,14 +151,6 @@ func (c controller) Patch(typ config.GroupVersionKind, name, namespace string, p
 
 func (c controller) Delete(typ config.GroupVersionKind, name, namespace string) error {
 	return errUnsupportedOp
-}
-
-func (c controller) Version() string {
-	return c.cache.Version()
-}
-
-func (c controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return c.cache.GetResourceAtVersion(version, key)
 }
 
 func (c controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
