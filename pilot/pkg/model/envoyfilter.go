@@ -75,7 +75,9 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			Operation: cp.Patch.Operation,
 		}
 		var err error
-		cpw.Value, err = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
+		// Use non-strict building to avoid issues where EnvoyFilter is valid but meant
+		// for a different version of the API than we are built with
+		cpw.Value, err = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false)
 		// There generally won't be an error here because validation catches mismatched types
 		// Should only happen in tests or without validation
 		if err != nil {
