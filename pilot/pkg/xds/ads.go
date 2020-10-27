@@ -188,6 +188,8 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	shouldRespond := s.shouldRespond(con, req)
 
+	// Check if we have a blocked push. If this was an ACK, we will send it. Either way we remove the blocked push
+	// as we will send a push.
 	con.proxy.Lock()
 	request, haveBlockedPush := con.blockedPushes[req.TypeUrl]
 	delete(con.blockedPushes, req.TypeUrl)
@@ -195,6 +197,8 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	if shouldRespond {
 		// This is a request, trigger a full push for this type
+		// Override the blocked push (if it exists), as this full push is guaranteed to be a superset
+		// of what we would have pushed from the blocked push.
 		request = &model.PushRequest{Full: true}
 	} else if !haveBlockedPush {
 		// This is an ACK, no delayed push
@@ -618,18 +622,25 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	for _, w := range getPushResources(con.proxy.WatchedResources) {
+		if !features.EnableFlowControl {
+			// Always send the push if flow control disabled
+			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
+				return err
+			}
+			continue
+		}
+		// If flow control is enabled, we will only push if we got an ACK for the previous response
 		synced, timeout := con.Synced(w.TypeUrl)
-		if features.EnableFlowControl && !synced && timeout {
+		if !synced && timeout {
 			// We are not synced, but we have been stuck for too long. We will trigger the push anyways to
 			// avoid any scenario where this may deadlock.
 			// This can possibly be removed in the future if we find this never causes issues
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
 			adsLog.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 		}
-
-		if !features.EnableFlowControl || synced || timeout {
-			err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest)
-			if err != nil {
+		if synced || timeout {
+			// Send the push now
+			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
 				return err
 			}
 		} else {

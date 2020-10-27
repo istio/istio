@@ -766,8 +766,6 @@ func TestBlockedPush(t *testing.T) {
 	})
 	t.Run("flow control enabled", func(t *testing.T) {
 		features.EnableFlowControl = true
-		log.FindScope("ads").SetOutputLevel(log.DebugLevel)
-		features.EnableFlowControl = true
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
 		ads.RequestResponseAck(nil)
@@ -781,7 +779,11 @@ func TestBlockedPush(t *testing.T) {
 
 		// ACK, unblocking the previous push
 		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		ads.ExpectResponse()
+		res = ads.ExpectResponse()
+
+		// ACK again, ensure we do not response
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		ads.ExpectNoResponse()
 	})
 	t.Run("flow control enabled NACK", func(t *testing.T) {
 		log.FindScope("ads").SetOutputLevel(log.DebugLevel)
@@ -789,16 +791,17 @@ func TestBlockedPush(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
 		ads.RequestResponseAck(nil)
+
 		// Send push, get a response and NACK it
 		xds.AdsPushAll(s.Discovery)
 		res := ads.ExpectResponse()
 		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ErrorDetail: &status.Status{Message: "Test request NACK"}})
 
-		// Another push results in no response as we are blocked
+		// Another push results in a response as we are not blocked (NACK unblocks)
 		xds.AdsPushAll(s.Discovery)
 		ads.ExpectResponse()
 
-		// ACK, unblocking the previous push
+		// ACK should not get push
 		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
 		ads.ExpectNoResponse()
 	})
@@ -815,7 +818,7 @@ func TestBlockedPush(t *testing.T) {
 		xds.AdsPushAll(s.Discovery)
 		ads.ExpectResponse()
 
-		// ACK, unblocking the previous push
+		// ACK gets no response as we don't have flow control enabled
 		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
 		ads.ExpectNoResponse()
 	})
