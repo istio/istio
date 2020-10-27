@@ -80,7 +80,6 @@ const (
 // TODO: consolidate/use ADSC struct - a lot of duplication.
 type XdsProxy struct {
 	stopChan             chan struct{}
-	resetChan            chan struct{}
 	clusterID            string
 	downstreamListener   net.Listener
 	downstreamGrpcServer *grpc.Server
@@ -88,8 +87,7 @@ type XdsProxy struct {
 	istiodDialOptions    []grpc.DialOption
 	localDNSServer       *dns.LocalDNSServer
 	healthChecker        *health.WorkloadHealthChecker
-	fileWatcher          filewatcher.FileWatcher
-	agent                *Agent
+	xdsHeaders           map[string]string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
@@ -104,11 +102,9 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
 		clusterID:      ia.secOpts.ClusterID,
 		localDNSServer: ia.localDNSServer,
-		fileWatcher:    newFileWatcher(),
 		stopChan:       make(chan struct{}),
-		resetChan:      make(chan struct{}),
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe),
-		agent:          ia,
+		xdsHeaders:     ia.cfg.XDSHeaders,
 	}
 
 	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
@@ -126,10 +122,6 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			log.Errorf("failed to accept downstream gRPC connection %v", err)
 		}
 	}()
-
-	if err = proxy.initCertificateWatches(ia, proxy.stopChan); err != nil {
-		return nil, err
-	}
 
 	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
 		var req *discovery.DiscoveryRequest
@@ -185,8 +177,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	proxyLog.Infof("Envoy ADS stream established")
 
 	con := &ProxyConnection{
-		upstreamError:   make(chan error),
-		downstreamError: make(chan error),
+		upstreamError:   make(chan error, 1),
+		downstreamError: make(chan error, 1),
 		requestsChan:    make(chan *discovery.DiscoveryRequest, 10),
 		responsesChan:   make(chan *discovery.DiscoveryResponse, 10),
 		stopChan:        make(chan struct{}),
@@ -229,10 +221,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
 	ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
-	if p.agent.cfg.XDSHeaders != nil {
-		for k, v := range p.agent.cfg.XDSHeaders {
-			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
-		}
+	for k, v := range p.xdsHeaders {
+		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
 	return p.HandleUpstream(ctx, con, xds)
@@ -248,7 +238,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		return err
 	}
 
-	// Handle upstream xds
+	// Handle upstream xds recv
 	go func() {
 		for {
 			// from istiod
@@ -285,20 +275,15 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
-		case req, ok := <-con.requestsChan:
-			if !ok {
-				return nil
-			}
+		case req := <-con.requestsChan:
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
 			}
-		case resp, ok := <-con.responsesChan:
-			if !ok {
-				return nil
-			}
+		case resp := <-con.responsesChan:
+			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
 			switch resp.TypeUrl {
@@ -347,9 +332,6 @@ func (p *XdsProxy) close() {
 	}
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
-	}
-	if p.fileWatcher != nil {
-		p.fileWatcher.Close()
 	}
 }
 
@@ -456,51 +438,6 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 		}
 	}
 	return dialOptions, nil
-}
-
-// initCertificateWatches sets up  watches for the certs and resets upstream if they change.
-func (p *XdsProxy) initCertificateWatches(agent *Agent, stop <-chan struct{}) error {
-	keyFile, certFile := p.getCertKeyPaths(agent)
-	rootCert := agent.FindRootCAForXDS()
-
-	var watching bool
-
-	for _, file := range []string{rootCert, certFile, keyFile} {
-		if len(file) > 0 {
-			proxyLog.Infof("adding watcher for certificate %s", file)
-			if err := p.fileWatcher.Add(file); err != nil {
-				return fmt.Errorf("could not watch %v: %v", file, err)
-			}
-			watching = true
-		}
-	}
-	if !watching {
-		return nil
-	}
-	go func() {
-		var keyCertTimerC <-chan time.Time
-		for {
-			select {
-			case <-keyCertTimerC:
-				keyCertTimerC = nil
-				proxyLog.Info("xds connection certificates have changed, resetting the upstream connection")
-				// Close upstream connection.
-				p.resetChan <- struct{}{}
-			case <-p.fileWatcher.Events(certFile):
-				if keyCertTimerC == nil {
-					keyCertTimerC = time.After(watchDebounceDelay)
-				}
-			case <-p.fileWatcher.Events(keyFile):
-				if keyCertTimerC == nil {
-					keyCertTimerC = time.After(watchDebounceDelay)
-				}
-			case <-stop:
-				return
-			}
-		}
-	}()
-
-	return nil
 }
 
 // Returns the TLS option to use when talking to Istiod
