@@ -107,9 +107,6 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		iop = &valuesv1alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
-	if operatorRevision, found := os.LookupEnv("REVISION"); found {
-		iop.Spec.Revision = operatorRevision
-	}
 	var cs *kubernetes.Clientset
 	var err error
 	if restConfig != nil {
@@ -362,14 +359,6 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	}
 	labels[istioVersionLabelStr] = version.Info.Version
 
-	return labels, nil
-}
-
-func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, componentName string) map[string]string {
-	labels := map[string]string{}
-	for k, v := range coreLabels {
-		labels[k] = v
-	}
 	revision := ""
 	if h.iop != nil {
 		revision = h.iop.Spec.Revision
@@ -378,6 +367,15 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 		revision = "default"
 	}
 	labels[label.IstioRev] = revision
+
+	return labels, nil
+}
+
+func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, componentName string) map[string]string {
+	labels := map[string]string{}
+	for k, v := range coreLabels {
+		labels[k] = v
+	}
 
 	labels[IstioComponentLabelStr] = componentName
 

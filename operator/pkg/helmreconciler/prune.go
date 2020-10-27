@@ -319,6 +319,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			continue
 		}
 		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		scope.Infof("Deleting %s (%s/%v)", obj.Hash(), h.iop.Name, h.iop.Spec.Revision)
 		objGvk := o.GroupVersionKind()
 		if err != nil {
 			if !strings.Contains(err.Error(), "not found") {
