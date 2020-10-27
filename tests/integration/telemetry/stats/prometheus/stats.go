@@ -62,11 +62,12 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			sourceQuery, destinationQuery, appQuery := buildQuery()
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := SendTraffic(); err != nil {
-					return err
-				}
-				for _, c := range ctx.Clusters() {
+			if err := SendTraffic(t); err != nil {
+				return err
+			}
+
+			for _, c := range ctx.Clusters() {
+				retry.UntilSuccessOrFail(t, func() error {
 					// Query client side metrics
 					if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
 						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(c, promInst, "istio_requests_total"))
@@ -81,9 +82,10 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						t.Logf("prometheus values for istio_echo_http_requests_total: \n%s", util.PromDump(c, promInst, "istio_echo_http_requests_total"))
 						return err
 					}
-				}
-				return nil
-			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+
+					return nil
+				}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+			}
 		})
 }
 
@@ -94,18 +96,20 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			destinationQuery := buildTCPQuery()
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := SendTCPTraffic(); err != nil {
-					return err
-				}
-				for _, c := range ctx.Clusters() {
+			if err := SendTCPTraffic(t); err != nil {
+				return err
+			}
+
+			for _, c := range ctx.Clusters() {
+				retry.UntilSuccessOrFail(t, func() error {
 					if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
 						t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
 						return err
 					}
-				}
-				return nil
-			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+
+					return nil
+				}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+			}
 		})
 }
 
@@ -164,31 +168,37 @@ func TestSetup(ctx resource.Context) (err error) {
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.
-func SendTraffic() error {
+func SendTraffic(t *testing.T) error {
 	for _, cltInstance := range client {
-		_, err := cltInstance.Call(echo.CallOptions{
-			Target:   server[0],
-			PortName: "http",
-			Count:    len(server),
-		})
-		if err != nil {
-			return err
-		}
+		retry.UntilSuccessOrFail(t, func() error {
+			_, err := cltInstance.Call(echo.CallOptions{
+				Target:   server[0],
+				PortName: "http",
+				Count:    3 * len(server),
+			})
+			if err != nil {
+				return err
+			}
+			return nil
+		}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
 	}
 	return nil
 }
 
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
-func SendTCPTraffic() error {
+func SendTCPTraffic(t *testing.T) error {
 	for _, cltInstance := range client {
-		_, err := cltInstance.Call(echo.CallOptions{
-			Target:   server[0],
-			PortName: "tcp",
-			Count:    len(server),
-		})
-		if err != nil {
-			return err
-		}
+		retry.UntilSuccessOrFail(t, func() error {
+			_, err := cltInstance.Call(echo.CallOptions{
+				Target:   server[0],
+				PortName: "tcp",
+				Count:    3 * len(server),
+			})
+			if err != nil {
+				return err
+			}
+			return nil
+		}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
 	}
 	return nil
 }

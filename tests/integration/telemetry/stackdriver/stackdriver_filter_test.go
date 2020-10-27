@@ -72,14 +72,14 @@ func getEchoNamespaceInstance() namespace.Instance {
 	return echoNsInst
 }
 
-func unmarshalFromTemplateFile(file string, out proto.Message, index int) error {
+func unmarshalFromTemplateFile(file string, out proto.Message, clName int) error {
 	templateFile, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
 	}
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
-		"ClusterIndex":  fmt.Sprintf("%d", index),
+		"ClusterName":   clName,
 		"OnGCE":         metadata.OnGCE(),
 	})
 	if err != nil {
@@ -96,20 +96,22 @@ func TestStackdriverMonitoring(t *testing.T) {
 			if err := sendTraffic(t); err != nil {
 				t.Fatalf("could not generate traffic: %v", err)
 			}
-			for index, cl := range ctx.Clusters() {
+
+			for _, cl := range ctx.Clusters() {
 				scopes.Framework.Infof("Validating Telemetry for Cluster %v", cl)
 				retry.UntilSuccessOrFail(t, func() error {
+					clName := cl.Name()
 					//Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.
-					if err := validateMetrics(t, serverRequestCount, clientRequestCount, index); err != nil {
+					if err := validateMetrics(t, serverRequestCount, clientRequestCount, clName); err != nil {
 						return err
 					}
-					if err := validateLogs(t, serverLogEntry, index); err != nil {
+					if err := validateLogs(t, serverLogEntry, clName); err != nil {
 						return err
 					}
-					if err := validateTraces(t, index); err != nil {
+					if err := validateTraces(t, clName); err != nil {
 						return err
 					}
-					if err := validateEdges(t, index); err != nil {
+					if err := validateEdges(t, clName); err != nil {
 						return err
 					}
 					return nil
@@ -182,10 +184,11 @@ func testSetup(ctx resource.Context) (err error) {
 	}
 
 	builder := echoboot.NewBuilder(ctx)
-	for index, cls := range ctx.Clusters() {
+	for _, cls := range ctx.Clusters() {
+		clName := cls.Name()
 		builder.
 			With(nil, echo.Config{
-				Service:   fmt.Sprintf("clt%d", index),
+				Service:   fmt.Sprintf("clt.%s", clName),
 				Cluster:   cls,
 				Namespace: getEchoNamespaceInstance(),
 				Subsets: []echo.SubsetConfig{
@@ -249,7 +252,7 @@ func sendTraffic(t *testing.T) error {
 	grpcOpts := echo.CallOptions{
 		Target:   srv[0],
 		PortName: "grpc",
-		Count:    len(srv),
+		Count:    3 * len(srv),
 	}
 	// an HTTP request with forced tracing
 	hdr := http.Header{}
@@ -257,27 +260,30 @@ func sendTraffic(t *testing.T) error {
 		Target:   srv[0],
 		PortName: "http",
 		Headers:  hdr,
-		Count:    len(srv),
+		Count:    3 * len(srv),
 	}
 	for _, cltInstance := range clt {
-		if _, err := cltInstance.Call(grpcOpts); err != nil {
-			return err
-		}
-		if _, err := cltInstance.Call(httpOpts); err != nil {
-			return err
-		}
+		retry.UntilSuccessOrFail(t, func() error {
+			if _, err := cltInstance.Call(grpcOpts); err != nil {
+				return err
+			}
+			if _, err := cltInstance.Call(httpOpts); err != nil {
+				return err
+			}
+			return nil
+		}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
 	}
 	return nil
 }
 
-func validateMetrics(t *testing.T, serverReqCount, clientReqCount string, index int) error {
+func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName string) error {
 	t.Helper()
 
 	var wantClient, wantServer monitoring.TimeSeries
-	if err := unmarshalFromTemplateFile(serverReqCount, &wantServer, index); err != nil {
+	if err := unmarshalFromTemplateFile(serverReqCount, &wantServer, clName); err != nil {
 		return fmt.Errorf("metrics: error generating wanted server request: %v", err)
 	}
-	if err := unmarshalFromTemplateFile(clientReqCount, &wantClient, index); err != nil {
+	if err := unmarshalFromTemplateFile(clientReqCount, &wantClient, clName); err != nil {
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
@@ -301,16 +307,16 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount string, index 
 		}
 	}
 	if !(gotServer && gotClient) {
-		return fmt.Errorf("metrics: did not get expected metrics for cluster %d; server = %t, client = %t", index, gotServer, gotClient)
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; server = %t, client = %t", clName, gotServer, gotClient)
 	}
 	return nil
 }
 
-func validateLogs(t *testing.T, srvLogEntry string, index int) error {
+func validateLogs(t *testing.T, srvLogEntry, clName string) error {
 	t.Helper()
 
 	var wantLog loggingpb.LogEntry
-	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, index); err != nil {
+	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
 	// Traverse all log entries received and compare with expected server log entry.
@@ -327,11 +333,11 @@ func validateLogs(t *testing.T, srvLogEntry string, index int) error {
 	return errors.New("logs: did not get expected log entry")
 }
 
-func validateEdges(t *testing.T, index int) error {
+func validateEdges(t *testing.T, clName string) error {
 	t.Helper()
 
 	var wantEdge edgespb.TrafficAssertion
-	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge, index); err != nil {
+	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge, clName); err != nil {
 		return fmt.Errorf("edges: failed to build wanted traffic assertion: %v", err)
 	}
 	edges, err := sdInst.ListTrafficAssertions()
@@ -353,7 +359,7 @@ func validateEdges(t *testing.T, index int) error {
 	return errors.New("edges: did not get expected traffic assertion")
 }
 
-func validateTraces(t *testing.T, index int) error {
+func validateTraces(t *testing.T, clName string) error {
 	t.Helper()
 
 	// we are looking for a trace that looks something like:
