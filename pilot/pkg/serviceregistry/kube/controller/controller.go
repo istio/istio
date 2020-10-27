@@ -850,7 +850,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 		pod := c.pods.getPodByIP(proxyIP)
 		if workload, f := c.workloadInstancesByIP[proxyIP]; f {
 			return c.hydrateWorkloadInstance(workload)
-		} else if pod != nil {
+		} else if pod != nil && proxy.Metadata.Labels["istio.io/test-vm"] == "" {
 			if !c.isControllerForProxy(proxy) {
 				log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 				return nil
@@ -1013,7 +1013,7 @@ func (c *Controller) onNamespaceEvent(obj interface{}, ev model.Event) error {
 // isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
 // may not necessarily pass this check, but we still want to allow kube services to select workload instances.
 func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
-	return proxy.Metadata.ClusterID == c.clusterID
+	return proxy.Metadata.ClusterID == "" || proxy.Metadata.ClusterID == c.clusterID
 }
 
 // getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
