@@ -64,16 +64,8 @@ data:
   values: |-
     {
       "global": {
-        "arch": {
-          "amd64": 2,
-          "ppc64le": 2,
-          "s390x": 2
-        },
         "caAddress": "",
         "centralIstiod": false,
-        "configValidation": true,
-        "defaultConfigVisibilitySettings": [],
-        "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
@@ -82,7 +74,6 @@ data:
             "cpu": "10m"
           }
         },
-        "defaultTolerations": [],
         "externalIstiod": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
@@ -96,18 +87,12 @@ data:
         "logging": {
           "level": "default:info"
         },
-        "meshExpansion": {
-          "enabled": false,
-          "useILB": false
-        },
         "meshID": "",
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "multiCluster": {
           "clusterName": "",
-          "enabled": false,
-          "globalDomainSuffix": "global",
-          "includeEnvoyFilter": true
+          "enabled": false
         },
         "network": "",
         "omitSidecarInjectorConfigMap": false,

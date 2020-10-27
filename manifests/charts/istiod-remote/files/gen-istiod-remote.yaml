@@ -44,16 +44,8 @@ data:
   values: |-
     {
       "global": {
-        "arch": {
-          "amd64": 2,
-          "ppc64le": 2,
-          "s390x": 2
-        },
         "caAddress": "",
         "centralIstiod": false,
-        "configValidation": true,
-        "defaultConfigVisibilitySettings": [],
-        "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
@@ -62,8 +54,7 @@ data:
             "cpu": "10m"
           }
         },
-        "defaultTolerations": [],
-        "externalIstiod": false,
+        "externalIstiod": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -76,18 +67,12 @@ data:
         "logging": {
           "level": "default:info"
         },
-        "meshExpansion": {
-          "enabled": false,
-          "useILB": false
-        },
         "meshID": "",
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "multiCluster": {
           "clusterName": "",
-          "enabled": false,
-          "globalDomainSuffix": "global",
-          "includeEnvoyFilter": true
+          "enabled": false
         },
         "network": "",
         "omitSidecarInjectorConfigMap": false,
@@ -103,6 +88,7 @@ data:
           "excludeIPRanges": "",
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
+          "holdApplicationUntilProxyStarts": false,
           "image": "proxyv2",
           "includeIPRanges": "*",
           "logLevel": "warning",
@@ -170,14 +156,14 @@ data:
       "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
-        "caBundle": "",
         "enableNamespacesByDefault": false,
         "injectedAnnotations": {},
         "neverInjectSelector": [],
         "objectSelector": {
           "autoInject": true,
           "enabled": false
-        }
+        },
+        "rewriteAppHTTPProbe": true
       }
     }
 
