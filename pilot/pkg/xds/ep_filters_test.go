@@ -162,6 +162,9 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			_ = push.InitContext(tt.env, nil, nil)
 			b := NewEndpointBuilder("", tt.conn.proxy, push)
 			filtered := b.EndpointsByNetworkFilter(tt.endpoints)
+			for _, e := range tt.endpoints {
+				e.AssertInvarianceInTest()
+			}
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return

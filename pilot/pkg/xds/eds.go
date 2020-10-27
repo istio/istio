@@ -15,11 +15,11 @@
 package xds
 
 import (
+	"fmt"
+
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
-	"gopkg.in/errgo.v2/fmt/errors"
-
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -242,7 +242,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
 	if b.service.Resolution == model.DNSLB {
 		adsLog.Infof("cluster %s in eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
-		return nil, errors.Newf("cluster %s in eds cluster", b.clusterName)
+		return nil, fmt.Errorf("cluster %s in eds cluster", b.clusterName)
 	}
 
 	svcPort, f := b.service.Ports.GetByPort(b.port)

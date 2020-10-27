@@ -129,7 +129,9 @@ type TunnelType int
 type TunnelAbility int
 
 const (
+	// Bind the no tunnel support to a name.
 	NoTunnel TunnelType = 0
+	// Enumeration of tunnel type below. Each type should own a unique bit field.
 	H2Tunnel TunnelType = 1 << 0
 )
 

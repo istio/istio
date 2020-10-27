@@ -167,12 +167,12 @@ func (t *EndpointH2TunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelTy
 	switch tunnelType {
 	case networking.H2Tunnel:
 		if ep := lep.GetEndpoint(); ep != nil {
-			if port := ep.Address.GetSocketAddress().GetPortSpecifier(); port != nil {
-				if port.(*core.SocketAddress_PortValue) != nil {
-					newEp := proto.Clone(lep).(*endpoint.LbEndpoint)
-					newEp.GetEndpoint().Address.GetSocketAddress().GetPortSpecifier().(*core.SocketAddress_PortValue).PortValue = 15009
-					return newEp, nil
+			if ep.Address.GetSocketAddress().GetPortValue() != 0 {
+				newEp := proto.Clone(lep).(*endpoint.LbEndpoint)
+				newEp.GetEndpoint().Address.GetSocketAddress().PortSpecifier = &core.SocketAddress_PortValue{
+					PortValue: 15009,
 				}
+				return newEp, nil
 			}
 		}
 		return lep, nil
@@ -219,10 +219,9 @@ func (e *LocLbEndpointsAndOptions) refreshWeight() {
 		}
 	}
 	e.llbEndpoints.LoadBalancingWeight = weight
-	e.checkInvariance()
 }
 
-func (e *LocLbEndpointsAndOptions) checkInvariance() {
+func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
 	if len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata) {
 		panic(" len(e.llbEndpoints.LbEndpoints) != len(e.tunnelMetadata)")
 	}
