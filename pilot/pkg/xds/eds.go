@@ -230,7 +230,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	if b.service == nil {
 		// Shouldn't happen here
 		adsLog.Debugf("can not find the service for cluster %s", b.clusterName)
-		return make([]*LocLbEndpointsAndOptions,0) , nil
+		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
@@ -249,7 +249,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	if !f {
 		// Shouldn't happen here
 		adsLog.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
-		return make([]*LocLbEndpointsAndOptions,0) , nil
+		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
 	s.mutex.RLock()
@@ -258,7 +258,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	if !f {
 		// Shouldn't happen here
 		adsLog.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
-		return make([]*LocLbEndpointsAndOptions,0) , nil
+		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
 	return b.buildLocalityLbEndpointsFromShards(epShards, svcPort), nil

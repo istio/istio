@@ -15,10 +15,11 @@
 package xds
 
 import (
-	"istio.io/istio/pilot/pkg/networking"
 	"reflect"
 	"sort"
 	"testing"
+
+	"istio.io/istio/pilot/pkg/networking"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -445,7 +446,7 @@ func testEndpoints() []*LocLbEndpointsAndOptions {
 		},
 	)
 	return []*LocLbEndpointsAndOptions{
-		&LocLbEndpointsAndOptions{
+		{
 			llbEndpoints: endpoint.LocalityLbEndpoints{
 				LbEndpoints: lbEndpoints,
 				LoadBalancingWeight: &wrappers.UInt32Value{
@@ -453,10 +454,10 @@ func testEndpoints() []*LocLbEndpointsAndOptions {
 				},
 			},
 			tunnelMetadata: []EndpointTunnelApplier{
-				makeTunnelApplier(nil, networking.MakeTunnelAbility()),
-				makeTunnelApplier(nil, networking.MakeTunnelAbility()),
-				makeTunnelApplier(nil, networking.MakeTunnelAbility()),
-				makeTunnelApplier(nil, networking.MakeTunnelAbility()),
+				MakeTunnelApplier(nil, networking.MakeTunnelAbility()),
+				MakeTunnelApplier(nil, networking.MakeTunnelAbility()),
+				MakeTunnelApplier(nil, networking.MakeTunnelAbility()),
+				MakeTunnelApplier(nil, networking.MakeTunnelAbility()),
 			},
 		},
 	}

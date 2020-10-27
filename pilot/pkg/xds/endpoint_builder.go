@@ -36,6 +36,14 @@ import (
 // support multi-cluster service.
 // Revisit non-tunnel endpoint decision once the gateways supports tunnel.
 func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.PushContext) networking.TunnelType {
+	if outTunnel, ok := proxy.Metadata.ProxyConfig.ProxyMetadata["tunnel"]; ok {
+		switch outTunnel {
+		case networking.H2TunnelTypeName:
+			return networking.H2Tunnel
+		default:
+			// passthrough
+		}
+	}
 	return networking.NoTunnel
 }
 
@@ -176,7 +184,7 @@ type LocLbEndpointsAndOptions struct {
 }
 
 // Return prefer H2 tunnel metadata.
-func makeTunnelApplier(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelApplier {
+func MakeTunnelApplier(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelApplier {
 	if tunnelOpt.SupportH2Tunnel() {
 		return &EndpointH2TunnelApplier{}
 	}
@@ -185,7 +193,7 @@ func makeTunnelApplier(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbili
 
 func (e *LocLbEndpointsAndOptions) append(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) {
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
-	e.tunnelMetadata = append(e.tunnelMetadata, makeTunnelApplier(le, tunnelOpt))
+	e.tunnelMetadata = append(e.tunnelMetadata, MakeTunnelApplier(le, tunnelOpt))
 }
 
 func (e *LocLbEndpointsAndOptions) emplace(le *endpoint.LbEndpoint, tunnelMetadata EndpointTunnelApplier) {

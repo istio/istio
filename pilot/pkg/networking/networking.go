@@ -133,10 +133,10 @@ const (
 	H2Tunnel TunnelType = 1 << 0
 )
 
-func MakeTunnelAbility(ttypes... TunnelType) TunnelAbility {
+func MakeTunnelAbility(ttypes ...TunnelType) TunnelAbility {
 	ability := int(NoTunnel)
 	for _, tunnelType := range ttypes {
-		ability = ability | int(tunnelType)
+		ability |= int(tunnelType)
 	}
 	return TunnelAbility(ability)
 }

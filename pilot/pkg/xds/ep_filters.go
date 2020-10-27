@@ -15,8 +15,9 @@
 package xds
 
 import (
-	"istio.io/istio/pilot/pkg/networking"
 	"net"
+
+	"istio.io/istio/pilot/pkg/networking"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/proto"
@@ -158,24 +159,4 @@ func envoytransportSocketMetadata(ep *endpoint.LbEndpoint, key string) string {
 		return ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key].GetStringValue()
 	}
 	return ""
-}
-
-// TODO(lambdai): GC
-func createLocalityLbEndpointsReplacedByLocLbEndpointsAndOptionsRefreshWeight (base *endpoint.LocalityLbEndpoints, lbEndpoints []*endpoint.LbEndpoint) *endpoint.LocalityLbEndpoints {
-	var weight *wrappers.UInt32Value
-	if len(lbEndpoints) == 0 {
-		weight = nil
-	} else {
-		weight = &wrappers.UInt32Value{}
-		for _, lbEp := range lbEndpoints {
-			weight.Value += lbEp.GetLoadBalancingWeight().Value
-		}
-	}
-	ep := &endpoint.LocalityLbEndpoints{
-		Locality:            base.Locality,
-		LbEndpoints:         lbEndpoints,
-		LoadBalancingWeight: weight,
-		Priority:            base.Priority,
-	}
-	return ep
 }
