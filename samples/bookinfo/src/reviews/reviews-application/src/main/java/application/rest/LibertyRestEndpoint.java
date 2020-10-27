@@ -40,7 +40,8 @@ public class LibertyRestEndpoint extends Application {
     private final static String star_color = System.getenv("STAR_COLOR") == null ? "black" : System.getenv("STAR_COLOR");
     private final static String services_domain = System.getenv("SERVICES_DOMAIN") == null ? "" : ("." + System.getenv("SERVICES_DOMAIN"));
     private final static String ratings_hostname = System.getenv("RATINGS_HOSTNAME") == null ? "ratings" : System.getenv("RATINGS_HOSTNAME");
-    private final static String ratings_service = "http://" + ratings_hostname + services_domain + ":9080/ratings";
+    private final static String ratings_port = System.getenv("RATINGS_PORT") == null ? "9080" : System.getenv("RATINGS_PORT");
+    private final static String ratings_service = "http://" + ratings_hostname + services_domain + ":" + ratings_port + "/ratings";
     // HTTP headers to propagate for distributed tracing are documented at
     // https://istio.io/docs/tasks/telemetry/distributed-tracing/overview/#trace-context-propagation
     private final static String[] headers_to_propagate = {
