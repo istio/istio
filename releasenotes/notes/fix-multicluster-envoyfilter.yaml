@@ -23,7 +23,8 @@ kind: bug-fix
 area: installation
 
 # issue is a list of GitHub issues resolved in this note.
-issue: 27909
+issue:
+- 27909
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
