@@ -25,7 +25,7 @@ import (
 	"k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
@@ -81,7 +81,7 @@ const delayedRetryTime = time.Second
 // - pass the existing k8s client
 // - use the K8S root instead of citadel root CA
 // - removed the watcher - the k8s CA is already mounted at startup, no more delay waiting for it
-func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string, client kubernetes.Interface, stopCh <-chan struct{}) {
+func PatchCertLoop(injectionWebhookConfigName, webhookName, watchRev, caBundlePath string, client kubernetes.Interface, stopCh <-chan struct{}) {
 	// K8S own CA
 	caCertPem, err := ioutil.ReadFile(caBundlePath)
 	if err != nil {
@@ -98,11 +98,15 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 
 	shouldPatch := make(chan struct{})
 
-	watchlist := cache.NewListWatchFromClient(
+	optionsModifier := func(options *metav1.ListOptions) {
+		options.LabelSelector = labels.Set(map[string]string{"istio.io/rev": watchRev}).String()
+	}
+
+	watchlist := cache.NewFilteredListWatchFromClient(
 		client.AdmissionregistrationV1beta1().RESTClient(),
 		"mutatingwebhookconfigurations",
 		"",
-		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", injectionWebhookConfigName)))
+		optionsModifier)
 
 	_, controller := cache.NewInformer(
 		watchlist,
@@ -153,6 +157,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 			}
 		}
 	}()
+	shouldPatch <- struct{}{}
 }
 
 func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caCertPem []byte) (retry bool) {

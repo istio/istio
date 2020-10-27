@@ -26,6 +26,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 		log.Info("initializing Kubernetes cluster registry")
 		mc, err := controller.NewMulticluster(s.kubeClient,
 			args.RegistryOptions.ClusterRegistriesNamespace,
+			args.Revision,
 			args.RegistryOptions.KubeOptions,
 			s.ServiceController(),
 			s.XDSServer,

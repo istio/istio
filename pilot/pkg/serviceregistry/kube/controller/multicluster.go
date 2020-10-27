@@ -54,6 +54,7 @@ type Multicluster struct {
 	WatchedNamespaces string
 	DomainSuffix      string
 	ResyncPeriod      time.Duration
+	Revision          string
 	serviceController *aggregate.Controller
 	XDSUpdater        model.XDSUpdater
 	metrics           model.Metrics
@@ -73,7 +74,7 @@ type Multicluster struct {
 
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
-func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Options,
+func NewMulticluster(kc kubernetes.Interface, secretNamespace string, revision string, opts Options,
 	serviceController *aggregate.Controller, xds model.XDSUpdater, networksWatcher mesh.NetworksWatcher) (*Multicluster, error) {
 
 	remoteKubeController := make(map[string]*kubeController)
@@ -86,6 +87,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		WatchedNamespaces:     opts.WatchedNamespaces,
 		DomainSuffix:          opts.DomainSuffix,
 		ResyncPeriod:          opts.ResyncPeriod,
+		Revision:              revision,
 		serviceController:     serviceController,
 		XDSUpdater:            xds,
 		remoteKubeControllers: remoteKubeController,
@@ -140,7 +142,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 	if m.fetchCaRoot != nil {
 		nc := NewNamespaceController(m.fetchCaRoot, clients)
 		go nc.Run(stopCh)
-		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clients.Kube(), stopCh)
+		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.Revision, m.caBundlePath, clients.Kube(), stopCh)
 		valicationWebhookController := webhooks.CreateValidationWebhookController(clients, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
 		if valicationWebhookController != nil {

@@ -34,6 +34,7 @@ import (
 const (
 	testSecretName      = "testSecretName"
 	testSecretNameSpace = "istio-system"
+	testRevision        = "asm-168-3"
 	WatchedNamespaces   = "istio-system"
 	DomainSuffix        = "fake_domain"
 	ResyncPeriod        = 1 * time.Second
@@ -84,6 +85,7 @@ func Test_KubeSecretController(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,
+		testRevision,
 		Options{
 			WatchedNamespaces: WatchedNamespaces,
 			DomainSuffix:      DomainSuffix,
