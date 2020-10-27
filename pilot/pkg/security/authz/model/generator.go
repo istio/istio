@@ -105,7 +105,22 @@ func (srcIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, err
 	if err != nil {
 		return nil, err
 	}
-	return principalSourceIP(cidr), nil
+	return principalDirectRemoteIP(cidr), nil
+}
+
+type remoteIPGenerator struct {
+}
+
+func (remoteIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (remoteIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, error) {
+	cidr, err := matcher.CidrRange(value)
+	if err != nil {
+		return nil, err
+	}
+	return principalRemoteIP(cidr), nil
 }
 
 type srcNamespaceGenerator struct {

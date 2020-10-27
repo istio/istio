@@ -462,7 +462,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			for _, c := range ingTestCases {
 				ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
-					authn.CheckIngressOrFail(ctx, ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
+					authn.CheckIngressOrFail(ctx, ingr, c.Host, c.Path, nil, c.Token, c.ExpectResponseCode)
 				})
 			}
 		})

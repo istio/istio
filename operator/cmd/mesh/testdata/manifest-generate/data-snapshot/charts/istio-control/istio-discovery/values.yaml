@@ -97,7 +97,10 @@ sidecarInjectorWebhook:
     autoInject: true
 
   rewriteAppHTTPProbe: true
-
+istiodRemote:
+  # Sidecar injector mutating webhook configuration url
+  # For example: https://$remotePilotAddress:15017/inject
+  injectionURL: ""
 telemetry:
   enabled: true
   v2:
@@ -112,7 +115,7 @@ telemetry:
       enabled: true
       # Indicates whether to enable WebAssembly runtime for stats filter.
       wasmEnabled: false
-      # overrides stats EnvoyFilter configuration. 
+      # overrides stats EnvoyFilter configuration.
       configOverride:
         gateway: {}
         inboundSidecar: {}
@@ -140,6 +143,9 @@ telemetry:
       logWindowDuration: "43200s"
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
+
+# For Helm compatibility.
+ownerName: ""
 
 # meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
 # See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
@@ -192,6 +198,9 @@ global:
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
+
+  # Used to locate istiod.
+  istioNamespace: istio-system
 
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
@@ -346,10 +355,10 @@ global:
   # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
   caAddress: ""
 
-  # One central istiod controls all remote clusters: disabled by default
-  centralIstiod: false
-  # One external istiod controls all remote clusters: disabled by default
+  # External istiod controls all remote clusters: disabled by default
   externalIstiod: false
+  # Central istiod controls all remote clusters: disabled by default
+  centralIstiod: false
 
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".

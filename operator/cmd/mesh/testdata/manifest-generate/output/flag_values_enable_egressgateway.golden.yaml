@@ -4,7 +4,10 @@ metadata:
   annotations: null
   labels:
     app: istio-egressgateway
+    install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
+    istio.io/rev: default
+    operator.istio.io/component: EgressGateways
     release: istio
   name: istio-egressgateway
   namespace: istio-system

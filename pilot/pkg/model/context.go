@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )
 
@@ -73,6 +74,8 @@ type Environment struct {
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
+
+	ledger ledger.Ledger
 }
 
 func (e *Environment) GetDomainSuffix() string {
@@ -128,6 +131,21 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, m
 	if e != nil && e.PushContext != nil {
 		e.PushContext.AddMetric(metric, key, proxyID, msg)
 	}
+}
+
+func (e *Environment) Version() string {
+	if x := e.GetLedger(); x != nil {
+		return x.RootHash()
+	}
+	return ""
+}
+
+func (e *Environment) GetLedger() ledger.Ledger {
+	return e.ledger
+}
+
+func (e *Environment) SetLedger(l ledger.Ledger) {
+	e.ledger = l
 }
 
 // Request is an alias for array of marshaled resources.
@@ -383,9 +401,6 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 type BootstrapNodeMetadata struct {
 	NodeMetadata
 
-	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
-	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
-
 	// InstanceName is the short name for the workload instance (ex: pod name)
 	// replaces POD_NAME
 	InstanceName string `json:"NAME,omitempty"`
@@ -494,6 +509,9 @@ type NodeMetadata struct {
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
+
+	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
+	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
@@ -718,7 +736,7 @@ func (node *Proxy) DiscoverIPVersions() {
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.IsGlobalUnicast() {
+		if node.GlobalUnicastIP == "" && addr.IsGlobalUnicast() {
 			node.GlobalUnicastIP = addr.String()
 		}
 		if addr.To4() != nil {

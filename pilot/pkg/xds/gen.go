@@ -22,6 +22,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/env"
 	istioversion "istio.io/pkg/version"
@@ -117,6 +118,13 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		Resources:   cl,
 	}
 
+	// Approximate size by looking at the Any marshaled size. This avoids high cost
+	// proto.Size, at the expense of slightly under counting.
+	size := 0
+	for _, r := range cl {
+		size += len(r.Value)
+	}
+
 	err := con.send(resp)
 	if err != nil {
 		recordSendError(w.TypeUrl, con.ConID, err)
@@ -125,7 +133,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	// Some types handle logs inside Generate, skip them here
 	if _, f := SkipLogTypes[w.TypeUrl]; !f {
-		adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(w.TypeUrl), con.proxy.ID, len(cl))
+		adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID, len(cl), util.ByteCount(size))
 	}
 	return nil
 }

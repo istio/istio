@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+ - |
+  **Added** an experimental OpenShift Kubernetes platform profile to `istioctl`. To install with the OpenShift profile, use `istioctl install --set profile=openshift`.
+docs:
+  - '[OpenShift Platform Setup] https://istio.io/docs/setup/platform-setup/openshift/'
+  - '[Install OpenShift using `istioctl`] https://istio.io//docs/setup/install/istioctl/#install-a-different-profile'

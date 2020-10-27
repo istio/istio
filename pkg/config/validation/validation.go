@@ -1432,19 +1432,24 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				} else {
 					src := from.Source
 					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
-						len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 && len(src.NotIpBlocks) == 0 {
+						len(src.RemoteIpBlocks) == 0 && len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 &&
+						len(src.NotIpBlocks) == 0 && len(src.NotRemoteIpBlocks) == 0 {
 						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotIpBlocks()))
+					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetRemoteIpBlocks()))
+					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotRemoteIpBlocks()))
 					errs = appendErrors(errs, security.CheckEmptyValues("Principals", src.Principals))
 					errs = appendErrors(errs, security.CheckEmptyValues("RequestPrincipals", src.RequestPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("Namespaces", src.Namespaces))
 					errs = appendErrors(errs, security.CheckEmptyValues("IpBlocks", src.IpBlocks))
+					errs = appendErrors(errs, security.CheckEmptyValues("RemoteIpBlocks", src.RemoteIpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotPrincipals", src.NotPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotRequestPrincipals", src.NotRequestPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotNamespaces", src.NotNamespaces))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotIpBlocks", src.NotIpBlocks))
+					errs = appendErrors(errs, security.CheckEmptyValues("NotRemoteIpBlocks", src.NotRemoteIpBlocks))
 				}
 			}
 			if rule.To != nil && len(rule.To) == 0 {
@@ -1585,33 +1590,33 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
 		virtualService, ok := cfg.Spec.(*networking.VirtualService)
 		if !ok {
 			return nil, errors.New("cannot cast to virtual service")
 		}
-
+		errs := Validation{}
 		isDelegate := false
 		if len(virtualService.Hosts) == 0 {
 			if features.EnableVirtualServiceDelegate {
 				isDelegate = true
 			} else {
-				errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+				errs = appendValidation(errs, fmt.Errorf("virtual service must have at least one host"))
 			}
 		}
 
 		if isDelegate {
 			if len(virtualService.Gateways) != 0 {
 				// meaningless to specify gateways in delegate
-				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
+				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
 			}
 			if len(virtualService.Tls) != 0 {
 				// meaningless to specify tls in delegate, we donot support tls delegate
-				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
+				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
 			}
 			if len(virtualService.Tcp) != 0 {
 				// meaningless to specify tls in delegate, we donot support tcp delegate
-				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
+				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
 			}
 		}
 
@@ -1620,7 +1625,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			appliesToMesh = true
 		}
 
-		errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
+		errs = appendValidation(errs, validateGatewayNames(virtualService.Gateways))
 		for _, gatewayName := range virtualService.Gateways {
 			if gatewayName == constants.IstioMeshGateway {
 				appliesToMesh = true
@@ -1632,11 +1637,11 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			if err := ValidateWildcardDomain(virtualHost); err != nil {
 				ipAddr := net.ParseIP(virtualHost) // Could also be an IP
 				if ipAddr == nil {
-					errs = appendErrors(errs, err)
+					errs = appendValidation(errs, err)
 					allHostsValid = false
 				}
 			} else if appliesToMesh && virtualHost == "*" {
-				errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
+				errs = appendValidation(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
 				allHostsValid = false
 			}
 		}
@@ -1650,34 +1655,36 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				for j := i + 1; j < len(virtualService.Hosts); j++ {
 					hostJ := host.Name(virtualService.Hosts[j])
 					if hostI.Matches(hostJ) {
-						errs = appendErrors(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
+						errs = appendValidation(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
 					}
 				}
 			}
 		}
 
 		if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
-			errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
+			errs = appendValidation(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
 		for _, httpRoute := range virtualService.Http {
 			if httpRoute == nil {
-				errs = appendErrors(errs, errors.New("http route may not be null"))
+				errs = appendValidation(errs, errors.New("http route may not be null"))
 				continue
 			}
-			errs = appendErrors(errs, validateHTTPRoute(httpRoute, isDelegate))
+			errs = appendValidation(errs, validateHTTPRoute(httpRoute, isDelegate))
 		}
 		for _, tlsRoute := range virtualService.Tls {
-			errs = appendErrors(errs, validateTLSRoute(tlsRoute, virtualService))
+			log.Errorf("howardjohn: %v~%T", validateTLSRoute(tlsRoute, virtualService), validateTLSRoute(tlsRoute, virtualService))
+			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
 		}
 		for _, tcpRoute := range virtualService.Tcp {
-			errs = appendErrors(errs, validateTCPRoute(tcpRoute))
+			errs = appendValidation(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendErrors(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
-		return
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
+		return errs.Unwrap()
 	})
 
-func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) (errs error) {
+func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) error {
+	var errs error
 	if tls == nil {
 		return nil
 	}
@@ -1691,7 +1698,7 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 		errs = appendErrors(errs, errors.New("TLS route is required"))
 	}
 	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
-	return
+	return errs
 }
 
 func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs error) {
@@ -1783,27 +1790,32 @@ func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
 	return fmt.Errorf("%q: %w; Istio uses RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax)", where, err)
 }
 
-func validateGatewayNames(gatewayNames []string) (errs error) {
+func validateGatewayNames(gatewayNames []string) (errs Validation) {
 	for _, gatewayName := range gatewayNames {
 		parts := strings.SplitN(gatewayName, "/", 2)
 		if len(parts) != 2 {
-			// deprecated
-			// Old style spec with FQDN gateway name
-			errs = appendErrors(errs, ValidateFQDN(gatewayName))
+			if strings.Contains(gatewayName, ".") {
+				// Legacy FQDN style
+				parts := strings.Split(gatewayName, ".")
+				recommended := fmt.Sprintf("%s/%s", parts[1], parts[0])
+				errs = appendValidation(errs, WrapWarning(fmt.Errorf(
+					"using legacy gatewayName format %q; prefer the <namespace>/<name> format: %q", gatewayName, recommended)))
+			}
+			errs = appendValidation(errs, ValidateFQDN(gatewayName))
 			return
 		}
 
 		if len(parts[0]) == 0 || len(parts[1]) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("config namespace and gateway name cannot be empty"))
+			errs = appendValidation(errs, fmt.Errorf("config namespace and gateway name cannot be empty"))
 		}
 
 		// namespace and name must be DNS labels
 		if !labels.IsDNS1123Label(parts[0]) {
-			errs = appendErrors(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
+			errs = appendValidation(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
 		}
 
 		if !labels.IsDNS1123Label(parts[1]) {
-			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
+			errs = appendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
 		}
 	}
 	return
@@ -2309,7 +2321,7 @@ func appendErrors(err error, errs ...error) error {
 	}
 
 	for _, err2 := range errs {
-		switch t := err.(type) {
+		switch t := err2.(type) {
 		case Validation:
 			err = appendError(err, t.Err)
 		default:

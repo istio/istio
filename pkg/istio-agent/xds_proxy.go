@@ -133,10 +133,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
 		var req *discovery.DiscoveryRequest
 		if healthEvent.Healthy {
-			req = &discovery.DiscoveryRequest{TypeUrl: health.HealthInfoTypeURL}
+			req = &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
 		} else {
 			req = &discovery.DiscoveryRequest{
-				TypeUrl: health.HealthInfoTypeURL,
+				TypeUrl: v3.HealthInfoType,
 				ErrorDetail: &google_rpc.Status{
 					Code:    500,
 					Message: healthEvent.UnhealthyMessage,

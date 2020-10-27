@@ -52,11 +52,10 @@ import (
 )
 
 const (
-	IstioNamespace     = "istio-system"
-	OperatorNamespace  = "istio-operator"
-	CanaryRevisionName = "canary"
-	retryDelay         = time.Second
-	retryTimeOut       = 20 * time.Minute
+	IstioNamespace    = "istio-system"
+	OperatorNamespace = "istio-operator"
+	retryDelay        = time.Second
+	retryTimeOut      = 20 * time.Minute
 )
 
 var (
@@ -113,17 +112,22 @@ func TestController(t *testing.T) {
 				"--hub=" + s.Hub,
 				"--tag=" + s.Tag,
 				"--manifests=" + ManifestPath,
-				"--revision=" + CanaryRevisionName,
+				"--revision=" + "v2",
 			}
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
+			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "v2")
 
-			verifyInstallation(t, ctx, istioCtl, "default", CanaryRevisionName, cs)
+			verifyInstallation(t, ctx, istioCtl, "default", "v2", cs)
 
 			t.Cleanup(func() {
 				scopes.Framework.Infof("cleaning up resources")
 				if err := cs.DeleteYAMLFiles(IstioNamespace, iopCRFile); err != nil {
-					t.Errorf("faild to delete test IstioOperator CR: %v", err)
+					t.Errorf("failed to delete test IstioOperator CR: %v", err)
+				}
+				if err := cs.AppsV1().Deployments(IstioNamespace).DeleteCollection(context.TODO(),
+					kube2.DeleteOptionsForeground(), kubeApiMeta.ListOptions{LabelSelector: "app=istiod"}); err != nil {
+					t.Errorf("failed to remove istiod deployments: %v", err)
 				}
 			})
 		})
@@ -175,7 +179,7 @@ func TestOperatorRemove(t *testing.T) {
 }
 
 // checkInstallStatus check the status of IstioOperator CR from the cluster
-func checkInstallStatus(cs istioKube.ExtendedClient) error {
+func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 	scopes.Framework.Infof("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
@@ -185,13 +189,13 @@ func checkInstallStatus(cs istioKube.ExtendedClient) error {
 
 	var unhealthyCN []string
 	retryFunc := func() error {
-		us, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), "test-istiocontrolplane", kubeApiMeta.GetOptions{})
+		us, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), revName("test-istiocontrolplane", revision), kubeApiMeta.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
 		usIOPStatus := us.UnstructuredContent()["status"]
 		if usIOPStatus == nil {
-			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator",
+			if _, err := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), revName("istio-operator", revision),
 				kubeApiMeta.GetOptions{}); err != nil {
 				return fmt.Errorf("istio operator svc is not ready: %v", err)
 			}
@@ -252,10 +256,15 @@ func installWithCRFile(t *testing.T, ctx resource.Context, cs resource.Cluster, 
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  name: test-istiocontrolplane
+  name: %s
   namespace: istio-system
 spec:
-  profile: %s
+`
+	if revision != "" {
+		metadataYAML += "  revision: " + revision + "\n"
+	}
+
+	metadataYAML += `  profile: %s
   installPackagePath: %s
   hub: %s
   tag: %s
@@ -263,7 +272,11 @@ spec:
     global:
       imagePullPolicy: %s
 `
-	overlayYAML := fmt.Sprintf(metadataYAML, profileName, ManifestPathContainer, s.Hub, s.Tag, s.PullPolicy)
+
+	overlayYAML := fmt.Sprintf(metadataYAML, revName("test-istiocontrolplane", revision), profileName, ManifestPathContainer, s.Hub, s.Tag, s.PullPolicy)
+
+	scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", metadataYAML)
+
 	if err := ioutil.WriteFile(iopCRFile, []byte(overlayYAML), os.ModePerm); err != nil {
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}
@@ -278,8 +291,8 @@ spec:
 // verifyInstallation verify IOP CR status and compare in-cluster resources with generated ones.
 func verifyInstallation(t *testing.T, ctx resource.Context,
 	istioCtl istioctl.Instance, profileName string, revision string, cs resource.Cluster) {
-	scopes.Framework.Infof("=== verifying istio installation === ")
-	if err := checkInstallStatus(cs); err != nil {
+	scopes.Framework.Infof("=== verifying istio installation revision %s === ", revision)
+	if err := checkInstallStatus(cs, revision); err != nil {
 		t.Fatalf("IstioOperator status not healthy: %v", err)
 	}
 
@@ -319,8 +332,8 @@ func sanityCheck(t *testing.T, ctx resource.Context) {
 		}).
 		BuildOrFail(t)
 	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:     server,
-		PortName:   "http",
+		Target:    server,
+		PortName:  "http",
 		Validator: echo.ExpectOK(),
 	})
 }
@@ -353,7 +366,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 		kind := genK8SObject.Kind
 		ns := genK8SObject.Namespace
 		name := genK8SObject.Name
-		log.Infof("checking kind: %s, namespace: %s, name: %s", kind, ns, name)
+		scopes.Framework.Infof("checking kind: %s, namespace: %s, name: %s", kind, ns, name)
 		retry.UntilSuccessOrFail(t, func() error {
 			switch kind {
 			case "Service":
@@ -409,3 +422,12 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 	}
 	return nil
 }
+
+func revName(name, revision string) string {
+	if revision == "" {
+		return name
+	}
+	return name + "-" + revision
+
+}
+

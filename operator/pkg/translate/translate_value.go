@@ -53,8 +53,6 @@ type gatewayKubernetesMapping struct {
 var (
 	// Component enablement mapping. Ex "{{.ValueComponent}}.enabled": Components.{{.ComponentName}}.enabled}", nil},
 	componentEnablementPattern = "Components.{{.ComponentName}}.Enabled"
-	// addonEnablementPattern defines enablement pattern for addon components in IOP spec.
-	addonEnablementPattern = "AddonComponents.{{.ComponentName}}.Enabled"
 	// specialComponentPath lists cases of component path of values.yaml we need to have special treatment.
 	specialComponentPath = map[string]bool{
 		"gateways":                      true,
@@ -101,9 +99,6 @@ func (t *ReverseTranslator) initK8SMapping() error {
 			newKey, err := renderComponentName(K8SValKey, valKey)
 			if err != nil {
 				return err
-			}
-			if !componentName.IsCoreComponent() && !componentName.IsGateway() {
-				outPathTmpl = "Addon" + outPathTmpl
 			}
 			newVal, err := renderFeatureComponentPathTemplate(outPathTmpl, componentName)
 			if err != nil {
@@ -242,9 +237,6 @@ func (t *ReverseTranslator) setEnablementFromValue(valueSpec map[string]interfac
 			continue
 		}
 		tmpl := componentEnablementPattern
-		if !cni.IsCoreComponent() && !cni.IsGateway() {
-			tmpl = addonEnablementPattern
-		}
 		ceVal, err := renderFeatureComponentPathTemplate(tmpl, cni)
 		if err != nil {
 			return err

@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -164,9 +163,6 @@ meshConfig:
     discoveryAddress: istiod:15012
 `,
 		},
-	}
-	if err := name.ScanBundledAddonComponents("../../cmd/mesh/testdata/manifest-generate/data-snapshot"); err != nil {
-		t.Fatal(err)
 	}
 
 	for _, tt := range tests {
