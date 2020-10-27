@@ -585,7 +585,8 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: golint,stylecheck
 				continue
 			}
-			if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
+			if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE &&
+				(cp.Patch.Value == nil || len(cp.Patch.Value.Fields) == 0) {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: golint,stylecheck
 				continue
 			}

@@ -2757,6 +2757,17 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "Envoy filter: missing patch value for non-remove operation"},
+		{name: "nil patch value", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value:     &types.Struct{},
+					},
+				},
+			},
+		}, error: "Envoy filter: missing patch value for non-remove operation"},
 		{name: "match with invalid regex", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
