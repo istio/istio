@@ -44,7 +44,9 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 type Event struct {
@@ -81,17 +83,27 @@ func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ mode
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
+func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *Event {
+	got := fx.Wait(types...)
+	if got == nil {
+		t.Fatal("missing event")
+	}
+	return got
+}
+
 func (fx *FakeXdsUpdater) Wait(types ...string) *Event {
 	for {
 		select {
 		case e := <-fx.Events:
+			log.Errorf("howardjohn: got event %v/%v", e.kind, e.host)
 			for _, et := range types {
 				if e.kind == et {
 					return &e
 				}
 			}
+			log.Errorf("howardjohn: dropping event %v", e.kind)
 			continue
-		case <-time.After(5 * time.Second):
+		case <-time.After(1 * time.Second):
 			return nil
 		}
 	}
@@ -244,16 +256,11 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("Kubernetes only: headless service", func(t *testing.T) {
 		kc, _, _, kube, xdsUpdater := setupTest(t)
 		makeService(t, kube, headlessService)
+		xdsUpdater.WaitOrFail(t, "svcupdate")
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
-		event := xdsUpdater.Wait("eds")
-		if event == nil {
-			t.Fatalf("expecting eds event")
-		}
-		event = xdsUpdater.Wait("xds")
-		if event == nil {
-			t.Fatalf("expecting xds event")
-		}
+		xdsUpdater.WaitOrFail(t, "eds")
+		xdsUpdater.WaitOrFail(t, "xds")
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
@@ -380,14 +387,11 @@ func TestWorkloadInstances(t *testing.T) {
 		select {
 		case ev := <-xdsUpdater.Events:
 			t.Fatalf("Got %s event, expect none", ev.kind)
-		case <-time.After(20 * time.Millisecond):
+		case <-time.After(40 * time.Millisecond):
 		}
 
 		makeService(t, kube, service)
-		event := xdsUpdater.Wait("edscache")
-		if event == nil {
-			t.Fatalf("expecting edscache event")
-		}
+		event := xdsUpdater.WaitOrFail(t, "edscache")
 		if event.endpoints != 1 {
 			t.Errorf("expecting 1 endpoints, but got %d ", event.endpoints)
 		}
@@ -404,16 +408,10 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("Service selects both pods and WorkloadEntry", func(t *testing.T) {
 		kc, _, store, kube, xdsUpdater := setupTest(t)
 		makeService(t, kube, service)
-		event := xdsUpdater.Wait("svcupdate")
-		if event == nil {
-			t.Fatalf("expecting svcupdate event")
-		}
+		xdsUpdater.WaitOrFail(t, "svcupdate")
 
 		makeIstioObject(t, store, workloadEntry)
-		event = xdsUpdater.Wait("eds")
-		if event == nil {
-			t.Fatalf("expecting eds event")
-		}
+		xdsUpdater.WaitOrFail(t, "eds")
 
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
@@ -755,10 +753,7 @@ func TestWorkloadInstances(t *testing.T) {
 func waitForEdsUpdate(t *testing.T, xdsUpdater *FakeXdsUpdater, expected int) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		event := xdsUpdater.Wait("eds", "edscache")
-		if event == nil {
-			return fmt.Errorf("expecting eds event")
-		}
+		event := xdsUpdater.WaitOrFail(t, "eds", "edscache")
 		if event.endpoints != expected {
 			return fmt.Errorf("expecting %d endpoints, but got %d", expected, event.endpoints)
 		}
