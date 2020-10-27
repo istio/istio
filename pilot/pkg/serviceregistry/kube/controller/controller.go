@@ -680,7 +680,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
 	if err != nil {
-		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+		if pod.Spec.NodeName != "" {
+			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+		}
 		return ""
 	}
 
