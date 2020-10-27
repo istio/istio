@@ -35,6 +35,7 @@ import (
 )
 
 const (
+	TmpDir = "tmp"
 	HTTPS  = "https"
 	POLICY = `
 apiVersion: "security.istio.io/v1beta1"
@@ -61,18 +62,15 @@ spec:
 // The client side mTLS connection should validate the trust domain alias during secure naming validation.
 //
 // Setup:
-// 1. Setup Istio with custom CA cert, to make sure all workloads have same root cert because of #3
-// 2. One client workload with istio-proxy sidecar injected
-// 3. Two naked server workloads with custom certs in two different trust domain reflected in the SAN (spiffe)
-// 4. PeerAuthentication with strict mtls, to enforce the mtls connection
-// 5. DestinaitonRule with tls ISTIO_MUTUAL mode, because Istio auto mTLS will let client sends plaintext to naked servers by default
-// 6. MeshConfig.TrustDomainAliases contains one of the trust domain in #3
+// 1. Setup Istio with custom CA cert. This is because we need to use that root cert to sign customized certificate for server workloads to give them different trust domains.
+// 2. One client workload with sidecar injected.
+// 3. Two naked server workloads with custom certs whose URI SAN have different SPIFFE trust domains.
+// 4. PeerAuthentication with strict mtls, to enforce the mtls connection.
+// 5. DestinaitonRule with tls ISTIO_MUTUAL mode, because Istio auto mTLS will let client send plaintext to naked servers by default.
+// 6. MeshConfig.TrustDomainAliases contains one of the trust domain "server-naked-foo".
 //
 // Expectation:
-// 1. When the trust domain of server TLS certificate is in the list of MeshConfig.TrustDomainAliases,
-//    the connection from client to server should succeed.
-// 2. When the trust domain of server TLS certificate is not in the list of MeshConfig.TrustDomainAliases,
-//    then the connection from client to server should fail.
+// When the "server-naked-foo" is in the list of MeshConfig.TrustDomainAliases, client requests to "server-naked-foo" succeeds, and requests to "server-naked-bar" fails.
 func TestTrustDomainAliasSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.trust-domain-alias-secure-naming").
@@ -82,14 +80,14 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 				Inject: true,
 			})
 
-			// Create testing certs using runtime namespace
+			// Create testing certs using runtime namespace.
 			cleanup := generateCerts(ctx, testNS.Name())
 			defer cleanup()
 
 			// Deploy 3 workloads:
-			// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local
-			// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo
-			// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar
+			// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
+			// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
+			// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar.
 			var client, serverNakedFoo, serverNakedBar echo.Instance
 			echoboot.NewBuilder(ctx).
 				With(&client, echo.Config{
@@ -116,8 +114,8 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					},
 					TLSSettings: &common.TLSSettings{
 						RootCert:   loadCert(t, "root-cert.pem"),
-						ClientCert: loadCert(t, "tmp/workload-foo-cert.pem"),
-						Key:        loadCert(t, "tmp/workload-foo-key.pem"),
+						ClientCert: loadCert(t, TmpDir + "/workload-foo-cert.pem"),
+						Key:        loadCert(t, TmpDir + "/workload-foo-key.pem"),
 					},
 				}).
 				With(&serverNakedBar, echo.Config{
@@ -140,8 +138,8 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					},
 					TLSSettings: &common.TLSSettings{
 						RootCert:   loadCert(t, "root-cert.pem"),
-						ClientCert: loadCert(t, "tmp/workload-bar-cert.pem"),
-						Key:        loadCert(t, "tmp/workload-bar-key.pem"),
+						ClientCert: loadCert(t, TmpDir + "/workload-bar-cert.pem"),
+						Key:        loadCert(t, TmpDir + "/workload-bar-key.pem"),
 					},
 				}).
 				BuildOrFail(t)
@@ -224,7 +222,7 @@ func generateCerts(t test.Failer, ns string) func() {
 	for _, crt := range crts {
 		command := exec.Cmd{
 			Path:   script,
-			Args:   []string{script, crt.td, ns, crt.sa, workDir, "tmp"},
+			Args:   []string{script, crt.td, ns, crt.sa, TmpDir},
 			Stdout: os.Stdout,
 			Stderr: os.Stdout,
 		}
@@ -234,9 +232,9 @@ func generateCerts(t test.Failer, ns string) func() {
 	}
 
 	return func() {
-		err := os.RemoveAll(path.Join(env.IstioSrc, "samples/certs/tmp"))
+		err := os.RemoveAll(path.Join(env.IstioSrc, "samples/certs/" + TmpDir))
 		if err != nil {
-			t.Fatal("Failed to clean testing certificates: %s", err)
+			t.Fatal("Failed to clean up testing certificates: %s", err)
 		}
 	}
 }

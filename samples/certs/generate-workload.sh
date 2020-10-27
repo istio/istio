@@ -17,17 +17,18 @@
 name=${1:-foo}
 ns=${2:-$name}
 sa=${3:-$name}
-dir=${4:-"."}
-tmp=${5:-""}
+tmp=${4:-""}
 san="spiffe://trust-domain-$name/ns/$ns/sa/$sa"
 
-if [ ! -d "$dir/$tmp" ]; then
-  mkdir "$dir/$tmp"
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+if [ ! -d "$DIR/$tmp" ]; then
+  mkdir "$DIR/$tmp"
 fi
 
-openssl genrsa -out "$dir/$tmp/workload-$name-key.pem" 2048
+openssl genrsa -out "$DIR/$tmp/workload-$name-key.pem" 2048
 
-cat > "$dir"/workload.cfg <<EOF
+cat > "$DIR"/workload.cfg <<EOF
 [req]
 distinguished_name = req_distinguished_name
 req_extensions = v3_req
@@ -44,21 +45,21 @@ subjectAltName = critical, @alt_names
 URI = $san
 EOF
 
-openssl req -new -key "$dir/$tmp/workload-$name-key.pem" -subj "/" -out "$dir"/workload.csr -config "$dir"/workload.cfg
+openssl req -new -key "$DIR/$tmp/workload-$name-key.pem" -subj "/" -out "$DIR"/workload.csr -config "$DIR"/workload.cfg
 
-openssl x509 -req -in "$dir"/workload.csr -CA "$dir"/ca-cert.pem -CAkey "$dir"/ca-key.pem -CAcreateserial \
--out "$dir/$tmp/workload-$name-cert.pem" -days 3650 -extensions v3_req -extfile "$dir"/workload.cfg
+openssl x509 -req -in "$DIR"/workload.csr -CA "$DIR"/ca-cert.pem -CAkey "$DIR"/ca-key.pem -CAcreateserial \
+-out "$DIR/$tmp/workload-$name-cert.pem" -days 3650 -extensions v3_req -extfile "$DIR"/workload.cfg
 
-cat "$dir"/cert-chain.pem >> "$dir/$tmp/workload-$name-cert.pem"
+cat "$DIR"/cert-chain.pem >> "$DIR/$tmp/workload-$name-cert.pem"
 
 echo "Generated workload-$name-[cert|key].pem with URI SAN $san"
-openssl verify -CAfile <(cat "$dir"/cert-chain.pem "$dir"/root-cert.pem) "$dir/$tmp/workload-$name-cert.pem"
+openssl verify -CAfile <(cat "$DIR"/cert-chain.pem "$DIR"/root-cert.pem) "$DIR/$tmp/workload-$name-cert.pem"
 
 # clean temporary files
-if [ -f "$dir"/.srl ]; then
-  rm "$dir"/.srl
+if [ -f "$DIR"/.srl ]; then
+  rm "$DIR"/.srl
 fi
-if [ -f "$dir"/ca-cert.srl ]; then
-  rm "$dir"/ca-cert.srl
+if [ -f "$DIR"/ca-cert.srl ]; then
+  rm "$DIR"/ca-cert.srl
 fi
-rm "$dir"/workload.cfg "$dir"/workload.csr
+rm "$DIR"/workload.cfg "$DIR"/workload.csr
