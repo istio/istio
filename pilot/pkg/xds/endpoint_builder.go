@@ -35,7 +35,11 @@ import (
 // collection includes only the endpoints which support H2 tunnel and the non-tunnel endpoints. The latter case is to
 // support multi-cluster service.
 // Revisit non-tunnel endpoint decision once the gateways supports tunnel.
+// TODO(lambdai): Propose to istio api.
 func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.PushContext) networking.TunnelType {
+	if proxy == nil || proxy.Metadata == nil || proxy.Metadata.ProxyConfig == nil {
+		return networking.NoTunnel
+	}
 	if outTunnel, ok := proxy.Metadata.ProxyConfig.ProxyMetadata["tunnel"]; ok {
 		switch outTunnel {
 		case networking.H2TunnelTypeName:
