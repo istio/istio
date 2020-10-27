@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Added** `istioctl proxy-config log` now accept label selectors to filter logs based on label.
+  **Updated** `istioctl proxy-config log` to allow filtering logs based on label.
