@@ -168,6 +168,10 @@ func TestAuthorization_JWT(t *testing.T) {
 				newTestCase(b, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
 				newTestCase(b, "[PermissionToken2]", jwt.TokenIssuer2, "/permission", false),
 				newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
+				newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key1", true),
+				newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key1", false),
+				newTestCase(b, "[NestedToken1]", jwt.TokenIssuer1WithNestedClaims1, "/nested-key2", false),
+				newTestCase(b, "[NestedToken2]", jwt.TokenIssuer1WithNestedClaims2, "/nested-key2", true),
 				newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
 				newTestCase(c, "[NoJWT]", "", "/somePath", true),
 
