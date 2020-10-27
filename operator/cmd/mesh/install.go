@@ -249,7 +249,7 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.Exte
 		// when the revision is not passed
 		if iArgs.revision == "" && tag != icpTag {
 			cmd.Printf("! Istio control planes installed: %s.\n"+
-				"! Use --revision or --force to install Istio.\n", strings.Join(icpTags, ", "))
+				"! An older installed version of Istio has been detected. Running this command will overwrite it.\n", strings.Join(icpTags, ", "))
 		}
 		// when the revision is passed
 		if icpTag != "" && tag != icpTag && iArgs.revision != "" {
