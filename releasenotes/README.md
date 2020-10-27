@@ -62,7 +62,7 @@ Some release notes may affect multiple types of notes. For those, please fill in
 
 ### Area
 
-This field describes the are of Istio that the note affects. Valid values include:
+This field describes the area of Istio that the note affects. Valid values include:
 * traffic-management
 * security
 * telemetry

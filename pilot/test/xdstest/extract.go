@@ -196,6 +196,30 @@ func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret
 	return res
 }
 
+func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteConfiguration {
+	un := make([]*route.RouteConfiguration, 0, len(resp))
+	for _, r := range resp {
+		u := &route.RouteConfiguration{}
+		if err := ptypes.UnmarshalAny(r, u); err != nil {
+			t.Fatal(err)
+		}
+		un = append(un, u)
+	}
+	return un
+}
+
+func UnmarshalClusterLoadAssignment(t test.Failer, resp []*any.Any) []*endpoint.ClusterLoadAssignment {
+	un := make([]*endpoint.ClusterLoadAssignment, 0, len(resp))
+	for _, r := range resp {
+		u := &endpoint.ClusterLoadAssignment{}
+		if err := ptypes.UnmarshalAny(r, u); err != nil {
+			t.Fatal(err)
+		}
+		un = append(un, u)
+	}
+	return un
+}
+
 func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*cluster.Cluster {
 	res := make([]*cluster.Cluster, 0, len(cl))
 	for _, c := range cl {

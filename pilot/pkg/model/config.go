@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/ledger"
 )
 
 var (
@@ -139,14 +138,6 @@ type ConfigStore interface {
 
 	// Delete removes an object from the store by key
 	Delete(typ config.GroupVersionKind, name, namespace string) error
-
-	Version() string
-
-	GetResourceAtVersion(version string, key string) (resourceVersion string, err error)
-
-	GetLedger() ledger.Ledger
-
-	SetLedger(ledger.Ledger) error
 }
 
 // ConfigStoreCache is a local fully-replicated cache of the config store.  The

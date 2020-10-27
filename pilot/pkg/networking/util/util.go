@@ -393,18 +393,16 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc.
 func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*pstruct.Struct{},
-	}
-	AddConfigInfoMetadata(metadata, config)
-	return metadata
+	return AddConfigInfoMetadata(nil, config)
 }
 
 // AddConfigInfoMetadata adds name.namespace of the config, the type, etc
-// to the given core.Metadata struct.
-func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) {
+// to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
+func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Metadata {
 	if metadata == nil {
-		return
+		metadata = &core.Metadata{
+			FilterMetadata: map[string]*pstruct.Struct{},
+		}
 	}
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
 		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
@@ -418,6 +416,7 @@ func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) {
 			StringValue: s,
 		},
 	}
+	return metadata
 }
 
 // AddSubsetToMetadata will build a new core.Metadata struct containing the
@@ -685,4 +684,20 @@ func MultiErrorFormat() multierror.ErrorFormatFunc {
 			"%d errors occurred:\n\t%s\n\n",
 			len(es), strings.Join(points, "\n\t"))
 	}
+}
+
+// ByteCount returns a human readable byte format
+// Inspired by https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
+func ByteCount(b int) string {
+	const unit = 1000
+	if b < unit {
+		return fmt.Sprintf("%dB", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%cB",
+		float64(b)/float64(div), "kMGTPE"[exp])
 }

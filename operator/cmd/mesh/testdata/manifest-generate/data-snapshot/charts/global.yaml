@@ -36,11 +36,12 @@ global:
   # Enabled by default in master for maximising testing.
   istiod:
     enableAnalysis: false
-
-  # One external istiod controls all remote clusters: disabled by default
-  externalIstiod: false
-  # One central istiod controls all remote clusters: disabled by default
+  # `centralIstiod` flag will be deprecated in favor of `externalIstiod` to better support external control plane model.
+  # central istiod controls all remote clusters: disabled by default
   centralIstiod: false
+  # external istiod controls all remote clusters: disabled by default
+  externalIstiod: false
+
   proxy:
     image: proxyv2
 
@@ -76,7 +77,7 @@ global:
     # The initial delay for readiness probes in seconds.
     readinessInitialDelaySeconds: 1
 
-    # The period between readiness probes.
+    # The period between readiness probes in seconds.
     readinessPeriodSeconds: 2
 
     # The number of successive failed probes before indicating readiness failure.
@@ -216,6 +217,10 @@ global:
     # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
     # to properly label proxies
     clusterName: ""
+    # The suffix for global service names
+    globalDomainSuffix: "global"
+    # Enable envoy filter to translate `globalDomainSuffix` to cluster local suffix for cross cluster communication
+    includeEnvoyFilter: true
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).

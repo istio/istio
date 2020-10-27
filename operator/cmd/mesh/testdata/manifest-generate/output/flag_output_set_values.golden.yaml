@@ -3,7 +3,10 @@ kind: Deployment
 metadata:
   labels:
     app: istio-ingressgateway
+    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
+    istio.io/rev: default
+    operator.istio.io/component: IngressGateways
     release: istio
   name: istio-ingressgateway
   namespace: istio-system
@@ -127,17 +130,22 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: ISTIO_META_ROUTER_MODE
-          value: sni-dnat
+          value: standard
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         image: gcr.io/istio-testing/mynewproxy:latest
         name: istio-proxy
         ports:
         - containerPort: 15021
+          protocol: TCP
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 8443
+          protocol: TCP
         - containerPort: 15012
+          protocol: TCP
         - containerPort: 15443
+          protocol: TCP
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP

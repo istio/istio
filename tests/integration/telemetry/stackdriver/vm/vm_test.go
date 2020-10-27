@@ -36,7 +36,6 @@ import (
 )
 
 func TestVMTelemetry(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/28140")
 	framework.
 		NewTest(t).
 		Features("observability.telemetry.stackdriver").

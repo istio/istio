@@ -98,7 +98,6 @@ var (
 
 	testControllerOptions = &mcp.Options{
 		DomainSuffix: "cluster.local",
-		ConfigLedger: &model.DisabledLedger{},
 	}
 )
 

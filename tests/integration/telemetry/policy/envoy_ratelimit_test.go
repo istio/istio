@@ -48,6 +48,31 @@ func TestRateLimiting(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
+			isLocal := false
+			yaml, err := setupEnvoyFilter(ctx, isLocal)
+			if err != nil {
+				t.Fatalf("Could not setup envoy filter patches.")
+			}
+			defer cleanupEnvoyFilter(ctx, yaml)
+
+			if !sendTrafficAndCheckIfRatelimited(t) {
+				t.Errorf("No request received StatusTooMantRequest Error.")
+			}
+		})
+}
+
+func TestLocalRateLimiting(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ratelimit.envoy").
+		Run(func(ctx framework.TestContext) {
+			isLocal := true
+			yaml, err := setupEnvoyFilter(ctx, isLocal)
+			if err != nil {
+				t.Fatalf("Could not setup envoy filter patches.")
+			}
+			defer cleanupEnvoyFilter(ctx, yaml)
+
 			if !sendTrafficAndCheckIfRatelimited(t) {
 				t.Errorf("No request received StatusTooMantRequest Error.")
 			}
@@ -57,6 +82,7 @@ func TestRateLimiting(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Skip("https://github.com/istio/istio/issues/28285").
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
@@ -102,11 +128,6 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = setupEnvoyFilter(ctx)
-	if err != nil {
-		return
-	}
-
 	yamlContent, err := ioutil.ReadFile("testdata/ratelimitservice.yaml")
 	if err != nil {
 		return
@@ -136,10 +157,14 @@ func testSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
-func setupEnvoyFilter(ctx resource.Context) error {
-	content, err := ioutil.ReadFile("testdata/enable_envoy_ratelimit.yaml")
+func setupEnvoyFilter(ctx resource.Context, isLocal bool) (string, error) {
+	file := "testdata/enable_envoy_ratelimit.yaml"
+	if isLocal {
+		file = "testdata/enable_envoy_local_ratelimit.yaml"
+	}
+	content, err := ioutil.ReadFile(file)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	con, err := tmpl.Evaluate(string(content), map[string]interface{}{
@@ -147,10 +172,18 @@ func setupEnvoyFilter(ctx resource.Context) error {
 		"RateLimitNamespace": ratelimitNs.Name(),
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = ctx.Config().ApplyYAML(ist.Settings().SystemNamespace, con)
+	if err != nil {
+		return "", err
+	}
+	return con, nil
+}
+
+func cleanupEnvoyFilter(ctx resource.Context, yaml string) error {
+	err := ctx.Config().DeleteYAML(ist.Settings().SystemNamespace, yaml)
 	if err != nil {
 		return err
 	}

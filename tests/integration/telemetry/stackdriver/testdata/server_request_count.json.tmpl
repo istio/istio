@@ -26,6 +26,7 @@
           "source_workload_namespace": "{{ .EchoNamespace }}"
        }
     },
+    {{- if .OnGCE }}
     "resource": {
        "labels": {
           "container_name": "app",
@@ -33,4 +34,5 @@
        },
        "type": "k8s_container"
     }
+    {{- end }}
 }

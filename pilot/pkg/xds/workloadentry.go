@@ -20,9 +20,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -43,6 +45,13 @@ const (
 	// DisconnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload disconnected from a Pilot instance.
 	DisconnectedAtAnnotation = "istio.io/disconnectedAt"
 )
+
+type HealthEvent struct {
+	// whether or not the agent thought the target was empty
+	Healthy bool `json:"healthy,omitempty"`
+	// error message propogated
+	Message string `json:"err_message,omitempty"`
+}
 
 func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
 	if !features.WorkloadEntryAutoRegistration {
@@ -119,6 +128,52 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 		sg.cleanupEntry(*wle)
 		return nil
 	}, features.WorkloadEntryCleanupGracePeriod)
+}
+
+// UpdateWorkloadEntryHealth updates the associated WorkloadEntries health status
+// based on the corresponding health check performed by istio-agent.
+func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {
+	if !features.WorkloadEntryHealthChecks {
+		return
+	}
+	// we assume that the workload entry exists
+	// if auto registration does not exist, try looking
+	// up in NodeMetadata
+	entryName := autoregisteredWorkloadEntryName(proxy)
+	if entryName == "" {
+		adsLog.Errorf("unable to derive WorkloadEntry for health update for %v", proxy.ID)
+		return
+	}
+
+	// get previous status
+	cfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	if cfg == nil {
+		adsLog.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
+		return
+	}
+	wle := cfg.DeepCopy()
+
+	// replace the updated status
+	// should this status nil check be in the initial auto registration?
+	var status *v1alpha1.IstioStatus
+	if wle.Status == nil {
+		// for some reason we have a nil status, just make conditions
+		//an empty array
+		status = &v1alpha1.IstioStatus{
+			Conditions: []*v1alpha1.IstioCondition{},
+		}
+	} else {
+		status = wle.Status.(*v1alpha1.IstioStatus)
+
+	}
+	status.Conditions = UpdateHealthCondition(status.Conditions, event)
+	wle.Status = status
+
+	// update the status
+	_, err := sg.Store.UpdateStatus(wle)
+	if err != nil {
+		adsLog.Errorf("error while updating WorkloadEntry status: %v for %v", err, proxy.ID)
+	}
 }
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
@@ -250,4 +305,41 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 		adsLog.Warnf("generated WorkloadEntry name is too long, consider making the WorkloadGroup name shorter. Shortening from beginning to: %s", name)
 	}
 	return name
+}
+
+func UpdateHealthCondition(conditions []*v1alpha1.IstioCondition, event HealthEvent) []*v1alpha1.IstioCondition {
+	foundHealth := false
+	healthIdx := 0
+	for i, cond := range conditions {
+		if cond.Type == "Healthy" {
+			foundHealth = true
+			healthIdx = i
+			break
+		}
+	}
+	if !foundHealth {
+		// we have not inserted a healthy condition yet
+		// just append and return
+		return append(conditions, transformHealthEvent(event))
+	}
+	// we should just replace the health status
+	conditions[healthIdx] = transformHealthEvent(event)
+	return conditions
+}
+
+func transformHealthEvent(event HealthEvent) *v1alpha1.IstioCondition {
+	cond := &v1alpha1.IstioCondition{
+		Type: "Healthy",
+		// last probe and transition are the same because
+		// we only send on transition in the agent
+		LastProbeTime:      types.TimestampNow(),
+		LastTransitionTime: types.TimestampNow(),
+	}
+	if event.Healthy {
+		cond.Status = "True"
+		return cond
+	}
+	cond.Status = "False"
+	cond.Message = event.Message
+	return cond
 }

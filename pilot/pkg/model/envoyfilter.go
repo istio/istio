@@ -55,7 +55,8 @@ var wellKnownVersions = map[string]string{
 	`^1\.6.*`: "1.6",
 	`^1\.7.*`: "1.7",
 	`^1\.8.*`: "1.8",
-	// Hopefully we have a better API by 1.9. If not, add it here
+	`^1\.9.*`: "1.9",
+	// Hopefully we have a better API by 1.10. If not, add it here
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object

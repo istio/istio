@@ -147,13 +147,6 @@ func NewTranslator() *Translator {
 				ToHelmValuesTreeRoot: "global",
 				SkipReverseTranslate: true,
 			},
-			name.ComponentName("Istiocoredns"): {
-				ResourceType:         "Deployment",
-				ResourceName:         "istiocoredns",
-				ContainerName:        "coredns",
-				HelmSubdir:           "istiocoredns",
-				ToHelmValuesTreeRoot: "istiocoredns",
-			},
 		},
 		// nolint: lll
 		KubernetesMapping: map[string]*Translation{
@@ -180,7 +173,7 @@ func NewTranslator() *Translator {
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
 func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName,
-	resourceName string, addonName string, index int) (string, error) {
+	resourceName string, index int) (string, error) {
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
 	if err != nil {
 		return "", err
@@ -199,7 +192,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		renderedInPath := strings.Replace(inPath, "gressGateways.", "gressGateways."+fmt.Sprint(index)+".", 1)
 		scope.Debugf("Checking for path %s in IstioOperatorSpec", renderedInPath)
 
-		m, found, err := getK8SSpecFromIOP(iop, componentName, renderedInPath, addonName)
+		m, found, err := tpath.GetFromStructPath(iop, renderedInPath)
 		if err != nil {
 			return "", err
 		}
@@ -232,7 +225,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			}
 		}
 
-		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName, iop.Revision)
+		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, iop.Revision)
 		if err != nil {
 			return "", err
 		}
@@ -604,14 +597,11 @@ func renderFeatureComponentPathTemplate(tmpl string, componentName name.Componen
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
 // the supplied parameters.
 func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentName name.ComponentName,
-	resourceName, addonName, revision string) (string, error) {
+	resourceName, revision string) (string, error) {
 	cn := string(componentName)
-	if componentName == name.AddonComponentName {
-		cn = addonName
-	}
 	cmp := t.ComponentMap(cn)
 	if cmp == nil {
-		return "", fmt.Errorf("component: %s does not exist in the componentMap", addonName)
+		return "", fmt.Errorf("component: %s does not exist in the componentMap", cn)
 	}
 	if resourceName == "" {
 		resourceName = cmp.ResourceName
@@ -630,31 +620,6 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 		ContainerName: cmp.ContainerName,
 	}
 	return util.RenderTemplate(tmpl, ts)
-}
-
-// getK8SSpecFromIOP is helper function to get k8s spec node from iop using inPath
-// 1. if component is not an addonComponent, get the node directly from iop using the inPath.
-// 2. otherwise convert the inPath and point the root to the entry of addonComponents map with addonName as key.
-// e.x: original inPath: "Components.AddonComponents.K8S.ReplicaCount" and root: iop would be converted to
-// new inPath: "K8S.ReplicaCount" and root: "iop.AddonComponents.addonName"
-func getK8SSpecFromIOP(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName, inPath string,
-	addonName string) (m interface{}, found bool, err error) {
-	if componentName != name.AddonComponentName {
-		return tpath.GetFromStructPath(iop, inPath)
-	}
-	inPath = strings.Replace(inPath, "Components.AddonComponents.", "", 1)
-	scope.Debugf("Checking for path %s in K8S Spec of AddonComponents: %s", inPath, addonName)
-	addonMaps := iop.AddonComponents
-	if extSpec, ok := addonMaps[addonName]; ok {
-		m, found, err = tpath.GetFromStructPath(extSpec, inPath)
-		if err != nil {
-			return nil, false, err
-		}
-	} else {
-		scope.Debugf("path %s not found in AddonComponents.%s, skip mapping.", inPath, addonName)
-		return nil, false, nil
-	}
-	return m, found, nil
 }
 
 // defaultTranslationFunc is the default translation to values. It maps a Go data path into a YAML path.
