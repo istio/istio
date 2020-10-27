@@ -2470,6 +2470,16 @@
   "templating": {
     "list": [
       {
+        "hide": 0,
+        "label": "datasource",
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
         "current": {
           "selected": true,
           "text": "default",
@@ -2543,7 +2553,7 @@
         "multi": true,
         "name": "srcns",
         "options": [],
-        "query": "query_result( sum(istio_requests_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\"}) by (source_workload_namespace) or sum(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\"}) by (source_workload_namespace))",
+        "query": "query_result(sum(istio_requests_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\"}) by (source_workload_namespace) or sum(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\"}) by (source_workload_namespace))",
         "refresh": 1,
         "regex": "/.*namespace=\"([^\"]*).*/",
         "skipUrlSync": false,
@@ -2565,7 +2575,7 @@
         "multi": true,
         "name": "srcwl",
         "options": [],
-        "query": "query_result( sum(istio_requests_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\", source_workload_namespace=~\"$srcns\"}) by (source_workload) or sum(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\", source_workload_namespace=~\"$srcns\"}) by (source_workload))",
+        "query": "query_result(sum(istio_requests_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\", source_workload_namespace=~\"$srcns\"}) by (source_workload) or sum(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\", source_workload_namespace=~\"$srcns\"}) by (source_workload))",
         "refresh": 1,
         "regex": "/.*workload=\"([^\"]*).*/",
         "skipUrlSync": false,
@@ -2587,7 +2597,7 @@
         "multi": true,
         "name": "dstsvc",
         "options": [],
-        "query": "query_result( sum(istio_requests_total{reporter=\"source\", source_workload=~\"$workload\", source_workload_namespace=~\"$namespace\"}) by (destination_service) or sum(istio_tcp_sent_bytes_total{reporter=\"source\", source_workload=~\"$workload\", source_workload_namespace=~\"$namespace\"}) by (destination_service))",
+        "query": "query_result(sum(istio_requests_total{reporter=\"source\", source_workload=~\"$workload\", source_workload_namespace=~\"$namespace\"}) by (destination_service) or sum(istio_tcp_sent_bytes_total{reporter=\"source\", source_workload=~\"$workload\", source_workload_namespace=~\"$namespace\"}) by (destination_service))",
         "refresh": 1,
         "regex": "/.*destination_service=\"([^\"]*).*/",
         "skipUrlSync": false,
