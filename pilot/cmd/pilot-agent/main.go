@@ -65,7 +65,6 @@ const (
 
 var (
 	role               = &model.Proxy{}
-	trustDomain        string
 	stsPort            int
 	tokenManagerPlugin string
 
@@ -126,6 +125,9 @@ var (
 	// This is also disabled by presence of the SDS socket directory
 	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
 		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
+
+	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "cluster.local",
+		"The trust domain for spiffe certificates").Get()
 
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
@@ -276,7 +278,7 @@ var (
 			secOpts.CAProviderName = caProviderEnv
 
 			// TODO: extract from ProxyConfig
-			secOpts.TrustDomain = trustDomain
+			secOpts.TrustDomain = trustDomainEnv
 			secOpts.Pkcs8Keys = pkcs8KeysEnv
 			secOpts.ECCSigAlg = eccSigAlgEnv
 			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
@@ -451,8 +453,6 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 func init() {
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
-		"The domain to use for identities")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
