@@ -23,8 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/pkg/ledger"
-	"istio.io/pkg/log"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
@@ -53,20 +51,6 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 		schemas: schemas,
 		stores:  storeTypes,
 		writer:  writer,
-	}
-
-	var l ledger.Ledger
-	for _, store := range stores {
-		if l == nil {
-			l = store.GetLedger()
-			result.getVersion = store.Version
-			result.getResourceAtVersion = store.GetResourceAtVersion
-		} else {
-			err := store.SetLedger(l)
-			if err != nil {
-				log.Debugf("Config Store %v cannot track distribution in aggregate: %v", store, err)
-			}
-		}
 	}
 
 	return result, nil
@@ -102,34 +86,11 @@ type store struct {
 	// stores is a mapping from config type to a store
 	stores map[config.GroupVersionKind][]model.ConfigStore
 
-	getVersion func() string
-
-	getResourceAtVersion func(version, key string) (resourceVersion string, err error)
-
-	ledger ledger.Ledger
-
 	writer model.ConfigStore
-}
-
-func (cr *store) GetLedger() ledger.Ledger {
-	return cr.ledger
-}
-
-func (cr *store) SetLedger(l ledger.Ledger) error {
-	cr.ledger = l
-	return nil
-}
-
-func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return cr.getResourceAtVersion(version, key)
 }
 
 func (cr *store) Schemas() collection.Schemas {
 	return cr.schemas
-}
-
-func (cr *store) Version() string {
-	return cr.getVersion()
 }
 
 // Get the first config found in the stores.

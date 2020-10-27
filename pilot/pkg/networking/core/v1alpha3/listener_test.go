@@ -2602,7 +2602,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
-	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+	configStore := model.MakeIstioStore(memory.MakeSkipValidation(collections.Pilot, true))
 
 	m := mesh.DefaultMeshConfig()
 	m.ThriftConfig.RateLimitUrl = "ratelimit.svc.cluster.local"

@@ -25,21 +25,17 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 )
 
 var (
 	errUnsupported = errors.New("this operation is not supported by mcp controller")
 )
-
-const ledgerLogf = "error tracking pilot config versions for mcp distribution: %v"
 
 // Controller is a combined interface for ConfigStoreCache
 // and MCP Updater
@@ -52,7 +48,6 @@ type Controller interface {
 type Options struct {
 	DomainSuffix string
 	XDSUpdater   model.XDSUpdater
-	ConfigLedger ledger.Ledger
 	Revision     string
 }
 
@@ -64,7 +59,6 @@ type controller struct {
 	configStore   map[config.GroupVersionKind]map[string]map[string]*config.Config
 	options       *Options
 	eventHandlers map[config.GroupVersionKind][]func(config.Config, config.Config, model.Event)
-	ledger        ledger.Ledger
 
 	syncedMu sync.Mutex
 	synced   map[string]bool
@@ -83,7 +77,6 @@ func NewController(options *Options) Controller {
 		options:       options,
 		eventHandlers: make(map[config.GroupVersionKind][]func(config.Config, config.Config, model.Event)),
 		synced:        synced,
-		ledger:        options.ConfigLedger,
 	}
 }
 
@@ -185,11 +178,6 @@ func (c *controller) Apply(change *sink.Change) error {
 					conf.Name: conf,
 				}
 			}
-
-			_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
-			if err != nil {
-				log.Warnf(ledgerLogf, err)
-			}
 		}
 	}
 	for _, removed := range change.Removed {
@@ -199,10 +187,6 @@ func (c *controller) Apply(change *sink.Change) error {
 			Name:      name,
 			Namespace: namespace,
 		}] = struct{}{}
-		err := c.ledger.Delete(kube.KeyFunc(change.Collection, removed))
-		if err != nil {
-			log.Warnf(ledgerLogf, err)
-		}
 	}
 
 	var prevStore map[string]map[string]*config.Config
@@ -276,23 +260,6 @@ func (c *controller) HasSynced() bool {
 // RegisterEventHandler registers a handler using the type as a key
 func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
 	c.eventHandlers[kind] = append(c.eventHandlers[kind], handler)
-}
-
-func (c *controller) Version() string {
-	return c.ledger.RootHash()
-}
-
-func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return c.ledger.GetPreviousValue(version, key)
-}
-
-func (c *controller) GetLedger() ledger.Ledger {
-	return c.ledger
-}
-
-func (c *controller) SetLedger(l ledger.Ledger) error {
-	c.ledger = l
-	return nil
 }
 
 // Run is not implemented

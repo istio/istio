@@ -15,23 +15,18 @@
 package model
 
 import (
-	"time"
-
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/ledger"
 )
 
 type FakeStore struct {
-	store  map[config.GroupVersionKind]map[string][]config.Config
-	ledger ledger.Ledger
+	store map[config.GroupVersionKind]map[string][]config.Config
 }
 
 func NewFakeStore() *FakeStore {
 	f := FakeStore{
-		store:  make(map[config.GroupVersionKind]map[string][]config.Config),
-		ledger: ledger.Make(time.Minute),
+		store: make(map[config.GroupVersionKind]map[string][]config.Config),
 	}
 	return &f
 }
@@ -78,19 +73,3 @@ func (*FakeStore) Patch(typ config.GroupVersionKind, name, namespace string, pat
 }
 
 func (*FakeStore) Delete(typ config.GroupVersionKind, name, namespace string) error { return nil }
-
-func (s *FakeStore) Version() string {
-	return s.ledger.RootHash()
-}
-func (s *FakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return s.ledger.GetPreviousValue(version, key)
-}
-
-func (s *FakeStore) GetLedger() ledger.Ledger {
-	return s.ledger
-}
-
-func (s *FakeStore) SetLedger(l ledger.Ledger) error {
-	s.ledger = l
-	return nil
-}
