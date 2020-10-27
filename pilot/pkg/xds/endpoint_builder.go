@@ -20,6 +20,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
@@ -149,32 +150,34 @@ func (b *EndpointBuilder) canViewNetwork(network string) bool {
 // TODO(lambdai): Receive port value(15009 by default), builder to cover wide cases.
 type EndpointTunnelApplier interface {
 	// Mutate LbEndpoint in place. Return non-nil on failure.
-	ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) error
+	ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) (*endpoint.LbEndpoint, error)
 }
 
 type EndpointNoTunnelApplier struct{}
 
 // Note that this will not return error if another tunnel typs requested.
-func (t *EndpointNoTunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) error {
-	return nil
+func (t *EndpointNoTunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) (*endpoint.LbEndpoint, error) {
+	return lep, nil
 }
 
 type EndpointH2TunnelApplier struct{}
 
 // TODO(lambdai): Set original port if the default cluster original port is not the same.
-func (t *EndpointH2TunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) error {
+func (t *EndpointH2TunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) (*endpoint.LbEndpoint, error) {
 	switch tunnelType {
 	case networking.H2Tunnel:
 		if ep := lep.GetEndpoint(); ep != nil {
 			if port := ep.Address.GetSocketAddress().GetPortSpecifier(); port != nil {
 				if port.(*core.SocketAddress_PortValue) != nil {
-					port.(*core.SocketAddress_PortValue).PortValue = 15009
+					newEp := proto.Clone(lep).(*endpoint.LbEndpoint)
+					newEp.GetEndpoint().Address.GetSocketAddress().GetPortSpecifier().(*core.SocketAddress_PortValue).PortValue = 15009
+					return newEp, nil
 				}
 			}
 		}
-		return nil
+		return lep, nil
 	case networking.NoTunnel:
-		return nil
+		return lep, nil
 	default:
 		panic("supported tunnel type")
 	}
@@ -300,9 +303,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 func (b *EndpointBuilder) ApplyTunnelSetting(llbOpts []*LocLbEndpointsAndOptions, tunnelType networking.TunnelType) []*LocLbEndpointsAndOptions {
 	for _, llb := range llbOpts {
 		for i, ep := range llb.llbEndpoints.LbEndpoints {
-			err := llb.tunnelMetadata[i].ApplyTunnel(ep, tunnelType)
+			newEp, err := llb.tunnelMetadata[i].ApplyTunnel(ep, tunnelType)
 			if err != nil {
 				panic("not implemented yet on failing to apply tunnel")
+			} else {
+				llb.llbEndpoints.LbEndpoints[i] = newEp
 			}
 		}
 	}

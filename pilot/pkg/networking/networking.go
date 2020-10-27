@@ -151,5 +151,5 @@ func (t TunnelType) ToString() string {
 }
 
 func (t TunnelAbility) SupportH2Tunnel() bool {
-	return (int(t) | int(H2Tunnel)) != 0
+	return (int(t) & int(H2Tunnel)) != 0
 }

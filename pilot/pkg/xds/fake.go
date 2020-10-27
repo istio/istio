@@ -305,7 +305,8 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		f.t.Fatalf("Error connecting: %v", err)
 	}
 	if len(wait) > 0 {
-		_, err = adscConn.Wait(10*time.Second, wait...)
+		//TODO(lambdai): TBD
+		_, err = adscConn.Wait(1000*time.Second, wait...)
 		if err != nil {
 			f.t.Fatalf("Error getting initial for %v config: %v", wait, err)
 		}

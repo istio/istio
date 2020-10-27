@@ -173,10 +173,6 @@ func TestEds(t *testing.T) {
 
 func TestTunnelServerEndpointEds(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
-	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
-	addTestClientEndpoints(s)
-
 	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
 		[]*model.IstioEndpoint{
@@ -191,19 +187,22 @@ func TestTunnelServerEndpointEds(t *testing.T) {
 		})
 
 	t.Run("TestClientWantsTunnelEndpoints", func(t *testing.T) {
-		adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}, Metadata: &model.NodeMetadata{
+		t.Helper()
+		adscConn1 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}, Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{
 				ProxyMetadata: map[string]string{
 					"tunnel": networking.H2TunnelTypeName,
 				},
 			},
 		}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 15009, adscConn, t)
+		testTunnelEndpoints("127.0.0.1", 15009, adscConn1, t)
 	})
-
 	t.Run("TestClientWantsNoTunnelEndpoints", func(t *testing.T) {
-		adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}, Metadata: &model.NodeMetadata{}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 80, adscConn, t)
+		t.Helper()
+		adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}, Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		}}, nil, watchAll)
+		testTunnelEndpoints("127.0.0.1", 80, adscConn2, t)
 	})
 }
 
@@ -239,7 +238,7 @@ func TestNoTunnelServerEndpointEds(t *testing.T) {
 	})
 
 	t.Run("TestClientWantsNoTunnelEndpoints", func(t *testing.T) {
-		adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}, Metadata: &model.NodeMetadata{}}, nil, watchAll)
+		adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}, Metadata: &model.NodeMetadata{}}, nil, watchAll)
 		testTunnelEndpoints("127.0.0.1", 80, adscConn, t)
 	})
 }
@@ -527,6 +526,7 @@ func testTunnelEndpoints(expectIP string, expectPort uint32, adsc *adsc.ADSC, t 
 			}
 		}
 	}
+	t.Errorf("REACH HERE cannot find %s:%d", expectIP, expectPort)
 	t.Fatalf("Expecting address %s:%d got %v", expectIP, expectPort, found)
 }
 
