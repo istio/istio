@@ -15,6 +15,7 @@
 package util
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -1248,6 +1249,25 @@ func TestEndpointMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.labels); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestByteCount(t *testing.T) {
+	cases := []struct {
+		in  int
+		out string
+	}{
+		{1, "1B"},
+		{1000, "1.0kB"},
+		{1_000_000, "1.0MB"},
+		{1_500_000, "1.5MB"},
+	}
+	for _, tt := range cases {
+		t.Run(fmt.Sprint(tt.in), func(t *testing.T) {
+			if got := ByteCount(tt.in); got != tt.out {
+				t.Fatalf("got %v wanted %v", got, tt.out)
 			}
 		})
 	}
