@@ -413,6 +413,7 @@ func listenerConfigCmd() *cobra.Command {
 
 func logCmd() *cobra.Command {
 	var podName, podNamespace string
+	var podNames []string
 
 	logCmd := &cobra.Command{
 		Use:   "log [<type>/]<name>[.<namespace>]",
@@ -444,18 +445,27 @@ func logCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var err error
+			var loggerNames []string
 			if labelSelector != "" {
-				if podName, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
+				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
+					return err
+				}
+				for _, pod := range podNames {
+					name, err = setupEnvoyLogConfig("", pod, podNamespace)
+					loggerNames = append(loggerNames, name)
+				}
+				if err != nil {
 					return err
 				}
 			} else {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-			}
-			loggerNames, err := setupEnvoyLogConfig("", podName, podNamespace)
-			if err != nil {
-				return err
+				name, err := setupEnvoyLogConfig("", podName, podNamespace)
+				loggerNames = append(loggerNames, name)
+				if err != nil {
+					return err
+				}
 			}
 
 			destLoggerLevels := map[string]Level{}
@@ -484,8 +494,10 @@ func logCmd() *cobra.Command {
 						}
 					} else {
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
-						if !strings.Contains(loggerNames, loggerLevel[0]) {
-							return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+						for _, logName := range loggerNames {
+							if !strings.Contains(logName, loggerLevel[0]) {
+								return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+							}
 						}
 						level, ok := stringToLevel[loggerLevel[1]]
 						if !ok {
@@ -817,24 +829,28 @@ func getPodName(podflag string) (string, string, error) {
 	return podName, ns, nil
 }
 
-func getPodNameBySelector(labelSelector string) (string, string, error) {
+func getPodNameBySelector(labelSelector string) ([]string, string, error) {
+	var (
+		podName []string
+		ns      string
+	)
 	client, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
+		return nil, "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
-	var podName, ns string
 	pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
 	if err != nil {
-		return "", "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+		return nil, "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 	}
 	if len(pl.Items) < 1 {
-		return "", "", errors.New("no pods found")
+		return nil, "", errors.New("no pods found")
 	}
 	if len(pl.Items) > 1 {
 		log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
 	}
-	// only use the first pod in the list
-	podName = pl.Items[0].Name
+	for _, pod := range pl.Items {
+		podName = append(podName, pod.Name)
+	}
 	ns = pl.Items[0].Namespace
 	return podName, ns, nil
 }
