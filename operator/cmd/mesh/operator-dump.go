@@ -38,6 +38,7 @@ func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "",
 		revisionFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.common.verifyAfterInstall, "verify-after-install", false, VerifyAfterInstallHelpStr)
 }
 
 func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Command {

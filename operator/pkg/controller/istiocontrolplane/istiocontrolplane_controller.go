@@ -329,17 +329,19 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	// we should probably make this asynchronous?
-	scope.Infof("Verifying installation %s/%s (revision=%s)",
-		iopMerged.Namespace, iopMerged.Name, iopMerged.Spec.Revision)
+	shouldVerifyInstall, _ := os.LookupEnv("VERIFY_AFTER_INSTALL")
+	if shouldVerifyInstall != "" && shouldVerifyInstall == "true" {
+		scope.Infof("Verifying installation %s/%s (revision=%s)",
+			iopMerged.Namespace, iopMerged.Name, iopMerged.Spec.Revision)
 
-	// TODO(su225): How do I get kubeconfig and context?
-	// It is currently broken. Do something about it.
-	installVerifier := verifier.NewStatusVerifier(iopMerged.Namespace, iopMerged.Spec.InstallPackagePath,
-		"", "", []string{}, clioptions.ControlPlaneOptions{Revision: iopMerged.Spec.Revision}, operatorLogger)
-	if err := installVerifier.Verify(); err != nil {
-		scope.Warnf("Error while verifying: %v", err.Error())
-		metrics.InstallVerifyError.Increment()
+		// TODO(su225): How do I get kubeconfig and context?
+		// It is currently broken. Do something about it.
+		installVerifier := verifier.NewStatusVerifier(iopMerged.Namespace, iopMerged.Spec.InstallPackagePath,
+			"", "", []string{}, clioptions.ControlPlaneOptions{Revision: iopMerged.Spec.Revision}, operatorLogger)
+		if err := installVerifier.Verify(); err != nil {
+			scope.Warnf("Error while verifying: %v", err.Error())
+			metrics.InstallVerifyError.Increment()
+		}
 	}
 	return reconcile.Result{}, err
 }

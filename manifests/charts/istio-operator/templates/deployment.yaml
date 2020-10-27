@@ -48,4 +48,6 @@ spec:
               value: {{.Values.waitForResourcesTimeout | quote}}
             - name: REVISION
               value: {{.Values.revision | quote}}
+            - name: VERIFY_AFTER_INSTALL
+              value: {{.Values.verifyAfterInstall | quote}}
 ---

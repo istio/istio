@@ -55,6 +55,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "",
 		revisionFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.common.verifyAfterInstall, "verify-after-install", false, VerifyAfterInstallHelpStr)
 }
 
 func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {
