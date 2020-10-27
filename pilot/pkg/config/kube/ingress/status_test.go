@@ -22,7 +22,6 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 )
@@ -35,15 +34,6 @@ var (
 	testNamespace = "test"
 )
 
-type fakeMeshHolder struct {
-}
-
-func (holder *fakeMeshHolder) Mesh() *meshconfig.MeshConfig {
-	config := mesh.DefaultMeshConfig()
-	config.IngressService = "istio-ingress"
-	return &config
-}
-
 func setupFake(t *testing.T, client kubelib.Client) {
 	t.Helper()
 	if _, err := client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &coreV1.Pod{
@@ -51,7 +41,7 @@ func setupFake(t *testing.T, client kubelib.Client) {
 			Name:      "ingressgateway",
 			Namespace: "istio-system",
 			Labels: map[string]string{
-				"app": "ingressgateway",
+				"istio": "ingressgateway",
 			},
 		},
 		Spec: coreV1.PodSpec{
@@ -112,6 +102,12 @@ func setupFake(t *testing.T, client kubelib.Client) {
 	}
 }
 
+func fakeMeshHolder() mesh.Holder {
+	config := mesh.DefaultMeshConfig()
+	config.IngressService = "istio-ingress"
+	return mesh.NewFixedWatcher(&config)
+}
+
 func makeStatusSyncer(t *testing.T) *StatusSyncer {
 	oldEnvs := setAndRestoreEnv(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
 	// Restore env settings
@@ -119,7 +115,7 @@ func makeStatusSyncer(t *testing.T) *StatusSyncer {
 
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
-	sync := NewStatusSyncer(&fakeMeshHolder{}, client)
+	sync := NewStatusSyncer(fakeMeshHolder(), client)
 	stop := make(chan struct{})
 	client.RunAndWait(stop)
 	t.Cleanup(func() {
