@@ -18,7 +18,6 @@ import (
 	"istio.io/istio/pkg/config/resource"
 )
 
-// IsSystemNamespace returns true for system namespaces
 // Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#viewing-namespaces
 // "kube-system": The namespace for objects created by the Kubernetes system.
 // "kube-public": This namespace is mostly reserved for cluster usage.
@@ -26,8 +25,13 @@ import (
 //    which improves the performance of the node heartbeats as the cluster scales.
 // "local-path-storage": Dynamically provisioning persistent local storage with Kubernetes.
 //    used with Kind cluster: https://github.com/rancher/local-path-provisioner
+var (
+	SystemNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "local-path-storage"}
+)
+
+// IsSystemNamespace returns true for system namespaces
 func IsSystemNamespace(ns resource.Namespace) bool {
-	return ns == "kube-system" || ns == "kube-public" || ns == "kube-node-lease" || ns == "local-path-storage"
+	return IsIncluded(SystemNamespaces, ns.String())
 }
 
 // IsIstioControlPlane returns true for resources that are part of the Istio control plane
@@ -37,6 +41,16 @@ func IsIstioControlPlane(r *resource.Instance) bool {
 	}
 	if r.Metadata.Labels["release"] == "istio" {
 		return true
+	}
+	return false
+}
+
+// IsIncluded check if the term exists in a slice of string
+func IsIncluded(slice []string, term string) bool {
+	for _, val := range slice {
+		if val == term {
+			return true
+		}
 	}
 	return false
 }

@@ -79,22 +79,22 @@ func (s SelectionSpecs) String() string {
 	for _, ss := range s {
 		st := ""
 		if !defaultListSetting(ss.Namespaces) {
-			st += fmt.Sprintf("Namespaces:%s", strings.Join(ss.Namespaces, ","))
+			st += fmt.Sprintf("Namespaces: %s", strings.Join(ss.Namespaces, ","))
 		}
 		if !defaultListSetting(ss.Deployments) {
-			st += fmt.Sprintf("/Deployments:%s", strings.Join(ss.Deployments, ","))
+			st += fmt.Sprintf("/Deployments: %s", strings.Join(ss.Deployments, ","))
 		}
 		if !defaultListSetting(ss.Pods) {
 			st += fmt.Sprintf("/Pods:%s", strings.Join(ss.Pods, ","))
 		}
 		if !defaultListSetting(ss.Containers) {
-			st += fmt.Sprintf("/Containers:%s", strings.Join(ss.Containers, ","))
+			st += fmt.Sprintf("/Containers: %s", strings.Join(ss.Containers, ","))
 		}
 		if len(ss.Labels) > 0 {
-			st += fmt.Sprintf("/Labels:%v", ss.Labels)
+			st += fmt.Sprintf("/Labels: %v", ss.Labels)
 		}
 		if len(ss.Annotations) > 0 {
-			st += fmt.Sprintf("/Annotations:%v", ss.Annotations)
+			st += fmt.Sprintf("/Annotations: %v", ss.Annotations)
 		}
 		out = append(out, "{ "+st+" }")
 	}
