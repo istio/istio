@@ -188,7 +188,7 @@ func testSetup(ctx resource.Context) (err error) {
 		clName := cls.Name()
 		builder.
 			With(nil, echo.Config{
-				Service:   fmt.Sprintf("clt.%s", clName),
+				Service:   fmt.Sprintf("clt-%s", clName),
 				Cluster:   cls,
 				Namespace: getEchoNamespaceInstance(),
 				Subsets: []echo.SubsetConfig{
