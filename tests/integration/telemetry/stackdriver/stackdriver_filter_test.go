@@ -72,7 +72,7 @@ func getEchoNamespaceInstance() namespace.Instance {
 	return echoNsInst
 }
 
-func unmarshalFromTemplateFile(file string, out proto.Message, clName int) error {
+func unmarshalFromTemplateFile(file string, out proto.Message, clName string) error {
 	templateFile, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err

@@ -38,7 +38,7 @@ func TestIstioctlMetrics(t *testing.T) {
 		Features("observability.telemetry.istioctl").
 		Run(func(ctx framework.TestContext) {
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(); err != nil {
+				if err := common.SendTraffic(t); err != nil {
 					return err
 				}
 				return validateDefaultOutput(t, ctx, "server")

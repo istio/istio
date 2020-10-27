@@ -63,7 +63,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		Run(func(ctx framework.TestContext) {
 			sourceQuery, destinationQuery, appQuery := buildQuery()
 			if err := SendTraffic(t); err != nil {
-				return err
+				t.Fatalf("Could not send traffic %v", err)
 			}
 
 			for _, c := range ctx.Clusters() {
@@ -97,7 +97,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 		Run(func(ctx framework.TestContext) {
 			destinationQuery := buildTCPQuery()
 			if err := SendTCPTraffic(t); err != nil {
-				return err
+				t.Fatalf("Could not send traffic %v", err)
 			}
 
 			for _, c := range ctx.Clusters() {
