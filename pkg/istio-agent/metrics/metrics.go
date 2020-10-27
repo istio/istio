@@ -36,8 +36,8 @@ var (
 
 	// envoyDisconnections records total number of unexpected disconnections by Envoy.
 	envoyDisconnections = monitoring.NewSum(
-		"istiod_connection_terminations",
-		"The total number of connection errors to Istiod",
+		"envoy_connection_terminations",
+		"The total number of connection errors from envoy",
 		monitoring.WithLabels(disconnectionTypeTag),
 	)
 
