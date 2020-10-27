@@ -44,10 +44,13 @@ import (
 	"istio.io/pkg/log"
 )
 
+// ExternalCaType : External CA Integration type
+type CaExternalType string
+
 type caOptions struct {
 	// Either extCAK8s or extCAGrpc
-	CAType       string
-	CASignerName string
+	ExternalCAType   CaExternalType
+	ExternalCASigner string
 	// domain to use in SPIFFE identity URLs
 	TrustDomain    string
 	Namespace      string
@@ -55,9 +58,12 @@ type caOptions struct {
 }
 
 const (
-	//KubernatesCA : Kubernates acts as the Certificate Authority
-	extCAK8s string = "KUBERNATES"
-	// extCAGrpc string = "GRPC"
+	// ExtCAK8s : Integrate with external CA using k8s CSR API
+	ExtCAK8s CaExternalType = "ISTIOD_RA_KUBERNETES_API"
+
+	// ExtCAGrpc CaExternalType = "ISTIOD_RA_ISTIO_API"
+
+	// ExternalCertDir : Location of external CA certificate
 	ExternalCertDir = "./etc/external-ca-cert"
 )
 
@@ -138,8 +144,9 @@ var (
 		"Specify the RSA key size to use for self-signed Istio CA certificates.")
 
 	//TODO: Likely to be removed and added to mesh config
-	externalCA = env.RegisterStringVar("EXTERNAL_CA", "",
-		"External CA Type").Get()
+	externalCaType = env.RegisterStringVar("EXTERNAL_CA", "",
+		"External CA Integration Type. Permitted Values are ISTIOD_RA_KUBERNETES_API or "+
+			"ISTIOD_RA_ISTIO_API").Get()
 
 	//TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.RegisterStringVar("K8S_SIGNER", "",
@@ -435,16 +442,16 @@ func (s *Server) createIstioRA(client kubelib.Client,
 	if _, err := os.Stat(caCertFile); err != nil {
 		caCertFile = defaultCACertPath
 	}
-	if opts.CAType == extCAK8s {
+	if opts.ExternalCAType == ExtCAK8s {
 		raOpts := ra.NewK8sRAOptions(workloadCertTTL.Get(),
 			maxCertTTL,
 			caCertFile,
-			opts.CASignerName)
+			opts.ExternalCASigner)
 		istioRA, err := ra.NewK8sRA(raOpts, client.CertificatesV1beta1())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an K8s CA: %v", err)
 		}
 		return istioRA, err
 	}
-	return nil, fmt.Errorf("invalid CA Name %s", opts.CAType)
+	return nil, fmt.Errorf("invalid CA Name %s", opts.ExternalCAType)
 }
