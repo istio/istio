@@ -48,9 +48,9 @@ var (
 	}
 )
 
-// StatusBasedVerifier checks status of certain resources like deployment,
+// StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
-type StatusBasedVerifier struct {
+type StatusVerifier struct {
 	istioNs       string
 	manifestsPath string
 	kubeconfig    string
@@ -60,15 +60,15 @@ type StatusBasedVerifier struct {
 	logger        *clog.ConsoleLogger
 }
 
-// NewStatusBasedVerifier creates a new instance of post-install verifier
+// NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
-func NewStatusBasedVerifier(istioNs, manifestsPath, kubeconfig, context string,
+func NewStatusVerifier(istioNs, manifestsPath, kubeconfig, context string,
 	filenames []string, cpOpts clioptions.ControlPlaneOptions,
-	logger *clog.ConsoleLogger) *StatusBasedVerifier {
+	logger *clog.ConsoleLogger) *StatusVerifier {
 	if logger == nil {
 		logger = clog.NewDefaultLogger()
 	}
-	return &StatusBasedVerifier{
+	return &StatusVerifier{
 		istioNs:       istioNs,
 		manifestsPath: manifestsPath,
 		filenames:     filenames,
@@ -79,14 +79,14 @@ func NewStatusBasedVerifier(istioNs, manifestsPath, kubeconfig, context string,
 
 // Verify implements Verifier interface. Here we check status of deployment
 // and jobs, count various resources for verification.
-func (v *StatusBasedVerifier) Verify() error {
+func (v *StatusVerifier) Verify() error {
 	if len(v.filenames) == 0 {
 		return v.verifyInstallIOPRevision()
 	}
 	return v.verifyInstall()
 }
 
-func (v *StatusBasedVerifier) verifyInstallIOPRevision() error {
+func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	iop, err := v.operatorFromCluster(v.cpOpts.Revision)
 	if err != nil {
 		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
@@ -99,7 +99,7 @@ func (v *StatusBasedVerifier) verifyInstallIOPRevision() error {
 	return v.reportStatus(crdCount, istioDeploymentCount, err)
 }
 
-func (v *StatusBasedVerifier) verifyInstall() error {
+func (v *StatusVerifier) verifyInstall() error {
 	// This is not a pre-check.  Check that the supplied resources exist in the cluster
 	r := resource.NewBuilder(v.k8sConfig()).
 		Unstructured().
@@ -116,7 +116,7 @@ func (v *StatusBasedVerifier) verifyInstall() error {
 }
 
 // nolint: lll
-func (v *StatusBasedVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, error) {
+func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, error) {
 	// Generate the manifest this IstioOperator will make
 	t := translate.NewTranslator()
 
@@ -157,7 +157,7 @@ func (v *StatusBasedVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.Istio
 	return generatedCrds, generatedDeployments, nil
 }
 
-func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filename string) (int, int, error) {
+func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename string) (int, int, error) {
 	crdCount := 0
 	istioDeploymentCount := 0
 	err := visitor.Visit(func(info *resource.Info, err error) error {
@@ -269,7 +269,7 @@ func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filena
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
-func (v *StatusBasedVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOperator, error) {
+func (v *StatusVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOperator, error) {
 	restConfig, err := v.k8sConfig().ToRESTConfig()
 	if err != nil {
 		return nil, err
@@ -290,7 +290,7 @@ func (v *StatusBasedVerifier) operatorFromCluster(revision string) (*v1alpha1.Is
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }
 
-func (v *StatusBasedVerifier) reportStatus(crdCount, istioDeploymentCount int, err error) error {
+func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err error) error {
 	if err != nil {
 		return err
 	}
@@ -338,6 +338,6 @@ func istioVerificationFailureError(filename string, reason error) error {
 	return fmt.Errorf("Istio installation failed, incomplete or does not match \"%s\": %v", filename, reason)
 }
 
-func (v *StatusBasedVerifier) k8sConfig() *genericclioptions.ConfigFlags {
+func (v *StatusVerifier) k8sConfig() *genericclioptions.ConfigFlags {
 	return &genericclioptions.ConfigFlags{KubeConfig: &v.kubeconfig, Context: &v.context}
 }

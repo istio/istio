@@ -72,7 +72,7 @@ istioctl experimental precheck.
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			insVerifier := verifier.NewStatusBasedVerifier(istioNamespace, manifestsPath,
+			insVerifier := verifier.NewStatusVerifier(istioNamespace, manifestsPath,
 				*kubeConfigFlags.KubeConfig, *kubeConfigFlags.Context, filenames, opts, nil)
 			return insVerifier.Verify()
 		},

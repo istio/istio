@@ -172,7 +172,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 
 	if !iArgs.skipVerification {
 		l.LogAndPrintf("Verifying installation", iArgs.revision)
-		insVerifier := verifier.NewStatusBasedVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
+		insVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
 			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l)
 		if err := insVerifier.Verify(); err != nil {
 			return fmt.Errorf("failed to verify installation: %v", err)

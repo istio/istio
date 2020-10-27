@@ -17,6 +17,7 @@ package istiocontrolplane
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -40,6 +41,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -51,6 +54,7 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
@@ -64,8 +68,9 @@ const (
 )
 
 var (
-	scope      = log.RegisterScope("installer", "installer", 0)
-	restConfig *rest.Config
+	scope          = log.RegisterScope("installer", "installer", 0)
+	restConfig     *rest.Config
+	operatorLogger = clog.NewConsoleLogger(ioutil.Discard, ioutil.Discard, scope)
 )
 
 var (
@@ -324,6 +329,18 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
+	// we should probably make this asynchronous?
+	scope.Infof("Verifying installation %s/%s (revision=%s)",
+		iopMerged.Namespace, iopMerged.Name, iopMerged.Spec.Revision)
+
+	// TODO(su225): How do I get kubeconfig and context?
+	// It is currently broken. Do something about it.
+	installVerifier := verifier.NewStatusVerifier(iopMerged.Namespace, iopMerged.Spec.InstallPackagePath,
+		"", "", []string{}, clioptions.ControlPlaneOptions{Revision: iopMerged.Spec.Revision}, operatorLogger)
+	if err := installVerifier.Verify(); err != nil {
+		scope.Warnf("Error while verifying: %v", err.Error())
+		metrics.InstallVerifyError.Increment()
+	}
 	return reconcile.Result{}, err
 }
 
