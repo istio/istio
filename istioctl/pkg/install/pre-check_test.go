@@ -152,6 +152,8 @@ func verifyOutput(t *testing.T, c testcase) {
 	clientFactory = mockPreCheckClient(c.config)
 	var out bytes.Buffer
 	precheckCmd := NewPrecheckCommand()
+	// Avoid parse `go test` args
+	precheckCmd.SetArgs([]string{})
 	precheckCmd.SetOut(&out)
 	precheckCmd.SetErr(&out)
 	fErr := precheckCmd.Execute()
