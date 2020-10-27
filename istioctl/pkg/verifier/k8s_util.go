@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package postinstall
+package verifier
 
 import (
 	"fmt"
 
 	"istio.io/istio/pkg/config/schema"
 	appsv1 "k8s.io/api/apps/v1"
+	v1batch "k8s.io/api/batch/v1"
 )
 
 func verifyDeploymentStatus(deployment *appsv1.Deployment) error {
@@ -46,6 +47,17 @@ func getDeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.Depl
 		c := status.Conditions[i]
 		if c.Type == condType {
 			return &c
+		}
+	}
+	return nil
+}
+
+func verifyJobPostInstall(job *v1batch.Job) error {
+	for _, c := range job.Status.Conditions {
+		if c.Type == v1batch.JobFailed {
+			// msg := fmt.Sprintf("Istio installation failed, incomplete or"+
+			// 	" does not match \"%s\" - the required Job %s failed", filename, name)
+			return fmt.Errorf("the required Job %s/%s failed", job.Namespace, job.Name)
 		}
 	}
 	return nil

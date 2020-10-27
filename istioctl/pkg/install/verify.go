@@ -21,7 +21,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/postinstall"
+	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
@@ -72,8 +72,9 @@ istioctl experimental precheck.
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			verifier := postinstall.NewStatusBasedVerifier(istioNamespace, manifestsPath, filenames, kubeConfigFlags, opts, nil)
-			return verifier.Verify()
+			insVerifier := verifier.NewStatusBasedVerifier(istioNamespace, manifestsPath,
+				*kubeConfigFlags.KubeConfig, *kubeConfigFlags.Context, filenames, opts, nil)
+			return insVerifier.Verify()
 		},
 	}
 

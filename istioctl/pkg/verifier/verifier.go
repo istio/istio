@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package postinstall
+package verifier
 
 import (
 	"context"
@@ -38,12 +38,9 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/pkg/log"
 )
 
 var (
-	scope = log.RegisterScope("postinstall", "postinstall verification logger", 0)
-
 	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
 		Group:    v1alpha1.SchemeGroupVersion.Group,
 		Version:  v1alpha1.SchemeGroupVersion.Version,
@@ -51,39 +48,32 @@ var (
 	}
 )
 
-// Verifier runs after installation and is run after installation.
-// As the name says, it verifies if installation is successful.
-type Verifier interface {
-	Verify() error
-}
-
 // StatusBasedVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
-// TODO(su225) - think of reducing number of exported fields with a constructor
 type StatusBasedVerifier struct {
-	istioNs   string
-	manifestsPath    string
-	filenames        []string
-	k8sClientGetter genericclioptions.RESTClientGetter
-	cpOpts             clioptions.ControlPlaneOptions
-	logger           *clog.ConsoleLogger
+	istioNs       string
+	manifestsPath string
+	kubeconfig    string
+	context       string
+	filenames     []string
+	cpOpts        clioptions.ControlPlaneOptions
+	logger        *clog.ConsoleLogger
 }
 
 // NewStatusBasedVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
-func NewStatusBasedVerifier(istioNs, manifestsPath string, filenames []string,
-	k8sClientConfig genericclioptions.RESTClientGetter, cpOpts clioptions.ControlPlaneOptions,
+func NewStatusBasedVerifier(istioNs, manifestsPath, kubeconfig, context string,
+	filenames []string, cpOpts clioptions.ControlPlaneOptions,
 	logger *clog.ConsoleLogger) *StatusBasedVerifier {
 	if logger == nil {
 		logger = clog.NewDefaultLogger()
 	}
 	return &StatusBasedVerifier{
-		istioNs:   istioNs,
-		manifestsPath:    manifestsPath,
-		filenames:        filenames,
-		k8sClientGetter: k8sClientConfig,
-		cpOpts:             cpOpts,
-		logger:           logger,
+		istioNs:       istioNs,
+		manifestsPath: manifestsPath,
+		filenames:     filenames,
+		cpOpts:        cpOpts,
+		logger:        logger,
 	}
 }
 
@@ -111,7 +101,7 @@ func (v *StatusBasedVerifier) verifyInstallIOPRevision() error {
 
 func (v *StatusBasedVerifier) verifyInstall() error {
 	// This is not a pre-check.  Check that the supplied resources exist in the cluster
-	r := resource.NewBuilder(v.k8sClientGetter).
+	r := resource.NewBuilder(v.k8sConfig()).
 		Unstructured().
 		FilenameParam(false, &resource.FilenameOptions{Filenames: v.filenames}).
 		Flatten().
@@ -143,7 +133,7 @@ func (v *StatusBasedVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.Istio
 		return 0, 0, errs.ToError()
 	}
 
-	builder := resource.NewBuilder(v.k8sClientGetter).Unstructured()
+	builder := resource.NewBuilder(v.k8sConfig()).Unstructured()
 	for cat, manifest := range manifests {
 		for i, manitem := range manifest {
 			reader := strings.NewReader(manitem)
@@ -222,7 +212,7 @@ func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filena
 			if err != nil {
 				return err
 			}
-			if err := v.verifyJobPostInstall(job); err != nil {
+			if err := verifyJobPostInstall(job); err != nil {
 				return istioVerificationFailureError(filename, err)
 			}
 		case "IstioOperator":
@@ -277,21 +267,10 @@ func (v *StatusBasedVerifier) verifyPostInstall(visitor resource.Visitor, filena
 	return crdCount, istioDeploymentCount, err
 }
 
-func (v *StatusBasedVerifier) verifyJobPostInstall(job *v1batch.Job) error {
-	for _, c := range job.Status.Conditions {
-		if c.Type == v1batch.JobFailed {
-			// msg := fmt.Sprintf("Istio installation failed, incomplete or"+
-			// 	" does not match \"%s\" - the required Job %s failed", filename, name)
-			return fmt.Errorf("the required Job %s/%s failed", job.Namespace, job.Name)
-		}
-	}
-	return nil
-}
-
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
 func (v *StatusBasedVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOperator, error) {
-	restConfig, err := v.k8sClientGetter.ToRESTConfig()
+	restConfig, err := v.k8sConfig().ToRESTConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -357,4 +336,8 @@ func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 
 func istioVerificationFailureError(filename string, reason error) error {
 	return fmt.Errorf("Istio installation failed, incomplete or does not match \"%s\": %v", filename, reason)
+}
+
+func (v *StatusBasedVerifier) k8sConfig() *genericclioptions.ConfigFlags {
+	return &genericclioptions.ConfigFlags{KubeConfig: &v.kubeconfig, Context: &v.context}
 }
