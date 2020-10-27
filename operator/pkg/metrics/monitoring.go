@@ -203,6 +203,12 @@ var (
 		"cache_flush_total",
 		"number of times operator cache was flushed",
 	)
+
+	// InstallVerifyError counts number of verification related errors
+	InstallVerifyError = monitoring.NewSum(
+		"verify_error_total",
+		"number of times installation verification failed",
+	)
 )
 
 func init() {
@@ -225,6 +231,7 @@ func init() {
 		ManifestRenderErrorTotal,
 		LegacyPathTranslationTotal,
 		CacheFlushTotal,
+		InstallVerifyError,
 	)
 
 	initOperatorCrdResourceMetrics()
