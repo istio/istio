@@ -24,8 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/pkg/ledger"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -33,23 +31,15 @@ var (
 	errAlreadyExists = errors.New("item already exists")
 )
 
-const ledgerLogf = "error tracking pilot config memory versions for distribution: %v"
-
 // Make creates an in-memory config store from a config schemas
 func Make(schemas collection.Schemas) model.ConfigStore {
-	return MakeWithLedger(schemas, ledger.Make(time.Minute), false)
+	return MakeSkipValidation(schemas, false)
 }
 
-// Make creates an in-memory config store from a config schemas, with validation disabled
-func MakeWithoutValidation(schemas collection.Schemas) model.ConfigStore {
-	return MakeWithLedger(schemas, ledger.Make(time.Minute), true)
-}
-
-func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger, skipValidation bool) model.ConfigStore {
+func MakeSkipValidation(schemas collection.Schemas, skipValidation bool) model.ConfigStore {
 	out := store{
 		schemas:        schemas,
 		data:           make(map[config.GroupVersionKind]map[string]*sync.Map),
-		ledger:         configLedger,
 		skipValidation: skipValidation,
 	}
 	for _, s := range schemas.All() {
@@ -61,30 +51,12 @@ func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger, skip
 type store struct {
 	schemas        collection.Schemas
 	data           map[config.GroupVersionKind]map[string]*sync.Map
-	ledger         ledger.Ledger
 	skipValidation bool
 	mutex          sync.RWMutex
 }
 
-func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return cr.ledger.GetPreviousValue(version, key)
-}
-
-func (cr *store) GetLedger() ledger.Ledger {
-	return cr.ledger
-}
-
-func (cr *store) SetLedger(l ledger.Ledger) error {
-	cr.ledger = l
-	return nil
-}
-
 func (cr *store) Schemas() collection.Schemas {
 	return cr.schemas
-}
-
-func (cr *store) Version() string {
-	return cr.ledger.RootHash()
 }
 
 func (cr *store) Get(kind config.GroupVersionKind, name, namespace string) *config.Config {
@@ -154,10 +126,6 @@ func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string) er
 		return errNotFound
 	}
 
-	err := cr.ledger.Delete(config.Key(kind.Kind, name, namespace))
-	if err != nil {
-		log.Warnf(ledgerLogf, err)
-	}
 	ns.Delete(name)
 	return nil
 }
@@ -192,10 +160,6 @@ func (cr *store) Create(cfg config.Config) (string, error) {
 			cfg.CreationTimestamp = tnow
 		}
 
-		_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
-		if err != nil {
-			log.Warnf(ledgerLogf, err)
-		}
 		ns.Store(cfg.Name, cfg)
 		return cfg.ResourceVersion, nil
 	}
@@ -226,10 +190,6 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 
 	rev := time.Now().String()
 	cfg.ResourceVersion = rev
-	_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
-	if err != nil {
-		log.Warnf(ledgerLogf, err)
-	}
 	ns.Store(cfg.Name, cfg)
 	return rev, nil
 }
@@ -258,10 +218,6 @@ func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
 
 	rev := time.Now().String()
 	cfg.ResourceVersion = rev
-	_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
-	if err != nil {
-		log.Warnf(ledgerLogf, err)
-	}
 	ns.Store(cfg.Name, cfg)
 	return rev, nil
 }
@@ -295,10 +251,6 @@ func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patc
 
 	rev := time.Now().String()
 	cfg.ResourceVersion = rev
-	_, err := cr.ledger.Put(config.Key(typ.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
-	if err != nil {
-		log.Warnf(ledgerLogf, err)
-	}
 	ns.Store(cfg.Name, cfg)
 
 	return rev, nil

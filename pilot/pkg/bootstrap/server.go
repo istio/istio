@@ -185,6 +185,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		PushContext:  model.NewPushContext(),
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
+	e.SetLedger(buildLedger(args.RegistryOptions))
 	ac := aggregate.NewController(aggregate.Options{
 		MeshHolder: e,
 	})
@@ -818,12 +819,10 @@ func (s *Server) initRegistryEventHandlers() error {
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
-			if features.EnableStatus {
-				if event != model.EventDelete {
-					s.statusReporter.AddInProgressResource(curr)
-				} else {
-					s.statusReporter.DeleteInProgressResource(curr)
-				}
+			if event != model.EventDelete {
+				s.statusReporter.AddInProgressResource(curr)
+			} else {
+				s.statusReporter.DeleteInProgressResource(curr)
 			}
 		}
 		schemas := collections.Pilot.All()

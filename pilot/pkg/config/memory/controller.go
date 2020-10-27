@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/pkg/ledger"
 )
 
 type controller struct {
@@ -55,22 +54,6 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(c
 // Memory implementation is always synchronized with cache
 func (c *controller) HasSynced() bool {
 	return true
-}
-
-func (c *controller) Version() string {
-	return c.configStore.Version()
-}
-
-func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return c.configStore.GetResourceAtVersion(version, key)
-}
-
-func (c *controller) GetLedger() ledger.Ledger {
-	return c.configStore.GetLedger()
-}
-
-func (c *controller) SetLedger(l ledger.Ledger) error {
-	return c.configStore.SetLedger(l)
 }
 
 func (c *controller) Run(stop <-chan struct{}) {

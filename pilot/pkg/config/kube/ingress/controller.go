@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/env"
-	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 )
 
@@ -234,23 +233,6 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(c
 	case gvk.Gateway:
 		c.gatewayHandlers = append(c.gatewayHandlers, f)
 	}
-}
-
-func (c *controller) Version() string {
-	panic("implement me")
-}
-
-func (c *controller) GetResourceAtVersion(string, string) (resourceVersion string, err error) {
-	panic("implement me")
-}
-
-func (c *controller) GetLedger() ledger.Ledger {
-	log.Warnf("GetLedger: %s", errors.New("this operation is not supported by kube ingress controller"))
-	return nil
-}
-
-func (c *controller) SetLedger(ledger.Ledger) error {
-	return errors.New("this SetLedger operation is not supported by kube ingress controller")
 }
 
 func (c *controller) HasSynced() bool {
