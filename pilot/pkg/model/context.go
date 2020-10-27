@@ -270,6 +270,9 @@ type WatchedResource struct {
 	// NonceAcked is the last acked message.
 	NonceAcked string
 
+	// NonceNacked is the last nacked message. This is reset following a successful ACK
+	NonceNacked string
+
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
 
