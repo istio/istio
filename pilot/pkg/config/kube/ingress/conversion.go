@@ -74,26 +74,10 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
-// defaultSelector defines the default selector that will be used if one is not provided
-// This will select the default ingressgateway deployment provided by the standard installation
-// Configurable by meshConfig.ingressSelector.
-var defaultSelector = labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
-
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
 func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig, domainSuffix string) config.Config {
 	gateway := &networking.Gateway{}
-	// Setup the selector for the gateway
-	if len(mesh.IngressSelector) > 0 {
-		// If explicitly defined, use this one
-		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressSelector}
-	} else if mesh.IngressService != "istio-ingressgateway" {
-		// Otherwise, we will use the ingress service as the default. It is common for the selector and service
-		// to be the same, so this removes the need for two configurations
-		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
-		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressService}
-	} else {
-		gateway.Selector = defaultSelector
-	}
+	gateway.Selector = getIngressGatewaySelector(mesh.IngressSelector, mesh.IngressService)
 
 	for i, tls := range ingress.Spec.TLS {
 		if tls.SecretName == "" {
@@ -308,7 +292,6 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 			return false
 		}
 	} else if ingressClass != nil {
-		// TODO support ingressclass.kubernetes.io/is-default-class annotation
 		return ingressClass.Spec.Controller == IstioIngressController
 	} else {
 		switch mesh.IngressControllerMode {
@@ -347,5 +330,22 @@ func createFallbackStringMatch(s string) *networking.StringMatch {
 	// Replace e.g. "foo" with a exact match
 	return &networking.StringMatch{
 		MatchType: &networking.StringMatch_Exact{Exact: s},
+	}
+}
+
+func getIngressGatewaySelector(ingressSelector, ingressService string) map[string]string {
+	// Setup the selector for the gateway
+	if ingressSelector != "" {
+		// If explicitly defined, use this one
+		return labels.Instance{constants.IstioLabel: ingressSelector}
+	} else if ingressService != "istio-ingressgateway" && ingressService != "" {
+		// Otherwise, we will use the ingress service as the default. It is common for the selector and service
+		// to be the same, so this removes the need for two configurations
+		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
+		return labels.Instance{constants.IstioLabel: ingressService}
+	} else {
+		// If we have neither an explicitly defined ingressSelector or ingressService then use a selector
+		// pointing to the ingressgateway from the default installation
+		return labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
 	}
 }
