@@ -31,7 +31,6 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -2339,26 +2338,8 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	// TODO stop faking this. proxy ip must match the instance IP
 	serviceDiscovery.WantGetProxyServiceInstances = instances
 
-	envoyFilter := config.Config{
-		Meta: config.Meta{
-			Name:             "test-envoyfilter",
-			Namespace:        "not-default",
-			GroupVersionKind: gvk.EnvoyFilter,
-		},
-		Spec: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
-						Value:     &types.Struct{},
-					},
-				},
-			},
-		},
-	}
 	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-	for _, c := range append(virtualServices, &envoyFilter) {
+	for _, c := range virtualServices {
 		if _, err := configStore.Create(*c); err != nil {
 			panic(err.Error())
 		}
