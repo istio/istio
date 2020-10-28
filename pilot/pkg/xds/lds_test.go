@@ -427,7 +427,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			}
 			defer adsResponse.Close()
 			if err := adsResponse.Run(); err != nil {
-				t.Fatal("Error running adsc ", err)
+				t.Fatal("ADSC: failed running ", err)
 			}
 			adsResponse.Watch()
 			_, err = adsResponse.Wait(10*time.Second, v3.ListenerType)
