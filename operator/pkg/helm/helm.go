@@ -116,6 +116,13 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if chrt.Metadata.Name == "base" {
+		base, _ := valuesMap["base"].(map[string]interface{})
+		enableIstioConfigCRDs, _ := base["enableIstioConfigCRDs"].(bool)
+		if !enableIstioConfigCRDs {
+			crdFiles = []chart.CRD{}
+		}
+	}
 
 	// Create sorted array of keys to iterate over, to stabilize the order of the rendered templates
 	keys := make([]string, 0, len(files))
