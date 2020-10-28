@@ -22,7 +22,7 @@ set -u
 # Print commands
 set -x
 
-UPDATE_BRANCH=${UPDATE_BRANCH:-"master"}
+UPDATE_BRANCH=${UPDATE_BRANCH:-"release-1.8"}
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
