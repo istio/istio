@@ -28,6 +28,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"os"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	alpn "istio.io/istio/pkg/envoy/config/filter/http/alpn/v2alpha1"
@@ -104,7 +105,9 @@ var (
 	OriginalSrc = &listener.ListenerFilter{
 		Name: OriginalSrcFilterName,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{}),
+			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+				Mark: uint32(os.Getegid()),
+			}),
 		},
 	}
 	Alpn = &hcm.HttpFilter{
