@@ -65,9 +65,6 @@ var (
 // TODO: ProxyConfig should have most of those, and be passed to all components
 // (as source of truth)
 type Options struct {
-	// PluginNames is plugins' name for certain authentication provider.
-	PluginNames []string
-
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
@@ -196,10 +193,6 @@ type Options struct {
 
 	// credential identity provider
 	CredIdentityProvider string
-
-	// whether need to skip parsing token to inspect information like expiration time
-	// Default is false.
-	SkipParseToken bool
 
 	// Namespace corresponding to workload
 	WorkloadNamespace string

@@ -122,9 +122,6 @@ spec:
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
-        {{- end }}
         {{- if not $gateway.runAsRoot }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -205,9 +202,13 @@ spec:
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
-          {{- else if $.Values.global.trustDomain }}
+          {{- else if $.Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}
           - name: ISTIO_META_MESH_ID
-            value: "{{ $.Values.global.trustDomain }}"
+            value: "{{ $.Values.global.trustDomain  | default (index .Values.meshConfig "trustDomain") }}"
+          {{- end }}
+          {{- if .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}
+          - name: TRUST_DOMAIN
+            value: "{{ .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}"
           {{- end }}
           {{- if $gateway.env }}
           {{- range $key, $val := $gateway.env }}

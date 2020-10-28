@@ -80,9 +80,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
-{{- end }}
 {{- if .Values.pilot.plugins }}
           - --plugins={{ .Values.pilot.plugins }}
 {{- end }}

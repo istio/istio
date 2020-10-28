@@ -58,7 +58,6 @@ spec:
         - hello.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
         - --concurrency
         - "2"
         env:
