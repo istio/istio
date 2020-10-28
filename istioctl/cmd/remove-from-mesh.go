@@ -30,8 +30,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
 )
@@ -86,16 +88,19 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting deployment name")
 			}
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
+			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
+				return fmt.Errorf("namespace %s is a system namesapce and has no Istio sidecar injected", ns)
+			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
 				return err
 			}
-			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			writer := cmd.OutOrStdout()
 			dep, err := client.AppsV1().Deployments(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
+			writer := cmd.OutOrStdout()
 			deps := []appsv1.Deployment{}
 			deps = append(deps, *dep)
 			return unInjectSideCarFromDeployment(client, deps, args[0], ns, writer)
@@ -124,12 +129,14 @@ func svcUnMeshifyCmd() *cobra.Command {
 			if len(args) != 1 {
 				return fmt.Errorf("expecting service name")
 			}
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
+			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
+				return fmt.Errorf("namespace %s is a system namesapce and has no Istio sidecar injected", ns)
+			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
 				return err
 			}
-			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			writer := cmd.OutOrStdout()
 			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("service %q does not exist, skip", args[0])
@@ -138,6 +145,7 @@ func svcUnMeshifyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			writer := cmd.OutOrStdout()
 			if len(matchingDeployments) == 0 {
 				fmt.Fprintf(writer, "No deployments found for service %s.%s\n", args[0], ns)
 				return nil
