@@ -59,6 +59,10 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControl
 	if err != nil {
 		return nil, fmt.Errorf("could not dial: %w", err)
 	}
+	err = adscConn.Run()
+	if err != nil {
+		return nil, fmt.Errorf("ADSC: failed running %v", err)
+	}
 
 	err = adscConn.Send(dr)
 	if err != nil {
