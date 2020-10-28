@@ -17,6 +17,7 @@ package kube
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"istio.io/istio/pilot/pkg/secrets"
 	"istio.io/istio/pkg/kube"
@@ -45,7 +46,8 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string) *
 		func(c kube.Client, k string) error { m.addMemberCluster(c, k); return nil },
 		func(c kube.Client, k string) error { m.updateMemberCluster(c, k); return nil },
 		func(k string) error { m.deleteMemberCluster(k); return nil },
-		secretNamespace)
+		secretNamespace,
+		time.Millisecond*100)
 	m.secretController = sc
 	return m
 }
