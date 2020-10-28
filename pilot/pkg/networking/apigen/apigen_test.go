@@ -82,6 +82,10 @@ func TestAPIGen(t *testing.T) {
 
 		configController := memory.NewController(store)
 		adscConn.Store = model.MakeIstioStore(configController)
+		err = adscConn.Run()
+		if err != nil {
+			t.Fatal("Error running adsc ", err)
+		}
 
 		adscConn.Send(&xdsapi.DiscoveryRequest{
 			TypeUrl: v3.ListenerType,

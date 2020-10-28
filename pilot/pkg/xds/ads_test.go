@@ -130,6 +130,9 @@ func TestAgent(t *testing.T) {
 			t.Fatal("Failed to connect", err)
 		}
 		defer ldsr.Close()
+		if err := ldsr.Run(); err != nil {
+			t.Fatal("Error running adsc ", err)
+		}
 
 		r, err := ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 		if err != nil {
