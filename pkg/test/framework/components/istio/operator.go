@@ -593,7 +593,7 @@ func install(c *operatorComponent, installSettings []string, istioCtl istioctl.I
 		"--skip-confirmation",
 	}
 	cmd = append(cmd, installSettings...)
-	scopes.Framework.Infof("Running istio control plane on cluster %s %v", clusterName, cmd)
+	scopes.Framework.Infof("Installing Istio components on cluster %s %v", clusterName, cmd)
 	if _, _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("install failed: %v", err)
 	}
