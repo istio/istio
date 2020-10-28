@@ -33,6 +33,7 @@ import (
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -409,6 +410,11 @@ type IstioEndpoint struct {
 
 	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
 	WorkloadName string
+
+	// The ingress tunnel supportability of this endpoint.
+	// If this endpoint sidecar proxy does not support h2 tunnel, this endpoint will not show up in the EDS clusters
+	// which are generated for h2 tunnel.
+	TunnelAbility networking.TunnelAbility
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
