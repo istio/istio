@@ -151,6 +151,9 @@ func NewServer(config Config) (*Server, error) {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 		}
 		// Construct a http client and cache it in order to reuse the connection.
+		// The Client's Transport typically has internal state (cached TCP
+		// connections), so Clients should be reused instead of created as
+		// needed. Clients are safe for concurrent use by multiple goroutines.
 		s.appProbeClient[path] = &http.Client{
 			Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
 			// We skip the verification since kubelet skips the verification for HTTPS prober as well
@@ -426,7 +429,6 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
-	// get the http client must exist because
 	httpClient := s.appProbeClient[path]
 	proberPath := prober.HTTPGet.Path
 	if !strings.HasPrefix(proberPath, "/") {
