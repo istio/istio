@@ -46,7 +46,6 @@ import (
 	kubeclient "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 type Event struct {
@@ -95,13 +94,11 @@ func (fx *FakeXdsUpdater) Wait(types ...string) *Event {
 	for {
 		select {
 		case e := <-fx.Events:
-			log.Errorf("howardjohn: got event %v/%v", e.kind, e.host)
 			for _, et := range types {
 				if e.kind == et {
 					return &e
 				}
 			}
-			log.Errorf("howardjohn: dropping event %v", e.kind)
 			continue
 		case <-time.After(1 * time.Second):
 			return nil
