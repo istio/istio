@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"regexp"
 	"strconv"
@@ -207,6 +208,13 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
+	// Add the handler for pprof.
+	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
+	mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
+	mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
+	mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
+	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
 		log.Errorf("Error listening on status port: %v", err.Error())
@@ -240,6 +248,51 @@ func (s *Server) Run(ctx context.Context) {
 	// Wait for the agent to be shut down.
 	<-ctx.Done()
 	log.Info("Status server has successfully terminated")
+}
+
+func (s *Server) handlePprofIndex(w http.ResponseWriter, r *http.Request) {
+	if !isRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
+
+	pprof.Index(w, r)
+}
+
+func (s *Server) handlePprofCmdline(w http.ResponseWriter, r *http.Request) {
+	if !isRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
+
+	pprof.Cmdline(w, r)
+}
+
+func (s *Server) handlePprofSymbol(w http.ResponseWriter, r *http.Request) {
+	if !isRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
+
+	pprof.Symbol(w, r)
+}
+
+func (s *Server) handlePprofProfile(w http.ResponseWriter, r *http.Request) {
+	if !isRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
+
+	pprof.Profile(w, r)
+}
+
+func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
+	if !isRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
+
+	pprof.Trace(w, r)
 }
 
 func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
