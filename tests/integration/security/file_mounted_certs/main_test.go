@@ -172,6 +172,11 @@ values:
       componentLogLevel: "misc:debug"
   pilot:
     env:
+      # We need to turn off the XDS Auth because test certificates only have a fixed/hardcoded identity, but the identity of the actual 
+      # deployed test services changes on each run due to a randomly generated namespace suffixes. 
+      # Turning the XDS-Auth ON will result in the error messages like:
+      # Unauthorized XDS: 10.1.0.159:41960 with identity [spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]: 
+      #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
 `
 }
