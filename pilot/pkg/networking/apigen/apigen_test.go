@@ -84,7 +84,7 @@ func TestAPIGen(t *testing.T) {
 		adscConn.Store = model.MakeIstioStore(configController)
 		err = adscConn.Run()
 		if err != nil {
-			t.Fatal("Error running adsc ", err)
+			t.Fatal("ADSC: failed running ", err)
 		}
 
 		adscConn.Send(&xdsapi.DiscoveryRequest{

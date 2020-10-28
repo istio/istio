@@ -61,7 +61,7 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControl
 	}
 	err = adscConn.Run()
 	if err != nil {
-		return nil, fmt.Errorf("adsc: failed running %v", err)
+		return nil, fmt.Errorf("ADSC: failed running %v", err)
 	}
 
 	err = adscConn.Send(dr)
