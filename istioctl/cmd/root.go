@@ -172,7 +172,10 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(registerCmd)
 	deprecate(deregisterCmd)
 	rootCmd.AddCommand(deregisterCmd)
-	rootCmd.AddCommand(injectCommand())
+
+	kubeInjectCmd := injectCommand()
+	hideInheritedFlags(kubeInjectCmd, "namespace")
+	rootCmd.AddCommand(kubeInjectCmd)
 
 	postInstallCmd := &cobra.Command{
 		Use:   "post-install",
