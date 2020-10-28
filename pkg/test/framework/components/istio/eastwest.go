@@ -74,7 +74,6 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	}
 
 	installSettings := []string{
-		"install",
 		"--istioNamespace", i.settings.SystemNamespace,
 		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
 		"--set", "hub=" + imgSettings.Hub,
@@ -83,10 +82,8 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 		"-f", iopFile,
 	}
 	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
-	output, stderr, err := istioCtl.Invoke(installSettings)
+	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
-		scopes.Framework.Error(output)
-		scopes.Framework.Error(stderr)
 		scopes.Framework.Error(err)
 		return fmt.Errorf("failed installing eastwestgateway via IstioOperator: %v", err)
 	}
