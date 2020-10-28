@@ -15,6 +15,8 @@
 package xds
 
 import (
+	"fmt"
+
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
@@ -222,14 +224,14 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 	}
 }
 
-// loadAssignmentsForCluster return the endpoints for a cluster
+// llbEndpointAndOptionsForCluster return the endpoints for a cluster
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests.
-func (s *DiscoveryServer) loadAssignmentsForCluster(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
+func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]*LocLbEndpointsAndOptions, error) {
 	if b.service == nil {
 		// Shouldn't happen here
 		adsLog.Debugf("can not find the service for cluster %s", b.clusterName)
-		return buildEmptyClusterLoadAssignment(b.clusterName)
+		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
@@ -241,14 +243,14 @@ func (s *DiscoveryServer) loadAssignmentsForCluster(b EndpointBuilder) *endpoint
 	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
 	if b.service.Resolution == model.DNSLB {
 		adsLog.Infof("cluster %s in eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
-		return nil
+		return nil, fmt.Errorf("cluster %s in eds cluster", b.clusterName)
 	}
 
 	svcPort, f := b.service.Ports.GetByPort(b.port)
 	if !f {
 		// Shouldn't happen here
 		adsLog.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
-		return buildEmptyClusterLoadAssignment(b.clusterName)
+		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
 	s.mutex.RLock()
@@ -257,28 +259,27 @@ func (s *DiscoveryServer) loadAssignmentsForCluster(b EndpointBuilder) *endpoint
 	if !f {
 		// Shouldn't happen here
 		adsLog.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
-		return buildEmptyClusterLoadAssignment(b.clusterName)
+		return make([]*LocLbEndpointsAndOptions, 0), nil
 	}
 
-	locEps := b.buildLocalityLbEndpointsFromShards(epShards, svcPort)
-
-	return &endpoint.ClusterLoadAssignment{
-		ClusterName: b.clusterName,
-		Endpoints:   locEps,
-	}
+	return b.buildLocalityLbEndpointsFromShards(epShards, svcPort), nil
 }
 
 func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
-	l := s.loadAssignmentsForCluster(b)
-	if l == nil {
-		return nil
+	llbOpts, err := s.llbEndpointAndOptionsForCluster(b)
+	if err != nil {
+		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
 	if b.MultiNetworkConfigured() {
-		l.Endpoints = b.EndpointsByNetworkFilter(l.Endpoints)
+		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 	}
+
+	llbOpts = b.ApplyTunnelSetting(llbOpts, b.tunnelType)
+
+	l := b.createClusterLoadAssignment(llbOpts)
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
