@@ -132,7 +132,7 @@ func TestADSC_Run(t *testing.T) {
 				return
 			}
 			if err := tt.inAdsc.Run(); err != nil {
-				t.Errorf("ADSC run error: %v", err)
+				t.Errorf("ADSC: failed running %v", err)
 				return
 			}
 			tt.inAdsc.RecvWg.Wait()
