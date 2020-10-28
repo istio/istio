@@ -305,7 +305,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		f.t.Fatalf("Error connecting: %v", err)
 	}
 	if err := adscConn.Run(); err != nil {
-		f.t.Fatalf("Error running adsc: %v", err)
+		f.t.Fatalf("ADSC: failed running: %v", err)
 	}
 
 	if len(wait) > 0 {

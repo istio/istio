@@ -154,7 +154,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	}
 	defer adsc.Close()
 	if err := adsc.Run(); err != nil {
-		t.Fatal("Error running adsc ", err)
+		t.Fatal("ADSC: failed running ", err)
 	}
 
 	adsc.Watch()
@@ -220,7 +220,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	}
 	defer adsc.Close()
 	if err := adsc.Run(); err != nil {
-		t.Fatal("Error running adsc ", err)
+		t.Fatal("ADSC: failed running ", err)
 	}
 
 	adsc.Watch()
@@ -323,7 +323,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	}
 	defer adsc.Close()
 	if err := adsc.Run(); err != nil {
-		t.Fatal("Error running adsc ", err)
+		t.Fatal("ADSC: failed running ", err)
 	}
 
 	adsc.Watch()

@@ -131,7 +131,7 @@ func TestAgent(t *testing.T) {
 		}
 		defer ldsr.Close()
 		if err := ldsr.Run(); err != nil {
-			t.Fatal("Error running adsc ", err)
+			t.Fatal("ADSC: failed running ", err)
 		}
 
 		r, err := ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
