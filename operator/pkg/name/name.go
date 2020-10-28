@@ -64,6 +64,7 @@ const (
 	MeshPolicyStr         = "MeshPolicy"
 	PeerAuthenticationStr = "PeerAuthentication"
 	VirtualServiceStr     = "VirtualService"
+	IstioOperatorStr      = "IstioOperator"
 )
 
 // Istio API Group Names
