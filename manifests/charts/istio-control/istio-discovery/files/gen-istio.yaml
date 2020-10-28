@@ -738,6 +738,8 @@ spec:
       labels:
         app: istiod
         istio.io/rev: default
+        install.operator.istio.io/owning-resource: unknown
+        operator.istio.io/component: "Pilot"
         istio: pilot
       annotations:
         prometheus.io/port: "15014"

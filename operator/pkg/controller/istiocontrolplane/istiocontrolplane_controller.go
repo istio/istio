@@ -17,6 +17,7 @@ package istiocontrolplane
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 
@@ -214,6 +215,12 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	if iop.Spec == nil {
 		iop.Spec = &v1alpha1.IstioOperatorSpec{Profile: name.DefaultProfileName}
 	}
+	operatorRevision, _ := os.LookupEnv("REVISION")
+	if operatorRevision != "" && operatorRevision != iop.Spec.Revision {
+		scope.Infof("Ignoring IstioOperator CR %s with revision %s, since operator revision is %s.", iopName, iop.Spec.Revision, operatorRevision)
+		return reconcile.Result{}, nil
+	}
+
 	deleted := iop.GetDeletionTimestamp() != nil
 	finalizers := sets.NewString(iop.GetFinalizers()...)
 	if deleted {
