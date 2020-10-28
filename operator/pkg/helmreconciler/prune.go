@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -138,12 +139,16 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", oh)
 				continue
 			}
-
+			if o.GetKind() == name.IstioOperatorStr {
+				o.SetFinalizers([]string{})
+				if err := h.client.Patch(context.TODO(), &o, client.Merge); err != nil {
+					scope.Errorf("failed to patch IstioOperator CR: %s, %v", o.GetName(), err)
+				}
+			}
 			err := h.client.Delete(context.TODO(), &o,
-				client.PropagationPolicy(metav1.DeletePropagationBackground), client.GracePeriodSeconds(0))
+				client.PropagationPolicy(metav1.DeletePropagationBackground))
 			if err != nil {
-				if !strings.Contains(err.Error(), "not found") &&
-					!strings.Contains(err.Error(), "could not find the requested resource") {
+				if !kerrors.IsNotFound(err) {
 					errs = util.AppendErr(errs, err)
 				} else {
 					// do not return error if resources are not found
@@ -218,19 +223,15 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	return usList, nil
 }
 
-// getIstioOperatorCR is a helper function to delete IstioOperator CR during purge,
+// getIstioOperatorCR is a helper function to get IstioOperator CR during purge,
 // otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
 // And it is needed to remove the IstioOperator CRD.
 func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
 	objects := &unstructured.UnstructuredList{}
-	objects.SetGroupVersionKind(schema.GroupVersionKind{Group: "install.istio.io", Version: "v1alpha1", Kind: "IstioOperator"})
-	if err := h.client.List(context.TODO(), objects); err == nil {
-		for _, obj := range objects.Items {
-			obj.SetFinalizers([]string{})
-			if err := h.client.Patch(context.TODO(), &obj, client.Merge); err != nil {
-				scope.Errorf("failed to patch IstioOperator CR: %s, %v", obj.GetName(), err)
-			}
-		}
+	objects.SetGroupVersionKind(schema.GroupVersionKind{Group: "install.istio.io",
+		Version: "v1alpha1", Kind: name.IstioOperatorStr})
+	if err := h.client.List(context.TODO(), objects); err != nil {
+		scope.Errorf("failed to list IstioOperator CR: %v", err)
 	}
 	return objects
 }
@@ -343,13 +344,11 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 			continue
 		}
-		err := h.client.Delete(context.TODO(), &o,
-			client.PropagationPolicy(metav1.DeletePropagationBackground), client.GracePeriodSeconds(0))
+		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		scope.Infof("Deleting %s (%s/%v)", obj.Hash(), h.iop.Name, h.iop.Spec.Revision)
 		objGvk := o.GroupVersionKind()
 		if err != nil {
-			if !strings.Contains(err.Error(), "not found") &&
-				!strings.Contains(err.Error(), "could not find the requested resource") {
+			if !kerrors.IsNotFound(err) {
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found
