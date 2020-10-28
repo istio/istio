@@ -522,7 +522,7 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 // sendUpstreamWithTimeout sends discovery request with default send timeout.
 func sendUpstreamWithTimeout(ctx context.Context, upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
 	request *discovery.DiscoveryRequest) error {
-	return sendWithTimeout(func(errChan chan error) {
+	return sendWithTimeout(ctx, func(errChan chan error) {
 		errChan <- upstream.Send(request)
 		close(errChan)
 	})
@@ -531,14 +531,14 @@ func sendUpstreamWithTimeout(ctx context.Context, upstream discovery.AggregatedD
 // sendDownstreamWithTimeout sends discovery response with default send timeout.
 func sendDownstreamWithTimeout(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
 	response *discovery.DiscoveryResponse) error {
-	return sendWithTimeout(func(errChan chan error) {
+	return sendWithTimeout(context.Background(), func(errChan chan error) {
 		errChan <- downstream.Send(response)
 		close(errChan)
 	})
 }
 
-func sendWithTimeout(sendFunc func(errorChan chan error)) error {
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), sendTimeout)
+func sendWithTimeout(ctx context.Context, sendFunc func(errorChan chan error)) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, sendTimeout)
 	defer cancel()
 	errChan := make(chan error, 1)
 	go sendFunc(errChan)
