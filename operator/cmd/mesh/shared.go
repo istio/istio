@@ -135,8 +135,6 @@ func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernete
 		return nil, nil, err
 	}
 
-	testRestConfig = restConfig
-	testK8Interface = clientset
 	return restConfig, clientset, nil
 }
 

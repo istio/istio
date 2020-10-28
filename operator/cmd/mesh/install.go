@@ -307,18 +307,18 @@ func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, f
 				return "", nil, fmt.Errorf("failed to check if component: %s is enabled or not: %v", string(c), err)
 			}
 			if enabled {
-				enabledComponents = append(enabledComponents, string(c))
+				enabledComponents = append(enabledComponents, name.UserFacingComponentName(c))
 			}
 		}
 		for _, c := range iop.Spec.Components.IngressGateways {
 			if c.Enabled.Value {
-				enabledComponents = append(enabledComponents, string(name.IngressComponentName))
+				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.IngressComponentName))
 				break
 			}
 		}
 		for _, c := range iop.Spec.Components.EgressGateways {
 			if c.Enabled.Value {
-				enabledComponents = append(enabledComponents, string(name.EgressComponentName))
+				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.EgressComponentName))
 				break
 			}
 		}
