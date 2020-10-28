@@ -148,7 +148,7 @@ func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets 
 	ads.Store = sa.localXDSGenerator.xdsServer.MemoryConfigStore
 	ads.Registry = sa.localXDSGenerator.xdsServer.DiscoveryServer.MemRegistry
 	if err := ads.Run(); err != nil {
-		return fmt.Errorf("adsc: failed running %v", err)
+		return fmt.Errorf("ADSC: failed running %v", err)
 	}
 
 	sa.localXDSGenerator.proxyGen.AddClient(ads)
