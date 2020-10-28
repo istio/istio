@@ -131,12 +131,17 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
 func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
+	deletedObjects := make(map[string]bool)
 	for _, objects := range objectsList {
 		for _, o := range objects.Items {
 			obj := object.NewK8sObject(&o, nil, nil)
 			oh := obj.Hash()
 			if h.opts.DryRun {
 				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", oh)
+				continue
+			}
+			// kube client does not differentiate API version when listing, added this check to deduplicate.
+			if deletedObjects[oh] {
 				continue
 			}
 			if o.GetKind() == name.IstioOperatorStr {
@@ -156,6 +161,7 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 						obj.Hash())
 				}
 			} else {
+				deletedObjects[oh] = true
 				objGvk := o.GroupVersionKind()
 				metrics.ResourceDeletionTotal.
 					With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
