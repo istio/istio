@@ -513,6 +513,8 @@ type NodeMetadata struct {
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
 
+	WorkloadEntryName string `json:"WORKLOAD_ENTRY_NAME",omitempty`
+
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
 
