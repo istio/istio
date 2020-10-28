@@ -178,7 +178,7 @@ fi
 
 # Run the test target if provided.
 if [[ -n "${PARAMS:-}" ]]; then
-  make "test.integration.kube.presubmit"
+  make "${PARAMS[*]}"
 fi
 
 # Check if the user is running the clusters in manual mode.
