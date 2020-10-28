@@ -409,7 +409,9 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
-func operatorFromCluster(enableVerbose bool, istioNamespaceFlag string, revision string, restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
+// nolint: lll
+func operatorFromCluster(enableVerbose bool, istioNamespaceFlag string, revision string,
+	restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return nil, err
