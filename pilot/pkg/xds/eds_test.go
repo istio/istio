@@ -351,6 +351,9 @@ func adsConnectAndWait(t *testing.T) *adsc.ADSC {
 	if err != nil {
 		t.Fatal("Error connecting ", err)
 	}
+	if err := adscConn.Run(); err != nil {
+		t.Fatal("ADSC: failed running ", err)
+	}
 	adscConn.Watch()
 	_, err = adscConn.Wait(10*time.Second, watchAll...)
 	if err != nil {

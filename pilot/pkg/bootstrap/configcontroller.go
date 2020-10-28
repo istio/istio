@@ -211,12 +211,15 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				}.ToStruct(),
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 			})
+			if err != nil {
+				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
+			}
 			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
 			xdsMCP.Store = model.MakeIstioStore(configController)
-
+			err = xdsMCP.Run()
 			if err != nil {
-				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
+				return fmt.Errorf("MCP: failed running %v", err)
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Warna("Started XDS config ", s.ConfigStores)

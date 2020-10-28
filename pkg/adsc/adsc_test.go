@@ -131,7 +131,10 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("Dial error: %v", err)
 				return
 			}
-
+			if err := tt.inAdsc.Run(); err != nil {
+				t.Errorf("ADSC: failed running %v", err)
+				return
+			}
 			tt.inAdsc.RecvWg.Wait()
 			if !cmp.Equal(tt.inAdsc.Received, tt.expectedADSResources.Received, protocmp.Transform()) {
 				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedADSResources.Received, tt.inAdsc.Received)
