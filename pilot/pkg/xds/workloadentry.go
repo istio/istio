@@ -26,7 +26,6 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
