@@ -283,9 +283,7 @@ func (a *ADSC) Dial() error {
 	if err != nil {
 		return err
 	}
-
-	err = a.Run()
-	return err
+	return nil
 }
 
 // Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
