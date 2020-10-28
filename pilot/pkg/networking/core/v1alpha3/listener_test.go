@@ -93,17 +93,18 @@ var (
 		ConfigNamespace: "not-default",
 	}
 	proxyGateway = model.Proxy{
-		Type:        model.Router,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
-		Metadata: &model.NodeMetadata{
-			Namespace: "not-default",
-			Labels: map[string]string{
-				"istio": "ingressgateway",
-			},
-		},
+		Type:            model.Router,
+		IPAddresses:     []string{"1.1.1.1"},
+		ID:              "v0.default",
+		DNSDomain:       "default.example.org",
+		Metadata:        &proxyGatewayMetadata,
 		ConfigNamespace: "not-default",
+	}
+	proxyGatewayMetadata = model.NodeMetadata{
+		Namespace: "not-default",
+		Labels: map[string]string{
+			"istio": "ingressgateway",
+		},
 	}
 	proxyInstances = []*model.ServiceInstance{
 		{
@@ -2583,7 +2584,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
-	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
+	configStore := model.MakeIstioStore(memory.MakeSkipValidation(collections.Pilot, true))
 
 	m := mesh.DefaultMeshConfig()
 	m.ThriftConfig.RateLimitUrl = "ratelimit.svc.cluster.local"

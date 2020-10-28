@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -156,34 +157,31 @@ func TestSplitHorizonEds(t *testing.T) {
 // Tests whether an EDS response from the provided network matches the expected results
 func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, network string, sidecarID string, expected expectedResults) {
 	t.Helper()
-	adscon := s.ConnectADS()
+	ads := s.ConnectADS().WithID(sidecarID)
 
 	metadata := &structpb.Struct{Fields: map[string]*structpb.Value{
 		"ISTIO_VERSION": {Kind: &structpb.Value_StringValue{StringValue: "1.3"}},
 		"NETWORK":       {Kind: &structpb.Value_StringValue{StringValue: network}},
 	}}
 
-	err := sendCDSReqWithMetadata(sidecarID, metadata, adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = adsReceive(adscon, 5*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		Node: &core.Node{
+			Id:       ads.ID,
+			Metadata: metadata,
+		},
+		TypeUrl: v3.ClusterType,
+	})
 
-	err = sendEDSReqWithMetadata([]string{"outbound|1080||service5.default.svc.cluster.local"}, sidecarID, metadata, adscon)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := adsReceive(adscon, 5*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cla, err := getLoadAssignment(res)
-	if err != nil {
-		t.Fatal(err)
-	}
+	clusterName := "outbound|1080||service5.default.svc.cluster.local"
+	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		Node: &core.Node{
+			Id:       ads.ID,
+			Metadata: metadata,
+		},
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{clusterName},
+	})
+	cla := xdstest.UnmarshalClusterLoadAssignment(t, res.Resources)[0]
 	eps := cla.Endpoints
 
 	if len(eps) != 1 {
@@ -293,36 +291,4 @@ func addNetwork(server *xds.FakeDiscoveryServer, id string, network *meshconfig.
 	c[id] = network
 	meshNetworks.Networks = c
 	server.Env().SetNetworks(&meshNetworks)
-}
-
-func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &core.Node{
-			Id:       node,
-			Metadata: metadata,
-		},
-		TypeUrl: v3.ClusterType})
-	if err != nil {
-		return fmt.Errorf("CDS request failed: %s", err)
-	}
-
-	return nil
-}
-
-func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.Struct,
-	edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-	err := edsstr.Send(&discovery.DiscoveryRequest{
-		Node: &core.Node{
-			Id:       node,
-			Metadata: metadata,
-		},
-		TypeUrl:       v3.EndpointType,
-		ResourceNames: clusters,
-	})
-	if err != nil {
-		return fmt.Errorf("EDS request failed: %s", err)
-	}
-
-	return nil
 }

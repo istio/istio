@@ -121,8 +121,10 @@ var (
 	// This is also disabled by presence of the SDS socket directory
 	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
 		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
-	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
+
+	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "cluster.local",
 		"The trust domain for spiffe certificates").Get()
+
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,

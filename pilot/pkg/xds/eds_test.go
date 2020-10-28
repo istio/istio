@@ -346,10 +346,8 @@ func fullPush(s *xds.FakeDiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
 }
 
-func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
-	adscConn, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
-		IP: testIP(uint32(ip)),
-	})
+func adsConnectAndWait(t *testing.T) *adsc.ADSC {
+	adscConn, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{})
 	if err != nil {
 		t.Fatal("Error connecting ", err)
 	}
@@ -636,10 +634,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 	// be detected
 	// This is not using adsc, which consumes the events automatically.
 	ads := s.ConnectADS()
-	err := sendCDSReq(sidecarID(testIP(0x0a120001), "app3"), ads)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ads.Request(nil)
 
 	n := nclients
 	wg.Add(n)

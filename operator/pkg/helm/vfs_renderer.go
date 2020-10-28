@@ -115,7 +115,11 @@ func readProfiles(chartsDir string) (map[string]bool, error) {
 			return nil, fmt.Errorf("failed to read profiles: %v", err)
 		}
 		for _, f := range profilePaths {
-			profiles[strings.TrimSuffix(f, ".yaml")] = true
+			// Ensure only .yaml files are included in the rendered output
+			trimmedString := strings.TrimSuffix(f, ".yaml")
+			if f != trimmedString {
+				profiles[trimmedString] = true
+			}
 		}
 	default:
 		dir, err := ioutil.ReadDir(filepath.Join(chartsDir, profilesRoot))
@@ -123,7 +127,10 @@ func readProfiles(chartsDir string) (map[string]bool, error) {
 			return nil, fmt.Errorf("failed to read profiles: %v", err)
 		}
 		for _, f := range dir {
-			profiles[strings.TrimSuffix(f.Name(), ".yaml")] = true
+			trimmedString := strings.TrimSuffix(f.Name(), ".yaml")
+			if f.Name() != trimmedString {
+				profiles[trimmedString] = true
+			}
 		}
 	}
 	return profiles, nil
@@ -134,6 +141,9 @@ func (h *VFSRenderer) loadChart() error {
 	prefix := h.helmChartDirPath
 	fnames, err := vfs.GetFilesRecursive(prefix)
 	if err != nil {
+		if err.Error() == fmt.Sprintf("Asset %s not found", prefix) {
+			return missingComponentMessages(h.componentName)
+		}
 		return err
 	}
 	var bfs []*loader.BufferedFile

@@ -50,6 +50,17 @@ const (
 	testService = "test"
 )
 
+// eventually polls cond until it completes (returns true) or times out (resulting in a test failure).
+func eventually(t test.Failer, cond func() bool) {
+	t.Helper()
+	retry.UntilSuccessOrFail(t, func() error {
+		if !cond() {
+			return fmt.Errorf("failed to get positive condition")
+		}
+		return nil
+	}, retry.Timeout(time.Second), retry.Delay(time.Millisecond*10))
+}
+
 func TestServices(t *testing.T) {
 
 	networksWatcher := mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
@@ -90,12 +101,11 @@ func TestServices(t *testing.T) {
 			makeService(testService, ns, ctl.client, t)
 			<-fx.Events
 
-			test.Eventually(t, "successfully added a service", func() bool {
+			eventually(t, func() bool {
 				out, clientErr := sds.Services()
 				if clientErr != nil {
 					return false
 				}
-				log.Infof("Services: %#v", out)
 
 				// Original test was checking for 'protocolTCP' - which is incorrect (the
 				// port name is 'http'. It was working because the Service was created with
@@ -124,7 +134,7 @@ func TestServices(t *testing.T) {
 				t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
 			}
 
-			test.Eventually(t, "successfully created endpoints", func() bool {
+			eventually(t, func() bool {
 				ep := sds.InstancesByPort(svc, 80, nil)
 				return len(ep) == 2
 			})
@@ -1277,35 +1287,32 @@ func deleteExternalNameService(controller *FakeController, name, namespace strin
 }
 
 func addPods(t *testing.T, controller *FakeController, fx *FakeXdsUpdater, pods ...*coreV1.Pod) {
-	retry.UntilSuccessOrFail(t, func() error {
-		for _, pod := range pods {
-			p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
-			var newPod *coreV1.Pod
-			var err error
-			if p == nil {
-				newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metaV1.CreateOptions{})
-				if err != nil {
-					t.Fatalf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
-				}
-			} else {
-				newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metaV1.UpdateOptions{})
-				if err != nil {
-					t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
-				}
+	for _, pod := range pods {
+		p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
+		var newPod *coreV1.Pod
+		var err error
+		if p == nil {
+			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metaV1.CreateOptions{})
+			if err != nil {
+				t.Fatalf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
 			}
-			// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
-			// events - since PodIP will be "".
-			newPod.Status.PodIP = pod.Status.PodIP
-			newPod.Status.Phase = coreV1.PodRunning
-			_, _ = controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metaV1.UpdateOptions{})
-			if err := waitForPod(controller, pod.Status.PodIP); err != nil {
-				return err
+		} else {
+			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metaV1.UpdateOptions{})
+			if err != nil {
+				t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
 			}
-			// pod first time occur will trigger proxy push
-			fx.Wait("proxy")
 		}
-		return nil
-	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*10))
+		// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
+		// events - since PodIP will be "".
+		newPod.Status.PodIP = pod.Status.PodIP
+		newPod.Status.Phase = coreV1.PodRunning
+		_, _ = controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metaV1.UpdateOptions{})
+		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+			t.Fatal(err)
+		}
+		// pod first time occur will trigger proxy push
+		fx.Wait("proxy")
+	}
 }
 
 func generatePod(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *coreV1.Pod {
@@ -1353,22 +1360,19 @@ func generateNode(name string, labels map[string]string) *coreV1.Node {
 
 func addNodes(t *testing.T, controller *FakeController, nodes ...*coreV1.Node) {
 	fakeClient := controller.client
-	retry.UntilSuccessOrFail(t, func() error {
-		for _, node := range nodes {
-			_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{})
-			if errors.IsAlreadyExists(err) {
-				if _, err := fakeClient.CoreV1().Nodes().Update(context.TODO(), node, metaV1.UpdateOptions{}); err != nil {
-					t.Fatal(err)
-				}
-			} else if err != nil {
+	for _, node := range nodes {
+		_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{})
+		if errors.IsAlreadyExists(err) {
+			if _, err := fakeClient.CoreV1().Nodes().Update(context.TODO(), node, metaV1.UpdateOptions{}); err != nil {
 				t.Fatal(err)
 			}
-			if err := waitForNode(controller, node.Name); err != nil {
-				return err
-			}
+		} else if err != nil {
+			t.Fatal(err)
 		}
-		return nil
-	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*10))
+		if err := waitForNode(controller, node.Name); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestEndpointUpdate(t *testing.T) {

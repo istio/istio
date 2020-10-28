@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/ledger"
 )
 
 func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
@@ -353,14 +352,6 @@ type authzFakeStore struct {
 	}
 }
 
-func (fs *authzFakeStore) GetLedger() ledger.Ledger {
-	panic("implement me")
-}
-
-func (fs *authzFakeStore) SetLedger(ledger.Ledger) error {
-	panic("implement me")
-}
-
 func (fs *authzFakeStore) add(cfg config.Config) {
 	fs.data = append(fs.data, struct {
 		typ config.GroupVersionKind
@@ -410,12 +401,5 @@ func (fs *authzFakeStore) UpdateStatus(config.Config) (string, error) {
 }
 
 func (fs *authzFakeStore) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
-	return "not implemented", nil
-}
-
-func (fs *authzFakeStore) Version() string {
-	return "not implemented"
-}
-func (fs *authzFakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return "not implemented", nil
 }

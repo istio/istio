@@ -48,6 +48,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/istio-agent/health"
+	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
 	"istio.io/pkg/filewatcher"
@@ -221,6 +222,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
+		metrics.IstiodConnectionFailures.Increment()
 		return err
 	}
 	defer upstreamConn.Close()
@@ -265,8 +267,10 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// error from upstream Istiod.
 			if isExpectedGRPCError(err) {
 				proxyLog.Debugf("upstream terminated with status %v", err)
+				metrics.IstiodConnectionCancellations.Increment()
 			} else {
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
+				metrics.IstiodConnectionErrors.Increment()
 			}
 			_ = upstream.CloseSend()
 			return nil
@@ -274,8 +278,10 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// error from downstream Envoy.
 			if isExpectedGRPCError(err) {
 				proxyLog.Debugf("downstream terminated with status %v", err)
+				metrics.EnvoyConnectionCancellations.Increment()
 			} else {
 				proxyLog.Warnf("downstream terminated with unexpected error %v", err)
+				metrics.EnvoyConnectionErrors.Increment()
 			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
@@ -284,6 +290,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				return nil
 			}
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
+			metrics.XdsProxyRequests.Increment()
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
@@ -293,6 +300,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 				return nil
 			}
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
+			metrics.XdsProxyResponses.Increment()
 			switch resp.TypeUrl {
 			case v3.NameTableType:
 				// intercept. This is for the dns server

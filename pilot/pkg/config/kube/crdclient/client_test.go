@@ -46,7 +46,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache
 		}, metav1.CreateOptions{})
 	}
 	stop := make(chan struct{})
-	config, err := New(fake, &model.DisabledLedger{}, "", controller.Options{})
+	config, err := New(fake, "", controller.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -62,9 +62,6 @@ kind: IstioOperator
 metadata:
   name: eastwest
 spec:
-  # Only generate a gateway component defined below.
-  # Using this with "istioctl install" will reconcile and remove existing control-plane components.
-  # Instead we use "istioctl manifest generate" and "kubectl apply".
   profile: empty
   components:
     ingressGateways:

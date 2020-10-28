@@ -55,7 +55,8 @@ var wellKnownVersions = map[string]string{
 	`^1\.6.*`: "1.6",
 	`^1\.7.*`: "1.7",
 	`^1\.8.*`: "1.8",
-	// Hopefully we have a better API by 1.9. If not, add it here
+	`^1\.9.*`: "1.9",
+	// Hopefully we have a better API by 1.10. If not, add it here
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
@@ -74,7 +75,9 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			Operation: cp.Patch.Operation,
 		}
 		var err error
-		cpw.Value, err = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
+		// Use non-strict building to avoid issues where EnvoyFilter is valid but meant
+		// for a different version of the API than we are built with
+		cpw.Value, err = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false)
 		// There generally won't be an error here because validation catches mismatched types
 		// Should only happen in tests or without validation
 		if err != nil {

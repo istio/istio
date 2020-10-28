@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 27771
+releaseNotes:
+- |
+  **Fixed** how install-cni applies istio-cni plugin configuration,
+  Install-cni will now remove existing istio-cni plugins from the CNI config
+  before inserting istio-cni plugin configuration (new behaviour)
+  rather than just append a new configuration to the existing list (former behaviour).
