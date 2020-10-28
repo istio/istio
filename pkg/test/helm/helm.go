@@ -28,10 +28,11 @@ type Helm struct {
 	baseDir    string
 }
 
-// NewHelm returns a new instance of a helm object.
-func NewHelm(kubeConfig string) *Helm {
+// New returns a new instance of a helm object.
+func New(kubeConfig, baseWorkDir string) *Helm {
 	return &Helm{
 		kubeConfig: kubeConfig,
+		baseDir:    baseWorkDir,
 	}
 }
 
@@ -49,11 +50,11 @@ func (h *Helm) DeleteChart(name, namespace string) error {
 }
 
 func execCommand(cmd string) error {
-	scopes.CI.Infof("Applying helm command: %s", cmd)
+	scopes.Framework.Infof("Applying helm command: %s", cmd)
 
 	s, err := shell.Execute(true, cmd)
 	if err != nil {
-		scopes.CI.Infof("(FAILED) Executing helm: %s (err: %v): %s", cmd, err, s)
+		scopes.Framework.Infof("(FAILED) Executing helm: %s (err: %v): %s", cmd, err, s)
 		return fmt.Errorf("%v: %s", err, s)
 	}
 

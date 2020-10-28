@@ -16,25 +16,145 @@
 package helm
 
 import (
+	"context"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	kubeApiCore "k8s.io/api/core/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/helm"
+	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 const (
 	IstioNamespace = "istio-system"
-	retryDelay     = time.Second
+	ReleasePrefix  = "istio-"
+	BaseChart      = "base"
+	DiscoveryChart = "istio-discovery"
+	retryDelay     = 2 * time.Second
 	retryTimeOut   = 20 * time.Minute
 )
 
-// TestInstall tests Istio installation using Helm
-func TestInstall(t *testing.T) {
+var (
+	// ChartPath is path of local Helm charts used for testing.
+	ChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
+)
+
+// TestInstallWithFirstPartyJwt tests Istio installation using Helm
+// on a cluster with first-party-jwt
+func TestInstallWithFirstPartyJwt(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			switch ctx.Environment().EnvironmentName() {
-			case environment.Kube:
-			default:
-				t.Errorf("Provided environment is not supported for this test.")
+			workDir, err := ctx.CreateTmpDirectory("helm-install-test")
+			if err != nil {
+				t.Fatal("failed to create test directory")
 			}
+			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			h := helm.New(cs.Filename(), ChartPath)
+			s, err := image.SettingsFromCommandLine()
+			if err != nil {
+				t.Fatal(err)
+			}
+			overrideValuesStr := `
+global:
+  hub: %s
+  tag: %s
+  jwtPolicy: first-party-jwt
+`
+			overrideValues := fmt.Sprintf(overrideValuesStr, s.Hub, s.Tag)
+			overrideValuesFile := filepath.Join(workDir, "values.yaml")
+			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+				t.Fatalf("failed to write iop cr file: %v", err)
+			}
+			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+				ObjectMeta: kubeApiMeta.ObjectMeta{
+					Name: IstioNamespace,
+				},
+			}, kubeApiMeta.CreateOptions{}); err != nil {
+				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
+				if err == nil {
+					log.Info("istio namespace already exist")
+				} else {
+					t.Fatalf("failed to create istio namespace: %v", err)
+				}
+			}
+
+			// Install base chart
+			err = h.InstallChart(ReleasePrefix+BaseChart, BaseChart,
+				IstioNamespace, overrideValuesFile)
+			if err != nil {
+				t.Fatalf("failed to install istio %s chart", BaseChart)
+			}
+
+			// Install discovery chart
+			err = h.InstallChart("istiod", "istio-control/"+DiscoveryChart,
+				IstioNamespace, overrideValuesFile)
+			if err != nil {
+				t.Fatalf("failed to install istio %s chart", DiscoveryChart)
+			}
+			verifyInstallation(t, ctx, cs)
 		})
+}
+
+// verifyInstallation verify that the Helm installation is successfull
+func verifyInstallation(t *testing.T, ctx resource.Context, cs resource.Cluster) {
+	scopes.Framework.Infof("=== verifying istio installation === ")
+
+	retry.UntilSuccessOrFail(t, func() error {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewSinglePodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
+			return fmt.Errorf("istiod pod is not ready: %v", err)
+		}
+		return nil
+	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+	sanityCheck(t, ctx)
+	scopes.Framework.Infof("=== succeeded ===")
+}
+
+func sanityCheck(t *testing.T, ctx resource.Context) {
+	scopes.Framework.Infof("running sanity test")
+	var client, server echo.Instance
+	test := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "default",
+		Inject: true,
+	})
+	echoboot.NewBuilder(ctx).
+		With(&client, echo.Config{
+			Service:   "client",
+			Namespace: test,
+			Ports:     []echo.Port{},
+		}).
+		With(&server, echo.Config{
+			Service:   "server",
+			Namespace: test,
+			Ports: []echo.Port{
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
+				}},
+		}).
+		BuildOrFail(t)
+	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
+		Target:    server,
+		PortName:  "http",
+		Validator: echo.ExpectOK(),
+	})
 }
