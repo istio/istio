@@ -51,12 +51,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
-)
-
-var (
-	newFileWatcher = filewatcher.NewWatcher
 )
 
 const (
@@ -286,7 +281,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 }
 
 func (p *XdsProxy) handleUpstreamRequest(ctx context.Context, con *ProxyConnection) {
-	defer con.upstream.CloseSend()
+	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
 		case req := <-con.requestsChan:
