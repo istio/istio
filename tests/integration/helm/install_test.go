@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
-	kubeApiCore "k8s.io/api/core/v1"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeapicore "k8s.io/api/core/v1"
+	kubeapimeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -138,12 +138,12 @@ global:
 // override values file and fails the tests on any failures.
 func installIstio(t *testing.T, ctx resource.Context, cs resource.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
-	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-		ObjectMeta: kubeApiMeta.ObjectMeta{
+	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeapicore.Namespace{
+		ObjectMeta: kubeapimeta.ObjectMeta{
 			Name: IstioNamespace,
 		},
-	}, kubeApiMeta.CreateOptions{}); err != nil {
-		_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
+	}, kubeapimeta.CreateOptions{}); err != nil {
+		_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeapimeta.GetOptions{})
 		if err == nil {
 			log.Info("istio namespace already exist")
 		} else {
@@ -183,17 +183,17 @@ func installIstio(t *testing.T, ctx resource.Context, cs resource.Cluster,
 // deleteIstio deletes installed Istio Helm charts and resources
 func deleteIstio(t *testing.T, cs resource.Cluster, h *helm.Helm) {
 	scopes.Framework.Infof("cleaning up resources")
-	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release", IngressReleaseName)
-	}
 	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release", EgressReleaseName)
 	}
+	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
+		t.Errorf("failed to delete %s release", IngressReleaseName)
+	}
+	if err := h.DeleteChart(IstiodReleaseName, IstioNamespace); err != nil {
+		t.Errorf("failed to delete %s release", IngressReleaseName)
+	}
 	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release", BaseReleaseName)
-	}
-	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), IstioNamespace, kubeApiMeta.DeleteOptions{}); err != nil {
-		t.Errorf("failed to delete %s namespace", IstioNamespace)
 	}
 }
 
