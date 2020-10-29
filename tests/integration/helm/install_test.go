@@ -209,7 +209,7 @@ func verifyInstallation(t *testing.T, ctx resource.Context, cs resource.Cluster)
 			return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
 		}
 		if _, err := kubetest.CheckPodsAreReady(kubetest.NewSinglePodFetch(cs, IstioNamespace, "app=istio-egressgateway")); err != nil {
-			return fmt.Errorf("istio egress gateway  pod is not ready: %v", err)
+			return fmt.Errorf("istio egress gateway pod is not ready: %v", err)
 		}
 		return nil
 	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
