@@ -34,20 +34,17 @@ import (
 	api "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/config/protocol"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	testutil "istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
 
@@ -303,39 +300,8 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 	if err := compareInClusterAndGeneratedResources(t, istioCtl, profileName, revision, cs); err != nil {
 		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
 	}
-	sanityCheck(t, ctx)
+	testutil.SanityCheck(t, ctx)
 	scopes.Framework.Infof("=== succeeded ===")
-}
-
-func sanityCheck(t *testing.T, ctx resource.Context) {
-	scopes.Framework.Infof("running sanity test")
-	var client, server echo.Instance
-	test := namespace.NewOrFail(t, ctx, namespace.Config{
-		Prefix: "default",
-		Inject: true,
-	})
-	echoboot.NewBuilder(ctx).
-		With(&client, echo.Config{
-			Service:   "client",
-			Namespace: test,
-			Ports:     []echo.Port{},
-		}).
-		With(&server, echo.Config{
-			Service:   "server",
-			Namespace: test,
-			Ports: []echo.Port{
-				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
-				}},
-		}).
-		BuildOrFail(t)
-	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:    server,
-		PortName:  "http",
-		Validator: echo.ExpectOK(),
-	})
 }
 
 func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance, profileName string, revision string,
@@ -430,4 +396,3 @@ func revName(name, revision string) string {
 	return name + "-" + revision
 
 }
-

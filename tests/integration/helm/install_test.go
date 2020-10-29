@@ -27,29 +27,34 @@ import (
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
 
 const (
-	IstioNamespace = "istio-system"
-	ReleasePrefix  = "istio-"
-	BaseChart      = "base"
-	DiscoveryChart = "istio-discovery"
-	retryDelay     = 2 * time.Second
-	retryTimeOut   = 20 * time.Minute
+	IstioNamespace      = "istio-system"
+	ReleasePrefix       = "istio-"
+	BaseChart           = "base"
+	DiscoveryChart      = "istio-discovery"
+	IngressGatewayChart = "istio-ingress"
+	EgressGatewayChart  = "istio-egress"
+	BaseReleaseName     = ReleasePrefix + BaseChart
+	IstiodReleaseName   = "istiod"
+	IngressReleaseName  = IngressGatewayChart
+	EgressReleaseName   = EgressGatewayChart
+	ControlChartsDir    = "istio-control"
+	GatewayChartsDir    = "gateways"
+	retryDelay          = 2 * time.Second
+	retryTimeOut        = 20 * time.Minute
 )
 
 var (
@@ -57,8 +62,43 @@ var (
 	ChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 )
 
+// TestDefaultInstall tests Istio installation using Helm with default options
+func TestDefaultInstall(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			workDir, err := ctx.CreateTmpDirectory("helm-install-test")
+			if err != nil {
+				t.Fatal("failed to create test directory")
+			}
+			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			h := helm.New(cs.Filename(), ChartPath)
+			s, err := image.SettingsFromCommandLine()
+			if err != nil {
+				t.Fatal(err)
+			}
+			overrideValuesStr := `
+global:
+  hub: %s
+  tag: %s
+`
+			overrideValues := fmt.Sprintf(overrideValuesStr, s.Hub, s.Tag)
+			overrideValuesFile := filepath.Join(workDir, "values.yaml")
+			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+				t.Fatalf("failed to write iop cr file: %v", err)
+			}
+			installIstio(t, ctx, cs, h, overrideValuesFile)
+
+			verifyInstallation(t, ctx, cs)
+
+			t.Cleanup(func() {
+				deleteIstio(t, cs, h)
+			})
+		})
+}
+
 // TestInstallWithFirstPartyJwt tests Istio installation using Helm
-// on a cluster with first-party-jwt
+// with first-party-jwt enabled
 func TestInstallWithFirstPartyJwt(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -84,34 +124,77 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-				ObjectMeta: kubeApiMeta.ObjectMeta{
-					Name: IstioNamespace,
-				},
-			}, kubeApiMeta.CreateOptions{}); err != nil {
-				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
-				if err == nil {
-					log.Info("istio namespace already exist")
-				} else {
-					t.Fatalf("failed to create istio namespace: %v", err)
-				}
-			}
+			installIstio(t, ctx, cs, h, overrideValuesFile)
 
-			// Install base chart
-			err = h.InstallChart(ReleasePrefix+BaseChart, BaseChart,
-				IstioNamespace, overrideValuesFile)
-			if err != nil {
-				t.Fatalf("failed to install istio %s chart", BaseChart)
-			}
-
-			// Install discovery chart
-			err = h.InstallChart("istiod", "istio-control/"+DiscoveryChart,
-				IstioNamespace, overrideValuesFile)
-			if err != nil {
-				t.Fatalf("failed to install istio %s chart", DiscoveryChart)
-			}
 			verifyInstallation(t, ctx, cs)
+
+			t.Cleanup(func() {
+				deleteIstio(t, cs, h)
+			})
 		})
+}
+
+// installIstio install Istio using Helm charts with the provided
+// override values file and fails the tests on any failures.
+func installIstio(t *testing.T, ctx resource.Context, cs resource.Cluster,
+	h *helm.Helm, overrideValuesFile string) {
+	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+		ObjectMeta: kubeApiMeta.ObjectMeta{
+			Name: IstioNamespace,
+		},
+	}, kubeApiMeta.CreateOptions{}); err != nil {
+		_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
+		if err == nil {
+			log.Info("istio namespace already exist")
+		} else {
+			t.Errorf("failed to create istio namespace: %v", err)
+		}
+	}
+
+	// Install base chart
+	err := h.InstallChart(BaseReleaseName, BaseChart,
+		IstioNamespace, overrideValuesFile)
+	if err != nil {
+		t.Errorf("failed to install istio %s chart", BaseChart)
+	}
+
+	// Install discovery chart
+	err = h.InstallChart(IstiodReleaseName, filepath.Join(ControlChartsDir, DiscoveryChart),
+		IstioNamespace, overrideValuesFile)
+	if err != nil {
+		t.Errorf("failed to install istio %s chart", DiscoveryChart)
+	}
+
+	// Install ingress gateway chart
+	err = h.InstallChart(IngressReleaseName, filepath.Join(GatewayChartsDir, IngressGatewayChart),
+		IstioNamespace, overrideValuesFile)
+	if err != nil {
+		t.Errorf("failed to install istio %s chart", IngressGatewayChart)
+	}
+
+	// Install egress gateway chart
+	err = h.InstallChart(EgressReleaseName, filepath.Join(GatewayChartsDir, EgressGatewayChart),
+		IstioNamespace, overrideValuesFile)
+	if err != nil {
+		t.Errorf("failed to install istio %s chart", EgressGatewayChart)
+	}
+}
+
+// deleteIstio deletes installed Istio Helm charts and resources
+func deleteIstio(t *testing.T, cs resource.Cluster, h *helm.Helm) {
+	scopes.Framework.Infof("cleaning up resources")
+	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
+		t.Errorf("failed to delete %s release", IngressReleaseName)
+	}
+	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
+		t.Errorf("failed to delete %s release", EgressReleaseName)
+	}
+	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
+		t.Errorf("failed to delete %s release", BaseReleaseName)
+	}
+	if err := cs.CoreV1().Namespaces().Delete(context.TODO(), IstioNamespace, kubeApiMeta.DeleteOptions{}); err != nil {
+		t.Errorf("failed to delete %s namespace", IstioNamespace)
+	}
 }
 
 // verifyInstallation verify that the Helm installation is successfull
@@ -122,39 +205,14 @@ func verifyInstallation(t *testing.T, ctx resource.Context, cs resource.Cluster)
 		if _, err := kubetest.CheckPodsAreReady(kubetest.NewSinglePodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
 			return fmt.Errorf("istiod pod is not ready: %v", err)
 		}
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewSinglePodFetch(cs, IstioNamespace, "app=istio-ingressgateway")); err != nil {
+			return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
+		}
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewSinglePodFetch(cs, IstioNamespace, "app=istio-egressgateway")); err != nil {
+			return fmt.Errorf("istio egress gateway  pod is not ready: %v", err)
+		}
 		return nil
 	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
-	sanityCheck(t, ctx)
+	util.SanityCheck(t, ctx)
 	scopes.Framework.Infof("=== succeeded ===")
-}
-
-func sanityCheck(t *testing.T, ctx resource.Context) {
-	scopes.Framework.Infof("running sanity test")
-	var client, server echo.Instance
-	test := namespace.NewOrFail(t, ctx, namespace.Config{
-		Prefix: "default",
-		Inject: true,
-	})
-	echoboot.NewBuilder(ctx).
-		With(&client, echo.Config{
-			Service:   "client",
-			Namespace: test,
-			Ports:     []echo.Port{},
-		}).
-		With(&server, echo.Config{
-			Service:   "server",
-			Namespace: test,
-			Ports: []echo.Port{
-				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
-				}},
-		}).
-		BuildOrFail(t)
-	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:    server,
-		PortName:  "http",
-		Validator: echo.ExpectOK(),
-	})
 }
