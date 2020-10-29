@@ -1009,8 +1009,9 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
 				newTestCase(a, "/request-headers", nil, false),
 				newTestCase(b, "/request-headers", nil, false),
-				newTestCase(a, "/request-headers-regex", map[string]string{"x-foo-regex": "fooregexp"}, true),
-				newTestCase(a, "/request-headers-regex", map[string]string{"x-foo-regex": "fooregexpa"}, false),
+				newTestCase(a, "/request-headers-regex", map[string]string{"x-foo-regex": "foo-regexp"}, true),
+				newTestCase(a, "/request-headers-regex", map[string]string{"x-foo-regex": "foo-regexp0"}, true),
+				newTestCase(a, "/request-headers-regex", map[string]string{"x-foo-regex": "foo-regexpa"}, false),
 				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
 				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 

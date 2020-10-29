@@ -47,7 +47,7 @@ spec:
         paths: ["/request-headers-regex"]
     when:
     - key: request.headers[x-foo-regex]
-      values: ["regex:fooregexp"]
+      values: ["regex:foo-regexp[0-9]?"]
 ---
 
 # Each of the following authorization policy uses a different condition on the given path.
@@ -55,7 +55,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: condition-request-headers
+  name: condition-request-headers-notvalues
   namespace: "{{ .NamespaceC }}"
 spec:
   selector:
