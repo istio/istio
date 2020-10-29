@@ -45,7 +45,7 @@ const (
 	// DisconnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload disconnected from a Pilot instance.
 	DisconnectedAtAnnotation = "istio.io/disconnectedAt"
 
-	timeFormat = "2006-01-02 15:04:05"
+	timeFormat = time.RFC3339Nano
 )
 
 type HealthEvent struct {
