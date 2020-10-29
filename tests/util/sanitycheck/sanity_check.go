@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package sanitycheck
 
 import (
 	"testing"
@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-// SanityCheck deploys echo server/client and runs an Istio traffic test
-func SanityCheck(t *testing.T, ctx resource.Context) {
+// RunTrafficTest deploys echo server/client and runs an Istio traffic test
+func RunTrafficTest(t *testing.T, ctx resource.Context) {
 	scopes.Framework.Infof("running sanity test")
 	var client, server echo.Instance
 	test := namespace.NewOrFail(t, ctx, namespace.Config{
