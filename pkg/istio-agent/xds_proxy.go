@@ -522,15 +522,22 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	var err error
 	var rootCert []byte
 	xdsCACertPath := agent.FindRootCAForXDS()
-	rootCert, err = ioutil.ReadFile(xdsCACertPath)
-	if err != nil {
-		return nil, err
-	}
+	if xdsCACertPath != "" {
+		rootCert, err = ioutil.ReadFile(xdsCACertPath)
+		if err != nil {
+			return nil, err
+		}
 
-	certPool = x509.NewCertPool()
-	ok := certPool.AppendCertsFromPEM(rootCert)
-	if !ok {
-		return nil, fmt.Errorf("failed to create TLS dial option with root certificates")
+		certPool = x509.NewCertPool()
+		ok := certPool.AppendCertsFromPEM(rootCert)
+		if !ok {
+			return nil, fmt.Errorf("failed to create TLS dial option with root certificates")
+		}
+	} else {
+		certPool, err = x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return certPool, nil
 }
