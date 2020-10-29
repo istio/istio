@@ -67,6 +67,33 @@ func TestMeshNetworking(t *testing.T) {
 				},
 			}},
 		},
+		corev1.ServiceTypeClusterIP: {
+			// cluster/network 1's ingress can be found up by registry service name in meshNetworks
+			"cluster-1": {&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "istio-ingressgateway",
+					Namespace: "istio-system",
+				},
+				Spec: corev1.ServiceSpec{
+					Type:        corev1.ServiceTypeClusterIP,
+					ExternalIPs: []string{"2.2.2.2"},
+				},
+			}},
+			// cluster/network 2's ingress can be found by it's network label
+			"cluster-2": {&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "istio-ingressgateway",
+					Namespace: "istio-system",
+					Labels: map[string]string{
+						label.IstioNetwork: "network-2",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:        corev1.ServiceTypeClusterIP,
+					ExternalIPs: []string{"3.3.3.3"},
+				},
+			}},
+		},
 		corev1.ServiceTypeNodePort: {
 			"cluster-1": {
 				&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
