@@ -1062,10 +1062,18 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			if !f {
 				return nil, fmt.Errorf("failed to get svc port for %v", port.Name)
 			}
-			portNum, err := findPortFromMetadata(port, proxy.Metadata.PodPorts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
+
+			var portNum int
+			if len(proxy.Metadata.PodPorts) > 0 {
+				portNum, err = findPortFromMetadata(port, proxy.Metadata.PodPorts)
+				if err != nil {
+					return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
+				}
+			} else {
+				// most likely a VM - we assume the WorkloadEntry won't remap any ports
+				portNum = port.TargetPort.IntValue()
 			}
+
 			// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
 			// we will have to create only one ingress listener per port and protocol so that we do not endup
 			// complaining about listener conflicts.
