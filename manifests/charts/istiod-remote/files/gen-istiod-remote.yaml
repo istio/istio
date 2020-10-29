@@ -542,9 +542,6 @@ data:
             {{- else if .Values.global.proxy.resources.limits.memory -}}
             memory: {{ .Values.global.proxy.resources.limits.memory }}
             {{- end }}
-            {{ if .Values.global.proxy.resources.limits.memory -}}
-            memory: {{ .Values.global.proxy.resources.limits.memory }}
-            {{- end }}
           {{- end }}
         volumeMounts:
         {{- if eq .Values.global.pilotCertProvider "istiod" }}
