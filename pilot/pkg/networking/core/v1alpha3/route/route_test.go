@@ -56,7 +56,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		},
 	}
-	serviceList := []*model.Service{serviceRegistry["*.example.org"]}
 
 	node := &model.Proxy{
 		Type:        model.SidecarProxy,
@@ -639,7 +638,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				},
 				Spec: networkingDestinationRule,
 			}})
-		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, serviceList, []config.Config{}, 8080)
+		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []config.Config{}, 8080)
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
 	})
 	t.Run("for no virtualservice but has destinationrule with portLevel consistentHash loadbalancer", func(t *testing.T) {
@@ -657,7 +656,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Spec: networkingDestinationRuleWithPortLevelTrafficPolicy,
 			}})
 
-		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, serviceList, []config.Config{}, 8080)
+		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []config.Config{}, 8080)
 
 		hashPolicy := &envoyroute.RouteAction_HashPolicy{
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{

@@ -253,6 +253,22 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"test.default:80": "outbound|80||test.default",
 			},
 		},
+		{
+			"multiple ports",
+			[]*model.Service{
+				buildHTTPService("test.local", visibility.Public, "", "default", 70, 80, 90),
+			},
+			nil,
+			map[string][]string{
+				"allow_any": {"*"},
+				// BUG: test should be below
+				"test.local:80": {"test.local", "test.local:80", "test", "test:80"},
+			},
+			map[string]string{
+				"allow_any":     "PassthroughCluster",
+				"test.local:80": "outbound|80||test.local",
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

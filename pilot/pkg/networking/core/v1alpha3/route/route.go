@@ -99,7 +99,7 @@ type VirtualHostWrapper struct {
 // service registry. Services are indexed by FQDN hostnames.
 // The list of services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostsFromConfigAndRegistry(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
-	services []*model.Service, virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
+	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
@@ -125,10 +125,8 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(node *model.Proxy, push *mode
 	}
 
 	// append default hosts for the service missing virtual services
-	for _, svc := range services {
-		if _, f := missing[svc.Hostname]; !f {
-			continue
-		}
+	for hn := range missing {
+		svc := serviceRegistry[hn]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
