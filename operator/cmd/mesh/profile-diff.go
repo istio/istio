@@ -74,7 +74,7 @@ func profileDiff(rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) err
 	if diff == "" {
 		fmt.Println("Profiles are identical")
 	} else {
-		fmt.Printf("Difference of profiles:\n%s", diff)
+		fmt.Printf("The difference between profiles:\n%s", diff)
 		os.Exit(1)
 	}
 
