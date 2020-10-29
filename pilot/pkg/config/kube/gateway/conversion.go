@@ -165,7 +165,7 @@ func convertDestinationRule(r *KubernetesResources) []config.Config {
 		bp := obj.Spec.(*k8s.BackendPolicySpec)
 		for i, ref := range bp.BackendRefs {
 			var serviceName string
-			if emptyOrEqual(ref.Group, "core") && emptyOrEqual(ref.Kind, "Service") {
+			if emptyOrEqual(ref.Group, gvk.Service.CanonicalGroup()) && emptyOrEqual(ref.Kind, gvk.Service.Kind) {
 				serviceName = fmt.Sprintf("%s.%s.svc.%s", ref.Name, obj.Namespace, r.Domain)
 			} else {
 				log.Warnf("unsupported backendRef: %+v", ref)
@@ -675,8 +675,9 @@ func buildTLS(tls *k8s.GatewayTLSConfig) *istio.ServerTLSSettings {
 }
 
 func buildSecretReference(ref k8s.LocalObjectReference) string {
-	if !emptyOrEqual(ref.Group, gvk.Secret.Version) || !emptyOrEqual(ref.Kind, gvk.Secret.Kind) {
+	if !emptyOrEqual(ref.Group, gvk.Secret.CanonicalGroup()) || !emptyOrEqual(ref.Kind, gvk.Secret.Kind) {
 		log.Errorf("invalid certificate reference %v, only secret is allowed", ref)
+		return ""
 	}
 	return ref.Name
 }

@@ -26,10 +26,12 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
+	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestConvertResources(t *testing.T) {
+	validator := crdvalidation.NewIstioValidator(t)
 	cases := []string{
 		"http",
 		"tcp",
@@ -40,7 +42,7 @@ func TestConvertResources(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
-			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
+			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt), validator)
 			output := convertResources(splitInput(input))
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
@@ -51,7 +53,7 @@ func TestConvertResources(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			golden := splitOutput(readConfig(t, goldenFile))
+			golden := splitOutput(readConfig(t, goldenFile, validator))
 			if diff := cmp.Diff(golden, output); diff != "" {
 				t.Fatalf("Diff:\n%s", diff)
 			}
@@ -99,12 +101,15 @@ func splitInput(configs []config.Config) *KubernetesResources {
 	return out
 }
 
-func readConfig(t *testing.T, filename string) []config.Config {
+func readConfig(t *testing.T, filename string, validator *crdvalidation.Validator) []config.Config {
 	t.Helper()
 
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
+	}
+	if err := validator.ValidateCustomResourceYAML(string(data)); err != nil {
+		t.Error(err)
 	}
 	c, _, err := crd.ParseInputs(string(data))
 	if err != nil {
