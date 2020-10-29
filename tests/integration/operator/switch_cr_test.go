@@ -44,7 +44,7 @@ import (
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	testutil "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util/sanitycheck"
 	"istio.io/pkg/log"
 )
 
@@ -300,7 +300,7 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 	if err := compareInClusterAndGeneratedResources(t, istioCtl, profileName, revision, cs); err != nil {
 		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
 	}
-	testutil.SanityCheck(t, ctx)
+	sanitycheck.RunTrafficTest(t, ctx)
 	scopes.Framework.Infof("=== succeeded ===")
 }
 

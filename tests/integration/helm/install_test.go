@@ -36,7 +36,7 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/util"
+	"istio.io/istio/tests/util/sanitycheck"
 	"istio.io/pkg/log"
 )
 
@@ -213,6 +213,6 @@ func verifyInstallation(t *testing.T, ctx resource.Context, cs resource.Cluster)
 		}
 		return nil
 	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
-	util.SanityCheck(t, ctx)
+	sanitycheck.RunTrafficTest(t, ctx)
 	scopes.Framework.Infof("=== succeeded ===")
 }
