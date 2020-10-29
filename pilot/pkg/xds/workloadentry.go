@@ -139,13 +139,13 @@ func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event Healt
 	// we assume that the workload entry exists
 	// if an auto registration name does not exist, try looking
 	// up in NodeMetadata
-	entryName := autoregisteredWorkloadEntryName(proxy)
+	entryName := proxy.Metadata.WorkloadEntryName
 	if entryName == "" {
-		if proxy.Metadata.WorkloadEntryName == "" {
+		if autoregisteredWorkloadEntryName(proxy) == "" {
 			adsLog.Errorf("unable to derive WorkloadEntry for health update for %v", proxy.ID)
 			return
 		}
-		entryName = proxy.Metadata.WorkloadEntryName
+		entryName = autoregisteredWorkloadEntryName(proxy)
 	}
 
 	// get previous status
