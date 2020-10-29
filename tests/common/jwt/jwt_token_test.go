@@ -66,10 +66,13 @@ func TestSampleJwtToken(t *testing.T) {
 			wantClaims: map[string]interface{}{
 				"nested": map[string]interface{}{
 					"key1": []interface{}{"valueA", "valueB"},
+					"nested-2": map[string]interface{}{
+						"key1": []interface{}{"valueA", "valueB"},
+					},
 				},
 				"iss": "test-issuer-1@istio.io",
 				"sub": "sub-1",
-				"exp": 4757362895.0,
+				"exp": 4757607896.0,
 			},
 		},
 		{
@@ -78,10 +81,13 @@ func TestSampleJwtToken(t *testing.T) {
 			wantClaims: map[string]interface{}{
 				"nested": map[string]interface{}{
 					"key2": "valueC",
+					"nested-2": map[string]interface{}{
+						"key2": "valueC",
+					},
 				},
 				"iss": "test-issuer-1@istio.io",
 				"sub": "sub-1",
-				"exp": 4757362873.0,
+				"exp": 4757608018.0,
 			},
 		},
 		{

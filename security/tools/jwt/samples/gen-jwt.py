@@ -21,6 +21,7 @@ Example:
 """
 from __future__ import print_function
 import argparse
+import copy
 import time
 
 from jwcrypto import jwt, jwk
@@ -82,6 +83,7 @@ def main(args):
                 if len(v) == 1:
                     v = v[0]
                 nested[k] = v
+        nested["nested-2"] = copy.copy(nested)
         payload["nested"] = nested
 
     token = jwt.JWT(header={"alg": "RS256", "typ": "JWT", "kid": key.key_id},

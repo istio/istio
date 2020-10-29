@@ -80,6 +80,13 @@ spec:
     when:
     - key: request.auth.claims[nested][key2]
       values: ["valueC"]
+  - to:
+    - operation:
+        paths: ["/nested-2-key1"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[nested][nested-2][key1]
+      values: ["valueA"]
 ---
 
 # The following policy enables JWT authentication on workload d.
