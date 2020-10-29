@@ -87,3 +87,23 @@ spec:
     - operation:
         paths: ["/other"]
 ---
+
+# The following policy denies request from b or Namespace2
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-f-deny
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "f"
+  action: DENY
+  rules:
+  - from:
+    - source:
+        principals: ['regex:cluster.local\/ns\/{{ .Namespace }}\/sa\/b']
+    - source:
+        namespaces: ["regex:{{ .Namespace2 }}"]
+---

@@ -163,6 +163,8 @@ func TestAuthorization_JWT(t *testing.T) {
 				newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token2", false),
 				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token1", false),
 				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2", true),
+				newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token2-regex", false),
+				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2-regex", true),
 				newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
 				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
 				newTestCase(b, "[PermissionToken1]", jwt.TokenIssuer1, "/permission", false),
@@ -190,12 +192,16 @@ func TestAuthorization_JWT(t *testing.T) {
 				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
 				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
 				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/presenter-regex", true),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1, "/presenter-regex", false),
 
 				// Test condition "request.auth.audiences" on suffix "/audiences".
 				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
 				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
 				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
 				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/audiences-regex", true),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/audiences-regex", false),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -789,7 +795,7 @@ func TestAuthorization_TCP(t *testing.T) {
 			ctx.Config().ApplyYAMLOrFail(t, "", policy...)
 			defer ctx.Config().DeleteYAMLOrFail(t, "", policy...)
 
-			var a, b, c, d, e, x echo.Instance
+			var a, b, c, d, e, f, x echo.Instance
 			ports := []echo.Port{
 				{
 					Name:         "http-8090",
@@ -848,6 +854,12 @@ func TestAuthorization_TCP(t *testing.T) {
 					Ports:          ports,
 					ServiceAccount: true,
 				}).
+				With(&f, echo.Config{
+						Namespace:      ns,
+						Service:        "f",
+						Ports:          ports,
+						ServiceAccount: true,
+					}).
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, port string, expectAllowed bool, scheme scheme.Instance) rbacUtil.TestCase {
@@ -909,6 +921,16 @@ func TestAuthorization_TCP(t *testing.T) {
 				newTestCase(a, e, "http-8090", true, scheme.HTTP),
 				newTestCase(a, e, "http-8091", true, scheme.HTTP),
 				newTestCase(a, e, "tcp-8092", false, scheme.TCP),
+
+				// The policy on workload f denies request from app b or namespace match Namespaces2
+				// - request from a to f to should be allowed because the namespace is not matched.
+				// - request from b to f to should be denied because the app is matched.
+				// - request from c to f to should be allowed because the namespace is not matched.
+				// - request from x to f to should be denied because the namespace is matched.
+				newTestCase(a, f, "tcp-8092", true, scheme.TCP),
+				newTestCase(b, f, "tcp-8092", false, scheme.TCP),
+				newTestCase(c, f, "tcp-8092", true, scheme.TCP),
+				newTestCase(x, f, "tcp-8092", false, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -987,13 +1009,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
 				newTestCase(a, "/request-headers", nil, false),
 				newTestCase(b, "/request-headers", nil, false),
-				newTestCase(a, "/request-headers-regexp/", map[string]string{"x-foo": "foo"}, true),
-				newTestCase(b, "/request-headers-regexp/0", map[string]string{"x-foo": "foo"}, true),
-				newTestCase(a, "/request-headers-regexp/", map[string]string{"x-foo": "bar"}, false),
-				newTestCase(b, "/request-headers-regexp/", map[string]string{"x-foo": "bar"}, false),
-				newTestCase(a, "/request-headers-regex-value", map[string]string{"x-foo": "foo-regexp"}, true),
-				newTestCase(a, "/request-headers-regex-value", map[string]string{"x-foo": "foo-regexp0"}, true),
-				newTestCase(a, "/request-headers-regex-value", map[string]string{"x-foo": "foo-regexpa"}, false),
+				newTestCase(a, "/request-headers-regex", map[string]string{"x-foo-regex": "fooregexp"}, true),
+				newTestCase(a, "/request-headers-regex", map[string]string{"x-foo-regex": "fooregexpa"}, false),
 				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
 				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
@@ -1008,12 +1025,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/source-namespace-a", nil, false),
 				newTestCase(a, "/source-namespace-b", nil, false),
 				newTestCase(b, "/source-namespace-b", nil, true),
-				newTestCase(a, "/source-namespace-a-regexp/", nil, true),
-				newTestCase(a, "/source-namespace-a-regexp/0", nil, true),
-				newTestCase(a, "/source-namespace-a-regexp", nil, false),
-				newTestCase(a, "/source-namespace-a-regexp/a", nil, false),
-				newTestCase(a, "/source-namespace-a-regex-value", nil, true),
-				newTestCase(b, "/source-namespace-a-regex-value", nil, false),
+				newTestCase(a, "/source-namespace-a-regex", nil, true),
+				newTestCase(b, "/source-namespace-a-regex", nil, false),
 				newTestCase(a, "/source-namespace-notValues-b", nil, true),
 				newTestCase(b, "/source-namespace-notValues-b", nil, false),
 
@@ -1021,10 +1034,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/source-principal-a", nil, false),
 				newTestCase(a, "/source-principal-b", nil, false),
 				newTestCase(b, "/source-principal-b", nil, true),
-				newTestCase(a, "/source-principal-a-regexp/", nil, true),
-				newTestCase(a, "/source-principal-a-regexp/0", nil, true),
-				newTestCase(a, "/source-principal-a-regexp", nil, false),
-				newTestCase(a, "/source-principal-a-regexp/a", nil, false),
+				newTestCase(a, "/source-principal-a-regex", nil, true),
+				newTestCase(b, "/source-principal-a-regex", nil, false),
 				newTestCase(a, "/source-principal-notValues-b", nil, true),
 				newTestCase(b, "/source-principal-notValues-b", nil, false),
 
@@ -1046,10 +1057,10 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/connection-sni-good", nil, true),
 				newTestCase(a, "/connection-sni-bad", nil, false),
 				newTestCase(b, "/connection-sni-bad", nil, false),
-				newTestCase(a, "/connection-sni-good-regexp/", nil, true),
-				newTestCase(a, "/connection-sni-good-regexp/0", nil, true),
-				newTestCase(a, "/connection-sni-good-regexp", nil, false),
-				newTestCase(a, "/connection-sni-good-regexp/a", nil, false),
+				newTestCase(a, "/connection-sni-good-regex", nil, true),
+				newTestCase(b, "/connection-sni-good-regex", nil, true),
+				newTestCase(a, "/connection-sni-bad-regex", nil, false),
+				newTestCase(b, "/connection-sni-bad-regex", nil, false),
 				newTestCase(a, "/connection-sni-notValues-a-or-b", nil, true),
 				newTestCase(a, "/connection-sni-notValues-a-or-b-or-c", nil, false),
 

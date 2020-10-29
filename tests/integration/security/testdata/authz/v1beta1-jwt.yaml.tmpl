@@ -18,6 +18,7 @@ spec:
 # The following policy enables authorization on workload b:
 # - Allow request principal test-issuer-1@istio.io/sub-1 to access path /token1
 # - Allow request in group-2 to access path /token2
+# - Allow request in group-2 to access path /token2-regex
 # - Allow request with any token to access path /tokenAny
 # - Allow request with permission claim of "write" to access path /permission
 
@@ -45,6 +46,13 @@ spec:
     when:
     - key: request.auth.claims[groups]
       values: ["group-2"]
+  - to:
+    - operation:
+        paths: ["/token2-regex"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[groups]
+      values: ["regex:group-2"]
   - to:
     - operation:
         paths: ["/tokenAny"]
@@ -109,6 +117,8 @@ spec:
 # - Allow request with valid JWT token to access path /jwt1
 # - Allow request with valid JWT token of presenter foo to access path with suffix "/presenter"
 # - Allow request with valid JWT token of audiences bar to access path with suffix "/audiences"
+# - Allow request with valid JWT token of presenter foo to access path "/presenter-regex"
+# - Allow request with valid JWT token of audiences bar to access path "/audiences-regex"
 
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
@@ -138,4 +148,16 @@ spec:
     when:
     - key: request.auth.audiences
       values: ["foo"]
+  - to:
+    - operation:
+        paths: ["/presenter-regex"]
+    when:
+    - key: request.auth.presenter
+      values: ["regex:bar"]
+  - to:
+    - operation:
+        paths: ["/audiences-regex"]
+    when:
+    - key: request.auth.audiences
+      values: ["regex:foo"]
 ---
