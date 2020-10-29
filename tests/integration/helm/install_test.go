@@ -66,6 +66,7 @@ var (
 func TestDefaultInstall(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("installation.helm.default").
 		Run(func(ctx framework.TestContext) {
 			workDir, err := ctx.CreateTmpDirectory("helm-install-test")
 			if err != nil {
@@ -102,6 +103,7 @@ global:
 func TestInstallWithFirstPartyJwt(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("installation.helm.firstpartyjwt").
 		Run(func(ctx framework.TestContext) {
 			workDir, err := ctx.CreateTmpDirectory("helm-install-test")
 			if err != nil {
