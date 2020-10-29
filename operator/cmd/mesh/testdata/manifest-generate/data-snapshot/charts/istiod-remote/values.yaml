@@ -117,4 +117,4 @@ global:
   centralIstiod: false
 base:
   # For istioctl usage to disable istio config crds in base
-  enableIstioConfigCRDs: false
+  enableIstioConfigCRDs: true

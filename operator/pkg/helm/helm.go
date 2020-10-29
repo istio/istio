@@ -118,8 +118,7 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	}
 	if chrt.Metadata.Name == "base" {
 		base, _ := valuesMap["base"].(map[string]interface{})
-		enableIstioConfigCRDs, _ := base["enableIstioConfigCRDs"].(bool)
-		if !enableIstioConfigCRDs {
+		if enableIstioConfigCRDs, ok := base["enableIstioConfigCRDs"].(bool); ok && !enableIstioConfigCRDs {
 			crdFiles = []chart.CRD{}
 		}
 	}
