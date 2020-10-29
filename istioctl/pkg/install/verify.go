@@ -56,9 +56,9 @@ func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter genericclioptions.RESTClientGetter,
 	writer io.Writer, opts clioptions.ControlPlaneOptions, manifestsPath string) error {
 
-	iop, err := operatorFromCluster(istioNamespaceFlag, opts.Revision, restClientGetter)
+	iop, err := operatorFromCluster(enableVerbose, istioNamespaceFlag, opts.Revision, restClientGetter)
 	if err != nil {
-		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
+		return fmt.Errorf("could not load IstioOperator from cluster: %v", err)
 	}
 	if manifestsPath != "" {
 		iop.Spec.InstallPackagePath = manifestsPath
@@ -299,7 +299,7 @@ istioctl experimental precheck.
 		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
-	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", true,
+	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "verbose", false,
 		"Enable verbose output")
 	verifyInstallCmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	opts.AttachControlPlaneFlags(verifyInstallCmd)
@@ -409,7 +409,9 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
-func operatorFromCluster(istioNamespaceFlag string, revision string, restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
+// nolint: lll
+func operatorFromCluster(enableVerbose bool, istioNamespaceFlag string, revision string,
+	restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return nil, err
@@ -430,6 +432,9 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
+			if enableVerbose {
+				return nil, fmt.Errorf("could not unmarshal: %s\n\nYAML:\n%s", err, by)
+			}
 			return nil, err
 		}
 		if iop.Spec.Revision == revision {
