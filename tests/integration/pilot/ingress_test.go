@@ -159,19 +159,21 @@ func TestIngress(t *testing.T) {
 				return nil
 			})
 
-			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), `
+			ingressClassConfig := `
 apiVersion: networking.k8s.io/v1beta1
 kind: IngressClass
 metadata:
   name: istio-test
 spec:
-  controller: istio.io/ingress-controller`, `
+  controller: istio.io/ingress-controller`
+
+			ingressConfigTemplate := `
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  name: ingress
+  name: %s
 spec:
-  ingressClassName: istio-test
+  ingressClassName: %s
   tls:
   - hosts: ["foo.example.com"]
     secretName: k8s-ingress-secret-foo
@@ -180,15 +182,16 @@ spec:
   rules:
     - http:
         paths:
-          - path: /test/namedport
+          - path: %s/namedport
             backend:
               serviceName: b
               servicePort: http
-          - path: /test
+          - path: %s
             backend:
               serviceName: b
-              servicePort: 80`,
-			); err != nil {
+              servicePort: 80`
+
+			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig, fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
 				t.Fatal(err)
 			}
 
@@ -281,5 +284,75 @@ spec:
 				})
 
 			})
+
+			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
+			const updateIngressName = "update-test-ingress"
+			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig, fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
+				t.Fatal(err)
+			}
+			// these cases make sure that when new Ingress configs are applied our controller picks up on them
+			// and updates the accessible ingress-gateway routes accordingly
+			ingressUpdateCases := []struct {
+				name         string
+				ingressClass string
+				path         string
+				call         echo.CallOptions
+			}{
+				{
+					name:         "update-class-not-istio",
+					ingressClass: "not-istio",
+					path:         "/update-test",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/update-test",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: echo.ExpectCode("404"),
+					},
+				},
+				{
+					name:         "update-class-istio",
+					ingressClass: "istio-test",
+					path:         "/update-test",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/update-test",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: echo.ExpectCode("200"),
+					},
+				},
+				{
+					name:         "update-path",
+					ingressClass: "istio-test",
+					path:         "/updated",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/updated",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: echo.ExpectCode("200"),
+					},
+				},
+			}
+
+			for _, c := range ingressUpdateCases {
+				c := c
+				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path)
+				ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), updatedIngress)
+				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
+					apps.Ingress.CallEchoWithRetryOrFail(ctx, c.call, retry.Timeout(time.Minute))
+				})
+			}
+
 		})
 }
