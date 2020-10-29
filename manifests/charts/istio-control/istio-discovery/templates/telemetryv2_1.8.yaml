@@ -273,8 +273,8 @@ spec:
                       "metrics": [
                         {
                           "dimensions": {
-                            "source_cluster": "downstream_peer.cluster_id"
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
+                            "source_cluster": "downstream_peer.cluster_id",
+                            "destination_cluster": "node.metadata['CLUSTER_ID']"
                           }
                         }
                       ]
@@ -386,8 +386,8 @@ spec:
                       "metrics": [
                         {
                           "dimensions": {
-                            "source_cluster": "downstream_peer.cluster_id"
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
+                            "source_cluster": "downstream_peer.cluster_id",
+                            "destination_cluster": "node.metadata['CLUSTER_ID']"
                           }
                         }
                       ]
