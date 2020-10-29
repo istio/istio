@@ -68,6 +68,13 @@ spec:
       values: ["valueB"]
   - to:
     - operation:
+        paths: ["/nested-non-exist"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[nested][non-exist]
+      values: ["valueC"]
+  - to:
+    - operation:
         paths: ["/nested-key2"]
         methods: ["GET"]
     when:
