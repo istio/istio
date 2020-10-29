@@ -26,10 +26,12 @@
           "source_workload_namespace": "{{ .EchoNamespace }}"
        }
     },
+    {{- if .OnGCE  }}
     "resource": {
        "labels": {
           "namespace_name": "{{ .EchoNamespace }}"
        },
        "type": "k8s_pod"
     }
+    {{- end }}
 }
