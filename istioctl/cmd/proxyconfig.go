@@ -831,8 +831,8 @@ func getPodName(podflag string) (string, string, error) {
 
 func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 	var (
-		podName []string
-		ns      string
+		podNames []string
+		ns       string
 	)
 	client, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
@@ -845,12 +845,9 @@ func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 	if len(pl.Items) < 1 {
 		return nil, "", errors.New("no pods found")
 	}
-	if len(pl.Items) > 1 {
-		log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
-	}
 	for _, pod := range pl.Items {
-		podName = append(podName, pod.Name)
+		podNames = append(podNames, pod.Name)
 	}
 	ns = pl.Items[0].Namespace
-	return podName, ns, nil
+	return podNames, ns, nil
 }
