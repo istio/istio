@@ -207,7 +207,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			}
 			// forward to istiod
 			con.requestsChan <- req
-			if !firstNDSSent && req.TypeUrl == v3.ListenerType {
+			if p.localDNSServer != nil && !firstNDSSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
 				con.requestsChan <- &discovery.DiscoveryRequest{
 					TypeUrl: v3.NameTableType,
