@@ -956,3 +956,100 @@ typedConfig:
                               safeRegex:
                                 googleRe2: {}
                                 regex: .+
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: nested1
+                    - key: nested2
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            exact: nested
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: nested1
+                    - key: nested2
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            prefix: nested-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: nested1
+                    - key: nested2
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            suffix: -suffix-nested
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: nested1
+                    - key: nested2
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            safeRegex:
+                              googleRe2: {}
+                              regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: nested1
+                      - key: nested2
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              exact: not-nested
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: nested1
+                      - key: nested2
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              prefix: not-nested-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: nested1
+                      - key: nested2
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              suffix: -not-suffix-nested
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: nested1
+                      - key: nested2
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              safeRegex:
+                                googleRe2: {}
+                                regex: .+
