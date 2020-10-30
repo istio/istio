@@ -479,6 +479,18 @@ var (
 		"Total virtual services known to pilot.",
 	)
 
+	// totalDestinationRules tracks the total number of destination rule
+	totalDestinationRules = monitoring.NewGauge(
+		"pilot_dest_rules",
+		"Total destination rules known to pilot.",
+	)
+
+	// totalGateways tracks the total number of gateway
+	totalGateways = monitoring.NewGauge(
+		"pilot_gateways",
+		"Total gateways known to pilot.",
+	)
+
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
@@ -507,6 +519,8 @@ func init() {
 		monitoring.MustRegister(m)
 	}
 	monitoring.MustRegister(totalVirtualServices)
+	monitoring.MustRegister(totalDestinationRules)
+	monitoring.MustRegister(totalGateways)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.
@@ -1363,17 +1377,18 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 // Split out of DestinationRule expensive conversions - once per push.
 func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(gvk.DestinationRule, NamespaceAll)
+	destinationRules, err := env.List(gvk.DestinationRule, NamespaceAll)
 	if err != nil {
 		return err
 	}
 
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
-	destRules := make([]config.Config, len(configs))
+	destRules := make([]config.Config, len(destinationRules))
 	for i := range destRules {
-		destRules[i] = configs[i].DeepCopy()
+		destRules[i] = destinationRules[i].DeepCopy()
 	}
+    totalDestinationRules.Record(float64((len(destinationRules))))
 
 	ps.SetDestinationRules(destRules)
 	return nil
@@ -1555,6 +1570,14 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	if err != nil {
 		return err
 	}
+
+	gateways := make([]config.Config, len(gatewayConfigs))
+
+	for i := range gateways {
+		gateways[i] = gatewayConfigs[i].DeepCopy()
+	}
+
+	totalVirtualServices.Record(float64(len(gatewayConfigs)))
 
 	sortConfigByCreationTime(gatewayConfigs)
 
