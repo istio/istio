@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -203,6 +204,12 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	if args.ShutdownDuration == 0 {
 		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
+	}
+
+	// If keepaliveMaxServerConnectionAge is negative, istiod crash
+	// https://github.com/istio/istio/issues/27257
+	if err := IsNegativeDuration(args.KeepaliveOptions.MaxServerConnectionAge); err != nil {
+		return nil, fmt.Errorf("%v: --keepaliveMaxServerConnectionAge only accepts postive duration eg: 30m", err)
 	}
 
 	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {
@@ -1154,4 +1161,13 @@ func (s *Server) initMeshHandlers() {
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
+}
+
+// IsNegativeDuration check if the duration is negative
+func IsNegativeDuration(in time.Duration) error {
+	out := in.String()
+	if strings.HasPrefix(out, "-") {
+		return fmt.Errorf("invalid duration: %s", out)
+	}
+	return nil
 }
