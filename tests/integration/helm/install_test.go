@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
-	kubeapicore "k8s.io/api/core/v1"
-	kubeapimeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -54,7 +54,7 @@ const (
 	ControlChartsDir    = "istio-control"
 	GatewayChartsDir    = "gateways"
 	retryDelay          = 2 * time.Second
-	retryTimeOut        = 20 * time.Minute
+	retryTimeOut        = 5 * time.Minute
 )
 
 var (
@@ -140,12 +140,12 @@ global:
 // override values file and fails the tests on any failures.
 func installIstio(t *testing.T, ctx resource.Context, cs resource.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
-	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeapicore.Namespace{
-		ObjectMeta: kubeapimeta.ObjectMeta{
+	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: IstioNamespace,
 		},
-	}, kubeapimeta.CreateOptions{}); err != nil {
-		_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeapimeta.GetOptions{})
+	}, metav1.CreateOptions{}); err != nil {
+		_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, metav1.GetOptions{})
 		if err == nil {
 			log.Info("istio namespace already exist")
 		} else {
