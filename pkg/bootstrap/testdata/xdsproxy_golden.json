@@ -12,6 +12,7 @@
               "name": "deprecation",
               "static_layer": {
                   "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+                  "envoy.reloadable_features.strict_1xx_and_204_response_headers": false,
                   "re2.max_program_size.error_level": 1024
               }
           },
@@ -249,9 +250,11 @@
       "transport_api_version": "V3",
       "grpc_services": [
         {
+        
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
+        
         }
       ]
     }
@@ -322,8 +325,8 @@
             }]
           }]
         }
-      },
-      {
+      } 
+       , {
         "name": "xds-grpc",
         "type" : "STATIC",
         "connect_timeout": "1s",
@@ -366,6 +369,7 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
+      
       
       
     ],
