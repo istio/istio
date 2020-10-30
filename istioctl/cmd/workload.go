@@ -203,7 +203,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 					return fmt.Errorf("workloadgroup %s not found in namespace %s: %v", name, namespace, err)
 				}
 			}
-			if err = createConfig(kubeClient, wg, clusterID, ingressIP, outputDir); err != nil {
+			if err = createConfig(kubeClient, wg, ingressIP, outputDir); err != nil {
 				return err
 			}
 			fmt.Printf("configuration generation into directory %s was successful\n", outputDir)
@@ -246,7 +246,7 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, outputDir string) error {
+func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, ingressIP, outputDir string) error {
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if err := createCertsTokens(kubeClient, wg, outputDir); err != nil {
 		return err
 	}
-	if err := createMeshConfig(kubeClient, wg, clusterID, outputDir); err != nil {
+	if err := createMeshConfig(kubeClient, wg, outputDir); err != nil {
 		return err
 	}
 	if err := createHosts(kubeClient, ingressIP, outputDir); err != nil {
@@ -323,7 +323,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 }
 
 // TODO: Support the proxy.istio.io/config annotation
-func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir string) error {
+func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, dir string) error {
 	istioCM := "istio"
 	// Case with multiple control planes
 	revision := kubeClient.Revision()
@@ -364,7 +364,6 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	md["SERVICE_ACCOUNT"] = we.ServiceAccount
 	md["TRUST_DOMAIN"] = meshConfig.TrustDomain
 
-	md["ISTIO_META_CLUSTER_ID"] = clusterID
 	md["ISTIO_META_MESH_ID"] = meshConfig.DefaultConfig.MeshId
 	md["ISTIO_META_NETWORK"] = we.Network
 	if portsJSON, err := json.Marshal(we.Ports); err == nil {
