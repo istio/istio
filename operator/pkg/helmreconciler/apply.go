@@ -193,8 +193,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 	}
 
 	gvk := obj.GetObjectKind().GroupVersionKind()
-
-	if serverSideApply {
+	if serverSideApply && obj.GetKind() != name.CRDStr {
 		return h.serverSideApply(obj)
 	}
 
