@@ -364,6 +364,10 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 }
 
 func (c *Controller) readyForFailClose() bool {
+	//for remote clusters, we will set fail-close by default
+	if c.o.RemoteWebhookConfig {
+		return true
+	}
 	if !c.dryRunOfInvalidConfigRejected {
 		if rejected, reason := c.isDryRunOfInvalidConfigRejected(); !rejected {
 			scope.Infof("Not ready to switch validation to fail-closed: %v", reason)
