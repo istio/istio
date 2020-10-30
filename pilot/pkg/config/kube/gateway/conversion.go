@@ -59,7 +59,7 @@ func isRouteMatch(cfg config.Config, res resource.Schema, gatewayNamespace strin
 	if routes.Group != "" && routes.Group != res.Group() {
 		return false
 	}
-	ls, err := metav1.LabelSelectorAsSelector(&routes.RouteSelector)
+	ls, err := metav1.LabelSelectorAsSelector(&routes.Selector)
 	if err != nil {
 		log.Errorf("failed to create route selector: %v", err)
 		return false
@@ -67,7 +67,12 @@ func isRouteMatch(cfg config.Config, res resource.Schema, gatewayNamespace strin
 	if !ls.Matches(klabels.Set(cfg.Labels)) {
 		return false
 	}
-	switch routes.RouteNamespaces.From {
+
+	if routes.Namespaces == nil {
+		// "This is restricted to the namespace of this Gateway by default"
+		return gatewayNamespace == cfg.Namespace
+	}
+	switch routes.Namespaces.From {
 	case k8s.RouteSelectAll:
 		return true
 	case k8s.RouteSelectSame:
@@ -75,7 +80,7 @@ func isRouteMatch(cfg config.Config, res resource.Schema, gatewayNamespace strin
 			return false
 		}
 	case k8s.RouteSelectSelector:
-		ns, err := metav1.LabelSelectorAsSelector(&routes.RouteNamespaces.Selector)
+		ns, err := metav1.LabelSelectorAsSelector(&routes.Namespaces.Selector)
 		if err != nil {
 			log.Errorf("failed to create namespace selector: %v", err)
 			return false
@@ -257,8 +262,8 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 		}
 		for _, filter := range r.Filters {
 			switch filter.Type {
-			case k8s.FilterTypeHTTPRequestHeader:
-				vs.Headers = createHeadersFilter(filter.RequestHeader)
+			case k8s.HTTPRouteFilterRequestHeaderModifier:
+				vs.Headers = createHeadersFilter(filter.RequestHeaderModifier)
 			default:
 				log.Warnf("unsupported filter type %q", filter.Type)
 			}
@@ -432,8 +437,8 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.H
 		}
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
-			case k8s.FilterTypeHTTPRequestHeader:
-				rd.Headers = createHeadersFilter(filter.RequestHeader)
+			case k8s.HTTPRouteFilterRequestHeaderModifier:
+				rd.Headers = createHeadersFilter(filter.RequestHeaderModifier)
 			default:
 				log.Warnf("unsupported filter type %q", filter.Type)
 			}
@@ -444,9 +449,8 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.H
 }
 
 func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
-	res := &istio.Destination{}
-	if to.Port != nil {
-		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
+	res := &istio.Destination{
+		Port: &istio.PortSelector{Number: uint32(to.Port)},
 	}
 	if to.ServiceName != nil {
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, constants.DefaultKubernetesDomain)
@@ -458,9 +462,8 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns string) *istio.Destination {
 }
 
 func buildGenericDestination(to k8s.RouteForwardTo, ns string) *istio.Destination {
-	res := &istio.Destination{}
-	if to.Port != nil {
-		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
+	res := &istio.Destination{
+		Port: &istio.PortSelector{Number: uint32(to.Port)},
 	}
 	if to.ServiceName != nil {
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, constants.DefaultKubernetesDomain)

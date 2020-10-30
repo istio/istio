@@ -1614,8 +1614,8 @@ sigs.k8s.io/controller-runtime v0.6.3/go.mod h1:WlZNXcM0++oyaQt4B7C2lEE5JYRs8vJU
 sigs.k8s.io/controller-tools v0.4.0/go.mod h1:G9rHdZMVlBDocIxGkK3jHLWqcTMNvveypYJwrvYKjWU=
 sigs.k8s.io/kustomize v2.0.3+incompatible h1:JUufWFNlI44MdtnjUqVnvh29rR37PQFzPbLXqhyOyX0=
 sigs.k8s.io/kustomize v2.0.3+incompatible/go.mod h1:MkjgH3RdOWrievjo6c9T245dYlB5QeXV4WCbnt/PEpU=
-sigs.k8s.io/service-apis v0.0.0-20201013190827-799dbbe3a3ba h1:tmIsMOyPg1eOSRDFMinrHktWafHyosZcxK/hnFS5HFo=
-sigs.k8s.io/service-apis v0.0.0-20201013190827-799dbbe3a3ba/go.mod h1:QkiV/PnK7YbN5zqYqXnh5wByTTT1LYJ5scwdIs62qWs=
+sigs.k8s.io/service-apis v0.0.0-20201029223806-3fdc5d3fb0a8 h1:66bEeR1Rfw38aJvBK3Sop63gUFGBgPnb7Vv5qMQHhp8=
+sigs.k8s.io/service-apis v0.0.0-20201029223806-3fdc5d3fb0a8/go.mod h1:QkiV/PnK7YbN5zqYqXnh5wByTTT1LYJ5scwdIs62qWs=
 sigs.k8s.io/structured-merge-diff/v3 v3.0.0-20200116222232-67a7b8c61874/go.mod h1:PlARxl6Hbt/+BC80dRLi1qAmnMqwqDg62YvvVkZjemw=
 sigs.k8s.io/structured-merge-diff/v3 v3.0.0 h1:dOmIZBMfhcHS09XZkMyUgkq5trg3/jRyJYFZUiaOp8E=
 sigs.k8s.io/structured-merge-diff/v3 v3.0.0/go.mod h1:PlARxl6Hbt/+BC80dRLi1qAmnMqwqDg62YvvVkZjemw=
