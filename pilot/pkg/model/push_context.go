@@ -160,6 +160,8 @@ type Gateway struct {
 type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
 	hosts []host.Name
+	// Map of dest rule hosts.
+	hostsMap map[host.Name]struct{}
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
@@ -701,7 +703,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
-				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
+				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hostsMap,
+				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts,
+			); ok {
 				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname]
 			}
 		}
@@ -742,7 +746,10 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *Config {
 	if ps.exportedDestRulesByNamespace[owningNamespace] != nil {
-		if specificHostname, ok := MostSpecificHostMatch(hostname, ps.exportedDestRulesByNamespace[owningNamespace].hosts); ok {
+		if specificHostname, ok := MostSpecificHostMatch(hostname,
+			ps.exportedDestRulesByNamespace[owningNamespace].hostsMap,
+			ps.exportedDestRulesByNamespace[owningNamespace].hosts,
+		); ok {
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.exportedDestRulesByNamespace[owningNamespace].exportTo[specificHostname]
 			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
@@ -756,7 +763,11 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	_, ok := MostSpecificHostMatch(service.Hostname, ps.clusterLocalHosts)
+	m := make(map[host.Name]struct{}, len(ps.clusterLocalHosts))
+	for _, h := range ps.clusterLocalHosts {
+		m[h] = struct{}{}
+	}
+	_, ok := MostSpecificHostMatch(service.Hostname, m, ps.clusterLocalHosts)
 	return ok
 }
 
