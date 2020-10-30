@@ -193,6 +193,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 	}
 
 	gvk := obj.GetObjectKind().GroupVersionKind()
+	// Skip CRD for SSA because of: https://github.com/kubernetes/kubernetes/issues/96060
 	if serverSideApply && obj.GetKind() != name.CRDStr {
 		return h.serverSideApply(obj)
 	}
