@@ -409,6 +409,7 @@ func generateYAMLWithSettings(
 
 	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
+		// TODO if possible, use istioctl x workload ... to configure the VM
 		ist, err := istio.Get(ctx)
 		if err != nil {
 			return "", "", err
