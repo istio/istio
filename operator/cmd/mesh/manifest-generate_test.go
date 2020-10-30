@@ -566,6 +566,7 @@ func TestConfigSelectors(t *testing.T) {
 		// First we fetch all the objects for our default install
 		cname := "istiod"
 		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
+		hpa := mustFindObject(t, objs, cname, name.HPAStr)
 		service := mustFindObject(t, objs, cname, name.ServiceStr)
 		pdb := mustFindObject(t, objs, cname, name.PDBStr)
 		podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
@@ -573,6 +574,7 @@ func TestConfigSelectors(t *testing.T) {
 		// Next we fetch all the objects for a revision install
 		nameRev := "istiod-canary"
 		deploymentRev := mustFindObject(t, objsRev, nameRev, name.DeploymentStr)
+		hpaRev := mustFindObject(t, objs, nameRev, name.HPAStr)
 		serviceRev := mustFindObject(t, objsRev, nameRev, name.ServiceStr)
 		pdbRev := mustFindObject(t, objsRev, nameRev, name.PDBStr)
 		podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
@@ -582,6 +584,8 @@ func TestConfigSelectors(t *testing.T) {
 		mustNotSelect(t, mustGetLabels(t, service, "spec.selector"), podLabelsRev)
 		mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels)
 		mustNotSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabelsRev)
+		mustNotSelect(t, mustGetDeployment(t, hpa, "spec.scaleTargetRef"), nameRev)
+		mustNotSelect(t, mustGetDeployment(t, hpaRev, "spec.scaleTargetRef"), cname)
 
 		// Check selection of previous versions . This only matters for in place upgrade (non revision)
 		podLabels15 := map[string]string{
