@@ -57,7 +57,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -204,12 +203,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	if args.ShutdownDuration == 0 {
 		s.shutdownDuration = 10 * time.Second // If not specified set to 10 seconds.
-	}
-
-	// If keepaliveMaxServerConnectionAge is negative, istiod crash
-	// https://github.com/istio/istio/issues/27257
-	if err := validation.ValidateMaxServerConnectionAge(args.KeepaliveOptions.MaxServerConnectionAge); err != nil {
-		return nil, err
 	}
 
 	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {

@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -65,6 +66,12 @@ var (
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
+
+			// If keepaliveMaxServerConnectionAge is negative, istiod crash
+			// https://github.com/istio/istio/issues/27257
+			if err := validation.ValidateMaxServerConnectionAge(serverArgs.KeepaliveOptions.MaxServerConnectionAge); err != nil {
+				return err
+			}
 
 			// Create the server for the discovery service.
 			discoveryServer, err := bootstrap.NewServer(serverArgs)
