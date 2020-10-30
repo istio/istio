@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -58,6 +57,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -208,8 +208,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// If keepaliveMaxServerConnectionAge is negative, istiod crash
 	// https://github.com/istio/istio/issues/27257
-	if err := IsNegativeDuration(args.KeepaliveOptions.MaxServerConnectionAge); err != nil {
-		return nil, fmt.Errorf("%v: --keepaliveMaxServerConnectionAge only accepts positive duration eg: 30m", err)
+	if err := validation.ValidateMaxServerConnectionAge(args.KeepaliveOptions.MaxServerConnectionAge); err != nil {
+		return nil, err
 	}
 
 	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {
@@ -1161,13 +1161,4 @@ func (s *Server) initMeshHandlers() {
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
-}
-
-// IsNegativeDuration check if the duration is negative
-func IsNegativeDuration(in time.Duration) error {
-	out := in.String()
-	if strings.HasPrefix(out, "-") {
-		return fmt.Errorf("invalid duration: %s", out)
-	}
-	return nil
 }
