@@ -228,13 +228,13 @@ func (requestClaimGenerator) principal(key, value string, forTCP bool) (*rbacpb.
 		return nil, fmt.Errorf("%s must not be used in TCP", key)
 	}
 
-	claim, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestClaims))
+	claims, err := extractNameInNestedBrackets(strings.TrimPrefix(key, attrRequestClaims))
 	if err != nil {
 		return nil, err
 	}
 	// Generate a metadata list matcher for the given path keys and value.
 	// On proxy side, the value should be of list type.
-	m := matcher.MetadataListMatcher(sm.AuthnFilterName, []string{attrRequestClaims, claim}, value)
+	m := matcher.MetadataListMatcher(sm.AuthnFilterName, append([]string{attrRequestClaims}, claims...), value)
 	return principalMetadata(m), nil
 }
 
