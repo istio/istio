@@ -394,11 +394,15 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
-		ingress, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), multicluster.IstioIngressGatewayServiceName, metav1.GetOptions{})
-		if err == nil && ingress.Status.LoadBalancer.Ingress != nil && len(ingress.Status.LoadBalancer.Ingress) > 0 {
-			ingressIP = ingress.Status.LoadBalancer.Ingress[0].IP
+		ingress, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), multicluster.IstioEastWestGatewayServiceName, metav1.GetOptions{})
+		if err == nil {
+			if ingress.Status.LoadBalancer.Ingress != nil && len(ingress.Status.LoadBalancer.Ingress) > 0 {
+				ingressIP = ingress.Status.LoadBalancer.Ingress[0].IP
+			} else if len(ingress.Spec.ExternalIPs) > 0 {
+				ingressIP = ingress.Spec.ExternalIPs[0]
+			}
+			// TODO: add case where the load balancer is a DNS name
 		}
-		// TODO: add case where the load balancer is a DNS name
 	}
 
 	var hosts string

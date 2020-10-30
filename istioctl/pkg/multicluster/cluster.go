@@ -182,7 +182,8 @@ func (g Gateway) String() string {
 }
 
 const (
-	IstioIngressGatewayServiceName = "istio-ingressgateway"
+	IstioIngressGatewayServiceName  = "istio-ingressgateway"
+	IstioEastWestGatewayServiceName = "istio-eastwestgateway"
 )
 
 func (c *Cluster) readIngressGateways() []*Gateway {
