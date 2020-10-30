@@ -79,6 +79,7 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 
 	// DestinationRule does not exist for the resolved host so add it
 	p.hosts = append(p.hosts, resolvedHost)
+	p.hostsMap[resolvedHost] = struct{}{}
 	p.destRule[resolvedHost] = &destRuleConfig
 	p.exportTo[resolvedHost] = exportToMap
 }
