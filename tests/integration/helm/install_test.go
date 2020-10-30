@@ -25,6 +25,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
@@ -145,8 +146,7 @@ func installIstio(t *testing.T, ctx resource.Context, cs resource.Cluster,
 			Name: IstioNamespace,
 		},
 	}, metav1.CreateOptions{}); err != nil {
-		_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, metav1.GetOptions{})
-		if err == nil {
+		if kerrors.IsAlreadyExists(err) {
 			log.Info("istio namespace already exist")
 		} else {
 			t.Errorf("failed to create istio namespace: %v", err)
