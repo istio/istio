@@ -51,6 +51,7 @@ var (
 	outputDir      string
 	clusterID      string
 	ingressIP      string
+	autoRegister   bool
 	ports          []string
 )
 
@@ -217,6 +218,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "Kubernetes", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
+	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "If set, a WorkloadEntry will be created upon connection to istiod (if enabled in pilot).")
 	opts.AttachControlPlaneFlags(configureCmd)
 	return configureCmd
 }
@@ -375,6 +377,10 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
 	if labelsJSON, err := json.Marshal(labels); err == nil {
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
+	}
+
+	if autoRegister {
+		md["ISTIO_META_AUTO_REGISTER_GROUP"] = wg.Name
 	}
 
 	proxyYAML, err := gogoprotomarshal.ToYAML(meshConfig.DefaultConfig)
