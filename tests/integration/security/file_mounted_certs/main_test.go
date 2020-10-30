@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,7 +39,7 @@ var (
 )
 
 const (
-	PilotCertsPath = "tests/testdata/certs/pilot"
+	PilotCertsPath  = "tests/testdata/certs/pilot"
 	PilotSecretName = "test-istiod-server-cred"
 
 	ProxyMetadataJson = `
@@ -59,6 +59,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
+		RequireSingleCluster().
 
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
@@ -66,7 +67,6 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
 		Run()
 }
-
 
 func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
@@ -161,7 +161,7 @@ meshConfig:
   defaultConfig:
     controlPlaneAuthPolicy: "MUTUAL_TLS"
     proxyMetadata: ` + strings.Replace(ProxyMetadataJson, "\n", "", -1) +
-`
+		`
 values:
   global:
     pilotCertProvider: "mycopki"
@@ -187,7 +187,6 @@ func CreateCustomIstiodSecret(ctx resource.Context) error {
 		return err
 	}
 
-
 	err = CreateCustomSecret(ctx, PilotSecretName, systemNs, PilotCertsPath)
 	if err != nil {
 		return err
@@ -199,7 +198,7 @@ func CreateCustomIstiodSecret(ctx resource.Context) error {
 func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.Instance, certsPath string) error {
 	var privateKey, clientCert, caCert []byte
 	var err error
-	if privateKey, err = ReadCustomCertFromFile(certsPath,"key.pem"); err != nil {
+	if privateKey, err = ReadCustomCertFromFile(certsPath, "key.pem"); err != nil {
 		return err
 	}
 	if clientCert, err = ReadCustomCertFromFile(certsPath, "cert-chain.pem"); err != nil {
@@ -216,9 +215,9 @@ func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.I
 			Namespace: namespace.Name(),
 		},
 		Data: map[string][]byte{
-			"key.pem"       : privateKey,
+			"key.pem":        privateKey,
 			"cert-chain.pem": clientCert,
-			"root-cert.pem" : caCert,
+			"root-cert.pem":  caCert,
 		},
 	}
 
