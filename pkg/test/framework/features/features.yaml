@@ -121,6 +121,9 @@ features:
       multimaster:
       remote:
       centralremotekubeconfig:
+    helm:
+      default:
+      firstpartyjwt:
   # describes internal build and testing infrastrcuture
   infrastructure:
     # the testing framework
