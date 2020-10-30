@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -53,7 +54,8 @@ const (
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
 	projectsPrefix = "projects/test-project"
-	// For multicluster tests we multiply the number of requests with a constant multiplier to make sure we have cross cluster traffic.
+	// For multicluster tests we multiply the number of requests with a
+	// constant multiplier to make sure we have cross cluster traffic.
 	requestCountMultipler = 3
 )
 
