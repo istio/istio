@@ -3034,9 +3034,9 @@ spec:
           - not:
               anyOf:
               - required:
-                - external
+                - provider
           - required:
-            - external
+            - provider
           properties:
             action:
               description: Optional.
@@ -3044,71 +3044,15 @@ spec:
               - ALLOW
               - DENY
               - AUDIT
-              - EXTERNAL
+              - CUSTOM
               type: string
-            external:
-              description: Configures how to talk to the external server.
+            provider:
+              description: Specifies detailed configuration of the CUSTOM action.
               properties:
-                http:
-                  properties:
-                    authorizationRequest:
-                      description: Settings used for controlling authorization request
-                        metadata.
-                      properties:
-                        allowedHeaders:
-                          description: Authorization request will include the client
-                            request headers that have a correspondent match.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    authorizationResponse:
-                      description: Settings used for controlling authorization response
-                        metadata.
-                      properties:
-                        forwardToDownstream:
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                        forwardToUpstream:
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    includePeerCertificate:
-                      description: Specifies if the peer certificate is included in
-                        the external authorization request.
-                      type: boolean
-                    server:
-                      description: Supplies the full URL of the external server that
-                        implements the Envoy ext_authz filter check request API.
-                      format: string
-                      type: string
-                    timeout:
-                      description: Sets the maximum duration in milliseconds for connection
-                        to the external server (default is 200ms).
-                      type: string
-                  type: object
-                tcp:
-                  properties:
-                    includePeerCertificate:
-                      description: Specifies if the peer certificate is included in
-                        the external authorization request.
-                      type: boolean
-                    server:
-                      description: Supplies the full URL of the external server that
-                        implements the Envoy ext_authz filter authorization request
-                        API.
-                      format: string
-                      type: string
-                    timeout:
-                      description: Sets the maximum duration in milliseconds for connection
-                        to the external server (default is 200ms).
-                      type: string
-                  type: object
+                name:
+                  description: Specifies the name of the extension provider.
+                  format: string
+                  type: string
               type: object
             rules:
               description: Optional.
@@ -3299,6 +3243,19 @@ metadata:
     release: istio
   name: peerauthentications.security.istio.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.mtls.mode
+    description: Defines the mTLS mode used for peer authentication.
+    name: Mode
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
   group: security.istio.io
   names:
     categories:
