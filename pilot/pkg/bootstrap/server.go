@@ -1134,16 +1134,7 @@ func (s *Server) initMeshHandlers() {
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
-		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
-		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
-		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
-		})
-	})
-	s.environment.AddMeshHandler(func() {
-		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
 		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
