@@ -21,16 +21,15 @@ import (
 
 func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 	cases := []*TestCase{
-		// Skip this for now due to https://github.com/istio/istio/issues/28139
-		// {
-		// 	Name:     "HTTP Traffic",
-		// 	PortName: "http",
-		// 	Expected: Expected{
-		// 		Metric:          "istio_requests_total",
-		// 		PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
-		// 		ResponseCode:    []string{"502"},
-		// 	},
-		// },
+		{
+			Name:     "HTTP Traffic",
+			PortName: "http",
+			Expected: Expected{
+				Metric:          "istio_requests_total",
+				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
+				ResponseCode:    []string{"502"},
+			},
+		},
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
