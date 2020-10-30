@@ -79,6 +79,15 @@ messages:
       - name: err
         type: error
 
+  - name: "SchemaWarning"
+    code: IST0132
+    level: Warning
+    description: "The resource has a schema validation waring."
+    template: "Schema validation warning: %v"
+    args:
+      - name: err
+        type: error
+
   - name: "MisplacedAnnotation"
     code: IST0107
     level: Warning

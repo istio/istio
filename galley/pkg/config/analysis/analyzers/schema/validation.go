@@ -61,8 +61,7 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 		ns := r.Metadata.FullName.Namespace
 		name := r.Metadata.FullName.Name
 
-		// TODO expose warnings
-		_, err := a.s.Resource().ValidateConfig(config.Config{
+		warnings, err := a.s.Resource().ValidateConfig(config.Config{
 			Meta: config.Meta{
 				Name:      string(name),
 				Namespace: string(ns),
@@ -76,6 +75,15 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 				}
 			} else {
 				ctx.Report(c, msg.NewSchemaValidationError(r, err))
+			}
+		}
+		if warnings != nil {
+			if multiErr, ok := warnings.(*multierror.Error); ok {
+				for _, err := range multiErr.WrappedErrors() {
+					ctx.Report(c, msg.NewSchemaWarning(r, err))
+				}
+			} else {
+				ctx.Report(c, msg.NewSchemaWarning(r, warnings))
 			}
 		}
 
