@@ -1,4 +1,4 @@
-# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=799dbbe3a3ba"`
+# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=3fdc5d3fb0a8"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -90,37 +90,6 @@ spec:
                       and specified within the \"ca.crt\" data field of the Secret.
                       Multiple certificates can be specified, concatenated by new
                       lines. \n Support: Extended"
-                    properties:
-                      group:
-                        description: Group is the group of the referent.
-                        maxLength: 253
-                        minLength: 1
-                        type: string
-                      kind:
-                        description: Kind is kind of the referent.
-                        maxLength: 253
-                        minLength: 1
-                        type: string
-                      name:
-                        description: Name is the name of the referent.
-                        maxLength: 253
-                        minLength: 1
-                        type: string
-                    required:
-                    - group
-                    - kind
-                    - name
-                    type: object
-                  clientCertificateRef:
-                    description: "ClientCertificateRef is a reference to a TLS client
-                      certificate-key pair that may be used to connect to these backends.
-                      If an entry in this list omits or specifies the empty string
-                      for both the group and the resource, the resource defaults to
-                      \"secrets\". An implementation may support other resources (for
-                      example, resource \"mycertificates\" in group \"networking.acme.io\").
-                      \n If a Secret is referenced, it must be of type \"kubernetes.io/tls\"
-                      and contain tls.crt and tls.key data fields that contain the
-                      certificate and private key to use for TLS. \n Support: Extended"
                     properties:
                       group:
                         description: Group is the group of the referent.
@@ -286,61 +255,6 @@ spec:
           spec:
             description: Spec for this GatewayClass.
             properties:
-              allowedGatewayNamespaces:
-                description: "AllowedGatewayNamespaces is a selector of namespaces
-                  that Gateways of this class can be created in. Implementations must
-                  not support Gateways when they are created in namespaces not specified
-                  by this field. \n Gateways that appear in namespaces not specified
-                  by this field must continue to be supported if they have already
-                  been provisioned. This must be indicated by the Gateway's presence
-                  in the ProvisionedGateways list in the status for this GatewayClass.
-                  If the status on a Gateway indicates that it has been provisioned
-                  but the Gateway does not appear in the ProvisionedGateways list
-                  on GatewayClass it must not be supported. \n When this field is
-                  unspecified (default) or an empty selector, Gateways in any namespace
-                  will be able to use this GatewayClass. \n Support: Core"
-                properties:
-                  matchExpressions:
-                    description: matchExpressions is a list of label selector requirements.
-                      The requirements are ANDed.
-                    items:
-                      description: A label selector requirement is a selector that
-                        contains values, a key, and an operator that relates the key
-                        and values.
-                      properties:
-                        key:
-                          description: key is the label key that the selector applies
-                            to.
-                          type: string
-                        operator:
-                          description: operator represents a key's relationship to
-                            a set of values. Valid operators are In, NotIn, Exists
-                            and DoesNotExist.
-                          type: string
-                        values:
-                          description: values is an array of string values. If the
-                            operator is In or NotIn, the values array must be non-empty.
-                            If the operator is Exists or DoesNotExist, the values
-                            array must be empty. This array is replaced during a strategic
-                            merge patch.
-                          items:
-                            type: string
-                          type: array
-                      required:
-                      - key
-                      - operator
-                      type: object
-                    type: array
-                  matchLabels:
-                    additionalProperties:
-                      type: string
-                    description: matchLabels is a map of {key,value} pairs. A single
-                      {key,value} in the matchLabels map is equivalent to an element
-                      of matchExpressions, whose key field is "key", the operator
-                      is "In", and the values array contains only "value". The requirements
-                      are ANDed.
-                    type: object
-                type: object
               controller:
                 description: "Controller is a domain/path string that indicates the
                   controller that is managing Gateways of this class. \n Example:
@@ -473,30 +387,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              provisionedGateways:
-                description: ProvisionedGateways is a list of Gateways that have been
-                  provisioned using this class. Implementations must add any Gateways
-                  of this class to this list once they have been provisioned and remove
-                  Gateways as soon as they are deleted or deprovisioned.
-                items:
-                  description: GatewayReference identifies a Gateway in a specified
-                    namespace.
-                  properties:
-                    name:
-                      description: Name is the name of the referent.
-                      maxLength: 253
-                      minLength: 1
-                      type: string
-                    namespace:
-                      description: Namespace is the namespace of the referent.
-                      maxLength: 253
-                      minLength: 1
-                      type: string
-                  required:
-                  - name
-                  - namespace
-                  type: object
-                type: array
             type: object
         type: object
     served: true
@@ -533,8 +423,12 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Gateway represents an instantiation of a service-traffic handling
-          infrastructure by binding Listeners to a set of IP addresses.
+        description: "Gateway represents an instantiation of a service-traffic handling
+          infrastructure by binding Listeners to a set of IP addresses. \n Implementations
+          should add the `gateway-exists-finalizer.networking.x-k8s.io` finalizer
+          on the associated GatewayClass whenever Gateway(s) is running. This ensures
+          that a GatewayClass associated with a Gateway(s) is not deleted while in
+          use."
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -598,26 +492,29 @@ spec:
               listeners:
                 description: "Listeners associated with this Gateway. Listeners define
                   logical endpoints that are bound on this Gateway's addresses. At
-                  least one Listener MUST be specified. \n Each Listener in this array
-                  must have a unique Port field, however a GatewayClass may collapse
-                  compatible Listener definitions into a single implementation-defined
-                  acceptor configuration even if their Port fields would otherwise
-                  conflict. \n Listeners are compatible if all of the following conditions
-                  are true: \n 1. all their Protocol fields are \"HTTP\", or all their
-                  Protocol fields are \"HTTPS\" or TLS\" 2. their Hostname fields
-                  are specified with a match type other than \"Any\" 3. their Hostname
-                  fields are not an exact match for any other Listener \n As a special
-                  case, each group of compatible listeners may contain exactly one
-                  Listener with a match type of \"Any\". \n If the GatewayClass collapses
-                  compatible Listeners, the hostname provided in the incoming client
-                  request MUST be matched to a Listener to find the correct set of
-                  Routes. The incoming hostname MUST be matched using the Hostname
-                  field for each Listener in order of most to least specific. That
-                  is, \"Exact\" matches must be processed before \"Domain\" matches,
-                  which must be processed before \"Any\" matches. \n If this field
-                  specifies multiple Listeners that have the same Port value but are
-                  not compatible, the GatewayClass must raise a \"Conflicted\" condition
-                  in the Listener status. \n Support: Core"
+                  least one Listener MUST be specified. \n An implementation MAY group
+                  Listeners by Port and then collapse each group of Listeners into
+                  a single Listener if the implementation determines that the Listeners
+                  in the group are \"compatible\". An implementation MAY also group
+                  together and collapse compatible Listeners belonging to different
+                  Gateways. \n For example, an implementation might consider Listeners
+                  to be compatible with each other if all of the following conditions
+                  are met: \n 1. Either each Listener within the group specifies the
+                  \"HTTP\"    Protocol or each Listener within the group specifies
+                  either    the \"HTTPS\" or \"TLS\" Protocol. \n 2. Each Listener
+                  within the group specifies a Hostname that is unique    within the
+                  group. \n 3. As a special case, one Listener within a group may
+                  omit Hostname,    in which case this Listener matches when no other
+                  Listener    matches. \n If the implementation does collapse compatible
+                  Listeners, the hostname provided in the incoming client request
+                  MUST be matched to a Listener to find the correct set of Routes.
+                  The incoming hostname MUST be matched using the Hostname field for
+                  each Listener in order of most to least specific. That is, \"Exact\"
+                  matches must be processed before \"Domain\" matches, which must
+                  be processed before \"Any\" matches. \n If this field specifies
+                  multiple Listeners that have the same Port value but are not compatible,
+                  the implementation must raise a \"Conflicted\" condition in the
+                  Listener status. \n Support: Core"
                 items:
                   description: Listener embodies the concept of a logical endpoint
                     where a Gateway can accept network connections. Each listener
@@ -675,12 +572,6 @@ spec:
                         \  or the [:authority pseudo-header](https://tools.ietf.org/html/rfc7540#section-8.1.2.3)
                         * For the \"HTTPS\" protocol, the Hostname match MUST be   applied
                         at both the TLS and HTTP protocol layers. \n Support: Core"
-                      enum:
-                      - HTTP
-                      - HTTPS
-                      - TLS
-                      - TCP
-                      - UDP
                       type: string
                     routes:
                       description: "Routes specifies a schema for associating routes
@@ -734,9 +625,11 @@ spec:
                             raise a \"ConditionInvalidRoutes\" condition for the affected
                             Listener. \n Support: Core"
                           type: string
-                        routeNamespaces:
-                          description: "RouteNamespaces indicates in which namespaces
-                            Routes should be selected for this Gateway. This is restricted
+                        namespaces:
+                          default:
+                            from: Same
+                          description: "Namespaces indicates in which namespaces Routes
+                            should be selected for this Gateway. This is restricted
                             to the namespace of this Gateway by default. \n Support:
                             Core"
                           properties:
@@ -804,12 +697,12 @@ spec:
                                   type: object
                               type: object
                           type: object
-                        routeSelector:
-                          description: "RouteSelector specifies a set of route labels
-                            used for selecting routes to associate with the Gateway.
-                            If RouteSelector is defined, only routes matching the
-                            RouteSelector are associated with the Gateway. An empty
-                            RouteSelector matches all routes. \n Support: Core"
+                        selector:
+                          description: "Selector specifies a set of route labels used
+                            for selecting routes to associate with the Gateway. If
+                            RouteSelector is defined, only routes matching the RouteSelector
+                            are associated with the Gateway. An empty RouteSelector
+                            matches all routes. \n Support: Core"
                           properties:
                             matchExpressions:
                               description: matchExpressions is a list of label selector
@@ -855,7 +748,6 @@ spec:
                           type: object
                       required:
                       - kind
-                      - routeNamespaces
                       type: object
                     tls:
                       description: "TLS is the TLS configuration for the Listener.
@@ -1346,15 +1238,11 @@ spec:
                           - https://github.com/kubernetes-sigs/controller-tools/issues/461'
                         properties:
                           extensionRef:
-                            description: ExtensionRef is an optional, implementation-specific
-                              extension to the "filter" behavior.  The resource may
-                              be "configmap" (use the empty string for the group)
-                              or an implementation-defined resource (for example,
-                              resource "myroutefilters" in group "networking.acme.io").
-                              Omitting or specifying the empty string for both the
-                              resource and group indicates that the resource is "configmaps".
+                            description: "ExtensionRef is an optional, implementation-specific
+                              extension to the \"filter\" behavior.  For example,
+                              resource \"myroutefilter\" in group \"networking.acme.io\").
                               ExtensionRef MUST NOT be used for core and extended
-                              filters.
+                              filters. \n Support: Implementation-specific"
                             properties:
                               group:
                                 description: Group is the group of the referent.
@@ -1376,9 +1264,10 @@ spec:
                             - kind
                             - name
                             type: object
-                          requestHeader:
-                            description: HTTPRequestHeaderFilter defines configuration
-                              for the RequestHeader filter.
+                          requestHeaderModifier:
+                            description: "RequestHeaderModifier defines a schema for
+                              a filter that modifies request headers. \n Support:
+                              Core"
                             properties:
                               add:
                                 additionalProperties:
@@ -1402,13 +1291,10 @@ spec:
                                   type: string
                                 maxItems: 16
                                 type: array
-                            required:
-                            - add
-                            - remove
                             type: object
                           requestMirror:
-                            description: HTTPRequestMirrorFilter defines configuration
-                              for the RequestMirror filter.
+                            description: "RequestMirror defines a schema for a filter
+                              that mirrors requests. \n Support: Extended"
                             properties:
                               backendRef:
                                 description: "BackendRef is a local object reference
@@ -1443,19 +1329,9 @@ spec:
                                 - name
                                 type: object
                               port:
-                                description: "Port specifies the destination port
-                                  number to use for the backend referenced by the
-                                  ServiceName or BackendRef field. \n If the port
-                                  is unspecified and a Service object consisting of
-                                  a single port definition is the backend, that port
-                                  will be used. \n If the port is unspecified and
-                                  the backend is a Service object consisting of multiple
-                                  port definitions, the route must be dropped from
-                                  the Gateway. The controller should raise the \"ResolvedRefs\"
-                                  condition on the Gateway with the \"DroppedRoutes\"
-                                  reason.  The gateway status for this route should
-                                  be updated with a condition that describes the error
-                                  more specifically. \n Support: Core"
+                                description: Port specifies the destination port number
+                                  to use for the backend referenced by the ServiceName
+                                  or BackendRef field.
                                 format: int32
                                 maximum: 65535
                                 minimum: 1
@@ -1474,28 +1350,34 @@ spec:
                                   more specifically. \n Support: Core"
                                 maxLength: 253
                                 type: string
+                            required:
+                            - port
                             type: object
                           type:
-                            description: "Type identifies the filter to execute. Types
-                              are classified into three conformance-levels (similar
-                              to other locations in this API): - Core and extended:
-                              These filter types and their corresponding configuration
-                              \  is defined in this package. All implementations must
-                              implement   the core filters. Implementers are encouraged
-                              to support extended filters.   Definitions for filter-specific
-                              configuration for these   filters is defined in this
-                              package. - Custom: These filters are defined and supported
-                              by specific vendors.   In the future, filters showing
-                              convergence in behavior across multiple   implementations
-                              will be considered for inclusion in extended or core
-                              \  conformance rings. Filter-specific configuration
-                              for such filters   is specified using the ExtensionRef
-                              field. `Type` should be set to   \"ImplementationSpecific\"
-                              for custom filters. \n Implementers are encouraged to
-                              define custom implementation types to extend the core
-                              API with implementation-specific behavior."
-                            maxLength: 100
-                            minLength: 1
+                            description: "Type identifies the type of filter to apply.
+                              As with other API fields, types are classified into
+                              three conformance levels: \n - Core: Filter types and
+                              their corresponding configuration defined by   \"Support:
+                              Core\" in this package, e.g. \"RequestHeaderModifier\".
+                              All   implementations must support core filters. \n
+                              - Extended: Filter types and their corresponding configuration
+                              defined by   \"Support: Extended\" in this package,
+                              e.g. \"RequestMirror\". Implementers   are encouraged
+                              to support extended filters. \n - Custom: Filters that
+                              are defined and supported by specific vendors.   In
+                              the future, filters showing convergence in behavior
+                              across multiple   implementations will be considered
+                              for inclusion in extended or core   conformance levels.
+                              Filter-specific configuration for such filters   is
+                              specified using the ExtensionRef field. `Type` should
+                              be set to   \"ExtensionRef\" for custom filters. \n
+                              Implementers are encouraged to define custom implementation
+                              types to extend the core API with implementation-specific
+                              behavior."
+                            enum:
+                            - RequestHeaderModifier
+                            - RequestMirror
+                            - ExtensionRef
                             type: string
                         required:
                         - type
@@ -1562,15 +1444,11 @@ spec:
                                 - https://github.com/kubernetes-sigs/controller-tools/issues/461'
                               properties:
                                 extensionRef:
-                                  description: ExtensionRef is an optional, implementation-specific
-                                    extension to the "filter" behavior.  The resource
-                                    may be "configmap" (use the empty string for the
-                                    group) or an implementation-defined resource (for
-                                    example, resource "myroutefilters" in group "networking.acme.io").
-                                    Omitting or specifying the empty string for both
-                                    the resource and group indicates that the resource
-                                    is "configmaps". ExtensionRef MUST NOT be used
-                                    for core and extended filters.
+                                  description: "ExtensionRef is an optional, implementation-specific
+                                    extension to the \"filter\" behavior.  For example,
+                                    resource \"myroutefilter\" in group \"networking.acme.io\").
+                                    ExtensionRef MUST NOT be used for core and extended
+                                    filters. \n Support: Implementation-specific"
                                   properties:
                                     group:
                                       description: Group is the group of the referent.
@@ -1592,9 +1470,10 @@ spec:
                                   - kind
                                   - name
                                   type: object
-                                requestHeader:
-                                  description: HTTPRequestHeaderFilter defines configuration
-                                    for the RequestHeader filter.
+                                requestHeaderModifier:
+                                  description: "RequestHeaderModifier defines a schema
+                                    for a filter that modifies request headers. \n
+                                    Support: Core"
                                   properties:
                                     add:
                                       additionalProperties:
@@ -1620,13 +1499,10 @@ spec:
                                         type: string
                                       maxItems: 16
                                       type: array
-                                  required:
-                                  - add
-                                  - remove
                                   type: object
                                 requestMirror:
-                                  description: HTTPRequestMirrorFilter defines configuration
-                                    for the RequestMirror filter.
+                                  description: "RequestMirror defines a schema for
+                                    a filter that mirrors requests. \n Support: Extended"
                                   properties:
                                     backendRef:
                                       description: "BackendRef is a local object reference
@@ -1662,21 +1538,9 @@ spec:
                                       - name
                                       type: object
                                     port:
-                                      description: "Port specifies the destination
+                                      description: Port specifies the destination
                                         port number to use for the backend referenced
-                                        by the ServiceName or BackendRef field. \n
-                                        If the port is unspecified and a Service object
-                                        consisting of a single port definition is
-                                        the backend, that port will be used. \n If
-                                        the port is unspecified and the backend is
-                                        a Service object consisting of multiple port
-                                        definitions, the route must be dropped from
-                                        the Gateway. The controller should raise the
-                                        \"ResolvedRefs\" condition on the Gateway
-                                        with the \"DroppedRoutes\" reason.  The gateway
-                                        status for this route should be updated with
-                                        a condition that describes the error more
-                                        specifically. \n Support: Core"
+                                        by the ServiceName or BackendRef field.
                                       format: int32
                                       maximum: 65535
                                       minimum: 1
@@ -1696,30 +1560,35 @@ spec:
                                         the error more specifically. \n Support: Core"
                                       maxLength: 253
                                       type: string
+                                  required:
+                                  - port
                                   type: object
                                 type:
-                                  description: "Type identifies the filter to execute.
-                                    Types are classified into three conformance-levels
-                                    (similar to other locations in this API): - Core
-                                    and extended: These filter types and their corresponding
-                                    configuration   is defined in this package. All
-                                    implementations must implement   the core filters.
-                                    Implementers are encouraged to support extended
-                                    filters.   Definitions for filter-specific configuration
-                                    for these   filters is defined in this package.
-                                    - Custom: These filters are defined and supported
-                                    by specific vendors.   In the future, filters
-                                    showing convergence in behavior across multiple
-                                    \  implementations will be considered for inclusion
-                                    in extended or core   conformance rings. Filter-specific
-                                    configuration for such filters   is specified
-                                    using the ExtensionRef field. `Type` should be
-                                    set to   \"ImplementationSpecific\" for custom
-                                    filters. \n Implementers are encouraged to define
-                                    custom implementation types to extend the core
-                                    API with implementation-specific behavior."
-                                  maxLength: 100
-                                  minLength: 1
+                                  description: "Type identifies the type of filter
+                                    to apply. As with other API fields, types are
+                                    classified into three conformance levels: \n -
+                                    Core: Filter types and their corresponding configuration
+                                    defined by   \"Support: Core\" in this package,
+                                    e.g. \"RequestHeaderModifier\". All   implementations
+                                    must support core filters. \n - Extended: Filter
+                                    types and their corresponding configuration defined
+                                    by   \"Support: Extended\" in this package, e.g.
+                                    \"RequestMirror\". Implementers   are encouraged
+                                    to support extended filters. \n - Custom: Filters
+                                    that are defined and supported by specific vendors.
+                                    \  In the future, filters showing convergence
+                                    in behavior across multiple   implementations
+                                    will be considered for inclusion in extended or
+                                    core   conformance levels. Filter-specific configuration
+                                    for such filters   is specified using the ExtensionRef
+                                    field. `Type` should be set to   \"ExtensionRef\"
+                                    for custom filters. \n Implementers are encouraged
+                                    to define custom implementation types to extend
+                                    the core API with implementation-specific behavior."
+                                  enum:
+                                  - RequestHeaderModifier
+                                  - RequestMirror
+                                  - ExtensionRef
                                   type: string
                               required:
                               - type
@@ -1729,16 +1598,7 @@ spec:
                           port:
                             description: "Port specifies the destination port number
                               to use for the backend referenced by the ServiceName
-                              or BackendRef field. \n If the port is unspecified and
-                              a Service object consisting of a single port definition
-                              is the backend, that port will be used. \n If the port
-                              is unspecified and the backend is a Service object consisting
-                              of multiple port definitions, the route must be dropped
-                              from the Gateway. The controller should raise the \"ResolvedRefs\"
-                              condition on the Gateway with the \"DroppedRoutes\"
-                              reason.  The gateway status for this route should be
-                              updated with a condition that describes the error more
-                              specifically. \n Support: Core"
+                              or BackendRef field. \n Support: Core"
                             format: int32
                             maximum: 65535
                             minimum: 1
@@ -1771,6 +1631,8 @@ spec:
                             maximum: 10000
                             minimum: 0
                             type: integer
+                        required:
+                        - port
                         type: object
                       maxItems: 4
                       type: array
@@ -1805,18 +1667,14 @@ spec:
                         properties:
                           extensionRef:
                             description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior.  The resource may
-                              be \"configmap\" (use the empty string for the group)
-                              or an implementation-defined resource (for example,
-                              resource \"myroutematchers\" in group \"networking.acme.io\").
-                              Omitting or specifying the empty string for both the
-                              resource and group indicates that the resource is \"configmaps\".
-                              \n If the referent cannot be found, the route must be
-                              dropped from the Gateway. The controller should raise
-                              the \"ResolvedRefs\" condition on the Gateway with the
-                              \"DroppedRoutes\" reason. The gateway status for this
-                              route should be updated with a condition that describes
-                              the error more specifically. \n Support: custom"
+                              extension to the \"match\" behavior.  For example, resource
+                              \"myroutematcher\" in group \"networking.acme.io\".
+                              If the referent cannot be found, the route must be dropped
+                              from the Gateway. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DroppedRoutes\"
+                              reason. The gateway status for this route should be
+                              updated with a condition that describes the error more
+                              specifically. \n Support: custom"
                             properties:
                               group:
                                 description: Group is the group of the referent.
@@ -2218,16 +2076,7 @@ spec:
                           port:
                             description: "Port specifies the destination port number
                               to use for the backend referenced by the ServiceName
-                              or BackendRef field. \n If the port is unspecified and
-                              a Service object consisting of a single port definition
-                              is the backend, that port will be used. \n If the port
-                              is unspecified and the backend is a Service object consisting
-                              of multiple port definitions, the route must be dropped
-                              from the Gateway. The controller should raise the \"ResolvedRefs\"
-                              condition on the Gateway with the \"DroppedRoutes\"
-                              reason.  The gateway status for this route should be
-                              updated with a condition that describes the error \n
-                              Support: Core"
+                              or BackendRef field. \n Support: Core"
                             format: int32
                             maximum: 65535
                             minimum: 1
@@ -2260,6 +2109,8 @@ spec:
                             maximum: 10000
                             minimum: 0
                             type: integer
+                        required:
+                        - port
                         type: object
                       maxItems: 4
                       type: array
@@ -2577,16 +2428,7 @@ spec:
                           port:
                             description: "Port specifies the destination port number
                               to use for the backend referenced by the ServiceName
-                              or BackendRef field. \n If the port is unspecified and
-                              a Service object consisting of a single port definition
-                              is the backend, that port will be used. \n If the port
-                              is unspecified and the backend is a Service object consisting
-                              of multiple port definitions, the route must be dropped
-                              from the Gateway. The controller should raise the \"ResolvedRefs\"
-                              condition on the Gateway with the \"DroppedRoutes\"
-                              reason.  The gateway status for this route should be
-                              updated with a condition that describes the error \n
-                              Support: Core"
+                              or BackendRef field. \n Support: Core"
                             format: int32
                             maximum: 65535
                             minimum: 1
@@ -2619,6 +2461,8 @@ spec:
                             maximum: 10000
                             minimum: 0
                             type: integer
+                        required:
+                        - port
                         type: object
                       maxItems: 4
                       type: array
@@ -2685,7 +2529,7 @@ spec:
                               the first label) of the wildcard rule. \n Support: core"
                             items:
                               type: string
-                            maxItems: 10
+                            maxItems: 16
                             minItems: 1
                             type: array
                         type: object
@@ -2956,16 +2800,7 @@ spec:
                           port:
                             description: "Port specifies the destination port number
                               to use for the backend referenced by the ServiceName
-                              or BackendRef field. \n If the port is unspecified and
-                              a Service object consisting of a single port definition
-                              is the backend, that port will be used. \n If the port
-                              is unspecified and the backend is a Service object consisting
-                              of multiple port definitions, the route must be dropped
-                              from the Gateway. The controller should raise the \"ResolvedRefs\"
-                              condition on the Gateway with the \"DroppedRoutes\"
-                              reason.  The gateway status for this route should be
-                              updated with a condition that describes the error \n
-                              Support: Core"
+                              or BackendRef field. \n Support: Core"
                             format: int32
                             maximum: 65535
                             minimum: 1
@@ -2998,6 +2833,8 @@ spec:
                             maximum: 10000
                             minimum: 0
                             type: integer
+                        required:
+                        - port
                         type: object
                       maxItems: 4
                       type: array
