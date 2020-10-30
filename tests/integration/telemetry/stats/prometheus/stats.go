@@ -40,6 +40,11 @@ var (
 	promInst       prometheus.Instance
 )
 
+const (
+	// For multicluster tests we multiply the number of requests with a constant multiplier to make sure we have cross cluster traffic.
+	requestCountMultipler = 3
+)
+
 // GetIstioInstance gets Istio instance.
 func GetIstioInstance() *istio.Instance {
 	return &ist
@@ -174,7 +179,7 @@ func SendTraffic(t *testing.T) error {
 			_, err := cltInstance.Call(echo.CallOptions{
 				Target:   server[0],
 				PortName: "http",
-				Count:    3 * len(server),
+				Count:    requestCountMultipler * len(server),
 			})
 			if err != nil {
 				return err
@@ -192,7 +197,7 @@ func SendTCPTraffic(t *testing.T) error {
 			_, err := cltInstance.Call(echo.CallOptions{
 				Target:   server[0],
 				PortName: "tcp",
-				Count:    3 * len(server),
+				Count:    requestCountMultipler * len(server),
 			})
 			if err != nil {
 				return err

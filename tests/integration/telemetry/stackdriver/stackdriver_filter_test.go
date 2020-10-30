@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -54,6 +53,8 @@ const (
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
 	projectsPrefix = "projects/test-project"
+	// For multicluster tests we multiply the number of requests with a constant multiplier to make sure we have cross cluster traffic.
+	requestCountMultipler = 3
 )
 
 var (
@@ -252,7 +253,7 @@ func sendTraffic(t *testing.T) error {
 	grpcOpts := echo.CallOptions{
 		Target:   srv[0],
 		PortName: "grpc",
-		Count:    3 * len(srv),
+		Count:    requestCountMultipler * len(srv),
 	}
 	// an HTTP request with forced tracing
 	hdr := http.Header{}
@@ -260,7 +261,7 @@ func sendTraffic(t *testing.T) error {
 		Target:   srv[0],
 		PortName: "http",
 		Headers:  hdr,
-		Count:    3 * len(srv),
+		Count:    requestCountMultipler * len(srv),
 	}
 	for _, cltInstance := range clt {
 		retry.UntilSuccessOrFail(t, func() error {
