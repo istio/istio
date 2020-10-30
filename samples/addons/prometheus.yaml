@@ -122,20 +122,6 @@ data:
         - __address__
         - __meta_kubernetes_service_annotation_prometheus_io_port
         target_label: __address__
-      - action: labelmap
-        regex: __meta_kubernetes_service_label_(.+)
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_namespace
-        target_label: kubernetes_namespace
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_service_name
-        target_label: kubernetes_name
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_pod_node_name
-        target_label: kubernetes_node
     - job_name: kubernetes-service-endpoints-slow
       kubernetes_sd_configs:
       - role: endpoints
@@ -161,20 +147,6 @@ data:
         - __address__
         - __meta_kubernetes_service_annotation_prometheus_io_port
         target_label: __address__
-      - action: labelmap
-        regex: __meta_kubernetes_service_label_(.+)
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_namespace
-        target_label: kubernetes_namespace
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_service_name
-        target_label: kubernetes_name
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_pod_node_name
-        target_label: kubernetes_node
       scrape_interval: 5m
       scrape_timeout: 30s
     - honor_labels: true
@@ -206,14 +178,6 @@ data:
       - source_labels:
         - __param_target
         target_label: instance
-      - action: labelmap
-        regex: __meta_kubernetes_service_label_(.+)
-      - source_labels:
-        - __meta_kubernetes_namespace
-        target_label: kubernetes_namespace
-      - source_labels:
-        - __meta_kubernetes_service_name
-        target_label: kubernetes_name
     - job_name: kubernetes-pods
       kubernetes_sd_configs:
       - role: pod
@@ -234,16 +198,6 @@ data:
         - __address__
         - __meta_kubernetes_pod_annotation_prometheus_io_port
         target_label: __address__
-      - action: labelmap
-        regex: __meta_kubernetes_pod_label_(.+)
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_namespace
-        target_label: kubernetes_namespace
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_pod_name
-        target_label: kubernetes_pod_name
       - action: drop
         regex: Pending|Succeeded|Failed
         source_labels:
@@ -268,16 +222,6 @@ data:
         - __address__
         - __meta_kubernetes_pod_annotation_prometheus_io_port
         target_label: __address__
-      - action: labelmap
-        regex: __meta_kubernetes_pod_label_(.+)
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_namespace
-        target_label: kubernetes_namespace
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_pod_name
-        target_label: kubernetes_pod_name
       - action: drop
         regex: Pending|Succeeded|Failed
         source_labels:

@@ -29,12 +29,6 @@ spec:
       targetLabel: __address__
     - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
-    - sourceLabels: [__meta_kubernetes_namespace]
-      action: replace
-      targetLabel: namespace
-    - sourceLabels: [__meta_kubernetes_pod_name]
-      action: replace
-      targetLabel: pod_name
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
