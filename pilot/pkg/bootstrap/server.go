@@ -209,7 +209,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// If keepaliveMaxServerConnectionAge is negative, istiod crash
 	// https://github.com/istio/istio/issues/27257
 	if err := IsNegativeDuration(args.KeepaliveOptions.MaxServerConnectionAge); err != nil {
-		return nil, fmt.Errorf("%v: --keepaliveMaxServerConnectionAge only accepts postive duration eg: 30m", err)
+		return nil, fmt.Errorf("%v: --keepaliveMaxServerConnectionAge only accepts positive duration eg: 30m", err)
 	}
 
 	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {
