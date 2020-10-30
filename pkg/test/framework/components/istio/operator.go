@@ -245,10 +245,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	for _, cluster := range env.KubeClusters {
 		if env.IsControlPlaneCluster(cluster) {
 			cluster := cluster
-			if err = installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile); err != nil {
-				return i, err
-			}
+			errG.Go(func() error {
+				return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile)
+			})
 		}
+	}
+	if err := errG.Wait(); err != nil {
+		scopes.Framework.Errorf("one or more errors occurred instlaling control-plane clusters: %v", err)
+		return i, err
 	}
 
 	// Deploy Istio to remote clusters
