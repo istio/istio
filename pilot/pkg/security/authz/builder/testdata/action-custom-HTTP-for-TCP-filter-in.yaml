@@ -1,0 +1,57 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-deny
+  namespace: foo
+spec:
+  action: CUSTOM
+  provider:
+    name: default
+  rules:
+    # rule[0] `from`: nil, `to`: HTTP field.
+    - to:
+        - operation:
+            methods: ["GET"]
+    # rule[1] `from`: TCP field, `to`: HTTP field.
+    - from:
+        - source:
+            ipBlocks: ["1.2.3.4"]
+      to:
+        - operation:
+            methods: ["GET"]
+    # rule[2] `from`: TCP field, `to`: TCP field.
+    - from:
+        - source:
+            ipBlocks: ["1.2.3.4"]
+      to:
+        - operation:
+            ports: ["80"]
+    # rule[3] `from`: nil, `to`: nil, `when`: HTTP field.
+    - when:
+        - key: "request.headers[:method]"
+          values: ["GET"]
+    # rule[4] `from`: nil, `to`: nil, `when`: TCP field.
+    - when:
+        - key: "destination.port"
+          values: ["80"]
+    # rule[5] `from`: all fields, `to`: all fields, `when`: all fields.
+    - from:
+        - source:
+            ipBlocks: ["1.2.3.4"]
+            remoteIpBlocks: ["172.18.4.0/22"]
+            notIpBlocks: ["9.0.0.1"]
+            notRemoteIpBlocks: ["192.168.244.139"]
+      to:
+        - operation:
+            methods: ["method"]
+            hosts: ["exact.com"]
+            ports: ["80"]
+            paths: ["/exact"]
+            notMethods: ["not-method"]
+            notHosts: ["not-exact.com"]
+            notPorts: ["8000"]
+            notPaths: ["/not-exact"]
+      when:
+        - key: "request.headers[X-header]"
+          values: ["header"]
+          notValues: ["not-header"]
