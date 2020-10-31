@@ -33,7 +33,7 @@ EOF
 
 # Generate the top header. This defines a group to build all images for each variant
 for variant in ${DOCKER_ALL_VARIANTS}; do
-  # Get all images. Transform from `docker.target` to `"target"` as a comma seperated list
+  # Get all images. Transform from `docker.target` to `"target"` as a comma separated list
   images=\"$(for i in "$@"; do
     if ! "${WD}/skip-image.sh" "$i" "$variant"; then echo "\"${i#docker.}-${variant}\""; fi
   done | xargs | sed -e 's/ /\", \"/g')\"
