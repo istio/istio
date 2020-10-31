@@ -25,7 +25,6 @@ refer to this [doc](https://istio.io/latest/docs/examples/virtual-machines/singl
 To deploy an echo instance as a VM
 1. Set the ports for the VMs.
 1. Set `DeployAsVm` to be true in `echo.Config`.
-1. Set `VMImage` to be any image available from `GetSupportedOSVersion` in [util.go](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go).
 We used DefaultVMImage in the example.
 
 For example,
