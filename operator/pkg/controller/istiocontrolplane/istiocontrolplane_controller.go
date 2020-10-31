@@ -330,7 +330,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	shouldVerifyInstall, _ := os.LookupEnv("VERIFY_AFTER_INSTALL")
-	if shouldVerifyInstall != "" && shouldVerifyInstall == "true" {
+	if shouldVerifyInstall == "true" {
 		scope.Infof("Verifying installation %s/%s (revision=%s)",
 			iopMerged.Namespace, iopMerged.Name, iopMerged.Spec.Revision)
 
