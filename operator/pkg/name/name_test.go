@@ -20,6 +20,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -121,6 +122,111 @@ a:
 			}
 			if found != tt.found {
 				t.Errorf("Find() found = %v, want %v", found, tt.found)
+			}
+		})
+	}
+}
+
+func TestRootNamespaceForMeshConfig(t *testing.T) {
+	tests := []struct {
+		desc              string
+		yamlStr           string
+		wantRootNamespace string
+	}{
+		{
+			desc: "only iopSpec.Namespace",
+			yamlStr: `
+namespace: istio-foo`,
+			wantRootNamespace: "istio-foo",
+		},
+		{
+			desc: "only iopSpec.Values[global].istioNamespace",
+			yamlStr: `
+values:
+  global:
+    istioNamespace: istio-foo`,
+			wantRootNamespace: "istio-foo",
+		},
+		{
+			desc: "only iopSpec.Values[meshConfig].rootNamespace",
+			yamlStr: `
+values:
+  meshConfig:
+    rootNamespace: istio-foo`,
+			wantRootNamespace: "istio-foo",
+		},
+		{
+			desc: "only iopSpec.MeshConfig.rootNamespace",
+			yamlStr: `
+meshConfig:
+  rootNamespace: istio-foo`,
+			wantRootNamespace: "istio-foo",
+		},
+		{
+			desc: "iopSpec.Values[meshConfig].rootNamespace and iopSpec.Values[meshConfig].rootNamespace",
+			yamlStr: `
+values:
+  global:
+    istioNamespace: istio-foo
+  meshConfig:
+    rootNamespace: istio-bar`,
+			wantRootNamespace: "istio-bar",
+		},
+		{
+			desc: "iopSpec.Values[meshConfig].rootNamespace and iopSpec.MeshConfig.rootNamespace",
+			yamlStr: `
+meshConfig:
+  rootNamespace: istio-bar
+values:
+  global:
+    istioNamespace: istio-foo`,
+			wantRootNamespace: "istio-bar",
+		},
+		{
+			desc: "iopSpec.Namespace, iopSpec.Values[meshConfig].rootNamespace and iopSpec.Values[meshConfig].rootNamespace",
+			yamlStr: `
+namespace: istio-foo
+values:
+  global:
+    istioNamespace: istio-foo
+  meshConfig:
+    rootNamespace: istio-bar`,
+			wantRootNamespace: "istio-bar",
+		},
+		{
+			desc: "iopSpec.Namespace, iopSpec.Values[meshConfig].rootNamespace and iopSpec.MeshConfig.rootNamespace",
+			yamlStr: `
+namespace: istio-foo
+meshConfig:
+  rootNamespace: istio-bar
+values:
+  global:
+    istioNamespace: istio-foo`,
+			wantRootNamespace: "istio-bar",
+		},
+		{
+			desc: "iopSpec.MeshConfig.rootNamespace and iopSpec.Values[meshConfig].rootNamespace",
+			yamlStr: `
+meshConfig:
+  rootNamespace: istio-bar
+values:
+  global:
+    istioNamespace: istio-foo
+  meshConfig:
+    rootNamespace: istio-bar`,
+			wantRootNamespace: "istio-bar",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			ispec := &v1alpha1.IstioOperatorSpec{}
+			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec, false)
+			if err != nil {
+				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.yamlStr, err)
+			}
+			gotRootNamespace := RootNamespaceForMeshConfig(ispec)
+			if gotRootNamespace != tt.wantRootNamespace {
+				t.Errorf("%s: wanted rootNamespace: %s, got rootNamespace: %s", tt.desc, tt.wantRootNamespace, gotRootNamespace)
 			}
 		})
 	}
