@@ -119,7 +119,7 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	}
 	wle := cfg.DeepCopy()
 	delete(wle.Annotations, WorkloadControllerAnnotation)
-	cfg.Annotations[DisconnectedAtAnnotation] = time.Now().Format(timeFormat)
+	wle.Annotations[DisconnectedAtAnnotation] = time.Now().Format(timeFormat)
 	// use update instead of patch to prevent race condition
 	_, err := sg.Store.Update(wle)
 	if err != nil && !errors.IsConflict(err) {
