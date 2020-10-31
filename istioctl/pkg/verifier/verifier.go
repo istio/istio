@@ -61,14 +61,14 @@ type StatusVerifier struct {
 
 // NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
-func NewStatusVerifier(istioNs, manifestsPath, kubeconfig, context string,
+func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
 	logger *clog.ConsoleLogger) *StatusVerifier {
 	if logger == nil {
 		logger = clog.NewDefaultLogger()
 	}
 	return &StatusVerifier{
-		istioNamespace:   istioNs,
+		istioNamespace:   istioNamespace,
 		manifestsPath:    manifestsPath,
 		filenames:        filenames,
 		controlPlaneOpts: controlPlaneOpts,
