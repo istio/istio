@@ -50,29 +50,29 @@ var (
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
 type StatusVerifier struct {
-	istioNamespace string
-	manifestsPath  string
-	kubeconfig     string
-	context        string
-	filenames      []string
-	cpOpts         clioptions.ControlPlaneOptions
-	logger         *clog.ConsoleLogger
+	istioNamespace   string
+	manifestsPath    string
+	kubeconfig       string
+	context          string
+	filenames        []string
+	controlPlaneOpts clioptions.ControlPlaneOptions
+	logger           *clog.ConsoleLogger
 }
 
 // NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
 func NewStatusVerifier(istioNs, manifestsPath, kubeconfig, context string,
-	filenames []string, cpOpts clioptions.ControlPlaneOptions,
+	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
 	logger *clog.ConsoleLogger) *StatusVerifier {
 	if logger == nil {
 		logger = clog.NewDefaultLogger()
 	}
 	return &StatusVerifier{
-		istioNamespace: istioNs,
-		manifestsPath:  manifestsPath,
-		filenames:      filenames,
-		cpOpts:         cpOpts,
-		logger:         logger,
+		istioNamespace:   istioNs,
+		manifestsPath:    manifestsPath,
+		filenames:        filenames,
+		controlPlaneOpts: controlPlaneOpts,
+		logger:           logger,
 	}
 }
 
@@ -86,7 +86,7 @@ func (v *StatusVerifier) Verify() error {
 }
 
 func (v *StatusVerifier) verifyInstallIOPRevision() error {
-	iop, err := v.operatorFromCluster(v.cpOpts.Revision)
+	iop, err := v.operatorFromCluster(v.controlPlaneOpts.Revision)
 	if err != nil {
 		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
 	}
