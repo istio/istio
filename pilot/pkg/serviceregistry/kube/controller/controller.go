@@ -852,6 +852,9 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 		if workload, f := c.workloadInstancesByIP[proxyIP]; f {
 			return c.hydrateWorkloadInstance(workload)
 		} else if pod != nil && proxy.Metadata.Labels[constants.TestVMLabel] == "" {
+			// we don't want to use this block for our test "VM" which is actually a Pod. This
+			// TODO use node metadata to indicate that this is a VM
+
 			if !c.isControllerForProxy(proxy) {
 				log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 				return nil
