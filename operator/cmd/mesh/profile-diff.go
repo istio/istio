@@ -39,6 +39,11 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 		Use:   "diff <file1.yaml> <file2.yaml>",
 		Short: "Diffs two Istio configuration profiles",
 		Long:  "The diff subcommand displays the differences between two Istio configuration profiles.",
+		Example: `  # Profile diff by providing yaml files
+  istioctl profile diff manifests/profiles/default.yaml manifests/profiles/demo.yaml
+
+  # Profile diff by providing a profile name
+  istioctl profile diff default demo`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return fmt.Errorf("diff requires two profiles")
@@ -69,7 +74,7 @@ func profileDiff(rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) err
 	if diff == "" {
 		fmt.Println("Profiles are identical")
 	} else {
-		fmt.Printf("Difference of profiles:\n%s", diff)
+		fmt.Printf("The difference between profiles:\n%s", diff)
 		os.Exit(1)
 	}
 
