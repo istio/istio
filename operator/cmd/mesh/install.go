@@ -171,11 +171,12 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	}
 
 	if iArgs.verify {
-		l.LogAndPrintf("Verifying installation")
+		l.LogAndPrint("Verifying installation")
 		insVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
 			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l)
 		if err := insVerifier.Verify(); err != nil {
-			return fmt.Errorf("failed to verify installation: %v", err)
+			return fmt.Errorf("verification failed with the following error: %v\n\n"+
+				"Please run `istioctl verify-install` manually", err)
 		}
 	}
 
@@ -186,7 +187,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
-// Returns final IstioOperator after installation if successful or an error if anything goes wrong.
+// Returns final IstioOperator after installation if successful.
 func InstallManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
 	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
 

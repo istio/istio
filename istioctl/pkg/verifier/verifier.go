@@ -50,13 +50,13 @@ var (
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
 type StatusVerifier struct {
-	istioNs       string
-	manifestsPath string
-	kubeconfig    string
-	context       string
-	filenames     []string
-	cpOpts        clioptions.ControlPlaneOptions
-	logger        *clog.ConsoleLogger
+	istioNamespace string
+	manifestsPath  string
+	kubeconfig     string
+	context        string
+	filenames      []string
+	cpOpts         clioptions.ControlPlaneOptions
+	logger         *clog.ConsoleLogger
 }
 
 // NewStatusVerifier creates a new instance of post-install verifier
@@ -68,11 +68,11 @@ func NewStatusVerifier(istioNs, manifestsPath, kubeconfig, context string,
 		logger = clog.NewDefaultLogger()
 	}
 	return &StatusVerifier{
-		istioNs:       istioNs,
-		manifestsPath: manifestsPath,
-		filenames:     filenames,
-		cpOpts:        cpOpts,
-		logger:        logger,
+		istioNamespace: istioNs,
+		manifestsPath:  manifestsPath,
+		filenames:      filenames,
+		cpOpts:         cpOpts,
+		logger:         logger,
 	}
 }
 
@@ -114,9 +114,7 @@ func (v *StatusVerifier) verifyInstall() error {
 	return v.reportStatus(crdCount, istioDeploymentCount, err)
 }
 
-// nolint: lll
 func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, error) {
-	// Generate the manifest this IstioOperator will make
 	t := translate.NewTranslator()
 
 	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t)
@@ -128,7 +126,7 @@ func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOpera
 	}
 
 	manifests, errs := cp.RenderManifest()
-	if errs != nil {
+	if errs != nil && len(errs) > 0 {
 		return 0, 0, errs.ToError()
 	}
 
@@ -195,7 +193,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			if err = verifyDeploymentStatus(deployment); err != nil {
 				return istioVerificationFailureError(filename, err)
 			}
-			if namespace == v.istioNs && strings.HasPrefix(name, "istio") {
+			if namespace == v.istioNamespace && strings.HasPrefix(name, "istio") {
 				istioDeploymentCount++
 			}
 		case "Job":
