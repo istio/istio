@@ -107,13 +107,23 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	}
 
 	// unset controller, set disconnect time
-	_, err := sg.Store.Patch(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace, func(cfg config.Config) config.Config {
-		delete(cfg.Annotations, WorkloadControllerAnnotation)
-		cfg.Annotations[DisconnectedAtAnnotation] = time.Now().Format(timeFormat)
-		return cfg
-	})
-	if err != nil {
-		adsLog.Warnf("disconnect: failed patching WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+	cfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	if cfg == nil {
+		// we failed to create the workload entry in the first place or it is not propagated
+		return
+	}
+
+	// The wle has reconnected to another istiod and controlled by it.
+	if cfg.Annotations[WorkloadControllerAnnotation] != sg.Server.instanceID {
+		return
+	}
+	wle := cfg.DeepCopy()
+	delete(wle.Annotations, WorkloadControllerAnnotation)
+	cfg.Annotations[DisconnectedAtAnnotation] = time.Now().Format(timeFormat)
+	// use update instead of patch to prevent race condition
+	_, err := sg.Store.Update(wle)
+	if err != nil && !errors.IsConflict(err) {
+		adsLog.Warnf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 		return
 	}
 
