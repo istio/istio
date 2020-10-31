@@ -32,6 +32,7 @@ import (
 func TestPostInstallControlPlaneVerification(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("installation.istioctl.postinstall_verify").
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
