@@ -16,7 +16,3 @@ spec:
       - namespace: istio-system
         name: istio-egressgateway
         enabled: true
-
-  addonComponents:
-    istiocoredns:
-      enabled: true

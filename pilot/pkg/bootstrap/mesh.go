@@ -16,12 +16,21 @@ package bootstrap
 
 import (
 	"encoding/json"
+	"os"
 
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+)
+
+const (
+	// defaultMeshConfigMapName is the default name of the ConfigMap with the mesh config
+	// The actual name can be different - use getMeshConfigMapName
+	defaultMeshConfigMapName = "istio"
+	// configMapKey should match the expected MeshConfig file name
+	configMapKey = "mesh"
 )
 
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.
@@ -38,17 +47,27 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	}()
 
 	var err error
-	if args.MeshConfigFile != "" {
-		s.environment.Watcher, err = mesh.NewWatcher(fileWatcher, args.MeshConfigFile)
+	if _, err = os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
+		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile)
 		if err == nil {
 			return
 		}
 		log.Warnf("Watching mesh config file %s failed: %v", args.MeshConfigFile, err)
 	}
 
-	// Config file either wasn't specified or failed to load - use a default mesh.
-	meshConfig := mesh.DefaultMeshConfig()
-	s.environment.Watcher = mesh.NewFixedWatcher(&meshConfig)
+	// Config file either didn't exist or failed to load.
+	if s.kubeClient == nil {
+		// Use a default mesh.
+		meshConfig := mesh.DefaultMeshConfig()
+		s.environment.Watcher = mesh.NewFixedWatcher(&meshConfig)
+		return
+	}
+
+	// Watch the istio ConfigMap for mesh config changes.
+	// This may be necessary for external Istiod.
+	configMapName := getMeshConfigMapName(args.Revision)
+	s.environment.Watcher = mesh.NewConfigMapWatcher(
+		s.kubeClient, args.Namespace, configMapName, configMapKey)
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
@@ -67,4 +86,12 @@ func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileW
 		log.Info("mesh networks configuration not provided")
 		s.environment.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
+}
+
+func getMeshConfigMapName(revision string) string {
+	name := defaultMeshConfigMapName
+	if revision == "" || revision == "default" {
+		return name
+	}
+	return name + "-" + revision
 }

@@ -34,7 +34,7 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/api/label"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
@@ -171,15 +171,6 @@ func (i *operatorComponent) Close() (err error) {
 			}
 		}
 	}
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	if i.ingress != nil {
-		for _, ings := range i.ingress {
-			for _, ii := range ings {
-				ii.CloseClients()
-			}
-		}
-	}
 	return
 }
 
@@ -254,10 +245,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	for _, cluster := range env.KubeClusters {
 		if env.IsControlPlaneCluster(cluster) {
 			cluster := cluster
-			if err = installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile); err != nil {
-				return i, err
-			}
+			errG.Go(func() error {
+				return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile)
+			})
 		}
+	}
+	if err := errG.Wait(); err != nil {
+		scopes.Framework.Errorf("one or more errors occurred instlaling control-plane clusters: %v", err)
+		return i, err
 	}
 
 	// Deploy Istio to remote clusters
@@ -632,10 +627,6 @@ func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context,
 
 func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
 	cluster resource.Cluster) error {
-	// Ensure the istio-reader-service-account exists
-	if err := i.createServiceAccount(ctx, cluster); err != nil {
-		return err
-	}
 	// Create a secret.
 	secret, err := createRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
@@ -645,30 +636,6 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
-}
-
-func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster resource.Cluster) error {
-	// TODO(landow) we should not have users do this. instead this could be a part of create-remote-secret
-	sa, err := cluster.CoreV1().ServiceAccounts("istio-system").
-		Get(context.TODO(), multicluster.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
-	if err == nil && sa != nil {
-		scopes.Framework.Infof("service account exists in %s", cluster.Name())
-		return nil
-	}
-	scopes.Framework.Infof("creating service account in %s", cluster.Name())
-
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{
-		Cluster: cluster,
-	})
-	if err != nil {
-		return err
-	}
-	return install(i, []string{
-		"--set", "profile=empty",
-		"--set", "components.base.enabled=true",
-		"--set", "values.global.configValidation=false",
-		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
-	}, istioCtl, cluster.Name())
 }
 
 func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Config) (string, error) {
@@ -682,6 +649,7 @@ func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Conf
 		"x", "create-remote-secret",
 		"--name", cluster.Name(),
 		"--namespace", cfg.SystemNamespace,
+		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
 
 	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
@@ -730,9 +698,14 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		}
 
 		// Create the system namespace.
+		var nsLabels map[string]string
+		if env.IsMultinetwork() {
+			nsLabels = map[string]string{label.IstioNetwork: cluster.NetworkName()}
+		}
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
-				Name: cfg.SystemNamespace,
+				Labels: nsLabels,
+				Name:   cfg.SystemNamespace,
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
 			scopes.Framework.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+

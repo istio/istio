@@ -82,7 +82,7 @@ type Config struct {
 	CertDir string
 
 	// Secrets is the interface used for getting keys and rootCA.
-	Secrets security.SecretManager
+	SecretManager security.SecretManager
 
 	// For getting the certificate, using same code as SDS server.
 	// Either the JWTPath or the certs must be present.
@@ -102,24 +102,16 @@ type Config struct {
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
 
-	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
+	// InitialDiscoveryRequests is a list of resources to watch at first, represented as URLs (for new XDS resource naming)
 	// or type URLs.
-	Watch []string
+	InitialDiscoveryRequests []*discovery.DiscoveryRequest
 
-	// InitialReconnectDelay is the time to wait before attempting to reconnect.
-	// If empty reconnect will not be attempted.
-	// TODO: client will use exponential backoff to reconnect.
-	InitialReconnectDelay time.Duration
-
-	// backoffPolicy determines the reconnect policy. Based on MCP client.
+	// BackoffPolicy determines the reconnect policy. Based on MCP client.
 	BackoffPolicy backoff.BackOff
 
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
 	ResponseHandler ResponseHandler
-
-	// TODO: remove the duplication - all security settings belong here.
-	SecOpts *security.Options
 
 	GrpcOpts []grpc.DialOption
 }
@@ -130,8 +122,9 @@ type ADSC struct {
 	// Stream is the GRPC connection stream, allowing direct GRPC send operations.
 	// Set after Dial is called.
 	stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-
-	conn *grpc.ClientConn
+	// xds client used to create a stream
+	client discovery.AggregatedDiscoveryServiceClient
+	conn   *grpc.ClientConn
 
 	// Indicates if the ADSC client is closed
 	closed bool
@@ -140,8 +133,6 @@ type ADSC struct {
 	nodeID string
 
 	url string
-
-	grpcOpts []grpc.DialOption
 
 	watchTime time.Time
 
@@ -220,39 +211,28 @@ var (
 // - get certificate using the Secret provider, if CertRequired
 // - connect to the XDS server specified in ProxyConfig
 // - send initial request for watched resources
-// - wait for respose from XDS server
+// - wait for response from XDS server
 // - on success, start a background thread to maintain the connection, with exp. backoff.
-func New(proxyConfig *v1alpha1.ProxyConfig, opts *Config) (*ADSC, error) {
-	// We want to reconnect
-	if opts.BackoffPolicy == nil {
-		opts.BackoffPolicy = backoff.NewExponentialBackOff()
-	}
-
-	adsc, err := Dial(proxyConfig.DiscoveryAddress, "", opts)
-
-	return adsc, err
-}
-
-// Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
-func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
+func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	if opts == nil {
 		opts = &Config{}
+	}
+	// We want to recreate stream
+	if opts.BackoffPolicy == nil {
+		opts.BackoffPolicy = backoff.NewExponentialBackOff()
 	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *discovery.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
-		url:         url,
+		url:         discoveryAddr,
 		Received:    map[string]*discovery.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
 		sync:        map[string]time.Time{},
-		grpcOpts:    opts.GrpcOpts,
 	}
-	if certDir != "" {
-		opts.CertDir = certDir
-	}
+
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
 	}
@@ -271,11 +251,39 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
-	// by default, we assume 1 goroutine decrements the waitgroup (go a.handleRecv()).
-	// for synchronizing when the goroutine finishes reading from the gRPC stream.
-	adsc.RecvWg.Add(1)
-	err := adsc.Run()
-	return adsc, err
+	if err := adsc.Dial(); err != nil {
+		return nil, err
+	}
+
+	return adsc, nil
+}
+
+// Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
+func (a *ADSC) Dial() error {
+	opts := a.cfg
+
+	var err error
+	grpcDialOptions := opts.GrpcOpts
+	// If we need MTLS - CertDir or Secrets provider is set.
+	if len(opts.CertDir) > 0 || opts.SecretManager != nil {
+		tlsCfg, err := a.tlsConfig()
+		if err != nil {
+			return err
+		}
+		creds := credentials.NewTLS(tlsCfg)
+		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(creds))
+	}
+
+	if len(grpcDialOptions) == 0 {
+		// Only disable transport security if the user didn't supply custom dial options
+		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
+	}
+
+	a.conn, err = grpc.Dial(a.url, grpcDialOptions...)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
@@ -299,48 +307,20 @@ func getPrivateIPIfAvailable() net.IP {
 }
 
 func (a *ADSC) tlsConfig() (*tls.Config, error) {
-	var clientCert tls.Certificate
 	var clientCerts []tls.Certificate
 	var serverCABytes []byte
 	var err error
-	var certName string
 
-	// If we need MTLS - CertDir or Secrets provider is set.
-	if a.cfg.Secrets != nil {
-		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
-		if err != nil {
-			log.Infof("Failed to get credential token in agent: %v", err)
-			tok = []byte("")
-		}
-
-		certName = fmt.Sprintf("(generated from %s)", a.cfg.JWTPath)
-		key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
-			cache.WorkloadKeyCertResourceName, string(tok))
-		if err != nil {
-			return nil, err
-		}
-		clientCert, err = tls.X509KeyPair(key.CertificateChain, key.PrivateKey)
-		if err != nil {
-			return nil, err
-		}
-		clientCerts = []tls.Certificate{clientCert}
-	} else if a.cfg.CertDir != "" {
-		certName = a.cfg.CertDir + "/cert-chain.pem"
-		clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")
-		if err != nil {
-			return nil, err
-		}
-		clientCerts = []tls.Certificate{clientCert}
-	}
+	var getClientCertificate = getClientCertFn(a.cfg)
 
 	// Load the root CAs
 	if a.cfg.RootCert != nil {
 		serverCABytes = a.cfg.RootCert
 	} else if a.cfg.XDSRootCAFile != "" {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
-	} else if a.cfg.Secrets != nil {
+	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
-		rootCA, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
+		rootCA, err := a.cfg.SecretManager.GenerateSecret(context.Background(), "agent",
 			cache.RootCertReqResourceName, "")
 		if err != nil {
 			return nil, err
@@ -359,34 +339,18 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		return nil, err
 	}
 
-	// If we supply an expired cert to the server it will just close the connection
-	// without useful message.  If the cert is obviously bogus, refuse to use it.
-	now := time.Now()
-	for _, cert := range clientCert.Certificate {
-		cert, err := x509.ParseCertificate(cert)
-		if err == nil {
-			if now.After(cert.NotAfter) {
-				return nil, fmt.Errorf("certificate %s expired %v", certName, cert.NotAfter)
-			}
-		}
-	}
-
 	shost, _, _ := net.SplitHostPort(a.url)
 	if a.cfg.XDSSAN != "" {
 		shost = a.cfg.XDSSAN
 	}
 
-	tc := &tls.Config{
-		Certificates: clientCerts,
-		RootCAs:      serverCAs,
-		ServerName:   shost,
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			return nil
-		},
-		InsecureSkipVerify: a.cfg.InsecureSkipVerify,
-	}
-
-	return tc, nil
+	return &tls.Config{
+		GetClientCertificate: getClientCertificate,
+		Certificates:         clientCerts,
+		RootCAs:              serverCAs,
+		ServerName:           shost,
+		InsecureSkipVerify:   a.cfg.InsecureSkipVerify,
+	}, nil
 }
 
 // Close the stream.
@@ -397,41 +361,28 @@ func (a *ADSC) Close() {
 	a.mutex.Unlock()
 }
 
-// Run will run one connection to the ADS client.
+// Run will create a new stream using the existing grpc client connection and send the initial xds requests.
+// And then it will run a go routine receiving and handling xds response.
+// Note: it is non blocking
 func (a *ADSC) Run() error {
 	var err error
-
-	opts := a.grpcOpts
-	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
-		tlsCfg, err := a.tlsConfig()
-		if err != nil {
-			return err
-		}
-		creds := credentials.NewTLS(tlsCfg)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else if len(opts) == 0 {
-		// Only disable transport security if the user didn't supply custom dial options
-		opts = append(opts, grpc.WithInsecure())
-	}
-	a.conn, err = grpc.Dial(a.url, opts...)
+	a.client = discovery.NewAggregatedDiscoveryServiceClient(a.conn)
+	a.stream, err = a.client.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
 	}
-	xds := discovery.NewAggregatedDiscoveryServiceClient(a.conn)
-	edsstr, err := xds.StreamAggregatedResources(context.Background())
-	if err != nil {
-		return err
-	}
-	a.stream = edsstr
 	a.sendNodeMeta = true
-
+	a.InitialLoad = 0
 	// Send the initial requests
-	for _, r := range a.cfg.Watch {
-		_ = a.Send(&discovery.DiscoveryRequest{
-			TypeUrl: r,
-		})
+	for _, r := range a.cfg.InitialDiscoveryRequests {
+		if r.TypeUrl == v3.ClusterType {
+			a.watchTime = time.Now()
+		}
+		_ = a.Send(r)
 	}
-
+	// by default, we assume 1 goroutine decrements the waitgroup (go a.handleRecv()).
+	// for synchronizing when the goroutine finishes reading from the gRPC stream.
+	a.RecvWg.Add(1)
 	go a.handleRecv()
 	return nil
 }
@@ -450,12 +401,15 @@ func (a *ADSC) hasSynced() bool {
 	return true
 }
 
+// reconnect will create a new stream
 func (a *ADSC) reconnect() {
 	a.mutex.RLock()
 	if a.closed {
+		a.mutex.RUnlock()
 		return
 	}
 	a.mutex.RUnlock()
+
 	err := a.Run()
 	if err == nil {
 		a.cfg.BackoffPolicy.Reset()
@@ -469,12 +423,12 @@ func (a *ADSC) handleRecv() {
 		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
+			a.RecvWg.Done()
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			// if 'reconnect' enabled - schedule a new Run
 			if a.cfg.BackoffPolicy != nil {
 				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 			} else {
-				a.RecvWg.Done()
 				a.Close()
 				a.WaitClear()
 				a.Updates <- ""
@@ -990,6 +944,14 @@ func (a *ADSC) EndpointsJSON() string {
 	return string(out)
 }
 
+func XdsInitialRequests() []*discovery.DiscoveryRequest {
+	return []*discovery.DiscoveryRequest{
+		{
+			TypeUrl: v3.ClusterType,
+		},
+	}
+}
+
 // Watch will start watching resources, starting with CDS. Based on the CDS response
 // it will start watching RDS and LDS.
 func (a *ADSC) Watch() {
@@ -998,6 +960,20 @@ func (a *ADSC) Watch() {
 		Node:    a.node(),
 		TypeUrl: v3.ClusterType,
 	})
+}
+
+func ConfigInitialRequests() []*discovery.DiscoveryRequest {
+	out := make([]*discovery.DiscoveryRequest, 0, len(collections.Pilot.All())+1)
+	out = append(out, &discovery.DiscoveryRequest{
+		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
+	})
+	for _, sch := range collections.Pilot.All() {
+		out = append(out, &discovery.DiscoveryRequest{
+			TypeUrl: sch.Resource().GroupVersionKind().String(),
+		})
+	}
+
+	return out
 }
 
 // WatchConfig will use the new experimental API watching, similar with MCP.

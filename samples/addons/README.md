@@ -43,6 +43,7 @@ This sample provides the following dashboards:
 * [Workload Dashboard](https://grafana.com/grafana/dashboards/7630) provides a detailed breakdown of metrics for a workload.
 * [Performance Dashboard](https://grafana.com/grafana/dashboards/11829) monitors the resource usage of the mesh.
 * [Control Plane Dashboard](https://grafana.com/grafana/dashboards/7645) monitors the health and performance of the control plane.
+* [WASM Extension Dashboard](https://grafana.com/grafana/dashboards/13277) provides an overview of mesh wide WebAssembly extension runtime and loading state.
 
 For more information about integrating with Grafana, please see the [Grafana integration page](https://istio.io/docs/ops/integrations/grafana/).
 
@@ -83,7 +84,9 @@ For more information about integrating with Zipkin, please see the [Zipkin integ
 
 The [Prometheus Operator](https://github.com/coreos/prometheus-operator) manages and operators a Prometheus instance.
 
-As an alternative to the standard Prometheus deployment, we provide `ServiceMonitors` to monitor the Istio control plane and
+As an alternative to the standard Prometheus deployment, we provide a `ServiceMonitor` to monitor the Istio control plane and `PodMonitor`
 Envoy proxies. To use these, make sure you have the Prometheus operator deployed, then run `kubectl apply -f samples/addons/extras/prometheus-operator.yaml`.
+
+Note: The example `PodMonitor` requires [metrics merging](https://istio.io/latest/docs/ops/integrations/prometheus/#option-1-metrics-merging) to be enabled. This is enabled by default.
 
 Note: The configurations here are only for Istio deployments, and do not scrape metrics from the Kubernetes components. See the [Cluster Monitoring](https://coreos.com/operators/prometheus/docs/latest/user-guides/cluster-monitoring.html) documentation for configuring this.

@@ -18,10 +18,13 @@ import (
 	"context"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -89,7 +92,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.Authn, plugin.Authz})
+	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.Authn, plugin.Authz}, "pilot-123")
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -210,7 +213,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	grpcServer := grpc.NewServer()
 	s.Register(grpcServer)
 	go func() {
-		if err := grpcServer.Serve(listener); err != nil && err != grpc.ErrServerStopped {
+		if err := grpcServer.Serve(listener); err != nil && !(err == grpc.ErrServerStopped || err.Error() == "closed") {
 			t.Fatal(err)
 		}
 	}()
@@ -254,7 +257,7 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 }
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
-func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
+func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return f.Listener.Dial()
 	}))
@@ -266,11 +269,23 @@ func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_
 	if err != nil {
 		f.t.Fatalf("stream resources failed: %s", err)
 	}
-	f.t.Cleanup(func() {
-		_ = client.CloseSend()
-		_ = conn.Close()
-	})
-	return client
+	ctx, cancel := context.WithCancel(context.Background())
+
+	resp := &AdsTest{
+		client:        client,
+		conn:          conn,
+		context:       ctx,
+		cancelContext: cancel,
+		t:             f.t,
+		ID:            "sidecar~1.1.1.1~test.default~default.svc.cluster.local",
+		Type:          v3.ClusterType,
+		responses:     make(chan *discovery.DiscoveryResponse),
+	}
+	f.t.Cleanup(resp.Cleanup)
+
+	go resp.adsReceiveChannel()
+
+	return resp
 }
 
 // Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
@@ -279,18 +294,23 @@ func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_
 func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
 	f.t.Helper()
 	p = f.SetupProxy(p)
+	initialWatch := []*discovery.DiscoveryRequest{}
 	if watch == nil {
-		watch = []string{v3.ClusterType}
+		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
+	} else {
+		for _, typeURL := range watch {
+			initialWatch = append(initialWatch, &discovery.DiscoveryRequest{TypeUrl: typeURL})
+		}
 	}
 	if wait == nil {
-		watch = []string{v3.ClusterType}
+		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
 	}
-	adscConn, err := adsc.Dial("buffcon", "", &adsc.Config{
-		IP:        p.IPAddresses[0],
-		Meta:      p.Metadata.ToStruct(),
-		Locality:  p.Locality,
-		Namespace: p.ConfigNamespace,
-		Watch:     watch,
+	adscConn, err := adsc.New("buffcon", &adsc.Config{
+		IP:                       p.IPAddresses[0],
+		Meta:                     p.Metadata.ToStruct(),
+		Locality:                 p.Locality,
+		Namespace:                p.ConfigNamespace,
+		InitialDiscoveryRequests: initialWatch,
 		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return f.Listener.Dial()
 		}),
@@ -299,6 +319,10 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 	if err != nil {
 		f.t.Fatalf("Error connecting: %v", err)
 	}
+	if err := adscConn.Run(); err != nil {
+		f.t.Fatalf("ADSC: failed running: %v", err)
+	}
+
 	if len(wait) > 0 {
 		_, err = adscConn.Wait(10*time.Second, wait...)
 		if err != nil {
@@ -359,4 +383,124 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.
 	}
 
 	return objects
+}
+
+type AdsTest struct {
+	client    discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	responses chan *discovery.DiscoveryResponse
+	t         test.Failer
+	conn      *grpc.ClientConn
+
+	ID   string
+	Type string
+
+	cancelOnce    sync.Once
+	context       context.Context
+	cancelContext context.CancelFunc
+}
+
+func (a *AdsTest) Cleanup() {
+	// Place in once to avoid race when two callers attempt to cleanup
+	a.cancelOnce.Do(func() {
+		a.cancelContext()
+		_ = a.client.CloseSend()
+		_ = a.conn.Close()
+	})
+}
+
+func (a *AdsTest) adsReceiveChannel() {
+	go func() {
+		<-a.context.Done()
+		a.Cleanup()
+	}()
+	for {
+		resp, err := a.client.Recv()
+		if err != nil {
+			return
+		}
+		a.responses <- resp
+	}
+}
+
+// ExpectResponse waits until a response is received and returns it
+func (a *AdsTest) ExpectResponse() *discovery.DiscoveryResponse {
+	a.t.Helper()
+	select {
+	case <-time.After(time.Second):
+		a.t.Fatalf("did not get response in time")
+	case resp := <-a.responses:
+		if resp == nil || len(resp.Resources) == 0 {
+			a.t.Fatalf("got empty response")
+		}
+		return resp
+	}
+	return nil
+}
+
+// ExpectNoResponse waits a short period of time and ensures no response is received
+func (a *AdsTest) ExpectNoResponse() {
+	a.t.Helper()
+	select {
+	case <-time.After(time.Millisecond * 100):
+		return
+	case resp := <-a.responses:
+		a.t.Fatalf("got unexpected response: %v", resp)
+	}
+}
+
+func (a *AdsTest) fillInRequestDefaults(req *discovery.DiscoveryRequest) *discovery.DiscoveryRequest {
+	if req == nil {
+		req = &discovery.DiscoveryRequest{}
+	}
+	if req.TypeUrl == "" {
+		req.TypeUrl = a.Type
+	}
+	if req.Node == nil {
+		req.Node = &core.Node{
+			Id: a.ID,
+		}
+	}
+	return req
+}
+
+func (a *AdsTest) Request(req *discovery.DiscoveryRequest) {
+	req = a.fillInRequestDefaults(req)
+	if err := a.client.Send(req); err != nil {
+		a.t.Fatal(err)
+	}
+}
+
+// RequestResponseAck does a full XDS exchange: Send a request, get a response, and ACK the response
+func (a *AdsTest) RequestResponseAck(req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse {
+	a.t.Helper()
+	req = a.fillInRequestDefaults(req)
+	a.Request(req)
+	resp := a.ExpectResponse()
+	req.ResponseNonce = resp.Nonce
+	a.Request(req)
+	return resp
+}
+
+// RequestResponseAck does a full XDS exchange with an error: Send a request, get a response, and NACK the response
+func (a *AdsTest) RequestResponseNack(req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse {
+	a.t.Helper()
+	if req == nil {
+		req = &discovery.DiscoveryRequest{}
+	}
+	a.Request(req)
+	resp := a.ExpectResponse()
+	req.ResponseNonce = resp.Nonce
+	req.ErrorDetail = &status.Status{Message: "Test request NACK"}
+	a.Request(req)
+	return resp
+}
+
+func (a *AdsTest) WithID(id string) *AdsTest {
+	a.ID = id
+	return a
+}
+
+func (a *AdsTest) WithType(typeURL string) *AdsTest {
+	a.Type = typeURL
+	return a
 }

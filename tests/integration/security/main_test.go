@@ -18,17 +18,39 @@ package security
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/resource"
+
+	"istio.io/istio/tests/integration/security/util"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
 var (
-	ist istio.Instance
+	ist  istio.Instance
+	apps = &util.EchoDeployments{}
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&ist, nil)).
+		Setup(istio.Setup(&ist, setupConfig)).
+		Setup(func(ctx resource.Context) error {
+			return util.SetupApps(ctx, ist, apps, true)
+		}).
 		Run()
+}
+
+func setupConfig(_ resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
+meshConfig:
+  accessLogEncoding: JSON
+  accessLogFile: /dev/stdout
+  defaultConfig:
+    gatewayTopology:
+      numTrustedProxies: 1
+`
 }

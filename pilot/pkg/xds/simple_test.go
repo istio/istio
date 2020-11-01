@@ -113,7 +113,7 @@ func startEnvoy(t *testing.T) {
 	envoyStarted = true
 }
 
-func sidecarID(ip, deployment string) string {
+func sidecarID(ip, deployment string) string { // nolint: unparam
 	return fmt.Sprintf("sidecar~%s~%s-644fc65469-96dza.testns~testns.svc.cluster.local", ip, deployment)
 }
 
@@ -151,7 +151,7 @@ func localPilotTestEnv(
 	time.Sleep(200 * time.Millisecond)
 
 	// Add a dummy client connection to validate that push is triggered.
-	dummyClient := adsConnectAndWait(t, 0x0a0a0a0a)
+	dummyClient := adsConnectAndWait(t)
 	defer dummyClient.Close()
 
 	return server, tearDown
@@ -440,7 +440,6 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 			ServicePortName: "http-main",
 			EndpointPort:    80,
 			Labels:          map[string]string{"version": version},
-			UID:             "uid1",
 			ServiceAccount:  account,
 		},
 	}

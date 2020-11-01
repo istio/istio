@@ -4,7 +4,10 @@ metadata:
   annotations: null
   labels:
     app: istio-egressgateway
+    install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
+    istio.io/rev: default
+    operator.istio.io/component: EgressGateways
     release: istio
   name: istio-egressgateway
   namespace: istio-system
@@ -12,12 +15,15 @@ spec:
   ports:
   - name: http2
     port: 80
+    protocol: TCP
     targetPort: 8080
   - name: https
     port: 443
+    protocol: TCP
     targetPort: 8443
   - name: tls
     port: 15443
+    protocol: TCP
     targetPort: 15443
   selector:
     app: istio-egressgateway

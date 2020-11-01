@@ -20,10 +20,6 @@ import (
 	"istio.io/api/networking/v1alpha3"
 )
 
-const (
-	HealthInfoTypeURL string = "type.googleapis.com/istio.v1.HealthInformation"
-)
-
 type WorkloadHealthChecker struct {
 	config applicationHealthCheckConfig
 	prober Prober
@@ -79,7 +75,7 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 // PerformApplicationHealthCheck Performs the application-provided configuration health check.
 // Instead of a heartbeat-based health checks, we only send on a health state change, and this is
 // determined by the success & failure threshold provided by the user.
-func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange chan *ProbeEvent, quit chan struct{}) {
+func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*ProbeEvent), quit chan struct{}) {
 	// no-op
 	if w.prober == nil {
 		return
@@ -115,7 +111,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 				numFail = 0
 				// if we reached the threshold, mark the target as healthy
 				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
-					notifyHealthChange <- &ProbeEvent{Healthy: true}
+					callback(&ProbeEvent{Healthy: true})
 					numSuccess = 0
 					lastStateHealthy = true
 				}
@@ -126,11 +122,11 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 				numSuccess = 0
 				// if we reached the fail threshold, mark the target as unhealthy
 				if numFail == w.config.FailThresh && lastStateHealthy {
-					notifyHealthChange <- &ProbeEvent{
+					callback(&ProbeEvent{
 						Healthy:          false,
 						UnhealthyStatus:  500,
 						UnhealthyMessage: err.Error(),
-					}
+					})
 					numFail = 0
 					lastStateHealthy = false
 				}

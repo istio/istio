@@ -7,6 +7,9 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "EgressGateways"
 spec:
 {{- if not $gateway.autoscaleEnabled }}
 {{- if $gateway.replicaCount }}
@@ -35,6 +38,9 @@ spec:
 {{- else}}
         service.istio.io/canonical-revision: latest
 {{- end }}
+        istio.io/rev: {{ .Values.revision | default "default" }}
+        install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+        operator.istio.io/component: "EgressGateways"
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
@@ -92,6 +98,7 @@ spec:
           ports:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}
+              protocol: {{ $val.protocol | default "TCP" }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -117,9 +124,6 @@ spec:
           - {{ $gateway.name | default "istio-egressgateway" }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
         {{- if not $gateway.runAsRoot }}
           securityContext:
@@ -201,11 +205,19 @@ spec:
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
-          {{- else if $.Values.global.trustDomain }}
+          {{- else if $.Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}
           - name: ISTIO_META_MESH_ID
-            value: "{{ $.Values.global.trustDomain }}"
+            value: "{{ $.Values.global.trustDomain  | default (index .Values.meshConfig "trustDomain") }}"
           {{- end }}
-          {{- if $gateway.env }}
+          {{- if .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}
+          - name: TRUST_DOMAIN
+            value: "{{ .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}"
+          {{- end }}
+          {{- if not $gateway.runAsRoot }}
+          - name: ISTIO_META_UNPRIVILEGED_POD
+            value: "true"
+          {{- end }}
+            {{- if $gateway.env }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}

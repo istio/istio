@@ -641,6 +641,18 @@
           "intervalFactor": 1,
           "legendFormat": "Routes",
           "refId": "E"
+        },
+        {
+          "expr": "sum(irate(pilot_xds_pushes{type=\"sds\"}[1m]))",
+          "interval": "",
+          "legendFormat": "Secrets",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(irate(pilot_xds_pushes{type=\"nds\"}[1m]))",
+          "interval": "",
+          "legendFormat": "Nametables",
+          "refId": "F"
         }
       ],
       "thresholds": [],
@@ -789,33 +801,11 @@
           "refId": "K"
         },
         {
-          "expr": "sum(rate(pilot_xds_pushes{type!~\"lds|cds|rds|eds\"}[1m])) by (type)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Push Errors ({{ type }})",
-          "refId": "L"
-        },
-        {
-          "expr": "sum(rate(pilot_xds_push_errors{app=\"istiod\"}[1m])) by (type)",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 1,
-          "legendFormat": "Push Errors ({{ type }})",
-          "refId": "I"
-        },
-        {
-          "expr": "sum(rate(pilot_xds_push_timeout{app=\"istiod\"}[1m]))",
+          "expr": "sum(rate(pilot_xds_write_timeout{app=\"istiod\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Push Timeouts",
           "refId": "G"
-        },
-        {
-          "expr": "sum(rate(pilot_xds_push_timeout_failures{app=\"istiod\"}[1m]))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Push Timeouts Failures",
-          "refId": "J"
         }
       ],
       "thresholds": [],
@@ -1129,7 +1119,7 @@
           "refId": "B"
         },
         {
-          "expr": "sum(pilot_xds{app=\"istiod\"}) by (instance)",
+          "expr": "pilot_xds{app=\"istiod\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Connected Endpoints",

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: pilot
+issue:
+  - 27976
+
+releaseNotes:
+- |
+  **Improved** the expose istiod example to use TLS passthrough for multicluster or external Istiod
+  **Added** an expose istiod example to use TLS termination for multicluster or external Istiod

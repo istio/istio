@@ -39,12 +39,12 @@ issue:
   - 23624
 
 docs:
- - [usage] https://istio.io/latest/docs/tasks/traffic-management/request-routing/
- - [reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/
+ - '[usage] https://istio.io/latest/docs/tasks/traffic-management/request-routing/'
+ - '[reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/'
 
 releaseNotes:
 - |
-**Fixed** an issue preventing the operator from recreating watched resources if they are deleted
+  **Fixed** an issue preventing the operator from recreating watched resources if they are deleted
 
 upgradeNotes:
   - title: Change the readiness port of gateways
@@ -53,8 +53,8 @@ upgradeNotes:
 
 securityNotes:
 - |
-__[CVE-2020-15104](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15104)__:
-When validating TLS certificates, Envoy incorrectly allows a wildcard DNS Subject Alternative Name to apply to multiple subdomains. For example, with a SAN of `*.example.com`, Envoy incorrectly allows `nested.subdomain.example.com`, when it should only allow `subdomain.example.com`.
+  __[CVE-2020-15104](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15104)__:
+  When validating TLS certificates, Envoy incorrectly allows a wildcard DNS Subject Alternative Name to apply to multiple subdomains. For example, with a SAN of `*.example.com`, Envoy incorrectly allows `nested.subdomain.example.com`, when it should only allow `subdomain.example.com`.
     - CVSS Score: 6.6 [AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C&version=3.1)
 ```
 
@@ -62,7 +62,7 @@ Some release notes may affect multiple types of notes. For those, please fill in
 
 ### Area
 
-This field describes the are of Istio that the note affects. Valid values include:
+This field describes the area of Istio that the note affects. Valid values include:
 * traffic-management
 * security
 * telemetry
@@ -76,7 +76,7 @@ While many pull requests will only fix a single GitHub issue, some pull requests
 
 ## docs
 
-The `docs` field should be used to list related documentation. These will be turned into links and appended to the note alongside the issues.
+The `docs` field should be used to list related documentation. These will be turned into links and appended to the note alongside the issues. Quotes are **required** for docs entries or you may see YAML errors such as `did not find expected alphabetic or numeric character`.
 
 ### Release Notes
 

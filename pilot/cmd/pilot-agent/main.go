@@ -65,7 +65,6 @@ const (
 
 var (
 	role               = &model.Proxy{}
-	trustDomain        string
 	stsPort            int
 	tokenManagerPlugin string
 
@@ -84,6 +83,7 @@ var (
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
 
@@ -118,21 +118,15 @@ var (
 	// TODO: default to same as discovery address
 	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffee certificate provider. Defaults to discoveryAddress").Get()
 
-	// TODO: this is a horribly named env, it's really TOKEN_EXCHANGE_PLUGINS - but to avoid breaking
-	// it's left unchanged. It may not be needed because we autodetect.
-	pluginNamesEnv = env.RegisterStringVar("PLUGINS", "", "Token exchange plugins").Get()
-
 	// This is also disabled by presence of the SDS socket directory
 	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
 		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
 
-	// TODO: This is already present in ProxyConfig !!!
-	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
+	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "cluster.local",
 		"The trust domain for spiffe certificates").Get()
 
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
-
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
 	secretRotationIntervalEnv = env.RegisterDurationVar("SECRET_ROTATION_CHECK_INTERVAL", 5*time.Minute,
@@ -147,10 +141,9 @@ var (
 	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
-	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
-		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
-			"for example in vm we don't use token to rotate cert.").Get()
-	proxyXDSViaAgent = env.RegisterBoolVar("ISTIO_META_PROXY_XDS_VIA_AGENT", false,
+	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
+		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
+	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", true,
 		"If set to true, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
 	// This is a copy of the env var in the init code.
@@ -262,36 +255,34 @@ var (
 				CAEndpoint:         caEndpointEnv,
 				UseTokenForCSR:     useTokenForCSREnv,
 				CredFetcher:        nil,
+				WorkloadNamespace:  podNamespace,
+				ServiceAccount:     serviceAccountVar.Get(),
 			}
 			// If not set explicitly, default to the discovery address.
 			if caEndpointEnv == "" {
 				secOpts.CAEndpoint = proxyConfig.DiscoveryAddress
 			}
-			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 
 			secOpts.EnableWorkloadSDS = true
-
 			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
 			secOpts.CAProviderName = caProviderEnv
 
-			// TODO: extract from ProxyConfig
 			secOpts.TrustDomain = trustDomainEnv
 			secOpts.Pkcs8Keys = pkcs8KeysEnv
 			secOpts.ECCSigAlg = eccSigAlgEnv
 			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
-			secOpts.ECCSigAlg = eccSigAlgEnv
 			secOpts.SecretTTL = secretTTLEnv
 			secOpts.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
 			secOpts.RotationInterval = secretRotationIntervalEnv
 			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 			// Disable the secret eviction for istio agent.
 			secOpts.EvictionDuration = 0
-			secOpts.SkipParseToken = skipParseTokenEnv
 
 			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
 			// GCE is the only supported plugin at the moment.
 			if credFetcherTypeEnv == security.GCE {
-				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath)
+				secOpts.CredIdentityProvider = credIdentityProvider
+				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath, secOpts.CredIdentityProvider)
 				if err != nil {
 					return fmt.Errorf("failed to create credential fetcher: %v", err)
 				}
@@ -449,9 +440,6 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 func init() {
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
-		"The domain to use for identities")
-
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
 			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")

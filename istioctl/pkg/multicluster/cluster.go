@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
@@ -42,7 +44,7 @@ type Cluster struct {
 	clusterName string
 	// TODO - differentiate NO_INSTALL, REMOTE, and MASTER
 	installed bool
-	client    kubernetes.Interface
+	client    kube.ExtendedClient
 }
 
 const (
@@ -64,10 +66,10 @@ func NewCluster(ctx string, desc ClusterDesc, env Environment) (*Cluster, error)
 		desc.Namespace = defaultIstioNamespace
 	}
 	if desc.ServiceAccountReader == "" {
-		desc.ServiceAccountReader = DefaultServiceAccountName
+		desc.ServiceAccountReader = constants.DefaultServiceAccountName
 	}
 
-	client, err := env.CreateClientSet(ctx)
+	client, err := env.CreateClient(ctx)
 	if err != nil {
 		return nil, err
 	}

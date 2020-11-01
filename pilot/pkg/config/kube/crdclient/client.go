@@ -28,11 +28,13 @@ import (
 	"fmt"
 	"time"
 
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/informers"
 
 	//  import GKE cluster authentication plugin
@@ -53,7 +55,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 )
 
@@ -68,9 +69,6 @@ type Client struct {
 
 	// domainSuffix for the config metadata
 	domainSuffix string
-
-	// Ledger for tracking config distribution
-	configLedger ledger.Ledger
 
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
@@ -109,7 +107,7 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler fun
 	h.handlers = append(h.handlers, handler)
 }
 
-// Start the queue and all informers. Callers should  wait for HasSynced() before depending on results.
+// Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	scope.Infoa("Starting Pilot K8S CRD controller")
@@ -134,10 +132,9 @@ func (cl *Client) HasSynced() bool {
 	return true
 }
 
-func New(client kube.Client, configLedger ledger.Ledger, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
+func New(client kube.Client, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
 	out := &Client{
 		domainSuffix:      options.DomainSuffix,
-		configLedger:      configLedger,
 		schemas:           collections.PilotServiceApi,
 		revision:          revision,
 		queue:             queue.NewQueue(1 * time.Second),
@@ -205,12 +202,12 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 }
 
 // Create implements store interface
-func (cl *Client) Create(config config.Config) (string, error) {
-	if config.Spec == nil {
-		return "", fmt.Errorf("nil spec for %v/%v", config.Name, config.Namespace)
+func (cl *Client) Create(cfg config.Config) (string, error) {
+	if cfg.Spec == nil {
+		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := create(cl.istioClient, cl.serviceApisClient, config, getObjectMetadata(config))
+	meta, err := create(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -218,12 +215,43 @@ func (cl *Client) Create(config config.Config) (string, error) {
 }
 
 // Update implements store interface
-func (cl *Client) Update(config config.Config) (string, error) {
-	if config.Spec == nil {
-		return "", fmt.Errorf("nil spec for %v/%v", config.Name, config.Namespace)
+func (cl *Client) Update(cfg config.Config) (string, error) {
+	if cfg.Spec == nil {
+		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := update(cl.istioClient, cl.serviceApisClient, config, getObjectMetadata(config))
+	meta, err := update(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
+	if err != nil {
+		return "", err
+	}
+	return meta.GetResourceVersion(), nil
+}
+
+func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
+	if cfg.Status == nil {
+		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
+	}
+
+	meta, err := updateStatus(cl.istioClient, cl.serviceApisClient, cfg, getObjectMetadata(cfg))
+	if err != nil {
+		return "", err
+	}
+	return meta.GetResourceVersion(), nil
+}
+
+// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
+// read-modify-write conflicts when there are many concurrent-writers to the same resource.
+func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+	// it is okay if orig is stale - we just care about the diff
+	orig := cl.Get(typ, name, namespace)
+	if orig == nil {
+		// TODO error from Get
+		return "", fmt.Errorf("item not found")
+	}
+	modified := patchFn(orig.DeepCopy())
+
+	oo := *orig
+	meta, err := patch(cl.istioClient, cl.serviceApisClient, oo, getObjectMetadata(oo), modified, getObjectMetadata(modified))
 	if err != nil {
 		return "", err
 	}
@@ -317,9 +345,28 @@ func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix
 
 func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
-		Name:        config.Name,
-		Namespace:   config.Namespace,
-		Labels:      config.Labels,
-		Annotations: config.Annotations,
+		Name:            config.Name,
+		Namespace:       config.Namespace,
+		Labels:          config.Labels,
+		Annotations:     config.Annotations,
+		ResourceVersion: config.ResourceVersion,
 	}
+}
+
+func genPatchBytes(oldRes, modRes runtime.Object) ([]byte, error) {
+	oldJSON, err := json.Marshal(oldRes)
+	if err != nil {
+		return nil, err
+	}
+	newJSON, err := json.Marshal(modRes)
+	if err != nil {
+		return nil, err
+	}
+	// TODO apply requires a "merge" style patch; see CreateTwoWayMerge patch or CreateMergePatch
+	ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
+	if err != nil {
+		return nil, err
+	}
+	// TODO apply may require setting gvk ourselves on the patch payload
+	return json.Marshal(ops)
 }

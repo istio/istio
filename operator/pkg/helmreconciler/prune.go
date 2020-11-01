@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -29,6 +30,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -129,6 +131,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
 func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
+	deletedObjects := make(map[string]bool)
 	for _, objects := range objectsList {
 		for _, o := range objects.Items {
 			obj := object.NewK8sObject(&o, nil, nil)
@@ -137,16 +140,34 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", oh)
 				continue
 			}
-
-			err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+			// kube client does not differentiate API version when listing, added this check to deduplicate.
+			if deletedObjects[oh] {
+				continue
+			}
+			if o.GetKind() == name.IstioOperatorStr {
+				o.SetFinalizers([]string{})
+				if err := h.client.Patch(context.TODO(), &o, client.Merge); err != nil {
+					scope.Errorf("failed to patch IstioOperator CR: %s, %v", o.GetName(), err)
+				}
+			}
+			err := h.client.Delete(context.TODO(), &o,
+				client.PropagationPolicy(metav1.DeletePropagationBackground))
 			if err != nil {
-				if !strings.Contains(err.Error(), "not found") {
+				if !kerrors.IsNotFound(err) {
 					errs = util.AppendErr(errs, err)
 				} else {
 					// do not return error if resources are not found
 					h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists",
 						obj.Hash())
 				}
+			} else {
+				deletedObjects[oh] = true
+				objGvk := o.GroupVersionKind()
+				metrics.ResourceDeletionTotal.
+					With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
+					Increment()
+				h.addPrunedKind(objGvk.GroupKind())
+				metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 		}
@@ -175,6 +196,11 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if includeClusterResources {
 		gvkList = append(NamespacedResources, AllClusterResources...)
 	}
+	if includeClusterResources {
+		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
+			usList = append(usList, ioplist)
+		}
+	}
 	for _, gvk := range gvkList {
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
@@ -193,9 +219,27 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		if err != nil {
 			continue
 		}
+		for _, obj := range objects.Items {
+			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
+			metrics.AddResource(objName, gvk.GroupKind())
+		}
 		usList = append(usList, objects)
 	}
+
 	return usList, nil
+}
+
+// getIstioOperatorCR is a helper function to get IstioOperator CR during purge,
+// otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
+// And it is needed to remove the IstioOperator CRD.
+func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
+	objects := &unstructured.UnstructuredList{}
+	objects.SetGroupVersionKind(schema.GroupVersionKind{Group: "install.istio.io",
+		Version: "v1alpha1", Kind: name.IstioOperatorStr})
+	if err := h.client.List(context.TODO(), objects); err != nil {
+		scope.Errorf("failed to list IstioOperator CR: %v", err)
+	}
+	return objects
 }
 
 // DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
@@ -273,7 +317,10 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
 		}
-
+		for _, obj := range objects.Items {
+			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
+			metrics.AddResource(objName, gvk.GroupKind())
+		}
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
 	return errs.ToError()
@@ -304,8 +351,10 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			continue
 		}
 		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		scope.Infof("Deleting %s (%s/%v)", obj.Hash(), h.iop.Name, h.iop.Spec.Revision)
+		objGvk := o.GroupVersionKind()
 		if err != nil {
-			if !strings.Contains(err.Error(), "not found") {
+			if !kerrors.IsNotFound(err) {
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found
@@ -316,6 +365,11 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 		if !all {
 			h.removeFromObjectCache(componentName, oh)
 		}
+		metrics.ResourceDeletionTotal.
+			With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
+			Increment()
+		h.addPrunedKind(objGvk.GroupKind())
+		metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
 		h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	}
 	if all {

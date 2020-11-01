@@ -730,7 +730,7 @@ func secretConfigCmd() *cobra.Command {
   # Retrieve full bootstrap without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
   istioctl proxy-config secret --file envoy-config.json`,
-		Aliases: []string{"s"},
+		Aliases: []string{"secrets", "s"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())

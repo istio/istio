@@ -16,7 +16,6 @@ package grpcgen_test
 
 import (
 	"context"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -116,7 +115,7 @@ func TestGRPC(t *testing.T) {
 		tm := time.After(10 * time.Second)
 		select {
 		case s := <-ch:
-			log.Println("Got state ", s)
+			t.Log("Got state ", s)
 		case <-tm:
 			t.Error("Didn't resolve")
 		}

@@ -50,6 +50,17 @@ const (
 	testService = "test"
 )
 
+// eventually polls cond until it completes (returns true) or times out (resulting in a test failure).
+func eventually(t test.Failer, cond func() bool) {
+	t.Helper()
+	retry.UntilSuccessOrFail(t, func() error {
+		if !cond() {
+			return fmt.Errorf("failed to get positive condition")
+		}
+		return nil
+	}, retry.Timeout(time.Second), retry.Delay(time.Millisecond*10))
+}
+
 func TestServices(t *testing.T) {
 
 	networksWatcher := mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
@@ -90,12 +101,11 @@ func TestServices(t *testing.T) {
 			makeService(testService, ns, ctl.client, t)
 			<-fx.Events
 
-			test.Eventually(t, "successfully added a service", func() bool {
+			eventually(t, func() bool {
 				out, clientErr := sds.Services()
 				if clientErr != nil {
 					return false
 				}
-				log.Infof("Services: %#v", out)
 
 				// Original test was checking for 'protocolTCP' - which is incorrect (the
 				// port name is 'http'. It was working because the Service was created with
@@ -124,7 +134,7 @@ func TestServices(t *testing.T) {
 				t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
 			}
 
-			test.Eventually(t, "successfully created endpoints", func() bool {
+			eventually(t, func() bool {
 				ep := sds.InstancesByPort(svc, 80, nil)
 				return len(ep) == 2
 			})
@@ -188,8 +198,8 @@ func TestController_GetPodLocality(t *testing.T) {
 			name: "should return correct az for given address",
 			pods: []*coreV1.Pod{pod1, pod2},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
-				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", IstioSubzoneLabel: "subzone2"}),
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"}),
+				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", label.IstioSubZone: "subzone2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "region1/zone1/subzone1",
@@ -251,8 +261,8 @@ func TestController_GetPodLocality(t *testing.T) {
 			name: "should return correct az if node has only subzone label",
 			pods: []*coreV1.Pod{pod1, pod2},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{IstioSubzoneLabel: "subzone1"}),
-				generateNode("node2", map[string]string{IstioSubzoneLabel: "subzone2"}),
+				generateNode("node1", map[string]string{label.IstioSubZone: "subzone1"}),
+				generateNode("node2", map[string]string{label.IstioSubZone: "subzone2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "//subzone1",
@@ -263,7 +273,7 @@ func TestController_GetPodLocality(t *testing.T) {
 			name: "should return correct az for given address",
 			pods: []*coreV1.Pod{podOverride},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
 				podOverride: "regionOverride/zoneOverride/subzoneOverride",
@@ -360,10 +370,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			svcNode.ID = "pod1.nsa"
 			svcNode.DNSDomain = "nsa.svc.cluster.local"
 			svcNode.Metadata = &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID}
-			serviceInstances, err := controller.GetProxyServiceInstances(&svcNode)
-			if err != nil {
-				t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
-			}
+			serviceInstances := controller.GetProxyServiceInstances(&svcNode)
 
 			if len(serviceInstances) != 1 {
 				t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
@@ -376,7 +383,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			}
 
 			// Test that we can look up instances just by Proxy metadata
-			metaServices, err := controller.GetProxyServiceInstances(&model.Proxy{
+			metaServices := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"1.1.1.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
@@ -388,9 +395,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						label.TLSMode: "mutual",
 					}},
 			})
-			if err != nil {
-				t.Fatalf("got err getting service instances")
-			}
 
 			expected := &model.ServiceInstance{
 
@@ -409,7 +413,13 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
-					Labels:          labels.Instance{"app": "prod-app", label.TLSMode: "mutual"},
+					Labels: labels.Instance{
+						"app":              "prod-app",
+						label.TLSMode:      "mutual",
+						NodeRegionLabelGA:  "r",
+						NodeZoneLabelGA:    "z",
+						label.IstioCluster: clusterID,
+					},
 					ServiceAccount:  "account",
 					Address:         "1.1.1.1",
 					EndpointPort:    0,
@@ -430,7 +440,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 			// Test that we first look up instances by Proxy pod
 
-			node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"})
+			node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"})
 			addNodes(t, controller, node)
 
 			// 1. pod without `istio-locality` label, get locality from node label.
@@ -438,7 +448,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				map[string]string{"app": "prod-app"}, nil)
 			addPods(t, controller, fx, p)
 
-			podServices, err := controller.GetProxyServiceInstances(&model.Proxy{
+			podServices := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
@@ -449,9 +459,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"app": "prod-app",
 					}},
 			})
-			if err != nil {
-				t.Fatalf("got err getting service instances")
-			}
 
 			expected = &model.ServiceInstance{
 
@@ -477,9 +484,17 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						Label:     "region1/zone1/subzone1",
 						ClusterID: clusterID,
 					},
-					Labels:         labels.Instance{"app": "prod-app"},
+					Labels: labels.Instance{
+						"app":              "prod-app",
+						NodeRegionLabelGA:  "region1",
+						NodeZoneLabelGA:    "zone1",
+						label.IstioSubZone: "subzone1",
+						label.IstioCluster: clusterID,
+					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-					TLSMode:        model.DisabledTLSModeLabel, UID: "kubernetes://pod2.nsa",
+					TLSMode:        model.DisabledTLSModeLabel,
+					WorkloadName:   "pod2",
+					Namespace:      "nsa",
 				},
 			}
 			if len(podServices) != 1 {
@@ -494,7 +509,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				map[string]string{"app": "prod-app", "istio-locality": "region.zone"}, nil)
 			addPods(t, controller, fx, p)
 
-			podServices, err = controller.GetProxyServiceInstances(&model.Proxy{
+			podServices = controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.2"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
@@ -505,9 +520,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"app": "prod-app",
 					}},
 			})
-			if err != nil {
-				t.Fatalf("got err getting service instances")
-			}
 
 			expected = &model.ServiceInstance{
 
@@ -533,10 +545,17 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						Label:     "region/zone",
 						ClusterID: clusterID,
 					},
-					Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
+					Labels: labels.Instance{
+						"app":              "prod-app",
+						"istio-locality":   "region.zone",
+						NodeRegionLabelGA:  "region",
+						NodeZoneLabelGA:    "zone",
+						label.IstioCluster: clusterID,
+					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,
-					UID:            "kubernetes://pod3.nsa",
+					WorkloadName:   "pod3",
+					Namespace:      "nsa",
 				},
 			}
 			if len(podServices) != 1 {
@@ -693,10 +712,8 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 				if ev == nil {
 					t.Fatal("Timeout creating service")
 				}
-				serviceInstances, err := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
-				if err != nil {
-					t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
-				}
+				serviceInstances := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
+
 				if len(serviceInstances) != c.wantNum {
 					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(serviceInstances), c.wantNum)
 				}
@@ -1270,35 +1287,32 @@ func deleteExternalNameService(controller *FakeController, name, namespace strin
 }
 
 func addPods(t *testing.T, controller *FakeController, fx *FakeXdsUpdater, pods ...*coreV1.Pod) {
-	retry.UntilSuccessOrFail(t, func() error {
-		for _, pod := range pods {
-			p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
-			var newPod *coreV1.Pod
-			var err error
-			if p == nil {
-				newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metaV1.CreateOptions{})
-				if err != nil {
-					t.Fatalf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
-				}
-			} else {
-				newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metaV1.UpdateOptions{})
-				if err != nil {
-					t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
-				}
+	for _, pod := range pods {
+		p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
+		var newPod *coreV1.Pod
+		var err error
+		if p == nil {
+			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metaV1.CreateOptions{})
+			if err != nil {
+				t.Fatalf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
 			}
-			// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
-			// events - since PodIP will be "".
-			newPod.Status.PodIP = pod.Status.PodIP
-			newPod.Status.Phase = coreV1.PodRunning
-			_, _ = controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metaV1.UpdateOptions{})
-			if err := waitForPod(controller, pod.Status.PodIP); err != nil {
-				return err
+		} else {
+			newPod, err = controller.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metaV1.UpdateOptions{})
+			if err != nil {
+				t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
 			}
-			// pod first time occur will trigger proxy push
-			fx.Wait("proxy")
 		}
-		return nil
-	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*10))
+		// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
+		// events - since PodIP will be "".
+		newPod.Status.PodIP = pod.Status.PodIP
+		newPod.Status.Phase = coreV1.PodRunning
+		_, _ = controller.client.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metaV1.UpdateOptions{})
+		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+			t.Fatal(err)
+		}
+		// pod first time occur will trigger proxy push
+		fx.Wait("proxy")
+	}
 }
 
 func generatePod(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *coreV1.Pod {
@@ -1346,22 +1360,19 @@ func generateNode(name string, labels map[string]string) *coreV1.Node {
 
 func addNodes(t *testing.T, controller *FakeController, nodes ...*coreV1.Node) {
 	fakeClient := controller.client
-	retry.UntilSuccessOrFail(t, func() error {
-		for _, node := range nodes {
-			_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{})
-			if errors.IsAlreadyExists(err) {
-				if _, err := fakeClient.CoreV1().Nodes().Update(context.TODO(), node, metaV1.UpdateOptions{}); err != nil {
-					t.Fatal(err)
-				}
-			} else if err != nil {
+	for _, node := range nodes {
+		_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{})
+		if errors.IsAlreadyExists(err) {
+			if _, err := fakeClient.CoreV1().Nodes().Update(context.TODO(), node, metaV1.UpdateOptions{}); err != nil {
 				t.Fatal(err)
 			}
-			if err := waitForNode(controller, node.Name); err != nil {
-				return err
-			}
+		} else if err != nil {
+			t.Fatal(err)
 		}
-		return nil
-	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*10))
+		if err := waitForNode(controller, node.Name); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestEndpointUpdate(t *testing.T) {
@@ -1432,7 +1443,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
 			// Setup kube caches
 			defer controller.Stop()
-			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}))
+			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"}))
 			// Setup help functions to make the test more explicit
 			addPod := func(name, ip string) {
 				pod := generatePod(ip, name, "nsA", name, "node1", map[string]string{"app": "prod-app"}, map[string]string{})
@@ -1589,7 +1600,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 	pods := []*coreV1.Pod{pod1, pod2}
 	nodes := []*coreV1.Node{
-		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.IstioSubZone: "subzone1"}),
 	}
 	addNodes(t, controller, nodes...)
 	addPods(t, controller, fx, pods...)

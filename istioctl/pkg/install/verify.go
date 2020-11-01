@@ -56,9 +56,9 @@ func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter genericclioptions.RESTClientGetter,
 	writer io.Writer, opts clioptions.ControlPlaneOptions, manifestsPath string) error {
 
-	iop, err := operatorFromCluster(istioNamespaceFlag, opts.Revision, restClientGetter)
+	iop, err := operatorFromCluster(enableVerbose, istioNamespaceFlag, opts.Revision, restClientGetter)
 	if err != nil {
-		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
+		return fmt.Errorf("could not load IstioOperator from cluster: %v", err)
 	}
 	if manifestsPath != "" {
 		iop.Spec.InstallPackagePath = manifestsPath
@@ -74,7 +74,7 @@ func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
 
 func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter genericclioptions.RESTClientGetter, options resource.FilenameOptions,
-	writer io.Writer) error {
+	writer io.Writer, manifestsPath string) error {
 
 	// This is not a pre-check.  Check that the supplied resources exist in the cluster
 	r := resource.NewBuilder(restClientGetter).
@@ -91,7 +91,8 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
 		visitor,
 		strings.Join(options.Filenames, ","),
 		restClientGetter,
-		writer)
+		writer,
+		manifestsPath)
 	return show(crdCount, istioDeploymentCount, err, writer)
 }
 
@@ -110,7 +111,7 @@ func show(crdCount, istioDeploymentCount int, err error, writer io.Writer) error
 }
 
 func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
-	visitor resource.Visitor, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) (int, int, error) {
+	visitor resource.Visitor, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer, manifestsPath string) (int, int, error) {
 	crdCount := 0
 	istioDeploymentCount := 0
 	err := visitor.Visit(func(info *resource.Info, err error) error {
@@ -187,6 +188,9 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
 				return err
+			}
+			if manifestsPath != "" {
+				iop.Spec.InstallPackagePath = manifestsPath
 			}
 			generatedCrds, generatedDeployments, err := verifyPostInstallIstioOperator(enableVerbose, istioNamespaceFlag, iop, filename, restClientGetter, writer)
 			if err != nil {
@@ -286,7 +290,7 @@ istioctl experimental precheck.
 			}
 			// When the user specifies a file, compare against it.
 			return verifyInstall(enableVerbose, istioNamespace, kubeConfigFlags,
-				fileNameFlags.ToOptions(), c.OutOrStderr())
+				fileNameFlags.ToOptions(), c.OutOrStderr(), manifestsPath)
 		},
 	}
 
@@ -295,7 +299,7 @@ istioctl experimental precheck.
 		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
-	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", true,
+	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "verbose", false,
 		"Enable verbose output")
 	verifyInstallCmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	opts.AttachControlPlaneFlags(verifyInstallCmd)
@@ -394,7 +398,8 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 		visitor,
 		fmt.Sprintf("generated from %s", filename),
 		restClientGetter,
-		writer)
+		writer,
+		iop.Spec.InstallPackagePath)
 	if err != nil {
 		return generatedCrds, generatedDeployments, err
 	}
@@ -404,7 +409,9 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
-func operatorFromCluster(istioNamespaceFlag string, revision string, restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
+// nolint: lll
+func operatorFromCluster(enableVerbose bool, istioNamespaceFlag string, revision string,
+	restClientGetter genericclioptions.RESTClientGetter) (*v1alpha1.IstioOperator, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return nil, err
@@ -425,6 +432,9 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
+			if enableVerbose {
+				return nil, fmt.Errorf("could not unmarshal: %s\n\nYAML:\n%s", err, by)
+			}
 			return nil, err
 		}
 		if iop.Spec.Revision == revision {

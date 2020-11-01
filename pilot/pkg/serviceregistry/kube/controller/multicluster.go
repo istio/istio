@@ -66,8 +66,10 @@ type Multicluster struct {
 	// fetchCaRoot maps the certificate name to the certificate
 	fetchCaRoot      func() map[string]string
 	caBundlePath     string
+	systemNamespace  string
 	secretNamespace  string
 	secretController *secretcontroller.Controller
+	syncInterval     time.Duration
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -92,8 +94,10 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		metrics:               opts.Metrics,
 		fetchCaRoot:           opts.FetchCaRoot,
 		caBundlePath:          opts.CABundlePath,
+		systemNamespace:       opts.SystemNamespace,
 		secretNamespace:       secretNamespace,
 		endpointMode:          opts.EndpointMode,
+		syncInterval:          opts.GetSyncInterval(),
 	}
 	mc.initSecretController(kc)
 
@@ -110,6 +114,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
 	options := Options{
+		SystemNamespace:   m.systemNamespace,
 		WatchedNamespaces: m.WatchedNamespaces,
 		ResyncPeriod:      m.ResyncPeriod,
 		DomainSuffix:      m.DomainSuffix,
@@ -118,6 +123,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 		NetworksWatcher:   m.networksWatcher,
 		Metrics:           m.metrics,
 		EndpointMode:      m.endpointMode,
+		SyncInterval:      m.syncInterval,
 	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubectl := NewController(clients, options)
@@ -210,7 +216,8 @@ func (m *Multicluster) initSecretController(kc kubernetes.Interface) {
 		m.AddMemberCluster,
 		m.UpdateMemberCluster,
 		m.DeleteMemberCluster,
-		m.secretNamespace)
+		m.secretNamespace,
+		m.syncInterval)
 }
 
 func (m *Multicluster) HasSynced() bool {

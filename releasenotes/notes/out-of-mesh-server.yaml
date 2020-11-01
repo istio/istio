@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 20538
+releaseNotes:
+- |
+  **Fixed** client side metric  missing destination workload labels for out-of-mesh destination or request that fails to reach destination.

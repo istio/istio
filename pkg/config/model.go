@@ -223,7 +223,7 @@ func ApplyJSON(s Spec, js string) error {
 	return json.Unmarshal([]byte(js), &s)
 }
 
-func DeepCopy(s Spec) Spec {
+func DeepCopy(s interface{}) interface{} {
 	// If deep copy is defined, use that
 	if dc, ok := s.(deepCopier); ok {
 		return dc.DeepCopyInterface()
@@ -255,7 +255,6 @@ func DeepCopy(s Spec) Spec {
 	if err != nil {
 		return nil
 	}
-
 	return data
 }
 
@@ -288,6 +287,9 @@ func (c Config) DeepCopy() Config {
 		}
 	}
 	clone.Spec = DeepCopy(c.Spec)
+	if c.Status != nil {
+		clone.Status = DeepCopy(c.Status)
+	}
 	return clone
 }
 
@@ -305,3 +307,7 @@ func (g GroupVersionKind) String() string {
 	}
 	return g.Group + "/" + g.Version + "/" + g.Kind
 }
+
+// PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
+// parameter and the returned Config will be applied.
+type PatchFunc func(cfg Config) Config

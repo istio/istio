@@ -24,17 +24,22 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -50,6 +55,8 @@ import (
 	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
+	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/cmd/apply"
@@ -184,9 +191,12 @@ var _ ExtendedClient = &client{}
 const resyncInterval = 0
 
 // NewFakeClient creates a new, fake, client
-func NewFakeClient(objects ...runtime.Object) Client {
-	var c client
-	c.Interface = fake.NewSimpleClientset(objects...)
+func NewFakeClient(objects ...runtime.Object) ExtendedClient {
+	c := &client{
+		informerWatchesPending: atomic.NewInt32(0),
+	}
+	fakeClient := fake.NewSimpleClientset(objects...)
+	c.Interface = fakeClient
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
 
@@ -201,7 +211,8 @@ func NewFakeClient(objects ...runtime.Object) Client {
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
 
-	c.istio = istiofake.NewSimpleClientset()
+	istioFake := istiofake.NewSimpleClientset()
+	c.istio = istioFake
 	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval)
 
 	c.serviceapis = serviceapisfake.NewSimpleClientset()
@@ -209,7 +220,37 @@ func NewFakeClient(objects ...runtime.Object) Client {
 
 	c.extSet = extfake.NewSimpleClientset()
 
-	return &c
+	// https://github.com/kubernetes/kubernetes/issues/95372
+	// There is a race condition in the client fakes, where events that happen between the List and Watch
+	// of an informer are dropped. To avoid this, we explicitly manage the list and watch, ensuring all lists
+	// have an associated watch before continuing.
+	// This would likely break any direct calls to List(), but for now our tests don't do that anyways. If we need
+	// to in the future we will need to identify the Lists that have a corresponding Watch, possibly by looking
+	// at created Informers
+	// an atomic.Int is used instead of sync.WaitGroup because wg.Add and wg.Wait cannot be called concurrently
+	listReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		c.informerWatchesPending.Inc()
+		return false, nil, nil
+	}
+	watchReactor := func(tracker clienttesting.ObjectTracker) func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
+		return func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
+			gvr := action.GetResource()
+			ns := action.GetNamespace()
+			watch, err := tracker.Watch(gvr, ns)
+			if err != nil {
+				return false, nil, err
+			}
+			c.informerWatchesPending.Dec()
+			return true, watch, nil
+		}
+	}
+	fakeClient.PrependReactor("list", "*", listReactor)
+	fakeClient.PrependWatchReactor("*", watchReactor(fakeClient.Tracker()))
+	istioFake.PrependReactor("list", "*", listReactor)
+	istioFake.PrependWatchReactor("*", watchReactor(istioFake.Tracker()))
+	c.fastSync = true
+
+	return c
 }
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
@@ -240,6 +281,10 @@ type client struct {
 
 	serviceapis          serviceapisclient.Interface
 	serviceapisInformers serviceapisinformer.SharedInformerFactory
+
+	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
+	fastSync               bool
+	informerWatchesPending *atomic.Int32
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -373,19 +418,79 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.serviceapisInformers.Start(stop)
-	// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
-	// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
-	// Injecting an extremely small wait gives the tests some time to catch up in most cases, while having a trivial
-	// impact on non-test cases.
-	// Ideally, in the fake client we would just aggressively poll, but the informer neither exposes tuning for this
-	// nor gives us insight into which informers we need to wait for ourselves.
-	// https://github.com/kubernetes/kubernetes/issues/95262 tracks first class support
-	time.Sleep(time.Millisecond * 5)
-	c.kubeInformer.WaitForCacheSync(stop)
-	c.dynamicInformer.WaitForCacheSync(stop)
-	c.metadataInformer.WaitForCacheSync(stop)
-	c.istioInformer.WaitForCacheSync(stop)
-	c.serviceapisInformers.WaitForCacheSync(stop)
+	if c.fastSync {
+		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
+		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
+		// Instead, we add an aggressive sync polling
+		fastWaitForCacheSync(c.kubeInformer)
+		fastWaitForCacheSyncDynamic(c.dynamicInformer)
+		fastWaitForCacheSyncDynamic(c.metadataInformer)
+		fastWaitForCacheSync(c.istioInformer)
+		fastWaitForCacheSync(c.serviceapisInformers)
+		_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+			if c.informerWatchesPending.Load() == 0 {
+				return true, nil
+			}
+			return false, nil
+		})
+	} else {
+		c.kubeInformer.WaitForCacheSync(stop)
+		c.dynamicInformer.WaitForCacheSync(stop)
+		c.metadataInformer.WaitForCacheSync(stop)
+		c.istioInformer.WaitForCacheSync(stop)
+		c.serviceapisInformers.WaitForCacheSync(stop)
+	}
+}
+
+type reflectInformerSync interface {
+	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
+}
+
+type dynamicInformerSync interface {
+	WaitForCacheSync(stopCh <-chan struct{}) map[schema.GroupVersionResource]bool
+}
+
+// Wait for cache sync immediately, rather than with 100ms delay which slows tests
+// See https://github.com/kubernetes/kubernetes/issues/95262#issuecomment-703141573
+func fastWaitForCacheSync(informerFactory reflectInformerSync) {
+	returnImmediately := make(chan struct{})
+	close(returnImmediately)
+	_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
+			if !synced {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+}
+
+func fastWaitForCacheSyncDynamic(informerFactory dynamicInformerSync) {
+	returnImmediately := make(chan struct{})
+	close(returnImmediately)
+	_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
+			if !synced {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+}
+
+// WaitForCacheSyncInterval waits for caches to populate, with explicitly configured interval
+func WaitForCacheSyncInterval(stopCh <-chan struct{}, interval time.Duration, cacheSyncs ...cache.InformerSynced) bool {
+	err := wait.PollImmediateUntil(interval,
+		func() (bool, error) {
+			for _, syncFunc := range cacheSyncs {
+				if !syncFunc() {
+					return false, nil
+				}
+			}
+			return true, nil
+		},
+		stopCh)
+	return err == nil
 }
 
 func (c *client) Revision() string {

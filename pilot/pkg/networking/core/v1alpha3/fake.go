@@ -100,7 +100,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	})
 
 	configs := getConfigs(t, opts)
-	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
+	configStore := memory.MakeSkipValidation(collections.Pilot, true)
 
 	cc := memory.NewSyncController(configStore)
 	controllers := []model.ConfigStoreCache{cc}
@@ -222,9 +222,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	pc := f.PushContext()
 	p.SetSidecarScope(pc)
 	p.SetGatewaysForProxy(pc)
-	if err := p.SetServiceInstances(f.env.ServiceDiscovery); err != nil {
-		f.t.Fatal(err)
-	}
+	p.SetServiceInstances(f.env.ServiceDiscovery)
 	p.DiscoverIPVersions()
 	return p
 }

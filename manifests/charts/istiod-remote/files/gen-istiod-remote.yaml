@@ -7,6 +7,8 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istiod-remote
 data:
 
@@ -34,6 +36,8 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istiod-remote
 data:
 
@@ -59,6 +63,7 @@ data:
           }
         },
         "defaultTolerations": [],
+        "externalIstiod": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -159,7 +164,7 @@ data:
             "address": ""
           }
         },
-        "trustDomain": "cluster.local",
+        "trustDomain": "",
         "useMCP": false
       },
       "revision": "",
@@ -352,9 +357,6 @@ data:
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
-      {{- if .Values.global.trustDomain }}
-        - --trust-domain={{ .Values.global.trustDomain }}
-      {{- end }}
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
@@ -458,9 +460,13 @@ data:
         {{- if .Values.global.meshID }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.meshID }}"
-        {{- else if .Values.global.trustDomain }}
+        {{- else if (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}
         - name: ISTIO_META_MESH_ID
-          value: "{{ .Values.global.trustDomain }}"
+          value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
+        {{- end }}
+        {{- with (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain)  }}
+        - name: TRUST_DOMAIN
+          value: "{{ . }}"
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
@@ -660,6 +666,8 @@ metadata:
 
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: istiod-remote
 webhooks:
@@ -669,7 +677,8 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/inject"
-      caBundle: 
+      caBundle: ""
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
@@ -677,7 +686,6 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     admissionReviewVersions: ["v1beta1", "v1"]
-    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

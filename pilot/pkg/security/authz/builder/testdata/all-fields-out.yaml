@@ -435,19 +435,36 @@ typedConfig:
                             regex: .*/ns/.*/.*
             - orIds:
                 ids:
-                - sourceIp:
+                - remoteIp:
                     addressPrefix: 1.2.3.4
                     prefixLen: 32
-                - sourceIp:
+                - remoteIp:
                     addressPrefix: 5.6.0.0
                     prefixLen: 16
             - notId:
                 orIds:
                   ids:
-                  - sourceIp:
+                  - remoteIp:
                       addressPrefix: 9.0.0.1
                       prefixLen: 32
-                  - sourceIp:
+                  - remoteIp:
+                      addressPrefix: 9.2.0.0
+                      prefixLen: 16
+            - orIds:
+                ids:
+                - directRemoteIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+                - directRemoteIp:
+                    addressPrefix: 5.6.0.0
+                    prefixLen: 16
+            - notId:
+                orIds:
+                  ids:
+                  - directRemoteIp:
+                      addressPrefix: 9.0.0.1
+                      prefixLen: 32
+                  - directRemoteIp:
                       addressPrefix: 9.2.0.0
                       prefixLen: 16
             - orIds:
@@ -481,19 +498,36 @@ typedConfig:
                       presentMatch: true
             - orIds:
                 ids:
-                - sourceIp:
+                - directRemoteIp:
                     addressPrefix: 10.10.10.10
                     prefixLen: 32
-                - sourceIp:
+                - directRemoteIp:
                     addressPrefix: 192.168.10.0
                     prefixLen: 24
             - notId:
                 orIds:
                   ids:
-                  - sourceIp:
+                  - directRemoteIp:
                       addressPrefix: 90.10.10.10
                       prefixLen: 32
-                  - sourceIp:
+                  - directRemoteIp:
+                      addressPrefix: 90.168.10.0
+                      prefixLen: 24
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 10.10.10.10
+                    prefixLen: 32
+                - remoteIp:
+                    addressPrefix: 192.168.10.0
+                    prefixLen: 24
+            - notId:
+                orIds:
+                  ids:
+                  - remoteIp:
+                      addressPrefix: 90.10.10.10
+                      prefixLen: 32
+                  - remoteIp:
                       addressPrefix: 90.168.10.0
                       prefixLen: 24
             - orIds:
@@ -915,6 +949,103 @@ typedConfig:
                       path:
                       - key: request.auth.claims
                       - key: iss
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              safeRegex:
+                                googleRe2: {}
+                                regex: .+
+            - orIds:
+                ids:
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: nested1
+                    - key: nested2
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            exact: nested
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: nested1
+                    - key: nested2
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            prefix: nested-prefix-
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: nested1
+                    - key: nested2
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            suffix: -suffix-nested
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.claims
+                    - key: nested1
+                    - key: nested2
+                    value:
+                      listMatch:
+                        oneOf:
+                          stringMatch:
+                            safeRegex:
+                              googleRe2: {}
+                              regex: .+
+            - notId:
+                orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: nested1
+                      - key: nested2
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              exact: not-nested
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: nested1
+                      - key: nested2
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              prefix: not-nested-prefix-
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: nested1
+                      - key: nested2
+                      value:
+                        listMatch:
+                          oneOf:
+                            stringMatch:
+                              suffix: -not-suffix-nested
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: request.auth.claims
+                      - key: nested1
+                      - key: nested2
                       value:
                         listMatch:
                           oneOf:

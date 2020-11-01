@@ -6,7 +6,6 @@ spec:
     accessLogFile: "/dev/stdout"
     defaultConfig:
       proxyMetadata:
-        ISTIO_META_PROXY_XDS_VIA_AGENT: "true"
         ISTIO_META_DNS_CAPTURE: "true"
   components:
     ingressGateways:
@@ -32,10 +31,10 @@ spec:
               ## Extra ports for testing
               - port: 15012
                 targetPort: 15012
-                name: tcp-istiod
+                name: tls-istiod
               - port: 15017
                 targetPort: 15017
-                name: tcp-webhook
+                name: tls-webhook
               - port: 31400
                 targetPort: 31400
                 name: tcp
@@ -50,6 +49,12 @@ spec:
           requests:
             cpu: 10m
             memory: 40Mi
+
+    pilot:
+      env:
+        PILOT_ENABLED_SERVICE_APIS: true
+        ENABLE_ADMIN_ENDPOINTS: true
+        PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION: true
 
     gateways:
       istio-ingressgateway:

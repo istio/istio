@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 24471
+
+releaseNotes:
+- |
+  **Deprecated** `centralIstiod` flag in favor of `externalIstiod` to better support external control plane model.

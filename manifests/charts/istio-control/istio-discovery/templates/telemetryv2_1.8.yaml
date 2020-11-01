@@ -11,6 +11,8 @@ metadata:
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -213,8 +215,7 @@ spec:
                   value: |
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      {{- if .Values.global.multiCluster.clusterName }}
                       "metrics": [
                         {
                           "dimensions": {
@@ -268,13 +269,12 @@ spec:
                   value: |
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      {{- if .Values.global.multiCluster.clusterName }}
                       "metrics": [
                         {
                           "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
                             "source_cluster": "downstream_peer.cluster_id"
+                            "destination_cluster": "node.metadata['CLUSTER_ID']",
                           }
                         }
                       ]
@@ -323,8 +323,6 @@ spec:
                   value: |
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio",
                       "disable_host_header_fallback": true{{- if .Values.global.multiCluster.clusterName }},
                       "metrics": [
                         {
@@ -384,13 +382,12 @@ spec:
                   value: |
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      {{- if .Values.global.multiCluster.clusterName }}
                       "metrics": [
                         {
                           "dimensions": {
-                            "destination_cluster": "node.metadata['CLUSTER_ID']",
                             "source_cluster": "downstream_peer.cluster_id"
+                            "destination_cluster": "node.metadata['CLUSTER_ID']",
                           }
                         }
                       ]
@@ -437,8 +434,7 @@ spec:
                   value: |
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      {{- if .Values.global.multiCluster.clusterName }}
                       "metrics": [
                         {
                           "dimensions": {
@@ -490,8 +486,7 @@ spec:
                   value: |
                     {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
+                      {{- if .Values.global.multiCluster.clusterName }}
                       "metrics": [
                         {
                           "dimensions": {

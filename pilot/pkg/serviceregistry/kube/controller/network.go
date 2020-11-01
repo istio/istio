@@ -37,11 +37,7 @@ func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
 }
 
-// reloadNetworkLookup refreshes the meshNetworks configuration, network for each endpoint, and
-// recomputes network gateways.
-func (c *Controller) reloadNetworkLookup() {
-	c.reloadMeshNetworks()
-
+func (c *Controller) onNetworkChanged() {
 	// the network for endpoints are computed when we process the events; this will fix the cache
 	// NOTE: this must run before the other network watcher handler that creates a force push
 	if err := c.syncPods(); err != nil {
@@ -50,12 +46,14 @@ func (c *Controller) reloadNetworkLookup() {
 	if err := c.syncEndpoints(); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
-	// also need to recompute gateways
-	c.Lock()
-	for _, svc := range c.servicesMap {
-		c.extractGatewaysFromService(svc)
-	}
-	c.Unlock()
+	c.reloadNetworkGateways()
+}
+
+// reloadNetworkLookup refreshes the meshNetworks configuration, network for each endpoint, and
+// recomputes network gateways.
+func (c *Controller) reloadNetworkLookup() {
+	c.reloadMeshNetworks()
+	c.onNetworkChanged()
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup
@@ -132,6 +130,22 @@ func (c *Controller) NetworkGateways() map[string][]*model.Gateway {
 // extractGatewaysFromService checks if the service is a cross-network gateway
 // and if it is, updates the controller's gateways.
 func (c *Controller) extractGatewaysFromService(svc *model.Service) {
+	c.Lock()
+	defer c.Unlock()
+	c.extractGatewaysInner(svc)
+}
+
+// reloadNetworkGateways performs extractGatewaysFromService for all services registered with the controller.
+func (c *Controller) reloadNetworkGateways() {
+	c.Lock()
+	defer c.Unlock()
+	for _, svc := range c.servicesMap {
+		c.extractGatewaysInner(svc)
+	}
+}
+
+// extractGatewaysInner performs the logic for extractGatewaysFromService without locking the controller
+func (c *Controller) extractGatewaysInner(svc *model.Service) {
 	svc.Mutex.RLock()
 	defer svc.Mutex.RUnlock()
 
@@ -148,7 +162,7 @@ func (c *Controller) extractGatewaysFromService(svc *model.Service) {
 	gws := make([]*model.Gateway, 0, len(svc.Attributes.ClusterExternalAddresses))
 
 	// TODO(landow) ClusterExternalAddresses doesn't need to get used outside of the kube controller, and spreads
-	// TODO(cont)   logic between ConvertService, extractGatewaysFromService, and updateServiceNodePortAddresses.
+	// TODO(cont)   logic between ConvertService, extractGatewaysInner, and updateServiceNodePortAddresses.
 	if svc.Attributes.ClusterExternalAddresses != nil {
 		// check if we have node port mappings
 		if svc.Attributes.ClusterExternalPorts != nil {

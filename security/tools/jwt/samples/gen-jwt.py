@@ -21,6 +21,7 @@ Example:
 """
 from __future__ import print_function
 import argparse
+import copy
 import time
 
 from jwcrypto import jwt, jwk
@@ -73,6 +74,18 @@ def main(args):
                 v = item[1:]
                 payload[k] = v
 
+    if args.nestedclaim:
+        nested = {}
+        for item in args.nestedclaim:
+            if (len(item) > 1):
+                k = item[0]
+                v = item[1:]
+                if len(v) == 1:
+                    v = v[0]
+                nested[k] = v
+        nested["nested-2"] = copy.copy(nested)
+        payload["nested"] = nested
+
     token = jwt.JWT(header={"alg": "RS256", "typ": "JWT", "kid": key.key_id},
                     claims=payload)
 
@@ -109,4 +122,12 @@ if __name__ == '__main__':
         action='append',
         nargs='+',
         help="A list claim in format key1 value2 value3... Only string values are supported. Multiple list claims can be specified, e.g., -listclaim key1 val2 val3 -listclaim key2 val3 val4.")
+    parser.add_argument(
+        "-nestedclaim",
+        "--nestedclaim",
+        action='append',
+        nargs='+',
+        help="Nested claim in format key value1 [value2 ...], only string values are supported, will be added under the nested key in the JWT payload. "
+             "Multiple nested claims can be specified, e.g., -nestedclaim key1 val2 val3 -nestedclaim key2 val3 val4."
+    )
     print(main(parser.parse_args()))

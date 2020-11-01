@@ -37,6 +37,7 @@ spec:
     shortNames:
     - dr
     singular: destinationrule
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1313,7 +1314,7 @@ spec:
                                 format: string
                                 type: string
                               transportProtocol:
-                                description: Applies only to SIDECAR_INBOUND context.
+                                description: Applies only to `SIDECAR_INBOUND` context.
                                 format: string
                                 type: string
                             type: object
@@ -1451,6 +1452,7 @@ spec:
     shortNames:
     - gw
     singular: gateway
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1634,6 +1636,7 @@ spec:
     shortNames:
     - se
     singular: serviceentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1775,6 +1778,7 @@ spec:
     listKind: SidecarList
     plural: sidecars
     singular: sidecar
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1944,6 +1948,7 @@ spec:
     shortNames:
     - vs
     singular: virtualservice
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2758,6 +2763,7 @@ spec:
     shortNames:
     - we
     singular: workloadentry
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2834,6 +2840,7 @@ spec:
     shortNames:
     - wg
     singular: workloadgroup
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3015,6 +3022,7 @@ spec:
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
     singular: authorizationpolicy
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3024,6 +3032,13 @@ spec:
         spec:
           description: 'Configuration for access control on workloads. See more details
             at: https://istio.io/docs/reference/config/security/authorization-policy.html'
+          oneOf:
+          - not:
+              anyOf:
+              - required:
+                - provider
+          - required:
+            - provider
           properties:
             action:
               description: Optional.
@@ -3031,7 +3046,16 @@ spec:
               - ALLOW
               - DENY
               - AUDIT
+              - CUSTOM
               type: string
+            provider:
+              description: Specifies detailed configuration of the CUSTOM action.
+              properties:
+                name:
+                  description: Specifies the name of the extension provider.
+                  format: string
+                  type: string
+              type: object
             rules:
               description: Optional.
               items:
@@ -3073,6 +3097,12 @@ spec:
                                 format: string
                                 type: string
                               type: array
+                            notRemoteIpBlocks:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
                             notRequestPrincipals:
                               description: Optional.
                               items:
@@ -3080,6 +3110,12 @@ spec:
                                 type: string
                               type: array
                             principals:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            remoteIpBlocks:
                               description: Optional.
                               items:
                                 format: string
@@ -3209,6 +3245,19 @@ metadata:
     release: istio
   name: peerauthentications.security.istio.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.mtls.mode
+    description: Defines the mTLS mode used for peer authentication.
+    name: Mode
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
   group: security.istio.io
   names:
     categories:
@@ -3220,6 +3269,7 @@ spec:
     shortNames:
     - pa
     singular: peerauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3301,6 +3351,7 @@ spec:
     shortNames:
     - ra
     singular: requestauthentication
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3422,6 +3473,7 @@ spec:
     singular: istiooperator
     shortNames:
     - iop
+    - io
   scope: Namespaced
   subresources:
     status: {}
@@ -3489,7 +3541,7 @@ rules:
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
-    verbs: ["get", "list", "watch", "patch"]
+    verbs: ["get", "list", "watch", "update", "patch"]
 
   # configuration validation webhook controller
   - apiGroups: ["admissionregistration.k8s.io"]
@@ -3501,7 +3553,10 @@ rules:
     verbs: ["get", "watch", "list"]
     resources: ["*"]
   - apiGroups: ["networking.istio.io"]
-    verbs: [ "get", "watch", "list", "update", "create", "delete" ]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "workloadentries" ]
+  - apiGroups: ["networking.istio.io"]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "workloadentries/status" ]
 
   # auto-detect installed CRD definitions
@@ -3581,7 +3636,7 @@ rules:
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces"]
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces", "secrets"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["discovery.k8s.io"]
     resources: ["endpointslices"]

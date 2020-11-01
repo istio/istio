@@ -61,9 +61,7 @@ func TestADSC_Run(t *testing.T) {
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
-				cfg: &Config{
-					Watch: make([]string, 0),
-				},
+				cfg:        &Config{},
 			},
 			port: uint32(49133),
 			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
@@ -81,9 +79,7 @@ func TestADSC_Run(t *testing.T) {
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
-				cfg: &Config{
-					Watch: make([]string, 0),
-				},
+				cfg:        &Config{},
 			},
 			port: uint32(49133),
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
@@ -115,6 +111,7 @@ func TestADSC_Run(t *testing.T) {
 			l, err := net.Listen("tcp", ":"+fmt.Sprint(tt.port))
 			if err != nil {
 				t.Errorf("Unable to listen on port %v with tcp err %v", tt.port, err)
+				return
 			}
 			xds := grpc.NewServer()
 			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
@@ -127,9 +124,17 @@ func TestADSC_Run(t *testing.T) {
 			defer xds.GracefulStop()
 			if err != nil {
 				t.Errorf("Could not start serving ads server %v", err)
+				return
 			}
-			tt.inAdsc.RecvWg.Add(1)
-			err = tt.inAdsc.Run()
+
+			if err := tt.inAdsc.Dial(); err != nil {
+				t.Errorf("Dial error: %v", err)
+				return
+			}
+			if err := tt.inAdsc.Run(); err != nil {
+				t.Errorf("ADSC: failed running %v", err)
+				return
+			}
 			tt.inAdsc.RecvWg.Wait()
 			if !cmp.Equal(tt.inAdsc.Received, tt.expectedADSResources.Received, protocmp.Transform()) {
 				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedADSResources.Received, tt.inAdsc.Received)

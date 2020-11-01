@@ -97,7 +97,6 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	}
 	s.monitoring.Success.Increment()
 	serverCaLog.Debug("CSR successfully signed.")
-
 	return response, nil
 }
 
@@ -125,7 +124,9 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 }
 
 // New creates a new instance of `IstioCAServiceServer`
-func New(ca CertificateAuthority, ttl time.Duration, authenticators []authenticate.Authenticator) (*Server, error) {
+func New(ca CertificateAuthority, ttl time.Duration,
+	authenticators []authenticate.Authenticator) (*Server, error) {
+
 	recordCertsExpiry(ca.GetCAKeyCertBundle())
 
 	server := &Server{

@@ -174,11 +174,12 @@ var (
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	).Get()
 
-	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
+	// nolint
+	InboundProtocolDetectionTimeout, InboundProtocolDetectionTimeoutSet = env.RegisterDurationVar(
 		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
 		1*time.Second,
 		"Protocol detection timeout for inbound listener",
-	).Get()
+	).Lookup()
 
 	EnableHeadlessService = env.RegisterBoolVar(
 		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
@@ -219,10 +220,9 @@ var (
 
 	EnableSDSServer = env.RegisterBoolVar(
 		"ISTIOD_ENABLE_SDS_SERVER",
-		false,
+		true,
 		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
-			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well. "+
-			"This option temporarily only supports gateways running in istio-system namespace.",
+			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
 	).Get()
 
 	EnableCRDValidation = env.RegisterBoolVar(
@@ -301,8 +301,10 @@ var (
 		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
 			"to true, and then galley may push data incrementally, it depends on whether the "+
 			"resource supports incremental. By default, this is false.").Get()
-
+	// CentralIstioD will be Deprecated: TODO remove in 1.9 in favor of `ExternalIstioD`
 	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
+		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+	ExternalIstioD = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
@@ -310,6 +312,9 @@ var (
 
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
+
+	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
+		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()
 
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
@@ -366,5 +371,33 @@ var (
 		"PILOT_XDS_SEND_TIMEOUT",
 		5*time.Second,
 		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
+	).Get()
+
+	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", true,
+		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
+	).Get()
+
+	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", false,
+		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
+
+	WorkloadEntryCleanupGracePeriod = env.RegisterDurationVar("PILOT_WORKLOAD_ENTRY_GRACE_PERIOD", 10*time.Second,
+		"The amount of time an auto-registered workload can remain disconnected from all Pilot instances before the "+
+			"associated WorkloadEntry is cleaned up.").Get()
+
+	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", false,
+		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
+
+	EnableFlowControl = env.RegisterBoolVar(
+		"PILOT_ENABLE_FLOW_CONTROL",
+		false,
+		"If enabled, pilot will wait for the completion of a receive operation before"+
+			"executing a push operation. This is a form of flow control and is useful in"+
+			"environments with high rates of push requests to each gateway. By default,"+
+			"this is false.").Get()
+
+	FlowControlTimeout = env.RegisterDurationVar(
+		"PILOT_FLOW_CONTROL_TIMEOUT",
+		15*time.Second,
+		"If set, the max amount of time to delay a push by. Depends on PILOT_ENABLE_FLOW_CONTROL.",
 	).Get()
 )

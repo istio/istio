@@ -147,9 +147,20 @@ func DumpPodEvents(_ resource.Context, c resource.Cluster, workDir, namespace st
 	}
 }
 
+// containerRestarted checks if a container has ever restarted
+func containerRestarted(pod corev1.Pod, container string) bool {
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name == container {
+			return cs.RestartCount > 0
+		}
+	}
+	// No match - assume that means no restart
+	return false
+}
+
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodLogs(r resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
 	for _, pod := range pods {
@@ -159,12 +170,28 @@ func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace stri
 			l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.Framework.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
-				continue
 			}
 
 			fname := outputPath(workDir, c, pod, fmt.Sprintf("%s.log", container.Name))
 			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 				scopes.Framework.Errorf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+			}
+
+			// Get previous container logs, if applicable
+			if containerRestarted(pod, container.Name) {
+				// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
+				// a log which will get highlighted in the test logs
+				// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
+				scopes.Framework.Errorf("FAIL: pod %v/%v restarted", pod.Name, pod.Namespace)
+				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
+				if err != nil {
+					scopes.Framework.Errorf("Unable to get previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				}
+
+				fname := outputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
+				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+					scopes.Framework.Errorf("Unable to write previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+				}
 			}
 
 			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs

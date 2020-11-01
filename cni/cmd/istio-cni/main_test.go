@@ -97,6 +97,11 @@ type mockInterceptRuleMgr struct {
 	lastRedirect []*Redirect
 }
 
+func init() {
+	interceptRuleMgrType = "mock"
+	testAnnotations[sidecarStatusKey] = "true"
+}
+
 func (mrdir *mockInterceptRuleMgr) Program(netns string, redirect *Redirect) error {
 	nsenterFuncCalled = true
 	mrdir.lastRedirect = append(mrdir.lastRedirect, redirect)

@@ -32,7 +32,9 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/tools/bug-report/pkg/archive"
@@ -56,7 +58,7 @@ const (
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{"kube-system,kube-public"}
+	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ", ")}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -97,11 +99,6 @@ var (
 	// Aggregated errors for all fetch operations.
 	gErrors util.Errors
 	lock    = sync.RWMutex{}
-
-	isSystemNamespace = map[string]bool{
-		"kube-system": true,
-		"kube-public": true,
-	}
 )
 
 func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
@@ -165,7 +162,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		outDir = "."
 	}
 	outPath := filepath.Join(outDir, "bug-report.tgz")
-	common.LogAndPrintf("Creating archive at %s.\n", outPath)
+	common.LogAndPrintf("Creating an archive at %s.\n", outPath)
 
 	archiveDir := archive.DirToArchive(tempDir)
 	if err := archive.Create(archiveDir, outPath); err != nil {
@@ -390,7 +387,7 @@ func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *c
 
 func runAnalyze(config *config.BugReportConfig, resources *cluster2.Resources, params *content.Params) {
 	for ns := range resources.Root {
-		if isSystemNamespace[ns] {
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) {
 			continue
 		}
 		common.LogAndPrintf("Running istio analyze on namespace %s.\n", ns)

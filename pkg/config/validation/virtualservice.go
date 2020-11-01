@@ -19,45 +19,206 @@ import (
 	"fmt"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/labels"
 )
 
-func validateRootHTTPRoute(http *networking.HTTPRoute) (errs error) {
-	if http.Delegate == nil {
-		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must specify delegate", http.Name))
-	}
-	// only delegate can be specified
-	if http.Redirect != nil {
-		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify redirect", http.Name))
-	}
-	if http.Route != nil {
-		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify route", http.Name))
+type HTTPRouteType int
+
+const (
+	IndependentRoute = iota
+	RootRoute
+	DelegateRoute
+)
+
+func getHTTPRouteType(http *networking.HTTPRoute, isDelegate bool) HTTPRouteType {
+	if isDelegate {
+		return DelegateRoute
 	}
 
-	errs = appendErrors(errs, validateChainingHTTPRoute(http))
+	if features.EnableVirtualServiceDelegate {
+		// root vs's http route
+		if http.Delegate != nil {
+			return RootRoute
+		}
+	}
+
+	return IndependentRoute
+}
+
+func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validation) {
+	routeType := getHTTPRouteType(http, delegate)
+	// check for conflicts
+	errs = WrapError(validateHTTPRouteConflict(http, routeType))
+
+	// check http route match requests
+	errs = appendValidation(errs, validateHTTPRouteMatchRequest(http, routeType))
+
+	// header manipulation
+	for name, val := range http.Headers.GetRequest().GetAdd() {
+		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+	}
+	for name, val := range http.Headers.GetRequest().GetSet() {
+		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+	}
+	for _, name := range http.Headers.GetRequest().GetRemove() {
+		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+	}
+	for name, val := range http.Headers.GetResponse().GetAdd() {
+		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+	}
+	for name, val := range http.Headers.GetResponse().GetSet() {
+		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+	}
+	for _, name := range http.Headers.GetResponse().GetRemove() {
+		errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+	}
+
+	errs = appendValidation(errs, validateCORSPolicy(http.CorsPolicy))
+	errs = appendValidation(errs, validateHTTPFaultInjection(http.Fault))
+
+	if http.MirrorPercent != nil {
+		if value := http.MirrorPercent.GetValue(); value > 100 {
+			errs = appendValidation(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
+		}
+		errs = appendValidation(errs, WrapWarning(errors.New(`using deprecated setting "mirrorPercent", use "mirrorPercentage" instead`)))
+	}
+
+	if http.MirrorPercentage != nil {
+		if value := http.MirrorPercentage.GetValue(); value > 100 {
+			errs = appendValidation(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
+		}
+	}
+
+	errs = appendValidation(errs, validateDestination(http.Mirror))
+	errs = appendValidation(errs, validateHTTPRedirect(http.Redirect))
+	errs = appendValidation(errs, validateHTTPRetry(http.Retries))
+	errs = appendValidation(errs, validateHTTPRewrite(http.Rewrite))
+	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route))
+	if http.Timeout != nil {
+		errs = appendValidation(errs, ValidateDurationGogo(http.Timeout))
+	}
+
 	return
 }
 
-func validateDelegateHTTPRoute(http *networking.HTTPRoute) (errs error) {
-	if http.Delegate != nil {
-		errs = appendErrors(errs, errors.New("delegate HTTP route cannot contain delegate"))
+func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRouteType) (errs error) {
+	if routeType == IndependentRoute {
+		for _, match := range http.Match {
+			if match != nil {
+				for name, header := range match.Headers {
+					if header == nil {
+						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+					}
+					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+					errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
+				}
+
+				errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+				errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+				errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
+				errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
+				for _, qp := range match.GetQueryParams() {
+					errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+				}
+			}
+		}
+	} else {
+		for _, match := range http.Match {
+			if match != nil {
+				if containRegexMatch(match.Uri) {
+					errs = appendErrors(errs, errors.New("url match does not support regex match for delegating"))
+				}
+				if containRegexMatch(match.Scheme) {
+					errs = appendErrors(errs, errors.New("scheme match does not support regex match for delegating"))
+				}
+				if containRegexMatch(match.Method) {
+					errs = appendErrors(errs, errors.New("method match does not support regex match for delegating"))
+				}
+				if containRegexMatch(match.Authority) {
+					errs = appendErrors(errs, errors.New("authority match does not support regex match for delegating"))
+				}
+
+				for name, header := range match.Headers {
+					if header == nil {
+						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+					}
+					if containRegexMatch(header) {
+						errs = appendErrors(errs, fmt.Errorf("header match %v does not support regex match for delegating", name))
+					}
+					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				}
+				for name, param := range match.QueryParams {
+					if param == nil {
+						errs = appendErrors(errs, fmt.Errorf("query param match %v cannot be null", name))
+					}
+					if containRegexMatch(param) {
+						errs = appendErrors(errs, fmt.Errorf("query param match %v does not support regex match for delegating", name))
+					}
+				}
+				for name, header := range match.WithoutHeaders {
+					if header == nil {
+						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
+					}
+					if containRegexMatch(header) {
+						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v does not support regex match for delegating", name))
+					}
+					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				}
+
+			}
+		}
+
 	}
+
+	for _, match := range http.Match {
+		if match != nil {
+			if match.Port != 0 {
+				errs = appendErrors(errs, ValidatePort(int(match.Port)))
+			}
+			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
+			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			if match.SourceNamespace != "" {
+				if !labels.IsDNS1123Label(match.SourceNamespace) {
+					errs = appendErrors(errs, fmt.Errorf("sourceNamespace match %s is invalid", match.SourceNamespace))
+				}
+			}
+		}
+	}
+
+	return
+}
+
+func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteType) (errs error) {
+	if routeType == RootRoute {
+		// This is to check root conflict
+		// only delegate can be specified
+		if http.Redirect != nil {
+			errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify redirect", http.Name))
+		}
+		if http.Route != nil {
+			errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify route", http.Name))
+		}
+		return errs
+	}
+
+	// This is to check delegate conflict
+	if routeType == DelegateRoute {
+		if http.Delegate != nil {
+			errs = appendErrors(errs, errors.New("delegate HTTP route cannot contain delegate"))
+		}
+	}
+
 	// check for conflicts
 	if http.Redirect != nil {
 		if len(http.Route) > 0 {
 			errs = appendErrors(errs, errors.New("HTTP route cannot contain both route and redirect"))
 		}
-	} else if len(http.Route) == 0 {
-		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
-	}
-	errs = appendErrors(errs, validateChainingHTTPRoute(http))
-	return
-}
 
-// TODO(@hzxuzhonghu): deduplicate with validateHTTPRoute
-func validateChainingHTTPRoute(http *networking.HTTPRoute) (errs error) {
-	// check for conflicts
-	if http.Redirect != nil {
 		if http.Fault != nil {
 			errs = appendErrors(errs, errors.New("HTTP route cannot contain both fault and redirect"))
 		}
@@ -65,108 +226,11 @@ func validateChainingHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		if http.Rewrite != nil {
 			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
 		}
-	}
-	// header manipulation
-	for name := range http.Headers.GetRequest().GetAdd() {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for name := range http.Headers.GetRequest().GetSet() {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for _, name := range http.Headers.GetRequest().GetRemove() {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for name := range http.Headers.GetResponse().GetAdd() {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for name := range http.Headers.GetResponse().GetSet() {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-	}
-	for _, name := range http.Headers.GetResponse().GetRemove() {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	} else if len(http.Route) == 0 {
+		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
 	}
 
-	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
-	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
-
-	for _, match := range http.Match {
-		if match != nil {
-			if containRegexMatch(match.Uri) {
-				errs = appendErrors(errs, errors.New("url match does not support regex match for delegating"))
-			}
-			if containRegexMatch(match.Scheme) {
-				errs = appendErrors(errs, errors.New("scheme match does not support regex match for delegating"))
-			}
-			if containRegexMatch(match.Method) {
-				errs = appendErrors(errs, errors.New("method match does not support regex match for delegating"))
-			}
-			if containRegexMatch(match.Authority) {
-				errs = appendErrors(errs, errors.New("authority match does not support regex match for delegating"))
-			}
-
-			for name, header := range match.Headers {
-				if header == nil {
-					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
-				}
-				if containRegexMatch(header) {
-					errs = appendErrors(errs, fmt.Errorf("header match %v does not support regex match for delegating", name))
-				}
-				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-			}
-			for name, param := range match.QueryParams {
-				if param == nil {
-					errs = appendErrors(errs, fmt.Errorf("query param match %v cannot be null", name))
-				}
-				if containRegexMatch(param) {
-					errs = appendErrors(errs, fmt.Errorf("query param match %v does not support regex match for delegating", name))
-				}
-			}
-			for name, header := range match.WithoutHeaders {
-				if header == nil {
-					errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
-				}
-				if containRegexMatch(header) {
-					errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v does not support regex match for delegating", name))
-				}
-				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-			}
-
-			if match.Port != 0 {
-				errs = appendErrors(errs, ValidatePort(int(match.Port)))
-			}
-
-			if match.SourceNamespace != "" {
-				if !labels.IsDNS1123Label(match.SourceNamespace) {
-					errs = appendErrors(errs, fmt.Errorf("sourceNamespace match %s is invalid", match.SourceNamespace))
-				}
-			}
-			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
-			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
-		}
-	}
-
-	if http.MirrorPercent != nil {
-		if value := http.MirrorPercent.GetValue(); value > 100 {
-			errs = appendErrors(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
-		}
-	}
-
-	if http.MirrorPercentage != nil {
-		if value := http.MirrorPercentage.GetValue(); value > 100 {
-			errs = appendErrors(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
-		}
-	}
-
-	errs = appendErrors(errs, validateDestination(http.Mirror))
-	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
-	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
-	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
-	errs = appendErrors(errs, validateHTTPRouteDestinations(http.Route))
-	if http.Timeout != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
-	}
-
-	return
+	return errs
 }
 
 func containRegexMatch(config *networking.StringMatch) bool {

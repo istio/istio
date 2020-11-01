@@ -171,9 +171,6 @@ data:
         - --applicationPorts
         - "{{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/applicationPorts` (applicationPorts .Spec.Containers) }}"
       {{- end }}
-      {{- if .Values.global.trustDomain }}
-        - --trust-domain={{ .Values.global.trustDomain }}
-      {{- end }}
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}

@@ -40,6 +40,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/env"
@@ -284,38 +285,38 @@ type PrometheusScrapeConfiguration struct {
 // Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
 // but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	scrapeTotals.Increment()
+	metrics.ScrapeTotals.Increment()
 	var envoy, application, agent []byte
 	var err error
 	// Gather all the metrics we will merge
 	if envoy, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 		log.Errorf("failed scraping envoy metrics: %v", err)
-		envoyScrapeErrors.Increment()
+		metrics.EnvoyScrapeErrors.Increment()
 	}
 	if s.prometheus != nil {
 		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
 		if application, err = s.scrape(url, r.Header); err != nil {
 			log.Errorf("failed scraping application metrics: %v", err)
-			appScrapeErrors.Increment()
+			metrics.AppScrapeErrors.Increment()
 		}
 	}
 	if agent, err = scrapeAgentMetrics(); err != nil {
 		log.Errorf("failed scraping agent metrics: %v", err)
-		agentScrapeErrors.Increment()
+		metrics.AgentScrapeErrors.Increment()
 	}
 
 	// Write out the metrics
 	if _, err := w.Write(envoy); err != nil {
 		log.Errorf("failed to write envoy metrics: %v", err)
-		envoyScrapeErrors.Increment()
+		metrics.EnvoyScrapeErrors.Increment()
 	}
 	if _, err := w.Write(application); err != nil {
 		log.Errorf("failed to write application metrics: %v", err)
-		appScrapeErrors.Increment()
+		metrics.AppScrapeErrors.Increment()
 	}
 	if _, err := w.Write(agent); err != nil {
 		log.Errorf("failed to write agent metrics: %v", err)
-		agentScrapeErrors.Increment()
+		metrics.AgentScrapeErrors.Increment()
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,24 +30,23 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 
 	//  to avoid 'No Auth Provider found for name "gcp"'
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 
+	"istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 var (
 	codec  runtime.Codec
 	scheme *runtime.Scheme
-)
-
-const (
-	configSecretName = "istio-kubeconfig"
 )
 
 func init() {
@@ -68,10 +68,9 @@ func init() {
 }
 
 const (
-	// default service account to use for remote cluster access.
-	DefaultServiceAccountName = "istio-reader-service-account"
-
 	remoteSecretPrefix = "istio-remote-secret-"
+	configSecretName   = "istio-kubeconfig"
+	configSecretKey    = "config"
 )
 
 func remoteSecretNameFromClusterName(clusterName string) string {
@@ -86,10 +85,9 @@ func clusterNameFromRemoteSecretName(name string) string {
 // together in a multi-cluster mesh.
 func NewCreateRemoteSecretCommand() *cobra.Command {
 	opts := RemoteSecretOptions{
-		ServiceAccountName: DefaultServiceAccountName,
-		AuthType:           RemoteSecretAuthTypeBearerToken,
-		AuthPluginConfig:   make(map[string]string),
-		Type:               SecretTypeRemote,
+		AuthType:         RemoteSecretAuthTypeBearerToken,
+		AuthPluginConfig: make(map[string]string),
+		Type:             SecretTypeRemote,
 	}
 	c := &cobra.Command{
 		Use:   "create-remote-secret",
@@ -132,6 +130,10 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 	if err := latest.Codec.Encode(kubeconfig, &data); err != nil {
 		return nil, err
 	}
+	key := clusterName
+	if secName == configSecretName {
+		key = configSecretKey
+	}
 	out := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: secName,
@@ -143,7 +145,7 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 			},
 		},
 		Data: map[string][]byte{
-			clusterName: data.Bytes(),
+			key: data.Bytes(),
 		},
 	}
 	return out, nil
@@ -223,21 +225,126 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, clusterName, s
 	return createRemoteServiceAccountSecret(kubeconfig, clusterName, secName)
 }
 
-func getServiceAccountSecret(kube kubernetes.Interface, saName, saNamespace string) (*v1.Secret, error) {
-	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(context.TODO(), saName, metav1.GetOptions{})
+func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions) (*v1.Secret, error) {
+	// Create the service account if it doesn't exist.
+	serviceAccount, err := getOrCreateServiceAccount(client, opt)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(serviceAccount.Secrets) != 1 {
 		return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s",
-			len(serviceAccount.Secrets), saNamespace, saName)
+			len(serviceAccount.Secrets), opt.Namespace, opt.ServiceAccountName)
 	}
+
 	secretName := serviceAccount.Secrets[0].Name
 	secretNamespace := serviceAccount.Secrets[0].Namespace
 	if secretNamespace == "" {
-		secretNamespace = saNamespace
+		secretNamespace = opt.Namespace
 	}
-	return kube.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	return client.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+}
+
+func getOrCreateServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) (*v1.ServiceAccount, error) {
+	if sa, err := client.CoreV1().ServiceAccounts(opt.Namespace).Get(
+		context.TODO(), opt.ServiceAccountName, metav1.GetOptions{}); err == nil {
+		return sa, nil
+	} else if !opt.CreateServiceAccount {
+		// User chose not to automatically create the service account.
+		return nil, fmt.Errorf("failed retrieving service account %s.%s required for creating "+
+			"the remote secret (hint: try installing a minimal Istio profile on the cluster first, "+
+			"or run with '--create-service-account=true'): %v",
+			opt.ServiceAccountName,
+			opt.Namespace,
+			err)
+	}
+
+	if err := createServiceAccount(client, opt); err != nil {
+		return nil, err
+	}
+
+	// Return the newly created service account.
+	sa, err := client.CoreV1().ServiceAccounts(opt.Namespace).Get(
+		context.TODO(), opt.ServiceAccountName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed retrieving service account %s.%s after creating it: %v",
+			opt.ServiceAccountName, opt.Namespace, err)
+	}
+	return sa, nil
+}
+
+func createServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) error {
+	// Create a renderer for the base installation.
+	r, err := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed creating Helm renderer: %v", err)
+	}
+
+	if err := r.Run(); err != nil {
+		return fmt.Errorf("failed running Helm renderer: %v", err)
+	}
+
+	values := fmt.Sprintf(`
+global:
+  istioNamespace: %s
+  istiod:
+    enableAnalysis: false
+  configValidation: false
+base:
+  enableCRDTemplates: false
+`, opt.Namespace)
+
+	yamlContent, err := r.RenderManifest(values)
+	if err != nil {
+		return fmt.Errorf("failed rendering base manifest: %v", err)
+	}
+
+	// Before we can apply the yaml, we have to ensure the system namespace exists.
+	if err := createNamespaceIfNotExist(client, opt.Namespace); err != nil {
+		return err
+	}
+
+	// Apply the YAML to the cluster.
+	return applyYAML(client, yamlContent, opt.Namespace)
+}
+
+func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
+	yamlFile, err := writeToTempFile(yamlContent)
+	if err != nil {
+		return fmt.Errorf("failed creating manifest file: %v", err)
+	}
+
+	// Apply the YAML to the cluster.
+	if err := client.ApplyYAMLFiles(ns, yamlFile); err != nil {
+		return fmt.Errorf("failed applying manifest %s: %v", yamlFile, err)
+	}
+	return nil
+}
+
+func createNamespaceIfNotExist(client kube.Client, ns string) error {
+	if _, err := client.CoreV1().Namespaces().Get(context.TODO(), ns, metav1.GetOptions{}); err != nil {
+		if _, err := client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: ns,
+			},
+		}, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("failed creating namespace %s: %v", ns, err)
+		}
+	}
+	return nil
+}
+
+func writeToTempFile(content string) (string, error) {
+	outFile, err := ioutil.TempFile("", "remote-secret-manifest-*")
+	if err != nil {
+		return "", fmt.Errorf("failed creating temp file for manifest: %v", err)
+	}
+	defer func() { _ = outFile.Close() }()
+
+	if _, err := outFile.Write([]byte(content)); err != nil {
+		return "", fmt.Errorf("failed writing manifest file: %v", err)
+	}
+	return outFile.Name(), nil
 }
 
 func getServerFromKubeconfig(context string, config *api.Config) (string, error) {
@@ -330,6 +437,10 @@ type RemoteSecretOptions struct {
 	// Create a secret with this service account's credentials.
 	ServiceAccountName string
 
+	// CreateServiceAccount if true, the service account specified by ServiceAccountName
+	// will be created if it doesn't exist.
+	CreateServiceAccount bool
+
 	// Authentication method for the remote Kubernetes cluster.
 	AuthType RemoteSecretAuthType
 	// Authenticator plugin configuration
@@ -338,11 +449,21 @@ type RemoteSecretOptions struct {
 
 	// Type of the generated secret
 	Type SecretType
+
+	// ManifestsPath is a path to a manifestsPath and profiles directory in the local filesystem,
+	// or URL with a release tgz. This is only used when no reader service account exists and has
+	// to be created.
+	ManifestsPath string
 }
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
-	flagset.StringVar(&o.ServiceAccountName, "service-account", o.ServiceAccountName,
-		"Create a secret with this service account's credentials.")
+	flagset.StringVar(&o.ServiceAccountName, "service-account", "",
+		"Create a secret with this service account's credentials. Use \""+
+			constants.DefaultServiceAccountName+"\" as default value if --type is \"remote\", use \""+
+			constants.DefaultConfigServiceAccountName+"\" as default value if --type is \"config\".")
+	flagset.BoolVar(&o.CreateServiceAccount, "create-service-account", true,
+		"If true, the service account needed for creating the remote secret will be created "+
+			"if it doesn't exist.")
 	flagset.StringVar(&o.ClusterName, "name", "",
 		"Name of the local cluster whose credentials are stored "+
 			"in the secret. If a name is not specified the kube-system namespace's UUID of "+
@@ -366,6 +487,8 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 			RemoteSecretAuthTypePlugin))
 	flagset.Var(&o.Type, "type",
 		fmt.Sprintf("Type of the generated secret. supported values = %v", supportedSecretType))
+	flagset.StringVarP(&o.ManifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+
 }
 
 func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
@@ -379,7 +502,7 @@ func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
 	return nil
 }
 
-func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, env Environment) (*v1.Secret, error) {
+func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env Environment) (*v1.Secret, error) {
 	// generate the clusterName if not specified
 	if opt.ClusterName == "" {
 		uid, err := clusterUID(client)
@@ -389,7 +512,22 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 		opt.ClusterName = string(uid)
 	}
 
-	tokenSecret, err := getServiceAccountSecret(client, opt.ServiceAccountName, opt.Namespace)
+	var secretName string
+	switch opt.Type {
+	case SecretTypeRemote:
+		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
+		if opt.ServiceAccountName == "" {
+			opt.ServiceAccountName = constants.DefaultServiceAccountName
+		}
+	case SecretTypeConfig:
+		secretName = configSecretName
+		if opt.ServiceAccountName == "" {
+			opt.ServiceAccountName = constants.DefaultConfigServiceAccountName
+		}
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", opt.Type)
+	}
+	tokenSecret, err := getServiceAccountSecret(client, opt)
 	if err != nil {
 		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
 	}
@@ -397,15 +535,6 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 	server, err := getServerFromKubeconfig(opt.Context, env.GetConfig())
 	if err != nil {
 		return nil, err
-	}
-	var secretName string
-	switch opt.Type {
-	case SecretTypeRemote:
-		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
-	case SecretTypeConfig:
-		secretName = configSecretName
-	default:
-		return nil, fmt.Errorf("unsupported type: %v", opt.Type)
 	}
 
 	var remoteSecret *v1.Secret
@@ -433,7 +562,7 @@ func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, en
 // CreateRemoteSecret creates a remote secret with credentials of the specified service account.
 // This is useful for providing a cluster access to a remote apiserver.
 func CreateRemoteSecret(opt RemoteSecretOptions, env Environment) (string, error) {
-	client, err := env.CreateClientSet(opt.Context)
+	client, err := env.CreateClient(opt.Context)
 	if err != nil {
 		return "", err
 	}

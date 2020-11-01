@@ -36,9 +36,11 @@ global:
   # Enabled by default in master for maximising testing.
   istiod:
     enableAnalysis: false
-
-  # One central istiod controls all remote clusters: disabled by default
+  # `centralIstiod` flag will be deprecated in favor of `externalIstiod` to better support external control plane model.
+  # central istiod controls all remote clusters: disabled by default
   centralIstiod: false
+  # external istiod controls all remote clusters: disabled by default
+  externalIstiod: false
 
   proxy:
     image: proxyv2
@@ -249,14 +251,6 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
 
-  # The trust domain corresponds to the trust root of a system
-  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-  # Indicate the domain used in SPIFFE identity URL
-  # The default depends on the environment.
-  #   kubernetes: cluster.local
-  #   else:  default dns domain
-  trustDomain: "cluster.local"
-
   # Mesh ID means Mesh Identifier. It should be unique within the scope where
   # meshes will interact with each other, but it is not required to be
   # globally/universally unique. For example, if any of the following are true,
@@ -358,6 +352,9 @@ global:
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"
+
+  # Deprecated, use meshConfig.trustDomain
+  trustDomain: ""
 
 # Internal setting - used when generating helm templates for kustomize.
 # clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.

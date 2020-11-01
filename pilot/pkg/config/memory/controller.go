@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/pkg/ledger"
 )
 
 type controller struct {
@@ -57,22 +56,6 @@ func (c *controller) HasSynced() bool {
 	return true
 }
 
-func (c *controller) Version() string {
-	return c.configStore.Version()
-}
-
-func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return c.configStore.GetResourceAtVersion(version, key)
-}
-
-func (c *controller) GetLedger() ledger.Ledger {
-	return c.configStore.GetLedger()
-}
-
-func (c *controller) SetLedger(l ledger.Ledger) error {
-	return c.configStore.SetLedger(l)
-}
-
 func (c *controller) Run(stop <-chan struct{}) {
 	c.monitor.Run(stop)
 }
@@ -101,6 +84,34 @@ func (c *controller) Update(config config.Config) (newRevision string, err error
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    *oldconfig,
 			config: config,
+			event:  model.EventUpdate,
+		})
+	}
+	return
+}
+
+func (c *controller) UpdateStatus(config config.Config) (newRevision string, err error) {
+	oldconfig := c.configStore.Get(config.GroupVersionKind, config.Name, config.Namespace)
+	if newRevision, err = c.configStore.UpdateStatus(config); err == nil {
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
+			old:    *oldconfig,
+			config: config,
+			event:  model.EventUpdate,
+		})
+	}
+	return
+}
+
+func (c *controller) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (newRevision string, err error) {
+	oldconfig := c.configStore.Get(typ, name, namespace)
+	if oldconfig == nil {
+		return "", errNotFound
+	}
+	cfg := patchFn(oldconfig.DeepCopy())
+	if newRevision, err = c.configStore.Update(cfg); err == nil {
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
+			old:    *oldconfig,
+			config: cfg,
 			event:  model.EventUpdate,
 		})
 	}
