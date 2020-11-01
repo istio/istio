@@ -288,61 +288,50 @@ func TestMostSpecificHostMatch(t *testing.T) {
 	}
 }
 
-func BenchmarkMostSpecificHostMatchExact(b *testing.B) {
-	length := 5000
-	m := make(map[host.Name]struct{})
-	var l []host.Name
+func BenchmarkMostSpecificHostMatch(b *testing.B) {
+	benchmarks := []struct {
+		name     string
+		needle   host.Name
+		baseHost string
+		hosts    []host.Name
+		hostsMap map[host.Name]struct{}
+		time     int
+	}{
+		{"10Exact", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10},
+		{"50Exact", host.Name("foo.bar.com.50"), "foo.bar.com", []host.Name{}, nil, 50},
+		{"100Exact", host.Name("foo.bar.com.100"), "foo.bar.com", []host.Name{}, nil, 100},
+		{"1000Exact", host.Name("foo.bar.com.1000"), "foo.bar.com", []host.Name{}, nil, 1000},
+		{"5000Exact", host.Name("foo.bar.com.5000"), "foo.bar.com", []host.Name{}, nil, 5000},
 
-	for i := 0; i <= length; i++ {
-		h := host.Name(strconv.Itoa(i) + ".foo.bar.com")
-		l = append(l, h)
-		m[h] = struct{}{}
+		{"10DestRuleWildcard", host.Name("foo.bar.com.10"), "*.foo.bar.com", []host.Name{}, nil, 10},
+		{"50DestRuleWildcard", host.Name("foo.bar.com.50"), "*.foo.bar.com", []host.Name{}, nil, 50},
+		{"100DestRuleWildcard", host.Name("foo.bar.com.100"), "*.foo.bar.com", []host.Name{}, nil, 100},
+		{"1000DestRuleWildcard", host.Name("foo.bar.com.1000"), "*.foo.bar.com", []host.Name{}, nil, 1000},
+		{"5000DestRuleWildcard", host.Name("foo.bar.com.5000"), "*.foo.bar.com", []host.Name{}, nil, 5000},
+
+		{"10NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 10},
+		{"50NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 50},
+		{"100NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 100},
+		{"1000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 1000},
+		{"5000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 5000},
 	}
 
-	needle := host.Name(strconv.Itoa(length) + ".foo.bar.com")
+	for _, bm := range benchmarks {
+		bm.hostsMap = make(map[host.Name]struct{}, bm.time)
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		_, _ = model.MostSpecificHostMatch(needle, m, l)
-	}
-}
+		for i := 1; i <= bm.time; i++ {
+			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
+			bm.hosts = append(bm.hosts, h)
+			bm.hostsMap[h] = struct{}{}
+		}
 
-func BenchmarkMostSpecificHostMatchDestWildcard(b *testing.B) {
-	length := 5000
-	m := make(map[host.Name]struct{})
-	var l []host.Name
-
-	for i := 0; i <= length; i++ {
-		h := host.Name("*." + strconv.Itoa(i) + ".foo.bar.com")
-		l = append(l, h)
-		m[h] = struct{}{}
+		b.Run(bm.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap, bm.hosts)
+			}
+		})
 	}
 
-	needle := host.Name("bar." + strconv.Itoa(length) + ".foo.bar.com")
-
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		_, _ = model.MostSpecificHostMatch(needle, m, l)
-	}
-}
-
-func BenchmarkMostSpecificHostMatchNeedleWildcard(b *testing.B) {
-	length := 5000
-	m := make(map[host.Name]struct{})
-	var l []host.Name
-
-	for i := 0; i <= length; i++ {
-		h := host.Name("*." + strconv.Itoa(i) + ".foo.bar.com")
-		l = append(l, h)
-		m[h] = struct{}{}
-	}
-
-	needle := host.Name("*." + strconv.Itoa(length+1) + ".foo.bar.com")
-
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		_, _ = model.MostSpecificHostMatch(needle, m, l)
-	}
 }
 
 func TestAuthorizationPolicies(t *testing.T) {
