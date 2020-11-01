@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -242,7 +243,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 }
 
 // createNamespace creates a namespace using the given k8s interface.
-func createNamespace(cs kubernetes.Interface, namespace string) error {
+func createNamespace(cs kubernetes.Interface, namespace string, network string) error {
 	if namespace == "" {
 		// Setup default namespace
 		namespace = istioDefaultNamespace
@@ -257,6 +258,9 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 					"istio-injection": "disabled",
 				},
 			}}
+			if network != "" {
+				ns.Labels[label.IstioNetwork] = network
+			}
 			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
@@ -267,6 +271,22 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 	}
 
 	return nil
+}
+
+func networkName(iop *v1alpha1.IstioOperator) string {
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return ""
+	}
+	globalI := iop.Spec.Values["global"]
+	global, ok := globalI.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	nw, ok := global["network"].(string)
+	if !ok {
+		return ""
+	}
+	return nw
 }
 
 // saveIOPToCluster saves the state in an IOP CR in the cluster.
