@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 28120
+releaseNotes:
+- |
+  **Fixed** an issue causing a short spike in errors during in place upgrades from Istio 1.6 to Istio 1.7. As a result of this
+  fix, users who already have Istio 1.7 deployed but still have proxies left on version 1.6 will see a similar spike during this
+  upgrade. It is highly recommended you either migrate all existing proxies to version 1.7 prior to this release. Alternatively, to
+  retain the previous behavior, you may set the `PILOT_ENABLE_TLS_XDS_DYNAMIC_TYPES=false` environment variable in Istiod.

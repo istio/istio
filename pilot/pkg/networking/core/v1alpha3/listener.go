@@ -43,6 +43,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	xdsv2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/util/protomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -2160,7 +2161,7 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 		}
 		filterChains = append(filterChains, &listener.FilterChain{
 			FilterChainMatch: match,
-			TransportSocket:  buildDownstreamTLSTransportSocket(chain.tlsContext),
+			TransportSocket:  buildDownstreamTLSTransportSocket(chain.tlsContext, opts.proxy),
 		})
 	}
 
@@ -2548,11 +2549,21 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 }
 
 // nolint: interfacer
-func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *core.TransportSocket {
+func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext, proxy *model.Proxy) *core.TransportSocket {
 	if tlsContext == nil {
 		return nil
 	}
-	return &core.TransportSocket{Name: util.EnvoyTLSSocketName, ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)}}
+	tc := util.MessageToAny(tlsContext)
+	// Moving from v2 tls <-> v3 tls seems to cause downtime: https://github.com/envoyproxy/envoy/issues/13864
+	// Instead, we should tie this to the cluster version, which is fixed, so we do not switch at runtime during
+	// an in place upgrade of the control plane only
+	// However, there is an edge case: users with 1.6 proxy, connecting to 1.7.x control plane without this code, then updating
+	// to 1.7.y control plane with this code. This would cause this code to cause another downtime by downgrading from v3 to v2.
+	// To workaround this, we will have a flag to disable this behavior
+	if features.EnableTLSXDSDynamicTypes && proxy.RequestedTypes.LDS == xdsv2.ListenerType {
+		tc.TypeUrl = "type.googleapis.com/envoy.api.v2.auth.DownstreamTlsContext"
+	}
+	return &core.TransportSocket{Name: util.EnvoyTLSSocketName, ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: tc}}
 }
 
 func isMatchAllFilterChain(fc *listener.FilterChain) bool {
