@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
@@ -432,10 +431,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 
 // createIstioRA initializes the Istio RA signing functionality.
 // the caOptions defines the external provider
-func (s *Server) createIstioRA(client kubelib.Client,
-	opts *caOptions) (*ra.IstioRA, error) {
-
-	spiffe.SetTrustDomain(opts.TrustDomain)
+func (s *Server) createIstioRA(client kubelib.Client, opts *caOptions) (*ra.IstioRA, error) {
 	maxCertTTL := maxWorkloadCertTTL.Get()
 	caCertFile := path.Join(ExternalCertDir, "root-cert.pem")
 
