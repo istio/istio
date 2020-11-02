@@ -218,7 +218,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "Kubernetes", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
-	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "If set, a WorkloadEntry will be created upon connection to istiod (if enabled in pilot).")
+	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
 	opts.AttachControlPlaneFlags(configureCmd)
 	return configureCmd
 }
