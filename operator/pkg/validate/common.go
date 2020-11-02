@@ -195,6 +195,58 @@ func validateCIDR(path util.Path, val interface{}) util.Errors {
 	return util.NewErrs(err)
 }
 
+// Check HA mode settings
+var checkEnabledMap = make(map[string]bool)
+var checkAutoscaleMinMap = make(map[string]float64)
+
+func checkEnabled(path util.Path, val interface{}) (errs util.Errors) {
+	checkEnabledMap[path.String()] = val.(bool)
+	return nil
+}
+
+func checkAutoscaleMin(path util.Path, val interface{}) (errs util.Errors) {
+	checkAutoscaleMinMap[path.String()] = val.(float64)  // type conversion
+	return nil
+}
+
+func checkHAMaps(m1 map[string]bool, m2 map[string]float64, keys []string) (error, []bool, float64) {
+	enabled := []bool{}
+	autoscaleMin := float64(0)
+	if pdbEnabled, ok := m1[keys[0]]; ok {
+		enabled[0] = pdbEnabled
+	} else {
+		return fmt.Errorf("key %s not found", keys[0]), []bool{}, 0
+	}
+
+	if autoscaleEnabled, ok := m1[keys[1]]; ok {
+		enabled[1] = autoscaleEnabled
+	} else {
+		return fmt.Errorf("key %s not found", keys[1]), []bool{}, 0
+	}
+
+	if scaleMin, ok := m2[keys[2]]; ok {
+		autoscaleMin = scaleMin
+	} else {
+		return fmt.Errorf("key %s not found", keys[2]), []bool{}, 0
+	}
+	return nil, enabled, autoscaleMin
+}
+
+
+func validateDefaultPDB(checkEnabledMap map[string]bool, checkAutoscaleMinMap map[string]float64) util.Errors {
+	pilotKeys := []string{`global\.defaultPodDisruptionBudget\.enabled`, "pilot.autoscaleEnabled", "pilot.autoscaleMin"}
+	//ingressgatewayKeys := []string{`global\.defaultPodDisruptionBudget\.enabled`, "istio-ingressgatway.autoscaleEnabled", "istio-ingressgatway.autoscaleMin"}
+	//egressgatewayKeys := []string{`global\.defaultPodDisruptionBudget\.enabled`, "istio-egressgatway.autoscaleEnabled", "istio-egressgatway.autoscaleMin"}
+	err, enabled, autoscaleMin := checkHAMaps(checkEnabledMap, checkAutoscaleMinMap, pilotKeys)
+	if err != nil {
+		return util.NewErrs(err)
+	}
+	if enabled[0] && enabled[1] && autoscaleMin <= 1 {
+		return util.NewErrs(fmt.Errorf("Your autoscaleMin should be at least 2 under HA setting."))
+	}
+	return nil
+}
+
 func printError(err error) {
 	if err == nil {
 		scope.Debug("OK")

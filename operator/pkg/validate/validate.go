@@ -39,6 +39,9 @@ var (
 		"Tag":                                validateTag,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
+		//"Components.IgressGateways[*].K8S.HpaSpec.MinReplicas": validateHpaSpec,
+		//"Components.EgressGateways[*].K8S.HpaSpec.MinReplicas": validateHpaSpec,
+		//"Components.Pilot.K8S.HpaSpec.MinReplicas": validateHpaSpec,
 	}
 	// requiredValues lists all the values that must be non-empty.
 	requiredValues = map[string]bool{}

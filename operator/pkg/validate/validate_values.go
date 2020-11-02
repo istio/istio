@@ -16,7 +16,6 @@ package validate
 
 import (
 	"github.com/ghodss/yaml"
-
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -24,11 +23,16 @@ import (
 var (
 	// DefaultValuesValidations maps a data path to a validation function.
 	DefaultValuesValidations = map[string]ValidatorFunc{
-		"global.proxy.includeIPRanges":     validateIPRangesOrStar,
-		"global.proxy.excludeIPRanges":     validateIPRangesOrStar,
-		"global.proxy.includeInboundPorts": validateStringList(validatePortNumberString),
-		"global.proxy.excludeInboundPorts": validateStringList(validatePortNumberString),
-		"meshConfig":                       validateMeshConfig,
+		"global.proxy.includeIPRanges":              validateIPRangesOrStar,
+		"global.proxy.excludeIPRanges":              validateIPRangesOrStar,
+		"global.proxy.includeInboundPorts":          validateStringList(validatePortNumberString),
+		"global.proxy.excludeInboundPorts":          validateStringList(validatePortNumberString),
+		"meshConfig":                                validateMeshConfig,
+		"global.defaultPodDisruptionBudget.enabled": checkEnabled,
+		"pilot.autoscaleEnabled":                    checkEnabled,
+		"pilot.autoscaleMin":                        checkAutoscaleMin,
+		// TODO: what is the right path for ingress and egress gateway?
+		// "gateways.[name:istio-egressgateway].autoscaleEnabled": checkEnabled,
 	}
 )
 
@@ -42,7 +46,16 @@ func CheckValues(root interface{}) util.Errors {
 	if err := util.UnmarshalWithJSONPB(string(vs), val, false); err != nil {
 		return util.Errors{err}
 	}
-	return ValuesValidate(DefaultValuesValidations, root, nil)
+
+	if err := ValuesValidate(DefaultValuesValidations, root, nil); err != nil {
+		return util.Errors{err}
+	}
+
+	// Validate HA mode
+	if err := validateDefaultPDB(checkEnabledMap, checkAutoscaleMinMap); err != nil {
+		return util.Errors{err}
+	}
+	return nil
 }
 
 // ValuesValidate validates the values of the tree using the supplied Func
@@ -62,6 +75,5 @@ func ValuesValidate(validations map[string]ValidatorFunc, node interface{}, path
 	for k, v := range nn {
 		errs = util.AppendErrs(errs, ValuesValidate(validations, v, append(path, k)))
 	}
-
 	return errs
 }

@@ -12,7 +12,7 @@ metadata:
     release: {{ .Release.Name }}
     istio: pilot
 spec:
-  minAvailable: 1
+  minAvailable: {{ .Values.pilot.autoscaleMin }}
   selector:
     matchLabels:
       app: istiod
