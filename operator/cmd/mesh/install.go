@@ -171,10 +171,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	}
 
 	if iArgs.verify {
-		l.LogAndPrint("Verifying installation")
-		insVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
+		l.LogAndPrint("\nVerifying installation")
+		installationVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
 			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l)
-		if err := insVerifier.Verify(); err != nil {
+		if err := installationVerifier.Verify(); err != nil {
 			return fmt.Errorf("verification failed with the following error: %v\n\n"+
 				"Please run `istioctl verify-install` manually", err)
 		}
@@ -335,8 +335,4 @@ func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, f
 		}
 	}
 	return profile, enabledComponents, nil
-}
-
-func strPtr(val string) *string {
-	return &val
 }

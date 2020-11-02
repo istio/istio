@@ -5,4 +5,4 @@ issue:
 - 21715
 releaseNotes:
 - |
-  **Added** post-install verification of control plane health. Add `--verify` to `istioctl install` command. If you are using operator then add `--verify-after-install` while installing with `istioctl operator init`. 
+  **Added** post-install verification of control plane health. Add `--verify` to `istioctl install` command. If you are using operator then add `--verify-cr-install` while installing with `istioctl operator init`. 
