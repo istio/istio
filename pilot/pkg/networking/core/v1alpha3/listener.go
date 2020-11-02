@@ -2560,7 +2560,7 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext, pr
 	// However, there is an edge case: users with 1.6 proxy, connecting to 1.7.x control plane without this code, then updating
 	// to 1.7.y control plane with this code. This would cause this code to cause another downtime by downgrading from v3 to v2.
 	// To workaround this, we will have a flag to disable this behavior
-	if features.EnableTLSXDSDynamicTypes && proxy.RequestedTypes.LDS == xdsv2.ListenerType {
+	if tc != nil && features.EnableTLSXDSDynamicTypes && proxy.RequestedTypes.LDS == xdsv2.ListenerType {
 		tc.TypeUrl = "type.googleapis.com/envoy.api.v2.auth.DownstreamTlsContext"
 	}
 	return &core.TransportSocket{Name: util.EnvoyTLSSocketName, ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: tc}}

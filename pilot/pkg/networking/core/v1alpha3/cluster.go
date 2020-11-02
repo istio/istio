@@ -915,7 +915,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	// However, there is an edge case: users with 1.6 proxy, connecting to 1.7.x control plane without this code, then updating
 	// to 1.7.y control plane with this code. This would cause this code to cause another downtime by downgrading from v3 to v2.
 	// To workaround this, we will have a flag to disable this behavior
-	if features.EnableTLSXDSDynamicTypes && node.RequestedTypes.CDS == xdsv2.ClusterType {
+	if tc != nil && features.EnableTLSXDSDynamicTypes && node.RequestedTypes.CDS == xdsv2.ClusterType {
 		tc.TypeUrl = "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext"
 	}
 	if tlsContext != nil {
