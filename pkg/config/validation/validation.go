@@ -1235,6 +1235,22 @@ func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
 	return nil
 }
 
+// ValidateMaxServerConnectionAge validate negative duration
+func ValidateMaxServerConnectionAge(in time.Duration) error {
+	if err := IsNegativeDuration(in); err != nil {
+		return fmt.Errorf("%v: --keepaliveMaxServerConnectionAge only accepts positive duration eg: 30m", err)
+	}
+	return nil
+}
+
+// IsNegativeDuration check if the duration is negative
+func IsNegativeDuration(in time.Duration) error {
+	if in < 0 {
+		return fmt.Errorf("invalid duration: %s", in.String())
+	}
+	return nil
+}
+
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
