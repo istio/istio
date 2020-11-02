@@ -24,16 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test"
 	client2 "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -95,71 +91,15 @@ spec:
 func TestTrustDomainValidation(t *testing.T) {
 	framework.NewTest(t).Features("security.peer.trust-domain-validation").Run(
 		func(ctx framework.TestContext) {
-			testNS := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "trust-domain-validation",
-				Inject: true,
-			})
+			//TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
+			if ctx.Clusters().IsMulticluster() {
+				ctx.Skip()
+			}
 
-			// Deploy 3 workloads:
-			// naked: only test app without sidecar, send requests from trust domain aliases
-			// client: app with sidecar, send request from cluster.local
-			// server: app with sidecar, verify requests from cluster.local or trust domain aliases
-			var naked, client, server echo.Instance
-			echoboot.NewBuilder(ctx).
-				With(&naked, echo.Config{
-					Namespace: testNS,
-					Service:   "naked",
-					Subsets: []echo.SubsetConfig{
-						{
-							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-						},
-					},
-				}).
-				With(&client, echo.Config{
-					Namespace: testNS,
-					Service:   "client",
-				}).
-				With(&server, echo.Config{
-					Subsets:        []echo.SubsetConfig{{}},
-					Namespace:      testNS,
-					Service:        "server",
-					ServiceAccount: true,
-					Ports: []echo.Port{
-						{
-							Name:         httpPlaintext,
-							Protocol:     protocol.HTTP,
-							ServicePort:  8090,
-							InstancePort: 8090,
-						},
-						{
-							Name:         httpMTLS,
-							Protocol:     protocol.HTTP,
-							ServicePort:  8091,
-							InstancePort: 8091,
-						},
-						{
-							Name:         tcpPlaintext,
-							Protocol:     protocol.TCP,
-							ServicePort:  8092,
-							InstancePort: 8092,
-						},
-						{
-							Name:         tcpMTLS,
-							Protocol:     protocol.TCP,
-							ServicePort:  8093,
-							InstancePort: 8093,
-						},
-					},
-					WorkloadOnlyPorts: []echo.WorkloadPort{
-						{
-							Port:     9000,
-							Protocol: protocol.TCP,
-						},
-					},
-				}).
-				BuildOrFail(t)
+			testNS := apps.Namespace
 
 			ctx.Config().ApplyYAMLOrFail(ctx, testNS.Name(), fmt.Sprintf(policy, testNS.Name()))
+			defer ctx.Config().DeleteYAMLOrFail(ctx, testNS.Name(), fmt.Sprintf(policy, testNS.Name()))
 
 			trustDomains := map[string]struct {
 				cert string
@@ -175,94 +115,104 @@ func TestTrustDomainValidation(t *testing.T) {
 				},
 			}
 
-			verify := func(t *testing.T, from echo.Instance, td, port string, s scheme.Instance, allow bool) {
-				t.Helper()
-				want := "allow"
-				if !allow {
-					want = "deny"
-				}
-				name := fmt.Sprintf("%s[%s]->server:%s[%s]", from.Config().Service, td, port, want)
-				t.Run(name, func(t *testing.T) {
-					t.Helper()
-					opt := echo.CallOptions{
-						Target:   server,
-						PortName: port,
-						Address:  "server",
-						Scheme:   s,
-						Cert:     trustDomains[td].cert,
-						Key:      trustDomains[td].key,
+			for _, cluster := range ctx.Clusters() {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+					// naked: only test app without sidecar, send requests from trust domain aliases
+					// client: app with sidecar, send request from cluster.local
+					// server: app with sidecar, verify requests from cluster.local or trust domain aliases
+					client := apps.Client.GetOrFail(ctx, echo.InCluster(cluster))
+					naked := apps.Naked.GetOrFail(ctx, echo.InCluster(cluster))
+					server := apps.Server.GetOrFail(ctx, echo.InCluster(cluster))
+					verify := func(ctx framework.TestContext, from echo.Instance, td, port string, s scheme.Instance, allow bool) {
+						ctx.Helper()
+						want := "allow"
+						if !allow {
+							want = "deny"
+						}
+						name := fmt.Sprintf("%s[%s]->server:%s[%s]", from.Config().Service, td, port, want)
+						ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+							ctx.Helper()
+							opt := echo.CallOptions{
+								Target:   server,
+								PortName: port,
+								Address:  "server",
+								Scheme:   s,
+								Cert:     trustDomains[td].cert,
+								Key:      trustDomains[td].key,
+							}
+							retry.UntilSuccessOrFail(ctx, func() error {
+								var resp client2.ParsedResponses
+								var err error
+								if port == passThrough {
+									// Manually make the request for pass through port.
+									resp, err = workload(ctx, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
+										Url:   fmt.Sprintf("tcp://%s:9000", workload(ctx, server).Address()),
+										Count: 1,
+										Cert:  trustDomains[td].cert,
+										Key:   trustDomains[td].key,
+									})
+								} else {
+									resp, err = from.Call(opt)
+								}
+								if allow {
+									if err != nil {
+										return fmt.Errorf("want allow but got error: %v", err)
+									} else if err := resp.CheckOK(); err != nil {
+										return fmt.Errorf("want allow but got %v: %v", resp, err)
+									}
+								} else {
+									if err == nil {
+										return fmt.Errorf("want deny but got allow: %v", resp)
+									}
+									// Look up for the specific "tls: unknown certificate" error when trust domain validation failed.
+									if tlsErr := "tls: unknown certificate"; !strings.Contains(err.Error(), tlsErr) {
+										return fmt.Errorf("want error %q but got %v", tlsErr, err)
+									}
+								}
+								return nil
+							}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second), retry.Converge(5))
+						})
 					}
-					retry.UntilSuccessOrFail(t, func() error {
-						var resp client2.ParsedResponses
-						var err error
-						if port == passThrough {
-							// Manually make the request for pass through port.
-							resp, err = workload(t, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
-								Url:   fmt.Sprintf("tcp://%s:9000", workload(t, server).Address()),
-								Count: 1,
-								Cert:  trustDomains[td].cert,
-								Key:   trustDomains[td].key,
-							})
-						} else {
-							resp, err = from.Call(opt)
-						}
-						if allow {
-							if err != nil {
-								return fmt.Errorf("want allow but got error: %v", err)
-							} else if err := resp.CheckOK(); err != nil {
-								return fmt.Errorf("want allow but got %v: %v", resp, err)
-							}
-						} else {
-							if err == nil {
-								return fmt.Errorf("want deny but got allow: %v", resp)
-							}
-							// Look up for the specific "tls: unknown certificate" error when trust domain validation failed.
-							if tlsErr := "tls: unknown certificate"; !strings.Contains(err.Error(), tlsErr) {
-								return fmt.Errorf("want error %q but got %v", tlsErr, err)
-							}
-						}
-						return nil
-					}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second), retry.Converge(5))
+
+					// Request using plaintext should always allowed.
+					verify(ctx, client, "plaintext", httpPlaintext, scheme.HTTP, true)
+					verify(ctx, client, "plaintext", tcpPlaintext, scheme.TCP, true)
+					verify(ctx, naked, "plaintext", httpPlaintext, scheme.HTTP, true)
+					verify(ctx, naked, "plaintext", tcpPlaintext, scheme.TCP, true)
+
+					// Request from local trust domain should always allowed.
+					verify(ctx, client, "cluster.local", httpMTLS, scheme.HTTP, true)
+					verify(ctx, client, "cluster.local", tcpMTLS, scheme.TCP, true)
+
+					// Trust domain foo is added as trust domain alias.
+					// Request from trust domain bar should be denied.
+					// Request from trust domain foo should be allowed.
+					verify(ctx, naked, "bar", httpMTLS, scheme.HTTPS, false)
+					verify(ctx, naked, "bar", tcpMTLS, scheme.TCP, false)
+					verify(ctx, naked, "bar", passThrough, scheme.TCP, false)
+					verify(ctx, naked, "foo", httpMTLS, scheme.HTTPS, true)
+					verify(ctx, naked, "foo", tcpMTLS, scheme.TCP, true)
+					verify(ctx, naked, "foo", passThrough, scheme.TCP, true)
 				})
 			}
-
-			// Request using plaintext should always allowed.
-			verify(t, client, "plaintext", httpPlaintext, scheme.HTTP, true)
-			verify(t, client, "plaintext", tcpPlaintext, scheme.TCP, true)
-			verify(t, naked, "plaintext", httpPlaintext, scheme.HTTP, true)
-			verify(t, naked, "plaintext", tcpPlaintext, scheme.TCP, true)
-
-			// Request from local trust domain should always allowed.
-			verify(t, client, "cluster.local", httpMTLS, scheme.HTTP, true)
-			verify(t, client, "cluster.local", tcpMTLS, scheme.TCP, true)
-
-			// Trust domain foo is added as trust domain alias.
-			// Request from trust domain bar should be denied.
-			// Request from trust domain foo should be allowed.
-			verify(t, naked, "bar", httpMTLS, scheme.HTTPS, false)
-			verify(t, naked, "bar", tcpMTLS, scheme.TCP, false)
-			verify(t, naked, "bar", passThrough, scheme.TCP, false)
-			verify(t, naked, "foo", httpMTLS, scheme.HTTPS, true)
-			verify(t, naked, "foo", tcpMTLS, scheme.TCP, true)
-			verify(t, naked, "foo", passThrough, scheme.TCP, true)
 		})
 }
 
-func readFile(t test.Failer, name string) string {
+func readFile(ctx framework.TestContext, name string) string {
 	data, err := ioutil.ReadFile(path.Join(env.IstioSrc, "samples/certs", name))
 	if err != nil {
-		t.Fatal(err)
+		ctx.Fatal(err)
 	}
 	return string(data)
 }
 
-func workload(t *testing.T, from echo.Instance) echo.Workload {
+func workload(ctx framework.TestContext, from echo.Instance) echo.Workload {
 	workloads, err := from.Workloads()
 	if err != nil {
-		t.Fatalf("failed to get worklaods: %v", err)
+		ctx.Fatalf("failed to get worklaods: %v", err)
 	}
 	if len(workloads) < 1 {
-		t.Fatalf("got 0 workloads")
+		ctx.Fatalf("got 0 workloads")
 	}
 	return workloads[0]
 }
