@@ -43,28 +43,15 @@ import (
 	"istio.io/pkg/log"
 )
 
-// ExternalCaType : External CA Integration type
-type CaExternalType string
-
 type caOptions struct {
 	// Either extCAK8s or extCAGrpc
-	ExternalCAType   CaExternalType
+	ExternalCAType   ra.CaExternalType
 	ExternalCASigner string
 	// domain to use in SPIFFE identity URLs
 	TrustDomain    string
 	Namespace      string
 	Authenticators []authenticate.Authenticator
 }
-
-const (
-	// ExtCAK8s : Integrate with external CA using k8s CSR API
-	ExtCAK8s CaExternalType = "ISTIOD_RA_KUBERNETES_API"
-
-	// ExtCAGrpc CaExternalType = "ISTIOD_RA_ISTIO_API"
-
-	// ExternalCertDir : Location of external CA certificate
-	ExternalCertDir = "./etc/external-ca-cert"
-)
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
 //
@@ -431,23 +418,22 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 
 // createIstioRA initializes the Istio RA signing functionality.
 // the caOptions defines the external provider
-func (s *Server) createIstioRA(client kubelib.Client, opts *caOptions) (*ra.IstioRA, error) {
-	maxCertTTL := maxWorkloadCertTTL.Get()
-	caCertFile := path.Join(ExternalCertDir, "root-cert.pem")
+func (s *Server) createIstioRA(client kubelib.Client,
+	opts *caOptions) (ra.RegistrationAuthority, error) {
 
+	caCertFile := path.Join(ra.DefaultExtCACertDir, "root-cert.pem")
 	if _, err := os.Stat(caCertFile); err != nil {
 		caCertFile = defaultCACertPath
 	}
-	if opts.ExternalCAType == ExtCAK8s {
-		raOpts := ra.NewK8sRAOptions(workloadCertTTL.Get(),
-			maxCertTTL,
-			caCertFile,
-			opts.ExternalCASigner)
-		istioRA, err := ra.NewK8sRA(raOpts, client.CertificatesV1beta1())
-		if err != nil {
-			return nil, fmt.Errorf("failed to create an K8s CA: %v", err)
-		}
-		return istioRA, err
+	raOpts := &ra.IstioRAOptions{
+		ExternalCAType: opts.ExternalCAType,
+		DefaultCertTTL: workloadCertTTL.Get(),
+		MaxCertTTL:     maxWorkloadCertTTL.Get(),
+		CaSigner:       opts.ExternalCASigner,
+		CaCertFile:     caCertFile,
+		VerifyAppendCA: true,
+		K8sClient:      client.CertificatesV1beta1(),
 	}
-	return nil, fmt.Errorf("invalid CA Name %s", opts.ExternalCAType)
+	return ra.NewIstioRA(raOpts)
+
 }

@@ -156,7 +156,7 @@ type Server struct {
 
 	certController *chiron.WebhookController
 	CA             *ca.IstioCA
-	RA             *ra.IstioRA
+	RA             ra.RegistrationAuthority
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -249,7 +249,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	caOpts := &caOptions{
 		TrustDomain:      s.environment.Mesh().TrustDomain,
 		Namespace:        args.Namespace,
-		ExternalCAType:   CaExternalType(externalCaType),
+		ExternalCAType:   ra.CaExternalType(externalCaType),
 		ExternalCASigner: k8sSigner,
 	}
 
