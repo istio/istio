@@ -27,6 +27,7 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -37,6 +38,7 @@ import (
 )
 
 func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache {
+	features.EnableServiceApis = true
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
 		fake.Ext().ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), &v1beta1.CustomResourceDefinition{
