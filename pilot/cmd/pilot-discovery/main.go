@@ -61,7 +61,6 @@ var (
 		PersistentPreRunE: configureLogging,
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
-			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -87,6 +86,7 @@ var (
 )
 
 func configureLogging(_ *cobra.Command, _ []string) error {
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
