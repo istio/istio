@@ -87,6 +87,7 @@ func newCache() *instanceCache {
 // Cache can be used by controllers to read workload instances from other registries. A registry
 // should usually manage its own internal store of workload instances for the cluster/source it concerns.
 type Cache interface {
+	All() []*model.WorkloadInstance
 	Get(name string, namespace string) *model.WorkloadInstance
 	ByIPNetwork(ip, network string) *model.WorkloadInstance
 	// ByIP finds a WorkloadInstance by IP assuming it has no network specified Same as `ByIPNetwork("1.1.1.1", "")`.
@@ -102,6 +103,17 @@ type instanceCache struct {
 	ipNetCache map[string]map[string]*model.WorkloadInstance
 }
 
+func (i *instanceCache) All() []*model.WorkloadInstance {
+	// TODO optimize this
+	var out []*model.WorkloadInstance
+	for _, instances := range i.nameCache {
+		for _, i := range instances {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
 func (i *instanceCache) WorkloadInstanceHandler(si *model.WorkloadInstance, event model.Event) {
 	// update store
 	switch event {
@@ -112,6 +124,10 @@ func (i *instanceCache) WorkloadInstanceHandler(si *model.WorkloadInstance, even
 		}
 	default:
 		// add or update
+
+		// TODO add a "is redudant" flag/return value to decide whether or not to notify ServiceEntry
+
+		// TODO NetworkIpByName logic - allows handling IP change for an existing workload (probably also need network in there)
 
 		// by name
 		if i.nameCache[si.Namespace] == nil {
