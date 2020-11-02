@@ -34,6 +34,23 @@ kubectl apply -f helloworld.yaml -l version=v1
 kubectl apply -f helloworld.yaml -l version=v2
 ```
 
+For even more flexibility, there is also a script, `gen-helloworld.sh`, that will
+generate YAML for the helloworld service. This script takes the following
+arguments:
+
+Argument | Default | Description
+-------- | ------- | -----------
+`--version` | `v1` | Specifies the version that will be returned by the helloworld service.
+`--includeService` | `true` | If `true` the service will be included in the YAML.
+`--includeDeployment` | `true` | If `true` the deployment will be included in the YAML.
+
+You can use this script to deploy a custom version:
+
+```bash
+./gen-helloworld.sh --version customversion | \
+    kubectl apply -f -
+```
+
 ## Configure the helloworld gateway
 
 Apply the helloworld gateway configuration:
