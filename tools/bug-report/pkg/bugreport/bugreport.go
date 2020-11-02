@@ -109,15 +109,6 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
-
-	clusterCtxStr, err := content.GetClusterContext()
-	if err != nil {
-		return err
-	}
-
-	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
-	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
-
 	clientConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
@@ -126,6 +117,19 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
+	// Do not proceed if Istio is not installed in any namespace.
+	if _, err = client.GetIstioVersions(context.Background(), config.IstioNamespace); err != nil {
+		common.LogAndPrintf("%v\n", err)
+		return nil
+	}
+	clusterCtxStr, err := content.GetClusterContext()
+	if err != nil {
+		return err
+	}
+
+	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
+	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
+
 	resources, err := cluster2.GetClusterResources(context.Background(), clientset)
 	if err != nil {
 		return err
