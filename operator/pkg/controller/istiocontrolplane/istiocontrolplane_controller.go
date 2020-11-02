@@ -66,6 +66,7 @@ const (
 var (
 	scope      = log.RegisterScope("installer", "installer", 0)
 	restConfig *rest.Config
+	newClient  client.Client
 )
 
 var (
@@ -140,20 +141,72 @@ var (
 
 	operatorPredicates = predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
+			createdIOP, ok := e.Object.(*iopv1alpha1.IstioOperator)
+			if !ok {
+				scope.Error(errdict.OperatorFailedToGetObjectInCreateCallback, "failed to get created IstioOperator")
+				return false
+			}
+			ioplist := &iopv1alpha1.IstioOperatorList{}
+			_ = newClient.List(context.TODO(), ioplist)
+			for _, iop := range ioplist.Items {
+				// if the revision is different, then no conflict because the operator will create revisioned istio control plane.
+				if createdIOP.Spec.Revision != iop.Spec.Revision {
+					break
+				}
+				// if the different iop with the same revision is created, then it will conflict with existing iop
+				if createdIOP.Name != iop.Name || createdIOP.Namespace != iop.Namespace {
+					scope.Warnf("got create event for iop: %s.%s, which will conflict with iop: %s.%s, skip reconciling",
+						createdIOP.Name, createdIOP.Namespace, iop.Name, iop.Namespace)
+					return false
+				}
+			}
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
+			deletedIOP, ok := e.Object.(*iopv1alpha1.IstioOperator)
+			if !ok {
+				scope.Error(errdict.OperatorFailedToGetObjectInDeleteCallback, "failed to get deleted IstioOperator")
+				return false
+			}
+			ioplist := &iopv1alpha1.IstioOperatorList{}
+			_ = newClient.List(context.TODO(), ioplist)
+			for _, iop := range ioplist.Items {
+				// if the revision is different, then no conflict because the operator will create revisioned istio control plane.
+				if deletedIOP.Spec.Revision != iop.Spec.Revision {
+					break
+				}
+				// if the different iop with the same revision is created, then it will conflict with existing iop
+				if deletedIOP.Name != iop.Name || deletedIOP.Namespace != iop.Namespace {
+					scope.Warnf("got delete event for iop: %s.%s, which will conflict with iop: %s.%s, skip reconciling",
+						deletedIOP.Name, deletedIOP.Namespace, iop.Name, iop.Namespace)
+					return false
+				}
+			}
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
+			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
+				scope.Error(errdict.OperatorFailedToGetObjectInUpdateCallback, "failed to get new IstioOperator")
 				return false
 			}
-			newIOP := e.ObjectNew.(*iopv1alpha1.IstioOperator)
+			ioplist := &iopv1alpha1.IstioOperatorList{}
+			_ = newClient.List(context.TODO(), ioplist)
+			for _, iop := range ioplist.Items {
+				// if the revision is different, then no conflict because the operator will update revisioned istio control plane.
+				if newIOP.Spec.Revision != iop.Spec.Revision {
+					break
+				}
+				// if the different iop with the same revision is created, then it will conflict with existing iop
+				if newIOP.Name != iop.Name || newIOP.Namespace != iop.Namespace {
+					scope.Warnf("got update event for iop: %s.%s, which will conflict with iop: %s.%s, skip reconciling",
+						newIOP.Name, newIOP.Namespace, iop.Name, iop.Namespace)
+					return false
+				}
+			}
+			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
+				scope.Error(errdict.OperatorFailedToGetObjectInUpdateCallback, "failed to get old IstioOperator")
 				return false
 			}
 			if !reflect.DeepEqual(oldIOP.Spec, newIOP.Spec) ||
@@ -390,6 +443,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	restConfig = mgr.GetConfig()
+	newClient = mgr.GetClient()
 	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()})
 }
 

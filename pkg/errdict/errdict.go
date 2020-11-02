@@ -48,6 +48,10 @@ const (
 	// Impact
 	OperatorImpactFailedToGetObjectFromAPIServer = "If the error is transient, the impact is low. If permanent, " +
 		"updates for the objects cannot be processed leading to an out of sync control plane."
+	OperatorImpactNoCreations = "In this error state, creation of the IstioOperator CR will not result in the Istio " +
+		"control plane being created."
+	OperatorImpactNoDeletions = "In this error state, deletion of the IstioOperator CR will not result in the Istio " +
+		"control plane being deleted."
 	OperatorImpactNoUpdates = "In this error state, changes to the IstioOperator CR will not result in the Istio " +
 		"control plane being updated."
 )
@@ -61,7 +65,21 @@ var (
 		Action: "If the error is because the object was deleted, it can be safely ignored. Otherwise, if the " +
 			"error persists, " + ActionCheckBugList,
 	}
-	OperatorFailedToGetObjectInCallback = &structured.Error{
+	OperatorFailedToGetObjectInCreateCallback = &structured.Error{
+		MoreInfo: "A Kubernetes create for an IstioOperator resource did not " +
+			"contain an IstioOperator object.",
+		Impact:      OperatorImpactNoCreations,
+		LikelyCause: formatCauses(LikelyCauseAPIServer) + " " + TransiencePermanentForInstall,
+		Action:      ActionIfErrPersistsCheckBugList,
+	}
+	OperatorFailedToGetObjectInDeleteCallback = &structured.Error{
+		MoreInfo: "A Kubernetes delete for an IstioOperator resource did not " +
+			"contain an IstioOperator object.",
+		Impact:      OperatorImpactNoDeletions,
+		LikelyCause: formatCauses(LikelyCauseAPIServer) + " " + TransiencePermanentForInstall,
+		Action:      ActionIfErrPersistsCheckBugList,
+	}
+	OperatorFailedToGetObjectInUpdateCallback = &structured.Error{
 		MoreInfo: "A Kubernetes update for an IstioOperator resource did not " +
 			"contain an IstioOperator object.",
 		Impact:      OperatorImpactNoUpdates,
