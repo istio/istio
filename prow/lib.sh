@@ -109,7 +109,7 @@ function setup_kind_registry() {
     # TODO get context/config from existing variables
     kind export kubeconfig --name="${cluster}"
     for node in $(kind get nodes --name="${cluster}"); do
-      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
+      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}" --overwrite;
     done
   done
 }
