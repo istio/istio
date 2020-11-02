@@ -98,7 +98,7 @@ function setup_kind_registry() {
   if [[ "${running}" != 'true' ]]; then
       docker run \
         -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
-        registry:2
+        gcr.io/istio-testing/registry:2
 
     # Allow kind nodes to reach the registry
     docker network connect "kind" "${KIND_REGISTRY_NAME}"
