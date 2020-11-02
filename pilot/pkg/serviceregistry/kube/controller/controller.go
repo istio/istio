@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -851,9 +850,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 		pod := c.pods.getPodByIP(proxyIP)
 		if workload, f := c.workloadInstancesByIP[proxyIP]; f {
 			return c.hydrateWorkloadInstance(workload)
-		} else if pod != nil && proxy.Metadata.Labels[constants.TestVMLabel] == "" {
+		} else if pod != nil && !proxy.IsVM() {
 			// we don't want to use this block for our test "VM" which is actually a Pod.
-			// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
 
 			if !c.isControllerForProxy(proxy) {
 				log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
