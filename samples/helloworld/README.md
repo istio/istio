@@ -34,7 +34,7 @@ kubectl apply -f helloworld.yaml -l version=v1
 kubectl apply -f helloworld.yaml -l version=v2
 ```
 
-For even more flexibility, there is now a script `gen-helloworld.sh` that will
+For even more flexibility, there is also a script, `gen-helloworld.sh`, that will
 generate YAML for the helloworld service. This script takes the following
 arguments:
 
