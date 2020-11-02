@@ -42,6 +42,7 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/sets"
+	xdsv2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -907,10 +908,20 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		return
 	}
 
+	tc := util.MessageToAny(tlsContext)
+	// Moving from v2 tls <-> v3 tls seems to cause downtime: https://github.com/envoyproxy/envoy/issues/13864
+	// Instead, we should tie this to the cluster version, which is fixed, so we do not switch at runtime during
+	// an in place upgrade of the control plane only
+	// However, there is an edge case: users with 1.6 proxy, connecting to 1.7.x control plane without this code, then updating
+	// to 1.7.y control plane with this code. This would cause this code to cause another downtime by downgrading from v3 to v2.
+	// To workaround this, we will have a flag to disable this behavior
+	if tc != nil && features.EnableTLSXDSDynamicTypes && node.RequestedTypes.CDS == xdsv2.ClusterType {
+		tc.TypeUrl = "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext"
+	}
 	if tlsContext != nil {
 		c.TransportSocket = &core.TransportSocket{
 			Name:       util.EnvoyTLSSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: tc},
 		}
 	}
 
