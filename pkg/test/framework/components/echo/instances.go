@@ -63,6 +63,13 @@ func Service(value string) Matcher {
 	}
 }
 
+// Service matches instances within the given namespace name.
+func Namespace(namespace string) Matcher {
+	return func(i Instance) bool {
+		return i.Config().Namespace.Name() == namespace
+	}
+}
+
 // InCluster matches instances deployed on the given cluster.
 func InCluster(c resource.Cluster) Matcher {
 	return func(i Instance) bool {
