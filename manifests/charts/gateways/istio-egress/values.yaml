@@ -78,7 +78,7 @@ gateways:
       # A gateway with this mode ensures that pilot generates an additional
       # set of clusters for internal services but without Istio mTLS, to
       # enable cross cluster routing.
-      ISTIO_META_ROUTER_MODE: "sni-dnat"
+      ISTIO_META_ROUTER_MODE: "standard"
 
     nodeSelector: {}
     tolerations: []

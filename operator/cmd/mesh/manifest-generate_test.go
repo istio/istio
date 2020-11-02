@@ -482,14 +482,14 @@ func TestInstallPackagePath(t *testing.T) {
 // This is important because `kubectl edit` and other commands will get escaped if they are present
 // making it hard to read/edit
 func TestTrailingWhitespace(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "", liveCharts)
+	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(got, "\n")
 	for i, l := range lines {
 		if strings.HasSuffix(l, " ") {
-			t.Errorf("Line %v has a trailing space: [%v]. Context: %v", i, l, strings.Join(lines[i-5:i+5], ","))
+			t.Errorf("Line %v has a trailing space: [%v]. Context: %v", i, l, strings.Join(lines[i-5:i+5], "\n"))
 		}
 	}
 }
