@@ -61,7 +61,9 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 			continue
 		}
 
-		if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways.Name(), resource.NewShortOrFullName(vsNs, gwName)) {
+		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
+
+		if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways.Name(), gwFullName) {
 			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
@@ -70,5 +72,45 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 
 			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
+
+		if !vsHostInGateway(c, gwFullName, vs.Hosts) {
+			m := msg.NewVirtualServiceHostNotFoundInGateway(r, gwName)
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
+				m.Line = line
+			}
+
+			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+		}
 	}
+}
+
+func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHost []string) bool {
+	var gatewayHost []string
+
+	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+		if r.Metadata.FullName == gateway {
+			s := r.Message.(*v1alpha3.Gateway)
+
+			for _, v := range s.Servers {
+				gatewayHost = append(gatewayHost, v.Hosts...)
+			}
+		}
+
+		return true
+	})
+
+	for _, gh := range gatewayHost {
+		if gh == "*" {
+			return true
+		}
+
+		for _, vsh := range vsHost {
+			if gh == vsh {
+				return true
+			}
+		}
+	}
+
+	return false
 }

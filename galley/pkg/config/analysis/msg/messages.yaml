@@ -353,3 +353,12 @@ messages:
         type: string
       - name: dupno
         type: string
+
+  - name: "VirtualServiceHostNotFoundInGateway"
+    code: IST0132
+    level: Error
+    description: "Host defined in VirtualService not found in Gateway object."
+    template: "Host defined in VirtualService not defined in Gateway %s."
+    args:
+      - name: gateway
+        type: string

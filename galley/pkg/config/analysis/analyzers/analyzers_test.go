@@ -414,6 +414,16 @@ var testGrid = []testCase{
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing.none"},
 		},
 	},
+	{
+		name: "host defined in virtualservice not defined in the gateway",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_defined_gateway.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService ratings-fake-service"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
