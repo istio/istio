@@ -308,7 +308,7 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 					}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
 
 					if tc.Expected.Metric != "" {
-						promtest.ValidateMetric(t, prometheus, tc.Expected.PromQueryFormat, tc.Expected.Metric, 1)
+						promtest.ValidateMetric(t, ctx.Clusters().Default(), prometheus, tc.Expected.PromQueryFormat, tc.Expected.Metric, 1)
 					}
 				})
 			}
