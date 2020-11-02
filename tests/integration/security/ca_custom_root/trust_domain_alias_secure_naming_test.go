@@ -17,6 +17,11 @@ package cacustomroot
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path"
+	"testing"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
@@ -28,10 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/tests/integration/security/util/cert"
 	"istio.io/istio/tests/integration/security/util/connection"
-	"os"
-	"os/exec"
-	"path"
-	"testing"
 )
 
 const (
@@ -114,8 +115,8 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					},
 					TLSSettings: &common.TLSSettings{
 						RootCert:   loadCert(t, "root-cert.pem"),
-						ClientCert: loadCert(t, TmpDir + "/workload-foo-cert.pem"),
-						Key:        loadCert(t, TmpDir + "/workload-foo-key.pem"),
+						ClientCert: loadCert(t, TmpDir+"/workload-foo-cert.pem"),
+						Key:        loadCert(t, TmpDir+"/workload-foo-key.pem"),
 					},
 				}).
 				With(&serverNakedBar, echo.Config{
@@ -138,8 +139,8 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					},
 					TLSSettings: &common.TLSSettings{
 						RootCert:   loadCert(t, "root-cert.pem"),
-						ClientCert: loadCert(t, TmpDir + "/workload-bar-cert.pem"),
-						Key:        loadCert(t, TmpDir + "/workload-bar-key.pem"),
+						ClientCert: loadCert(t, TmpDir+"/workload-bar-cert.pem"),
+						Key:        loadCert(t, TmpDir+"/workload-bar-key.pem"),
 					},
 				}).
 				BuildOrFail(t)
@@ -232,7 +233,7 @@ func generateCerts(t test.Failer, ns string) func() {
 	}
 
 	return func() {
-		err := os.RemoveAll(path.Join(env.IstioSrc, "samples/certs/" + TmpDir))
+		err := os.RemoveAll(path.Join(env.IstioSrc, "samples/certs/"+TmpDir))
 		if err != nil {
 			t.Fatal("Failed to clean up testing certificates: %s", err)
 		}

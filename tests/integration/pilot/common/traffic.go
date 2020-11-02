@@ -48,8 +48,8 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children.
-	call     func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
-	opts     echo.CallOptions
+	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
+	opts echo.CallOptions
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool

@@ -18,12 +18,11 @@ package mtlsk8sca
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/security/util"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 var (

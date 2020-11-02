@@ -36,16 +36,16 @@ import (
 
 const (
 	ServerSecretName = "test-server-cred"
-	ServerCertsPath = "tests/testdata/certs/mountedcerts-server"
+	ServerCertsPath  = "tests/testdata/certs/mountedcerts-server"
 
 	ClientSecretName = "test-client-cred"
-	ClientCertsPath = "tests/testdata/certs/mountedcerts-client"
+	ClientCertsPath  = "tests/testdata/certs/mountedcerts-client"
 
 	ExpectedXfccHeader = "By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=865a56be3583d64bb9dc447da34e39e45d9314313310c879a35f7be6e391ac3e;Subject=\"CN=cluster.local\";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc"
 )
 
 var (
-	vmEnv     map[string]string
+	vmEnv map[string]string
 )
 
 func TestClientToServiceTls(t *testing.T) {
@@ -90,7 +90,7 @@ func TestClientToServiceTls(t *testing.T) {
 				}
 				return nil
 			}, retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
-	})
+		})
 }
 
 const (
@@ -140,7 +140,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		Inject: true,
 	})
 
-
 	// Server certificate has "server.file-mounted.svc" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
 	// This cert is going to be used as a server and "client" certificate on the "Echo Server"'s side
 	err := CreateCustomSecret(ctx, ServerSecretName, appsNamespace, ServerCertsPath)
@@ -160,7 +159,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 	if err != nil {
 		t.Fatalf("Unable to create client secret. %v", err)
 	}
-
 
 	var internalClient, internalServer echo.Instance
 
@@ -208,7 +206,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 					Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
 					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
 					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
-					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
+					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJson, "\n", "", -1)+`}`),
 			}},
 		}).
 		With(&internalServer, echo.Config{
@@ -224,14 +222,14 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				},
 			},
 			Subsets: []echo.SubsetConfig{{
-				Version:     "v1",
+				Version: "v1",
 				// Set up custom annotations to mount the certs.
 				Annotations: echo.NewAnnotations().
 					Set(echo.SidecarVolume, serverSidecarVolumes).
 					Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
 					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
 					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
-					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
+					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJson, "\n", "", -1)+`}`),
 			}},
 		}).
 		BuildOrFail(t)

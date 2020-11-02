@@ -23,8 +23,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 //	Virtual service topology

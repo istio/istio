@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
