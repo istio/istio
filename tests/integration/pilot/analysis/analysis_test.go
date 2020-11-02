@@ -1,4 +1,3 @@
-
 // +build integ
 // Copyright Istio Authors
 //
@@ -19,13 +18,13 @@ package analysis
 import (
 	"context"
 	"fmt"
-	"istio.io/api/meta/v1alpha1"
 	"reflect"
 	"testing"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -107,7 +106,7 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 			})
 
 			// create WorkloadEntry
-		ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
@@ -133,7 +132,6 @@ spec:
 					Reason: "ImNotHealthSoDontTouchMe",
 					Status: "True",
 				},
-
 			}
 
 			// Get WorkloadEntry to append to
@@ -149,7 +147,7 @@ spec:
 			// append to conditions
 			we.Status.Conditions = append(we.Status.Conditions, addedConds...)
 			// update the status
-			we, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
+			_, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
 			if err != nil {
 				t.Error(err)
 			}
@@ -171,12 +169,14 @@ spec:
 
 			// get the workload entry to replace the health condition field
 			we, err = ctx.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
-
+			if err != nil {
+				t.Fatal(err)
+			}
 			// replacing the condition
 			for i, cond := range we.Status.Conditions {
 				if cond.Type == "Health" {
 					we.Status.Conditions[i] = &v1alpha1.IstioCondition{
-						Type: "Health",
+						Type:   "Health",
 						Reason: "LooksLikeIHavebeenReplaced",
 						Status: "False",
 					}
@@ -193,7 +193,7 @@ spec:
 				// should update
 				return expectWorkloadEntryStatus(t, ctx, ns, []*v1alpha1.IstioCondition{
 					{
-						Type: "Health",
+						Type:   "Health",
 						Reason: "LooksLikeIHavebeenReplaced",
 						Status: "False",
 					},
@@ -272,7 +272,7 @@ func expectWorkloadEntryStatus(t *testing.T, ctx resource.Context, ns namespace.
 		}
 	}
 
-	if !reflect.DeepEqual(statusConds, expectedConds){
+	if !reflect.DeepEqual(statusConds, expectedConds) {
 		return fmt.Errorf("expected conditions %v got %v", expectedConds, statusConds)
 	}
 	return nil

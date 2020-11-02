@@ -145,10 +145,10 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 func callOrFail(ctx framework.TestContext, src, dest echo.Instance, validator echo.Validator) {
 	ctx.Helper()
 	_ = src.CallWithRetryOrFail(ctx, echo.CallOptions{
-		Target:     dest,
-		PortName:   "http",
-		Scheme:     scheme.HTTP,
-		Count:      20 * len(ctx.Clusters()),
+		Target:    dest,
+		PortName:  "http",
+		Scheme:    scheme.HTTP,
+		Count:     20 * len(ctx.Clusters()),
 		Validator: echo.And(echo.ExpectOK(), validator),
 	})
 }

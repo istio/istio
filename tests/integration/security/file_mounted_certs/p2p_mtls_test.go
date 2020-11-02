@@ -36,16 +36,13 @@ import (
 
 const (
 	ServerSecretName = "test-server-cred"
-	ServerCertsPath = "tests/testdata/certs/mountedcerts-server"
+	ServerCertsPath  = "tests/testdata/certs/mountedcerts-server"
 
 	ClientSecretName = "test-client-cred"
-	ClientCertsPath = "tests/testdata/certs/mountedcerts-client"
+	ClientCertsPath  = "tests/testdata/certs/mountedcerts-client"
 
+	// nolint: lll
 	ExpectedXfccHeader = "By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=865a56be3583d64bb9dc447da34e39e45d9314313310c879a35f7be6e391ac3e;Subject=\"CN=cluster.local\";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc"
-)
-
-var (
-	vmEnv     map[string]string
 )
 
 func TestClientToServiceTls(t *testing.T) {
@@ -55,10 +52,10 @@ func TestClientToServiceTls(t *testing.T) {
 
 			echoClient, echoServer, serviceNamespace := setupEcho(t, ctx)
 
-			bufDestinationRule := createObject(t, ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
+			bufDestinationRule := createObject(ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
 			defer ctx.Config().DeleteYAMLOrFail(ctx, serviceNamespace.Name(), bufDestinationRule)
 
-			bufPeerAuthentication := createObject(t, ctx, "istio-system", PeerAuthenticationConfig)
+			bufPeerAuthentication := createObject(ctx, "istio-system", PeerAuthenticationConfig)
 			defer ctx.Config().DeleteYAMLOrFail(ctx, "istio-system", bufPeerAuthentication)
 
 			retry.UntilSuccessOrFail(t, func() error {
@@ -90,7 +87,7 @@ func TestClientToServiceTls(t *testing.T) {
 				}
 				return nil
 			}, retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
-	})
+		})
 }
 
 const (
@@ -125,7 +122,7 @@ spec:
 `
 )
 
-func createObject(t *testing.T, ctx framework.TestContext, serviceNamespace string, yamlManifest string) string {
+func createObject(ctx framework.TestContext, serviceNamespace string, yamlManifest string) string {
 	template := tmpl.EvaluateOrFail(ctx, yamlManifest, map[string]string{"AppNamespace": serviceNamespace})
 	ctx.Config().ApplyYAMLOrFail(ctx, serviceNamespace, template)
 	return template
@@ -139,7 +136,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		Prefix: "istio-fd-sds",
 		Inject: true,
 	})
-
 
 	// Server certificate has "server.file-mounted.svc" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
 	// This cert is going to be used as a server and "client" certificate on the "Echo Server"'s side
@@ -161,7 +157,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		t.Fatalf("Unable to create client secret. %v", err)
 	}
 
-
 	var internalClient, internalServer echo.Instance
 
 	clientSidecarVolumes := `
@@ -180,7 +175,8 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		}
 	`
 
-	// workload-certs are needed in order to load the "default" SDS resource, which will be used for the xds-grpc mTLS (tls_certificate_sds_secret_configs.name == "default")
+	// workload-certs are needed in order to load the "default" SDS resource, which
+	// will be used for the xds-grpc mTLS (tls_certificate_sds_secret_configs.name == "default")
 	sidecarVolumeMounts := `
 		{
 			"server-certs": {
@@ -208,7 +204,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 					Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
 					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
 					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
-					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
+					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
 			}},
 		}).
 		With(&internalServer, echo.Config{
@@ -224,14 +220,14 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				},
 			},
 			Subsets: []echo.SubsetConfig{{
-				Version:     "v1",
+				Version: "v1",
 				// Set up custom annotations to mount the certs.
 				Annotations: echo.NewAnnotations().
 					Set(echo.SidecarVolume, serverSidecarVolumes).
 					Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
 					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
 					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
-					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJson, "\n", "", -1) + `}`),
+					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
 			}},
 		}).
 		BuildOrFail(t)

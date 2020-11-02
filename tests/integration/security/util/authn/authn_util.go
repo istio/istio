@@ -20,9 +20,8 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pkg/test/echo/common/response"
-
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
