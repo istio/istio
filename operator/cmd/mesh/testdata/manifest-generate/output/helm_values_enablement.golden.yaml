@@ -30,7 +30,10 @@ spec:
         app: istio-egressgateway
         chart: gateways
         heritage: Tiller
+        install.operator.istio.io/owning-resource: unknown
         istio: egressgateway
+        istio.io/rev: default
+        operator.istio.io/component: EgressGateways
         release: istio
         service.istio.io/canonical-name: istio-egressgateway
         service.istio.io/canonical-revision: latest
@@ -127,8 +130,8 @@ spec:
           value: istio-egressgateway
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
-        - name: ISTIO_META_MESH_ID
-          value: cluster.local
+        - name: ISTIO_META_UNPRIVILEGED_POD
+          value: "true"
         - name: ISTIO_META_ROUTER_MODE
           value: standard
         - name: ISTIO_META_CLUSTER_ID
