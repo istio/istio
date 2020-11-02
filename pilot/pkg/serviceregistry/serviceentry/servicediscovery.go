@@ -430,7 +430,7 @@ func (s *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Ev
 	return nil
 }
 
-// AppendWorkloadHandler adds instance event handler. Service Entries does not use these handlers.
+// AppendHandler adds instance event handler. Service Entries does not use these handlers.
 func (s *ServiceEntryStore) AppendWorkloadHandler(h func(*model.WorkloadInstance, model.Event)) error {
 	s.workloadHandlers = append(s.workloadHandlers, h)
 	return nil

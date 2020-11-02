@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/serviceregistry/workload"
 	"sort"
 	"sync"
 	"time"
@@ -260,7 +261,10 @@ type Controller struct {
 	once sync.Once
 
 	// Duration to wait for cache syncs
-	syncInterval time.Duration
+	syncInterval       time.Duration
+
+	// TODO use this and get rid of ByIp and IPsByName
+	WorkloadEntryCache workload.Cache
 }
 
 // NewController creates a new Kubernetes controller
@@ -1171,7 +1175,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 	return nil
 }
 
-// AppendWorkloadHandler implements a service catalog operation
+// AppendHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
 	c.workloadHandlers = append(c.workloadHandlers, f)
 	return nil

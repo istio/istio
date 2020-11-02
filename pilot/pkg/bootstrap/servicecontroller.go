@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/serviceregistry/workload"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -56,17 +57,22 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
+	s.workloadCache = workload.NewAggregate()
 	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	if features.EnableServiceEntrySelectPods && s.kubeRegistry != nil {
-		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
-		_ = s.kubeRegistry.AppendWorkloadHandler(s.serviceEntryStore.WorkloadInstanceHandler)
+		// Cache Pod based WorkloadInstances
+		_ = s.kubeRegistry.AppendWorkloadHandler(s.workloadCache.WorkloadInstanceHandler)
+		// Notify ServiceEntry registry
+		s.workloadCache.AppendHandler(workload.ServiceEntryKey, s.serviceEntryStore.WorkloadInstanceHandler)
 	}
 
 	if features.EnableK8SServiceSelectWorkloadEntries && s.kubeRegistry != nil {
-		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-		_ = s.serviceEntryStore.AppendWorkloadHandler(s.kubeRegistry.WorkloadInstanceHandler)
+		// Cache WorkloadEntry based WorkloadInstances
+		_ = s.serviceEntryStore.AppendWorkloadHandler(s.workloadCache.WorkloadEntryHandler)
+		// Notify kube registry
+		s.workloadCache.AppendHandler(s.kubeRegistry.Cluster(), s.kubeRegistry.WorkloadInstanceHandler)
 	}
 
 	// Defer running of the service controllers.

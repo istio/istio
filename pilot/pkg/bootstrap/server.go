@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/serviceregistry/workload"
 	"net"
 	"net/http"
 	"os"
@@ -121,6 +122,8 @@ type Server struct {
 	// kubeRegistry is the service registry handling the primary cluster.
 	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
+
+	workloadCache    workload.Aggregate
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache

@@ -15,6 +15,7 @@
 package aggregate
 
 import (
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"sort"
 	"sync"
 
