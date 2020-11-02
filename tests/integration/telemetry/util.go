@@ -17,6 +17,7 @@ package telemetry
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/resource"
 	"os"
 	"strings"
 	"testing"
@@ -31,15 +32,15 @@ import (
 
 // promDump gets all of the recorded values for a metric by name and generates a report of the values.
 // used for debugging of failures to provide a comprehensive view of traffic experienced.
-func PromDump(prometheus prometheus.Instance, metric string) string {
-	return PromDumpWithAttributes(prometheus, metric, nil)
+func PromDump(cluster resource.Cluster, prometheus prometheus.Instance, metric string) string {
+	return PromDumpWithAttributes(cluster, prometheus, metric, nil)
 }
 
 // promDumpWithAttributes is used to get all of the recorded values of a metric for particular attributes.
 // Attributes have to be of format %s=\"%s\"
 // nolint: unparam
-func PromDumpWithAttributes(prometheus prometheus.Instance, metric string, attributes []string) string {
-	if value, err := prometheus.WaitForQuiesce(fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))); err == nil {
+func PromDumpWithAttributes(cluster resource.Cluster, prometheus prometheus.Instance, metric string, attributes []string) string {
+	if value, err := prometheus.WaitForQuiesceForCluster(cluster, fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))); err == nil {
 		return value.String()
 	}
 

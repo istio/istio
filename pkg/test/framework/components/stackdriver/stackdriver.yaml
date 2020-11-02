@@ -18,6 +18,8 @@ metadata:
   labels:
     app: stackdriver
 spec:
+  # Setting to NodePort, so that it's accessible from all clusters.
+  type: NodePort
   ports:
   - name: grpc
     port: 8090
