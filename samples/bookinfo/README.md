@@ -1,6 +1,8 @@
 # Bookinfo Sample
 
-See <https://istio.io/docs/examples/bookinfo/>
+See <https://istio.io/docs/examples/bookinfo/>.
+
+**Note**: We need the owner of the PR to perform the appropriate testing with built/pushed images to their own docker repository before we would build/push images to the official Istio repository.
 
 ## Build docker images
 
