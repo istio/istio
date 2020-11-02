@@ -208,6 +208,10 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
+	// For these, we know they are always require and should be present, so do not timeout on fetch
+	if name == SDSDefaultResourceName || name == SDSRootResourceName {
+		cfg.SdsConfig.InitialFetchTimeout = ptypes.DurationProto(time.Second * 0)
+	}
 
 	return cfg
 }
