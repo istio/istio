@@ -6,12 +6,12 @@ metadata:
     app: ext-authz
 spec:
   ports:
-    - name: http
-      port: 8000
-      targetPort: 8000
-    - name: grpc
-      port: 9000
-      targetPort: 9000
+  - name: http
+    port: 8000
+    targetPort: 8000
+  - name: grpc
+    port: 9000
+    targetPort: 9000
   selector:
     app: ext-authz
 ---
@@ -28,14 +28,12 @@ spec:
     metadata:
       labels:
         app: ext-authz
-      annotations:
-        sidecar.istio.io/componentLogLevel: "rbac:debug,jwt:debug,filter:debug"
     spec:
       containers:
-        - image: gcr.io/ymzhu-istio/ext-authz:0.5 #TODO(yangminzhu): update once the image is pushed to docker.io/istio.
-          imagePullPolicy: IfNotPresent
-          name: ext-authz
-          ports:
-            - containerPort: 8000
-            - containerPort: 9000
+      - image: docker.io/istio/ext-authz:0.5
+        imagePullPolicy: IfNotPresent
+        name: ext-authz
+        ports:
+        - containerPort: 8000
+        - containerPort: 9000
 ---

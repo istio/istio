@@ -20,7 +20,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 
 	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -53,8 +56,10 @@ type extAuthzServerV3 struct{}
 
 // ExtAuthzServer implements the ext_authz v2/v3 gRPC and HTTP check request API.
 type ExtAuthzServer struct {
-	grpcV2 *extAuthzServerV2
-	grpcV3 *extAuthzServerV3
+	grpcServer *grpc.Server
+	httpServer *http.Server
+	grpcV2     *extAuthzServerV2
+	grpcV3     *extAuthzServerV3
 	// For test only
 	httpPort chan int
 	grpcPort chan int
@@ -179,12 +184,12 @@ func (s *ExtAuthzServer) startGRPC(address string, wg *sync.WaitGroup) {
 	// Store the port for test only.
 	s.grpcPort <- listener.Addr().(*net.TCPAddr).Port
 
-	server := grpc.NewServer()
-	authv2.RegisterAuthorizationServer(server, s.grpcV2)
-	authv3.RegisterAuthorizationServer(server, s.grpcV3)
+	s.grpcServer = grpc.NewServer()
+	authv2.RegisterAuthorizationServer(s.grpcServer, s.grpcV2)
+	authv3.RegisterAuthorizationServer(s.grpcServer, s.grpcV3)
 
 	log.Printf("Starting gRPC server at %s", listener.Addr())
-	if err := server.Serve(listener); err != nil {
+	if err := s.grpcServer.Serve(listener); err != nil {
 		log.Fatalf("Failed to serve gRPC server: %v", err)
 		return
 	}
@@ -202,9 +207,10 @@ func (s *ExtAuthzServer) startHTTP(address string, wg *sync.WaitGroup) {
 	}
 	// Store the port for test only.
 	s.httpPort <- listener.Addr().(*net.TCPAddr).Port
+	s.httpServer = &http.Server{Handler: s}
 
 	log.Printf("Starting HTTP server at %s", listener.Addr())
-	if err := http.Serve(listener, s); err != nil {
+	if err := s.httpServer.Serve(listener); err != nil {
 		log.Fatalf("Failed to start HTTP server: %v", err)
 	}
 }
@@ -215,6 +221,12 @@ func (s *ExtAuthzServer) run(httpAddr, grpcAddr string) {
 	go s.startHTTP(httpAddr, &wg)
 	go s.startGRPC(grpcAddr, &wg)
 	wg.Wait()
+}
+
+func (s *ExtAuthzServer) stop() {
+	s.grpcServer.Stop()
+	log.Printf("GRPC server stopped")
+	log.Printf("HTTP server stopped: %v", s.httpServer.Close())
 }
 
 func NewExtAuthzServer() *ExtAuthzServer {
@@ -228,5 +240,12 @@ func NewExtAuthzServer() *ExtAuthzServer {
 
 func main() {
 	flag.Parse()
-	NewExtAuthzServer().run(fmt.Sprintf(":%s", *httpPort), fmt.Sprintf(":%s", *grpcPort))
+	s := NewExtAuthzServer()
+	go s.run(fmt.Sprintf(":%s", *httpPort), fmt.Sprintf(":%s", *grpcPort))
+	defer s.stop()
+
+	// Wait for the process to be shutdown.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
 }

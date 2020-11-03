@@ -12,26 +12,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
-ARG BASE_DISTRIBUTION=default
-
 # build a ext-authz binary using the golang container
 FROM golang:1.14.2 as builder
 WORKDIR /go/src/istio.io/extauthz/
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o ext-authz main.go
 
-# The following section is used as base image if BASE_DISTRIBUTION=default
-# No tag available https://hub.docker.com/_/scratch?tab=description
-# hadolint ignore=DL3006
-FROM scratch as default
-
-# The following section is used as base image if BASE_DISTRIBUTION=distroless
 FROM gcr.io/distroless/static-debian10@sha256:4433370ec2b3b97b338674b4de5ffaef8ce5a38d1c9c0cb82403304b8718cde9 as distroless
 
-# This will build the final image based on either default or distroless from above
-# hadolint ignore=DL3006
-FROM ${BASE_DISTRIBUTION}
 WORKDIR /bin/
 # copy the ext-authz binary to a separate container based on BASE_DISTRIBUTION
 COPY --from=builder /go/src/istio.io/extauthz/ext-authz .
