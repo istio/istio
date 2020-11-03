@@ -5,7 +5,7 @@ ARG BASE_DISTRIBUTION=default
 ARG BASE_VERSION=latest
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/istio/base:${BASE_VERSION} as default
+FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
