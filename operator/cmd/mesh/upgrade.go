@@ -55,9 +55,9 @@ const (
 		"If you’re using manual injection, you can upgrade the sidecar by executing:\n" +
 		"    kubectl apply -f < (istioctl kube-inject -f <original application deployment yaml>)"
 
-	// releaseURLPathTemplete is used to construct a download URL for a tar at a given version. The osx tar is
+	// releaseURLPathTemplate is used to construct a download URL for a tar at a given version. The osx tar is
 	// used because it's stable between 1.5->1.6 and only the profiles are used, not binaries.
-	releaseURLPathTemplete = "https://github.com/istio/istio/releases/download/%s/istio-%s-osx.tar.gz"
+	releaseURLPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-osx.tar.gz"
 )
 
 type upgradeArgs struct {
@@ -237,7 +237,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 // releaseURLFromVersion generates default installation url from version number.
 func releaseURLFromVersion(version string) string {
-	return fmt.Sprintf(releaseURLPathTemplete, version, version)
+	return fmt.Sprintf(releaseURLPathTemplate, version, version)
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
