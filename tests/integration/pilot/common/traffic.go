@@ -90,6 +90,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
+	cases["loop"] = trafficLoopCases(apps)
 	cases["vm"] = VMTestCases(apps.VM, apps)
 	for name, tts := range cases {
 		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
