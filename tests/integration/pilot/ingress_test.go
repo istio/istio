@@ -58,9 +58,7 @@ spec:
     routes:
       routeNamespaces: {}
       kind: HTTPRoute
-  - hostname:
-      match: Any
-    port: 31400
+  - port: 31400
     protocol: TCP
     routes:
       routeNamespaces: {}
