@@ -69,7 +69,7 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 
 	if option.IsCustomBuilder {
 		if len(policies.Custom) == 0 {
-			authzLog.Debugf("no CUSTOM policy for workload %v in %s", workload, namespace)
+			authzLog.Debugf("No CUSTOM policy for workload %v in %s", workload, namespace)
 			return nil
 		}
 		return &Builder{
@@ -81,7 +81,7 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 	}
 
 	if len(policies.Deny) == 0 && len(policies.Allow) == 0 && len(policies.Audit) == 0 {
-		authzLog.Debugf("no ALLOW/DENY/AUDIT policy for workload %v in %s", workload, namespace)
+		authzLog.Debugf("No ALLOW/DENY/AUDIT policy for workload %v in %s", workload, namespace)
 		return nil
 	}
 	return &Builder{
@@ -165,12 +165,12 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 				name = fmt.Sprintf("%s-%s", extAuthzMatchPrefix, name)
 			}
 			if rule == nil {
-				authzLog.Errorf("skipped nil rule %s", name)
+				authzLog.Errorf("Skipped nil rule %s", name)
 				continue
 			}
 			m, err := authzmodel.New(rule, b.option.IsIstioVersionGE15)
 			if err != nil {
-				authzLog.Errorf("skipped rule %s: %v", name, err)
+				authzLog.Errorf("Skipped rule %s: %v", name, err)
 				continue
 			}
 			m.MigrateTrustDomain(b.trustDomainBundle)
@@ -179,13 +179,13 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 				if forTCP && b.option.IsOnInboundPassthrough {
 					authzLog.Debugf("On TCP inbound passthrough filter chain, skipped rule %s: %v", name, err)
 				} else {
-					authzLog.Errorf("skipped rule %s: %v", name, err)
+					authzLog.Errorf("Skipped rule %s: %v", name, err)
 				}
 				continue
 			}
 			if generated != nil {
 				rules.Policies[name] = generated
-				authzLog.Debugf("rule %s generated policy: %+v", name, generated)
+				authzLog.Debugf("Rule %s generated policy: %+v", name, generated)
 			}
 		}
 	}
@@ -209,7 +209,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, providers []string) []*httppb.Htt
 
 	extauthz, err := buildExtAuthz(b.extensions, providers)
 	if err != nil {
-		authzLog.Errorf("failed parsing CUSTOM action, will generate a deny all config: %v", err)
+		authzLog.Errorf("Failed parsing CUSTOM action, will generate a deny all config: %v", err)
 		rbac := &rbachttppb.RBAC{Rules: rbacDefaultDenyAll}
 		return []*httppb.HttpFilter{
 			{
@@ -220,6 +220,8 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, providers []string) []*httppb.Htt
 	}
 	// Add the RBAC filter in shadow mode so that it only evaluates the matching rules for CUSTOM action but not enforce it.
 	// The evaluation result is stored in the dynamic metadata keyed by the policy name.
+	// See https://docs.google.com/document/d/1V4mCQCw7mlGp0zSQQXYoBdbKMDnkPOjeyUb85U07iSI/edit#bookmark=kix.jdq8u0an2r6s
+	// for more details.
 	rbac := &rbachttppb.RBAC{ShadowRules: rules}
 	return []*httppb.HttpFilter{
 		{
@@ -245,7 +247,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, providers []string) []*tcppb.Filte
 	}
 
 	if extauthz, err := buildExtAuthz(b.extensions, providers); err != nil {
-		authzLog.Errorf("failed parsing CUSTOM action, will generate a deny all config: %v", err)
+		authzLog.Errorf("Failed parsing CUSTOM action, will generate a deny all config: %v", err)
 		rbac := &rbactcppb.RBAC{Rules: rbacDefaultDenyAll, StatPrefix: authzmodel.RBACTCPFilterStatPrefix}
 		return []*tcppb.Filter{
 			{
@@ -254,7 +256,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, providers []string) []*tcppb.Filte
 			},
 		}
 	} else if extauthz.tcp == nil {
-		authzLog.Warnf("ignored CUSTOM action with HTTP provider on TCP filter chain")
+		authzLog.Warnf("Ignored CUSTOM action with HTTP provider on TCP filter chain")
 		return nil
 	} else {
 		rbac := &rbactcppb.RBAC{ShadowRules: rules, StatPrefix: authzmodel.RBACTCPFilterStatPrefix}

@@ -57,7 +57,7 @@ type builtExtAuthz struct {
 	tcp  *extauthztcp.ExtAuthz
 }
 
-func hasDuplicate(names []string) bool {
+func notAllTheSame(names []string) bool {
 	for i := 1; i < len(names); i++ {
 		if names[i-1] != names[i] {
 			return true
@@ -67,8 +67,8 @@ func hasDuplicate(names []string) bool {
 }
 
 func buildExtAuthz(configs []*meshconfig.MeshConfig_ExtensionProvider, providers []string) (*builtExtAuthz, error) {
-	if hasDuplicate(providers) {
-		return nil, fmt.Errorf("only 1 extension provider is allowed for a workload, found different providers: %v", providers)
+	if notAllTheSame(providers) {
+		return nil, fmt.Errorf("all extension providers must be the same for a specific workload, found multiple different providers: %v", providers)
 	} else if len(providers) < 1 {
 		return nil, fmt.Errorf("no extension provider found")
 	}
@@ -112,7 +112,7 @@ func buildExtAuthz(configs []*meshconfig.MeshConfig_ExtensionProvider, providers
 		return nil, errs
 	}
 
-	authzLog.Debugf("resolved provider %s to config: %v", provider, spew.Sdump(ret))
+	authzLog.Debugf("Resolved provider %s to config: %v", provider, spew.Sdump(ret))
 	return ret, nil
 }
 
@@ -182,8 +182,8 @@ func parseService(service string, port int) (hostname string, cluster string, er
 		namespace, name = "istio-system", parts[0]
 	}
 
-	// TODO(yangminzhu): This is temporary and still under development.
-	// The remaining work is to properly get the corresponding cluster name for the k8s service and ServiceEntry.
+	// TODO(yangminzhu): The following is temporary and still under development, the next PR is to to properly get the
+	// corresponding cluster name for the k8s service and ServiceEntry.
 	hostname = fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
 	cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(hostname), port)
 	return hostname, cluster, nil
@@ -215,7 +215,8 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	service := &extauthzhttp.HttpService{
 		PathPrefix: config.PathPrefix,
 		ServerUri: &envoy_config_core_v3.HttpUri{
-			// Timeout is required, use a large value as a placeholder, the real timeout is controlled in DestinationRule.
+			// Timeout is required. Use a large value as a placeholder and so that the timeout in DestinationRule (should
+			// be much smaller) can be used to control the real timeout.
 			Timeout: &duration.Duration{Seconds: 600},
 			// Uri is required but actually not used in the ext_authz filter.
 			Uri: fmt.Sprintf("http://%s", hostname),
@@ -249,7 +250,8 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 
 func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpStatus) *builtExtAuthz {
 	// The cluster includes the character `|` that is invalid in gRPC authority header and will cause the connection
-	// rejected in the server side, replace it with a valid character.
+	// rejected in the server side, replace it with a valid character and set in authority otherwise ext_authz will
+	// use the cluster name as default authority.
 	authority := strings.ReplaceAll(cluster, "|", "-")
 	grpc := &envoy_config_core_v3.GrpcService{
 		TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
