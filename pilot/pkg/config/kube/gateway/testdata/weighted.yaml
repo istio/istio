@@ -13,13 +13,12 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname:
-      match: Domain
-      name: domain.example
+  - hostname: "*.domain.example"
     port: 80
     protocol: HTTP
     routes:
-      routeNamespaces: {}
+      namespaces:
+        from: All
       kind: HTTPRoute
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
@@ -36,6 +35,8 @@ spec:
         value: /get
     forwardTo:
       - serviceName: httpbin
+        port: 80
         weight: 2
       - serviceName: httpbin-other
+        port: 8080
         weight: 3
