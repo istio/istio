@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 const (
@@ -50,7 +51,7 @@ func TestClientToServiceTls(t *testing.T) {
 		Features("security.peer.file-mounted-certs").
 		Run(func(ctx framework.TestContext) {
 
-			echoClient, echoServer, serviceNamespace := setupEcho(t, ctx)
+			echoClients, echoServers, serviceNamespace := setupEcho(t, ctx)
 
 			bufDestinationRule := createObject(ctx, serviceNamespace.Name(), DestinationRuleConfigMutual)
 			defer ctx.Config().DeleteYAMLOrFail(ctx, serviceNamespace.Name(), bufDestinationRule)
@@ -58,35 +59,50 @@ func TestClientToServiceTls(t *testing.T) {
 			bufPeerAuthentication := createObject(ctx, "istio-system", PeerAuthenticationConfig)
 			defer ctx.Config().DeleteYAMLOrFail(ctx, "istio-system", bufPeerAuthentication)
 
-			retry.UntilSuccessOrFail(t, func() error {
-				resp, err := echoClient.Call(echo.CallOptions{
-					Target:   echoServer,
-					PortName: "http",
-					Scheme:   scheme.HTTP,
-				})
+			callCount := 1
+			if ctx.Clusters().IsMulticluster() {
+				// so we can validate all clusters are hit
+				callCount = util.CallsPerCluster * len(ctx.Clusters())
+			}
 
-				if err != nil {
-					return fmt.Errorf("request failed: %v", err)
-				}
+			for _, cluster := range ctx.Clusters() {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+					echoClient := echoClients.GetOrFail(ctx, echo.InCluster(cluster))
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := echoClient.Call(echo.CallOptions{
+							Target:   echoServers[0],
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Count:    callCount,
+						})
 
-				codes := make([]string, 0, len(resp))
-				for _, r := range resp {
-					codes = append(codes, r.Code)
-				}
-				if !reflect.DeepEqual(codes, []string{response.StatusCodeOK}) {
-					return fmt.Errorf("got codes %q, expected %q", codes, []string{response.StatusCodeOK})
-				}
-				for _, r := range resp {
-					if xfcc, f := r.RawResponse["X-Forwarded-Client-Cert"]; f {
-						if xfcc != ExpectedXfccHeader {
-							return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r.RawResponse)
+						if err != nil {
+							return fmt.Errorf("request failed: %v", err)
 						}
-					} else {
-						return fmt.Errorf("expected to see XFCC header, but none found. response: %+v", r.RawResponse)
-					}
-				}
-				return nil
-			}, retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
+
+						codes := make([]string, 0, len(resp))
+						for _, r := range resp {
+							codes = append(codes, r.Code)
+						}
+						if !reflect.DeepEqual(codes, []string{response.StatusCodeOK}) {
+							return fmt.Errorf("got codes %q, expected %q", codes, []string{response.StatusCodeOK})
+						}
+						for _, r := range resp {
+							if xfcc, f := r.RawResponse["X-Forwarded-Client-Cert"]; f {
+								if xfcc != ExpectedXfccHeader {
+									return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r.RawResponse)
+								}
+							} else {
+								return fmt.Errorf("expected to see XFCC header, but none found. response: %+v", r.RawResponse)
+							}
+						}
+						if echoServers.Clusters().IsMulticluster() {
+							return resp.CheckReachedClusters(echoServers.Clusters())
+						}
+						return nil
+					}, retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
+				})
+			}
 		})
 }
 
@@ -130,7 +146,7 @@ func createObject(ctx framework.TestContext, serviceNamespace string, yamlManife
 
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and
 // client in that namespace.
-func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance) {
+func setupEcho(t *testing.T, ctx resource.Context) (echo.Instances, echo.Instances, namespace.Instance) {
 
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "istio-fd-sds",
@@ -157,7 +173,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		t.Fatalf("Unable to create client secret. %v", err)
 	}
 
-	var internalClient, internalServer echo.Instance
+	var internalClients, internalServers echo.Instances
 
 	clientSidecarVolumes := `
 		{
@@ -190,47 +206,54 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 			}
 		}
 	`
-
-	echoboot.NewBuilder(ctx).
-		With(&internalClient, echo.Config{
-			Service:   "client",
-			Namespace: appsNamespace,
-			Ports:     []echo.Port{},
-			Subsets: []echo.SubsetConfig{{
-				Version: "v1",
-				// Set up custom annotations to mount the certs.
-				Annotations: echo.NewAnnotations().
-					Set(echo.SidecarVolume, clientSidecarVolumes).
-					Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
-					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
-					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
-					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
-			}},
-		}).
-		With(&internalServer, echo.Config{
-			Service:   "server",
-			Namespace: appsNamespace,
-			Ports: []echo.Port{
-				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					ServicePort:  8443,
-					InstancePort: 8443,
-					TLS:          false,
+	builder := echoboot.NewBuilder(ctx)
+	for _, cluster := range ctx.Clusters() {
+		builder.
+			With(nil, echo.Config{
+				Service:   "client",
+				Namespace: appsNamespace,
+				Ports:     []echo.Port{},
+				Subsets: []echo.SubsetConfig{{
+					Version: "v1",
+					// Set up custom annotations to mount the certs.
+					Annotations: echo.NewAnnotations().
+						Set(echo.SidecarVolume, clientSidecarVolumes).
+						Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
+						// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
+						// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
+						Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
+				}},
+				Cluster: cluster,
+			}).
+			With(nil, echo.Config{
+				Service:   "server",
+				Namespace: appsNamespace,
+				Ports: []echo.Port{
+					{
+						Name:         "http",
+						Protocol:     protocol.HTTP,
+						ServicePort:  8443,
+						InstancePort: 8443,
+						TLS:          false,
+					},
 				},
-			},
-			Subsets: []echo.SubsetConfig{{
-				Version: "v1",
-				// Set up custom annotations to mount the certs.
-				Annotations: echo.NewAnnotations().
-					Set(echo.SidecarVolume, serverSidecarVolumes).
-					Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
-					// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
-					// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
-					Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
-			}},
-		}).
-		BuildOrFail(t)
+				Subsets: []echo.SubsetConfig{{
+					Version: "v1",
+					// Set up custom annotations to mount the certs.
+					Annotations: echo.NewAnnotations().
+						Set(echo.SidecarVolume, serverSidecarVolumes).
+						Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
+						// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
+						// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
+						Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
+				}},
+				Cluster: cluster,
+			})
+	}
 
-	return internalClient, internalServer, appsNamespace
+	echos := builder.BuildOrFail(t)
+	internalClients = echos.Match(echo.Service("client"))
+	internalServers = echos.Match(echo.Service("server"))
+
+	return internalClients, internalServers, appsNamespace
 }

@@ -59,7 +59,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireSingleCluster().
 
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
@@ -208,22 +207,23 @@ func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.I
 		return err
 	}
 
-	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
-	secret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace.Name(),
-		},
-		Data: map[string][]byte{
-			"key.pem":        privateKey,
-			"cert-chain.pem": clientCert,
-			"root-cert.pem":  caCert,
-		},
-	}
+	for _, kubeAccessor := range ctx.Environment().(*kube.Environment).KubeClusters {
+		secret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace.Name(),
+			},
+			Data: map[string][]byte{
+				"key.pem":        privateKey,
+				"cert-chain.pem": clientCert,
+				"root-cert.pem":  caCert,
+			},
+		}
 
-	_, err = kubeAccessor.CoreV1().Secrets(namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		return err
+		_, err = kubeAccessor.CoreV1().Secrets(namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
