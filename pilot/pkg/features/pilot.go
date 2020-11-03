@@ -337,4 +337,8 @@ var (
 			"When this flag is enabled, an upgrade of the Istio control plane from 1.6 -> 1.7 should result in no downtime for 1.6 proxies. "+
 			"However, for users who have already upgraded to 1.7.x without this option, to 1.7.y with this version, while still maintaining old 1.6 proxies, "+
 			"this will result in downtime and should be set to false.").Get()
+
+	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
+		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
+			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
 )
