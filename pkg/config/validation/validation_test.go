@@ -4903,7 +4903,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
-		}, false},
+		}, true},
+		{"empty", &networking.Sidecar{}, false},
+		{"just outbound traffic policy", &networking.Sidecar{OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+			Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+		}}, true},
 		{"empty protocol", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
