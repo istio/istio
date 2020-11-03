@@ -13,9 +13,6 @@ enableCRDTemplates: false
 # revision for the operator resources
 revision: ""
 
-# When true, verifies control plane health after installation
-verifyCRInstall: "false"
-
 # Operator resource defaults
 operator:
   resources:

@@ -41,8 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -327,21 +325,6 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	}
 	if err := reconciler.SetStatusComplete(status); err != nil {
 		return reconcile.Result{}, err
-	}
-
-	shouldVerifyInstall, _ := os.LookupEnv("VERIFY_CR_INSTALL")
-	if shouldVerifyInstall == "true" {
-		scope.Infof("Verifying installation %s/%s (revision=%s)",
-			iopMerged.Namespace, iopMerged.Name, iopMerged.Spec.Revision)
-
-		// TODO(su225): How do I get kubeconfig and context?
-		// It is currently broken. Do something about it.
-		installVerifier := verifier.NewStatusVerifier(iopMerged.Namespace, iopMerged.Spec.InstallPackagePath,
-			"", "", []string{}, clioptions.ControlPlaneOptions{Revision: iopMerged.Spec.Revision}, operatorLogger)
-		if err := installVerifier.Verify(); err != nil {
-			scope.Warnf("Error while verifying: %v", err.Error())
-			metrics.InstallVerifyError.Increment()
-		}
 	}
 	return reconcile.Result{}, err
 }

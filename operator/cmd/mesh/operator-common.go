@@ -43,8 +43,6 @@ type operatorCommonArgs struct {
 	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
-	// verifyCRInstall verifies after installation
-	verifyCRInstall bool
 }
 
 const (
@@ -81,7 +79,6 @@ watchedNamespaces: {{.WatchedNamespaces}}
 hub: {{.Hub}}
 tag: {{.Tag}}
 revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
-verifyCRInstall: {{if .VerifyCRInstall }} {{.VerifyCRInstall}} {{else}} "false" {{end}}
 `
 
 	tv := struct {
@@ -99,7 +96,6 @@ verifyCRInstall: {{if .VerifyCRInstall }} {{.VerifyCRInstall}} {{else}} "false" 
 		Hub:               ocArgs.hub,
 		Tag:               ocArgs.tag,
 		Revision:          ocArgs.revision,
-		VerifyCRInstall:   ocArgs.verifyCRInstall,
 	}
 	vals, err := util.RenderTemplate(tmpl, tv)
 	if err != nil {
