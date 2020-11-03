@@ -586,8 +586,8 @@ func TestConfigSelectors(t *testing.T) {
 		mustNotSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabelsRev)
 
 		// Make sure the scaleTargetRef points to the correct Deployment
-		if hpaName := mustGetPath(t, hpaRev, "spec.scaleTargetRef.name"); revName != hpaName {
-			t.Fatalf("HPA does not match deployment: %v != %v", revName, hpaName)
+		if hpaName := mustGetPath(t, hpaRev, "spec.scaleTargetRef.name"); nameRev != hpaName {
+			t.Fatalf("HPA does not match deployment: %v != %v", nameRev, hpaName)
 		}
 
 		// Check selection of previous versions . This only matters for in place upgrade (non revision)
