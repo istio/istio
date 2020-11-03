@@ -38,7 +38,6 @@ var (
 		GatewayClassName: "gwclass",
 		Listeners: []svc.Listener{
 			{
-				Hostname: svc.HostnameMatch{Match: svc.HostnameMatchAny},
 				Port:     9009,
 				Protocol: "HTTP",
 				Routes:   svc.RouteBindingSelector{Kind: gvk.HTTPRoute.Kind},
@@ -46,7 +45,7 @@ var (
 		},
 	}
 	httpRouteSpec = &svc.HTTPRouteSpec{
-		Hostnames: []svc.HTTPRouteHostname{"test.cluster.local"},
+		Hostnames: []svc.Hostname{"test.cluster.local"},
 	}
 
 	expectedgw = &networking.Gateway{

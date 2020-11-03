@@ -30,9 +30,13 @@ spec:
   - route:
     - destination:
         host: httpbin1.default.svc.cluster.local
+        port:
+          number: 7070
       weight: 50
     - destination:
         host: httpbin2.default.svc.cluster.local
+        port:
+          number: 9090
       weight: 50
 ---
 apiVersion: networking.istio.io/v1alpha3

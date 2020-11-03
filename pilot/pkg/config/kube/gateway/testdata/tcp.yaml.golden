@@ -30,4 +30,6 @@ spec:
   - route:
     - destination:
         host: httpbin.default.svc.cluster.local
+        port:
+          number: 9090
 ---
