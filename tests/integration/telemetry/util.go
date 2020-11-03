@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // promDump gets all of the recorded values for a metric by name and generates a report of the values.
