@@ -121,7 +121,7 @@ func printIOPs(writer io.Writer, iops []*iopv1alpha1.IstioOperator, manifestsPat
 			if i == 0 {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 					iop.Spec.Tag,
-					renderWithDefault(iop.Spec.Revision, "master"),
+					renderWithDefault(iop.Spec.Revision, "default"),
 					renderWithDefault(iop.Spec.Profile, "default"),
 					diff, podCount, deploymentAge)
 			} else {
