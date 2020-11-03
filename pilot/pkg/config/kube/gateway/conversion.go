@@ -290,7 +290,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	return result
 }
 
-func hostnameToStringList(h []k8s.HTTPRouteHostname) []string {
+func hostnameToStringList(h []k8s.Hostname) []string {
 	res := make([]string, 0, len(h))
 	for _, i := range h {
 		res = append(res, string(i))
@@ -681,21 +681,13 @@ func buildSecretReference(ref k8s.LocalObjectReference) string {
 	return ref.Name
 }
 
-func buildHostnameMatch(hostname k8s.HostnameMatch) []string {
-	switch hostname.Match {
-	case k8s.HostnameMatchDomain:
-		// TODO: this does not fully meet the spec. foo.bar.<hostname> should not match.
-		// Currently Istio gateway does not support this
-		return []string{"*." + hostname.Name}
-	case k8s.HostnameMatchExact:
-		return []string{hostname.Name}
-	case k8s.HostnameMatchAny:
-		return []string{"*"}
-	default:
-		log.Errorf("unknown hostname match %v", hostname.Match)
-		// TODO better error handling. Probably need to reject the whole
+func buildHostnameMatch(hostname *k8s.Hostname) []string {
+	// service-apis hostname semantics match ours, so pass directly. The one
+	// exception is they allow unset, which is equivalent to * for us
+	if hostname == nil {
 		return []string{"*"}
 	}
+	return []string{string(*hostname)}
 }
 
 func emptyOrEqual(have, expected string) bool {

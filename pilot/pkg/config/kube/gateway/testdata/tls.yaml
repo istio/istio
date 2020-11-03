@@ -14,9 +14,7 @@ spec:
   gatewayClassName: istio
   listeners:
   # Passthrough
-  - hostname:
-      match: Any
-    port: 34000
+  - port: 34000
     protocol: TLS
     routes:
       namespaces:
@@ -32,9 +30,7 @@ spec:
         group: core
         kind: Secret
   # Termination
-  - hostname:
-      name: "domain.example"
-      match: Exact
+  - hostname: "domain.example"
     port: 34000
     protocol: HTTPS
     routes:
