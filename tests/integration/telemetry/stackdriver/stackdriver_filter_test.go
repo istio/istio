@@ -96,9 +96,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName string) er
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			if err := sendTraffic(t); err != nil {
-				t.Fatalf("could not generate traffic: %v", err)
-			}
+			sendTraffic(t)
 
 			for _, cl := range ctx.Clusters() {
 				scopes.Framework.Infof("Validating Telemetry for Cluster %v", cl)
@@ -111,7 +109,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 					if err := validateLogs(t, serverLogEntry, clName); err != nil {
 						return err
 					}
-					if err := validateTraces(t, clName); err != nil {
+					if err := validateTraces(t); err != nil {
 						return err
 					}
 					if err := validateEdges(t, clName); err != nil {
@@ -248,7 +246,7 @@ func testSetup(ctx resource.Context) (err error) {
 }
 
 // send both a grpc and http requests (http with forced tracing).
-func sendTraffic(t *testing.T) error {
+func sendTraffic(t *testing.T) {
 	t.Helper()
 	//  All server instance have same names, so setting target as srv[0].
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
@@ -276,7 +274,6 @@ func sendTraffic(t *testing.T) error {
 			return nil
 		}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
 	}
-	return nil
 }
 
 func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName string) error {
@@ -362,7 +359,7 @@ func validateEdges(t *testing.T, clName string) error {
 	return errors.New("edges: did not get expected traffic assertion")
 }
 
-func validateTraces(t *testing.T, clName string) error {
+func validateTraces(t *testing.T) error {
 	t.Helper()
 
 	// we are looking for a trace that looks something like:
