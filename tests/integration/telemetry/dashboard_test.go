@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/resource"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -30,8 +29,6 @@ import (
 	"github.com/prometheus/common/model"
 	"golang.org/x/sync/errgroup"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
@@ -44,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -147,7 +145,7 @@ func TestDashboard(t *testing.T) {
 					}
 
 					for _, query := range queries {
-						if err := checkMetric(ctx.Clusters().Default(), p, query, d.excluded); err != nil {
+						if err := checkMetric(p, query, d.excluded); err != nil {
 							t.Errorf("Check query failed: %v", err)
 						}
 					}
@@ -178,7 +176,7 @@ var (
 	)
 )
 
-func checkMetric(cluster resource.Cluster, p prometheus.Instance, query string, excluded []string) error {
+func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 	query = replacer.Replace(query)
 	value, _, err := p.API().QueryRange(context.Background(), query, promv1.Range{
 		Start: time.Now().Add(-time.Minute),
@@ -226,7 +224,7 @@ func waitForMetrics(t framework.TestContext, instance prometheus.Instance) {
 
 	for _, query := range queries {
 		err := retry.UntilSuccess(func() error {
-			return checkMetric(t.Clusters().Default(), instance, query, nil)
+			return checkMetric(instance, query, nil)
 		})
 		// Do not fail here - this is just to let the metrics sync. We will fail on the test if query fails
 		if err != nil {

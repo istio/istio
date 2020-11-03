@@ -18,14 +18,13 @@ package cni
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/security/util"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 

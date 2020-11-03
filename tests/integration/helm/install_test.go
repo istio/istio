@@ -89,12 +89,12 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			installIstio(t, ctx, cs, h, overrideValuesFile)
+			installIstio(t, cs, h, overrideValuesFile)
 
 			verifyInstallation(t, ctx, cs)
 
 			t.Cleanup(func() {
-				deleteIstio(t, cs, h)
+				deleteIstio(t, h)
 			})
 		})
 }
@@ -127,19 +127,19 @@ global:
 			if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 				t.Fatalf("failed to write iop cr file: %v", err)
 			}
-			installIstio(t, ctx, cs, h, overrideValuesFile)
+			installIstio(t, cs, h, overrideValuesFile)
 
 			verifyInstallation(t, ctx, cs)
 
 			t.Cleanup(func() {
-				deleteIstio(t, cs, h)
+				deleteIstio(t, h)
 			})
 		})
 }
 
 // installIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func installIstio(t *testing.T, ctx resource.Context, cs resource.Cluster,
+func installIstio(t *testing.T, cs resource.Cluster,
 	h *helm.Helm, overrideValuesFile string) {
 	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -183,7 +183,7 @@ func installIstio(t *testing.T, ctx resource.Context, cs resource.Cluster,
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(t *testing.T, cs resource.Cluster, h *helm.Helm) {
+func deleteIstio(t *testing.T, h *helm.Helm) {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release", EgressReleaseName)
@@ -199,7 +199,7 @@ func deleteIstio(t *testing.T, cs resource.Cluster, h *helm.Helm) {
 	}
 }
 
-// verifyInstallation verify that the Helm installation is successfull
+// verifyInstallation verify that the Helm installation is successful
 func verifyInstallation(t *testing.T, ctx resource.Context, cs resource.Cluster) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 
