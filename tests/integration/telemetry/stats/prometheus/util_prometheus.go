@@ -21,9 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 

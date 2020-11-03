@@ -19,12 +19,10 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
-
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 

@@ -21,13 +21,14 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGateway(t *testing.T) {
@@ -185,7 +186,8 @@ spec:
               serviceName: b
               servicePort: 80`
 
-			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig, fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
+			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+				fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
 				t.Fatal(err)
 			}
 
@@ -281,7 +283,8 @@ spec:
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
 			const updateIngressName = "update-test-ingress"
-			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig, fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
+			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
 				t.Fatal(err)
 			}
 			// these cases make sure that when new Ingress configs are applied our controller picks up on them

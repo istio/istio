@@ -16,9 +16,10 @@
 package wasm
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/features"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
-	"testing"
 )
 
 func TestWASMTcpMetric(t *testing.T) { // nolint:interfacer

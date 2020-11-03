@@ -22,16 +22,16 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
-
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -42,7 +42,7 @@ const (
 	PilotCertsPath  = "tests/testdata/certs/pilot"
 	PilotSecretName = "test-istiod-server-cred"
 
-	ProxyMetadataJson = `
+	ProxyMetadataJSON = `
 	{
       "FILE_MOUNTED_CERTS": "true",
       "ISTIO_META_TLS_CLIENT_CERT_CHAIN": "/client-certs/cert-chain.pem",
@@ -160,7 +160,7 @@ components:
 meshConfig:
   defaultConfig:
     controlPlaneAuthPolicy: "MUTUAL_TLS"
-    proxyMetadata: ` + strings.Replace(ProxyMetadataJson, "\n", "", -1) +
+    proxyMetadata: ` + strings.Replace(ProxyMetadataJSON, "\n", "", -1) +
 		`
 values:
   global:
