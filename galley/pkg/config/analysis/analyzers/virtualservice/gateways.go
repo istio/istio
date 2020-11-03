@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -86,28 +87,27 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 	}
 }
 
-func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHost []string) bool {
-	var gatewayHost []string
+func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []string) bool {
+	var gatewayHosts []string
 
 	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
 		if r.Metadata.FullName == gateway {
 			s := r.Message.(*v1alpha3.Gateway)
 
 			for _, v := range s.Servers {
-				gatewayHost = append(gatewayHost, v.Hosts...)
+				gatewayHosts = append(gatewayHosts, v.Hosts...)
 			}
 		}
 
 		return true
 	})
 
-	for _, gh := range gatewayHost {
-		if gh == util.Wildcard {
-			return true
-		}
+	for _, gh := range gatewayHosts {
+		for _, vsh := range vsHosts {
+			gatewayHost := host.Name(gh)
+			vsHost := host.Name(vsh)
 
-		for _, vsh := range vsHost {
-			if vsh == util.Wildcard || vsh == gh {
+			if gatewayHost.Matches(vsHost) {
 				return true
 			}
 		}

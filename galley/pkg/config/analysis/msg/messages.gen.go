@@ -139,7 +139,7 @@ var (
 
 	// VirtualServiceHostNotFoundInGateway defines a diag.MessageType for message "VirtualServiceHostNotFoundInGateway".
 	// Description: Host defined in VirtualService not found in Gateway object.
-	VirtualServiceHostNotFoundInGateway = diag.NewMessageType(diag.Error, "IST0132", "one or more host %v defined in VirtualService %s not found in Gateway %s.")
+	VirtualServiceHostNotFoundInGateway = diag.NewMessageType(diag.Warning, "IST0132", "one or more host %v defined in VirtualService %s not found in Gateway %s.")
 )
 
 // All returns a list of all known message types.
