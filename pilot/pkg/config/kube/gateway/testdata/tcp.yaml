@@ -13,9 +13,7 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname:
-      match: Any
-    port: 34000
+  - port: 34000
     protocol: TCP
     routes:
       namespaces:
