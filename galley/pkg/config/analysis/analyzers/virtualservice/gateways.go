@@ -53,8 +53,9 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
 
 func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis.Context) {
 	vs := r.Message.(*v1alpha3.VirtualService)
-
 	vsNs := r.Metadata.FullName.Namespace
+	vsName := r.Metadata.FullName
+
 	for i, gwName := range vs.Gateways {
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {
@@ -74,7 +75,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 		}
 
 		if !vsHostInGateway(c, gwFullName, vs.Hosts) {
-			m := msg.NewVirtualServiceHostNotFoundInGateway(r, gwName)
+			m := msg.NewVirtualServiceHostNotFoundInGateway(r, vs.Hosts, vsName.String(), gwFullName.String())
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
 				m.Line = line

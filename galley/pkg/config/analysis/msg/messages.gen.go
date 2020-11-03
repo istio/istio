@@ -139,7 +139,7 @@ var (
 
 	// VirtualServiceHostNotFoundInGateway defines a diag.MessageType for message "VirtualServiceHostNotFoundInGateway".
 	// Description: Host defined in VirtualService not found in Gateway object.
-	VirtualServiceHostNotFoundInGateway = diag.NewMessageType(diag.Error, "IST0132", "Host defined in VirtualService not defined in Gateway %s.")
+	VirtualServiceHostNotFoundInGateway = diag.NewMessageType(diag.Error, "IST0132", "one or more host %v defined in VirtualService %s not defined in Gateway %s.")
 )
 
 // All returns a list of all known message types.
@@ -504,10 +504,12 @@ func NewVirtualServiceIneffectiveMatch(r *resource.Instance, ruleno string, matc
 }
 
 // NewVirtualServiceHostNotFoundInGateway returns a new diag.Message based on VirtualServiceHostNotFoundInGateway.
-func NewVirtualServiceHostNotFoundInGateway(r *resource.Instance, gateway string) diag.Message {
+func NewVirtualServiceHostNotFoundInGateway(r *resource.Instance, host []string, virtualservice string, gateway string) diag.Message {
 	return diag.NewMessage(
 		VirtualServiceHostNotFoundInGateway,
 		r,
+		host,
+		virtualservice,
 		gateway,
 	)
 }

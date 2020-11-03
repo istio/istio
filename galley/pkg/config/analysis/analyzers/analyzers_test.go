@@ -417,11 +417,11 @@ var testGrid = []testCase{
 	{
 		name: "host defined in virtualservice not found in the gateway",
 		inputFiles: []string{
-			"testdata/virtualservice_host_not_defined_gateway.yaml",
+			"testdata/virtualservice_host_not_found_gateway.yaml",
 		},
 		analyzer: &virtualservice.GatewayAnalyzer{},
 		expected: []message{
-			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService ratings-fake-service"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService ratings-wrong-host-service.default"},
 		},
 	},
 }
