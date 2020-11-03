@@ -718,3 +718,32 @@ spec:
 		})
 	}
 }
+
+func TestLoop(t *testing.T) {
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		calls: []simulation.Expect{
+			{
+				Name: "direct request to outbound port",
+				Call: simulation.Call{
+					Port:     15001,
+					Protocol: simulation.TCP,
+				},
+				Result: simulation.Result{
+					// This request should be blocked
+					ClusterMatched: "BlackHoleCluster",
+				},
+			},
+			{
+				Name: "direct request to inbound port",
+				Call: simulation.Call{
+					Port:     15006,
+					Protocol: simulation.TCP,
+				},
+				Result: simulation.Result{
+					// This request should be blocked
+					ClusterMatched: "BlackHoleCluster",
+				},
+			},
+		},
+	})
+}
