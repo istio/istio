@@ -32,7 +32,7 @@ type Controller interface {
 	// AppendServiceHandler notifies about changes to the service catalog.
 	AppendServiceHandler(f func(*Service, Event)) error
 
-	// AppendHandler notifies about changes to workloads. This differs from InstanceHandler,
+	// AppendWorkloadHandler notifies about changes to workloads. This differs from InstanceHandler,
 	// which deals with service instances (the result of a merge of Service and Workload)
 	AppendWorkloadHandler(f func(*WorkloadInstance, Event)) error
 

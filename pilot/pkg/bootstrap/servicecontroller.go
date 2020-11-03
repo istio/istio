@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"istio.io/istio/pilot/pkg/serviceregistry/workload"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -35,6 +34,8 @@ func (s *Server) ServiceController() *aggregate.Controller {
 
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
+	s.wleCache = workload.NewCache()
+
 	serviceControllers := s.ServiceController()
 	registered := make(map[serviceregistry.ProviderID]bool)
 	for _, r := range args.RegistryOptions.Registries {
@@ -57,23 +58,13 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	s.workloadCache = workload.NewAggregate()
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.kubeCache, s.XDSServer)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
-	if features.EnableServiceEntrySelectPods && s.kubeRegistry != nil {
-		// Cache Pod based WorkloadInstances
-		_ = s.kubeRegistry.AppendWorkloadHandler(s.workloadCache.WorkloadInstanceHandler)
-		// Notify ServiceEntry registry
-		s.workloadCache.AppendHandler(workload.ServiceEntryKey, s.serviceEntryStore.WorkloadInstanceHandler)
-	}
-
-	if features.EnableK8SServiceSelectWorkloadEntries && s.kubeRegistry != nil {
-		// Cache WorkloadEntry based WorkloadInstances
-		_ = s.serviceEntryStore.AppendWorkloadHandler(s.workloadCache.WorkloadEntryHandler)
-		// Notify kube registry
-		s.workloadCache.AppendHandler(s.kubeRegistry.Cluster(), s.kubeRegistry.WorkloadInstanceHandler)
-	}
+	// Cache WorkloadEntry based WorkloadInstances
+	_ = s.serviceEntryStore.AppendWorkloadHandler(s.wleCache.WorkloadInstanceHandler)
+	// Cache Pod based WorkloadInstances and make caches notify correct registries
+	workload.RegisterHandlers(s.kubeCache, s.wleCache, s.kubeRegistry, s.serviceEntryStore)
 
 	// Defer running of the service controllers.
 	s.addStartFunc(func(stop <-chan struct{}) error {

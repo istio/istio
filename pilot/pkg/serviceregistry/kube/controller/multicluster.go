@@ -16,6 +16,7 @@ package controller
 
 import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pilot/pkg/serviceregistry/workload"
 	"strings"
 	"sync"
 	"time"
@@ -72,11 +73,13 @@ type Multicluster struct {
 	secretController  *secretcontroller.Controller
 	syncInterval      time.Duration
 	serviceEntryStore *serviceentry.ServiceEntryStore
+	kubeCache         workload.Cache
+	wleCache          workload.Cache
 }
 
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
-func NewMulticluster(seStore *serviceentry.ServiceEntryStore, kc kubernetes.Interface, secretNamespace string, opts Options,
+func NewMulticluster(seStore *serviceentry.ServiceEntryStore, kubeCache, wleCache workload.Cache, kc kubernetes.Interface, secretNamespace string, opts Options,
 	serviceController *aggregate.Controller, xds model.XDSUpdater, networksWatcher mesh.NetworksWatcher) (*Multicluster, error) {
 	if opts.ResyncPeriod == 0 {
 		// make sure a resync time of 0 wasn't passed in.
@@ -90,6 +93,8 @@ func NewMulticluster(seStore *serviceentry.ServiceEntryStore, kc kubernetes.Inte
 		serviceController:     serviceController,
 		XDSUpdater:            xds,
 		serviceEntryStore:     seStore,
+		wleCache:              wleCache,
+		kubeCache:             kubeCache,
 		remoteKubeControllers: make(map[string]*kubeController),
 		networksWatcher:       networksWatcher,
 		metrics:               opts.Metrics,
@@ -125,14 +130,11 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 		Metrics:           m.metrics,
 		EndpointMode:      m.endpointMode,
 		SyncInterval:      m.syncInterval,
+		WorkloadCache:     m.wleCache,
 	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubectl := NewController(clients, options)
-	if err := kubectl.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler); err != nil {
-		log.Warnf("error adding WorkloadHandler for %s to ServiceEntry store: %v", clusterID, err)
-	}
-	// TODO add mechanism to remove a workload handler for cluster removal
-	// m.serviceEntryStore.AppendHandler(kubectl.WorkloadInstanceHandler)
+	workload.RegisterHandlers(m.kubeCache, m.wleCache, kubectl, m.serviceEntryStore)
 	remoteKubeController.Controller = kubectl
 	m.serviceController.AddRegistry(kubectl)
 

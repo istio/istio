@@ -123,7 +123,9 @@ type Server struct {
 	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
 
-	workloadCache    workload.Aggregate
+	// workload instance caches
+	wleCache  workload.Cache
+	kubeCache workload.Cache
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache

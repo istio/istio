@@ -71,8 +71,8 @@ type ServiceEntryStore struct { // nolint:golint
 	ip2instance map[string][]*model.ServiceInstance
 	// Endpoints table
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
-	// workload instances from kubernetes pods - map of ip -> workload instance
-	workloadCache workload.Aggregate
+	// workload instances from kubernetes pods
+	workloadCache workload.Cache
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	refreshIndexes            *atomic.Bool
@@ -388,7 +388,7 @@ func (s *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Ev
 	return nil
 }
 
-// AppendHandler adds instance event handler. Service Entries does not use these handlers.
+// AppendWorkloadHandler adds instance event handler. Service Entries does not use these handlers.
 func (s *ServiceEntryStore) AppendWorkloadHandler(h func(*model.WorkloadInstance, model.Event)) error {
 	s.workloadHandlers = append(s.workloadHandlers, h)
 	return nil
@@ -464,7 +464,7 @@ type servicesWithEntry struct {
 	services []*model.Service
 }
 
-// Resync EDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
+// ResyncEDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
 // the config handlers.
 // This should probably not be used in production code.
 func (s *ServiceEntryStore) ResyncEDS() {
@@ -591,7 +591,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	s.storeMutex.Lock()
 	// Second, refresh workload instances(pods)
 	// TODO use new cache instad of workloadInstancesByIP
-	for _, workloadInstance := range s.workloadCache.Kube().All() {
+	for _, workloadInstance := range s.workloadCache.All() {
 		key := configKey{
 			kind:      workloadInstanceConfigType,
 			name:      workloadInstance.Name,
