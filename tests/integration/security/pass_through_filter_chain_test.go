@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/tests/integration/security/util"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
 	epb "istio.io/istio/pkg/test/echo/proto"
@@ -32,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 // TestPassThroughFilterChain tests the authN and authZ policy on the pass through filter chain.
@@ -55,10 +54,10 @@ func TestPassThroughFilterChain(t *testing.T) {
 			}
 
 			for _, cluster := range ctx.Clusters() {
-				aSet := apps.A.Match(echo.Namespace(ns.Name())).Match(echo.InCluster(cluster))
-				bSet := apps.B.Match(echo.Namespace(ns.Name())).Match(echo.InCluster(cluster))
-				cSet := apps.C.Match(echo.Namespace(ns.Name())).Match(echo.InCluster(cluster))
-				dSet := apps.D.Match(echo.Namespace(ns.Name())).Match(echo.InCluster(cluster))
+				a := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
+				b := apps.B.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
+				c := apps.C.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
+				d := apps.D.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
 
 				cases := []struct {
 					target echo.Instance
@@ -70,25 +69,25 @@ func TestPassThroughFilterChain(t *testing.T) {
 					// All requests should success, this is to verify the pass through filter chain and
 					// the workload ports are working correctly.
 					{
-						target: aSet[0],
+						target: a,
 						port:   8085,
 						schema: protocol.HTTP,
 						want:   true,
 					},
 					{
-						target: aSet[0],
+						target: a,
 						port:   8086,
 						schema: protocol.HTTP,
 						want:   true,
 					},
 					{
-						target: aSet[0],
+						target: a,
 						port:   8087,
 						schema: protocol.TCP,
 						want:   true,
 					},
 					{
-						target: aSet[0],
+						target: a,
 						port:   8088,
 						schema: protocol.TCP,
 						want:   true,
@@ -97,25 +96,25 @@ func TestPassThroughFilterChain(t *testing.T) {
 					// For workload b, there is only authZ policy that allows access to port 8085 and 8087.
 					// Only request to port 8085, 8087 should be allowed.
 					{
-						target: bSet[0],
+						target: b,
 						port:   8085,
 						schema: protocol.HTTP,
 						want:   true,
 					},
 					{
-						target: bSet[0],
+						target: b,
 						port:   8086,
 						schema: protocol.HTTP,
 						want:   false,
 					},
 					{
-						target: bSet[0],
+						target: b,
 						port:   8087,
 						schema: protocol.TCP,
 						want:   true,
 					},
 					{
-						target: bSet[0],
+						target: b,
 						port:   8088,
 						schema: protocol.TCP,
 						want:   false,
@@ -124,25 +123,25 @@ func TestPassThroughFilterChain(t *testing.T) {
 					// For workload c, there is only authN policy that enables mTLS (Strict).
 					// The request should be denied because the x is always using plain text.
 					{
-						target: cSet[0],
+						target: c,
 						port:   8085,
 						schema: protocol.HTTP,
 						want:   false,
 					},
 					{
-						target: cSet[0],
+						target: c,
 						port:   8086,
 						schema: protocol.HTTP,
 						want:   false,
 					},
 					{
-						target: cSet[0],
+						target: c,
 						port:   8087,
 						schema: protocol.TCP,
 						want:   false,
 					},
 					{
-						target: cSet[0],
+						target: c,
 						port:   8088,
 						schema: protocol.TCP,
 						want:   false,
@@ -151,25 +150,25 @@ func TestPassThroughFilterChain(t *testing.T) {
 					// For workload d, there is only authN policy that enables mTLS (Permissive).
 					// The request should be allowed because the x is always using plain text.
 					{
-						target: dSet[0],
+						target: d,
 						port:   8085,
 						schema: protocol.HTTP,
 						want:   true,
 					},
 					{
-						target: dSet[0],
+						target: d,
 						port:   8086,
 						schema: protocol.HTTP,
 						want:   true,
 					},
 					{
-						target: dSet[0],
+						target: d,
 						port:   8087,
 						schema: protocol.TCP,
 						want:   true,
 					},
 					{
-						target: dSet[0],
+						target: d,
 						port:   8088,
 						schema: protocol.TCP,
 						want:   true,
@@ -178,8 +177,8 @@ func TestPassThroughFilterChain(t *testing.T) {
 				ctx.NewSubTest(fmt.Sprintf("In %s", cluster.Name())).Run(func(ctx framework.TestContext) {
 					for _, tc := range cases {
 						name := fmt.Sprintf("x->%s:%d[%t]", tc.target.Config().Service, tc.port, tc.want)
-						a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(ns.Name()))[0]
-						from := getWorkload(a, t)
+						x := apps.X.Match(echo.InCluster(cluster)).GetOrFail(ctx, echo.Namespace(ns.Name()))
+						from := getWorkload(x, t)
 						// The request should be handled by the pass through filter chain.
 						host := fmt.Sprintf("%s:%d", getWorkload(tc.target, t).Address(), tc.port)
 						request := &epb.ForwardEchoRequest{

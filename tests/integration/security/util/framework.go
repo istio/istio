@@ -186,7 +186,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			With(nil, newEchoConfigForTestPassThroughFilterChain(BSvc, apps.Namespace2, cluster)).
 			With(nil, newEchoConfigForTestPassThroughFilterChain(CSvc, apps.Namespace2, cluster)).
 			With(nil, newEchoConfigForTestPassThroughFilterChain(DSvc, apps.Namespace2, cluster)).
-			With(nil, newEchoConfigForTestPassThroughFilterChain(ESvc, apps.Namespace2, cluster))
+			With(nil, newEchoConfigForTestPassThroughFilterChain(XSvc, apps.Namespace2, cluster))
 	}
 
 	echos, err := builder.Build()
