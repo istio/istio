@@ -132,6 +132,10 @@ func (c Call) FillDefaults() Call {
 	if c.TLS == "" {
 		c.TLS = Plaintext
 	}
+	if c.Address == "" {
+		// pick a random address, assumption is the test does not care
+		c.Address = "1.3.3.7"
+	}
 	return c
 }
 
