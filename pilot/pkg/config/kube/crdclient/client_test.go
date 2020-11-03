@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -34,6 +35,7 @@ import (
 )
 
 func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache {
+	features.EnableServiceApis = true
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
 		fake.Ext().ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), &apiextensionv1.CustomResourceDefinition{
