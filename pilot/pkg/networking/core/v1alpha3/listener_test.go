@@ -1361,7 +1361,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
 			fc := &tcp_proxy.TcpProxy{}
-			if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
+			if err := getFilterConfig(l.FilterChains[1].Filters[0], fc); err != nil {
 				t.Fatalf("failed to get TCP Proxy config: %s", err)
 			}
 			if fc.AccessLog == nil {
@@ -1393,7 +1393,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 func validateAccessLog(t *testing.T, l *xdsapi.Listener, format string) {
 	t.Helper()
 	fc := &tcp_proxy.TcpProxy{}
-	if err := getFilterConfig(l.FilterChains[0].Filters[0], fc); err != nil {
+	if err := getFilterConfig(l.FilterChains[1].Filters[0], fc); err != nil {
 		t.Fatalf("failed to get TCP Proxy config: %s", err)
 	}
 	if fc.AccessLog == nil {

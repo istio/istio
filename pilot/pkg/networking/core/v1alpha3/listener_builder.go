@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -410,7 +411,22 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	if node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
-	filterChains := make([]*listener.FilterChain, 0, 2)
+	filterChains := make([]*listener.FilterChain, 0, 3)
+	if features.PilotEnableLoopBlockers {
+		filterChains = append(filterChains, &listener.FilterChain{
+			Name: VirtualInboundBlackholeFilterChainName,
+			FilterChainMatch: &listener.FilterChainMatch{
+				DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
+			},
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp_proxy.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				})},
+			}},
+		})
+	}
 
 	needTLS := false
 	for _, clusterName := range ipVersions {
@@ -641,11 +657,25 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
-
-	return []*listener.FilterChain{
-		{
-			Name:    VirtualOutboundCatchAllTCPFilterChainName,
-			Filters: filterStack,
-		},
+	chains := make([]*listener.FilterChain, 0, 2)
+	if features.PilotEnableLoopBlockers {
+		chains = append(chains, &listener.FilterChain{
+			Name: VirtualOutboundBlackholeFilterChainName,
+			FilterChainMatch: &listener.FilterChainMatch{
+				// We should not allow requests to the listen port directly. Requests must be
+				// sent to some other original port and iptables redirected to 15001. This
+				// ensures we do not passthrough back to the listen port.
+				DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyListenPort)},
+			},
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp_proxy.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				})},
+			}},
+		})
 	}
+	chains = append(chains, &listener.FilterChain{Name: VirtualOutboundCatchAllTCPFilterChainName, Filters: filterStack})
+	return chains
 }
