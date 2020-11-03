@@ -49,16 +49,14 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname: "*.domain.example""
+  - hostname: "*.domain.example"
     port: 80
     protocol: HTTP
     routes:
-      routeNamespaces: {}
       kind: HTTPRoute
   - port: 31400
     protocol: TCP
     routes:
-      routeNamespaces: {}
       kind: TCPRoute
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
