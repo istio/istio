@@ -102,12 +102,12 @@ func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHost []str
 	})
 
 	for _, gh := range gatewayHost {
-		if gh == "*" {
+		if gh == util.Wildcard {
 			return true
 		}
 
 		for _, vsh := range vsHost {
-			if gh == vsh {
+			if vsh == util.Wildcard || vsh == gh {
 				return true
 			}
 		}
