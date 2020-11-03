@@ -52,9 +52,7 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname:
-      match: Domain
-      name: domain.example
+  - hostname: "*.domain.example""
     port: 80
     protocol: HTTP
     routes:
