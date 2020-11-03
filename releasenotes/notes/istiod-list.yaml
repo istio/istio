@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 23892
+releaseNotes:
+- |
+  **Added** `istioctl x istiod list` command to show the IOP CRs that define the mesh and their
+  customization parameters.
