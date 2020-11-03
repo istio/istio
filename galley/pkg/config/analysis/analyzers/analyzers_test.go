@@ -264,6 +264,10 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
+
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService cross-test.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService httpbin-bogus"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService httpbin"},
 		},
 	},
 	{
