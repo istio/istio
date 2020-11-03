@@ -428,6 +428,7 @@ var testGrid = []testCase{
 			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-01.default"},
 			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-02.default"},
 			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-03.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-03-test-04.default"},
 		},
 	},
 }
