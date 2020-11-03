@@ -73,6 +73,8 @@ func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string
 		filenames:        filenames,
 		controlPlaneOpts: controlPlaneOpts,
 		logger:           logger,
+		kubeconfig:       kubeconfig,
+		context:          context,
 	}
 }
 
