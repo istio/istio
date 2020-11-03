@@ -358,7 +358,7 @@ messages:
     code: IST0132
     level: Error
     description: "Host defined in VirtualService not found in Gateway object."
-    template: "one or more host %v defined in VirtualService %s not defined in Gateway %s."
+    template: "one or more host %v defined in VirtualService %s not found in Gateway %s."
     args:
       - name: host
         type: "[]string"
