@@ -85,7 +85,7 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, verificationHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, VerifyCRInstallHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
@@ -175,8 +175,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		installationVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
 			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l)
 		if err := installationVerifier.Verify(); err != nil {
-			return fmt.Errorf("verification failed with the following error: %v\n\n"+
-				"Please run `istioctl verify-install` manually", err)
+			return fmt.Errorf("verification failed with the following error: %v", err)
 		}
 	}
 
