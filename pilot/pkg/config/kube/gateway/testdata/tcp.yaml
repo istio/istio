@@ -13,13 +13,12 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname:
-      match: Any
-    port: 34000
+  - port: 34000
     protocol: TCP
     routes:
-      routeNamespaces: {}
-      routeSelector:
+      namespaces:
+        from: All
+      selector:
         matchLabels:
           selected: "yes"
       kind: TCPRoute
@@ -35,3 +34,4 @@ spec:
   rules:
   - forwardTo:
     - serviceName: httpbin
+      port: 9090
