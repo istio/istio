@@ -144,7 +144,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	_ = DetectIstioVersionDiff(cmd, tag, kubeClient, iArgs)
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
-		profile, enabledComponents, err := getProfileAndEnabledComponents(setFlags, iArgs.inFilenames, iArgs.force, iArgs.kubeConfigPath, iArgs.context, l)
+		profile, enabledComponents, err := getProfileAndEnabledComponents(setFlags, iArgs.inFilenames, iArgs.force, l)
 		if err != nil {
 			return fmt.Errorf("failed to get profile and enabled components: %v", err)
 		}
@@ -284,17 +284,12 @@ func GetTagVersion(tagInfo string) (string, error) {
 
 // GetProfileAndEnabledComponents get the profile and all the enabled components
 // from the given input files and --set flag overlays.
-func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, force bool,
-	kubeConfigPath string, context string, l clog.Logger) (string, []string, error) {
+func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, force bool, l clog.Logger) (string, []string, error) {
 	overlayYAML, profile, err := manifest.ReadYamlProfile(inFilenames, setOverlay, force, l)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to read profile: %v", err)
 	}
-	kubeConfig, _, err := InitK8SRestClient(kubeConfigPath, context)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to init kubeconfig: %v", err)
-	}
-	_, iop, err := manifest.GenIOPFromProfile(profile, overlayYAML, setOverlay, force, false, kubeConfig, l)
+	_, iop, err := manifest.GenIOPFromProfile(profile, overlayYAML, setOverlay, force, false, nil, l)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to generate IOP from profile %s: %v", profile, err)
 	}
