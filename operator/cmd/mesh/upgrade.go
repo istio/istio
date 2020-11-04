@@ -261,7 +261,7 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.8")
+var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.9")
 
 func checkSupportedVersions(kubeClient *Client, currentVersion string) error {
 	curGoVersion, err := goversion.NewVersion(currentVersion)
