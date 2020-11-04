@@ -17,7 +17,6 @@ package istiocontrolplane
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -52,7 +51,6 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
@@ -66,9 +64,8 @@ const (
 )
 
 var (
-	scope          = log.RegisterScope("installer", "installer", 0)
-	restConfig     *rest.Config
-	operatorLogger = clog.NewConsoleLogger(ioutil.Discard, ioutil.Discard, scope)
+	scope      = log.RegisterScope("installer", "installer", 0)
+	restConfig *rest.Config
 )
 
 var (
