@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/security/util"
 )
 
 // TestPassThroughFilterChain tests the authN and authZ policy on the pass through filter chain.
@@ -47,11 +46,6 @@ func TestPassThroughFilterChain(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/pass-through-filter-chain.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
-
-			callCount := 1
-			if ctx.Clusters().IsMulticluster() {
-				callCount = util.CallsPerCluster * len(ctx.Clusters())
-			}
 
 			for _, cluster := range ctx.Clusters() {
 				a := apps.A.Match(echo.Namespace(ns.Name())).GetOrFail(ctx, echo.InCluster(cluster))
@@ -183,7 +177,6 @@ func TestPassThroughFilterChain(t *testing.T) {
 						host := fmt.Sprintf("%s:%d", getWorkload(tc.target, t).Address(), tc.port)
 						request := &epb.ForwardEchoRequest{
 							Url:     fmt.Sprintf("%s://%s", tc.schema, host),
-							Count:   int32(callCount),
 							Message: "HelloWorld",
 							Headers: []*epb.Header{
 								{
@@ -204,9 +197,6 @@ func TestPassThroughFilterChain(t *testing.T) {
 									}
 									if tc.schema == protocol.HTTP && response.StatusCodeOK != responses[0].Code {
 										return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, responses[0].Code)
-									}
-									if ctx.Clusters().IsMulticluster() {
-										responses.CheckReachedClusters(ctx.Clusters())
 									}
 								} else {
 									// Check HTTP forbidden response
