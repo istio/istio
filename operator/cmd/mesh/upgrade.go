@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgversion "istio.io/istio/operator/pkg/version"
@@ -170,22 +169,6 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 			currentVersion, targetVersion, err)
 	}
 	l.LogAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
-
-	// Read the overridden IOP from args.inFilenames
-	overrideIOPYaml := ""
-	if args.inFilenames != nil {
-		overrideIOPYaml, err = manifest.ReadLayeredYAMLs(args.inFilenames)
-		if err != nil {
-			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
-		}
-		if overrideIOPYaml != "" {
-			// Grab the IstioOperatorSpec subtree.
-			overrideIOPYaml, err = tpath.GetSpecSubtree(overrideIOPYaml)
-			if err != nil {
-				return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
-			}
-		}
-	}
 
 	// Read the current installation's profile IOP yaml to check the changed profile settings between versions.
 	currentSets := args.set
