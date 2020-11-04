@@ -357,7 +357,7 @@ messages:
   - name: "VirtualServiceHostNotFoundInGateway"
     code: IST0132
     level: Warning
-    description: "Host defined in VirtualService not found in Gateway object."
+    description: "Host defined in VirtualService not found in Gateway."
     template: "one or more host %v defined in VirtualService %s not found in Gateway %s."
     args:
       - name: host
