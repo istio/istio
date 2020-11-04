@@ -140,6 +140,8 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		// For ISTIO_MUTUAL if custom SNI is not provided, use the default SNI name.
 		if len(tls.Sni) == 0 {
 			tlsContext.Sni = sniName
+		} else {
+			tlsContext.Sni = tls.Sni
 		}
 	default:
 		// No TLS.
