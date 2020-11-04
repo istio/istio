@@ -69,6 +69,31 @@ func (c *configManager) ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...st
 	}
 }
 
+func (c *configManager) ApplyYAMLInCluster(cls resource.Cluster, ns string, yamlText ...string) error {
+	if len(c.prefix) == 0 {
+		return c.WithFilePrefix("apply").ApplyYAML(ns, yamlText...)
+	}
+
+	// Convert the content to files.
+	yamlFiles, err := c.ctx.WriteYAML(c.prefix, yamlText...)
+	if err != nil {
+		return err
+	}
+
+	if err := cls.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
+		return fmt.Errorf("failed applying YAML to cluster %s: %v", cls.Name(), err)
+	}
+
+	return nil
+}
+
+func (c *configManager) ApplyYAMLInClusterOrFail(t test.Failer, cls resource.Cluster, ns string, yamlText ...string) {
+	err := c.ApplyYAMLInCluster(cls, ns, yamlText...)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (c *configManager) DeleteYAML(ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
 		return c.WithFilePrefix("delete").DeleteYAML(ns, yamlText...)
