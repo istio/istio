@@ -181,6 +181,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
 
 	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
+	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
@@ -622,6 +623,13 @@ func (s *DiscoveryServer) InjectTemplateHandler(webhook *inject.Webhook) func(ht
 		}
 
 		_, _ = w.Write([]byte(webhook.Config.Template))
+	}
+}
+
+// MeshHandler dumps the mesh config
+func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
+	if err := (&jsonpb.Marshaler{}).Marshal(w, s.Env.Mesh()); err != nil {
+		w.WriteHeader(500)
 	}
 }
 
