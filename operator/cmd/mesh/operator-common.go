@@ -88,7 +88,6 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		Hub               string
 		Tag               string
 		Revision          string
-		VerifyCRInstall   bool
 	}{
 		OperatorNamespace: ocArgs.operatorNamespace,
 		IstioNamespace:    ocArgs.istioNamespace,

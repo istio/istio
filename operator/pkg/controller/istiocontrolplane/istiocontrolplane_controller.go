@@ -323,6 +323,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	if err := reconciler.SetStatusComplete(status); err != nil {
 		return reconcile.Result{}, err
 	}
+
 	return reconcile.Result{}, err
 }
 
