@@ -92,9 +92,9 @@ func validateListenersNoConfig(t *testing.T, response *structpath.Instance) {
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtualOutbound", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
-			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
-			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
+			Equals("envoy.tcp_proxy", "{.filterChains[1].filters[0].name}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.statPrefix}").
 			Equals(true, "{.useOriginalDst}").
 			CheckOrFail(t)
 	})

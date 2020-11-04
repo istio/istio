@@ -92,9 +92,10 @@ const (
 	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
 	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
 
-	// VirtualOutboundTrafficLoopFilterChainName is the name of the filter chain that handles
-	// pod IP traffic loops
-	VirtualOutboundTrafficLoopFilterChainName = "virtualOutbound-trafficloop"
+	// VirtualOutboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
+	VirtualOutboundBlackholeFilterChainName = "virtualOutbound-blackhole"
+	// VirtualInboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
+	VirtualInboundBlackholeFilterChainName = "virtualInbound-blackhole"
 
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
