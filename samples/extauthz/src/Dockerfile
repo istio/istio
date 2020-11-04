@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 # build a ext-authz binary using the golang container
-FROM golang:1.14.2 as builder
+FROM golang:1.15 as builder
 WORKDIR /go/src/istio.io/extauthz/
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o ext-authz main.go
