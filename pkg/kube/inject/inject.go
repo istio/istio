@@ -30,6 +30,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -600,7 +601,7 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarTemplateData) (bytes.Buffer, error) {
 	var tmpl bytes.Buffer
 	temp := template.New("inject")
-	t, err := temp.Funcs(funcMap).Parse(tmplStr)
+	t, err := temp.Funcs(sprig.TxtFuncMap()).Funcs(funcMap).Parse(tmplStr)
 	if err != nil {
 		log.Infof("Failed to parse template: %v %v\n", err, tmplStr)
 		return bytes.Buffer{}, err
