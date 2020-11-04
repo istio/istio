@@ -566,7 +566,6 @@ func TestConfigSelectors(t *testing.T) {
 		// First we fetch all the objects for our default install
 		cname := "istiod"
 		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
-		hpa := mustFindObject(t, objs, cname, name.HPAStr)
 		service := mustFindObject(t, objs, cname, name.ServiceStr)
 		pdb := mustFindObject(t, objs, cname, name.PDBStr)
 		podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
