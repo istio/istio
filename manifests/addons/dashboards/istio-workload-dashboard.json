@@ -254,7 +254,7 @@
               "expr": "sum(irate(istio_requests_total{reporter=\"destination\",destination_workload_namespace=~\"$namespace\",destination_workload=~\"$workload\",response_code!~\"5.*\"}[5m])) / sum(irate(istio_requests_total{reporter=\"destination\",destination_workload_namespace=~\"$namespace\",destination_workload=~\"$workload\"}[5m]))",
               "format": "time_series",
               "intervalFactor": 1,
-              "refId": "B"
+              "refId": "A"
             }
           ],
           "thresholds": "95, 99, 99.5",
@@ -652,7 +652,7 @@
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ source_workload }}.{{ source_workload_namespace }} : {{ response_code }} (🔐mTLS)",
-              "refId": "B",
+              "refId": "A",
               "step": 2
             },
             {
@@ -661,7 +661,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ source_workload }}.{{ source_workload_namespace }} : {{ response_code }}",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             }
           ],
@@ -871,7 +871,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -880,7 +880,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -889,7 +889,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -898,7 +898,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -1033,7 +1033,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1042,7 +1042,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}}  P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -1051,7 +1051,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -1060,7 +1060,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}}  P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -1195,7 +1195,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1204,7 +1204,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}}  P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -1213,7 +1213,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -1222,7 +1222,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}}  P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -1601,7 +1601,7 @@
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} : {{ response_code }} (🔐mTLS)",
-              "refId": "B",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1610,7 +1610,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} : {{ response_code }}",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             }
           ],
@@ -1718,7 +1718,7 @@
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
-              "legendFormat": "{{destination_service }}",
+              "legendFormat": "{{ destination_service }}",
               "refId": "B",
               "step": 2
             }
@@ -1820,7 +1820,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1829,7 +1829,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -1838,7 +1838,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -1847,7 +1847,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -1982,7 +1982,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1991,7 +1991,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -2000,7 +2000,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -2009,7 +2009,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -2144,7 +2144,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -2153,7 +2153,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -2162,7 +2162,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -2171,7 +2171,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }}  P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
