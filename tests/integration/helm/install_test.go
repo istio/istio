@@ -73,7 +73,7 @@ func TestDefaultInstall(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default().(*kube.Cluster)
 			h := helm.New(cs.Filename(), ChartPath)
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
@@ -110,7 +110,7 @@ func TestInstallWithFirstPartyJwt(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default().(*kube.Cluster)
 			h := helm.New(cs.Filename(), ChartPath)
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {

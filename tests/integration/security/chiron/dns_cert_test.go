@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/security/pkg/k8s/controller"
@@ -97,7 +96,7 @@ func TestDNSCertificate(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			var galleySecret, galleySecret2, sidecarInjectorSecret, sidecarInjectorSecret2 *corev1.Secret
 			istio.DefaultConfigOrFail(t, ctx)
-			cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cluster := ctx.Clusters().Default()
 			istioNs := inst.Settings().IstioNamespace
 
 			// Test that DNS certificates have been generated.
