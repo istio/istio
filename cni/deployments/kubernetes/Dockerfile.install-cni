@@ -5,7 +5,7 @@ ARG BASE_DISTRIBUTION=default
 ARG BASE_VERSION=latest
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/istio/base:${BASE_VERSION} as default
+FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 
 LABEL description="Istio CNI plugin installer."
 
