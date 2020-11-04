@@ -52,7 +52,7 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 
 			tfLogger := clog.NewConsoleLogger(ioutil.Discard, ioutil.Discard, scopes.Framework)
 			statusVerifier := verifier.NewStatusVerifier(IstioNamespace, ManifestPath, cs.Filename(),
-				"", []string{}, clioptions.ControlPlaneOptions{}, tfLogger)
+				"", []string{}, clioptions.ControlPlaneOptions{}, tfLogger, nil)
 			if err := statusVerifier.Verify(); err != nil {
 				t.Fatal(err)
 			}

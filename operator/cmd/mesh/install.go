@@ -175,9 +175,9 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
 			return nil
 		}
-		l.LogAndPrint("\nVerifying installation")
+		l.LogAndPrint("\n\nVerifying installation:")
 		installationVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
-			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l)
+			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l, iop)
 		if err := installationVerifier.Verify(); err != nil {
 			return fmt.Errorf("verification failed with the following error: %v", err)
 		}

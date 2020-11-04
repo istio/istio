@@ -57,13 +57,15 @@ type StatusVerifier struct {
 	filenames        []string
 	controlPlaneOpts clioptions.ControlPlaneOptions
 	logger           clog.Logger
+	iop              *v1alpha1.IstioOperator
 }
 
 // NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
+// TODO(su225): This is doing too many things. Refactor: break it down
 func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
-	logger clog.Logger) *StatusVerifier {
+	logger clog.Logger, installedIOP *v1alpha1.IstioOperator) *StatusVerifier {
 	if logger == nil {
 		logger = clog.NewDefaultLogger()
 	}
@@ -75,12 +77,16 @@ func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string
 		logger:           logger,
 		kubeconfig:       kubeconfig,
 		context:          context,
+		iop:              installedIOP,
 	}
 }
 
 // Verify implements Verifier interface. Here we check status of deployment
 // and jobs, count various resources for verification.
 func (v *StatusVerifier) Verify() error {
+	if v.iop != nil {
+		return v.verifyFinalIOP()
+	}
 	if len(v.filenames) == 0 {
 		return v.verifyInstallIOPRevision()
 	}
@@ -97,6 +103,12 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	}
 	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
 		iop, fmt.Sprintf("in cluster operator %s", iop.GetName()))
+	return v.reportStatus(crdCount, istioDeploymentCount, err)
+}
+
+func (v *StatusVerifier) verifyFinalIOP() error {
+	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
+		v.iop, fmt.Sprintf("IOP:%s", v.iop.GetName()))
 	return v.reportStatus(crdCount, istioDeploymentCount, err)
 }
 
@@ -299,7 +311,7 @@ func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err er
 		v.logger.LogAndPrintf("! No Istio installation found")
 		return fmt.Errorf("no Istio installation found")
 	}
-	v.logger.LogAndPrintf("✔ Istio is installed successfully")
+	v.logger.LogAndPrintf("✔ Istio is installed and verified successfully")
 	return nil
 }
 
