@@ -259,7 +259,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{reporter=\"destination\", response_code=~\"4.*\"}[1m])) ",
+          "expr": "sum(irate(istio_requests_total{reporter=\"destination\", response_code=~\"4.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -340,7 +340,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{reporter=\"destination\", response_code=~\"5.*\"}[1m])) ",
+          "expr": "sum(irate(istio_requests_total{reporter=\"destination\", response_code=~\"5.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -1231,7 +1231,7 @@
           "instant": true,
           "intervalFactor": 1,
           "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
-          "refId": "D"
+          "refId": "C"
         },
         {
           "expr": "label_join((histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{reporter=\"destination\"}[1m])) by (le, destination_workload, destination_workload_namespace)) / 1000) or histogram_quantile(0.99, sum(rate(istio_request_duration_seconds_bucket{reporter=\"destination\"}[1m])) by (le, destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
@@ -1240,7 +1240,7 @@
           "instant": true,
           "intervalFactor": 1,
           "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
-          "refId": "E"
+          "refId": "D"
         },
         {
           "expr": "label_join((sum(rate(istio_requests_total{reporter=\"destination\", response_code!~\"5.*\"}[1m])) by (destination_workload, destination_workload_namespace) / sum(rate(istio_requests_total{reporter=\"destination\"}[1m])) by (destination_workload, destination_workload_namespace)), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
@@ -1250,7 +1250,7 @@
           "interval": "",
           "intervalFactor": 1,
           "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
-          "refId": "F"
+          "refId": "E"
         }
       ],
       "timeFrom": null,
@@ -1408,7 +1408,7 @@
           "instant": true,
           "intervalFactor": 1,
           "legendFormat": "{{ destination_workload }}",
-          "refId": "C"
+          "refId": "A"
         },
         {
           "expr": "label_join(sum(rate(istio_tcp_sent_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
@@ -1417,7 +1417,7 @@
           "instant": true,
           "intervalFactor": 1,
           "legendFormat": "{{ destination_workload }}",
-          "refId": "A"
+          "refId": "B"
         }
       ],
       "timeFrom": null,
