@@ -22,7 +22,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -419,7 +418,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 				DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
 			},
 			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
+				Name: xdsutil.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp_proxy.TcpProxy{
 					StatPrefix:       util.BlackHoleCluster,
 					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
@@ -668,7 +667,7 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 				DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyListenPort)},
 			},
 			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
+				Name: xdsutil.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp_proxy.TcpProxy{
 					StatPrefix:       util.BlackHoleCluster,
 					ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
