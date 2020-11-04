@@ -10,7 +10,7 @@ will provide further instructions. Additionally, please read the RFC requirement
 
 ## Vendor optimized profiles
 
-| K8s Platform         | Vendor        | Lead Maintainer | Lead Maintainer  |
-| -------------------- | ------------- | --------------- | ---------------- |
-| OpenShift            | Red Hat / IBM | @jwendell       | @irisdingbj      |
-| Upstream Kubernetes  | Istio         | Env WG          | discuss.istio.io |
+|Profile Name | K8s Platform         | Vendor        | Lead Maintainer | Lead Maintainer  |
+|-------------| -------------------- | ------------- | --------------- | ---------------- |
+|openshift| OpenShift            | Red Hat / IBM | @jwendell       | @irisdingbj      |
+|| Upstream Kubernetes  | Istio         | Env WG          | discuss.istio.io |
