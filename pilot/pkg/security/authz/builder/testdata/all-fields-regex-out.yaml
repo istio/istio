@@ -24,6 +24,7 @@ typedConfig:
                 - header:
                     name: :authority
                     safeRegexMatch:
+                      googleRe2: {}
                       regex: regexp
             - notRule:
                 orRules:
@@ -43,6 +44,7 @@ typedConfig:
                   - header:
                       name: :authority
                       safeRegexMatch:
+                        googleRe2: {}
                         regex: not-regexp
             - orRules:
                 rules:
@@ -61,6 +63,7 @@ typedConfig:
                 - header:
                     name: :method
                     safeRegexMatch:
+                      googleRe2: {}
                       regex: method-regexp
             - notRule:
                 orRules:
@@ -80,6 +83,7 @@ typedConfig:
                   - header:
                       name: :method
                       safeRegexMatch:
+                        googleRe2: {}
                         regex: not-method-regexp
             - orRules:
                 rules:
@@ -590,6 +594,7 @@ typedConfig:
                 - header:
                     name: X-header
                     safeRegexMatch:
+                      googleRe2: {}
                       regex: header-regexp
             - notId:
                 orIds:
@@ -609,6 +614,7 @@ typedConfig:
                   - header:
                       name: X-header
                       safeRegexMatch:
+                        googleRe2: {}
                         regex: not-header-regexp
             - orIds:
                 ids:
@@ -1280,4 +1286,4 @@ typedConfig:
                             stringMatch:
                               safeRegex:
                                 googleRe2: {}
-                                regex: .+                      
+                                regex: .+

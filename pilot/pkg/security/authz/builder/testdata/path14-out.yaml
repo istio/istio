@@ -24,6 +24,7 @@ typedConfig:
                 - header:
                     name: :path
                     safeRegexMatch:
+                      googleRe2: {}
                       regex: regexp
             - notRule:
                 orRules:
@@ -43,6 +44,7 @@ typedConfig:
                   - header:
                       name: :path
                       safeRegexMatch:
+                        googleRe2: {}
                         regex: not-regexp
         principals:
         - andIds:

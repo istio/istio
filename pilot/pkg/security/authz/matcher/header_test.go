@@ -76,6 +76,9 @@ func TestHeaderMatcher(t *testing.T) {
 				Name: ":path",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
 					SafeRegexMatch: &matcherpb.RegexMatcher{
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
 						Regex: `\/productpage\/[0-9]?`,
 					},
 				},
@@ -97,9 +100,10 @@ func TestHeaderMatcher(t *testing.T) {
 
 func TestPathMatcher(t *testing.T) {
 	testCases := []struct {
-		Name   string
-		V      string
-		Expect *matcherpb.PathMatcher
+		Name        string
+		V           string
+		enableRegex bool
+		Expect      *matcherpb.PathMatcher
 	}{
 		{
 			Name: "exact match",
@@ -158,14 +162,48 @@ func TestPathMatcher(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:        "Regex match enabled",
+			V:           "regex:regexp[0-9]?",
+			enableRegex: true,
+			Expect: &matcherpb.PathMatcher{
+				Rule: &matcherpb.PathMatcher_Path{
+					Path: &matcherpb.StringMatcher{
+						MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+							SafeRegex: &matcherpb.RegexMatcher{
+								Regex: "regexp[0-9]?",
+								EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Regex match disabled",
+			V:    "regex:regexp[0-9]?",
+			Expect: &matcherpb.PathMatcher{
+				Rule: &matcherpb.PathMatcher_Path{
+					Path: &matcherpb.StringMatcher{
+						MatchPattern: &matcherpb.StringMatcher_Exact{
+							Exact: "regex:regexp[0-9]?",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
+		features.EnableAuthzRegexMatching = tc.enableRegex
 		t.Run(tc.Name, func(t *testing.T) {
 			actual := PathMatcher(tc.V)
 			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
 				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
 			}
 		})
+		features.EnableAuthzRegexMatching = false
 	}
 }

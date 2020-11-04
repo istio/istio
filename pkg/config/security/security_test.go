@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/security"
 )
 
@@ -89,9 +90,10 @@ func TestParseJwksURI(t *testing.T) {
 
 func TestValidateCondition(t *testing.T) {
 	cases := []struct {
-		key       string
-		values    []string
-		wantError bool
+		key         string
+		values      []string
+		wantError   bool
+		enableRegex bool
 	}{
 		{
 			key:       "request.headers[:authority]",
@@ -106,6 +108,21 @@ func TestValidateCondition(t *testing.T) {
 			key:       "request.headers[]",
 			values:    []string{"productpage"},
 			wantError: true,
+		},
+		{
+			enableRegex: true,
+			key:         "request.headers[:authority]",
+			values:      []string{"productpage"},
+		},
+		{
+			enableRegex: true,
+			key:         "request.headers[:authority]",
+			values:      []string{"regex:productpage[0-9]?"},
+		},
+		{
+			enableRegex: true,
+			key:         "request.headers[:authority]",
+			values:      []string{"regex:/productpage[0-9]?"},
 		},
 		{
 			key:    "source.ip",
@@ -130,6 +147,11 @@ func TestValidateCondition(t *testing.T) {
 			values: []string{"value"},
 		},
 		{
+			enableRegex: true,
+			key:         "source.namespace",
+			values:      []string{"regex:value[0-9]?"},
+		},
+		{
 			key:       "source.user",
 			values:    []string{"value"},
 			wantError: true,
@@ -137,6 +159,11 @@ func TestValidateCondition(t *testing.T) {
 		{
 			key:    "source.principal",
 			values: []string{"value"},
+		},
+		{
+			enableRegex: true,
+			key:         "source.principal",
+			values:      []string{"value"},
 		},
 		{
 			key:    "request.auth.principal",
@@ -212,9 +239,11 @@ func TestValidateCondition(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
+		features.EnableAuthzRegexMatching = c.enableRegex
 		err := security.ValidateAttribute(c.key, c.values)
 		if c.wantError == (err == nil) {
 			t.Fatalf("ValidateAttribute(%s): want error (%v) but got (%v)", c.key, c.wantError, err)
 		}
+		features.EnableAuthzRegexMatching = false
 	}
 }

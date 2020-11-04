@@ -855,11 +855,11 @@ func TestAuthorization_TCP(t *testing.T) {
 					ServiceAccount: true,
 				}).
 				With(&f, echo.Config{
-						Namespace:      ns,
-						Service:        "f",
-						Ports:          ports,
-						ServiceAccount: true,
-					}).
+					Namespace:      ns,
+					Service:        "f",
+					Ports:          ports,
+					ServiceAccount: true,
+				}).
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, port string, expectAllowed bool, scheme scheme.Instance) rbacUtil.TestCase {
@@ -1202,7 +1202,7 @@ func TestAuthorization_Path(t *testing.T) {
 				newTestCase("/regexp", false),
 				newTestCase("/regexp/", true),
 				newTestCase("/regexp/0", true),
-				newTestCase("/regexp/12",  false),
+				newTestCase("/regexp/12", false),
 				newTestCase("/regexp/a", false),
 				newTestCase("/regexp/0/123", false),
 			}
