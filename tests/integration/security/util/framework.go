@@ -43,6 +43,7 @@ const (
 )
 
 type EchoDeployments struct {
+	// TODO: Consolidate the echo config and reduce/reuse echo instances (https://github.com/istio/istio/issues/28599)
 	// Namespace1 is used as the default namespace for reachability tests and other tests which share the same config
 	Namespace1 namespace.Instance
 	// Namespace2 is used for echos used by TestPassThroughFilterChain
