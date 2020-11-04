@@ -5,4 +5,4 @@ issue:
 - 21715
 releaseNotes:
 - |
-  **Added** post-install verification of control plane health. Add `--verify` to `istioctl install` command.
+  **Added** post-install/in-place upgrade verification of control plane health. Use `--verify` flag to `istioctl install` or `istioctl upgrade`

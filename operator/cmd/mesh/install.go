@@ -164,13 +164,17 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	iop, err := InstallManifests(applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision), iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
+	iop, err := InstallManifests(setFlags, iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
 		iArgs.kubeConfigPath, iArgs.context, iArgs.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
 	if iArgs.verify {
+		if rootArgs.dryRun {
+			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
+			return nil
+		}
 		l.LogAndPrint("\nVerifying installation")
 		installationVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
 			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l)
