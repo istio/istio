@@ -32,7 +32,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/verifier"
-	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
@@ -204,7 +203,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
 	}
-	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPYaml, overrideIOPYaml, l)
+	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPYaml, l)
 
 	waitForConfirmation(args.skipConfirmation && !rootArgs.dryRun, l)
 
@@ -259,8 +258,8 @@ func releaseURLFromVersion(version string) string {
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
-func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l clog.Logger) {
-	diff := compare.YAMLCmpWithIgnore(curIOPS, tarIOPS, nil, ignoreIOPS)
+func checkUpgradeIOPS(curIOPS, tarIOPS string, l clog.Logger) {
+	diff := util.YAMLDiff(curIOPS, tarIOPS)
 	if util.IsYAMLEqual(curIOPS, tarIOPS) {
 		l.LogAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
