@@ -87,6 +87,7 @@ func buildExtAuthz(configs []*meshconfig.MeshConfig_ExtensionProvider, providers
 		}
 		var parsed *builtExtAuthz
 		var err error
+		// TODO(yangminzhu): Refactor and cache the ext_authz config.
 		switch p := config.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
 			parsed, err = buildExtAuthzHTTP(p.EnvoyExtAuthzHttp)

@@ -219,7 +219,8 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, providers []string) []*httppb.Htt
 		}
 	}
 	// Add the RBAC filter in shadow mode so that it only evaluates the matching rules for CUSTOM action but not enforce it.
-	// The evaluation result is stored in the dynamic metadata keyed by the policy name.
+	// The evaluation result is stored in the dynamic metadata keyed by the policy name. And then the ext_authz filter
+	// can utilize these metadata to trigger the enforcement conditionally.
 	// See https://docs.google.com/document/d/1V4mCQCw7mlGp0zSQQXYoBdbKMDnkPOjeyUb85U07iSI/edit#bookmark=kix.jdq8u0an2r6s
 	// for more details.
 	rbac := &rbachttppb.RBAC{ShadowRules: rules}
