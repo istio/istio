@@ -155,8 +155,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			pushEv := &Event{pushRequest: &model.PushRequest{ConfigsUpdated: tt.configs}}
-			got := ProxyNeedsPush(tt.proxy, pushEv)
+			got := ProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}

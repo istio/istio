@@ -293,7 +293,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			// was getting the initial config, between LDS and RDS, the push will miss the
 			// monitored 'routes'. Same for CDS/EDS interval. It is very tricky to handle
 			// due to the protocol - but the periodic push recovers from it.
-			err := s.pushConnection(con, pushEv)
+			err := s.pushConnection(con, pushEv.pushRequest)
 			pushEv.done()
 			if err != nil {
 				return err
@@ -601,15 +601,13 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.
-func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
-	pushRequest := pushEv.pushRequest
-
+func (s *DiscoveryServer) pushConnection(con *Connection, pushRequest *model.PushRequest) error {
 	if pushRequest.Full {
 		// Update Proxy with current information.
 		s.updateProxy(con.proxy, pushRequest.Push)
 	}
 
-	if !ProxyNeedsPush(con.proxy, pushEv) {
+	if !ProxyNeedsPush(con.proxy, pushRequest) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
@@ -652,7 +650,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
 			adsLog.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 			con.proxy.Lock()
-			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].Merge(pushEv.pushRequest)
+			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].Merge(pushRequest)
 			con.proxy.Unlock()
 		}
 	}
