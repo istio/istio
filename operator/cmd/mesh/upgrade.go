@@ -243,7 +243,7 @@ func releaseURLFromVersion(version string) string {
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
 func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l clog.Logger) {
 	diff := compare.YAMLCmpWithIgnore(curIOPS, tarIOPS, nil, ignoreIOPS)
-	if diff == "" {
+	if util.IsYAMLEqual(curIOPS, tarIOPS) {
 		l.LogAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
 		l.LogAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
