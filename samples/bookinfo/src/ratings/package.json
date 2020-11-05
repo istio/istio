@@ -4,7 +4,7 @@
   },
   "dependencies": {
     "httpdispatcher": "1.0.0",
-    "mongodb": "^2.2.31",
+    "mongodb": "^3.6.1",
     "mysql": "^2.15.0"
   }
 }
