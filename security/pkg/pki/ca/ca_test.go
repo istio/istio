@@ -609,7 +609,7 @@ func TestSignWithCertChain(t *testing.T) {
 	}
 }
 
-func TestGenKeyCert(t *testing.T) {
+func TestGenKeyCertNoLifetimeCheck(t *testing.T) {
 	cases := map[string]struct {
 		rootCertFile    string
 		certChainFile   string
@@ -630,7 +630,7 @@ func TestGenKeyCert(t *testing.T) {
 		},
 	}
 	defaultWorkloadCertTTL := 30 * time.Minute
-	maxWorkloadCertTTL := 3650 * 24 * time.Hour
+	maxWorkloadCertTTL := 24 * time.Hour
 	rsaKeySize := 2048
 
 	for id, tc := range cases {
@@ -648,7 +648,7 @@ func TestGenKeyCert(t *testing.T) {
 			t.Fatalf("failed to create a plugged-cert CA.")
 		}
 
-		certPEM, privPEM, err := ca.GenKeyCert([]string{"host1", "host2"}, 3650*24*time.Hour)
+		certPEM, privPEM, err := ca.GenKeyCertNoLifetimeCheck([]string{"host1", "host2"}, 3650*24*time.Hour)
 		if err != nil {
 			t.Errorf("%s: GenKeyCert error: %v", id, err)
 		}
