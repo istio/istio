@@ -32,8 +32,6 @@ import (
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/config/event"
-	"istio.io/istio/pkg/mcp/monitoring"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 func TestProcessing_StartErrors(t *testing.T) {
@@ -96,9 +94,6 @@ func TestProcessing_Basic(t *testing.T) {
 
 	mk.AddResponse(cl, nil)
 	newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
-	mcpMetricReporter = func(s string) monitoring.Reporter {
-		return mcptestmon.NewInMemoryStatsContext()
-	}
 	meshcfgNewFS = func(path string) (event.Source, error) { return mesh.NewInmemoryMeshCfg(), nil }
 
 	args := settings.DefaultArgs()
