@@ -16,6 +16,10 @@ spec:
       controlPlaneAuthPolicy: NONE
       proxyMetadata:
         TERMINATION_DRAIN_DURATION_SECONDS: "120"
+    accessLogFormat: |
+      {
+        "key": "val"
+      }
   components:
     pilot:
       enabled: true
