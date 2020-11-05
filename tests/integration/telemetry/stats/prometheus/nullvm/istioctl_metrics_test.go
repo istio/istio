@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioctl
+package nullvm
 
 import (
 	"errors"
@@ -23,9 +23,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
@@ -44,17 +42,6 @@ func TestIstioctlMetrics(t *testing.T) {
 				return validateDefaultOutput(t, ctx, "server")
 			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 		})
-}
-
-// We expect this suite to be more fully fleshed out as more functionality
-// is added to istioctl experimental metrics and support for non-default
-// output formats is added.
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(common.GetIstioInstance(), nil)).
-		Setup(common.TestSetup).
-		Run()
 }
 
 func validateDefaultOutput(t *testing.T, ctx framework.TestContext, workload string) error { // nolint:interfacer

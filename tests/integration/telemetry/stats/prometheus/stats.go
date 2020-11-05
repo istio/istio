@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/features"
@@ -38,6 +39,7 @@ var (
 	ist            istio.Instance
 	appNsInst      namespace.Instance
 	promInst       prometheus.Instance
+	ingrInst       []ingress.Instance
 )
 
 const (
@@ -59,6 +61,19 @@ func GetAppNamespace() namespace.Instance {
 // GetPromInstance gets prometheus instance.
 func GetPromInstance() prometheus.Instance {
 	return promInst
+}
+
+// GetIngressInstance gets ingress instance of default cluster.
+func GetIngressInstance() []ingress.Instance {
+	return ingrInst
+}
+
+func GetServerInstances() echo.Instances {
+	return server
+}
+
+func GetClientInstances() echo.Instances {
+	return client
 }
 
 // TestStatsFilter includes common test logic for stats and mx exchange filters running
@@ -122,7 +137,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 // TestSetup set up echo app for stats testing.
 func TestSetup(ctx resource.Context) (err error) {
 	appNsInst, err = namespace.New(ctx, namespace.Config{
-		Prefix: "echo",
+		Prefix: "dashboard",
 		Inject: true,
 	})
 	if err != nil {
@@ -155,6 +170,7 @@ func TestSetup(ctx resource.Context) (err error) {
 						Protocol: protocol.TCP,
 						// We use a port > 1024 to not require root
 						InstancePort: 9000,
+						ServicePort:  9000,
 					},
 				},
 			}).
@@ -167,6 +183,9 @@ func TestSetup(ctx resource.Context) (err error) {
 	client = echos.Match(echo.Service("client"))
 	server = echos.Match(echo.Service("server"))
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
+	for _, cl := range ctx.Clusters() {
+		ingrInst = append(ingrInst, ist.IngressFor(cl))
+	}
 	if err != nil {
 		return
 	}
