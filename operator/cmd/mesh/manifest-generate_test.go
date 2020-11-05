@@ -573,7 +573,7 @@ func TestConfigSelectors(t *testing.T) {
 		// Next we fetch all the objects for a revision install
 		nameRev := "istiod-canary"
 		deploymentRev := mustFindObject(t, objsRev, nameRev, name.DeploymentStr)
-		hpaRev := mustFindObject(t, objs, nameRev, name.HPAStr)
+		hpaRev := mustFindObject(t, objsRev, nameRev, name.HPAStr)
 		serviceRev := mustFindObject(t, objsRev, nameRev, name.ServiceStr)
 		pdbRev := mustFindObject(t, objsRev, nameRev, name.PDBStr)
 		podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
