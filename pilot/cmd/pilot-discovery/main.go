@@ -37,12 +37,6 @@ import (
 	"istio.io/pkg/version"
 )
 
-const (
-	defaultMCPMaxMessageSize        = 1024 * 1024 * 4 // default gRPC maximum message size
-	defaultMCPInitialConnWindowSize = 1024 * 1024     // default gRPC InitialWindowSize
-	defaultMCPInitialWindowSize     = 1024 * 1024     // default gRPC ConnWindowSize
-)
-
 var (
 	serverArgs *bootstrap.PilotArgs
 
@@ -130,14 +124,6 @@ func init() {
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
 		"comma separated list of networking plugins to enable")
-
-	// MCP client flags
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.MaxMessageSize, "mcpMaxMsgSize", defaultMCPMaxMessageSize,
-		"Max message size received by MCP's gRPC client")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialWindowSize, "mcpInitialWindowSize", defaultMCPInitialWindowSize,
-		"Initial window size for MCP's gRPC connection")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPOptions.InitialConnWindowSize, "mcpInitialConnWindowSize", defaultMCPInitialConnWindowSize,
-		"Initial connection window size for MCP's gRPC connection")
 
 	// RegistryOptions Controller options
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.RegistryOptions.FileDir, "configDir", "",
