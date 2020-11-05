@@ -23,6 +23,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/client-go/rest"
+
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
@@ -33,6 +35,10 @@ import (
 )
 
 type manifestGenerateArgs struct {
+	// kubeConfigPath is the path to kube config file.
+	kubeConfigPath string
+	// context is the cluster context in the kube config.
+	context string
 	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilename []string
 	// outFilename is the path to the generated output directory.
@@ -51,6 +57,8 @@ type manifestGenerateArgs struct {
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
+	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path.")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
@@ -96,8 +104,17 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 	if err := configLogs(logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
+	var restConfig *rest.Config
+	var err error
+	if mgArgs.kubeConfigPath != "" || mgArgs.context != "" {
+		restConfig, _, _, err = K8sConfig(mgArgs.kubeConfigPath, mgArgs.context)
+		if err != nil {
+			return err
+		}
+	}
 
-	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, restConfig, l)
+
 	if err != nil {
 		return err
 	}
