@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 type FileFilter func(fileName string) bool
@@ -139,4 +141,20 @@ func RenderTemplate(tmpl string, ts interface{}) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+// PrettyDiff decorate output with color like git diff
+func PrettyDiff(diff string) []string {
+	lines := strings.Split(diff, "\n")
+	coloredLines := []string{}
+	for _, line := range lines {
+		coloredLine := line
+		if strings.HasPrefix(line, "+") {
+			coloredLine = color.New(color.FgGreen).Sprintln(line)
+		} else if strings.HasPrefix(line, "-") {
+			coloredLine = color.New(color.FgRed).Sprintln(line)
+		}
+		coloredLines = append(coloredLines, coloredLine)
+	}
+	return coloredLines
 }

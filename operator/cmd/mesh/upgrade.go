@@ -247,7 +247,7 @@ func checkUpgradeIOPS(curIOPS, tarIOPS string, l clog.Logger) {
 		l.LogAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
 		l.LogAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
-			"Please double check they are correct:\n%s", diff)
+			"Please double check they are correct:\n%s", strings.Join(util.PrettyDiff(diff), "\n"))
 	}
 }
 
