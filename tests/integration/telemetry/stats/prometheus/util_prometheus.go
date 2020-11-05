@@ -28,19 +28,19 @@ import (
 )
 
 // QueryPrometheus queries prometheus and returns the result once the query stabilizes
-func QueryPrometheus(t *testing.T, cluster resource.Cluster, query string, promInst prometheus.Instance) error {
+func QueryPrometheus(t *testing.T, cluster resource.Cluster, query string, promInst prometheus.Instance) (string, error) {
 	t.Logf("query prometheus with: %v", query)
 	val, err := promInst.WaitForQuiesceForCluster(cluster, query)
 	if err != nil {
-		return err
+		return "", err
 	}
 	got, err := promInst.Sum(val, nil)
 	if err != nil {
 		t.Logf("value: %s", val.String())
-		return fmt.Errorf("could not find metric value: %v", err)
+		return "", fmt.Errorf("could not find metric value: %v", err)
 	}
 	t.Logf("get value %v", got)
-	return nil
+	return val.String(), nil
 }
 
 // QueryFirstPrometheus queries prometheus and returns the result once a timeseries exists
