@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/operator/pkg/helm"
