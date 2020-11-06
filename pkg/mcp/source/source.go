@@ -27,9 +27,6 @@ type Request struct {
 	// Most recent version was that ACK/NACK'd by the sink
 	VersionInfo string
 	SinkNode    *mcp.SinkNode
-
-	// hidden
-	incremental bool
 }
 
 // WatchResponse contains a versioned collection of pre-serialized resources.
