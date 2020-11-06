@@ -79,7 +79,6 @@ var (
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
 		GatewayUDSPath:    "",
@@ -93,7 +92,6 @@ func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 	cf := plugin.CreateMockPlugin(FirstPartyJwt)
 
 	arg := ca2.Options{
-		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
 		GatewayUDSPath:    "",
@@ -109,7 +107,6 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 	cf := plugin.CreateMockPlugin(emptyToken)
 
 	arg := ca2.Options{
-		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
 		GatewayUDSPath:    "",
@@ -133,7 +130,7 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	wst := &mockSecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(&arg, wst, nil)
+	server, err := NewServer(&arg, wst)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -149,31 +146,8 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	checkStaledConnCount(t)
 }
 
-func TestStreamSecretsForGatewaySds(t *testing.T) {
-	arg := ca2.Options{
-		EnableGatewaySDS:  true,
-		EnableWorkloadSDS: false,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:   "",
-	}
-	testHelper(t, arg, sdsRequestStream, false)
-}
-
-func TestStreamSecretsForBothSds(t *testing.T) {
-	arg := ca2.Options{
-		EnableGatewaySDS:  true,
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-	}
-	testHelper(t, arg, sdsRequestStream, false)
-}
-
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
 		GatewayUDSPath:    "",
@@ -182,31 +156,8 @@ func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
-func TestFetchSecretsForGatewaySds(t *testing.T) {
-	arg := ca2.Options{
-		EnableGatewaySDS:  true,
-		EnableWorkloadSDS: false,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:   "",
-	}
-	testHelper(t, arg, sdsRequestFetch, false)
-}
-
-func TestFetchSecretsForBothSds(t *testing.T) {
-	arg := ca2.Options{
-		EnableGatewaySDS:  true,
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
-	}
-	testHelper(t, arg, sdsRequestFetch, false)
-}
-
 func TestStreamSecretsInvalidResourceName(t *testing.T) {
 	arg := ca2.Options{
-		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
 		GatewayUDSPath:    "",
@@ -219,7 +170,7 @@ type secretCallback func(string, *discovery.DiscoveryRequest) (*discovery.Discov
 
 func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidResourceNames bool) {
 	resetEnvironments()
-	var wst, gst ca2.SecretManager
+	var wst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
 			checkToken:    true,
@@ -228,15 +179,7 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	} else {
 		wst = nil
 	}
-	if arg.EnableGatewaySDS {
-		gst = &mockSecretStore{
-			checkToken: false,
-		}
-	} else {
-		gst = nil
-	}
-
-	server, err := NewServer(&arg, wst, gst)
+	server, err := NewServer(&arg, wst)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -256,10 +199,6 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 		recycleConnection(getClientConID(proxyID), testResourceName)
 		recycleConnection(getClientConID(proxyID), "ROOTCA")
 	}
-	if arg.EnableGatewaySDS {
-		sendRequestAndVerifyResponse(t, cb, arg.GatewayUDSPath, proxyID, testInvalidResourceNames)
-		recycleConnection(getClientConID(proxyID), testResourceName)
-	}
 	// Check to make sure number of staled connections is 0.
 	checkStaledConnCount(t)
 }
@@ -276,7 +215,7 @@ func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallbac
 		wst = nil
 	}
 
-	server, err := NewServer(&arg, wst, nil)
+	server, err := NewServer(&arg, wst)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -424,7 +363,6 @@ func verifyResponseForEmptyToken(err error) bool {
 
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	arg := ca2.Options{
-		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Second,
 		WorkloadUDSPath:   socket,
@@ -432,7 +370,7 @@ func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	st := &mockSecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(&arg, st, nil)
+	server, err := NewServer(&arg, st)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
@@ -1166,7 +1104,6 @@ func (ms *mockSecretStore) ShouldWaitForGatewaySecret(connectionID, resourceName
 }
 
 func TestDebugEndpoints(t *testing.T) {
-
 	tests := []struct {
 		proxies []string
 	}{
@@ -1178,7 +1115,6 @@ func TestDebugEndpoints(t *testing.T) {
 	for _, tc := range tests {
 		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 		arg := ca2.Options{
-			EnableGatewaySDS:  false,
 			EnableWorkloadSDS: true,
 			RecycleInterval:   30 * time.Second,
 			WorkloadUDSPath:   socket,
@@ -1191,7 +1127,7 @@ func TestDebugEndpoints(t *testing.T) {
 		sdsClients = map[cache.ConnKey]*sdsConnection{}
 		sdsClientsMutex.Unlock()
 
-		server, err := NewServer(&arg, st, nil)
+		server, err := NewServer(&arg, st)
 		if err != nil {
 			t.Fatalf("failed to start grpc server for sds: %v", err)
 		}

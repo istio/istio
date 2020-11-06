@@ -115,9 +115,6 @@ type Options struct {
 	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
 	EnableWorkloadSDS bool
 
-	// EnableGatewaySDS indicates whether node agent works as ingress gateway agent.
-	EnableGatewaySDS bool
-
 	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
 	// from the UDS caller. Used when it runs in the same container with Envoy.
 	UseLocalJWT bool

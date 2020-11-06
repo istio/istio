@@ -27,7 +27,6 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/dns"
-	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/security"
@@ -233,21 +232,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 		sa.WorkloadSecrets, _ = sa.newWorkloadSecretCache()
 	}
 
-	var gatewaySecretCache *cache.SecretCache
-	if !isSidecar {
-		if gatewaySdsExists() {
-			log.Infof("Starting gateway SDS")
-			sa.secOpts.EnableGatewaySDS = true
-			// TODO: what is the setting for ingress ?
-			sa.secOpts.GatewayUDSPath = strings.TrimPrefix(model.CredentialNameSDSUdsPath, "unix:")
-			gatewaySecretCache = sa.newSecretCache(podNamespace)
-		} else {
-			log.Infof("Skipping gateway SDS")
-			sa.secOpts.EnableGatewaySDS = false
-		}
-	}
-
-	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets, gatewaySecretCache)
+	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -298,13 +283,6 @@ func (sa *Agent) GetLocalXDSGeneratorListener() net.Listener {
 		return sa.localXDSGenerator.listener
 	}
 	return nil
-}
-
-func gatewaySdsExists() bool {
-	p := strings.TrimPrefix(model.CredentialNameSDSUdsPath, "unix:")
-	dir := path.Dir(p)
-	_, err := os.Stat(dir)
-	return !os.IsNotExist(err)
 }
 
 // explicit code to determine the root CA to be configured in bootstrap file.
