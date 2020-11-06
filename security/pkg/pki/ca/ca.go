@@ -308,10 +308,9 @@ func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
 }
 
-// GenKeyCertNoLifetimeCheck generates a certificate signed by the CA,
+// GenKeyCert generates a certificate signed by the CA,
 // returns the certificate chain and the private key.
-// Max cert lifetime check is skipped. This is only for issuing certificates to Istio managed services.
-func (ca *IstioCA) GenKeyCertNoLifetimeCheck(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
+func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration, checkLifetime bool) ([]byte, []byte, error) {
 	opts := util.CertOptions{
 		RSAKeySize: rsaKeySize,
 	}
@@ -328,7 +327,7 @@ func (ca *IstioCA) GenKeyCertNoLifetimeCheck(hostnames []string, certTTL time.Du
 		return nil, nil, err
 	}
 
-	certPEM, err := ca.signWithCertChain(csrPEM, hostnames, certTTL, false, false)
+	certPEM, err := ca.signWithCertChain(csrPEM, hostnames, certTTL, checkLifetime, false)
 	if err != nil {
 		return nil, nil, err
 	}

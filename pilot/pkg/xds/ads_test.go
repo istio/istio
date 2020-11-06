@@ -80,7 +80,7 @@ func TestAgent(t *testing.T) {
 	defer tearDown()
 
 	// TODO: when authz is implemented, verify labels are checked.
-	cert, key, err := bs.CA.GenKeyCertNoLifetimeCheck([]string{spiffe.Identity{"cluster.local", "test", "sa"}.String()}, 1*time.Hour)
+	cert, key, err := bs.CA.GenKeyCert([]string{spiffe.Identity{"cluster.local", "test", "sa"}.String()}, 1*time.Hour, true)
 	if err != nil {
 		t.Fatal(err)
 	}
