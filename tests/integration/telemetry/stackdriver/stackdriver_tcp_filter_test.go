@@ -35,22 +35,34 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
-			retry.UntilSuccessOrFail(t, func() error {
-				_, err := clt.Call(echo.CallOptions{
-					Target:   srv,
-					PortName: "tcp",
-					Count:    1,
-				})
-				if err != nil {
-					return err
-				}
-				if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount); err != nil {
-					return err
-				}
-				if err := validateLogs(t, tcpServerLogEntry); err != nil {
-					return err
-				}
-				return nil
-			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
+			for _, cltInstance := range clt {
+				retry.UntilSuccessOrFail(t, func() error {
+					_, err := cltInstance.Call(echo.CallOptions{
+						Target:   srv[0],
+						PortName: "tcp",
+						Count:    requestCountMultipler * len(srv),
+					})
+					if err != nil {
+						t.Fatalf("Could not send traffic; err %v", err)
+					}
+					return nil
+				}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
+			}
+
+			for _, cl := range ctx.Clusters() {
+				t.Logf("Validating Telemetry for Cluster %v", cl)
+				clName := cl.Name()
+				retry.UntilSuccessOrFail(t, func() error {
+					if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, clName); err != nil {
+						return err
+					}
+					if err := validateLogs(t, tcpServerLogEntry, clName); err != nil {
+						return err
+					}
+
+					return nil
+				}, retry.Delay(3*time.Second), retry.Timeout(2*time.Minute))
+			}
 		})
+
 }
