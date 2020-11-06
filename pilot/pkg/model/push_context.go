@@ -1722,7 +1722,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 
 	// 1. Check service instances' tls mode, mainly used for headless service.
 	if service.Resolution == Passthrough {
-		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
+		instances, _ := ps.InstancesByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable
 		}
