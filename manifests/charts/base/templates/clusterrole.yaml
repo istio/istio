@@ -28,7 +28,7 @@ rules:
 {{- end }}
 {{- if .Values.global.configValidation }}
   - apiGroups: ["networking.istio.io"]
-    verbs: [ "create" ]
+    verbs: [ "create", "update" ]
     resources: [ "gateways" ]
 {{- end }}
   - apiGroups: ["networking.istio.io"]
