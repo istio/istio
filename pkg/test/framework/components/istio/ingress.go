@@ -216,7 +216,7 @@ func (c *ingressImpl) ProxyStats() (map[string]int, error) {
 }
 
 func (c *ingressImpl) PodID(i int) (string, error) {
-	pods, err := c.env.KubeClusters[0].PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
+	pods, err := c.env.Clusters().Default().PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
 	if err != nil {
 		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %v", err)
 	}
@@ -228,14 +228,14 @@ func (c *ingressImpl) PodID(i int) (string, error) {
 
 // adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
 func (c *ingressImpl) adminRequest(path string) (string, error) {
-	pods, err := c.env.KubeClusters[0].PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
+	pods, err := c.env.Clusters().Default().PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
 	if err != nil {
 		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %v", err)
 	}
 	podNs, podName := pods.Items[0].Namespace, pods.Items[0].Name
 	// Exec onto the pod and make a curl request to the admin port
 	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
-	stdout, stderr, err := c.env.KubeClusters[0].PodExec(podName, podNs, proxyContainerName, command)
+	stdout, stderr, err := c.env.Clusters().Default().PodExec(podName, podNs, proxyContainerName, command)
 	return stdout + stderr, err
 }
 

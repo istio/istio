@@ -146,7 +146,7 @@ func (i *operatorComponent) Close() (err error) {
 	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
-		for _, cluster := range i.environment.KubeClusters {
+		for _, cluster := range i.ctx.Clusters() {
 			for _, manifest := range i.installManifest[cluster.Name()] {
 				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
 					err = multierror.Append(err, e)
@@ -232,8 +232,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// install config cluster
-	for _, cluster := range env.KubeClusters {
-		if env.IsConfigCluster(cluster) && !env.IsControlPlaneCluster(cluster) {
+	for _, cluster := range ctx.Clusters() {
+		if cluster.IsConfig() && cluster.IsRemote() {
 			if err = installRemoteConfigCluster(i, cfg, cluster, istioctlConfigFiles.configIopFile); err != nil {
 				return i, err
 			}
@@ -242,8 +242,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// install control plane clusters (can be external or primary)
 	errG := multierror.Group{}
-	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) {
+	for _, cluster := range ctx.Clusters() {
+		if cluster.IsPrimary() {
 			cluster := cluster
 			if err = installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile); err != nil {
 				return i, err
@@ -260,13 +260,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if env.IsMulticluster() {
 			// For multicluster, configure direct access so each control plane can get endpoints from all
 			// API servers.
-			if err := i.configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
+			if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
 				return nil, err
 			}
 		}
 		errG = multierror.Group{}
-		for _, cluster := range env.KubeClusters {
-			if !(env.IsControlPlaneCluster(cluster) || env.IsConfigCluster(cluster)) {
+		for _, cluster := range ctx.Clusters() {
+			if cluster.IsRemote() && !cluster.IsConfig() {
 				cluster := cluster
 				errG.Go(func() error {
 					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile); err != nil {
@@ -283,7 +283,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	if env.IsMultinetwork() {
 		// enable cross network traffic
-		for _, cluster := range env.KubeClusters {
+		for _, cluster := range ctx.Clusters() {
 			if err := i.applyCrossNetworkGateway(cluster); err != nil {
 				return nil, err
 			}
@@ -425,7 +425,7 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resour
 func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) error {
 	scopes.Framework.Infof("setting up %s as control-plane cluster", cluster.Name())
 
-	if !i.environment.IsConfigCluster(cluster) {
+	if !cluster.IsConfig() {
 		if err := i.configureRemoteConfigForControlPlane(cluster); err != nil {
 			return err
 		}
@@ -454,11 +454,8 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 		return err
 	}
 	var istiodAddress net.TCPAddr
-	if !i.environment.IsConfigCluster(cluster) {
-		configCluster, err := i.environment.GetConfigCluster(cluster)
-		if err != nil {
-			return err
-		}
+	if !cluster.IsConfig() {
+		configCluster := cluster.Config()
 		istiodAddress, err = i.RemoteDiscoveryAddressFor(configCluster)
 		if err != nil {
 			return err
@@ -469,9 +466,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 		if err := configureDiscoveryForConfigCluster(istiodAddress.IP.String(), cfg, configCluster); err != nil {
 			return err
 		}
-	}
-
-	if i.environment.IsConfigCluster(cluster) {
+	} else {
 		if err := i.deployEastWestGateway(cluster); err != nil {
 			return err
 		}
@@ -610,25 +605,25 @@ func waitForIstioReady(ctx resource.Context, cluster resource.Cluster, cfg Confi
 	return nil
 }
 
-func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment, cfg Config) error {
+func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, cfg Config) error {
 	// Configure direct access for each control plane to each APIServer. This allows each control plane to
 	// automatically discover endpoints in remote clusters.
-	for _, cluster := range env.KubeClusters {
-		if err := i.configureDirectAPIServiceAccessForCluster(ctx, env, cfg, cluster); err != nil {
+	for _, cluster := range ctx.Clusters() {
+		if err := i.configureDirectAPIServiceAccessForCluster(ctx, cfg, cluster); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
+func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, cfg Config,
 	cluster resource.Cluster) error {
 	// Create a secret.
 	secret, err := createRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
-	if err := ctx.Config(env.ControlPlaneClusters(cluster)...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
+	if err := ctx.Config(ctx.Clusters().Primaries(cluster)...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
@@ -667,7 +662,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		return fmt.Errorf("failed creating the root CA: %v", err)
 	}
 
-	for _, cluster := range env.KubeClusters {
+	for _, cluster := range env.Clusters() {
 		// Create a subdir for the cluster certs.
 		clusterDir := filepath.Join(certsDir, cluster.Name())
 		if err := os.Mkdir(clusterDir, 0700); err != nil {
@@ -796,10 +791,7 @@ func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, clu
 // service account required to read the secret.
 func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resource.Cluster) error {
 	env, cfg := i.environment, i.settings
-	configCluster, err := env.GetConfigCluster(cluster)
-	if err != nil {
-		return err
-	}
+	configCluster := cluster.Config()
 	istioKubeConfig, err := file.AsString(env.Settings().KubeConfig[configCluster.Index()])
 	if err != nil {
 		scopes.Framework.Infof("error in parsing kubeconfig for %s", configCluster.Name())
