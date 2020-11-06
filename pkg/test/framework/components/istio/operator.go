@@ -229,7 +229,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
-	if env.IsMulticluster() {
+	if env.IsMulticluster() && cfg.Values["global.pilotCertProvider"] != "kubernetes" {
 		if err := deployCACerts(workDir, env, cfg); err != nil {
 			return nil, err
 		}
@@ -449,6 +449,9 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 	}
+	if cfg.Values["global.pilotCertProvider"] == "kubernetes" {
+		installSettings = append(installSettings, "--set", "values.global.pilotCertProvider=kubernetes")
+	}
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
 		Cluster: cluster,
@@ -477,7 +480,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if cluster.IsConfig() {
-		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
+		if err := i.deployEastWestGateway(cluster, spec.Revision, cfg); err != nil {
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.
@@ -532,14 +535,16 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 				remoteIstiodAddress.IP.String(), 15017, cluster.NetworkName(), cluster.Name()),
 			"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
 	}
-
+	if cfg.Values["global.pilotCertProvider"] == "kubernetes" {
+		installSettings = append(installSettings, "--set", "values.global.pilotCertProvider=kubernetes")
+	}
 	if err := install(i, installSettings, istioCtl, cluster.Name()); err != nil {
 		return err
 	}
 
 	// remote clusters only need this gateway for multi-network purposes
 	if i.ctx.Environment().IsMultinetwork() {
-		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
+		if err := i.deployEastWestGateway(cluster, spec.Revision, cfg); err != nil {
 			return err
 		}
 	}

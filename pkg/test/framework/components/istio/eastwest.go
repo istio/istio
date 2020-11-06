@@ -42,7 +42,7 @@ var (
 )
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
-func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revision string) error {
+func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revision string, cfg Config) error {
 	imgSettings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return err
@@ -82,6 +82,9 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 		"--set", "tag=" + imgSettings.Tag,
 		"--set", "values.global.imagePullPolicy=" + imgSettings.PullPolicy,
 		"-f", iopFile,
+	}
+	if cfg.Values["global.pilotCertProvider"] == "kubernetes" {
+		installSettings = append(installSettings, "--set", "values.global.pilotCertProvider=kubernetes")
 	}
 	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
 	gwYaml, stderr, err := istioCtl.Invoke(installSettings)
