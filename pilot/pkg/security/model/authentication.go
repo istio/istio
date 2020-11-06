@@ -51,9 +51,6 @@ const (
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
-	// CredentialNameSDSUdsPath is the UDS path for ingress gateway to get credentials via SDS.
-	CredentialNameSDSUdsPath = "unix:./var/run/ingress_gateway/sds"
-
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
 
@@ -90,37 +87,9 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 		return nil
 	}
 
-	if features.EnableSDSServer && features.EnableXDSIdentityCheck {
-		return &tls.SdsSecretConfig{
-			Name:      KubernetesSecretTypeURI + name,
-			SdsConfig: SDSAdsConfig,
-		}
-	}
-
-	gRPCConfig := &core.GrpcService_GoogleGrpc{
-		TargetUri:  CredentialNameSDSUdsPath,
-		StatPrefix: SDSStatPrefix,
-	}
-
 	return &tls.SdsSecretConfig{
-		Name: name,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:             core.ApiConfigSource_GRPC,
-					TransportApiVersion: core.ApiVersion_V3,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: gRPCConfig,
-							},
-						},
-					},
-				},
-			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
-		},
+		Name:      KubernetesSecretTypeURI + name,
+		SdsConfig: SDSAdsConfig,
 	}
 }
 

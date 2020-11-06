@@ -431,11 +431,10 @@ func (s *Server) WaitUntilCompletion() {
 
 // initSDSServer starts the SDS server
 func (s *Server) initSDSServer(args *PilotArgs) {
-	if features.EnableSDSServer && s.kubeClient != nil {
+	if s.kubeClient != nil {
 		if !features.EnableXDSIdentityCheck {
 			// Make sure we have security
-			log.Warnf("skipping Kubernetes credential reader, which was enabled by ISTIOD_ENABLE_SDS_SERVER. " +
-				"PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
+			log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
 			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace)
 			sc.AddEventHandler(func(name, namespace string) {
