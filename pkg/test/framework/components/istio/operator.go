@@ -863,6 +863,7 @@ func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, 
 
 	// Generate the istioctl config file for remote cluster
 	configFiles.remoteIopFile = configFiles.iopFile
+	configFiles.remoteOperatorSpec = configFiles.operatorSpec
 	if cfg.RemoteClusterValues != "" {
 		configFiles.remoteIopFile = filepath.Join(workDir, "remote.yaml")
 		if configFiles.remoteOperatorSpec, err = initIOPFile(cfg, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
@@ -872,6 +873,7 @@ func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, 
 
 	// Generate the istioctl config file for config cluster
 	configFiles.configIopFile = configFiles.iopFile
+	configFiles.configOperatorSpec = configFiles.operatorSpec
 	if cfg.ConfigClusterValues != "" {
 		configFiles.configIopFile = filepath.Join(workDir, "config.yaml")
 		if configFiles.configOperatorSpec, err = initIOPFile(cfg, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
