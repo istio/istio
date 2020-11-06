@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -462,7 +463,7 @@ func TestShouldRespond(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewFakeDiscoveryServer(t, FakeOptions{})
+			s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 			if response := s.Discovery.shouldRespond(tt.connection, tt.request); response != tt.response {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}

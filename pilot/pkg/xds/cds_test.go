@@ -16,12 +16,12 @@ package xds_test
 import (
 	"testing"
 
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 )
 
 func TestCDS(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	ads.RequestResponseAck(nil)
 }

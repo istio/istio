@@ -24,12 +24,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 )
 
 func TestNDS(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 		ConfigString: mustReadFile(t, "./testdata/nds-se.yaml"),
 	})
 

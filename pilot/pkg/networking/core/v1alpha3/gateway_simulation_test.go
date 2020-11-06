@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/pkg/env"
@@ -597,16 +597,16 @@ func runGatewayTest(t *testing.T, cases ...simulationTest) {
 				Metadata: &model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
 				Type:     model.Router,
 			}
-			runSimulationTest(t, proxy, xds.FakeOptions{}, tt)
+			runSimulationTest(t, proxy, xdsfake.Options{}, tt)
 		})
 	}
 }
 
-func runSimulationTest(t *testing.T, proxy *model.Proxy, o xds.FakeOptions, tt simulationTest) {
+func runSimulationTest(t *testing.T, proxy *model.Proxy, o xdsfake.Options, tt simulationTest) {
 	runTest := func(t *testing.T) {
 		o.ConfigString = tt.config
 		o.KubernetesObjectString = tt.kubeConfig
-		s := xds.NewFakeDiscoveryServer(t, o)
+		s := xdsfake.NewDiscoveryServer(t, o)
 		sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
 		sim.RunExpectations(tt.calls)
 		if t.Failed() && debugMode {

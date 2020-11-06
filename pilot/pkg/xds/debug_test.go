@@ -27,11 +27,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 )
 
 func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		ads := s.ConnectADS()
 
 		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
@@ -49,7 +50,7 @@ func TestSyncz(t *testing.T) {
 		verifySyncStatus(t, s.Discovery, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		ads := s.ConnectADS()
 
 		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
@@ -154,7 +155,7 @@ func TestConfigDump(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 			ads := s.ConnectADS()
 			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
 			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
@@ -201,7 +202,7 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 }
 
 func TestDebugHandlers(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	req, err := http.NewRequest("GET", "/debug", nil)
 	if err != nil {
 		t.Fatal(err)

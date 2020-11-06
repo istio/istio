@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xdsfake
 
 import (
 	"context"
@@ -39,6 +39,7 @@ import (
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
@@ -50,7 +51,7 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-type FakeOptions struct {
+type Options struct {
 	// If provided, a service registry with the name of each map key will be created with the given objects.
 	KubernetesObjectsByCluster map[string][]runtime.Object
 	// If provided, these objects will be used directly for the default cluster ("Kubernetes")
@@ -70,16 +71,16 @@ type FakeOptions struct {
 	NetworksWatcher mesh.NetworksWatcher
 }
 
-type FakeDiscoveryServer struct {
+type DiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
 	t            test.Failer
-	Discovery    *DiscoveryServer
+	Discovery    *xds.DiscoveryServer
 	Listener     *bufconn.Listener
 	kubeClient   kubelib.Client
 	KubeRegistry *kube.FakeController
 }
 
-func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
+func NewDiscoveryServer(t test.Failer, opts Options) *DiscoveryServer {
 	stop := make(chan struct{})
 	t.Cleanup(func() {
 		close(stop)
@@ -92,7 +93,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz}, "pilot-123")
+	s := xds.NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz}, "pilot-123")
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -133,7 +134,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "")
-	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
+	s.Generators[v3.SecretType] = xds.NewSecretGen(sc, &model.DisabledCache{})
 	defaultKubeClient.RunAndWait(stop)
 
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
@@ -230,7 +231,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Now that handlers are added, get everything started
 	cg.Run()
 
-	fake := &FakeDiscoveryServer{
+	fake := &DiscoveryServer{
 		t:             t,
 		Discovery:     s,
 		Listener:      listener,
@@ -246,18 +247,18 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	return fake
 }
 
-func (f *FakeDiscoveryServer) KubeClient() kubelib.Client {
+func (f *DiscoveryServer) KubeClient() kubelib.Client {
 	return f.kubeClient
 }
 
-func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
+func (f *DiscoveryServer) PushContext() *model.PushContext {
 	f.Discovery.updateMutex.RLock()
 	defer f.Discovery.updateMutex.RUnlock()
 	return f.Env().PushContext
 }
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
-func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
+func (f *DiscoveryServer) ConnectADS() *AdsTest {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return f.Listener.Dial()
 	}))
@@ -291,7 +292,7 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 // Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
 // watch can be configured to determine the resources to watch initially, and wait can be configured to determine what
 // resources we should initially wait for.
-func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
+func (f *DiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
 	f.t.Helper()
 	p = f.SetupProxy(p)
 	initialWatch := []*discovery.DiscoveryRequest{}
@@ -335,15 +336,15 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 	return adscConn
 }
 
-func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
+func (f *DiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	for _, c := range xdstest.ExtractEdsClusterNames(f.Clusters(p)) {
-		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(NewEndpointBuilder(c, p, f.PushContext())))
+		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(xds.NewEndpointBuilder(c, p, f.PushContext())))
 	}
 	return loadAssignments
 }
 
-func (f *FakeDiscoveryServer) refreshPushContext() {
+func (f *DiscoveryServer) refreshPushContext() {
 	_, err := f.Discovery.initPushContext(&model.PushRequest{
 		Full:   true,
 		Reason: []model.TriggerReason{model.GlobalUpdate},
@@ -353,7 +354,7 @@ func (f *FakeDiscoveryServer) refreshPushContext() {
 	}
 }
 
-func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.Object {
+func getKubernetesObjects(t test.Failer, opts Options) map[string][]runtime.Object {
 	objects := map[string][]runtime.Object{}
 
 	if len(opts.KubernetesObjects) > 0 {

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -208,7 +209,7 @@ func BenchmarkSecretGeneration(b *testing.B) {
 			if err := tmpl.ExecuteTemplate(&buf, tt.Name+".yaml", tt); err != nil {
 				b.Fatalf("failed to execute template: %v", err)
 			}
-			s := NewFakeDiscoveryServer(b, FakeOptions{
+			s := xdsfake.NewDiscoveryServer(b, xdsfake.Options{
 				KubernetesObjectString: buf.String(),
 			})
 			kubesecrets.DisableAuthorizationForTest(s.KubeClient().Kube().(*fake.Clientset))
@@ -249,7 +250,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 	var response *discovery.DiscoveryResponse
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
-			s := NewFakeDiscoveryServer(b, FakeOptions{
+			s := xdsfake.NewDiscoveryServer(b, xdsfake.Options{
 				Configs: createEndpoints(tt.endpoints, tt.services),
 			})
 			proxy := &model.Proxy{
@@ -277,7 +278,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 
 // Setup test builds a mock test environment. Note: push context is not initialized, to be able to benchmark separately
 // most should just call setupAndInitializeTest
-func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
+func setupTest(t testing.TB, config ConfigInput) (*xdsfake.DiscoveryServer, *model.Proxy) {
 	proxyType := config.ProxyType
 	if proxyType == "" {
 		proxyType = model.SidecarProxy
@@ -300,7 +301,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	}
 
 	configs := getConfigsWithCache(t, config)
-	s := NewFakeDiscoveryServer(t, FakeOptions{
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 		Configs: configs,
 	})
 
@@ -342,7 +343,7 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) []config.Config {
 	return configs
 }
 
-func setupAndInitializeTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
+func setupAndInitializeTest(t testing.TB, config ConfigInput) (*xdsfake.DiscoveryServer, *model.Proxy) {
 	s, proxy := setupTest(t, config)
 	initPushContext(s.Env(), proxy)
 	return s, proxy

@@ -26,8 +26,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/env"
@@ -36,7 +36,7 @@ import (
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyBasicFlow(t *testing.T) {
 	proxy := setupXdsProxy(t)
-	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	f := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	setDialOptions(proxy, f.Listener)
 	conn := setupDownstreamConnection(t)
 	downstream := stream(t, conn)
@@ -88,7 +88,7 @@ var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", "K
 func TestXdsProxyReconnects(t *testing.T) {
 	t.Run("Envoy close and open stream", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		setDialOptions(proxy, f.Listener)
 
 		conn := setupDownstreamConnection(t)
@@ -101,7 +101,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	})
 	t.Run("Envoy opens multiple stream", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		setDialOptions(proxy, f.Listener)
 
 		conn := setupDownstreamConnection(t)
@@ -112,7 +112,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	})
 	t.Run("Envoy closes connection", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		setDialOptions(proxy, f.Listener)
 
 		conn := setupDownstreamConnection(t)
@@ -125,7 +125,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	})
 	t.Run("Istiod closes connection", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 
 		// Here we set up a real listener (instead of in memory) since we need to close and re-open
 		// a new listener on the same port, which we cannot do with the in memory listener.

@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -57,7 +58,7 @@ const (
 )
 
 func TestIncrementalPush(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml")})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml")})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{Full: true})
@@ -118,7 +119,7 @@ func TestIncrementalPush(t *testing.T) {
 }
 
 func TestEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml")})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml")})
 	addUdsEndpoint(s)
 
 	// enable locality load balancing and add relevant endpoints in order to test
@@ -172,7 +173,7 @@ func TestEds(t *testing.T) {
 }
 
 func TestTunnelServerEndpointEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
 		[]*model.IstioEndpoint{
@@ -207,7 +208,7 @@ func TestTunnelServerEndpointEds(t *testing.T) {
 }
 
 func TestNoTunnelServerEndpointEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 
 	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
 	addTestClientEndpoints(s)
@@ -280,7 +281,7 @@ func mustReadfolder(t *testing.T, folder string) string {
 }
 
 func TestEdsWeightedServiceEntry(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml")})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{ConfigString: mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml")})
 	adscConn := s.Connect(nil, nil, watchEds)
 	endpoints := adscConn.GetEndpoints()
 	lbe, f := endpoints["outbound|80||weighted.static.svc.cluster.local"]
@@ -310,7 +311,7 @@ var watchEds = []string{v3.ClusterType, v3.EndpointType}
 var watchAll = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
 
 func TestEDSOverlapping(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	addOverlappingEndpoints(s)
 	adscon := s.Connect(nil, nil, watchEds)
 	testOverlappingPorts(s, adscon, t)
@@ -319,7 +320,7 @@ func TestEDSOverlapping(t *testing.T) {
 // Validates the behavior when Service resolution type is updated after initial EDS push.
 // See https://github.com/istio/istio/issues/18355 for more details.
 func TestEDSServiceResolutionUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
 	addEdsCluster(s, "other.local", "http", "1.1.1.1", 8080)
 
@@ -344,7 +345,7 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 
 // Validate that when endpoints of a service flipflop between 1 and 0 does not trigger a full push.
 func TestEndpointFlipFlops(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
 
 	adscConn := s.Connect(nil, nil, watchAll)
@@ -399,7 +400,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 
 // Validate that deleting a service clears entries from EndpointShardsByService.
 func TestDeleteService(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	addEdsCluster(s, "removeservice.com", "http", "10.0.0.53", 8080)
 
 	adscConn := s.Connect(nil, nil, watchEds)
@@ -415,7 +416,7 @@ func TestDeleteService(t *testing.T) {
 	}
 }
 
-func fullPush(s *xds.FakeDiscoveryServer) {
+func fullPush(s *xdsfake.DiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
 }
 
@@ -439,7 +440,7 @@ func adsConnectAndWait(t *testing.T) *adsc.ADSC {
 	return adscConn
 }
 
-func addTestClientEndpoints(server *xds.FakeDiscoveryServer) {
+func addTestClientEndpoints(server *xdsfake.DiscoveryServer) {
 	server.Discovery.MemRegistry.AddService("test-1.default", &model.Service{
 		Hostname: "test-1.default",
 		Ports: model.PortList{
@@ -545,7 +546,7 @@ func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *test
 
 // Tests that Services with multiple ports sharing the same port number are properly sent endpoints.
 // Real world use case for this is kube-dns, which uses port 53 for TCP and UDP.
-func testOverlappingPorts(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
+func testOverlappingPorts(s *xdsfake.DiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	// Test initial state
 	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
 
@@ -617,7 +618,7 @@ func testUdsEndpoints(adsc *adsc.ADSC, t *testing.T) {
 }
 
 // Update
-func edsUpdates(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
+func edsUpdates(s *xdsfake.DiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	// Old style (non-incremental)
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.3", "hello-sa", "v1"))
@@ -646,7 +647,7 @@ func edsFullUpdateCheck(adsc *adsc.ADSC, t *testing.T) {
 // - just endpoint changes -> incremental
 // - service account changes -> full ( in future: CDS only )
 // - label changes -> full
-func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
+func edsUpdateInc(s *xdsfake.DiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 
 	// TODO: set endpoints for a different cluster (new shard)
 
@@ -725,7 +726,7 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 // This test includes a 'bad client' regression test, which fails to read on the
 // stream.
-func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
+func multipleRequest(s *xdsfake.DiscoveryServer, inc bool, nclients,
 	nPushes int, to time.Duration, _ map[string]string, t *testing.T) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
@@ -850,7 +851,7 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 
 const udsPath = "/var/run/test/socket"
 
-func addUdsEndpoint(s *xds.FakeDiscoveryServer) {
+func addUdsEndpoint(s *xdsfake.DiscoveryServer) {
 	s.Discovery.MemRegistry.AddService("localuds.cluster.local", &model.Service{
 		Hostname: "localuds.cluster.local",
 		Ports: model.PortList{
@@ -885,7 +886,7 @@ func addUdsEndpoint(s *xds.FakeDiscoveryServer) {
 	s.Discovery.ConfigUpdate(pushReq)
 }
 
-func addLocalityEndpoints(server *xds.FakeDiscoveryServer, hostname host.Name) {
+func addLocalityEndpoints(server *xdsfake.DiscoveryServer, hostname host.Name) {
 	server.Discovery.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Ports: model.PortList{
@@ -923,7 +924,7 @@ func addLocalityEndpoints(server *xds.FakeDiscoveryServer, hostname host.Name) {
 }
 
 // nolint: unparam
-func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
+func addEdsCluster(s *xdsfake.DiscoveryServer, hostName string, portName string, address string, port int) {
 	s.Discovery.MemRegistry.AddService(host.Name(hostName), &model.Service{
 		Hostname: host.Name(hostName),
 		Ports: model.PortList{
@@ -950,7 +951,7 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 	fullPush(s)
 }
 
-func updateServiceResolution(s *xds.FakeDiscoveryServer) {
+func updateServiceResolution(s *xdsfake.DiscoveryServer) {
 	s.Discovery.MemRegistry.AddService("edsdns.svc.cluster.local", &model.Service{
 		Hostname: "edsdns.svc.cluster.local",
 		Ports: model.PortList{
@@ -979,7 +980,7 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer) {
 	fullPush(s)
 }
 
-func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
+func addOverlappingEndpoints(s *xdsfake.DiscoveryServer) {
 	s.Discovery.MemRegistry.AddService("overlapping.cluster.local", &model.Service{
 		Hostname: "overlapping.cluster.local",
 		Ports: model.PortList{
@@ -1015,7 +1016,7 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 // TODO: use this in integration tests.
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
-func testEdsz(t *testing.T, s *xds.FakeDiscoveryServer, proxyID string) {
+func testEdsz(t *testing.T, s *xdsfake.DiscoveryServer, proxyID string) {
 	req, err := http.NewRequest("GET", "/debug/edsz?proxyID="+proxyID, nil)
 	if err != nil {
 		t.Fatal(err)

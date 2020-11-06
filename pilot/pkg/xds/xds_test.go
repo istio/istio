@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -175,7 +176,7 @@ func TestServiceScoping(t *testing.T) {
 	}
 
 	t.Run("STATIC", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 			ConfigString: scopeConfig,
 			ConfigTemplateInput: SidecarTestConfig{
 				ImportedNamespaces: []string{"./*", "included/*"},
@@ -198,7 +199,7 @@ func TestServiceScoping(t *testing.T) {
 	})
 
 	t.Run("Ingress Listener", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 			ConfigString: scopeConfig,
 			ConfigTemplateInput: SidecarTestConfig{
 				ImportedNamespaces: []string{"./*", "included/*"},
@@ -226,7 +227,7 @@ func TestServiceScoping(t *testing.T) {
 	})
 
 	t.Run("DNS", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 			ConfigString: scopeConfig,
 			ConfigTemplateInput: SidecarTestConfig{
 				ImportedNamespaces: []string{"./*", "included/*"},
@@ -239,7 +240,7 @@ func TestServiceScoping(t *testing.T) {
 	})
 
 	t.Run("DNS no self import", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 			ConfigString: scopeConfig,
 			ConfigTemplateInput: SidecarTestConfig{
 				ImportedNamespaces: []string{"included/*"},
@@ -254,7 +255,7 @@ func TestServiceScoping(t *testing.T) {
 
 func TestSidecarListeners(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{})
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		proxy := s.SetupProxy(&model.Proxy{
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
@@ -272,7 +273,7 @@ func TestSidecarListeners(t *testing.T) {
 	})
 
 	t.Run("mongo", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 			ConfigString: mustReadFile(t, "./tests/testdata/config/se-example.yaml"),
 		})
 		proxy := s.SetupProxy(&model.Proxy{
@@ -299,7 +300,7 @@ func TestSidecarListeners(t *testing.T) {
 }
 
 func TestEgressProxy(t *testing.T) {
-	s := NewFakeDiscoveryServer(t, FakeOptions{
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 		ConfigString: `
 # Add a random endpoint, otherwise there will be no routes to check
 apiVersion: networking.istio.io/v1alpha3

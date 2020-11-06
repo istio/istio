@@ -22,7 +22,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -58,7 +58,7 @@ spec:
     number: 81
 ---
 `
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.Options{}, simulationTest{
 		name:   "disable",
 		config: svc + mtlsMode("DISABLE"),
 		calls: []simulation.Expect{
@@ -152,7 +152,7 @@ spec:
 		},
 	})
 
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.Options{}, simulationTest{
 		name:   "permissive",
 		config: svc + mtlsMode("PERMISSIVE"),
 		calls: []simulation.Expect{
@@ -370,7 +370,7 @@ spec:
 		},
 	})
 
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.Options{}, simulationTest{
 		name:           "strict",
 		config:         svc + mtlsMode("STRICT"),
 		skipValidation: false,
@@ -537,7 +537,7 @@ func TestHeadlessServices(t *testing.T) {
 			},
 		})
 	}
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.Options{}, simulationTest{
 		kubeConfig: `apiVersion: v1
 kind: Service
 metadata:
@@ -625,7 +625,7 @@ func TestPassthroughTraffic(t *testing.T) {
 		meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY,
 	} {
 		t.Run(tp.String(), func(t *testing.T) {
-			o := xds.FakeOptions{
+			o := xdsfake.Options{
 				MeshConfig: func() *meshconfig.MeshConfig {
 					m := mesh.DefaultMeshConfig()
 					m.OutboundTrafficPolicy.Mode = tp
@@ -720,7 +720,7 @@ spec:
 }
 
 func TestLoop(t *testing.T) {
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.Options{}, simulationTest{
 		calls: []simulation.Expect{
 			{
 				Name: "direct request to outbound port",

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/pkg/xds/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config"
@@ -171,7 +172,7 @@ func testAdscTLS(t *testing.T, creds security.SecretManager) {
 }
 
 func TestInternalEvents(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 
 	ads := s.Connect(
 		&model.Proxy{
@@ -210,7 +211,7 @@ func TestInternalEvents(t *testing.T) {
 }
 
 func TestAdsReconnectAfterRestart(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
@@ -227,7 +228,7 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 }
 
 func TestAdsUnsubscribe(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
@@ -241,7 +242,7 @@ func TestAdsUnsubscribe(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	ads.RequestResponseAck(nil)
 
@@ -258,7 +259,7 @@ func TestAdsReconnect(t *testing.T) {
 }
 
 func TestAdsClusterUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 
 	version := ""
@@ -288,7 +289,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 // nolint: lll
 func TestAdsPushScoping(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 
 	const (
 		svcSuffix = ".testPushScoping.com"
@@ -692,7 +693,7 @@ func TestAdsPushScoping(t *testing.T) {
 }
 
 func TestAdsUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	ads := s.ConnectADS()
 
 	s.Discovery.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
@@ -739,7 +740,7 @@ func TestAdsUpdate(t *testing.T) {
 }
 
 func TestEnvoyRDSProtocolError(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	ads := s.ConnectADS().WithType(v3.RouteType)
 	ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 
@@ -769,7 +770,7 @@ func TestBlockedPush(t *testing.T) {
 	})
 	t.Run("flow control enabled", func(t *testing.T) {
 		features.EnableFlowControl = true
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
 		ads.RequestResponseAck(nil)
 		// Send push, get a response but do not ACK it
@@ -798,7 +799,7 @@ func TestBlockedPush(t *testing.T) {
 	t.Run("flow control enabled NACK", func(t *testing.T) {
 		log.FindScope("ads").SetOutputLevel(log.DebugLevel)
 		features.EnableFlowControl = true
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
 		ads.RequestResponseAck(nil)
 
@@ -817,7 +818,7 @@ func TestBlockedPush(t *testing.T) {
 	})
 	t.Run("flow control disabled", func(t *testing.T) {
 		features.EnableFlowControl = false
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
 		ads.RequestResponseAck(nil)
 		// Send push, get a response but do not ACK it
@@ -842,7 +843,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 			t.Fatalf("expected routes %v got %v", expected, got)
 		}
 	}
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{})
 	ads := s.ConnectADS().WithType(v3.RouteType)
 	resp := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 	expectRoutes(resp, routeA)
@@ -894,7 +895,7 @@ func TestXdsCache(t *testing.T) {
 		}
 	}
 
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewDiscoveryServer(t, xdsfake.Options{
 		Configs: []config.Config{
 			makeEndpoint([]*networking.WorkloadEntry{
 				{Address: "1.2.3.4", Locality: "region/zone"},
