@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -421,7 +422,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 func (s *Server) createIstioRA(client kubelib.Client,
 	opts *caOptions) (ra.RegistrationAuthority, error) {
 
-	caCertFile := path.Join(ra.DefaultExtCACertDir, "root-cert.pem")
+	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	if _, err := os.Stat(caCertFile); err != nil {
 		caCertFile = defaultCACertPath
 	}
