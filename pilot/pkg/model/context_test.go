@@ -552,3 +552,52 @@ func TestSetServiceInstances(t *testing.T) {
 	assert.Equal(t, proxy.ServiceInstances[1].Service.Hostname, host.Name("test3.com"))
 	assert.Equal(t, proxy.ServiceInstances[2].Service.Hostname, host.Name("test1.com"))
 }
+
+func TestGlobalUnicastIP(t *testing.T) {
+	cases := []struct {
+		name   string
+		in     []string
+		expect string
+	}{
+		{
+			name:   "single IPv4 (k8s)",
+			in:     []string{"10.0.4.16"},
+			expect: "10.0.4.16",
+		},
+		{
+			name:   "single IPv6 (k8s)",
+			in:     []string{"fc00:f853:ccd:e793::1"},
+			expect: "fc00:f853:ccd:e793::1",
+		},
+		{
+			name:   "multi IPv4 [1st] (VM)",
+			in:     []string{"10.128.0.51", "fc00:f853:ccd:e793::1", "172.17.0.1", "fe80::42:35ff:fec1:7436", "fe80::345d:33ff:fe54:5c8e"},
+			expect: "10.128.0.51",
+		},
+		{
+			name:   "multi IPv6 [1st] (VM)",
+			in:     []string{"fc00:f853:ccd:e793::1", "172.17.0.1", "fe80::42:35ff:fec1:7436", "10.128.0.51", "fe80::345d:33ff:fe54:5c8e"},
+			expect: "fc00:f853:ccd:e793::1",
+		},
+		{
+			name:   "multi IPv4 [2nd] (VM)",
+			in:     []string{"127.0.0.1", "10.128.0.51", "fc00:f853:ccd:e793::1", "172.17.0.1", "fe80::42:35ff:fec1:7436", "fe80::345d:33ff:fe54:5c8e"},
+			expect: "10.128.0.51",
+		},
+		{
+			name:   "multi IPv6 [2nd] (VM)",
+			in:     []string{"fe80::42:35ff:fec1:7436", "fc00:f853:ccd:e793::1", "172.17.0.1", "10.128.0.51", "fe80::345d:33ff:fe54:5c8e"},
+			expect: "fc00:f853:ccd:e793::1",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var node model.Proxy
+			node.IPAddresses = tt.in
+			node.DiscoverIPVersions()
+			if got := node.GlobalUnicastIP; got != tt.expect {
+				t.Errorf("GlobalUnicastIP = %v, want %v", got, tt.expect)
+			}
+		})
+	}
+}
