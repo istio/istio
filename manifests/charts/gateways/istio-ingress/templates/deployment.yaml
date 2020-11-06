@@ -257,8 +257,6 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
 {{- end }}
-          - name: gatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
@@ -300,8 +298,6 @@ spec:
               fieldRef:
                 fieldPath: metadata.annotations
       - name: istio-envoy
-        emptyDir: {}
-      - name: gatewaysdsudspath
         emptyDir: {}
       - name: istio-data
         emptyDir: {}
