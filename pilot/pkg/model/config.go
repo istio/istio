@@ -16,6 +16,7 @@ package model
 
 import (
 	"hash/crc32"
+	"net"
 	"sort"
 	"strings"
 
@@ -197,6 +198,12 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 	if hostname == "*" {
 		return host.Name(out)
 	}
+
+	// if the hostname is a valid ipv4 or ipv6 address, do not append domain or namespace
+	if net.ParseIP(hostname) != nil {
+		return host.Name(out)
+	}
+
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(hostname, ".") {
 		if meta.Namespace != "" {
