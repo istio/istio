@@ -143,7 +143,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
 		log.Infof("Generating istiod-signed cert for %v", names)
-		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get())
+		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
 
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		// check if signing key file exists the cert dir

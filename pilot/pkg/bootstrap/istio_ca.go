@@ -360,11 +360,6 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 	var caOpts *ca.IstioCAOptions
 	var err error
 
-	maxCertTTL := maxWorkloadCertTTL.Get()
-	if SelfSignedCACertTTL.Get().Seconds() > maxCertTTL.Seconds() {
-		maxCertTTL = SelfSignedCACertTTL.Get()
-	}
-
 	// In pods, this is the optional 'cacerts' Secret.
 	// TODO: also check for key.pem ( for interop )
 	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
@@ -385,13 +380,10 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 		// rootCertFile will be added to "ca-cert.pem".
 		// readSigningCertOnly set to false - it doesn't seem to be used in Citadel, nor do we have a way
 		// to set it only for one job.
-		// maxCertTTL in NewSelfSignedIstioCAOptions() is set to be the same as
-		// SelfSignedCACertTTL because the istiod certificate issued by Citadel
-		// will have a TTL equal to SelfSignedCACertTTL.
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
 			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			maxCertTTL, opts.TrustDomain, true,
+			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
 			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 		if err != nil {
@@ -410,7 +402,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 		certChainFile := path.Join(LocalCertDir.Get(), "cert-chain.pem")
 		s.caBundlePath = certChainFile
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxCertTTL, caRSAKeySize.Get())
+			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
