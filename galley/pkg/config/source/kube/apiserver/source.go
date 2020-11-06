@@ -133,7 +133,7 @@ func (s *Source) Start() {
 }
 
 func (s *Source) onCrdEvent(e event.Event) {
-	scope.Source.Debuga("onCrdEvent: ", e)
+	scope.Source.Debug("onCrdEvent: ", e)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -209,7 +209,7 @@ func (s *Source) startWatchers() {
 		// Send a Full Sync event immediately for custom resources that were never found, or that are disabled.
 		// For everything else, create a watcher.
 		if (!a.IsBuiltIn() && !found) || r.IsDisabled() {
-			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Name())
+			scope.Source.Debug("Source.Start: sending immediate FullSync for: ", r.Name())
 			s.handlers.Handle(event.FullSyncFor(r))
 		} else {
 			col := newWatcher(r, a, s.statusCtl)
@@ -224,7 +224,7 @@ func (s *Source) startWatchers() {
 	}
 
 	for c, w := range s.watchers {
-		scope.Source.Debuga("Source.Start: starting watcher: ", c)
+		scope.Source.Debug("Source.Start: starting watcher: ", c)
 		w.start()
 	}
 }
@@ -260,7 +260,7 @@ func (s *Source) stop() {
 
 	if s.watchers != nil {
 		for c, w := range s.watchers {
-			scope.Source.Debuga("Source.Stop: stopping watcher: ", c)
+			scope.Source.Debug("Source.Stop: stopping watcher: ", c)
 			w.stop()
 		}
 		s.watchers = nil

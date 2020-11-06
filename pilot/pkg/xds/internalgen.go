@@ -157,7 +157,7 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 		go func() {
 			err := con.stream.Send(res)
 			if err != nil {
-				adsLog.Infoa("Failed to send internal event ", con.ConID, " ", err)
+				adsLog.Info("Failed to send internal event ", con.ConID, " ", err)
 			}
 		}()
 	}

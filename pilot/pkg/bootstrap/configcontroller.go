@@ -188,7 +188,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return fmt.Errorf("MCP: failed running %v", err)
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
-			log.Warna("Started XDS config ", s.ConfigStores)
+			log.Warn("Started XDS config ", s.ConfigStores)
 			continue
 		}
 		if strings.Contains(configSource.Address, "k8s://") {
@@ -199,7 +199,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if srcAddress.Path == "" || srcAddress.Path == "/" {
 				err2 := s.initK8SConfigStore(args)
 				if err2 != nil {
-					log.Warna("Error loading k8s ", err2)
+					log.Warn("Error loading k8s ", err2)
 					return err2
 				}
 				log.Warn("Started K8S config")

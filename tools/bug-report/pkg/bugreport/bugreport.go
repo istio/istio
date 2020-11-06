@@ -143,7 +143,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 
 	gatherInfo(client, config, resources, paths)
 	if len(gErrors) != 0 {
-		log.Errora(gErrors.ToError())
+		log.Error(gErrors.ToError())
 	}
 
 	// TODO: sort by importance and discard any over the size limit.

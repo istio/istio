@@ -392,7 +392,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 	}()
 
@@ -407,7 +407,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
 		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 	}()
 
@@ -415,7 +415,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		go func() {
 			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
 			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-				log.Warna(err)
+				log.Warn(err)
 			}
 		}()
 	}
@@ -531,7 +531,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 
 	if shouldMultiplex {
 		s.monitoringMux = s.httpMux
-		log.Infoa("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
+		log.Info("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
@@ -582,7 +582,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	} else if s.GRPCListener == nil {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Infoa("multplexing gRPC on http port ", s.HTTPListener.Addr())
+		log.Info("multplexing gRPC on http port ", s.HTTPListener.Addr())
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 		s.HTTPListener = m.Match(cmux.Any())
@@ -629,11 +629,11 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownDuration)
 		defer cancel()
 		if err := s.httpServer.Shutdown(ctx); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 		if s.httpsServer != nil {
 			if err := s.httpsServer.Shutdown(ctx); err != nil {
-				log.Warna(err)
+				log.Warn(err)
 			}
 		}
 
@@ -652,7 +652,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	if args.ServerOptions.SecureGRPCAddr == "" {
-		log.Infoa("The secure discovery port is disabled, multiplexing on httpAddr ")
+		log.Info("The secure discovery port is disabled, multiplexing on httpAddr ")
 		return nil
 	}
 
@@ -1067,7 +1067,7 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 // initJwtPolicy initializes JwtPolicy.
 func (s *Server) initJwtPolicy() {
 	if features.JwtPolicy.Get() != jwt.PolicyThirdParty {
-		log.Infoa("JWT policy is ", features.JwtPolicy.Get())
+		log.Info("JWT policy is ", features.JwtPolicy.Get())
 	}
 
 	switch features.JwtPolicy.Get() {
