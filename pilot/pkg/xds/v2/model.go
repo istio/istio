@@ -14,9 +14,7 @@
 
 package v2
 
-import "github.com/envoyproxy/go-control-plane/pkg/resource/v2"
-
 const (
 	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
-	EndpointType = resource.EndpointType
+	EndpointType = "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment"
 )
