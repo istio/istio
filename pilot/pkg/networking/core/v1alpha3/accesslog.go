@@ -174,15 +174,13 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig) *accesslog.AccessLog 
 			},
 		}
 	case meshconfig.MeshConfig_JSON:
-		jsonLogValue := structpb.Value{}
-		if mesh.AccessLogFormat != "" {
-			if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &jsonLogValue); err != nil {
-				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
-			}
-		}
-		jsonLogStruct := jsonLogValue.GetStructValue()
-		if jsonLogStruct == nil {
+		parsedJSONLogStruct := structpb.Struct{}
+		var jsonLogStruct *structpb.Struct
+		if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &parsedJSONLogStruct); err != nil {
+			log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
 			jsonLogStruct = EnvoyJSONLogFormat
+		} else {
+			jsonLogStruct = &parsedJSONLogStruct
 		}
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
