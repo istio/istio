@@ -611,26 +611,53 @@ func TestSignWithCertChain(t *testing.T) {
 
 func TestGenKeyCert(t *testing.T) {
 	cases := map[string]struct {
-		rootCertFile    string
-		certChainFile   string
-		signingCertFile string
-		signingKeyFile  string
+		rootCertFile      string
+		certChainFile     string
+		signingCertFile   string
+		signingKeyFile    string
+		certLifetime      time.Duration
+		checkCertLifetime bool
+		expectedError     string
 	}{
 		"RSA cryptography": {
-			rootCertFile:    "../testdata/multilevelpki/root-cert.pem",
-			certChainFile:   "../testdata/multilevelpki/int-cert-chain.pem",
-			signingCertFile: "../testdata/multilevelpki/int-cert.pem",
-			signingKeyFile:  "../testdata/multilevelpki/int-key.pem",
+			rootCertFile:      "../testdata/multilevelpki/root-cert.pem",
+			certChainFile:     "../testdata/multilevelpki/int-cert-chain.pem",
+			signingCertFile:   "../testdata/multilevelpki/int-cert.pem",
+			signingKeyFile:    "../testdata/multilevelpki/int-key.pem",
+			certLifetime:      3650 * 24 * time.Hour,
+			checkCertLifetime: false,
+			expectedError:     "",
 		},
 		"EC cryptography": {
-			rootCertFile:    "../testdata/multilevelpki/ecc-root-cert.pem",
-			certChainFile:   "../testdata/multilevelpki/ecc-int-cert-chain.pem",
-			signingCertFile: "../testdata/multilevelpki/ecc-int-cert.pem",
-			signingKeyFile:  "../testdata/multilevelpki/ecc-int-key.pem",
+			rootCertFile:      "../testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:     "../testdata/multilevelpki/ecc-int-cert-chain.pem",
+			signingCertFile:   "../testdata/multilevelpki/ecc-int-cert.pem",
+			signingKeyFile:    "../testdata/multilevelpki/ecc-int-key.pem",
+			certLifetime:      3650 * 24 * time.Hour,
+			checkCertLifetime: false,
+			expectedError:     "",
+		},
+		"Pass lifetime check": {
+			rootCertFile:      "../testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:     "../testdata/multilevelpki/ecc-int-cert-chain.pem",
+			signingCertFile:   "../testdata/multilevelpki/ecc-int-cert.pem",
+			signingKeyFile:    "../testdata/multilevelpki/ecc-int-key.pem",
+			certLifetime:      24 * time.Hour,
+			checkCertLifetime: true,
+			expectedError:     "",
+		},
+		"Error lifetime check": {
+			rootCertFile:      "../testdata/multilevelpki/ecc-root-cert.pem",
+			certChainFile:     "../testdata/multilevelpki/ecc-int-cert-chain.pem",
+			signingCertFile:   "../testdata/multilevelpki/ecc-int-cert.pem",
+			signingKeyFile:    "../testdata/multilevelpki/ecc-int-key.pem",
+			certLifetime:      25 * time.Hour,
+			checkCertLifetime: true,
+			expectedError:     "requested TTL 25h0m0s is greater than the max allowed TTL 24h0m0s",
 		},
 	}
 	defaultWorkloadCertTTL := 30 * time.Minute
-	maxWorkloadCertTTL := 3650 * 24 * time.Hour
+	maxWorkloadCertTTL := 24 * time.Hour
 	rsaKeySize := 2048
 
 	for id, tc := range cases {
@@ -642,24 +669,32 @@ func TestGenKeyCert(t *testing.T) {
 
 		ca, err := NewIstioCA(caopts)
 		if err != nil {
-			t.Errorf("%s: got error while creating plugged-cert CA: %v", id, err)
+			t.Fatalf("%s: got error while creating plugged-cert CA: %v", id, err)
 		}
 		if ca == nil {
 			t.Fatalf("failed to create a plugged-cert CA.")
 		}
 
-		certPEM, privPEM, err := ca.GenKeyCert([]string{"host1", "host2"}, 3650*24*time.Hour)
+		certPEM, privPEM, err := ca.GenKeyCert([]string{"host1", "host2"}, tc.certLifetime, tc.checkCertLifetime)
 		if err != nil {
-			t.Errorf("%s: GenKeyCert error: %v", id, err)
+			if tc.expectedError == "" {
+				t.Fatalf("[%s] Unexpected error: %v", id, err)
+			}
+			if err.Error() != tc.expectedError {
+				t.Fatalf("[%s] Error returned does not match expectation: %v VS (expected) %v", id, err, tc.expectedError)
+			}
+			continue
+		} else if tc.expectedError != "" {
+			t.Fatalf("[%s] GenKeyCert succeeded but expected error: %v", id, tc.expectedError)
 		}
 
 		cert, err := tls.X509KeyPair(certPEM, privPEM)
 		if err != nil {
-			t.Errorf("%s: X509KeyPair error: %v", id, err)
+			t.Fatalf("[%s] X509KeyPair error: %v", id, err)
 		}
 
 		if len(cert.Certificate) != 3 {
-			t.Errorf("%s: unexpected number of certificates returned: %d (expected 3)", id, len(cert.Certificate))
+			t.Fatalf("[%s] unexpected number of certificates returned: %d (expected 3)", id, len(cert.Certificate))
 		}
 	}
 }
