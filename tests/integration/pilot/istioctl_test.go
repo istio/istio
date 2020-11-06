@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
@@ -406,7 +405,7 @@ func TestProxyStatus(t *testing.T) {
 
 			// test the --file param
 			filename := "ps-configdump.json"
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default()
 			dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			err = ioutil.WriteFile(filename, dump, os.ModePerm)

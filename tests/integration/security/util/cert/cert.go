@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -91,7 +90,7 @@ func CreateCASecret(ctx resource.Context) error {
 		return err
 	}
 
-	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	cluster := ctx.Clusters().Default()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -120,8 +119,7 @@ func CreateCASecret(ctx resource.Context) error {
 	// resources from a previous integration test, but sometimes
 	// the resources from a previous integration test are not deleted.
 	configMapName := "istio-ca-root-cert"
-	kEnv := ctx.Environment().(*kube.Environment)
-	err = kEnv.KubeClusters[0].CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
+	err = ctx.Clusters().Default().CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
 		metav1.DeleteOptions{})
 	if err == nil {
 		log.Infof("configmap %v is deleted", configMapName)
@@ -162,7 +160,7 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		return err
 	}
 
-	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	kubeAccessor := ctx.Clusters().Default()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
