@@ -25,7 +25,6 @@ refer to this [doc](https://istio.io/latest/docs/examples/virtual-machines/singl
 To deploy an echo instance as a VM
 1. Set the ports for the VMs.
 1. Set `DeployAsVm` to be true in `echo.Config`.
-1. Set `VMImage` to be any image available from `GetSupportedOSVersion` in [util.go](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go).
 We used DefaultVMImage in the example.
 
 For example,
@@ -52,12 +51,12 @@ echo.Config{
 The default image referenced with `DefaultVMImage` from `vm` package should be used for all pre-submit tests since
 this is the only image available in the pre-submit stage. Using additional images are only possible in
 post-submit tests as shown in the [next section](#scenario-2-supporting-additional-os-images ).
-A complete list of supported additional images can be found in [`util.go`](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go).
+A complete list of supported additional images can be found in [`vm_test.go`](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm_test.go).
 If `VMImage` is not provided while `DeployAsVM` is on, it will default the Docker image to be `DefaultVMImage`.
 
 ## Scenario 2: Supporting Additional OS Images
 
-We list the supported OSes in [util.go](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go)
+We list the supported OSes in [vm_test.go](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm_test.go)
 and the images will be created in [prow/lib.sh](https://github.com/istio/istio/blob/master/prow/lib.sh).
 
 To add additional supported images for testing:

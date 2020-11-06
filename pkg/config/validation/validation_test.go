@@ -314,6 +314,35 @@ func TestValidateConnectTimeout(t *testing.T) {
 	}
 }
 
+func TestValidateMaxServerConnectionAge(t *testing.T) {
+	type durationCheck struct {
+		duration time.Duration
+		isValid  bool
+	}
+	durMin, _ := time.ParseDuration("-30m")
+	durHr, _ := time.ParseDuration("-1.5h")
+	checks := []durationCheck{
+		{
+			duration: 30 * time.Minute,
+			isValid:  true,
+		},
+		{
+			duration: durMin,
+			isValid:  false,
+		},
+		{
+			duration: durHr,
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateMaxServerConnectionAge(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
+		}
+	}
+}
+
 func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	type durationCheck struct {
 		duration *types.Duration

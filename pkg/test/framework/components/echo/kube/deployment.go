@@ -151,6 +151,11 @@ spec:
           name: tcp-health-port
 {{- end }}
 {{- end }}
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /
@@ -306,6 +311,10 @@ spec:
 {{- end }}
 {{- end }}
         env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         {{- range $name, $value := $.Environment }}
         - name: {{ $name }}
           value: "{{ $value }}"
@@ -409,6 +418,7 @@ func generateYAMLWithSettings(
 
 	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
+		// TODO if possible, use istioctl x workload ... to configure the VM
 		ist, err := istio.Get(ctx)
 		if err != nil {
 			return "", "", err

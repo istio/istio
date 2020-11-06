@@ -17,6 +17,7 @@ package model_test
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -243,36 +244,41 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 func TestMostSpecificHostMatch(t *testing.T) {
 	tests := []struct {
 		in     []host.Name
+		m      map[host.Name]struct{}
 		needle host.Name
 		want   host.Name
 	}{
 		// this has to be a sorted list
-		{[]host.Name{}, "*", ""},
-		{[]host.Name{"*.foo.com", "*.com"}, "bar.foo.com", "*.foo.com"},
-		{[]host.Name{"*.foo.com", "*.com"}, "foo.com", "*.com"},
-		{[]host.Name{"foo.com", "*.com"}, "*.foo.com", "*.com"},
+		{[]host.Name{}, make(map[host.Name]struct{}), "*", ""},
+		{[]host.Name{"*.foo.com", "*.com"}, make(map[host.Name]struct{}), "bar.foo.com", "*.foo.com"},
+		{[]host.Name{"*.foo.com", "*.com"}, make(map[host.Name]struct{}), "foo.com", "*.com"},
+		{[]host.Name{"foo.com", "*.com"}, make(map[host.Name]struct{}), "*.foo.com", "*.com"},
 
-		{[]host.Name{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
-		{[]host.Name{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},
+		{[]host.Name{"*.foo.com", "foo.com"}, make(map[host.Name]struct{}), "foo.com", "foo.com"},
+		{[]host.Name{"*.foo.com", "foo.com"}, make(map[host.Name]struct{}), "*.foo.com", "*.foo.com"},
 
 		// this passes because we sort alphabetically
-		{[]host.Name{"bar.com", "foo.com"}, "*.com", ""},
+		{[]host.Name{"bar.com", "foo.com"}, make(map[host.Name]struct{}), "*.com", ""},
 
-		{[]host.Name{"bar.com", "*.foo.com"}, "*foo.com", ""},
-		{[]host.Name{"foo.com", "*.foo.com"}, "*foo.com", ""},
+		{[]host.Name{"bar.com", "*.foo.com"}, make(map[host.Name]struct{}), "*foo.com", ""},
+		{[]host.Name{"foo.com", "*.foo.com"}, make(map[host.Name]struct{}), "*foo.com", ""},
 
 		// should prioritize closest match
-		{[]host.Name{"*.bar.com", "foo.bar.com"}, "foo.bar.com", "foo.bar.com"},
-		{[]host.Name{"*.foo.bar.com", "bar.foo.bar.com"}, "bar.foo.bar.com", "bar.foo.bar.com"},
+		{[]host.Name{"*.bar.com", "foo.bar.com"}, make(map[host.Name]struct{}), "foo.bar.com", "foo.bar.com"},
+		{[]host.Name{"*.foo.bar.com", "bar.foo.bar.com"}, make(map[host.Name]struct{}), "bar.foo.bar.com", "bar.foo.bar.com"},
 
 		// should not match non-wildcards for wildcard needle
-		{[]host.Name{"bar.foo.com", "foo.bar.com"}, "*.foo.com", ""},
-		{[]host.Name{"foo.bar.foo.com", "bar.foo.bar.com"}, "*.bar.foo.com", ""},
+		{[]host.Name{"bar.foo.com", "foo.bar.com"}, make(map[host.Name]struct{}), "*.foo.com", ""},
+		{[]host.Name{"foo.bar.foo.com", "bar.foo.bar.com"}, make(map[host.Name]struct{}), "*.bar.foo.com", ""},
 	}
 
 	for idx, tt := range tests {
+		for _, h := range tt.in {
+			tt.m[h] = struct{}{}
+		}
+
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
-			actual, found := model.MostSpecificHostMatch(tt.needle, tt.in)
+			actual, found := model.MostSpecificHostMatch(tt.needle, tt.m, tt.in)
 			if tt.want != "" && !found {
 				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
 			} else if actual != tt.want {
@@ -280,6 +286,52 @@ func TestMostSpecificHostMatch(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkMostSpecificHostMatch(b *testing.B) {
+	benchmarks := []struct {
+		name     string
+		needle   host.Name
+		baseHost string
+		hosts    []host.Name
+		hostsMap map[host.Name]struct{}
+		time     int
+	}{
+		{"10Exact", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10},
+		{"50Exact", host.Name("foo.bar.com.50"), "foo.bar.com", []host.Name{}, nil, 50},
+		{"100Exact", host.Name("foo.bar.com.100"), "foo.bar.com", []host.Name{}, nil, 100},
+		{"1000Exact", host.Name("foo.bar.com.1000"), "foo.bar.com", []host.Name{}, nil, 1000},
+		{"5000Exact", host.Name("foo.bar.com.5000"), "foo.bar.com", []host.Name{}, nil, 5000},
+
+		{"10DestRuleWildcard", host.Name("foo.bar.com.10"), "*.foo.bar.com", []host.Name{}, nil, 10},
+		{"50DestRuleWildcard", host.Name("foo.bar.com.50"), "*.foo.bar.com", []host.Name{}, nil, 50},
+		{"100DestRuleWildcard", host.Name("foo.bar.com.100"), "*.foo.bar.com", []host.Name{}, nil, 100},
+		{"1000DestRuleWildcard", host.Name("foo.bar.com.1000"), "*.foo.bar.com", []host.Name{}, nil, 1000},
+		{"5000DestRuleWildcard", host.Name("foo.bar.com.5000"), "*.foo.bar.com", []host.Name{}, nil, 5000},
+
+		{"10NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 10},
+		{"50NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 50},
+		{"100NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 100},
+		{"1000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 1000},
+		{"5000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 5000},
+	}
+
+	for _, bm := range benchmarks {
+		bm.hostsMap = make(map[host.Name]struct{}, bm.time)
+
+		for i := 1; i <= bm.time; i++ {
+			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
+			bm.hosts = append(bm.hosts, h)
+			bm.hostsMap[h] = struct{}{}
+		}
+
+		b.Run(bm.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap, bm.hosts)
+			}
+		})
+	}
+
 }
 
 func TestAuthorizationPolicies(t *testing.T) {

@@ -72,13 +72,13 @@ func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace strin
 
 // ReadProfileYAML reads the YAML values associated with the given profile. It uses an appropriate reader for the
 // profile format (compiled-in, file, HTTP, etc.).
-func ReadProfileYAML(profile, chartsDir string) (string, error) {
+func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 	var err error
 	var globalValues string
 
 	// Get global values from profile.
 	switch {
-	case chartsDir == "":
+	case manifestsPath == "":
 		if globalValues, err = LoadValuesVFS(profile); err != nil {
 			return "", err
 		}
@@ -87,8 +87,8 @@ func ReadProfileYAML(profile, chartsDir string) (string, error) {
 			return "", err
 		}
 	default:
-		if globalValues, err = LoadValues(profile, chartsDir); err != nil {
-			return "", fmt.Errorf("failed to read profile %v from %v: %v", profile, chartsDir, err)
+		if globalValues, err = LoadValues(profile, manifestsPath); err != nil {
+			return "", fmt.Errorf("failed to read profile %v from %v: %v", profile, manifestsPath, err)
 		}
 	}
 
@@ -115,6 +115,12 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	crdFiles := chrt.CRDObjects()
 	if err != nil {
 		return "", err
+	}
+	if chrt.Metadata.Name == "base" {
+		base, _ := valuesMap["base"].(map[string]interface{})
+		if enableIstioConfigCRDs, ok := base["enableIstioConfigCRDs"].(bool); ok && !enableIstioConfigCRDs {
+			crdFiles = []chart.CRD{}
+		}
 	}
 
 	// Create sorted array of keys to iterate over, to stabilize the order of the rendered templates

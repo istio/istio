@@ -16,15 +16,19 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -385,6 +389,35 @@ spec:
 		}
 	}
 
+	return cases
+}
+
+// trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
+func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, c := range apps.PodA {
+		for _, d := range apps.PodB {
+			for _, port := range []string{"15001", "15006"} {
+				cases = append(cases, TrafficTestCase{
+					name: port,
+					call: func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses {
+						dwl := d.WorkloadsOrFail(t)[0]
+						cwl := c.WorkloadsOrFail(t)[0]
+						resp, err := cwl.ForwardEcho(context.Background(), &epb.ForwardEchoRequest{
+							Url:   fmt.Sprintf("http://%s:%s", dwl.Address(), port),
+							Count: 1,
+						})
+						// Ideally we would actually check to make sure we do not blow up the pod,
+						// but I couldn't find a way to reliably detect this.
+						if err == nil {
+							t.Fatalf("expected request to fail, but it didn't: %v", resp)
+						}
+						return nil
+					},
+				})
+			}
+		}
+	}
 	return cases
 }
 

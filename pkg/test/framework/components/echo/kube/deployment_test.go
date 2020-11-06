@@ -152,9 +152,7 @@ func TestDeploymentYAML(t *testing.T) {
 			wantBytes := testutil.StripVersion(wantedBytes)
 			gotBytes = testutil.StripVersion(gotBytes)
 
-			if testutil.Refresh() {
-				testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
-			}
+			testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
 
 			testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
 		})

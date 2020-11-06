@@ -17,6 +17,7 @@ package metrics
 import (
 	"time"
 
+	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
 
@@ -59,7 +60,9 @@ var (
 )
 
 func RecordStartupTime() {
-	startupTime.Record(time.Since(processStartTime).Seconds())
+	delta := time.Since(processStartTime)
+	startupTime.Record(delta.Seconds())
+	log.Infof("Initialization took %v", delta)
 }
 
 func init() {

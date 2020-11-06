@@ -33,8 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
-	promUtil "istio.io/istio/tests/integration/telemetry/stats/prometheus"
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus/http"
+	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 var (
@@ -57,9 +56,9 @@ func TestCustomizeMetrics(t *testing.T) {
 					return err
 				}
 				var err error
-				metricVal, err = promUtil.QueryPrometheus(t, destinationQuery, promInst)
+				metricVal, err = common.QueryPrometheus(t, ctx.Clusters().Default(), destinationQuery, promInst)
 				if err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
+					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(ctx.Clusters().Default(), promInst, "istio_requests_total"))
 					return err
 				}
 				return nil
@@ -68,7 +67,7 @@ func TestCustomizeMetrics(t *testing.T) {
 			if strings.Contains(metricVal, removedTag) {
 				t.Errorf("failed to remove tag: %v", removedTag)
 			}
-			promUtil.ValidateMetric(t, promInst, destinationQuery, "istio_requests_total", 1)
+			common.ValidateMetric(t, ctx.Clusters().Default(), promInst, destinationQuery, "istio_requests_total", 1)
 		})
 }
 

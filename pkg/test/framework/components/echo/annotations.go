@@ -40,6 +40,7 @@ var (
 	SidecarBootstrapOverride     = workloadAnnotation(annotation.SidecarBootstrapOverride.Name, "")
 	SidecarVolumeMount           = workloadAnnotation(annotation.SidecarUserVolumeMount.Name, "")
 	SidecarVolume                = workloadAnnotation(annotation.SidecarUserVolume.Name, "")
+	SidecarConfig                = workloadAnnotation(annotation.ProxyConfig.Name, "")
 )
 
 type AnnotationValue struct {
