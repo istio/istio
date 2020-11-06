@@ -125,9 +125,15 @@ var (
 	// Description: Host defined in VirtualService not found in Gateway.
 	VirtualServiceHostNotFoundInGateway = diag.NewMessageType(diag.Warning, "IST0132", "one or more host %v defined in VirtualService %s not found in Gateway %s.")
 
+<<<<<<< HEAD
 	// SchemaWarning defines a diag.MessageType for message "SchemaWarning".
 	// Description: The resource has a schema validation warning.
 	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
+=======
+	// ServiceEntryProtocolAndAddressesEmpty defines a diag.MessageType for message "ServiceEntryProtocolAndAddressesEmpty".
+	// Description: Addresses and Protocol is Empty in ServiceEntry.
+	ServiceEntryProtocolAndAddressesEmpty = diag.NewMessageType(diag.Warning, "IST0133", "one or more Protocol empty in ServiceEntry %s with Addresses Empty.")
+>>>>>>> Init service entry analyzer, add analyze for empty protocol and addresses
 )
 
 // All returns a list of all known message types.
@@ -162,7 +168,11 @@ func All() []*diag.MessageType {
 		VirtualServiceUnreachableRule,
 		VirtualServiceIneffectiveMatch,
 		VirtualServiceHostNotFoundInGateway,
+<<<<<<< HEAD
 		SchemaWarning,
+=======
+		ServiceEntryProtocolAndAddressesEmpty,
+>>>>>>> Init service entry analyzer, add analyze for empty protocol and addresses
 	}
 }
 
