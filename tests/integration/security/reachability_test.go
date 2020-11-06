@@ -103,11 +103,6 @@ func TestReachability(t *testing.T) {
 						if rctx.IsNaked(src) {
 							return rctx.IsNaked(opts.Target)
 						}
-						// headless service with sidecar injected, global mTLS enabled,
-						// no client side transport socket or transport_socket_matches since it's headless service.
-						if src != rctx.Headless && opts.Target == rctx.Headless {
-							return false
-						}
 						return true
 					},
 				},
@@ -123,10 +118,6 @@ func TestReachability(t *testing.T) {
 						if rctx.IsNaked(src) {
 							return rctx.IsNaked(opts.Target) || (opts.Target == rctx.B && opts.PortName != "http")
 
-						}
-						// headless with sidecar injected, global mTLS enabled, no client side transport socket or transport_socket_matches since it's headless service.
-						if src != rctx.Headless && opts.Target == rctx.Headless {
-							return false
 						}
 						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
 						// will fail on all ports on b, except http port.

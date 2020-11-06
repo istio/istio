@@ -1710,7 +1710,7 @@ func (ps *PushContext) QuotaSpecByDestination(hostname host.Name) []Config {
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
 // policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
-// The resulst is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
+// The result is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
@@ -1720,12 +1720,26 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 		return MTLSUnknown
 	}
 
-	// First , check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// 1. Check service instances' tls mode, mainly used for headless service.
+	if service.Resolution == Passthrough {
+		instances, _ := ps.InstancesByPort(service, port.Port, nil)
+		if len(instances) == 0 {
+			return MTLSDisable
+		}
+		for _, i := range instances {
+			// Infer mTls disabled if any of the endpoint is with tls disabled
+			if i.Endpoint.TLSMode == DisabledTLSModeLabel {
+				return MTLSDisable
+			}
+		}
+	}
+
+	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
 	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
 	}
 
-	// When all are failed, default to permissive.
+	// Fallback to permissive.
 	return MTLSPermissive
 }
