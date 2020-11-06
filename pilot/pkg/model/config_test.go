@@ -230,6 +230,18 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 		{
 			"foo", config.Meta{Namespace: "default"}, "foo.default",
 		},
+		{
+			"42.185.131.210", config.Meta{Namespace: "default"}, "42.185.131.210",
+		},
+		{
+			"42.185.131.210", config.Meta{Namespace: "cluster.local"}, "42.185.131.210",
+		},
+		{
+			"2a00:4000::614", config.Meta{Namespace: "default"}, "2a00:4000::614",
+		},
+		{
+			"2a00:4000::614", config.Meta{Namespace: "cluster.local"}, "2a00:4000::614",
+		},
 	}
 
 	for idx, tt := range tests {
