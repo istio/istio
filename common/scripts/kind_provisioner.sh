@@ -111,12 +111,14 @@ function check_default_cluster_yaml() {
 # 1. NAME: Name of the Kind cluster (optional)
 # 2. IMAGE: Node image used by KinD (optional)
 # 3. CONFIG: KinD cluster configuration YAML file. If not specified then DEFAULT_CLUSTER_YAML is used
+# 4. NOMETALBINSTALL: Dont install matllb if set.
 # This function returns 0 when everything goes well, or 1 otherwise
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
   NAME="${1:-istio-testing}"
   IMAGE="${2:-gcr.io/istio-testing/kindest/node:v1.19.1}"
   CONFIG="${3:-}"
+  NOMETALBINSTALL="${4:-}"
 
   check_default_cluster_yaml
 
@@ -154,6 +156,11 @@ EOF
   # the cluster just created
   if [[ -n ${METRICS_SERVER_CONFIG_DIR} ]]; then
     kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
+  fi
+
+  # Install Metallb if not set to install explicitly
+  if [[ -z "${NOMETALBINSTALL}" ]]; then
+    install_metallb ""
   fi
 }
 
@@ -205,7 +212,7 @@ EOF
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
     # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}"
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true"
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
