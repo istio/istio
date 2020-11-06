@@ -42,7 +42,7 @@ var (
 )
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
-func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) error {
+func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revision string) error {
 	imgSettings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return err
@@ -52,6 +52,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster) erro
 	args := []string{
 		"--cluster", cluster.Name(),
 		"--network", cluster.NetworkName(),
+		"--revision", revision,
 		"--mesh", meshID,
 	}
 	if !i.environment.IsMulticluster() {
