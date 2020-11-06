@@ -113,7 +113,9 @@ func buildExtAuthz(configs []*meshconfig.MeshConfig_ExtensionProvider, providers
 		return nil, errs
 	}
 
-	authzLog.Debugf("Resolved provider %s to config: %v", provider, spew.Sdump(ret))
+	if authzLog.DebugEnabled() {
+		authzLog.Debugf("Resolved provider %s to config: %v", provider, spew.Sdump(ret))
+	}
 	return ret, nil
 }
 
@@ -218,6 +220,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		ServerUri: &envoy_config_core_v3.HttpUri{
 			// Timeout is required. Use a large value as a placeholder and so that the timeout in DestinationRule (should
 			// be much smaller) can be used to control the real timeout.
+			// TODO(yangminzhu): Revisit the default and investigate if we need to expose it in the MeshConfig.
 			Timeout: &duration.Duration{Seconds: 600},
 			// Uri is required but actually not used in the ext_authz filter.
 			Uri: fmt.Sprintf("http://%s", hostname),
