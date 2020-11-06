@@ -26,6 +26,11 @@ rules:
     # TODO: should be on just */status but wildcard is not supported
     resources: ["*"]
 {{- end }}
+{{- if .Values.global.configValidation }}
+  - apiGroups: ["networking.istio.io"]
+    verbs: [ "create" ]
+    resources: [ "gateways" ]
+{{- end }}
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "workloadentries" ]
