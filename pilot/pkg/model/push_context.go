@@ -1531,16 +1531,16 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 			// no need populate workloadSelector, as it is not used later.
 			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
 		}
-	}
-	// merge EnvoyFilterWrapper
-	for _, efw := range matchedEnvoyFilters {
-		for applyTo, cps := range efw.Patches {
-			if out.Patches[applyTo] == nil {
-				out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
-			}
-			for _, cp := range cps {
-				if proxyMatch(proxy, cp) {
-					out.Patches[applyTo] = append(out.Patches[applyTo], cp)
+		// merge EnvoyFilterWrapper
+		for _, efw := range matchedEnvoyFilters {
+			for applyTo, cps := range efw.Patches {
+				if out.Patches[applyTo] == nil {
+					out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
+				}
+				for _, cp := range cps {
+					if proxyMatch(proxy, cp) {
+						out.Patches[applyTo] = append(out.Patches[applyTo], cp)
+					}
 				}
 			}
 		}
