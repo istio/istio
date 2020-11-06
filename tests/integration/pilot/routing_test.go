@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -22,6 +23,7 @@ import (
 
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
@@ -179,6 +181,40 @@ func protocolSniffingCases() []TrafficTestCase {
 	return cases
 }
 
+// trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
+func trafficLoopCases() []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, port := range []string{"15001", "15006"} {
+		cases = append(cases, TrafficTestCase{
+			name: port,
+			call: func() (echoclient.ParsedResponses, error) {
+				dwl, err := b.Workloads()
+				if err != nil {
+					return nil, err
+				}
+				cwl, err := a.Workloads()
+				if err != nil {
+					return nil, err
+				}
+				resp, err := cwl[0].ForwardEcho(context.Background(), &epb.ForwardEchoRequest{
+					Url:   fmt.Sprintf("http://%s:%s", dwl[0].Address(), port),
+					Count: 1,
+				})
+				// Ideally we would actually check to make sure we do not blow up the pod,
+				// but I couldn't find a way to reliably detect this.
+				if err == nil {
+					return nil, fmt.Errorf("expected request to fail, but it didn't: %v", resp)
+				}
+				return nil, nil
+			},
+			validator: func(responses echoclient.ParsedResponses) error {
+				// We only care if there was an error
+				return nil
+			},
+		})
+	}
+	return cases
+}
 func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -187,6 +223,7 @@ func TestTraffic(t *testing.T) {
 			cases := []TrafficTestCase{}
 			cases = append(cases, virtualServiceCases()...)
 			cases = append(cases, protocolSniffingCases()...)
+			cases = append(cases, trafficLoopCases()...)
 			for _, tt := range cases {
 				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
 					if len(tt.config) > 0 {

@@ -273,9 +273,9 @@ func TestSidecarListeners(t *testing.T) {
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtualOutbound", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
-			Equals(wellknown.TCPProxy, "{.filterChains[0].filters[0].name}").
-			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
-			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
+			Equals(wellknown.TCPProxy, "{.filterChains[1].filters[0].name}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.statPrefix}").
 			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
 			CheckOrFail(t)
 	})
