@@ -215,9 +215,6 @@ type SecretManager interface {
 	// due to client logic. If JWT is missing/invalid, the resourceName is used.
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*SecretItem, error)
 
-	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
-	ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
-
 	// SecretExist checks if secret already existed.
 	// This API is used for sds server to check if coming request is ack request.
 	SecretExist(connectionID, resourceName, token, version string) bool

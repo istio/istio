@@ -28,7 +28,6 @@ import (
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -418,28 +417,4 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 	fetcher.CaClient = caClient
 
 	return
-}
-
-// TODO: use existing 'sidecar/router' config to enable loading Secrets
-func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
-	gSecretFetcher := &secretfetcher.SecretFetcher{}
-	// TODO: use the common init !
-	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
-	if !sa.secOpts.FileMountedCerts {
-		cs, err := kube.CreateClientset("", "")
-		if err != nil {
-			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-			os.Exit(1)
-		}
-
-		gSecretFetcher.FallbackSecretName = "gateway-fallback"
-
-		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
-
-		stopCh := make(chan struct{})
-		gSecretFetcher.Run(stopCh)
-	}
-
-	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
-	return gatewaySecretCache
 }
