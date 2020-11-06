@@ -30,6 +30,8 @@ type Cluster struct {
 	filename    string
 	networkName string
 	index       resource.ClusterIndex
+	settings    *Settings
+	clusters    []*Cluster
 }
 
 func (c Cluster) String() string {
@@ -60,4 +62,40 @@ func (c Cluster) Name() string {
 // Index of this cluster within the Environment.
 func (c Cluster) Index() resource.ClusterIndex {
 	return c.index
+}
+
+func (c Cluster) IsPrimary() bool {
+	return c.Primary().Name() == c.Name()
+}
+
+func (c Cluster) IsConfig() bool {
+	return c.Config().Name() == c.Name()
+}
+
+func (c Cluster) IsRemote() bool {
+	return !c.IsPrimary()
+}
+
+func (c Cluster) Primary() resource.Cluster {
+	i, found := c.settings.ControlPlaneTopology[c.index]
+	if !found {
+		panic(fmt.Errorf("no primary cluster found in topology for cluster %s", c.Name()))
+	}
+	if int(i) >= len(c.clusters) {
+		panic(fmt.Errorf("primary cluster index %d out of range in %d configured clusters",
+			i, len(c.clusters)))
+	}
+	return c.clusters[i]
+}
+
+func (c Cluster) Config() resource.Cluster {
+	i, found := c.settings.ConfigTopology[c.index]
+	if !found {
+		panic(fmt.Errorf("no config cluster found in topology for cluster %s", c.Name()))
+	}
+	if int(i) >= len(c.clusters) {
+		panic(fmt.Errorf("config cluster index %d out of range in %d configured clusters",
+			i, len(c.clusters)))
+	}
+	return c.clusters[i]
 }

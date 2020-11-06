@@ -26,7 +26,6 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -87,9 +86,7 @@ func (n *kubeNamespace) Close() (err error) {
 }
 
 func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
-	env := ctx.Environment().(*kube.Environment)
-
-	for _, cluster := range env.KubeClusters {
+	for _, cluster := range ctx.Clusters() {
 		if !kube2.NamespaceExists(cluster, nsConfig.Prefix) {
 			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{

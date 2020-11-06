@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
@@ -226,8 +225,7 @@ func verifyCertificatesWithPluginCA(t *testing.T, dump string) {
 
 func checkCACert(testCtx framework.TestContext, t *testing.T, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
-	env := testCtx.Environment().(*kube.Environment)
-	cm, err := env.KubeClusters[0].CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
+	cm, err := testCtx.Clusters().Default().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
 		kubeApiMeta.GetOptions{})
 	if err != nil {
 		return err

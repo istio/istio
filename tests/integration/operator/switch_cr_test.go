@@ -37,7 +37,6 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -72,7 +71,7 @@ func TestController(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default()
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
 				t.Fatal(err)
@@ -135,7 +134,7 @@ func TestOperatorRemove(t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default()
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
 				t.Fatal(err)
@@ -233,7 +232,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 	return nil
 }
 
-func cleanupInClusterCRs(t *testing.T, cs kube.Cluster) {
+func cleanupInClusterCRs(t *testing.T, cs resource.Cluster) {
 	// clean up hanging installed-state CR from previous tests
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
