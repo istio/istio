@@ -106,6 +106,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_MUTUAL:
 		res := model.SdsCertificateConfig{
 			CertificatePath:   model.GetOrDefault(metadata.TLSClientCertChain, tls.ClientCertificate),
@@ -124,6 +125,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
@@ -135,12 +137,14 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+		tlsContext.Sni = tls.Sni
+		// For ISTIO_MUTUAL if custom SNI is not provided, use the default SNI name.
+		if len(tls.Sni) == 0 {
+			tlsContext.Sni = sniName
+		}
 	default:
 		// No TLS.
 		return nil
-	}
-	if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-		tlsContext.Sni = sniName
 	}
 	return tlsContext
 }
