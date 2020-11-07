@@ -174,6 +174,8 @@ func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
 	for _, l := range r.Entries {
 		// Remove fields that do not need verification
 		l.Timestamp = nil
+		l.Trace = ""
+		l.SpanId = ""
 		l.Severity = ltype.LogSeverity_DEFAULT
 		if l.HttpRequest != nil {
 			l.HttpRequest.ResponseSize = 0

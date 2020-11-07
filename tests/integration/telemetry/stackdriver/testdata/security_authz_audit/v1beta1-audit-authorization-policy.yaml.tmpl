@@ -1,0 +1,23 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  namespace: "{{ .Namespace }}"
+  name: "audit-by-path-and-request-header"
+spec:
+  action: AUDIT
+  rules:
+  - to:
+    - operation:
+        paths: ["/audit-all"]
+  - to:
+    - operation:
+        paths: ["/foo"]
+    when:
+    - key: request.headers[X-Header]
+      values: ["foo"]
+  - to:
+    - operation:
+        paths: ["/bar"]
+    when:
+    - key: request.headers[X-Header]
+      values: ["bar"]
