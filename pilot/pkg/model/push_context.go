@@ -829,11 +829,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	m := make(map[host.Name]struct{}, len(ps.clusterLocalHosts))
-	for _, h := range ps.clusterLocalHosts {
-		m[h] = struct{}{}
-	}
-	_, ok := MostSpecificHostMatch(service.Hostname, m, ps.clusterLocalHosts)
+	_, ok := MostSpecificHostMatch(service.Hostname, nil, ps.clusterLocalHosts)
 	return ok
 }
 

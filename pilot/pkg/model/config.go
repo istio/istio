@@ -258,9 +258,17 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []host.Name) (host.Name, bool) {
 	matches := []host.Name{}
 
-	// exact match, use map
-	if _, ok := m[needle]; ok {
-		return needle, true
+	// exact match first
+	if m != nil {
+		if _, ok := m[needle]; ok {
+			return needle, true
+		}
+	} else {
+		for _, h := range stack {
+			if h == needle {
+				return needle, true
+			}
+		}
 	}
 
 	if needle.IsWildCarded() {
