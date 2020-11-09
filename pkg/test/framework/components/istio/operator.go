@@ -268,7 +268,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			if cluster.IsRemote() && !cluster.IsConfig() {
 				cluster := cluster
 				errG.Go(func() error {
-					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile, istioctlConfigFiles.remoteOperatorSpec); err != nil {
+					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile); err != nil {
 						return fmt.Errorf("failed deploying control plane to remote cluster %s: %v", cluster.Name(), err)
 					}
 					return nil
@@ -287,11 +287,11 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
 			return nil, err
 		}
-		for _, cluster := range env.KubeClusters {
+		for _, cluster := range ctx.Clusters() {
 			if cluster.IsRemote() && !cluster.IsConfig() {
 				// remote clusters only need this gateway for multi-network purposes
 				if i.ctx.Environment().IsMultinetwork() {
-					if err := i.deployEastWestGateway(cluster); err != nil {
+					if err := i.deployEastWestGateway(cluster, istioctlConfigFiles.remoteOperatorSpec.Revision); err != nil {
 						return i, err
 					}
 				}
@@ -419,7 +419,7 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resour
 	scopes.Framework.Infof("setting up %s as config cluster", cluster.Name())
 	// TODO move values out of external istiod test main into the ConfigClusterValues defaults
 	// TODO(cont) this method should just deploy the "base" resources needed to allow istio to read from k8s
-	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, configIopFile)
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, cfg.ConfigClusterIOPFile, configIopFile)
 	if err != nil {
 		return err
 	}
@@ -491,7 +491,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if cluster.IsConfig() {
-		if err := i.deployEastWestGateway(cluster); err != nil {
+		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.
@@ -515,7 +515,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 }
 
 // Deploy Istio to remote clusters
-func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string, spec *opAPI.IstioOperatorSpec) error {
+func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
 	// TODO this method should handle setting up discovery from remote config clusters to their control-plane
 	// TODO(cont) and eventually we should always use istiod-less remotes
 	scopes.Framework.Infof("setting up %s as remote cluster", cluster.Name())
@@ -553,7 +553,7 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 	return nil
 }
 
-func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster resource.Cluster, defaultsIOPFile, iopFile strig) ([]string, error) {
+func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster resource.Cluster, defaultsIOPFile, iopFile string) ([]string, error) {
 
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -581,13 +581,6 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster re
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
 	return installSettings, nil
-}
-
-func isCentralIstio(env *kube.Environment, cfg Config) bool {
-	if env.IsMulticluster() && cfg.Values["global.centralIstiod"] == "true" {
-		return true
-	}
-	return false
 }
 
 // install will replace and reconcile the installation based on the given install settings
