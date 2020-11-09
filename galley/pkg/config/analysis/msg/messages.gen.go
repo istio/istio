@@ -41,6 +41,10 @@ var (
 	// Description: The resource has a schema validation error.
 	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "Schema validation error: %v")
 
+	// SchemaWarning defines a diag.MessageType for message "SchemaWarning".
+	// Description: The resource has a schema validation warning.
+	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
+
 	// MisplacedAnnotation defines a diag.MessageType for message "MisplacedAnnotation".
 	// Description: An Istio annotation is applied to the wrong kind of resource.
 	MisplacedAnnotation = diag.NewMessageType(diag.Warning, "IST0107", "Misplaced annotation: %s can only be applied to %s")
@@ -153,6 +157,7 @@ func All() []*diag.MessageType {
 		GatewayPortNotOnWorkload,
 		IstioProxyImageMismatch,
 		SchemaValidationError,
+		SchemaWarning,
 		MisplacedAnnotation,
 		UnknownAnnotation,
 		ConflictingMeshGatewayVirtualServiceHosts,
@@ -251,6 +256,15 @@ func NewIstioProxyImageMismatch(r *resource.Instance, proxyImage string, injecti
 func NewSchemaValidationError(r *resource.Instance, err error) diag.Message {
 	return diag.NewMessage(
 		SchemaValidationError,
+		r,
+		err,
+	)
+}
+
+// NewSchemaWarning returns a new diag.Message based on SchemaWarning.
+func NewSchemaWarning(r *resource.Instance, err error) diag.Message {
+	return diag.NewMessage(
+		SchemaWarning,
 		r,
 		err,
 	)
