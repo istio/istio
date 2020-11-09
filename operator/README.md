@@ -356,7 +356,7 @@ way as galley settings. Supported K8s settings currently include:
 - [pod annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
 - [container environment variables](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)
 - [ImagePullPolicy](https://kubernetes.io/docs/concepts/containers/images/)
-- [priority calss name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
+- [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
 - [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
 - [toleration](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/)
 - [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
