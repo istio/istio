@@ -20,6 +20,7 @@ about: Report a bug to help us improve Istio
 [ ] Test and Release
 [ ] User Experience
 [ ] Developer Infrastructure
+[ ] Upgrade
 
 **Affected features (please put an X in all that apply)**
 
