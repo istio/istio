@@ -362,7 +362,9 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 			Hostname:   host.Name(sidecar + "." + sidecarns),
 			Attributes: attrs,
 		},
-		Endpoint: &model.IstioEndpoint{},
+		Endpoint: &model.IstioEndpoint{
+			EndpointPort: ingressListener.Port.Number,
+		},
 	}
 }
 
