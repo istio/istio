@@ -266,10 +266,15 @@ fmt: format-go format-python tidy-go
 buildcache:
 	GOBUILDFLAGS=-i $(MAKE) -e -f Makefile.core.mk build
 
+# gobuild script uses custom linker flag to set the variables.
+RELEASE_LDFLAGS='-extldflags -static -s -w'
+
 # List of all binaries to build
-BINARIES:=./istioctl/cmd/istioctl \
+# We split the binaries into "agent" binaries and standard ones. This corresponds to build "agent".
+# This allows conditional compilation to avoid pulling in costly dependencies to the agent, such as XDS and k8s.
+AGENT_BINARIES:=./pilot/cmd/pilot-agent
+STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
-  ./pilot/cmd/pilot-agent \
   ./mixer/cmd/mixs \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
@@ -282,13 +287,15 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./cni/cmd/istio-cni-repair \
   ./cni/cmd/install-cni \
   ./tools/istio-iptables
+BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
 
 .PHONY: build
 build: depend ## Builds all go binaries.
-	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(STANDARD_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ -tags=agent $(AGENT_BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
 # This target should be expanded upon as we add more Linux architectures: i.e. buld-arm64.
@@ -296,7 +303,8 @@ build: depend ## Builds all go binaries.
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(STANDARD_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
 # There are two use cases here:
@@ -309,11 +317,12 @@ ifeq ($(BUILD_ALL),true)
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
 else
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): $(ISTIO_OUT_LINUX)
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=$(2) $(1)
 endif
 endef
 
-$(foreach bin,$(BINARIES),$(eval $(call build-linux,$(bin))))
+$(foreach bin,$(STANDARD_BINARIES),$(eval $(call build-linux,$(bin),"")))
+$(foreach bin,$(AGENT_BINARIES),$(eval $(call build-linux,$(bin),"agent")))
 
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
