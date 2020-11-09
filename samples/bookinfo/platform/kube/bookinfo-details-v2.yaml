@@ -43,4 +43,6 @@ spec:
         env:
         - name: DO_NOT_ENCRYPT
           value: "true"
+        securityContext:
+          runAsUser: 1000
 ---
