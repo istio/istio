@@ -24,6 +24,7 @@
 # Istio 1.6.8 for the x86_64 architecture,
 # run curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.6.8 TARGET_ARCH=x86_64 sh -.
 
+set -e
 
 # Determines the operating system.
 OS="$(uname)"
@@ -46,7 +47,7 @@ if [ "${TARGET_ARCH}" ]; then
     LOCAL_ARCH=${TARGET_ARCH}
 fi
 
-case "${LOCAL_ARCH}" in 
+case "${LOCAL_ARCH}" in
   x86_64)
     ISTIO_ARCH=amd64
     ;;
@@ -79,6 +80,10 @@ ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/isti
 
 with_arch() {
   printf "\nDownloading %s from %s ...\n" "$NAME" "$ARCH_URL"
+  if ! curl -o /dev/null -sIf "$ARCH_URL"; then
+    printf "\n%s is not found, please specify a valid ISTIO_VERSION and TARGET_ARCH\n" "$ARCH_URL"
+    exit
+  fi
   curl -fsLO "$ARCH_URL"
   filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
   tar -xzf "${filename}"
@@ -87,6 +92,10 @@ with_arch() {
 
 without_arch() {
   printf "\nDownloading %s from %s ..." "$NAME" "$URL"
+  if ! curl -o /dev/null -sIf "$URL"; then
+    printf "\n%s is not found, please specify a valid ISTIO_VERSION\n" "$URL"
+    exit
+  fi
   curl -fsLO "$URL"
   filename="istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
   tar -xzf "${filename}"
