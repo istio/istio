@@ -14,12 +14,6 @@ spec:
       enabled: false
     istiodRemote:
       enabled: true
-    ingressGateways:
-      - enabled: false
-        name: istio-ingressgateway
-    egressGateways:
-      - enabled: false
-        name: istio-egressgateway
   values:
     global:
       externalIstiod: true
