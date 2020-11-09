@@ -21,6 +21,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -110,7 +111,7 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 			defer wg.Done()
 			selector := "app"
 			if inst.Config().DeployAsVM {
-				selector = "istio.io/test-vm"
+				selector = constants.TestVMLabel
 			}
 			// Wait until all the pods are ready for this service
 			fetch := kube.NewPodMustFetch(cluster, serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
