@@ -287,7 +287,7 @@ RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
 
 .PHONY: build
 build: depend ## Builds all go binaries.
-	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ $(STANDARD_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ $(STANDARD_BINARIES)
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ -tags=agent $(AGENT_BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
@@ -296,7 +296,7 @@ build: depend ## Builds all go binaries.
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	STATIC=0 GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(STANDARD_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(STANDARD_BINARIES)
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
@@ -310,7 +310,7 @@ ifeq ($(BUILD_ALL),true)
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
 else
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): $(ISTIO_OUT_LINUX)
-	STATIC=0 GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=$(2) $(1)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=$(2) $(1)
 endif
 endef
 
