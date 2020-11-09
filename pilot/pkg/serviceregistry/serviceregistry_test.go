@@ -130,16 +130,16 @@ func setupTest(t *testing.T) (
 	go configController.Run(stop)
 
 	istioStore := model.MakeIstioStore(configController)
-	wc := serviceentry.NewServiceDiscovery(configController, istioStore, xdsUpdater)
+	se := serviceentry.NewServiceDiscovery(configController, istioStore, xdsUpdater)
 	client.RunAndWait(stop)
 
-	kc.AppendWorkloadHandler(wc.WorkloadInstanceHandler)
-	wc.AppendWorkloadHandler(kc.WorkloadInstanceHandler)
+	kc.AppendWorkloadHandler(se.WorkloadInstanceHandler)
+	se.AppendWorkloadHandler(kc.WorkloadInstanceHandler)
 
 	go kc.Run(stop)
-	go wc.Run(stop)
+	go se.Run(stop)
 
-	return kc, wc, configController, client.Kube(), xdsUpdater
+	return kc, se, configController, client.Kube(), xdsUpdater
 }
 
 // TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
@@ -739,6 +739,24 @@ func TestWorkloadInstances(t *testing.T) {
 		newPod.Status.PodIP = "2.3.4.5"
 		makePod(t, s.KubeClient(), newPod)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
+
+		if err := s.KubeClient().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+	})
+
+	t.Run("ServiceEntry selects Pod: deleting pod", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		makeIstioObject(t, s.Store(), serviceEntry)
+		makePod(t, s.KubeClient(), pod)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+
+		// Simulate pod being deleted by setting deletion timestamp
+		newPod := pod.DeepCopy()
+		newPod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+		makePod(t, s.KubeClient(), newPod)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 
 		if err := s.KubeClient().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
 			t.Fatal(err)
