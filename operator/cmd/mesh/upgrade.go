@@ -182,7 +182,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	for _, pod := range pods.Items {
 		revision := pod.ObjectMeta.GetLabels()[label.IstioRev]
 		// If --revision is not passed, istio.io/rev: default
-		if revision != "" && revision != "default" {
+		if revision != "" && revision == "default" {
 			err = fmt.Errorf("can not upgrade because the previous version of Istio is installed with revision")
 		}
 	}
