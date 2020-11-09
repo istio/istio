@@ -43,7 +43,7 @@ var (
 
 	// SchemaWarning defines a diag.MessageType for message "SchemaWarning".
 	// Description: The resource has a schema validation warning.
-	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0132", "Schema validation warning: %v")
+	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
 
 	// MisplacedAnnotation defines a diag.MessageType for message "MisplacedAnnotation".
 	// Description: An Istio annotation is applied to the wrong kind of resource.

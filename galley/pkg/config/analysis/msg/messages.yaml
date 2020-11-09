@@ -80,7 +80,7 @@ messages:
         type: error
 
   - name: "SchemaWarning"
-    code: IST0132
+    code: IST0133
     level: Warning
     description: "The resource has a schema validation warning."
     template: "Schema validation warning: %v"
