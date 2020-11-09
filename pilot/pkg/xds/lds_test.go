@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test/env"
@@ -58,7 +59,7 @@ func TestLDSIsolated(t *testing.T) {
 
 		// 7071 (inbound), 2001 (service - also as http proxy), 18010 (fortio), 15006 (virtual inbound)
 		if len(adscon.GetHTTPListeners()) != 4 {
-			t.Error("HTTP listeners, expecting 4 got ", len(adscon.GetHTTPListeners()), adscon.GetHTTPListeners())
+			t.Error("HTTP listeners, expecting 4 got", len(adscon.GetHTTPListeners()), xdstest.MapKeys(adscon.GetHTTPListeners()))
 		}
 
 		// s1tcp:2000 outbound, bind=true (to reach other instances of the service)

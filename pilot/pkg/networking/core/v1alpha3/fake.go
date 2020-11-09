@@ -210,6 +210,9 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	if p.ConfigNamespace == "" {
 		p.ConfigNamespace = "default"
 	}
+	if p.Metadata.Namespace == "" {
+		p.Metadata.Namespace = p.ConfigNamespace
+	}
 	if p.ID == "" {
 		p.ID = "app.test"
 	}
