@@ -959,3 +959,8 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 
 	return InterceptionRedirect
 }
+
+func (node *Proxy) IsVM() bool {
+	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
+	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
+}
