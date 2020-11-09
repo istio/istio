@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/pkg/monitoring"
@@ -961,10 +960,7 @@ func (ps *PushContext) updateContext(
 		case gvk.RequestAuthentication,
 			gvk.PeerAuthentication:
 			authnChanged = true
-		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.Gateway, gvk.TLSRoute:
 			virtualServicesChanged = true
 			gatewayChanged = true
 		}
