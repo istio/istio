@@ -628,7 +628,7 @@ func (s *DiscoveryServer) InjectTemplateHandler(webhook *inject.Webhook) func(ht
 
 // MeshHandler dumps the mesh config
 func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
-	if err := (&jsonpb.Marshaler{}).Marshal(w, s.Env.Mesh()); err != nil {
+	if err := (&jsonpb.Marshaler{Indent: "  "}).Marshal(w, s.Env.Mesh()); err != nil {
 		w.WriteHeader(500)
 	}
 }
