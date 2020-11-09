@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
@@ -48,24 +47,6 @@ const (
 
 	// NetworkingReviewsV3Rule uses "networking/virtual-service-reviews-v3"
 	NetworkingReviewsV3Rule ConfigFile = "networking/virtual-service-reviews-v3.yaml"
-
-	// RatingsRedisRateLimitFixed uses Mixer configs
-	RatingsRedisRateLimitFixed ConfigFile = "policy/mixer-rule-ratings-redis-quota-fixed-window.yaml"
-
-	// RatingsRedisRateLimitRolling uses Mixer configs
-	RatingsRedisRateLimitRolling ConfigFile = "policy/mixer-rule-ratings-redis-quota-rolling-window.yaml"
-
-	// ProductPageRedisRateLimit uses Mixer configs
-	ProductPageRedisRateLimit ConfigFile = "policy/mixer-rule-productpage-redis-quota-fixed-window.yaml"
-
-	// PolicyDenyIPRule uses "policy/mixer-rule-deny-ip.yaml"
-	PolicyDenyIPRule ConfigFile = "policy/mixer-rule-deny-ip.yaml"
-
-	// TelemetryLogEntry uses "telemetry/log-entry.yaml"
-	TelemetryLogEntry ConfigFile = "telemetry/log-entry.yaml"
-
-	// DoubleMetric uses "telemetry/metrics.yaml"
-	DoubleMetric ConfigFile = "telemetry/metrics.yaml"
 )
 
 // LoadGatewayFileWithNamespaceOrFail loads a Book Info Gateway configuration file from the system, changes it to be fit
@@ -142,14 +123,7 @@ func GetDestinationRuleConfigFileOrFail(t test.Failer, ctx resource.Context) Con
 }
 
 func GetDestinationRuleConfigFile(ctx resource.Context) (ConfigFile, error) {
-	cfg, err := istio.DefaultConfig(ctx)
-	if err != nil {
-		return "", fmt.Errorf("bookinfo.GetDestinationRuleConfigFile: %v", err)
-	}
-	if cfg.IsMtlsEnabled() {
-		return NetworkingDestinationRuleAllMtls, nil
-	}
-	return NetworkingDestinationRuleAll, nil
+	return NetworkingDestinationRuleAllMtls, nil
 }
 
 func replaceBookinfoAppAddressWithFQDNAddress(fileContent, namespace string) string {

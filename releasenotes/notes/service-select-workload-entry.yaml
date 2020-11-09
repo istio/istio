@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+- 23683
+releaseNotes:
+- |
+  **Added** support for Kubernetes Services to select WorkloadEntries.

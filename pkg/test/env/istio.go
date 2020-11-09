@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -16,34 +16,16 @@ package env
 
 import (
 	"fmt"
-	"go/build"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
-
 	"runtime"
+	"strings"
 
 	"istio.io/pkg/log"
 )
 
 var (
-	// GOPATH environment variable
-	// nolint: golint, stylecheck
-	GOPATH Variable = "GOPATH"
-
-	// TOP environment variable
-	// nolint: golint, stylecheck
-	TOP Variable = "TOP"
-
-	// ISTIO_GO environment variable
-	// nolint: golint, stylecheck
-	ISTIO_GO Variable = "ISTIO_GO"
-
-	// ISTIO_BIN environment variable
-	// nolint: golint, stylecheck
-	ISTIO_BIN Variable = "ISTIO_BIN"
-
 	// ISTIO_OUT environment variable
 	// nolint: golint, stylecheck
 	ISTIO_OUT Variable = "ISTIO_OUT"
@@ -72,16 +54,13 @@ var (
 	// nolint: golint, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
 
-	// ISTIO_TEST_KUBE_CONFIG is the Kubernetes configuration file to use for testing. If a configuration file
-	// is specified on the command-line, that takes precedence.
+	// KUBECONFIG is the list of Kubernetes configuration files. If configuration files are specified on
+	// the command-line, that takes precedence.
 	// nolint: golint, stylecheck
-	ISTIO_TEST_KUBE_CONFIG Variable = "ISTIO_TEST_KUBE_CONFIG"
+	KUBECONFIG Variable = "KUBECONFIG"
 
 	// IstioSrc is the location of istio source ($TOP/src/istio.io/istio
 	IstioSrc = REPO_ROOT.ValueOrDefaultFunc(getDefaultIstioSrc)
-
-	// IstioBin is the location of the binary output directory
-	IstioBin = verifyFile(ISTIO_BIN, ISTIO_BIN.ValueOrDefaultFunc(getDefaultIstioBin))
 
 	// IstioOut is the location of the output directory ($TOP/out)
 	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
@@ -95,9 +74,6 @@ var (
 	// ChartsDir is the Kubernetes Helm chart directory in the repository
 	ChartsDir = path.Join(IstioSrc, "install/kubernetes/helm")
 
-	// IstioChartDir is the Kubernetes Helm chart directory in the repository
-	IstioChartDir = path.Join(ChartsDir, "istio")
-
 	// BookInfoRoot is the root folder for the bookinfo samples
 	BookInfoRoot = path.Join(IstioSrc, "samples/bookinfo")
 
@@ -105,13 +81,18 @@ var (
 	BookInfoKube = path.Join(BookInfoRoot, "platform/kube")
 
 	// ServiceAccountFilePath is the helm service account file.
-	ServiceAccountFilePath = path.Join(ChartsDir, "helm-service-account.yaml")
+	ServiceAccountFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/service_account.yaml")
 
+	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
+	OtelCollectorInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/opentelemetry/opentelemetry-collector.yaml")
 	// RedisInstallFilePath is the redis installation file.
 	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
 
 	// StackdriverInstallFilePath is the stackdriver installation file.
 	StackdriverInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/stackdriver/stackdriver.yaml")
+
+	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
+	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/gcemetadata/gce_metadata_server.yaml")
 )
 
 func getDefaultIstioSrc() string {
@@ -125,10 +106,6 @@ func getDefaultIstioSrc() string {
 		return filepath.Join(current[0:idx], "/src", "istio.io", "istio")
 	}
 	return current // launching from GOTOP (for example in goland)
-}
-
-func getDefaultIstioBin() string {
-	return fmt.Sprintf("%s/bin", build.Default.GOPATH)
 }
 
 func getDefaultIstioOut() string {

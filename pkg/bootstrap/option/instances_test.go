@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
 package option_test
 
 import (
-	"encoding/base64"
-	"net"
 	"testing"
 	"time"
 
@@ -25,11 +23,11 @@ import (
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/option"
 )
 
+// nolint: lll
 func TestOptions(t *testing.T) {
 	cases := []struct {
 		testName    string
@@ -55,18 +53,6 @@ func TestOptions(t *testing.T) {
 			key:      "pilot_SAN",
 			option:   option.PilotSubjectAltName([]string{"fake", "other"}),
 			expected: `[{"exact":"fake"},{"exact":"other"}]`,
-		},
-		{
-			testName: "mixerSAN",
-			key:      "MixerSubjectAltName",
-			option:   option.MixerSubjectAltName([]string{"fake"}),
-			expected: "fake",
-		},
-		{
-			testName: "mixerSAN empty",
-			key:      "MixerSubjectAltName",
-			option:   option.MixerSubjectAltName(make([]string, 0)),
-			expected: nil,
 		},
 		{
 			testName: "nil connect timeout",
@@ -119,8 +105,10 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "node metadata",
 			key:      "meta_json_str",
-			option: option.NodeMetadata(&model.NodeMetadata{
-				IstioVersion: "fake",
+			option: option.NodeMetadata(&model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					IstioVersion: "fake",
+				},
 			}, map[string]interface{}{
 				"key": "value",
 			}),
@@ -169,48 +157,6 @@ func TestOptions(t *testing.T) {
 			expected: option.DNSLookupFamilyValue("AUTO"),
 		},
 		{
-			testName: "pod name",
-			key:      "PodName",
-			option:   option.PodName("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "pod namespace",
-			key:      "PodNamespace",
-			option:   option.PodNamespace("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "pod ip",
-			key:      "PodIP",
-			option:   option.PodIP(net.IPv4(127, 0, 0, 1)),
-			expected: base64.StdEncoding.EncodeToString(net.IPv4(127, 0, 0, 1)),
-		},
-		{
-			testName: "control plane auth true",
-			key:      "ControlPlaneAuth",
-			option:   option.ControlPlaneAuth(true),
-			expected: "enable",
-		},
-		{
-			testName: "control plane auth false",
-			key:      "ControlPlaneAuth",
-			option:   option.ControlPlaneAuth(false),
-			expected: nil,
-		},
-		{
-			testName: "disable report calls true",
-			key:      "DisableReportCalls",
-			option:   option.DisableReportCalls(true),
-			expected: "true",
-		},
-		{
-			testName: "disable report calls false",
-			key:      "DisableReportCalls",
-			option:   option.DisableReportCalls(false),
-			expected: nil,
-		},
-		{
 			testName: "lightstep address empty",
 			key:      "lightstep",
 			option:   option.LightstepAddress(""),
@@ -257,6 +203,37 @@ func TestOptions(t *testing.T) {
 			key:      "lightstepToken",
 			option:   option.LightstepToken("fake"),
 			expected: "fake",
+		},
+		{
+			testName: "openCensusAgent address",
+			key:      "openCensusAgent",
+			option:   option.OpenCensusAgentAddress("fake-ocagent"),
+			expected: "fake-ocagent",
+		},
+		{
+			testName: "openCensusAgent empty context",
+			key:      "openCensusAgentContexts",
+			option:   option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{}),
+			expected: `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`,
+		},
+		{
+			testName: "openCensusAgent order context",
+			key:      "openCensusAgentContexts",
+			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
+				meshAPI.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT,
+				meshAPI.Tracing_OpenCensusAgent_B3,
+				meshAPI.Tracing_OpenCensusAgent_GRPC_BIN,
+				meshAPI.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT,
+			}),
+			expected: `["CLOUD_TRACE_CONTEXT","B3","GRPC_TRACE_BIN","TRACE_CONTEXT"]`,
+		},
+		{
+			testName: "openCensusAgent one context",
+			key:      "openCensusAgentContexts",
+			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
+				meshAPI.Tracing_OpenCensusAgent_B3,
+			}),
+			expected: `["B3"]`,
 		},
 		{
 			testName: "stackdriver enabled",
@@ -507,7 +484,7 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy metrics tls nil",
 			key:      "envoy_metrics_service_tls",
-			option:   option.EnvoyMetricsServiceTLS(nil, &model.NodeMetadata{}),
+			option:   option.EnvoyMetricsServiceTLS(nil, &model.BootstrapNodeMetadata{}),
 			expected: nil,
 		},
 		{
@@ -515,8 +492,8 @@ func TestOptions(t *testing.T) {
 			key:      "envoy_metrics_service_tls",
 			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
-			}, &model.NodeMetadata{}),
-			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}", // nolint: lll
+			}, &model.BootstrapNodeMetadata{}),
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["istio","h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}]},"sni":"envoy_metrics_service"}}`,
 		},
 		{
 			testName: "envoy metrics keepalive nil",
@@ -577,7 +554,7 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "envoy accesslog tls nil",
 			key:      "envoy_accesslog_service_tls",
-			option:   option.EnvoyAccessLogServiceTLS(nil, &model.NodeMetadata{}),
+			option:   option.EnvoyAccessLogServiceTLS(nil, &model.BootstrapNodeMetadata{}),
 			expected: nil,
 		},
 		{
@@ -585,8 +562,8 @@ func TestOptions(t *testing.T) {
 			key:      "envoy_accesslog_service_tls",
 			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
-			}, &model.NodeMetadata{}),
-			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}", // nolint: lll
+			}, &model.BootstrapNodeMetadata{}),
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["istio","h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}]},"sni":"envoy_accesslog_service"}}`,
 		},
 		{
 			testName: "envoy access log keepalive nil",
@@ -689,7 +666,7 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "tracing tls nil",
 			key:      "tracing_tls",
-			option:   option.TracingTLS(nil, &model.NodeMetadata{}, false),
+			option:   option.TracingTLS(nil, &model.BootstrapNodeMetadata{}, false),
 			expected: nil,
 		},
 		{
@@ -698,15 +675,14 @@ func TestOptions(t *testing.T) {
 			option: option.TracingTLS(&networkingAPI.ClientTLSSettings{
 				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
 				CaCertificates: "/etc/tracing/ca.pem",
-			}, &model.NodeMetadata{}, false),
-			expected: "{\"name\":\"tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext\"," +
-				"\"common_tls_context\":{\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/tracing/ca.pem\"}}}}}",
+			}, &model.BootstrapNodeMetadata{}, false),
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/tracing/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}}}}}`,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.testName, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			params, err := option.NewTemplateParams(c.option)
 			if c.expectError {

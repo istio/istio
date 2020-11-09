@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,10 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {
@@ -95,7 +93,6 @@ serviceSettings:
     host:
       - "*.myns.svc.cluster.local"
 ingressClass: foo
-reportBatchMaxTime: 10s
 enableTracing: false
 defaultServiceExportTo: 
 - "foo"

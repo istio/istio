@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,26 +16,20 @@ package helm
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
 	"sigs.k8s.io/yaml"
 
-	"helm.sh/helm/v3/pkg/chartutil"
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/vfs"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -45,7 +39,8 @@ const (
 	// DefaultProfileString is the name of the default profile.
 	DefaultProfileString = "default"
 
-	// notes file name suffix for the helm chart.
+	// NotesFileNameSuffix is the file name suffix for helm notes.
+	// see https://helm.sh/docs/chart_template_guide/notes_files/
 	NotesFileNameSuffix = ".txt"
 )
 
@@ -77,28 +72,24 @@ func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace strin
 
 // ReadProfileYAML reads the YAML values associated with the given profile. It uses an appropriate reader for the
 // profile format (compiled-in, file, HTTP, etc.).
-func ReadProfileYAML(profile string) (string, error) {
+func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 	var err error
 	var globalValues string
-	if profile == "" {
-		scope.Infof("ReadProfileYAML for profile name: [Empty]")
-	} else {
-		scope.Infof("ReadProfileYAML for profile name: %s", profile)
-	}
 
 	// Get global values from profile.
 	switch {
-	case IsBuiltinProfileName(profile):
+	case manifestsPath == "":
 		if globalValues, err = LoadValuesVFS(profile); err != nil {
 			return "", err
 		}
 	case util.IsFilePath(profile):
-		scope.Infof("Loading values from local filesystem at path %s", profile)
 		if globalValues, err = readFile(profile); err != nil {
 			return "", err
 		}
 	default:
-		return "", fmt.Errorf("unsupported Profile type: %s", profile)
+		if globalValues, err = LoadValues(profile, manifestsPath); err != nil {
+			return "", fmt.Errorf("failed to read profile %v from %v: %v", profile, manifestsPath, err)
+		}
 	}
 
 	return globalValues, nil
@@ -125,6 +116,12 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if chrt.Metadata.Name == "base" {
+		base, _ := valuesMap["base"].(map[string]interface{})
+		if enableIstioConfigCRDs, ok := base["enableIstioConfigCRDs"].(bool); ok && !enableIstioConfigCRDs {
+			crdFiles = []chart.CRD{}
+		}
+	}
 
 	// Create sorted array of keys to iterate over, to stabilize the order of the rendered templates
 	keys := make([]string, 0, len(files))
@@ -149,6 +146,9 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 			return "", err
 		}
 	}
+
+	// Sort crd files by name to ensure stable manifest output
+	sort.Slice(crdFiles, func(i, j int) bool { return crdFiles[i].Name < crdFiles[j].Name })
 	for _, crdFile := range crdFiles {
 		f := string(crdFile.File.Data)
 		// add yaml separator if the rendered file doesn't have one at the end
@@ -197,15 +197,12 @@ func renderTemplate(tmpl string, ts interface{}) (string, error) {
 }
 
 // DefaultFilenameForProfile returns the profile name of the default profile for the given profile.
-func DefaultFilenameForProfile(profile string) (string, error) {
+func DefaultFilenameForProfile(profile string) string {
 	switch {
 	case util.IsFilePath(profile):
-		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename), nil
+		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename)
 	default:
-		if _, ok := ProfileNames[profile]; ok || profile == "" {
-			return DefaultProfileString, nil
-		}
-		return "", fmt.Errorf("bad profile string %s", profile)
+		return DefaultProfileString
 	}
 }
 
@@ -219,116 +216,34 @@ func readFile(path string) (string, error) {
 	return string(b), err
 }
 
-// GetAddonNamesFromCharts scans the charts directory for addon-components
-func GetAddonNamesFromCharts(chartsRootDir string, capitalize bool) (addonChartNames []string, err error) {
-	if chartsRootDir == "" {
-		// VFS
-		fnames, err := vfs.GetFilesRecursive(ChartsSubdirName)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, fname := range fnames {
-			basename := filepath.Base(fname)
-			if basename == "Chart.yaml" {
-				b, err := vfs.ReadFile(fname)
-				if err != nil {
-					return nil, err
-				}
-				bf := &loader.BufferedFile{
-					Name: basename,
-					Data: b,
-				}
-				bfs := []*loader.BufferedFile{bf}
-				scope.Debugf("Chart loaded: %s", bf.Name)
-				chart, err := loader.LoadFiles(bfs)
-				if err != nil {
-					return nil, err
-				} else if addonName := getAddonName(chart.Metadata); addonName != nil {
-					addonChartNames = append(addonChartNames, *addonName)
-				}
-			}
-		}
-	} else {
-		// filesystem
-		var chartFilenames []string
-		err = filepath.Walk(chartsRootDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() {
-				if ok, err := chartutil.IsChartDir(path); ok && err == nil {
-					chartFilenames = append(chartFilenames, filepath.Join(path, chartutil.ChartfileName))
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		for _, filename := range chartFilenames {
-			metadata, err := chartutil.LoadChartfile(filename)
-			if err != nil {
-				continue
-			}
-			if addonName := getAddonName(metadata); addonName != nil {
-				addonChartNames = append(addonChartNames, *addonName)
-			}
-		}
-	}
-	// sort for consistent results
-	sort.Strings(addonChartNames)
-	// check for duplicates
-	seen := make(map[string]bool)
-	for i, name := range addonChartNames {
-		if capitalize {
-			name = strings.ToUpper(name[:1]) + name[1:]
-			addonChartNames[i] = name
-		}
-		if seen[name] {
-			return nil, errors.New("Duplicate AddonComponent defined: " + name)
-		}
-		seen[name] = true
-	}
-	return addonChartNames, nil
-}
-
-func getAddonName(metadata *chart.Metadata) *string {
-	for _, str := range metadata.Keywords {
-		if str == "istio-addon" {
-			return &metadata.Name
-		}
-	}
-	return nil
-}
-
 // GetProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
 // a profile label or a file path.
 func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
 	if profileOrPath == "" {
 		profileOrPath = "default"
 	}
+	profiles, err := readProfiles(installPackagePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read profiles: %v", err)
+	}
 	// If charts are a file path and profile is a name like default, transform it to the file path.
-	if installPackagePath != "" && IsBuiltinProfileName(profileOrPath) {
+	if profiles[profileOrPath] && installPackagePath != "" {
 		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
 	}
 	// This contains the IstioOperator CR.
-	baseCRYAML, err := ReadProfileYAML(profileOrPath)
+	baseCRYAML, err := ReadProfileYAML(profileOrPath, installPackagePath)
 	if err != nil {
 		return "", err
 	}
 
 	if !IsDefaultProfile(profileOrPath) {
 		// Profile definitions are relative to the default profileOrPath, so read that first.
-		dfn, err := DefaultFilenameForProfile(profileOrPath)
+		dfn := DefaultFilenameForProfile(profileOrPath)
+		defaultYAML, err := ReadProfileYAML(dfn, installPackagePath)
 		if err != nil {
 			return "", err
 		}
-		defaultYAML, err := ReadProfileYAML(dfn)
-		if err != nil {
-			return "", err
-		}
-		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
+		baseCRYAML, err = util.OverlayIOP(defaultYAML, baseCRYAML)
 		if err != nil {
 			return "", err
 		}

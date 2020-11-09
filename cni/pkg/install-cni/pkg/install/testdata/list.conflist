@@ -1,0 +1,29 @@
+{
+  "cniVersion": "0.4.0",
+  "name": "dbnet",
+  "plugins": [
+    {
+      "type": "bridge",
+      "bridge": "cni0",
+      "args": {
+        "labels" : {
+            "appVersion" : "1.0"
+        }
+      },
+      "ipam": {
+        "type": "host-local",
+        "subnet": "10.1.0.0/16",
+        "gateway": "10.1.0.1"
+      },
+      "dns": {
+        "nameservers": [ "10.1.0.1" ]
+      }
+    },
+    {
+      "type": "tuning",
+      "sysctl": {
+        "net.core.somaxconn": "500"
+      }
+    }
+  ]
+}

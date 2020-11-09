@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,17 +21,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/security/pkg/pki/ca"
-
-	v1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/security/pkg/pki/util"
-
 	cert "k8s.io/api/certificates/v1beta1"
-
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -189,7 +185,7 @@ func TestUpsertSecret(t *testing.T) {
 			},
 		}
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
-
+		certWatchTimeout = time.Millisecond
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
@@ -239,6 +235,7 @@ func TestScrtDeleted(t *testing.T) {
 		},
 	}
 
+	certWatchTimeout = time.Millisecond
 	for _, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
@@ -288,6 +285,7 @@ func TestScrtDeleted(t *testing.T) {
 func TestScrtUpdated(t *testing.T) {
 	dnsNames := []string{"foo"}
 
+	certWatchTimeout = time.Millisecond
 	testCases := map[string]struct {
 		gracePeriodRatio       float32
 		minGracePeriod         time.Duration

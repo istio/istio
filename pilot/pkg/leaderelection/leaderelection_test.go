@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -135,5 +135,5 @@ func expectInt(t *testing.T, f func() int32, expected int32) {
 			return fmt.Errorf("unexpected count: %v, want %v", got, expected)
 		}
 		return nil
-	})
+	}, retry.Timeout(time.Second))
 }

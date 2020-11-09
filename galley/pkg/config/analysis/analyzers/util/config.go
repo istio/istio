@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,30 +15,23 @@
 package util
 
 import (
-	"istio.io/api/mesh/v1alpha1"
-
-	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
 )
 
-// MeshConfig returns the mesh configuration object associated with the context
-// Analyzers that call this should include metadata.IstioMeshV1Alpha1MeshConfig as an input in their Metadata
-func MeshConfig(ctx analysis.Context) *v1alpha1.MeshConfig {
-	// Only one MeshConfig should exist in practice, but getting it this way avoids needing
-	// to plumb through the name or enforce/expose a constant.
-	var mc *v1alpha1.MeshConfig
-	ctx.ForEach(collections.IstioMeshV1Alpha1MeshConfig.Name(), func(r *resource.Instance) bool {
-		mc = r.Message.(*v1alpha1.MeshConfig)
-		return true
-	})
-
-	return mc
-}
+// Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#viewing-namespaces
+// "kube-system": The namespace for objects created by the Kubernetes system.
+// "kube-public": This namespace is mostly reserved for cluster usage.
+// "kube-node-lease": This namespace for the lease objects associated with each node
+//    which improves the performance of the node heartbeats as the cluster scales.
+// "local-path-storage": Dynamically provisioning persistent local storage with Kubernetes.
+//    used with Kind cluster: https://github.com/rancher/local-path-provisioner
+var (
+	SystemNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "local-path-storage"}
+)
 
 // IsSystemNamespace returns true for system namespaces
 func IsSystemNamespace(ns resource.Namespace) bool {
-	return ns == "kube-system" || ns == "kube-public"
+	return IsIncluded(SystemNamespaces, ns.String())
 }
 
 // IsIstioControlPlane returns true for resources that are part of the Istio control plane
@@ -48,6 +41,16 @@ func IsIstioControlPlane(r *resource.Instance) bool {
 	}
 	if r.Metadata.Labels["release"] == "istio" {
 		return true
+	}
+	return false
+}
+
+// IsIncluded check if the term exists in a slice of string
+func IsIncluded(slice []string, term string) bool {
+	for _, val := range slice {
+		if val == term {
+			return true
+		}
 	}
 	return false
 }

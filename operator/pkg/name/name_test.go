@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/operator/pkg/tpath"
-
 	"github.com/ghodss/yaml"
 
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -106,9 +105,9 @@ a:
 			if err := yaml.Unmarshal([]byte(tt.args.inputTree), &tree); err != nil {
 				t.Fatal(err)
 			}
-			got, found, err := tpath.GetFromTreePath(tree, tt.args.path)
+			got, found, err := tpath.Find(tree, tt.args.path)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetFromTreePath() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Find() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -118,10 +117,10 @@ a:
 			}
 
 			if !reflect.DeepEqual(got, wantTree) {
-				t.Errorf("GetFromTreePath() got = %v, want %v", got, tt.want)
+				t.Errorf("Find() got = %v, want %v", got, tt.want)
 			}
 			if found != tt.found {
-				t.Errorf("GetFromTreePath() found = %v, want %v", found, tt.found)
+				t.Errorf("Find() found = %v, want %v", found, tt.found)
 			}
 		})
 	}

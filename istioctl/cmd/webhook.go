@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,11 +27,12 @@ import (
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/pkg/url"
 )
 
 const (
@@ -175,13 +176,12 @@ func newEnableCmd() *cobra.Command {
 		Long: "This command is used to enable webhook configurations after installing Istio.\n" +
 			"For previous Istio versions (e.g., 1.2, 1.3, etc), this command is not needed\n" +
 			"because in previous versions webhooks manage their own configurations.",
-		Example: `
-# Enable the webhook configuration of Galley with the given webhook configuration
-istioctl experimental post-install webhook enable --validation --webhook-secret istio.webhook.galley 
+		Example: `  # Enable the webhook configuration of Galley with the given webhook configuration
+  istioctl experimental post-install webhook enable --validation --webhook-secret istio.webhook.galley 
     --namespace istio-system --validation-path validatingwebhookconfiguration.yaml
 
-# Enable the webhook configuration of Galley with the given webhook configuration and CA certificate
-istioctl experimental post-install webhook enable --validation --webhook-secret istio.webhook.galley 
+  # Enable the webhook configuration of Galley with the given webhook configuration and CA certificate
+  istioctl experimental post-install webhook enable --validation --webhook-secret istio.webhook.galley 
     --namespace istio-system --validation-path validatingwebhookconfiguration.yaml --ca-bundle-file ./k8s-ca-cert.pem
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -214,7 +214,7 @@ istioctl experimental post-install webhook enable --validation --webhook-secret 
 		"PEM encoded CA bundle which will be used to validate the webhook's server certificates. "+
 			"If this is empty, the kube-apisever's root CA is used if it can be confirmed to have signed "+
 			"the webhook's certificates. This condition is sometimes true but is not guaranteed "+
-			"(see https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping)")
+			"(see "+url.K8TLSBootstrapping+")")
 	flags.StringVar(&opts.validationWebhookConfigPath, "validation-path", "",
 		"The file path of the validation webhook configuration.")
 	flags.StringVar(&opts.mutatingWebhookConfigPath, "injection-path", "",
@@ -240,13 +240,11 @@ func newDisableCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "disable",
 		Short: "Disable webhook configurations",
-		Example: `
-# Disable all webhooks
-istioctl experimental post-install webhook disable
+		Example: `  # Disable all webhooks
+  istioctl experimental post-install webhook disable
 
-# Disable all webhooks except injection
-istioctl experimental post-install webhook disable --injection=false
-`,
+  # Disable all webhooks except injection
+  istioctl experimental post-install webhook disable --injection=false`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err
@@ -305,13 +303,12 @@ func newStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Get webhook configurations",
-		Example: `
-# Display the webhook configuration of Galley
-istioctl experimental post-install webhook status --validation --validation-config istio-galley
-# Display the webhook configuration of Galley and Sidecar Injector
-istioctl experimental post-install webhook status --validation --validation-config istio-galley 
-  --injection --injection-config istio-sidecar-injector
-`,
+		Example: `  # Display the webhook configuration of Galley
+  istioctl experimental post-install webhook status --validation --validation-config istio-galley
+
+  # Display the webhook configuration of Galley and Sidecar Injector
+  istioctl experimental post-install webhook status --validation --validation-config istio-galley 
+    --injection --injection-config istio-sidecar-injector`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err

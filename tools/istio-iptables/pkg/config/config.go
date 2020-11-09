@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 type Config struct {
 	ProxyPort               string        `json:"PROXY_PORT"`
 	InboundCapturePort      string        `json:"INBOUND_CAPTURE_PORT"`
+	InboundTunnelPort       string        `json:"INBOUND_TUNNEL_PORT"`
 	ProxyUID                string        `json:"PROXY_UID"`
 	ProxyGID                string        `json:"PROXY_GID"`
 	InboundInterceptionMode string        `json:"INBOUND_INTERCEPTION_MODE"`
@@ -34,6 +35,7 @@ type Config struct {
 	InboundTProxyRouteTable string        `json:"INBOUND_TPROXY_ROUTE_TABLE"`
 	InboundPortsInclude     string        `json:"INBOUND_PORTS_INCLUDE"`
 	InboundPortsExclude     string        `json:"INBOUND_PORTS_EXCLUDE"`
+	OutboundPortsInclude    string        `json:"OUTBOUND_PORTS_INCLUDE"`
 	OutboundPortsExclude    string        `json:"OUTBOUND_PORTS_EXCLUDE"`
 	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string        `json:"OUTBOUND_IPRANGES_EXCLUDE"`
@@ -60,6 +62,7 @@ func (c *Config) Print() {
 	fmt.Println("----------")
 	fmt.Printf("PROXY_PORT=%s\n", c.ProxyPort)
 	fmt.Printf("PROXY_INBOUND_CAPTURE_PORT=%s\n", c.InboundCapturePort)
+	fmt.Printf("PROXY_TUNNEL_PORT=%s\n", c.InboundTunnelPort)
 	fmt.Printf("PROXY_UID=%s\n", c.ProxyUID)
 	fmt.Printf("PROXY_GID=%s\n", c.ProxyGID)
 	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", c.InboundInterceptionMode)
@@ -69,6 +72,7 @@ func (c *Config) Print() {
 	fmt.Printf("INBOUND_PORTS_EXCLUDE=%s\n", c.InboundPortsExclude)
 	fmt.Printf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", c.OutboundIPRangesInclude)
 	fmt.Printf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", c.OutboundIPRangesExclude)
+	fmt.Printf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude)
 	fmt.Printf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude)
 	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", c.KubevirtInterfaces)
 	fmt.Printf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6)

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,22 +15,35 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+	"k8s.io/kubectl/pkg/polymorphichelpers"
+	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/kubectl/pkg/util/podutils"
 )
 
-//InferPodInfo Uses proxyName to infer namespace if the passed proxyName contains namespace information.
+// InferPodInfo Uses name to infer namespace if the passed name contains namespace information.
 // Otherwise uses the namespace value passed into the function
-func InferPodInfo(proxyName, namespace string) (string, string) {
-	separator := strings.LastIndex(proxyName, ".")
+func InferPodInfo(name, defaultNS string) (string, string) {
+	return inferNsInfo(name, defaultNS)
+}
+
+// inferNsInfo Uses name to infer namespace if the passed name contains namespace information.
+// Otherwise uses the namespace value passed into the function
+func inferNsInfo(name, namespace string) (string, string) {
+	separator := strings.LastIndex(name, ".")
 	if separator < 0 {
-		return proxyName, namespace
+		return name, namespace
 	}
 
-	return proxyName[0:separator], proxyName[separator+1:]
+	return name[0:separator], name[separator+1:]
 }
 
 //HandleNamespace returns the defaultNamespace if the namespace is empty
@@ -41,46 +54,51 @@ func HandleNamespace(ns, defaultNamespace string) string {
 	return ns
 }
 
-//GetDefaultNamespace returns the default namespace for a kubeconfig
-func GetDefaultNamespace(kubeconfig string) string {
-	configAccess := clientcmd.NewDefaultPathOptions()
-
-	if kubeconfig != "" {
-		// use specified kubeconfig file for the location of the
-		// config to read
-		configAccess.GlobalFile = kubeconfig
+// InferPodInfoFromTypedResource gets a pod name, from an expression like Deployment/httpbin, or Deployment/productpage-v1.bookinfo
+func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Factory) (string, string, error) {
+	resname, ns := inferNsInfo(name, defaultNS)
+	if !strings.Contains(resname, "/") {
+		return resname, ns, nil
 	}
 
-	// gets existing kubeconfig or returns new empty config
-	config, err := configAccess.GetStartingConfig()
+	// Pod is referred to using something like "deployment/httpbin".  Use the kubectl
+	// libraries to look up the the resource name, find the pods it selects, and return
+	// one of those pods.
+	builder := factory.NewBuilder().
+		WithScheme(scheme.Scheme, scheme.Scheme.PrioritizedVersionsAllGroups()...).
+		NamespaceParam(ns).DefaultNamespace().
+		SingleResourceType()
+	builder.ResourceNames("pods", resname)
+	infos, err := builder.Do().Infos()
 	if err != nil {
-		return v1.NamespaceDefault
+		return "", "", err
 	}
-
-	context, ok := config.Contexts[config.CurrentContext]
-	if !ok {
-		return v1.NamespaceDefault
+	if len(infos) != 1 {
+		return "", "", errors.New("expected a resource")
 	}
-	if context.Namespace == "" {
-		return v1.NamespaceDefault
+	_, ok := infos[0].Object.(*v1.Pod)
+	if ok {
+		// If we got a pod, just use its name
+		return infos[0].Name, infos[0].Namespace, nil
 	}
-	return context.Namespace
-}
-
-//HandleNamespaces returns the correct namespace
-func HandleNamespaces(objectNamespace, namespace, defaultNamespace string) (string, error) {
-	if objectNamespace != "" && namespace != "" && namespace != objectNamespace {
-		return "", fmt.Errorf(`the namespace from the provided object "%s" does `+
-			`not match the namespace "%s". You must pass '--namespace=%s' to perform `+
-			`this operation`, objectNamespace, namespace, objectNamespace)
+	namespace, selector, err := polymorphichelpers.SelectorsForObject(infos[0].Object)
+	if err != nil {
+		return "", "", fmt.Errorf("%q does not refer to a pod", resname)
 	}
-
-	if namespace != "" {
-		return namespace, nil
+	clientConfig, err := factory.ToRESTConfig()
+	if err != nil {
+		return "", "", err
 	}
-
-	if objectNamespace != "" {
-		return objectNamespace, nil
+	clientset, err := corev1client.NewForConfig(clientConfig)
+	if err != nil {
+		return "", "", err
 	}
-	return defaultNamespace, nil
+	// We need to pass in a sorter, and the one used by `kubectl logs` is good enough.
+	sortBy := func(pods []*v1.Pod) sort.Interface { return podutils.ByLogging(pods) }
+	timeout := 2 * time.Second
+	pod, _, err := polymorphichelpers.GetFirstPod(clientset, namespace, selector.String(), timeout, sortBy)
+	if err != nil {
+		return "", "", fmt.Errorf("no pods match %q", resname)
+	}
+	return pod.Name, ns, nil
 }

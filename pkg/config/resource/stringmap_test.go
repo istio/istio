@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 )
 
 func TestStringMap_Clone_Nil(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var s StringMap
 
@@ -30,7 +30,7 @@ func TestStringMap_Clone_Nil(t *testing.T) {
 }
 
 func TestStringMap_Clone_NonNil(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var s StringMap = map[string]string{
 		"foo": "bar",
@@ -43,7 +43,7 @@ func TestStringMap_Clone_NonNil(t *testing.T) {
 }
 
 func TestStringMap_CloneOrCreate_Nil(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var s StringMap
 
@@ -53,7 +53,7 @@ func TestStringMap_CloneOrCreate_Nil(t *testing.T) {
 }
 
 func TestStringMap_CloneOrCreate_NonNil(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var s StringMap = map[string]string{
 		"foo": "bar",
@@ -66,7 +66,7 @@ func TestStringMap_CloneOrCreate_NonNil(t *testing.T) {
 }
 
 func TestStringMap_Delete_NonNil(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var s StringMap = map[string]string{
 		"foo": "bar",
@@ -78,7 +78,7 @@ func TestStringMap_Delete_NonNil(t *testing.T) {
 }
 
 func TestStringMap_Delete_Nil(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var s StringMap
 

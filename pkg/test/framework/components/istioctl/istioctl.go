@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance represents "istioctl"
 type Instance interface {
+	// WaitForConfigs will wait until all passed in config has been distributed
+	WaitForConfigs(defaultNamespace string, configs string) error
+
 	// Invoke invokes an istioctl command and returns the output and exception.
 	// stdout and stderr will be returned as different strings
 	Invoke(args []string) (string, string, error)
@@ -41,17 +43,7 @@ type Config struct {
 
 // New returns a new instance of "istioctl".
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i = newNative(ctx, cfg)
-		err = nil
-	})
-	ctx.Environment().Case(environment.Kube, func() {
-		i = newKube(ctx, cfg)
-		err = nil
-	})
-
-	return
+	return newKube(ctx, cfg), nil
 }
 
 // NewOrFail returns a new instance of "istioctl".

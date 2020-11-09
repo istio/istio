@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,12 @@
 package istio
 
 import (
+	"net"
+
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -25,47 +28,71 @@ import (
 type Instance interface {
 	resource.Resource
 
+	// IngressFor returns an ingress used for reaching workloads in the given cluster.
+	// The ingress's service name will be "istio-ingressgateway" and the istio label will be "ingressgateway".
+	IngressFor(cluster resource.Cluster) ingress.Instance
+	// CustomIngressFor returns an ingress with a specific service name and "istio" label used for reaching workloads
+	// in the given cluster.
+	CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance
+
+	// RemoteDiscoveryAddressFor returns the external address of the discovery server that controls
+	// the given cluster. This allows access to the discovery server from
+	// outside its cluster.
+	RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error)
+
 	Settings() Config
 }
 
 // SetupConfigFn is a setup function that specifies the overrides of the configuration to deploy Istio.
-type SetupConfigFn func(cfg *Config)
+type SetupConfigFn func(ctx resource.Context, cfg *Config)
 
 // SetupContextFn is a setup function that uses Context for configuration.
 type SetupContextFn func(ctx resource.Context) error
 
+// Get returns the Istio component from the context. If there is none an error is returned.
+func Get(ctx resource.Context) (Instance, error) {
+	var i Instance
+	if err := ctx.GetResource(&i); err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
+// GetOrFail returns the Istio component from the context. If there is none the test is failed.
+func GetOrFail(f test.Failer, ctx resource.Context) Instance {
+	i, err := Get(ctx)
+	if err != nil {
+		f.Fatal(err)
+	}
+	return i
+}
+
 // Setup is a setup function that will deploy Istio on Kubernetes environment
 func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.SetupFn {
 	return func(ctx resource.Context) error {
-		switch ctx.Environment().EnvironmentName() {
-		case environment.Native:
-			scopes.Framework.Debugf("istio.Setup: Skipping deployment of Istio on native")
-
-		case environment.Kube:
-			cfg, err := DefaultConfig(ctx)
-			if err != nil {
-				return err
-			}
-			if cfn != nil {
-				cfn(&cfg)
-			}
-			for _, ctxFn := range ctxFns {
-				if ctxFn != nil {
-					err := ctxFn(ctx)
-					if err != nil {
-						scopes.CI.Infof("=== FAILED: context setup function [err=%v] ===", err)
-						return err
-					}
-					scopes.CI.Info("=== SUCCESS: context setup function ===")
+		cfg, err := DefaultConfig(ctx)
+		if err != nil {
+			return err
+		}
+		if cfn != nil {
+			cfn(ctx, &cfg)
+		}
+		for _, ctxFn := range ctxFns {
+			if ctxFn != nil {
+				err := ctxFn(ctx)
+				if err != nil {
+					scopes.Framework.Infof("=== FAILED: context setup function [err=%v] ===", err)
+					return err
 				}
+				scopes.Framework.Info("=== SUCCESS: context setup function ===")
 			}
-			ins, err := Deploy(ctx, &cfg)
-			if err != nil {
-				return err
-			}
-			if i != nil {
-				*i = ins
-			}
+		}
+		ins, err := Deploy(ctx, &cfg)
+		if err != nil {
+			return err
+		}
+		if i != nil {
+			*i = ins
 		}
 
 		return nil
@@ -73,7 +100,7 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 }
 
 // Deploy deploys (or attaches to) an Istio deployment and returns a handle. If cfg is nil, then DefaultConfig is used.
-func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
+func Deploy(ctx resource.Context, cfg *Config) (i Instance, err error) {
 	if cfg == nil {
 		c, err := DefaultConfig(ctx)
 		if err != nil {
@@ -82,23 +109,15 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 		cfg = &c
 	}
 
-	var err error
-	scopes.CI.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
+	scopes.Framework.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== FAILED: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
 		} else {
-			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
+			scopes.Framework.Infof("=== SUCCEEDED: Deploy Istio [Suite=%s]===", ctx.Settings().TestID)
 		}
 	}()
 
-	var i Instance
-	switch ctx.Environment().EnvironmentName() {
-	case environment.Kube:
-		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
-	default:
-		err = resource.UnsupportedEnvironment(ctx.Environment())
-	}
-
-	return i, err
+	i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+	return
 }

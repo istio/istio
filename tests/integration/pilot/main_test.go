@@ -1,4 +1,5 @@
-// Copyright 2019 Istio Authors
+// +build integ
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,40 +16,72 @@
 package pilot
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/tests/integration/pilot/common"
 )
 
 var (
 	i istio.Instance
-	g galley.Instance
-	p pilot.Instance
+
+	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
+	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
+	// its doing something unique to that specific test.
+	apps = &common.EchoDeployments{}
 )
+
+func supportsCRDv1(ctx resource.Context) bool {
+	ver, err := ctx.Clusters()[0].GetKubernetesVersion()
+	if err != nil {
+		return true
+	}
+	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+	return serverVersion >= "1.16"
+}
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_test", m).
-		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
+		NewSuite(m).
 		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
+			if supportsCRDv1(ctx) {
+				crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+				if err != nil {
+					return err
+				}
+				return ctx.Config().ApplyYAML("", string(crd))
 			}
 			return nil
 		}).
+		Setup(istio.Setup(&i, nil)).
+		Setup(func(ctx resource.Context) error {
+			return common.SetupApps(ctx, i, apps)
+		}).
 		Run()
+}
+
+func echoConfig(ns namespace.Instance, name string) echo.Config {
+	return echo.Config{
+		Service:   name,
+		Namespace: ns,
+		Ports: []echo.Port{
+			{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+				// We use a port > 1024 to not require root
+				InstancePort: 8090,
+			},
+		},
+		Subsets: []echo.SubsetConfig{{}},
+	}
 }

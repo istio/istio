@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,4 +62,12 @@ func init() {
 		totalStaleConnCounts,
 		totalSecretUpdateFailureCounts,
 	)
+}
+
+func resetEnvironments() {
+	totalPushCounts.Record(0)
+	totalPushErrorCounts.Record(0)
+	totalActiveConnCounts.Record(0)
+	totalStaleConnCounts.Record(0)
+	totalSecretUpdateFailureCounts.Record(0)
 }

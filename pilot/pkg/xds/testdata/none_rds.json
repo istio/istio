@@ -1,0 +1,112 @@
+{
+    "2001": {
+      "name": "2001",
+      "virtual_hosts": [
+        {
+          "name": "s1http.none:2001",
+          "domains": [
+            "s1http.none",
+            "s1http.none:2001"
+          ],
+          "routes": [
+            {
+              "match": {
+                "PathSpecifier": {
+                  "Prefix": "/"
+                }
+              },
+              "Action": {
+                "Route": {
+                  "ClusterSpecifier": {
+                    "Cluster": "outbound|2001||s1http.none"
+                  },
+                  "HostRewriteSpecifier": null,
+                  "timeout": 0,
+                  "retry_policy": {
+                    "retry_on": "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted,retriable-status-codes",
+                    "num_retries": {
+                      "value": 2
+                    },
+                    "retry_host_predicate": [
+                      {
+                        "name": "envoy.retry_host_predicates.previous_hosts",
+                        "ConfigType": null
+                      }
+                    ],
+                    "host_selection_retry_max_attempts": 3,
+                    "retriable_status_codes": [
+                      503
+                    ]
+                  },
+                  "max_grpc_timeout": 0
+                }
+              },
+              "decorator": {
+                "operation": "s1http.none:2001/*"
+              },
+              "per_filter_config": {
+              }
+            }
+          ]
+        }
+      ],
+      "validate_clusters": {}
+    },
+    "7071": {
+      "name": "7071",
+      "virtual_hosts": null,
+      "validate_clusters": {}
+    },
+    "http_proxy": {
+      "name": "http_proxy",
+      "virtual_hosts": [
+        {
+          "name": "s1http.none:2001",
+          "domains": [
+            "s1http.none:2001"
+          ],
+          "routes": [
+            {
+              "match": {
+                "PathSpecifier": {
+                  "Prefix": "/"
+                }
+              },
+              "Action": {
+                "Route": {
+                  "ClusterSpecifier": {
+                    "Cluster": "outbound|2001||s1http.none"
+                  },
+                  "HostRewriteSpecifier": null,
+                  "timeout": 0,
+                  "retry_policy": {
+                    "retry_on": "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted,retriable-status-codes",
+                    "num_retries": {
+                      "value": 2
+                    },
+                    "retry_host_predicate": [
+                      {
+                        "name": "envoy.retry_host_predicates.previous_hosts",
+                        "ConfigType": null
+                      }
+                    ],
+                    "host_selection_retry_max_attempts": 3,
+                    "retriable_status_codes": [
+                      503
+                    ]
+                  },
+                  "max_grpc_timeout": 0
+                }
+              },
+              "decorator": {
+                "operation": "s1http.none:2001/*"
+              },
+              "per_filter_config": {
+              }
+            }
+          ]
+        }
+      ],
+      "validate_clusters": {}
+    }
+  }

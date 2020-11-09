@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ var (
 	mode           = flag.String("mode", selfSignedMode, "Supported mode: self-signed, signer, citadel")
 	//Enable this flag if istio mTLS is enabled and the service is running as server side
 	isServer = flag.Bool("server", false, "Whether this certificate is for a server.")
+	ec       = flag.String("ec-sig-alg", "", "Generate an elliptical curve private key with the specified algorithm")
 )
 
 func checkCmdLine() {
@@ -148,6 +149,7 @@ func main() {
 		IsClient:     *isClient,
 		RSAKeySize:   *keySize,
 		IsServer:     *isServer,
+		ECSigAlg:     util.SupportedECSignatureAlgorithms(*ec),
 	}
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)
 

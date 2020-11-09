@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ func NewContext(goTest *testing.T, labels ...label.Instance) TestContext {
 }
 
 // newRootContext creates a new TestContext that has no parent. Delegates to the global runtime.
-func newRootContext(test *Test, goTest *testing.T, labels ...label.Instance) *testContext {
+func newRootContext(test *testImpl, goTest *testing.T, labels ...label.Instance) *testContext {
 	rtMu.Lock()
 	defer rtMu.Unlock()
 

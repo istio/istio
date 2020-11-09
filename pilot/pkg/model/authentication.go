@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,14 @@
 package model
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"istio.io/api/security/v1beta1"
-
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // MutualTLSMode is the mutule TLS mode specified by authentication policy.
@@ -42,6 +42,10 @@ const (
 	MTLSStrict
 )
 
+const (
+	ResourceSeparator = "~"
+)
+
 // String converts MutualTLSMode to human readable string for debugging.
 func (mode MutualTLSMode) String() string {
 	switch mode {
@@ -59,9 +63,9 @@ func (mode MutualTLSMode) String() string {
 // AuthenticationPolicies organizes authentication (mTLS + JWT) policies by namespace.
 type AuthenticationPolicies struct {
 	// Maps from namespace to the v1beta1 authentication policies.
-	requestAuthentications map[string][]Config
+	requestAuthentications map[string][]config.Config
 
-	peerAuthentications map[string][]Config
+	peerAuthentications map[string][]config.Config
 
 	// namespaceMutualTLSMode is the MutualTLSMode correspoinding to the namespace-level PeerAuthentication.
 	// All namespace-level policies, and only them, are added to this map. If the policy mTLS mode is set
@@ -80,14 +84,14 @@ type AuthenticationPolicies struct {
 // authentication policies in the mesh environment.
 func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, error) {
 	policy := &AuthenticationPolicies{
-		requestAuthentications: map[string][]Config{},
-		peerAuthentications:    map[string][]Config{},
+		requestAuthentications: map[string][]config.Config{},
+		peerAuthentications:    map[string][]config.Config{},
 		globalMutualTLSMode:    MTLSUnknown,
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
 
 	if configs, err := env.List(
-		collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		gvk.RequestAuthentication, NamespaceAll); err == nil {
 		sortConfigByCreationTime(configs)
 		policy.addRequestAuthentication(configs)
 	} else {
@@ -95,7 +99,7 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 	}
 
 	if configs, err := env.List(
-		collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		gvk.PeerAuthentication, NamespaceAll); err == nil {
 		policy.addPeerAuthentication(configs)
 	} else {
 		return nil, err
@@ -104,11 +108,11 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 	return policy, nil
 }
 
-func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config) {
+func (policy *AuthenticationPolicies) addRequestAuthentication(configs []config.Config) {
 	for _, config := range configs {
 		reqPolicy := config.Spec.(*v1beta1.RequestAuthentication)
 		// Follow OIDC discovery to resolve JwksURI if need to.
-		JwtKeyResolver.ResolveJwksURI(reqPolicy)
+		GetJwtKeyResolver().ResolveJwksURI(reqPolicy)
 		policy.requestAuthentications[config.Namespace] =
 			append(policy.requestAuthentications[config.Namespace], config)
 	}
@@ -128,7 +132,7 @@ func apiModeToMutualTLSMode(mode v1beta1.PeerAuthentication_MutualTLS_Mode) Mutu
 	}
 }
 
-func (policy *AuthenticationPolicies) addPeerAuthentication(configs []Config) {
+func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Config) {
 	// Sort configs in ascending order by their creation time.
 	sortConfigByCreationTime(configs)
 
@@ -200,13 +204,13 @@ func (policy *AuthenticationPolicies) GetNamespaceMutualTLSMode(namespace string
 
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
-	workloadLabels labels.Collection) []*Config {
+	workloadLabels labels.Collection) []*config.Config {
 	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
 // GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
 func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
-	workloadLabels labels.Collection) []*Config {
+	workloadLabels labels.Collection) []*config.Config {
 	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
@@ -215,11 +219,11 @@ func (policy *AuthenticationPolicies) GetRootNamespace() string {
 	return policy.rootNamespace
 }
 
-func getConfigsForWorkload(configsByNamespace map[string][]Config,
+func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 	rootNamespace string,
 	namespace string,
-	workloadLabels labels.Collection) []*Config {
-	configs := make([]*Config, 0)
+	workloadLabels labels.Collection) []*config.Config {
+	configs := make([]*config.Config, 0)
 	lookupInNamespaces := []string{namespace}
 	if namespace != rootNamespace {
 		// Only check the root namespace if the (workload) namespace is not already the root namespace
@@ -236,13 +240,13 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 					continue
 				}
 				var selector labels.Instance
-				switch cfg.Type {
-				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind():
-					selector = labels.Instance(cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels())
-				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind():
-					selector = labels.Instance(cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels())
+				switch cfg.GroupVersionKind {
+				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
+				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:
-					log.Warnf("Not support authentication type %q", cfg.Type)
+					log.Warnf("Not support authentication type %q", cfg.GroupVersionKind)
 					continue
 				}
 				if workloadLabels.IsSupersetOf(selector) {
@@ -255,6 +259,7 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 	return configs
 }
 
+// SdsCertificateConfig holds TLS certs needed to build SDS TLS context.
 type SdsCertificateConfig struct {
 	CertificatePath   string
 	PrivateKeyPath    string
@@ -263,27 +268,43 @@ type SdsCertificateConfig struct {
 
 // GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
 func (s SdsCertificateConfig) GetResourceName() string {
-	return fmt.Sprintf("file-cert:%s~%s", s.CertificatePath, s.PrivateKeyPath)
+	if s.IsKeyCertificate() {
+		return "file-cert:" + s.CertificatePath + ResourceSeparator + s.PrivateKeyPath // Format: file-cert:%s~%s
+	}
+	return ""
 }
 
 // GetRootResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
 func (s SdsCertificateConfig) GetRootResourceName() string {
-	return fmt.Sprintf("file-root:%s", s.CaCertificatePath)
+	if s.IsRootCertificate() {
+		return "file-root:" + s.CaCertificatePath // Format: file-root:%s
+	}
+	return ""
+}
+
+// IsRootCertificate returns true if this config represents a root certificate config.
+func (s SdsCertificateConfig) IsRootCertificate() bool {
+	return s.CaCertificatePath != ""
+}
+
+// IsKeyCertificate returns true if this config represents key certificate config.
+func (s SdsCertificateConfig) IsKeyCertificate() bool {
+	return s.CertificatePath != "" && s.PrivateKeyPath != ""
 }
 
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
-// If the resource name is not valid, _, false is returned.
+// If the resource name is not valid, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
 	if strings.HasPrefix(resource, "file-cert:") {
 		filesString := strings.TrimPrefix(resource, "file-cert:")
-		split := strings.Split(filesString, "~")
+		split := strings.Split(filesString, ResourceSeparator)
 		if len(split) != 2 {
 			return SdsCertificateConfig{}, false
 		}
 		return SdsCertificateConfig{split[0], split[1], ""}, true
 	} else if strings.HasPrefix(resource, "file-root:") {
 		filesString := strings.TrimPrefix(resource, "file-root:")
-		split := strings.Split(filesString, "~")
+		split := strings.Split(filesString, ResourceSeparator)
 		if len(split) != 1 {
 			return SdsCertificateConfig{}, false
 		}

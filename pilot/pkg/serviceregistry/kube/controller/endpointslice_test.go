@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ package controller
 import (
 	"reflect"
 	"testing"
+
+	"istio.io/api/label"
 )
 
 func TestGetLocalityFromTopology(t *testing.T) {
@@ -36,9 +38,9 @@ func TestGetLocalityFromTopology(t *testing.T) {
 		{
 			"all standard kubernetes labels and Istio custom labels",
 			map[string]string{
-				NodeRegionLabelGA: "region",
-				NodeZoneLabelGA:   "zone",
-				IstioSubzoneLabel: "subzone",
+				NodeRegionLabelGA:  "region",
+				NodeZoneLabelGA:    "zone",
+				label.IstioSubZone: "subzone",
 			},
 			"region/zone/subzone",
 		},

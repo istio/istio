@@ -18,6 +18,10 @@ package google.security.meshca.v1;
 
 import "google/protobuf/duration.proto";
 
+option java_multiple_files = true;
+option java_outer_classname = "MeshCaProto";
+option java_package = "com.google.security.meshca.v1";
+
 // Certificate request message.
 message MeshCertificateRequest {
   // The request ID must be a valid UUID with the exception that zero UUID is

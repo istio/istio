@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ func SnapshotNames() []string {
 
 	for _, c := range cases {
 		t.Run("", func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			s, err := StaticSnapshots(c.packageName, &ast.Metadata{
 				Snapshots: c.snapshots,

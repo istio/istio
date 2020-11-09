@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/pkg/cache"
 	"istio.io/pkg/monitoring"
@@ -60,9 +59,9 @@ const (
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = time.Minute * 20
 
-	// getRemoteContentRetryInSec is the retry interval between the attempt to retry getting the remote
+	// JwtPubKeyRetryInterval is the retry interval between the attempt to retry getting the remote
 	// content from network.
-	getRemoteContentRetryInSec = 1
+	JwtPubKeyRetryInterval = time.Second
 
 	// How many times should we retry the failed network fetch on main flow. The main flow
 	// means it's called when Pilot is pushing configs. Do not retry to make sure not to block Pilot
@@ -74,8 +73,6 @@ const (
 	// as it's running separately from the main flow.
 	networkFetchRetryCountOnRefreshFlow = 3
 
-	// jwksPublicRootCABundlePath is the path of public root CA bundle in pilot container.
-	jwksPublicRootCABundlePath = "/cacert.pem"
 	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
 	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
 )
@@ -93,8 +90,9 @@ var (
 		"Total number of failed network fetch by pilot jwks resolver",
 	)
 
-	// JwtKeyResolver resolves JWT public key and JwksURI.
-	JwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	// jwtKeyResolverOnce lazy init jwt key resolver
+	jwtKeyResolverOnce sync.Once
+	jwtKeyResolver     *JwksResolver
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -130,6 +128,8 @@ type JwksResolver struct {
 	// Refresher job running interval.
 	refreshInterval time.Duration
 
+	retryInterval time.Duration
+
 	// How many times refresh job has detected JWT public key change happened, used in unit test.
 	refreshJobKeyChangedCount uint64
 
@@ -142,19 +142,29 @@ func init() {
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
-func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResolver {
+func NewJwksResolver(evictionDuration, refreshInterval, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
 		evictionDuration,
 		refreshInterval,
-		[]string{jwksPublicRootCABundlePath, jwksExtraRootCABundlePath},
+		retryInterval,
+		[]string{jwksExtraRootCABundlePath},
 	)
 }
 
-func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Duration, caBundlePaths []string) *JwksResolver {
+// GetJwtKeyResolver lazy-creates JwtKeyResolver resolves JWT public key and JwksURI.
+func GetJwtKeyResolver() *JwksResolver {
+	jwtKeyResolverOnce.Do(func() {
+		jwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRetryInterval)
+	})
+	return jwtKeyResolver
+}
+
+func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval, retryInterval time.Duration, caBundlePaths []string) *JwksResolver {
 	ret := &JwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
 		evictionDuration: evictionDuration,
 		refreshInterval:  refreshInterval,
+		retryInterval:    retryInterval,
 		httpClient: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
@@ -164,8 +174,12 @@ func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Dur
 		},
 	}
 
-	caCertPool := x509.NewCertPool()
-	caCertsFound := false
+	caCertPool, err := x509.SystemCertPool()
+	caCertsFound := true
+	if err != nil {
+		caCertsFound = false
+		log.Errorf("Failed to fetch Cert from SystemCertPool: %v", err)
+	}
 	for _, pemFile := range caBundlePaths {
 		caCert, err := ioutil.ReadFile(pemFile)
 		if err == nil {
@@ -189,43 +203,6 @@ func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Dur
 	go ret.refresher()
 
 	return ret
-}
-
-// Set jwks_uri through openID discovery if it's not set in auth policy.
-func (r *JwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) error {
-	if policy == nil {
-		return fmt.Errorf("invalid nil policy")
-	}
-
-	for _, method := range policy.Peers {
-		switch method.GetParams().(type) {
-		case *authn.PeerAuthenticationMethod_Jwt:
-			// nolint: staticcheck
-			policyJwt := method.GetJwt()
-			if policyJwt.JwksUri == "" && policyJwt.Jwks == "" {
-				uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)
-				if err != nil {
-					log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
-					return err
-				}
-				policyJwt.JwksUri = uri
-			}
-		}
-	}
-	for _, method := range policy.Origins {
-		// JWT is only allowed authentication method type for Origin.
-		policyJwt := method.GetJwt()
-		if policyJwt.JwksUri == "" && policyJwt.Jwks == "" {
-			uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)
-			if err != nil {
-				log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
-				return err
-			}
-			policyJwt.JwksUri = uri
-		}
-	}
-
-	return nil
 }
 
 // ResolveJwksURI sets jwks_uri through openID discovery if it's not set in request authentication policy.
@@ -346,8 +323,8 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		if err == nil {
 			return body, nil
 		}
-		log.Warnf("Failed to GET from %q: %s. Retry in %d seconds", uri, err, getRemoteContentRetryInSec)
-		time.Sleep(getRemoteContentRetryInSec * time.Second)
+		log.Warnf("Failed to GET from %q: %s. Retry in %v", uri, err, r.retryInterval)
+		time.Sleep(r.retryInterval)
 	}
 
 	// Return the last fetch directly, reaching here means we have tried `retry` times, this will be

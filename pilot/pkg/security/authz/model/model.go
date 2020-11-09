@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -34,6 +34,7 @@ const (
 
 	attrRequestHeader    = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 	attrSrcIP            = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrRemoteIP         = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
 	attrSrcNamespace     = "source.namespace"            // e.g. "default".
 	attrSrcPrincipal     = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal = "request.auth.principal"      // authenticated principal of the request.
@@ -49,13 +50,6 @@ const (
 	methodHeader = ":method"
 	pathMatcher  = "path-matcher"
 	hostHeader   = ":authority"
-)
-
-type position int
-
-const (
-	first position = iota
-	last
 )
 
 type rule struct {
@@ -88,41 +82,44 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 		k := when.Key
 		switch {
 		case k == attrDestIP:
-			basePermission.insertAt(last, destIPGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(destIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrDestPort:
-			basePermission.insertAt(last, destPortGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(destPortGenerator{}, k, when.Values, when.NotValues)
 		case k == attrConnSNI:
-			basePermission.insertAt(last, connSNIGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(connSNIGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrEnvoyFilter):
-			basePermission.insertAt(last, envoyFilterGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(envoyFilterGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcIP:
-			basePrincipal.insertAt(last, srcIPGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues)
+		case k == attrRemoteIP:
+			basePrincipal.appendLast(remoteIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcNamespace:
-			basePrincipal.insertAt(last, srcNamespaceGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcPrincipal:
-			basePrincipal.insertAt(last, srcPrincipalGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPrincipal:
-			basePrincipal.insertAt(last, requestPrincipalGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestAudiences:
-			basePrincipal.insertAt(last, requestAudiencesGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPresenter:
-			basePrincipal.insertAt(last, requestPresenterGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestPresenterGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestHeader):
-			basePrincipal.insertAt(last, requestHeaderGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
-			basePrincipal.insertAt(last, requestClaimGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
 	}
 
 	for _, from := range r.From {
-		merged := basePrincipal
+		merged := basePrincipal.copy()
 		if s := from.Source; s != nil {
-			merged.insertAt(first, srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
-			merged.insertAt(first, srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
-			merged.insertAt(first, requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
-			merged.insertAt(first, srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
+			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
+			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
+			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
+			merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
+			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
 		}
 		m.principals = append(m.principals, merged)
 	}
@@ -131,12 +128,12 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 	}
 
 	for _, to := range r.To {
-		merged := basePermission
+		merged := basePermission.copy()
 		if o := to.Operation; o != nil {
-			merged.insertAt(first, destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
-			merged.insertAt(first, pathGenerator{isIstioVersionGE15: isIstioVersionGE15}, pathMatcher, o.Paths, o.NotPaths)
-			merged.insertAt(first, methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
-			merged.insertAt(first, hostGenerator{}, hostHeader, o.Hosts, o.NotHosts)
+			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
+			merged.insertFront(pathGenerator{isIstioVersionGE15: isIstioVersionGE15}, pathMatcher, o.Paths, o.NotPaths)
+			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
+			merged.insertFront(hostGenerator{}, hostHeader, o.Hosts, o.NotHosts)
 		}
 		m.permissions = append(m.permissions, merged)
 	}
@@ -163,11 +160,11 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 	}
 }
 
-// Generate generates the Envoy RBAC policy from the model.
-func (m Model) Generate(forTCP, forDeny bool) (*rbacpb.Policy, error) {
+// Generate generates the Envoy RBAC config from the model.
+func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
 	for _, rl := range m.permissions {
-		permission, err := generatePermission(rl, forTCP, forDeny)
+		permission, err := generatePermission(rl, forTCP, action)
 		if err != nil {
 			return nil, err
 		}
@@ -179,7 +176,7 @@ func (m Model) Generate(forTCP, forDeny bool) (*rbacpb.Policy, error) {
 
 	var principals []*rbacpb.Principal
 	for _, rl := range m.principals {
-		principal, err := generatePrincipal(rl, forTCP, forDeny)
+		principal, err := generatePrincipal(rl, forTCP, action)
 		if err != nil {
 			return nil, err
 		}
@@ -195,10 +192,10 @@ func (m Model) Generate(forTCP, forDeny bool) (*rbacpb.Policy, error) {
 	}, nil
 }
 
-func generatePermission(rl ruleList, forTCP, forDeny bool) (*rbacpb.Permission, error) {
+func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Permission, error) {
 	var and []*rbacpb.Permission
 	for _, r := range rl.rules {
-		ret, err := r.permission(forTCP, forDeny)
+		ret, err := r.permission(forTCP, action)
 		if err != nil {
 			return nil, err
 		}
@@ -210,10 +207,10 @@ func generatePermission(rl ruleList, forTCP, forDeny bool) (*rbacpb.Permission, 
 	return permissionAnd(and), nil
 }
 
-func generatePrincipal(rl ruleList, forTCP, forDeny bool) (*rbacpb.Principal, error) {
+func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Principal, error) {
 	var and []*rbacpb.Principal
 	for _, r := range rl.rules {
-		ret, err := r.principal(forTCP, forDeny)
+		ret, err := r.principal(forTCP, action)
 		if err != nil {
 			return nil, err
 		}
@@ -225,12 +222,12 @@ func generatePrincipal(rl ruleList, forTCP, forDeny bool) (*rbacpb.Principal, er
 	return principalAnd(and), nil
 }
 
-func (r rule) permission(forTCP, forDeny bool) ([]*rbacpb.Permission, error) {
+func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Permission, error) {
 	var permissions []*rbacpb.Permission
 	var or []*rbacpb.Permission
 	for _, value := range r.values {
 		p, err := r.g.permission(r.key, value, forTCP)
-		if err := r.checkError(forDeny, err); err != nil {
+		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
@@ -244,7 +241,7 @@ func (r rule) permission(forTCP, forDeny bool) ([]*rbacpb.Permission, error) {
 	or = nil
 	for _, notValue := range r.notValues {
 		p, err := r.g.permission(r.key, notValue, forTCP)
-		if err := r.checkError(forDeny, err); err != nil {
+		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
@@ -257,12 +254,12 @@ func (r rule) permission(forTCP, forDeny bool) ([]*rbacpb.Permission, error) {
 	return permissions, nil
 }
 
-func (r rule) principal(forTCP, forDeny bool) ([]*rbacpb.Principal, error) {
+func (r rule) principal(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
 	var principals []*rbacpb.Principal
 	var or []*rbacpb.Principal
 	for _, value := range r.values {
 		p, err := r.g.principal(r.key, value, forTCP)
-		if err := r.checkError(forDeny, err); err != nil {
+		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
@@ -276,7 +273,7 @@ func (r rule) principal(forTCP, forDeny bool) ([]*rbacpb.Principal, error) {
 	or = nil
 	for _, notValue := range r.notValues {
 		p, err := r.g.principal(r.key, notValue, forTCP)
-		if err := r.checkError(forDeny, err); err != nil {
+		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
@@ -289,20 +286,25 @@ func (r rule) principal(forTCP, forDeny bool) ([]*rbacpb.Principal, error) {
 	return principals, nil
 }
 
-func (r rule) checkError(forDeny bool, err error) error {
-	if forDeny {
-		// Ignore the error for deny policy. This will make the current rule ignored and continue the generation of
-		// the next rule, effectively result in a wider deny policy (i.e. more likely to deny a request).
-		return nil
+func (r rule) checkError(action rbacpb.RBAC_Action, err error) error {
+	if action == rbacpb.RBAC_ALLOW {
+		// Return the error as-is for allow policy. This will make all rules in the current permission ignored, effectively
+		// result in a smaller allow policy (i.e. less likely to allow a request).
+		return err
 	}
 
-	// Return the error as-is for allow policy. This will make all rules in the current permission ignored, effectively
-	// result in a smaller allow policy (i.e. less likely to allow a request).
-	return err
+	// Ignore the error for a deny or audit policy. This will make the current rule ignored and continue the generation of
+	// the next rule, effectively resulting in a wider deny or audit policy (i.e. more likely to deny or audit a request).
+	return nil
 }
 
-// insert a new rule to the ruleList at the given position.
-func (p *ruleList) insertAt(pos position, g generator, key string, values, notValues []string) {
+func (p *ruleList) copy() ruleList {
+	r := ruleList{}
+	r.rules = append([]*rule{}, p.rules...)
+	return r
+}
+
+func (p *ruleList) insertFront(g generator, key string, values, notValues []string) {
 	if len(values) == 0 && len(notValues) == 0 {
 		return
 	}
@@ -313,9 +315,19 @@ func (p *ruleList) insertAt(pos position, g generator, key string, values, notVa
 		g:         g,
 	}
 
-	if pos == first {
-		p.rules = append([]*rule{r}, p.rules...)
-	} else {
-		p.rules = append(p.rules, r)
+	p.rules = append([]*rule{r}, p.rules...)
+}
+
+func (p *ruleList) appendLast(g generator, key string, values, notValues []string) {
+	if len(values) == 0 && len(notValues) == 0 {
+		return
 	}
+	r := &rule{
+		key:       key,
+		values:    values,
+		notValues: notValues,
+		g:         g,
+	}
+
+	p.rules = append(p.rules, r)
 }

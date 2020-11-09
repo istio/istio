@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package cmd
 import "strings"
 
 func FormatIptablesCommands(commands [][]string) []string {
-	output := make([]string, 0)
+	output := make([]string, 0, len(commands))
 	for _, cmd := range commands {
 		output = append(output, strings.Join(cmd, " "))
 	}

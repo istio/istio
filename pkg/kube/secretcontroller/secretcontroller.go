@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
@@ -40,30 +40,16 @@ import (
 )
 
 const (
+	initialSyncSignal       = "INIT"
 	MultiClusterSecretLabel = "istio/multiCluster"
-
-	maxRetries = 5
+	maxRetries              = 5
 )
 
-// LoadKubeConfig is a unit test override variable for loading the k8s config.
-// DO NOT USE - TEST ONLY.
-var LoadKubeConfig = clientcmd.Load
-
-var ValidateClientConfig = clientcmd.Validate
-
-// CreateInterfaceFromClusterConfig is a unit test override variable for interface create.
-// DO NOT USE - TEST ONLY.
-var CreateInterfaceFromClusterConfig = kube.CreateInterfaceFromClusterConfig
-
-// CreateMetadataInterfaceFromClusterConfig is a unit test override variable for interface create.
-// DO NOT USE - TEST ONLY.
-var CreateMetadataInterfaceFromClusterConfig = kube.CreateMetadataInterfaceFromClusterConfig
-
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dataKey string) error
+type addSecretCallback func(clients kube.Client, dataKey string) error
 
 // updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clientset kubernetes.Interface, metadataClient metadata.Interface, dataKey string) error
+type updateSecretCallback func(clients kube.Client, dataKey string) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -78,14 +64,18 @@ type Controller struct {
 	addCallback    addSecretCallback
 	updateCallback updateSecretCallback
 	removeCallback removeSecretCallback
+
+	syncInterval time.Duration
+
+	mu          sync.RWMutex
+	initialSync bool
 }
 
-// RemoteCluster defines cluster structZZ
+// RemoteCluster defines cluster struct
 type RemoteCluster struct {
-	secretName     string
-	client         kubernetes.Interface
-	metadataClient metadata.Interface
-	kubeConfigSha  [sha256.Size]byte
+	secretName    string
+	clients       kube.Client
+	kubeConfigSha [sha256.Size]byte
 }
 
 // ClusterStore is a collection of clusters
@@ -180,27 +170,32 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
-	if !cache.WaitForCacheSync(stopCh, c.informer.HasSynced) {
+	if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
 		utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
 		return
 	}
+	// all secret events before this signal must be processed before we're marked "ready"
+	c.queue.Add(initialSyncSignal)
 	wait.Until(c.runWorker, 5*time.Second, stopCh)
 }
 
+func (c *Controller) HasSynced() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.initialSync
+}
+
 // StartSecretController creates the secret controller.
-func StartSecretController(
-	k8s kubernetes.Interface,
-	addCallback addSecretCallback,
-	updateCallback updateSecretCallback,
-	removeCallback removeSecretCallback,
-	namespace string) error {
+func StartSecretController(k8s kubernetes.Interface, addCallback addSecretCallback,
+	updateCallback updateSecretCallback, removeCallback removeSecretCallback, namespace string, syncInterval time.Duration) *Controller {
 	stopCh := make(chan struct{})
 	clusterStore := newClustersStore()
 	controller := NewController(k8s, namespace, clusterStore, addCallback, updateCallback, removeCallback)
+	controller.syncInterval = syncInterval
 
 	go controller.Run(stopCh)
 
-	return nil
+	return controller
 }
 
 func (c *Controller) runWorker() {
@@ -210,7 +205,6 @@ func (c *Controller) runWorker() {
 
 func (c *Controller) processNextItem() bool {
 	secretName, quit := c.queue.Get()
-
 	if quit {
 		return false
 	}
@@ -233,6 +227,13 @@ func (c *Controller) processNextItem() bool {
 }
 
 func (c *Controller) processItem(secretName string) error {
+	if secretName == initialSyncSignal {
+		c.mu.Lock()
+		c.initialSync = true
+		c.mu.Unlock()
+		return nil
+	}
+
 	obj, exists, err := c.informer.GetIndexer().GetByKey(secretName)
 	if err != nil {
 		return fmt.Errorf("error fetching object %s error: %v", secretName, err)
@@ -247,35 +248,39 @@ func (c *Controller) processItem(secretName string) error {
 	return nil
 }
 
-func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, error) {
+// BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overiden for testing only
+var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 	if len(kubeConfig) == 0 {
 		return nil, errors.New("kubeconfig is empty")
 	}
 
-	clientConfig, err := LoadKubeConfig(kubeConfig)
+	rawConfig, err := clientcmd.Load(kubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("kubeconfig cannot be loaded: %v", err)
 	}
 
-	if err := ValidateClientConfig(*clientConfig); err != nil {
+	if err := clientcmd.Validate(*rawConfig); err != nil {
 		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
 	}
 
-	client, err := CreateInterfaceFromClusterConfig(clientConfig)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't create client interface: %v", err)
-	}
+	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
 
-	metadataClient, err := CreateMetadataInterfaceFromClusterConfig(clientConfig)
+	clients, err := kube.NewClient(clientConfig)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't create metadata client interface: %v", err)
+		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
+	return clients, nil
+}
 
+func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, error) {
+	clients, err := BuildClientsFromConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
 	return &RemoteCluster{
-		secretName:     secretName,
-		client:         client,
-		metadataClient: metadataClient,
-		kubeConfigSha:  sha256.Sum256(kubeConfig),
+		secretName:    secretName,
+		clients:       clients,
+		kubeConfigSha: sha256.Sum256(kubeConfig),
 	}, nil
 }
 
@@ -293,7 +298,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			}
 
 			c.cs.remoteClusters[clusterID] = remoteCluster
-			if err := c.addCallback(remoteCluster.client, remoteCluster.metadataClient, clusterID); err != nil {
+			if err := c.addCallback(remoteCluster.clients, clusterID); err != nil {
 				log.Errorf("Error creating cluster_id=%s from secret %v: %v",
 					clusterID, secretName, err)
 			}
@@ -317,7 +322,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 					continue
 				}
 				c.cs.remoteClusters[clusterID] = remoteCluster
-				if err := c.updateCallback(remoteCluster.client, remoteCluster.metadataClient, clusterID); err != nil {
+				if err := c.updateCallback(remoteCluster.clients, clusterID); err != nil {
 					log.Errorf("Error updating cluster_id from secret=%v: %s %v",
 						clusterID, secretName, err)
 				}

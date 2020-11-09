@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -35,14 +35,15 @@ import (
 
 // Config for an echo server Instance.
 type Config struct {
-	Ports     common.PortList
-	Metrics   int
-	TLSCert   string
-	TLSKey    string
-	Version   string
-	UDSServer string
-	Cluster   string
-	Dialer    common.Dialer
+	Ports          common.PortList
+	BindIPPortsMap map[int]struct{}
+	Metrics        int
+	TLSCert        string
+	TLSKey         string
+	Version        string
+	UDSServer      string
+	Cluster        string
+	Dialer         common.Dialer
 }
 
 var _ io.Closer = &Instance{}
@@ -110,7 +111,26 @@ func (s *Instance) Close() (err error) {
 	return
 }
 
+func (s *Instance) getListenerIP(port *common.Port) (string, error) {
+	// Not configured on this port, set to empty which will lead to wildcard bind
+	// Not 0.0.0.0 in case we want IPv6
+	if port == nil {
+		return "", nil
+	}
+	if _, f := s.BindIPPortsMap[port.Port]; !f {
+		return "", nil
+	}
+	if ip, f := os.LookupEnv("INSTANCE_IP"); f {
+		return ip, nil
+	}
+	return "", fmt.Errorf("--bind-ip set but INSTANCE_IP undefined")
+}
+
 func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.Instance, error) {
+	ip, err := s.getListenerIP(port)
+	if err != nil {
+		return nil, err
+	}
 	return endpoint.New(endpoint.Config{
 		Port:          port,
 		UDSServer:     udsServer,
@@ -120,6 +140,7 @@ func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.In
 		TLSCert:       s.TLSCert,
 		TLSKey:        s.TLSKey,
 		Dialer:        s.Dialer,
+		ListenerIP:    ip,
 	})
 }
 

@@ -1,0 +1,7 @@
+spec:
+  initContainers:
+  - name: c0
+  containers:
+  - name: c1
+  volumes:
+  - name: v0

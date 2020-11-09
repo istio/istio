@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,7 @@ package namespace
 
 import (
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/environment/native"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Config contains configuration information about the namespace instance
@@ -40,22 +37,19 @@ type Instance interface {
 }
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.
-func Claim(ctx resource.Context, name string, injectSidecar bool) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i = claimNative(ctx, name)
-		err = nil
-	})
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = claimKube(ctx, name, injectSidecar)
-	})
-	return
+func Claim(ctx resource.Context, nsConfig Config) (i Instance, err error) {
+	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
+	return claimKube(ctx, &nsConfig)
 }
 
 // ClaimOrFail calls Claim and fails test if it returns error
 func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
 	t.Helper()
-	i, err := Claim(ctx, name, true)
+	nsCfg := Config{
+		Prefix: name,
+		Inject: true,
+	}
+	i, err := Claim(ctx, nsCfg)
 	if err != nil {
 		t.Fatalf("namespace.ClaimOrFail:: %v", err)
 	}
@@ -64,15 +58,11 @@ func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
 
 // New creates a new Namespace in all clusters.
 func New(ctx resource.Context, nsConfig Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i = newNative(ctx, nsConfig.Prefix, nsConfig.Inject)
-		err = nil
-	})
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, &nsConfig)
-	})
-	return
+	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
+	if ctx.Settings().StableNamespaces {
+		return Claim(ctx, nsConfig)
+	}
+	return newKube(ctx, &nsConfig)
 }
 
 // NewOrFail calls New and fails test if it returns error
@@ -85,29 +75,11 @@ func NewOrFail(t test.Failer, ctx resource.Context, nsConfig Config) Instance {
 	return i
 }
 
-// ClaimSystemNamespace retrieves the namespace for the Istio system components from the environment.
-func ClaimSystemNamespace(ctx resource.Context) (Instance, error) {
-	switch ctx.Environment().EnvironmentName() {
-	case environment.Kube:
-		istioCfg, err := istio.DefaultConfig(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return Claim(ctx, istioCfg.SystemNamespace, false)
-	case environment.Native:
-		ns := ctx.Environment().(*native.Environment).SystemNamespace
-		return Claim(ctx, ns, false)
-	default:
-		return nil, resource.UnsupportedEnvironment(ctx.Environment())
+func overwriteRevisionIfEmpty(nsConfig *Config, revision string) {
+	// Overwrite the default namespace label (istio-injection=enabled)
+	// with istio.io/rev=XXX. If a revision label is already provided,
+	// the label will remain as is.
+	if nsConfig.Revision == "" {
+		nsConfig.Revision = revision
 	}
-}
-
-// ClaimSystemNamespaceOrFail calls ClaimSystemNamespace, failing the test if an error occurs.
-func ClaimSystemNamespaceOrFail(t test.Failer, ctx resource.Context) Instance {
-	t.Helper()
-	i, err := ClaimSystemNamespace(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return i
 }

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ package kube
 import (
 	"strings"
 
-	"istio.io/istio/pkg/config/protocol"
-
 	coreV1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (

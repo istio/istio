@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,12 +38,14 @@ type Config struct {
 	UDSServer     string
 	Dialer        common.Dialer
 	Port          *common.Port
+	ListenerIP    string
 }
 
 // Instance of an endpoint that serves the Echo application on a single port/protocol.
 type Instance interface {
 	io.Closer
 	Start(onReady OnReadyFunc) error
+	GetConfig() Config
 }
 
 // New creates a new endpoint Instance.

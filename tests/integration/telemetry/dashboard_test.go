@@ -1,4 +1,5 @@
-// Copyright 2019 Istio Authors
+// +build integ
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,28 +19,28 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
-
-	"istio.io/pkg/log"
-
 	"github.com/prometheus/common/model"
 	"golang.org/x/sync/errgroup"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -49,14 +50,15 @@ var (
 		excluded  []string
 	}{
 		{
-			"istio-grafana-configuration-dashboards-pilot-dashboard",
+			"istio-grafana-dashboards",
 			"pilot-dashboard.json",
 			[]string{
 				"pilot_xds_push_errors",
 				"pilot_total_xds_internal_errors",
 				"pilot_xds_push_context_errors",
 				`pilot_xds_pushes{type!~"lds|cds|rds|eds"}`,
-				"pilot_xds_eds_instances",
+				// We do not push credentials in this test
+				`pilot_xds_pushes{type="sds"}`,
 				"_timeout",
 				"_rejects",
 				// We do not simulate injection errors
@@ -70,29 +72,30 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-mesh-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-mesh-dashboard.json",
 			[]string{
 				"galley_",
 				"istio_tcp_",
+				"max(pilot_k8s_cfg_events{",
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-service-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-service-dashboard.json",
 			[]string{
 				"istio_tcp_",
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-workload-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-workload-dashboard.json",
 			[]string{
 				"istio_tcp_",
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-performance-dashboard",
+			"istio-grafana-dashboards",
 			"istio-performance-dashboard.json",
 			[]string{
 				// TODO add these back: https://github.com/istio/istio/issues/20175
@@ -103,11 +106,10 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-mixer-dashboard",
-			"mixer-dashboard.json",
+			"istio-services-grafana-dashboards",
+			"istio-extension-dashboard.json",
 			[]string{
-				// Exclude all metrics -- mixer is disabled by default
-				"_",
+				"avg(envoy_wasm_vm_v8_",
 			},
 		},
 	}
@@ -115,17 +117,18 @@ var (
 
 func TestDashboard(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("observability.telemetry.dashboard").
 		Run(func(ctx framework.TestContext) {
 
 			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
-			kenv := ctx.Environment().(*kube.Environment)
+			cluster := ctx.Clusters().Default()
 			setupDashboardTest(ctx)
 			waitForMetrics(ctx, p)
 			for _, d := range dashboards {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
-					cm, err := kenv.KubeClusters[0].GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
+					cm, err := cluster.CoreV1().ConfigMaps(i.Settings().TelemetryNamespace).Get(
+						context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 					if err != nil {
 						t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
 					}
@@ -202,7 +205,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 		}
 	} else {
 		if numSamples != 0 {
-			scopes.CI.Debugf("Filtered out metric '%v', but got samples: %v", query, value)
+			scopes.Framework.Infof("Filtered out metric '%v', but got samples: %v", query, value)
 		}
 	}
 	return nil
@@ -284,15 +287,20 @@ func setupDashboardTest(t framework.TestContext) {
 		Prefix: "dashboard",
 		Inject: true,
 	})
-	g.ApplyConfigOrFail(t, ns, fmt.Sprintf(gatewayConfig, ns.Name()))
+	t.Config().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(gatewayConfig, ns.Name()))
+
+	// Apply just the grafana dashboards
+	cfg, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Config().ApplyYAMLOrFail(t, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
 
 	var instance echo.Instance
 	echoboot.
-		NewBuilderOrFail(t, t).
+		NewBuilder(t).
 		With(&instance, echo.Config{
 			Service:   "server",
-			Pilot:     p,
-			Galley:    g,
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports: []echo.Port{
@@ -315,18 +323,20 @@ func setupDashboardTest(t framework.TestContext) {
 	// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
 	// Spread out over 5s so rate() queries will behave correctly
 	g, _ := errgroup.WithContext(context.Background())
-	addr := ingr.HTTPAddress()
 	tcpAddr := ingr.TCPAddress()
 	ticker := time.NewTicker(time.Second * 5)
 	for t := 0; t < 20; t++ {
 		<-ticker.C
 		g.Go(func() error {
 			for i := 0; i < 10; i++ {
-				_, err := ingr.Call(ingress.CallOptions{
-					Host:     "server",
-					Path:     fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", ns.Name()),
-					CallType: ingress.PlainText,
-					Address:  addr,
+				_, err := ingr.CallEcho(echo.CallOptions{
+					Port: &echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Path: fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", ns.Name()),
+					Headers: map[string][]string{
+						"Host": {"server"},
+					},
 				})
 				if err != nil {
 					// Do not fail on errors since there may be initial startup errors
@@ -334,11 +344,16 @@ func setupDashboardTest(t framework.TestContext) {
 					log.Warnf("requests failed: %v", err)
 				}
 			}
-			_, err := ingr.Call(ingress.CallOptions{
-				Host:     "server",
-				Path:     fmt.Sprintf("/echo-%s", ns.Name()),
-				CallType: ingress.PlainText,
-				Address:  tcpAddr,
+			_, err := ingr.CallEcho(echo.CallOptions{
+				Port: &echo.Port{
+					Protocol:    protocol.HTTP,
+					ServicePort: tcpAddr.Port,
+				},
+				Address: tcpAddr.IP.String(),
+				Path:    fmt.Sprintf("/echo-%s", ns.Name()),
+				Headers: map[string][]string{
+					"Host": {"server"},
+				},
 			})
 			if err != nil {
 				// Do not fail on errors since there may be initial startup errors

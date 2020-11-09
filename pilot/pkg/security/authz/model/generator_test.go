@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 package model
 
 import (
-	"reflect"
 	"testing"
 
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -92,7 +93,16 @@ func TestGenerator(t *testing.T) {
 			g:     srcIPGenerator{},
 			value: "1.2.3.4",
 			want: yamlPrincipal(t, `
-         sourceIp:
+         directRemoteIp:
+          addressPrefix: 1.2.3.4
+          prefixLen: 32`),
+		},
+		{
+			name:  "remoteIPGenerator",
+			g:     remoteIPGenerator{},
+			value: "1.2.3.4",
+			want: yamlPrincipal(t, `
+         remoteIp:
           addressPrefix: 1.2.3.4
           prefixLen: 32`),
 		},
@@ -218,6 +228,24 @@ func TestGenerator(t *testing.T) {
                   exact: foo`),
 		},
 		{
+			name:  "requestNestedClaimsGenerator",
+			g:     requestClaimGenerator{},
+			key:   "request.auth.claims[bar][baz]",
+			value: "foo",
+			want: yamlPrincipal(t, `
+         metadata:
+          filter: istio_authn
+          path:
+          - key: request.auth.claims
+          - key: bar
+          - key: baz
+          value:
+            listMatch:
+              oneOf:
+                stringMatch:
+                  exact: foo`),
+		},
+		{
 			name:  "hostGenerator",
 			g:     hostGenerator{},
 			value: "foo",
@@ -270,7 +298,7 @@ func TestGenerator(t *testing.T) {
 					t.Errorf("both permission and principal returned error")
 				}
 			}
-			if !reflect.DeepEqual(got, tc.want) {
+			if diff := cmp.Diff(got, tc.want, protocmp.Transform()); diff != "" {
 				var gotYaml string
 				gotProto, ok := got.(proto.Message)
 				if !ok {

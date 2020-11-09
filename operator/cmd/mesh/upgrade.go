@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,18 +16,22 @@ package mesh
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/docker/distribution/reference"
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
+	client_v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -51,21 +55,18 @@ const (
 		"If you’re using manual injection, you can upgrade the sidecar by executing:\n" +
 		"    kubectl apply -f < (istioctl kube-inject -f <original application deployment yaml>)"
 
-	// installationPathTemplate is used to construct installation url based on version
-	installationPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-linux.tar.gz"
+	// releaseURLPathTemplate is used to construct a download URL for a tar at a given version. The osx tar is
+	// used because it's stable between 1.5->1.6 and only the profiles are used, not binaries.
+	releaseURLPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-osx.tar.gz"
 )
 
 type upgradeArgs struct {
 	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilenames []string
-	// versionsURI is a URI pointing to a YAML formatted versions mapping.
-	versionsURI string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
 	context string
-	// wait is flag that indicates whether to wait resources ready before exiting.
-	wait bool
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
 	readinessTimeout time.Duration
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
@@ -75,32 +76,27 @@ type upgradeArgs struct {
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
 	force bool
-	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
-	charts string
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
 }
 
 // addUpgradeFlags adds upgrade related flags into cobra command
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename",
-		"f", nil, "Path to file containing IstioOperator custom resource")
-	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
-		"", "URI for operator versions to Istio versions map")
+		"f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
-		"c", "", "Path to kube config")
+		"c", "", KubeConfigFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
-		"The name of the kubeconfig context to use")
+		ContextFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false,
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
-		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-			"of a Deployment are in a ready state before the command exits. ")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
-		"Maximum time to wait for Istio resources in each component to be ready."+
-			" The --wait flag must be set for this flag to apply")
+		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
@@ -136,18 +132,15 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	ysf, err := yamlFromSetFlags(applyInstallFlagAlias(args.set, args.charts), args.force, l)
-	if err != nil {
-		return err
-	}
+	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, ysf, args.force, nil, l)
+	targetIOPYaml, targetIOP, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
 
 	// Get the target version from the tag in the IOPS
-	targetTag := targetIOPS.Tag
+	targetTag := targetIOP.Spec.Tag
 	targetVersion, err := pkgversion.TagToVersionString(fmt.Sprint(targetTag))
 	if err != nil {
 		if !args.force {
@@ -158,7 +151,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 	// Get Istio control plane namespace
 	//TODO(elfinhe): support components distributed in multiple namespaces
-	istioNamespace := iop.Namespace(targetIOPS)
+	istioNamespace := targetIOP.Namespace
 
 	// Read the current Istio version from the the cluster
 	currentVersion, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
@@ -167,92 +160,90 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(currentVersion, targetVersion, args.versionsURI)
+	err = checkSupportedVersions(kubeClient, currentVersion)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
 	}
 	l.LogAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
-	// Read the overridden IOPS from args.inFilenames
-	overrideIOPSYaml := ""
+	// Read the overridden IOP from args.inFilenames
+	overrideIOPYaml := ""
 	if args.inFilenames != nil {
-		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilenames)
+		overrideIOPYaml, err = manifest.ReadLayeredYAMLs(args.inFilenames)
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
-		if overrideIOPSYaml != "" {
+		if overrideIOPYaml != "" {
 			// Grab the IstioOperatorSpec subtree.
-			overrideIOPSYaml, err = tpath.GetSpecSubtree(overrideIOPSYaml)
+			overrideIOPYaml, err = tpath.GetSpecSubtree(overrideIOPYaml)
 			if err != nil {
 				return fmt.Errorf("failed to get spec subtree from IOPS yaml, error: %v", err)
 			}
 		}
 	}
 
-	// Read the current installation's profile IOPS yaml to check the changed profile settings between versions.
+	// Read the current installation's profile IOP yaml to check the changed profile settings between versions.
 	currentSets := args.set
 	if currentVersion != "" {
-		currentSets = append(currentSets, "installPackagePath="+installURLFromVersion(currentVersion))
+		currentSets = append(currentSets, "installPackagePath="+releaseURLFromVersion(currentVersion))
 	}
-	profile := targetIOPS.Profile
+	profile := targetIOP.Spec.Profile
 	if profile == "" {
 		profile = name.DefaultProfileName
 	} else {
-		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
+		currentSets = append(currentSets, "profile="+targetIOP.Spec.Profile)
 	}
-	if ysf, err = yamlFromSetFlags(currentSets, args.force, l); err != nil {
-		return err
-	}
-	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", ysf, true, nil, l)
+	currentProfileIOPSYaml, _, err := manifest.GenIOPFromProfile(profile, "", currentSets, true, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
 	}
-	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
+	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPYaml, overrideIOPYaml, l)
 
-	waitForConfirmation(args.skipConfirmation, l)
+	waitForConfirmation(args.skipConfirmation && !rootArgs.dryRun, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(applyInstallFlagAlias(args.set, args.charts), args.inFilenames, args.force, rootArgs.dryRun,
-		args.kubeConfigPath, args.context, args.wait, args.readinessTimeout, l)
+	err = InstallManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
+		args.kubeConfigPath, args.context, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
 
-	if !args.wait {
-		l.LogAndPrintf("Upgrade submitted. Please use `istioctl version` to check the current versions.")
-		l.LogAndPrintf(upgradeSidecarMessage)
-		return nil
+	if !rootArgs.dryRun {
+		// Waits for the upgrade to complete by periodically comparing the each
+		// component version to the target version.
+		err = waitUpgradeComplete(kubeClient, istioNamespace, targetVersion, l)
+		if err != nil {
+			return fmt.Errorf("failed to wait for the upgrade to complete. Error: %v", err)
+		}
+
+		// Read the upgraded Istio version from the the cluster
+		upgradeVer, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
+		if err != nil {
+			return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
+		}
+
+		l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
+	} else {
+		l.LogAndPrintf("Upgrade rollout completed. " +
+			"All Istio control plane pods are running on the target version.\n\n")
+		l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", targetVersion)
 	}
 
-	// Waits for the upgrade to complete by periodically comparing the each
-	// component version to the target version.
-	err = waitUpgradeComplete(kubeClient, istioNamespace, targetVersion, l)
-	if err != nil {
-		return fmt.Errorf("failed to wait for the upgrade to complete. Error: %v", err)
-	}
-
-	// Read the upgraded Istio version from the the cluster
-	upgradeVer, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
-	if err != nil {
-		return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
-	}
-
-	l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
 	l.LogAndPrintf(upgradeSidecarMessage)
 	return nil
 }
 
-// installURLFromVersion generates default installation url from version number.
-func installURLFromVersion(version string) string {
-	return fmt.Sprintf(installationPathTemplate, version, version)
+// releaseURLFromVersion generates default installation url from version number.
+func releaseURLFromVersion(version string) string {
+	return fmt.Sprintf(releaseURLPathTemplate, version, version)
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
 func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l clog.Logger) {
 	diff := compare.YAMLCmpWithIgnore(curIOPS, tarIOPS, nil, ignoreIOPS)
-	if diff == "" {
+	if util.IsYAMLEqual(curIOPS, tarIOPS) {
 		l.LogAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
 		l.LogAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
@@ -270,28 +261,19 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-// checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(cur, tar, versionsURI string) error {
-	tarGoVersion, err := goversion.NewVersion(tar)
+var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.9")
+
+func checkSupportedVersions(kubeClient *Client, currentVersion string) error {
+	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
-		return fmt.Errorf("failed to parse the target version: %v", tar)
+		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
 	}
 
-	compatibleMap, err := pkgversion.GetVersionCompatibleMap(versionsURI, tarGoVersion)
-	if err != nil {
-		return err
+	if !SupportedIstioVersions.Check(curGoVersion) {
+		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
 	}
 
-	curGoVersion, err := goversion.NewVersion(cur)
-	if err != nil {
-		return fmt.Errorf("failed to parse the current version: %v, error: %v", cur, err)
-	}
-
-	if !compatibleMap.SupportedIstioVersions.Check(curGoVersion) {
-		return fmt.Errorf("upgrade is currently not supported: %v -> %v", cur, tar)
-	}
-
-	return nil
+	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
@@ -438,7 +420,7 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 		case "statsd-prom-bridge":
 			continue
 		case "mixer":
-			component = pod.Labels["istio-mixer-type"]
+			continue
 		}
 
 		server := ComponentVersion{
@@ -456,13 +438,13 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 			if pv == "" {
 				pv = cv
 			} else if pv != cv {
-				err := fmt.Errorf("differrent versions of containers in the same pod: %v", pod.Spec.Containers)
+				err := fmt.Errorf("differrent versions of containers in the same pod: %v", pod.Name)
 				errs = util.AppendErr(errs, err)
 			}
 		}
 		server.Version, err = pkgversion.TagToVersionString(pv)
 		if err != nil {
-			tagErr := fmt.Errorf("unable to convert tag %s into version in pod: %v", pv, pod.Spec.Containers)
+			tagErr := fmt.Errorf("unable to convert tag %s into version in pod: %v", pv, pod.Name)
 			errs = util.AppendErr(errs, tagErr)
 		}
 		res = append(res, server)
@@ -521,4 +503,83 @@ func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1
 		return nil, fmt.Errorf("failed retrieving configmap: %v", err)
 	}
 	return obj.(*v1.ConfigMapList), nil
+}
+
+func (client *Client) CheckUnsupportedAlphaSecurityCRD() error {
+	c, err := client_v1beta1.NewForConfig(client.Config)
+	if err != nil {
+		return err
+	}
+	crds, err := c.CustomResourceDefinitions().List(context.TODO(), meta_v1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get CRDs: %v", err)
+	}
+
+	unsupportedCRD := func(name string) bool {
+		crds := []string{
+			"clusterrbacconfigs.rbac.istio.io",
+			"rbacconfigs.rbac.istio.io",
+			"servicerolebindings.rbac.istio.io",
+			"serviceroles.rbac.istio.io",
+			"policies.authentication.istio.io",
+			"meshpolicies.authentication.istio.io",
+		}
+		for _, crd := range crds {
+			if name == crd {
+				return true
+			}
+		}
+		return false
+	}
+	getResource := func(crd string) []string {
+		type ResourceItem struct {
+			Metadata meta_v1.ObjectMeta `json:"metadata,omitempty"`
+		}
+		type Resource struct {
+			Items []ResourceItem `json:"items"`
+		}
+
+		parts := strings.Split(crd, ".")
+		cmd := client.Get().AbsPath("apis", strings.Join(parts[1:], "."), "v1alpha1", parts[0])
+		obj, err := cmd.DoRaw(context.TODO())
+		if err != nil {
+			log.Errorf("failed to get resources for crd %s: %v", crd, err)
+			return nil
+		}
+		resource := &Resource{}
+		if err := json.Unmarshal(obj, resource); err != nil {
+			log.Errorf("failed decoding response for crd %s: %v", crd, err)
+			return nil
+		}
+		var foundResources []string
+		for _, res := range resource.Items {
+			n := strings.Join([]string{crd, res.Metadata.Namespace, res.Metadata.Name}, "/")
+			foundResources = append(foundResources, n)
+		}
+		return foundResources
+	}
+
+	var foundCRDs []string
+	var foundResources []string
+	for _, crd := range crds.Items {
+		if unsupportedCRD(crd.Name) {
+			foundCRDs = append(foundCRDs, crd.Name)
+			foundResources = append(foundResources, getResource(crd.Name)...)
+		}
+	}
+	if len(foundCRDs) != 0 {
+		log.Warnf("found %d CRD of unsupported v1alpha1 security policy: %v. "+
+			"The v1alpha1 security policy is no longer supported starting 1.6. It's strongly recommended to delete "+
+			"the CRD of the v1alpha1 security policy to avoid applying any of the v1alpha1 security policy in the unsupported version",
+			len(foundCRDs), foundCRDs)
+	}
+	if len(foundResources) != 0 {
+		return fmt.Errorf("found %d unsupported v1alpha1 security policy: %v. "+
+			"The v1alpha1 security policy is no longer supported starting 1.6. To continue the upgrade, "+
+			"Please migrate to the v1beta1 security policy and delete all the v1alpha1 security policy, "+
+			"See https://istio.io/news/releases/1.5.x/announcing-1.5/upgrade-notes/#authentication-policy and "+
+			"https://istio.io/blog/2019/v1beta1-authorization-policy/#migration-from-the-v1alpha1-policy",
+			len(foundResources), foundResources)
+	}
+	return nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,9 +30,8 @@ func toStatusValue(msgs diag.Messages) interface{} {
 	result := make([]interface{}, 0)
 	for _, m := range msgs {
 		m.DocRef = DocRef
-		// For the purposes of status update, the origin field is redundant
-		// since we're attaching the message to the origin resource.
-		result = append(result, m.Unstructured(false))
+
+		result = append(result, m.UnstructuredAnalysisMessageBase())
 	}
 
 	return result

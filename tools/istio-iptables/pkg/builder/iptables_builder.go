@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,22 +24,4 @@ type IptablesProducer interface {
 	InsertRuleV4(chain string, table string, position int, params ...string) IptablesProducer
 	// InsertRuleV6 inserts IPv6 rule at a particular position in the chain
 	InsertRuleV6(chain string, table string, position int, params ...string) IptablesProducer
-}
-
-// IptablesConsumer is an interface for constructing iptables-rules command string or iptables-restore formatted rules
-type IptablesConsumer interface {
-	// BuildV4 creates iptables commands
-	BuildV4() [][]string
-	// BuildV6 creates ip6tables commands
-	BuildV6() [][]string
-	// BuildV4Restore creates iptables-restore input format
-	BuildV4Restore() string
-	// BuildV6Restore creates ip6tables-restore input format
-	BuildV6Restore() string
-}
-
-// IptablesBuilder is a higher level interface based on builder pattern.
-type IptablesBuilder interface {
-	IptablesProducer
-	IptablesConsumer
 }

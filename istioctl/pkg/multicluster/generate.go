@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/sync/errgroup"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -31,7 +30,6 @@ import (
 	operatorV1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
-
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -71,8 +69,7 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 			},
 		},
 		Global: &operatorV1alpha1.GlobalConfig{
-			ControlPlaneSecurityEnabled: &types.BoolValue{Value: true},
-			MeshNetworks:                meshNetworksJSON,
+			MeshNetworks: meshNetworksJSON,
 			MultiCluster: &operatorV1alpha1.MultiClusterConfig{
 				ClusterName: current.clusterName,
 			},
@@ -277,9 +274,9 @@ func (o *generateOptions) addFlags(flagset *pflag.FlagSet) {
 	o.filenameOption.addFlags(flagset)
 
 	flagset.StringVar(&o.from, "from", "",
-		"optional source configuration to generate multicluster aware configuration from")
+		"Optional source configuration to generate multicluster aware configuration from")
 	flagset.BoolVar(&o.waitForGateways, "wait-for-gateways", false,
-		"wait for all cluster's istio-ingressgateway IPs to be ready before generating configuration.")
+		"Wait for all cluster's istio-ingressgateway IPs to be ready before generating configuration.")
 }
 
 func (o *generateOptions) prepare(flags *pflag.FlagSet) error {

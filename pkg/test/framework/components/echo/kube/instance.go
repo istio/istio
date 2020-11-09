@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,29 +15,35 @@
 package kube
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	kubeCore "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-
-	kubeCore "k8s.io/api/core/v1"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
 	tcpHealthPort     = 3333
 	httpReadinessPort = 8080
-	defaultDomain     = "cluster.local"
+	defaultDomain     = constants.DefaultKubernetesDomain
 )
 
 var (
@@ -53,7 +59,7 @@ type instance struct {
 	grpcPort  uint16
 	ctx       resource.Context
 	tls       *echoCommon.TLSSettings
-	cluster   kubeEnv.Cluster
+	cluster   resource.Cluster
 }
 
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
@@ -66,7 +72,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	c := &instance{
 		cfg:     cfg,
 		ctx:     ctx,
-		cluster: kubeEnv.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: cfg.Cluster,
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -81,27 +87,60 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Generate the service and deployment YAML.
-	serviceYAML, deploymentYAML, err := generateYAML(cfg)
+	serviceYAML, deploymentYAML, err := generateYAML(ctx, cfg, c.cluster)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate yaml: %v", err)
 	}
 
 	// Apply the service definition to all clusters.
-	for _, cluster := range ctx.Environment().(*kubeEnv.Environment).KubeClusters {
-		if _, err = cluster.ApplyContents(cfg.Namespace.Name(), serviceYAML); err != nil {
-			return nil, fmt.Errorf("failed deploying echo service %s to cluster %d: %v",
-				cfg.FQDN(), cluster.Index(), err)
-		}
+	if err := ctx.Config().ApplyYAML(cfg.Namespace.Name(), serviceYAML); err != nil {
+		return nil, fmt.Errorf("failed deploying echo service %s to clusters: %v",
+			cfg.FQDN(), err)
 	}
 
 	// Deploy the YAML.
-	if _, err = c.cluster.ApplyContents(cfg.Namespace.Name(), deploymentYAML); err != nil {
-		return nil, fmt.Errorf("failed deploying echo %s to cluster %d: %v",
-			cfg.FQDN(), c.cluster.Index(), err)
+	if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), deploymentYAML); err != nil {
+		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
+			cfg.FQDN(), c.cluster.Name(), err)
+	}
+
+	if cfg.DeployAsVM {
+		serviceAccount := cfg.Service
+		if !cfg.ServiceAccount {
+			serviceAccount = "default"
+		}
+		token, err := createServiceAccountToken(c.cluster, cfg.Namespace.Name(), serviceAccount)
+		if err != nil {
+			return nil, err
+		}
+		secret := &kubeCore.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.Service + "-istio-token",
+				Namespace: cfg.Namespace.Name(),
+			},
+			Data: map[string][]byte{
+				"istio-token": []byte(token),
+			},
+		}
+		if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+			if kerrors.IsAlreadyExists(err) {
+				if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
+
+	if cfg.DeployAsVM {
+		if err := setupVM(ctx, c, cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	// Now retrieve the service information to find the ClusterIP
-	s, err := c.cluster.GetService(cfg.Namespace.Name(), cfg.Service)
+	s, err := c.cluster.CoreV1().Services(cfg.Namespace.Name()).Get(context.TODO(), cfg.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +160,86 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	return c, nil
 }
 
+func setupVM(ctx resource.Context, c *instance, cfg echo.Config) error {
+	serviceAccount := cfg.Service
+	if !cfg.ServiceAccount {
+		serviceAccount = "default"
+	}
+	if cfg.AutoRegisterVM {
+		return ctx.Config().ApplyYAML(cfg.Namespace.Name(), fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: %s
+spec:
+  template:
+    serviceAccount: %s
+    network: %q
+    labels:
+      app: %s`, cfg.Service, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service))
+	}
+
+	var pods *kubeCore.PodList
+	if err := retry.UntilSuccess(func() error {
+		var err error
+		pods, err = c.cluster.PodsForSelector(context.TODO(), cfg.Namespace.Name(),
+			fmt.Sprintf("istio.io/test-vm=%s", cfg.Service))
+		if err != nil {
+			return err
+		}
+		if len(pods.Items) == 0 {
+			return fmt.Errorf("0 pods found for istio.io/test-vm:%s", cfg.Service)
+		}
+		for _, vmPod := range pods.Items {
+			if vmPod.Status.PodIP == "" {
+				return fmt.Errorf("empty pod ip for pod %v", vmPod.Name)
+			}
+		}
+		return nil
+	}, retry.Timeout(cfg.ReadinessTimeout)); err != nil {
+		return err
+	}
+
+	// One workload entry for each VM pod
+	for _, vmPod := range pods.Items {
+		wle := fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: %s
+spec:
+  address: %s
+  serviceAccount: %s
+  network: %q
+  labels:
+    app: %s
+    version: %s
+`, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
+		// Deploy the workload entry.
+		if err := ctx.Config().ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func createServiceAccountToken(client kubernetes.Interface, ns string, serviceAccount string) (string, error) {
+	scopes.Framework.Debugf("Creating service account token for: %s/%s", ns, serviceAccount)
+
+	token, err := client.CoreV1().ServiceAccounts(ns).CreateToken(context.TODO(), serviceAccount,
+		&authenticationv1.TokenRequest{
+			Spec: authenticationv1.TokenRequestSpec{
+				Audiences: []string{"istio-ca"},
+			},
+		}, metav1.CreateOptions{})
+
+	if err != nil {
+		return "", err
+	}
+	return token.Status.Token, nil
+}
+
 // getContainerPorts converts the ports to a port list of container ports.
 // Adds ports for health/readiness if necessary.
 func getContainerPorts(ports []echo.Port) echoCommon.PortList {
@@ -130,10 +249,11 @@ func getContainerPorts(ports []echo.Port) echoCommon.PortList {
 	for _, p := range ports {
 		// Add the port to the set of application ports.
 		cport := &echoCommon.Port{
-			Name:     p.Name,
-			Protocol: p.Protocol,
-			Port:     p.InstancePort,
-			TLS:      p.TLS,
+			Name:        p.Name,
+			Protocol:    p.Protocol,
+			Port:        p.InstancePort,
+			TLS:         p.TLS,
+			ServerFirst: p.ServerFirst,
 		}
 		containerPorts = append(containerPorts, cport)
 
@@ -194,56 +314,34 @@ func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return out
 }
 
-func (c *instance) WaitUntilCallable(instances ...echo.Instance) error {
-	// Wait for the outbound config to be received by each workload from Pilot.
-	for _, w := range c.workloads {
-		if w.sidecar != nil {
-			if err := w.sidecar.WaitForConfig(common.OutboundConfigAcceptFunc(c, instances...)); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (c *instance) WaitUntilCallableOrFail(t test.Failer, instances ...echo.Instance) {
-	t.Helper()
-	if err := c.WaitUntilCallable(instances...); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // WorkloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
-func workloadHasSidecar(cfg echo.Config, endpoint *kubeCore.ObjectReference) bool {
+func workloadHasSidecar(cfg echo.Config, podName string) bool {
 	// Match workload first.
 	for _, w := range cfg.Subsets {
-		if strings.HasPrefix(endpoint.Name, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
+		if strings.HasPrefix(podName, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
 			return w.Annotations.GetBool(echo.SidecarInject)
 		}
 	}
 	return true
 }
 
-func (c *instance) initialize(endpoints *kubeCore.Endpoints) error {
+func (c *instance) initialize(pods []kubeCore.Pod) error {
 	if c.workloads != nil {
 		// Already ready.
 		return nil
 	}
 
 	workloads := make([]*workload, 0)
-	for _, subset := range endpoints.Subsets {
-		for _, addr := range subset.Addresses {
-			workload, err := newWorkload(addr, workloadHasSidecar(c.cfg, addr.TargetRef), c.grpcPort, c.cluster, c.tls, c.ctx)
-			if err != nil {
-				return err
-			}
-			workloads = append(workloads, workload)
+	for _, pod := range pods {
+		workload, err := newWorkload(pod, workloadHasSidecar(c.cfg, pod.Name), c.grpcPort, c.cluster, c.tls, c.ctx)
+		if err != nil {
+			return err
 		}
+		workloads = append(workloads, workload)
 	}
 
 	if len(workloads) == 0 {
-		return fmt.Errorf("no pods found for service %s/%s/%s", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version)
+		return fmt.Errorf("no workloads found for service %s/%s/%s, from %v pods", c.cfg.Namespace.Name(), c.cfg.Service, c.cfg.Version, len(pods))
 	}
 
 	c.workloads = workloads
@@ -263,13 +361,13 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	out, err := common.CallEcho(c.workloads[0].Instance, &opts, common.IdentityOutboundPortSelector)
+	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, false)
 	if err != nil {
 		if opts.Port != nil {
 			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
 				c.Config().Service,
 				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Target.Config().Service,
+				opts.Address,
 				opts.Port.ServicePort,
 				opts.Path,
 				err)
@@ -282,6 +380,34 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
 	t.Helper()
 	r, err := c.Call(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func (c *instance) CallWithRetry(opts echo.CallOptions,
+	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+	out, err := common.ForwardEcho(c.cfg.Service, c.workloads[0].Instance, &opts, true, retryOptions...)
+	if err != nil {
+		if opts.Port != nil {
+			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+				c.Config().Service,
+				strings.ToLower(string(opts.Port.Protocol)),
+				opts.Address,
+				opts.Port.ServicePort,
+				opts.Path,
+				err)
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
+	retryOptions ...retry.Option) appEcho.ParsedResponses {
+	t.Helper()
+	r, err := c.CallWithRetry(opts, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}

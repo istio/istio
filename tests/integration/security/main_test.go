@@ -1,4 +1,5 @@
-//  Copyright 2019 Istio Authors
+// +build integ
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,49 +19,36 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 var (
-	ist           istio.Instance
-	g             galley.Instance
-	p             pilot.Instance
-	rootNamespace string
+	ist  istio.Instance
+	apps = &util.EchoDeployments{}
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("security", m).
-		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
-			}
-			return nil
+		NewSuite(m).
+		Setup(istio.Setup(&ist, setupConfig)).
+		Setup(func(ctx resource.Context) error {
+			return util.SetupApps(ctx, ist, apps, true)
 		}).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	rootNamespace = cfg.SystemNamespace
-
 	cfg.ControlPlaneValues = `
-components:
-  egressGateways:
-  - enabled: true
-    name: istio-egressgateway
+meshConfig:
+  accessLogEncoding: JSON
+  accessLogFile: /dev/stdout
+  defaultConfig:
+    gatewayTopology:
+      numTrustedProxies: 1
 `
 }

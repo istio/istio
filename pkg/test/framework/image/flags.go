@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import (
 var (
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		Hub:        env.HUB.Value(),
-		Tag:        env.TAG.Value(),
+		Hub:        env.HUB.ValueOrDefault("gcr.io/istio-testing"),
+		Tag:        env.TAG.ValueOrDefault("latest"),
 		PullPolicy: env.PULL_POLICY.Value(),
 		BitnamiHub: env.BITNAMIHUB.ValueOrDefault("docker.io/bitnami"),
 	}

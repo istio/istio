@@ -17,7 +17,10 @@ spec:
         ports: ["8090"]
 ---
 
-# The following policy denies request to port 8090 for workload c
+# The following policy denies:
+# request to port 8090 for workload c
+# request to port 8093 with principal suffix matching
+# request to port 8092 with namespace suffix matching
 
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
@@ -33,6 +36,18 @@ spec:
   - to:
     - operation:
         ports: ["8090"]
+  - to:
+    - operation:
+        ports: ["8093"]
+    from:
+    - source:
+        principals: ["*/ns/{{ .Namespace }}/sa/b"]
+  - to:
+    - operation:
+        ports: ["8092"]
+    from:
+    - source:
+        namespaces: ["*{{ .Namespace2 }}"]
 ---
 
 # The following policy denies request from service account a and namespace 2 for workload d

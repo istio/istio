@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,10 @@ type Origin interface {
 	Namespace() Namespace
 
 	Reference() Reference
+
+	// FieldMap returns the flat map containing paths of the fields in the resource as keys,
+	// and their corresponding line numbers as values
+	FieldMap() map[string]int
 }
 
 // Reference provides more information about an Origin. This is also source-implementation dependant.

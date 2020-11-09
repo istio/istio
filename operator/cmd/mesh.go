@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,12 @@ import (
 	"os"
 
 	"istio.io/istio/operator/cmd/mesh"
+	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/version"
 )
 
 func main() {
+	version.Info.Version = binversion.OperatorVersionString
 	rootCmd := mesh.GetRootCmd(os.Args[1:])
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

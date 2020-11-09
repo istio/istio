@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +42,8 @@ func TestSetConnectionAgeCommandlineOptions(t *testing.T) {
 	ko.AttachCobraFlags(cmd)
 
 	buf := new(bytes.Buffer)
-	cmd.SetOutput(buf)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
 	sec := 1 * time.Second
 	cmd.SetArgs([]string{
 		fmt.Sprintf("--keepaliveMaxServerConnectionAge=%v", sec),

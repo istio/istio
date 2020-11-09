@@ -1,5 +1,0 @@
-apa/tmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/apa"
-check/tmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/check"
-checkoutput/tmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
-report/reporttmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/report"
-quota/quotatmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/quota"

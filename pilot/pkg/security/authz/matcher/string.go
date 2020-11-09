@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package matcher
 import (
 	"strings"
 
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 // StringMatcher creates a string matcher for v.
@@ -49,11 +49,14 @@ func StringMatcherWithPrefix(v, prefix string) *matcherpb.StringMatcher {
 	case v == "*":
 		return StringMatcherRegex(".+")
 	case strings.HasPrefix(v, "*"):
-		return &matcherpb.StringMatcher{
-			MatchPattern: &matcherpb.StringMatcher_Suffix{
-				Suffix: prefix + strings.TrimPrefix(v, "*"),
-			},
+		if prefix == "" {
+			return &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_Suffix{
+					Suffix: strings.TrimPrefix(v, "*"),
+				},
+			}
 		}
+		return StringMatcherRegex(prefix + ".*" + strings.TrimPrefix(v, "*"))
 	case strings.HasSuffix(v, "*"):
 		return &matcherpb.StringMatcher{
 			MatchPattern: &matcherpb.StringMatcher_Prefix{

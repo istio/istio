@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -113,6 +113,15 @@ func TestValidateCondition(t *testing.T) {
 		},
 		{
 			key:       "source.ip",
+			values:    []string{"a.b.c.d"},
+			wantError: true,
+		},
+		{
+			key:    "remote.ip",
+			values: []string{"1.2.3.4", "5.6.7.0/24"},
+		},
+		{
+			key:       "remote.ip",
 			values:    []string{"a.b.c.d"},
 			wantError: true,
 		},

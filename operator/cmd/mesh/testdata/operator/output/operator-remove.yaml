@@ -30,12 +30,6 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - rbac.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
   - security.istio.io
   resources:
   - '*'

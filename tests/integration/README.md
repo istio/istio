@@ -42,9 +42,7 @@ case, just typing ```go test ./...``` should be sufficient to run tests.
 ## Writing Tests
 
 The test framework is designed to work with standard go tooling and allows developers
-to write environment-agnostics tests in a high-level fashion. The quickest way to get started with authoring
-new tests is to checkout the code in the
-[framework](https://github.com/istio/istio/tree/master/tests/integration/framework) folder.
+to write environment-agnostics tests in a high-level fashion.
 
 ### Adding a Test Suite
 
@@ -77,11 +75,11 @@ func TestMyLogic(t *testing.T) {
         NewTest(t).
         Run(func(ctx framework.TestContext) {
             // Create a component
-            g := galley.NewOrFail(ctx, ctx, cfg)
+            p := pilot.NewOrFail(ctx, ctx, cfg)
 
             // Use the component.
-            g.ApplyConfigOrFail(ctx, nil, mycfg)
-            defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+            // Apply Kubernetes Config
+            ctx.ApplyConfigOrFail(ctx, nil, mycfg)
 
             // Do more stuff here.
         }
@@ -98,10 +96,8 @@ In the `TestMain`, you can also restrict the test to particular environment, app
 func TestMain(m *testing.M) {
     framework.
         NewSuite("mysuite", m).
-        // Restrict the test to the K8s environment only, tests will be skipped in native environment.
-        RequireEnvironment(environment.Kube).
         // Deploy Istio on the cluster
-        Setup(istio.SetupOnKube(nil, nil)).
+        Setup(istio.Setup(nil, nil)).
         // Run your own custom setup
         Setup(mySetup).
         Run()
@@ -136,8 +132,7 @@ func TestMyLogic(t *testing.T) {
             for _, cfg := range configs {
                 ctx.NewSubTest(cfg.name).
                     Run(func(ctx framework.TestContext) {
-                        g.ApplyConfigOrFail(ctx, nil, mycfg)
-                        defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+                        ctx.ApplyConfigOrFail(ctx, nil, mycfg)
                         // Do more stuff here.
                     })
             }
@@ -233,13 +228,10 @@ func TestMyLogic(t *testing.T) {
         Run(func(ctx framework.TestContext) {
             // Create the components.
             g := galley.NewOrFail(ctx, ctx, galley.Config{})
-            p := pilot.NewOrFail(ctx, ctx, pilot.Config {
-                Galley: g,
-            })
+            p := pilot.NewOrFail(ctx, ctx, pilot.Config {})
 
             // Apply configuration via Galley.
-            g.ApplyConfigOrFail(ctx, nil, mycfg)
-            defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+            ctx.ApplyConfigOrFail(ctx, nil, mycfg)
 
             // Wait until Pilot has received the configuration update.
             p.StartDiscoveryOrFail(t, discoveryRequest)
@@ -261,7 +253,7 @@ To add a new component, you'll first need to create a top-level folder for your 
 [components folder](https://github.com/istio/istio/tree/master/pkg/test/framework/components).
 
 ```console
-$ cd ${ISTIO}/tests/integration
+$ cd ${ISTIO}/pkg/test/framework/components
 $ mkdir mycomponent
 ```
 
@@ -359,13 +351,12 @@ the standard `go test` command-line.  For example, to run the tests under the `/
 using the default (native) environment, you can simply type:
 
 ```console
-$ go test ./tests/integration/mycomponent/...
+$ go test -tags=integ ./tests/integration/mycomponent/...
 ```
 
 Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.
 
-| WARNING: Many tests, including integration tests, assume that a [Helm](https://helm.sh/docs/using_helm/#installing-helm) client is installed and on the path.|
-| --- |
+Tests are tagged with the `integ` build target to avoid accidental invocation. If this is not set, no tests will be run.
 
 ### Test Parellelism and Kubernetes
 
@@ -436,47 +427,23 @@ If you need to add a new test suite, it can be added to the [job configuration](
 
 ## Environments
 
-When running tests, only one environment can be specified. Currently, the framework supports the following:
-
-### Native Environment (Default)
-
-The test binaries run on the native platform either in-memory, or as processes. This is the default, however you can
-also explicitly specify the native environment:
+The test binaries run in a Kubernetes cluster, but the test logic runs in the test binary.
 
 ```console
-$ go test ./... -istio.test.env native
+$ go test ./... -p 1
 ```
 
-Note: this may require you to [enable forwarding from Docker containers to the outside world](https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world):
-
-```bash
-sudo sysctl net.ipv4.conf.all.forwarding=1
-sudo iptables -P FORWARD ACCEPT
-# On some machines, an additional rule may be needed to allow traffic from all `br-...` docker bridge interfaces
-sudo iptables -A INPUT -i br-+ -j ACCEPT
-```
-
-### Kubernetes Environment
-
-The test binaries run in a Kubernetes cluster, but the test logic runs in the test binary. To specify the Kubernetes
-environment:
-
-```console
-$ go test ./... -p 1 --istio.test.env kube
-```
-
-| WARNING: ```-p 1``` is required when running directly in the ```tests/integration/``` folder, when using ```kube``` environment. |
+| WARNING: ```-p 1``` is required when running directly in the ```tests/integration/``` folder. |
 | --- |
 
-When running the tests against the Kubernetes environment, you will need to provide a K8s cluster to run the tests
-against.
+You will need to provide a K8s cluster to run the tests against.
 (See [here](https://github.com/istio/istio/blob/master/tests/integration/GKE.md)
 for info about how to set up a suitable GKE cluster.)
 You can specify the kube config file that should be used to use for connecting to the cluster, through
 command-line:
 
 ```console
-$ go test ./... -p 1 --istio.test.env kube --istio.test.kube.config ~/.kube/config
+$ go test ./... -p 1 --istio.test.kube.config ~/.kube/config
 ```
 
 If not specified, `~/.kube/config` will be used by default.
@@ -542,19 +509,11 @@ pass command-line flags to the test while running under the debugger, you can us
 
 ## Reference
 
-### Helm Values Overrides
-
-If your tests require special Helm values flags, you can specify your Helm values via additional
-for Kubernetes environments. See [mtls_healthcheck_test.go](security/healthcheck/mtls_healthcheck_test.go) for example.
-
 ### Command-Line Flags
 
 The test framework supports the following command-line flags:
 
 ```plain
-  -istio.test.env string
-        Specify the environment to run the tests against. Allowed values are: [native kube] (default "native")
-
   -istio.test.work_dir string
         Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.
 
@@ -597,8 +556,11 @@ The test framework supports the following command-line flags:
   -istio.test.kube.helm.iopFile string
         IstioOperator spec file. This can be an absolute path or relative to the repository root. Defaults to "tests/integration/iop-integration-test-defaults.yaml".
 
-  -istio.test.kube.minikube
-        Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address. This also pertains to any environment that doesn't support a LoadBalancer type.
+  -istio.test.kube.loadbalancer bool
+        Used to obtain the right IP address for ingress gateway. This should be false for any environment that doesn't support a LoadBalancer type.
+
+  -istio.test.revision string
+        Overwrite the default namespace label (istio-enabled=true) with revision lable (istio.io/rev=XXX). (default is no overwrite)
 ```
 
 }
@@ -616,7 +578,7 @@ unable to locate an Envoy binary
 This is documented in this [PR](https://github.com/istio/istio/issues/13677). Once the Envoy binary is available for the Mac,
 these tests will hopefully succeed.
 
-* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.minikube` parameter. The solves an error like:
+* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.loadbalancer=false` parameter. The solves an error like:
 
 ```plain
 service ingress is not available yet

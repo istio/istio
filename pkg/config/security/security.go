@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ type JwksInfo struct {
 const (
 	attrRequestHeader    = "request.headers"        // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 	attrSrcIP            = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrRemoteIP         = "remote.ip"              // original client ip determined from x-forwarded-for or proxy protocol.
 	attrSrcNamespace     = "source.namespace"       // e.g. "default".
 	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
@@ -58,9 +59,6 @@ const (
 // Port number is extracted from URI if available (i.e from postfix :<port>, eg. ":80"), or assigned
 // to a default value based on URI scheme (80 for http and 443 for https).
 // Port name is set to URI scheme value.
-// Note: this is to replace [buildJWKSURIClusterNameAndAddress]
-// (https://github.com/istio/istio/blob/master/pilot/pkg/proxy/envoy/v1/mixer.go#L401),
-// which is used for the old EUC policy.
 func ParseJwksURI(jwksURI string) (JwksInfo, error) {
 	u, err := url.Parse(jwksURI)
 	if err != nil {
@@ -107,6 +105,8 @@ func ValidateAttribute(key string, values []string) error {
 	case hasPrefix(key, attrRequestHeader):
 		return validateMapKey(key)
 	case isEqual(key, attrSrcIP):
+		return ValidateIPs(values)
+	case isEqual(key, attrRemoteIP):
 		return ValidateIPs(values)
 	case isEqual(key, attrSrcNamespace):
 	case isEqual(key, attrSrcPrincipal):

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ var BuiltInChainsMap = map[string]struct{}{
 // Constants used for generating iptables commands
 const (
 	TCP = "tcp"
+	UDP = "udp"
 
 	TPROXY   = "TPROXY"
 	RETURN   = "RETURN"
@@ -71,9 +72,11 @@ const (
 	LocalExcludePorts         = "istio-local-exclude-ports"
 	ServiceCidr               = "istio-service-cidr"
 	ServiceExcludeCidr        = "istio-service-exclude-cidr"
+	OutboundPorts             = "istio-outbound-ports"
 	LocalOutboundPortsExclude = "istio-local-outbound-ports-exclude"
 	EnvoyPort                 = "envoy-port"
 	InboundCapturePort        = "inbound-capture-port"
+	InboundTunnelPort         = "inbound-tunnel-port"
 	ProxyUID                  = "proxy-uid"
 	ProxyGID                  = "proxy-gid"
 	KubeVirtInterfaces        = "kube-virt-interfaces"
@@ -119,5 +122,11 @@ const (
 )
 
 const (
-	ValidationErrorCode = 126
+	ValidationContainerName = "istio-validation"
+	ValidationErrorCode     = 126
+)
+
+// DNS ports
+const (
+	IstioAgentDNSListenerPort = "15053"
 )

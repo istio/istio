@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,12 @@ package validation
 import (
 	"encoding/binary"
 	"testing"
-
-	"github.com/coreos/etcd/pkg/cpuutil"
 )
 
 func TestNtohs(t *testing.T) {
 	hostValue := ntohs(0xbeef)
 	expectValue := 0xbeef
-	if cpuutil.ByteOrder().String() == binary.LittleEndian.String() {
+	if nativeByteOrder == binary.LittleEndian {
 		expectValue = 0xefbe
 	}
 	if hostValue != uint16(expectValue) {

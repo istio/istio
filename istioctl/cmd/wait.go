@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,12 +29,12 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pilot/pkg/model"
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -57,12 +57,11 @@ func waitCmd() *cobra.Command {
 		Use:   "wait [flags] <type> <name>[.<namespace>]",
 		Short: "Wait for an Istio resource",
 		Long:  `Waits for the specified condition to be true of an Istio resource.`,
-		Example: `
-# Wait until the bookinfo virtual service has been distributed to all proxies in the mesh
-istioctl experimental wait --for=distribution virtualservice bookinfo.default
+		Example: `  # Wait until the bookinfo virtual service has been distributed to all proxies in the mesh
+  istioctl experimental wait --for=distribution virtualservice bookinfo.default
 
-# Wait until 99% of the proxies receive the distribution, timing out after 5 minutes
-istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virtualservice bookinfo.default
+  # Wait until 99% of the proxies receive the distribution, timing out after 5 minutes
+  istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virtualservice bookinfo.default
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			printVerbosef(cmd, "kubeconfig %s", kubeconfig)
@@ -92,7 +91,7 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 				return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 			}
 			resourceVersions := []string{firstVersion}
-			targetResource := model.Key(targetSchema.Resource().Kind(), nameflag, namespace)
+			targetResource := config.Key(targetSchema.Resource().Kind(), nameflag, namespace)
 			for {
 				//run the check here as soon as we start
 				// because tickers won't run immediately
@@ -132,13 +131,13 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 		},
 	}
 	cmd.PersistentFlags().StringVar(&forFlag, "for", "distribution",
-		"wait condition, must be 'distribution' or 'delete'")
+		"Wait condition, must be 'distribution' or 'delete'")
 	cmd.PersistentFlags().DurationVar(&timeout, "timeout", time.Second*30,
-		"the duration to wait before failing")
+		"The duration to wait before failing")
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
-		"the ratio of distribution required for success")
+		"The ratio of distribution required for success")
 	cmd.PersistentFlags().StringVar(&resourceVersion, "resource-version", "",
-		"wait for a specific version of config to become current, rather than using whatever is latest in "+
+		"Wait for a specific version of config to become current, rather than using whatever is latest in "+
 			"kubernetes")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
 	_ = cmd.PersistentFlags().MarkHidden("verbose")
@@ -176,19 +175,19 @@ func countVersions(versionCount map[string]int, configVersion string) {
 }
 
 func poll(acceptedVersions []string, targetResource string, opts clioptions.ControlPlaneOptions) (present, notpresent int, err error) {
-	kubeClient, err := clientExecFactory(kubeconfig, configContext, opts)
+	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 	if err != nil {
 		return 0, 0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
-	pilotResponses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
+	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 	if err != nil {
 		return 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)
 	}
 	versionCount := make(map[string]int)
 	for _, response := range pilotResponses {
-		var configVersions []v2.SyncedVersions
+		var configVersions []xds.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
 			return 0, 0, err
@@ -212,11 +211,11 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 
 func init() {
 	clientGetter = func(kubeconfig, context string) (dynamic.Interface, error) {
-		baseClient, err := kubernetes.NewClient(kubeconfig, context)
+		config, err := kube.DefaultRestConfig(kubeconfig, context)
 		if err != nil {
 			return nil, err
 		}
-		cfg := dynamic.ConfigFor(baseClient.Config)
+		cfg := dynamic.ConfigFor(config)
 		dclient, err := dynamic.NewForConfig(cfg)
 		if err != nil {
 			return nil, err

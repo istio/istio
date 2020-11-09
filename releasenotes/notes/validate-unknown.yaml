@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 24861
+releaseNotes:
+- |
+  **Improved** `istioctl validate` to check for unknown fields in resources.

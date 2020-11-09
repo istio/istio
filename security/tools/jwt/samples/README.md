@@ -5,18 +5,17 @@ This folder contains sample data to setup end-user authentication with Istio aut
 ## Example end-user authentication policy using the mock jwks.json data
 
 ```yaml
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
+apiVersion: "security.istio.io/v1beta1"
+kind: "RequestAuthentication"
 metadata:
   name: "jwt-example"
 spec:
-  targets:
-  - name: httpbin
-  origins:
-  - jwt:
-      issuer: "testing@secure.istio.io"
-      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/security/tools/jwt/samples/jwks.json"
-  principalBinding: USE_ORIGIN
+  selector:
+    matchLabels:
+      app: httpbin
+  jwtRules:
+  - issuer: "testing@secure.istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/security/tools/jwt/samples/jwks.json"
 ```
 
 The `demo.jwt` contains a signed-JWT token with following payload:

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -556,8 +556,7 @@ metadata:
     release: istio`,
 			i: []string{"metadata.annotations.checksum/config-volume"},
 			want: `metadata:
-  annotations: map[checksum/config-volume:43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60]
-    ->
+  annotations: map[checksum/config-volume:43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60] ->
 `,
 		},
 		{
@@ -614,8 +613,7 @@ metadata:
 			i: []string{"*labels.checksum/config-volume"},
 			want: `metadata:
   annotations:
-    checksum/config-volume: 01d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60
-      -> 03ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
+    checksum/config-volume: 01d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60 -> 03ba6246b2c39b48a4f8c3a92c3420a0416804d38ebe292e65cf674fb0875192
 `,
 		},
 		{

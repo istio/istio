@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 )
 
 // TestEnvoyFilterMatch tests the matching logic for EnvoyFilter, in particular the regex -> prefix optimization
@@ -94,9 +95,9 @@ func TestEnvoyFilterMatch(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		got := convertToEnvoyFilterWrapper(&Config{
-			ConfigMeta: ConfigMeta{},
-			Spec:       tt.config,
+		got := convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{},
+			Spec: tt.config,
 		})
 		if len(got.Patches[networking.EnvoyFilter_INVALID]) != 1 {
 			t.Fatalf("unexpected patches: %v", got.Patches)

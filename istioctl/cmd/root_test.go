@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,7 +46,8 @@ func TestHideInheritedFlags(t *testing.T) {
 	_ = parent.PersistentFlags().String(parentFlag1, "", parentFlag1)
 	_ = parent.PersistentFlags().String(parentFlag2, "", parentFlag2)
 	var out bytes.Buffer
-	parent.SetOutput(&out)
+	parent.SetOut(&out)
+	parent.SetErr(&out)
 
 	child := &cobra.Command{
 		Use: "child",
@@ -78,4 +79,25 @@ func TestHideInheritedFlags(t *testing.T) {
 	checkHelpForFlag(t, got, parentFlag1, false)
 	checkHelpForFlag(t, got, parentFlag1, false)
 	checkHelpForFlag(t, got, childFlag2, true)
+}
+
+func TestDeprecateCommand(t *testing.T) {
+	cases := []*cobra.Command{
+		{
+			Use:   "some-command",
+			Short: "short description of the command",
+		},
+		{
+			Use:   "command-with-empty-short-description",
+			Short: "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.Use, func(t *testing.T) {
+			deprecate(tc)
+			if !strings.HasSuffix(tc.Short, deprecatedMsg) {
+				t.Errorf("%s short description should have suffix to indicate deprecation, instead got \"%s\"", tc.Use, tc.Short)
+			}
+		})
+	}
 }

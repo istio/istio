@@ -29,8 +29,8 @@ spec:
       - destination:
           host: cors.test.istio.io
       corsPolicy:
-        allowOrigin:
-          - http://foo.example
+        allowOrigins:
+          - exact: http://foo.example
         allowMethods:
           - POST
           - GET

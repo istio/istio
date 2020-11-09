@@ -12,17 +12,46 @@ spec:
    - listenerMatch:
        portNumber: 15443
 ---
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRoleBinding
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: bind-mongodb-viewer
+  name: productpage
+  namespace: foo
+spec:
+  hosts:
+  - productpage
+  http:
+  - fault:
+      delay:
+        percent: 50
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: no-selector
   namespace: default
 spec:
-  subjects:
-  - user: "cluster.local/ns/default/sa/bookinfo-ratings-v2"
-    # group is deprecated
-    group: "beatles"
-  roleRef:
-    kind: ServiceRole
-    name: "mongodb-viewer"
-
+  ingress:
+  - port:
+      number: 9080
+    defaultEndpoint: unix:///var/run/some.sock
+  egress:
+  - hosts:
+    - "./*"
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+    egressProxy:
+      host: example
+      port:
+        number: 9080
+---
+apiVersion: config.istio.io/v1alpha2
+kind: QuotaSpec
+metadata:
+  name: request-count
+  namespace: istio-system
+spec:
+  rules:
+  - quotas:
+    - charge: 1
+      quota: requestcount

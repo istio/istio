@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/pkg/kube"
+	testKube "istio.io/istio/pkg/test/kube"
 )
 
 func TestDashboard(t *testing.T) {
-	clientExecFactory = mockExecClientDashboard
-	envoyClientFactory = mockEnvoyClientDashboard
+	kubeClientWithRevision = mockExecClientDashboard
+	kubeClient = mockEnvoyClientDashboard
 
 	cases := []testCase{
 		{ // case 0
@@ -45,8 +45,8 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 3
 			args:           strings.Split("dashboard controlz pod-123456-7890", " "),
-			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
-			wantException:  true,
+			expectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
+			wantException:  false,
 		},
 		{ // case 4
 			args:           strings.Split("dashboard envoy", " "),
@@ -55,8 +55,8 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 5
 			args:           strings.Split("dashboard envoy pod-123456-7890", " "),
-			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
-			wantException:  true,
+			expectedRegexp: regexp.MustCompile("http://localhost:3456"),
+			wantException:  false,
 		},
 		{ // case 6
 			args:           strings.Split("dashboard grafana", " "),
@@ -84,26 +84,21 @@ func TestDashboard(t *testing.T) {
 			wantException:  true,
 		},
 		{ // case 11
-			args:           strings.Split("experimental dashboard", " "),
-			expectedOutput: "Error: (dashboard has graduated. Use `istioctl dashboard`)\n",
-			wantException:  true,
-		},
-		{ // case 12
 			args:           strings.Split("dashboard envoy --selector app=example", " "),
 			expectedRegexp: regexp.MustCompile(".*no pods found"),
 			wantException:  true,
 		},
-		{ // case 13
+		{ // case 12
 			args:           strings.Split("dashboard envoy --selector app=example pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
 		},
-		{ // case 14
+		{ // case 13
 			args:           strings.Split("dashboard controlz --selector app=example", " "),
 			expectedRegexp: regexp.MustCompile(".*no pods found"),
 			wantException:  true,
 		},
-		{ // case 15
+		{ // case 14
 			args:           strings.Split("dashboard controlz --selector app=example pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
@@ -117,10 +112,10 @@ func TestDashboard(t *testing.T) {
 	}
 }
 
-func mockExecClientDashboard(_, _ string, _ clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
-	return &mockExecConfig{}, nil
+func mockExecClientDashboard(_, _, _ string) (kube.ExtendedClient, error) {
+	return testKube.MockClient{}, nil
 }
 
-func mockEnvoyClientDashboard(_, _ string) (kubernetes.ExecClient, error) {
-	return &mockExecConfig{}, nil
+func mockEnvoyClientDashboard(_, _ string) (kube.ExtendedClient, error) {
+	return testKube.MockClient{}, nil
 }

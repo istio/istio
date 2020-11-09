@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,11 @@ import (
 	"io"
 	"os"
 	"testing"
+
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/pilot/test/util"
 )
@@ -56,11 +61,59 @@ func TestConvertIngress(t *testing.T) {
 			}
 			defer out.Close() // nolint: errcheck
 
-			if err := convertConfigs(readers, out); err != nil {
+			if err := convertConfigs(readers, out, fake.NewSimpleClientset()); err != nil {
 				t.Fatalf("Unexpected error converting configs: %v", err)
 			}
 
 			util.CompareYAML(outFilename, t)
 		})
 	}
+}
+
+func TestConvertIngressWithNamedPort(t *testing.T) {
+	service := &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "my-service",
+			Namespace: "mock-ns",
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Name:     "my-svc-port",
+					Protocol: "TCP",
+					Port:     1234,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 8080,
+					},
+				},
+			},
+			Selector: map[string]string{
+				"app": "test-app",
+			},
+		},
+	}
+
+	client := fake.NewSimpleClientset(service)
+
+	var readers []io.Reader
+	file, err := os.Open("testdata/ingress/named-port-ingress.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close() // nolint: errcheck
+	readers = append(readers, file)
+
+	outFilename := "testdata/v1alpha3/named-port-gateway.yaml"
+	out, err := os.Create(outFilename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close() // nolint: errcheck
+
+	if err := convertConfigs(readers, out, client); err != nil {
+		t.Fatalf("Unexpected error converting configs: %v", err)
+	}
+
+	util.CompareYAML(outFilename, t)
 }

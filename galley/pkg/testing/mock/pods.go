@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -154,4 +154,8 @@ func (p *podImpl) GetEphemeralContainers(_ context.Context, podName string,
 func (p *podImpl) UpdateEphemeralContainers(_ context.Context, podName string, ephemeralContainers *apicorev1.EphemeralContainers,
 	opts metav1.UpdateOptions) (*apicorev1.EphemeralContainers, error) {
 	panic("not implemented")
+}
+
+func (p *podImpl) ProxyGet(scheme, name, port, path string, params map[string]string) rest.ResponseWrapper {
+	panic("implement me")
 }

@@ -1,0 +1,211 @@
+{
+  "node": {
+    "id": "{{ .nodeID }}",
+    "cluster": "{{ .cluster }}",
+    "locality": {
+      {{ if .region }}
+      "region": "{{ .region }}",
+      {{ end }}
+      {{ if .zone }}
+      "zone": "{{ .zone }}",
+      {{ end }}
+      {{ if .sub_zone }}
+      "sub_zone": "{{ .sub_zone }}",
+      {{ end }}
+    },
+    "metadata": {{ .meta_json_str }}
+  },
+  "dynamic_resources": {
+    "lds_config": {
+      "ads": {}
+    },
+    "cds_config": {
+      "ads": {}
+    },
+    "ads_config": {
+      "api_type": "GRPC",
+      "grpc_services": [
+        {
+          "google_grpc": {
+            "target_uri": "{{ .discovery_address }}",
+            "stat_prefix": "googlegrpcxds",
+            "channel_credentials": {
+              "ssl_credentials": {
+                "root_certs": {
+                  "filename": "/etc/ssl/certs/ca-certificates.crt"
+                }
+              }
+            },
+            "call_credentials": {
+            {{ if .sts }}
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "/var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "https://www.googleapis.com/auth/cloud-platform",
+              }
+            {{ else }}
+              "google_compute_engine": {}
+            {{ end }}
+            },
+            "channel_args": {
+              "args": {
+                "grpc.http2.max_pings_without_data": {
+                  "int_value": 0
+                },
+                "grpc.keepalive_time_ms": {
+                  "int_value": 10000
+                },
+                "grpc.keepalive_timeout_ms": {
+                  "int_value": 20000
+                }
+              }
+            }
+          },
+          "initial_metadata": [
+          {{ if .sts }}
+          {{ if .gcp_project_id }}
+            {
+              "key": "x-goog-user-project",
+              "value": "{{ .gcp_project_id }}"
+            }
+          {{ end }}
+          {{ end }}
+          ]
+        }
+      ]
+    }
+  },
+  "cluster_manager": {
+    "load_stats_config": {
+      "api_type": "GRPC",
+      "grpc_services": [
+        {
+          "google_grpc": {
+            "target_uri": "{{ .discovery_address }}",
+            "stat_prefix": "googlegrpcxds",
+            "channel_credentials": {
+              "ssl_credentials": {
+                "root_certs": {
+                  "filename": "/etc/ssl/certs/ca-certificates.crt"
+                }
+              }
+            },
+            "call_credentials": {
+            {{ if .sts }}
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "/var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "https://www.googleapis.com/auth/cloud-platform",
+              }
+            {{ else }}
+              "google_compute_engine": {}
+            {{ end }}
+            },
+            "channel_args": {
+              "args": {
+                "grpc.http2.max_pings_without_data": {
+                  "int_value": 0
+                },
+                "grpc.keepalive_time_ms": {
+                  "int_value": 10000
+                },
+                "grpc.keepalive_timeout_ms": {
+                  "int_value": 20000
+                }
+              }
+            }
+          },
+          "initial_metadata": [
+          {{ if .sts }}
+          {{ if .gcp_project_id }}
+            {
+              "key": "x-goog-user-project",
+              "value": "{{ .gcp_project_id }}"
+            }
+          {{ end }}
+          {{ end }}
+          ]
+        }
+      ]
+    }
+  },
+  "admin": {
+    "access_log_path": "/dev/null",
+    "address": {
+      "socket_address": {
+        "address": "127.0.0.1",
+        "port_value": {{ .config.ProxyAdminPort }}
+      }
+    }
+  }
+  {{ if .stackdriver }}
+  ,
+  "tracing": {
+    "http": {
+      "name": "envoy.tracers.opencensus",
+      "config": {
+      "stackdriver_exporter_enabled": true,
+      "stackdriver_project_id": "{{ .stackdriverProjectID }}",
+      {{ if .sts_port }}
+      "stackdriver_grpc_service": {
+        "google_grpc": {
+          "target_uri": "cloudtrace.googleapis.com",
+          "stat_prefix": "oc_stackdriver_tracer",
+          "channel_credentials": {
+            "ssl_credentials": {
+              "root_certs": {
+                "filename": "/etc/ssl/certs/ca-certificates.crt"
+              }
+            }
+          },
+          "call_credentials": {
+            "sts_service": {
+              "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              "scope": "https://www.googleapis.com/auth/cloud-platform",
+            }
+          }
+        },
+        "initial_metadata": [
+        {{ if .gcp_project_id }}
+          {
+            "key": "x-goog-user-project",
+            "value": "{{ .gcp_project_id }}"
+          }
+        {{ end }}
+        ]
+      },
+      {{ end }}
+      "stdout_exporter_enabled": {{ .stackdriverDebug }},
+      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
+      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
+      "trace_config":{
+        "constant_sampler":{
+          "decision": "ALWAYS_PARENT"
+        },
+        "max_number_of_annotations": {{ .stackdriverMaxAnnotations }},
+        "max_number_of_attributes": {{ .stackdriverMaxAttributes }},
+        "max_number_of_message_events": {{ .stackdriverMaxEvents }},
+        "max_number_of_links": 200,
+      }
+    }
+  }}
+  {{ end }}
+  ,
+  "layered_runtime": {
+    "layers": [
+      {
+        "name": "rtds_layer",
+        "rtds_layer": {
+          "name": "traffic_director_runtime",
+          "rtds_config": {
+            "ads": {}
+           }
+       }
+      }
+     ]
+  }
+}

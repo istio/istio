@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,18 +15,13 @@
 package server
 
 import (
-	"context"
 	"strconv"
 
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
-
-	kubeApiAdmission "k8s.io/api/admission/v1beta1"
+	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/monitoring"
 )
 
 const (
-	errorStr    = "error"
 	group       = "group"
 	version     = "version"
 	resourceTag = "resource"
@@ -35,143 +30,69 @@ const (
 )
 
 var (
-	// ErrorTag holds the error for the context.
-	ErrorTag tag.Key
-
 	// GroupTag holds the resource group for the context.
-	GroupTag tag.Key
+	GroupTag = monitoring.MustCreateLabel(group)
 
 	// VersionTag holds the resource version for the context.
-	VersionTag tag.Key
+	VersionTag = monitoring.MustCreateLabel(version)
 
 	// ResourceTag holds the resource name for the context.
-	ResourceTag tag.Key
+	ResourceTag = monitoring.MustCreateLabel(resourceTag)
 
 	// ReasonTag holds the error reason for the context.
-	ReasonTag tag.Key
+	ReasonTag = monitoring.MustCreateLabel(reason)
 
 	// StatusTag holds the error code for the context.
-	StatusTag tag.Key
+	StatusTag = monitoring.MustCreateLabel(status)
 )
 
 var (
-	metricCertKeyUpdate = stats.Int64(
-		"galley/validation/cert_key_updates",
-		"Galley validation webhook certificate updates",
-		stats.UnitDimensionless)
-	metricCertKeyUpdateError = stats.Int64(
-		"galley/validation/cert_key_update_errors",
-		"Galley validation webhook certificate updates errors",
-		stats.UnitDimensionless)
-	metricValidationPassed = stats.Int64(
+	metricValidationPassed = monitoring.NewSum(
 		"galley/validation/passed",
 		"Resource is valid",
-		stats.UnitDimensionless)
-	metricValidationFailed = stats.Int64(
+		monitoring.WithLabels(GroupTag, VersionTag, ResourceTag),
+	)
+	metricValidationFailed = monitoring.NewSum(
 		"galley/validation/failed",
 		"Resource validation failed",
-		stats.UnitDimensionless)
-	metricValidationHTTPError = stats.Int64(
+		monitoring.WithLabels(GroupTag, VersionTag, ResourceTag, ReasonTag),
+	)
+	metricValidationHTTPError = monitoring.NewSum(
 		"galley/validation/http_error",
 		"Resource validation http serve errors",
-		stats.UnitDimensionless)
+		monitoring.WithLabels(StatusTag),
+	)
 )
 
-func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-	return &view.View{
-		Name:        measure.Name(),
-		Description: measure.Description(),
-		Measure:     measure,
-		TagKeys:     keys,
-		Aggregation: aggregation,
-	}
-}
-
 func init() {
-	var err error
-	if ErrorTag, err = tag.NewKey(errorStr); err != nil {
-		panic(err)
-	}
-	if GroupTag, err = tag.NewKey(group); err != nil {
-		panic(err)
-	}
-	if VersionTag, err = tag.NewKey(version); err != nil {
-		panic(err)
-	}
-	if ResourceTag, err = tag.NewKey(resourceTag); err != nil {
-		panic(err)
-	}
-	if ReasonTag, err = tag.NewKey(reason); err != nil {
-		panic(err)
-	}
-	if StatusTag, err = tag.NewKey(status); err != nil {
-		panic(err)
-	}
-
-	var noKeys []tag.Key
-	errorKey := []tag.Key{ErrorTag}
-	resourceKeys := []tag.Key{GroupTag, VersionTag, ResourceTag}
-	resourceErrorKeys := []tag.Key{GroupTag, VersionTag, ResourceTag, ReasonTag}
-	statusKey := []tag.Key{StatusTag}
-
-	err = view.Register(
-		newView(metricCertKeyUpdate, noKeys, view.Count()),
-		newView(metricCertKeyUpdateError, errorKey, view.Count()),
-		newView(metricValidationPassed, resourceKeys, view.Count()),
-		newView(metricValidationFailed, resourceErrorKeys, view.Count()),
-		newView(metricValidationHTTPError, statusKey, view.Count()),
+	monitoring.MustRegister(
+		metricValidationPassed,
+		metricValidationFailed,
+		metricValidationHTTPError,
 	)
-
-	if err != nil {
-		panic(err)
-	}
 }
 
-func reportValidationFailed(request *kubeApiAdmission.AdmissionRequest, reason string) {
-	ctx, err := tag.New(context.Background(),
-		tag.Insert(GroupTag, request.Resource.Group),
-		tag.Insert(VersionTag, request.Resource.Version),
-		tag.Insert(ResourceTag, request.Resource.Resource),
-		tag.Insert(ReasonTag, reason))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationFailed: %v", err)
-	} else {
-		stats.Record(ctx, metricValidationFailed.M(1))
-	}
+func reportValidationFailed(request *kube.AdmissionRequest, reason string) {
+	metricValidationFailed.
+		With(GroupTag.Value(request.Resource.Group)).
+		With(VersionTag.Value(request.Resource.Version)).
+		With(ResourceTag.Value(request.Resource.Resource)).
+		With(ReasonTag.Value(reason)).
+		Increment()
 }
 
-func reportValidationPass(request *kubeApiAdmission.AdmissionRequest) {
-	ctx, err := tag.New(context.Background(),
-		tag.Insert(GroupTag, request.Resource.Group),
-		tag.Insert(VersionTag, request.Resource.Version),
-		tag.Insert(ResourceTag, request.Resource.Resource))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationPass: %v", err)
-	} else {
-		stats.Record(ctx, metricValidationPassed.M(1))
-	}
+func reportValidationPass(request *kube.AdmissionRequest) {
+	metricValidationPassed.
+		With(GroupTag.Value(request.Resource.Group)).
+		With(VersionTag.Value(request.Resource.Version)).
+		With(ResourceTag.Value(request.Resource.Resource)).
+		Increment()
 }
 
 func reportValidationHTTPError(status int) {
-	ctx, err := tag.New(context.Background(), tag.Insert(StatusTag, strconv.Itoa(status)))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationHTTPError: %v", err)
-	} else {
-		stats.Record(ctx, metricValidationHTTPError.M(1))
-	}
-}
-
-func reportValidationCertKeyUpdate() {
-	stats.Record(context.Background(), metricCertKeyUpdate.M(1))
-}
-
-func reportValidationCertKeyUpdateError(err error) {
-	ctx, err := tag.New(context.Background(), tag.Insert(ErrorTag, err.Error()))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationCertKeyUpdateError: %v", err)
-	} else {
-		stats.Record(ctx, metricCertKeyUpdateError.M(1))
-	}
+	metricValidationHTTPError.
+		With(StatusTag.Value(strconv.Itoa(status))).
+		Increment()
 }
 
 const (

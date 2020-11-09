@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,15 +24,17 @@ import (
 
 // FakeKeyCertBundle is a mocked KeyCertBundle for testing.
 type FakeKeyCertBundle struct {
-	CertBytes       []byte
-	Cert            *x509.Certificate
-	PrivKeyBytes    []byte
-	PrivKey         *crypto.PrivateKey
-	CertChainBytes  []byte
-	RootCertBytes   []byte
-	VerificationErr error
-	CertOptionsErr  error
-	mutex           sync.Mutex
+	CertBytes               []byte
+	Cert                    *x509.Certificate
+	PrivKeyBytes            []byte
+	PrivKey                 *crypto.PrivateKey
+	CertChainBytes          []byte
+	RootCertBytes           []byte
+	RootCertExpiryTimestamp float64
+	CACertExpiryTimestamp   float64
+	VerificationErr         error
+	CertOptionsErr          error
+	mutex                   sync.Mutex
 }
 
 // GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistency.
@@ -80,4 +82,14 @@ func (b *FakeKeyCertBundle) CertOptions() (*util.CertOptions, error) {
 		return nil, b.CertOptionsErr
 	}
 	return &util.CertOptions{}, nil
+}
+
+// ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+func (b *FakeKeyCertBundle) ExtractRootCertExpiryTimestamp() (float64, error) {
+	return b.RootCertExpiryTimestamp, nil
+}
+
+// ExtractCACertExpiryTimestamp returns the unix timestamp when the CA cert becomes expires.
+func (b *FakeKeyCertBundle) ExtractCACertExpiryTimestamp() (float64, error) {
+	return b.CACertExpiryTimestamp, nil
 }

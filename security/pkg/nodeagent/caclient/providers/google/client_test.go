@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,6 +95,10 @@ func TestParseZone(t *testing.T) {
 		"Valid URL": {
 			clusterURL:   "https://container.googleapis.com/v1/projects/testproj1/locations/us-central1-c/clusters/c1",
 			expectedZone: "us-central1-c",
+		},
+		"Hub URL": {
+			clusterURL:   "https://gkehub.googleapis.com/projects/testproject1/locations/global/memberships/test01",
+			expectedZone: "",
 		},
 		"InValid response": {
 			clusterURL:   "aaa",

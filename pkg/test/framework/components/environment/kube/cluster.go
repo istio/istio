@@ -18,17 +18,20 @@ import (
 	"bytes"
 	"fmt"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
 )
 
 var _ resource.Cluster = Cluster{}
 
-// Cluster for a Kubernetes cluster. Provides access via a kube.Accessor.
+// Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {
-	*kube.Accessor
-	filename string
-	index    resource.ClusterIndex
+	kube.ExtendedClient
+	filename    string
+	networkName string
+	index       resource.ClusterIndex
+	settings    *Settings
+	clusters    []*Cluster
 }
 
 func (c Cluster) String() string {
@@ -40,9 +43,15 @@ func (c Cluster) String() string {
 	return buf.String()
 }
 
+// TODO(nmittler): Remove the need for this by changing operator to use provided kube clients directly.
 // Filename of the kubeconfig file for this cluster.
 func (c Cluster) Filename() string {
 	return c.filename
+}
+
+// NetworkName the cluster is on
+func (c Cluster) NetworkName() string {
+	return c.networkName
 }
 
 // Name provides the name this cluster used by Istio.
@@ -55,11 +64,38 @@ func (c Cluster) Index() resource.ClusterIndex {
 	return c.index
 }
 
-// ClusterOrDefault gets the given cluster as a kube Cluster if available. Otherwise
-// defaults to the first Cluster in the Environment.
-func ClusterOrDefault(c resource.Cluster, e resource.Environment) Cluster {
-	if c == nil {
-		return e.(*Environment).KubeClusters[0]
+func (c Cluster) IsPrimary() bool {
+	return c.Primary().Name() == c.Name()
+}
+
+func (c Cluster) IsConfig() bool {
+	return c.Config().Name() == c.Name()
+}
+
+func (c Cluster) IsRemote() bool {
+	return !c.IsPrimary()
+}
+
+func (c Cluster) Primary() resource.Cluster {
+	i, found := c.settings.ControlPlaneTopology[c.index]
+	if !found {
+		panic(fmt.Errorf("no primary cluster found in topology for cluster %s", c.Name()))
 	}
-	return c.(Cluster)
+	if int(i) >= len(c.clusters) {
+		panic(fmt.Errorf("primary cluster index %d out of range in %d configured clusters",
+			i, len(c.clusters)))
+	}
+	return c.clusters[i]
+}
+
+func (c Cluster) Config() resource.Cluster {
+	i, found := c.settings.ConfigTopology[c.index]
+	if !found {
+		panic(fmt.Errorf("no config cluster found in topology for cluster %s", c.Name()))
+	}
+	if int(i) >= len(c.clusters) {
+		panic(fmt.Errorf("config cluster index %d out of range in %d configured clusters",
+			i, len(c.clusters)))
+	}
+	return c.clusters[i]
 }

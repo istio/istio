@@ -1,0 +1,22 @@
+#  caCertificates when mode is mutual at destination level and simple at port level
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: db-mtls
+spec:
+  host: mydbserver.prod.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: MUTUAL
+      clientCertificate: /etc/certs/myclientcert.pem
+      privateKey: /etc/certs/client_private_key.pem
+      caCertificates: /etc/certs/root.pem
+    portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: SIMPLE
+          clientCertificate: /etc/certs/myclientcert.pem
+          privateKey: /etc/certs/client_private_key.pem
+          caCertificates: /etc/certs/root.pem
+          sni: my-nginx.mesh-external.svc.cluster.local

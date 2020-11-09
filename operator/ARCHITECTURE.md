@@ -24,9 +24,9 @@ run a privileged controller in the cluster.
 1. [Migration tools](#migration-tools). The migration tools are intended to
 automate configuration migration from Helm to the operator.
 
-The operator code uses the new Helm charts in the [istio/installer](https://github.com/istio/installer) repo. It is not
+The operator code uses the new Helm charts in the [istio/manifests/charts](../manifests/charts/istio-operator). It is not
 compatible with the older charts in [istio/istio](https://github.com/istio/istio/tree/1.4.7/install/kubernetes/helm).
-See the istio/installer repo for details about the new charts and why they were created. Briefly, the new charts
+See `istio/manifests/charts` for details about the new charts and why they were created. Briefly, the new charts
 are intended to support production ready deployments of Istio that follow best practices like canarying for upgrade.
 
 ## Terminology
@@ -34,10 +34,10 @@ are intended to support production ready deployments of Istio that follow best p
 Throughout the document, the following terms are used:
 
 - `IstioOperatorSpec`: The API directly defined in the
-[IstioOperatorSpec proto](https://github.com/istio/api/mesh/v1alpha1/operator.proto),
+[IstioOperatorSpec proto](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto),
 including feature and component groupings, namespaces and enablement, and per-component K8s settings.
 - Helm values.yaml API, implicitly defined through the various values.yaml files in the
-[Helm charts](https://github.com/istio/installer) and schematized in the operator through
+[istio/manifests/charts](../manifests/charts/istio-operator) and schematized in the operator through
 [values_types.proto](pkg/apis/istio/v1alpha1/values_types.proto).
 
 ## IstioOperatorSpec API
@@ -56,17 +56,15 @@ The available features and the components that comprise each feature are as foll
 
 | Feature | Components |
 |---------|------------|
-Base | CRDs
+CRDs, and other cluster wide configs | Base
 Traffic Management | Pilot
-Policy | Policy
-Telemetry | Telemetry
-Security | Citadel
-Security | Node agent
-Security | Cert manager
-Configuration management | Galley
+Security | Pilot
+Configuration management | Pilot
+AutoInjection | Pilot
 Gateways | Ingress gateway
 Gateways | Egress gateway
-AutoInjection | Sidecar injector
+Policy | Policy (deprecated)
+Telemetry | Telemetry (deprecated)
 
 Features and components are defined in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L44) package.
@@ -93,24 +91,27 @@ namespace is defined as:
 defaultNamespace: istio-system
 ```
 
-and namespaces are specialized for the security feature and one of the components:
+and namespaces are specialized for the gateway feature and its components:
 
 ```yaml
-security:
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-operator
+spec:
   components:
-    namespace: istio-security
-    citadel:
-policy:
-  components:
-    policy:
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      namespace: istio-gateways
 ```
 
 the resulting namespaces will be:
 
 | Component | Namespace |
 | --------- | :-------- |
-policy | istio-system
-citadel | istio-security
+ingressGateways | istio-gateways
+
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L246) package.
 
@@ -121,14 +122,11 @@ components are disabled, regardless of their component-level enablement. If a fe
 are enabled, unless they are individually disabled. For example:
 
 ```yaml
-security:
-  enabled: true
-  components:
-    citadel:
-      enabled: false
+    telemetry:
+      enabled: true
+      v2:
+        enabled: false
 ```
-
-will enable all components of the security feature except citadel.
 
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L131) package.
@@ -153,6 +151,7 @@ priorityClassName | [priority class name](https://kubernetes.io/docs/concepts/co
 nodeSelector| [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
 affinity | [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
 serviceAnnotations | [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+securityContext | [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
 
 These K8s setting are available for each component under the `k8s` field, for example:
 
@@ -216,7 +215,7 @@ The source may be selected independently for the charts and profiles. The differ
 as follows:
 
 1. The user CR (my_custom.yaml) selects a configuration profile. If no profile is selected, the
-[default profile](data/profiles/default.yaml) is used. Each profile is defined as a
+[default profile](../manifests/profiles/default.yaml) is used. Each profile is defined as a
 set of defaults for `IstioOperatorSpec`, for both the restructured fields (K8s settings, namespaces and enablement)
 and the Helm values (Istio behavior configuration).
 
@@ -235,12 +234,10 @@ CRs at this layer, so no merge is performed in this step.
 The CLI `mesh` command is implemented in the [cmd/mesh](cmd/mesh/)
 subdirectory as a Cobra command with the following subcommands:
 
-- [manifest](cmd/mesh/manifest.go): the manifest subcommand is used to generate, apply, diff or migrate Istio manifests, it has the following subcommands:
-    - [apply](cmd/mesh/manifest-apply.go): the apply subcommand is used to generate an Istio install manifest and apply it to a cluster.
+- [manifest](cmd/mesh/manifest.go): the manifest subcommand is used to generate, install, diff or migrate Istio manifests, it has the following subcommands:
+    - [install](cmd/mesh/install.go): the install subcommand is used to generate an Istio install manifest and apply it to a cluster.
     - [diff](cmd/mesh/manifest-diff.go): the diff subcommand is used to compare manifest from two files or directories.
     - [generate](cmd/mesh/manifest-generate.go): the generate subcommand is used to generate an Istio install manifest.
-    - [migrate](cmd/mesh/manifest-migrate.go): the migrate subcommand is used to migrate a configuration in Helm values format to IstioOperator format.
-    - [versions](cmd/mesh/manifest-versions.go): the versions subcommand is used to list the version of Istio recommended for and supported by this version of the operator binary.
 - [profile](cmd/mesh/profile.go): dumps the default values for a selected profile, it has the following subcommands:
     - [diff](cmd/mesh/profile-diff.go): the diff subcommand is used to display the difference between two Istio configuration profiles.
     - [dump](cmd/mesh/profile-dump.go): the dump subcommand is used to dump the values in an Istio configuration profile.

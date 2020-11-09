@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,14 +19,11 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("operator_controller", m).
-		Skip("https://github.com/istio/istio/issues/22969").
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
 		Run()
 }

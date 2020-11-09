@@ -1,6 +1,6 @@
 # This configs KinD to spin up a k8s cluster with trustworthy jwt (Service Account Token Volume Projection) feature.
 kind: Cluster
-apiVersion: kind.sigs.k8s.io/v1alpha3
+apiVersion: kind.x-k8s.io/v1alpha4
 kubeadmConfigPatches:
   - |
     apiVersion: kubeadm.k8s.io/v1beta2
@@ -11,3 +11,7 @@ kubeadmConfigPatches:
       extraArgs:
         "service-account-issuer": "kubernetes.default.svc"
         "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
+      endpoint = ["http://kind-registry:5000"]

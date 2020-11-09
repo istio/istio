@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@ import (
 	"net/http"
 	"time"
 
-	"istio.io/istio/security/pkg/nodeagent/plugin"
+	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -38,6 +39,7 @@ var (
 	// SecureTokenEndpoint is the Endpoint the STS client calls to.
 	SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
+	GCEProvider         = "GoogleComputeEngine"
 )
 
 const (
@@ -53,13 +55,13 @@ type federatedTokenResponse struct {
 	ExpiresIn       int64  `json:"expires_in"` // Expiration time in seconds
 }
 
-// Plugin for google securetoken api interaction.
+// TokenExchanger for google securetoken api interaction.
 type Plugin struct {
 	hTTPClient *http.Client
 }
 
 // NewPlugin returns an instance of secure token service client plugin
-func NewPlugin() plugin.Plugin {
+func NewPlugin() security.TokenExchanger {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		stsClientLog.Errorf("Failed to get SystemCertPool: %v", err)
@@ -78,9 +80,9 @@ func NewPlugin() plugin.Plugin {
 }
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
-func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string) (
+func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetcher, trustDomain, k8sSAjwt string) (
 	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
-	aud := constructAudience(trustDomain)
+	aud := constructAudience(credFetcher, trustDomain)
 	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
 	req, _ := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", contentType)
@@ -104,24 +106,36 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	body, _ := ioutil.ReadAll(resp.Body)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
+		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
+		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
 			"failed to unmarshal response data. HTTP status: %s. Error: %v. Body size: %d", resp.Status, err, len(body))
 	}
 
 	if respData.AccessToken == "" {
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
-			"exchanged empty token. HTTP status: %s. Response: %v", resp.Status, respData)
+			"exchanged empty token. HTTP status: %s. Response: %v", resp.Status, string(body))
 	}
 
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
 }
 
-func constructAudience(trustDomain string) string {
-	if GKEClusterURL == "" {
-		return trustDomain
+func constructAudience(credFetcher security.CredFetcher, trustDomain string) string {
+	provider := ""
+	if credFetcher != nil {
+		provider = credFetcher.GetIdentityProvider()
 	}
-
-	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)
+	// For GKE, we do not register IdentityProvider explicitly. The provider name
+	// is GKEClusterURL by default.
+	if provider == "" {
+		if GKEClusterURL != "" {
+			provider = GKEClusterURL
+		} else if platform.IsGCP() {
+			stsClientLog.Warn("GKE_CLUSTER_URL is not set, fallback to call metadata server to get identity provider")
+			provider = platform.NewGCP().Metadata()[platform.GCPClusterURL]
+		}
+	}
+	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }
 
 func constructFederatedTokenRequest(aud, jwt string) []byte {

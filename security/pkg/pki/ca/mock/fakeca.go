@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 package mock
 
 import (
+	"crypto"
+	"crypto/x509"
 	"time"
 
 	caerror "istio.io/istio/security/pkg/pki/error"
@@ -55,7 +57,13 @@ func (ca *FakeCA) SignWithCertChain(csr []byte, identities []string, lifetime ti
 // FakeKeyCertBundle.
 func (ca *FakeCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	if ca.KeyCertBundle == nil {
-		return &mock.FakeKeyCertBundle{}
+		priv := crypto.PrivateKey("foo")
+		return &mock.FakeKeyCertBundle{
+			Cert:           &x509.Certificate{},
+			PrivKey:        &priv,
+			CertChainBytes: []byte("fake"),
+			RootCertBytes:  []byte("fake"),
+		}
 	}
 	return ca.KeyCertBundle
 }

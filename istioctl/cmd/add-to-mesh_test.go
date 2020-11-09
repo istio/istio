@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/url"
 )
 
 type testcase struct {
@@ -142,8 +144,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
-				"Next Step: Add related labels to the deployment to align with Istio's requirement: " +
-				"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
+				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + url.DeploymentRequirements + "\n",
 			namespace: "default",
 		},
 		{
@@ -154,8 +155,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
-				"Next Step: Add related labels to the deployment to align with Istio's requirement: " +
-				"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
+				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + url.DeploymentRequirements + "\n",
 			namespace: "default",
 		},
 		{
@@ -170,6 +170,24 @@ func TestAddToMesh(t *testing.T) {
 		{
 			description: "deployment does not exist",
 			args: strings.Split("experimental add-to-mesh deployment test --meshConfigFile testdata/mesh-config.yaml"+
+				" --injectConfigFile testdata/inject-config.yaml"+
+				" --valuesFile testdata/inject-values.yaml", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			expectedOutput:    "Error: deployment \"test\" does not exist\n",
+		},
+		{
+			description: "service does not exist (with short syntax)",
+			args: strings.Split("x add svc test --meshConfigFile testdata/mesh-config.yaml"+
+				" --injectConfigFile testdata/inject-config.yaml"+
+				" --valuesFile testdata/inject-values.yaml", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			expectedOutput:    "Error: services \"test\" not found\n",
+		},
+		{
+			description: "deployment does not exist (with short syntax)",
+			args: strings.Split("x add deploy test --meshConfigFile testdata/mesh-config.yaml"+
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: true,
@@ -220,6 +238,15 @@ func TestAddToMesh(t *testing.T) {
 			expectedOutput:    "Error: service \"dummyservice\" already exists, skip\n",
 		},
 		{
+			description:       "service already exists (with short syntax)",
+			args:              strings.Split("x add es dummyservice 11.11.11.11 tcp:12345", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			dynamicConfigs:    cannedDynamicConfigs,
+			namespace:         "default",
+			expectedOutput:    "Error: service \"dummyservice\" already exists, skip\n",
+		},
+		{
 			description:       "ServiceEntry already exists",
 			args:              strings.Split("experimental add-to-mesh external-service vmtest 11.11.11.11 tcp:12345", " "),
 			expectedException: true,
@@ -254,7 +281,8 @@ func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	crdFactory = mockDynamicClientGenerator(c.dynamicConfigs)
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 	if c.namespace != "" {
 		namespace = c.namespace
 	}
@@ -285,4 +313,49 @@ func mockDynamicClientGenerator(dynamicConfigs []runtime.Object) func(kubeconfig
 		return client, nil
 	}
 	return outFactory
+}
+
+func TestSplitEqual(t *testing.T) {
+	tests := []struct {
+		arg       string
+		wantKey   string
+		wantValue string
+	}{
+		{arg: "key=value", wantKey: "key", wantValue: "value"},
+		{arg: "key==value", wantKey: "key", wantValue: "=value"},
+		{arg: "key=", wantKey: "key", wantValue: ""},
+		{arg: "key", wantKey: "key", wantValue: ""},
+		{arg: "", wantKey: "", wantValue: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.arg, func(t *testing.T) {
+			gotKey, gotValue := splitEqual(tt.arg)
+			if gotKey != tt.wantKey {
+				t.Errorf("splitEqual(%v) got = %v, want %v", tt.arg, gotKey, tt.wantKey)
+			}
+			if gotValue != tt.wantValue {
+				t.Errorf("splitEqual(%v) got1 = %v, want %v", tt.arg, gotValue, tt.wantValue)
+			}
+		})
+	}
+}
+
+func TestConvertToMap(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []string
+		want map[string]string
+	}{
+		{name: "empty", arg: []string{""}, want: map[string]string{"": ""}},
+		{name: "one-valid", arg: []string{"key=value"}, want: map[string]string{"key": "value"}},
+		{name: "one-valid-double-equals", arg: []string{"key==value"}, want: map[string]string{"key": "=value"}},
+		{name: "one-key-only", arg: []string{"key"}, want: map[string]string{"key": ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := convertToStringMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("convertToStringMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

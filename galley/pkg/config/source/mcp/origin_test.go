@@ -23,7 +23,7 @@ import (
 )
 
 func TestOrigin(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	o := resource.Origin(origin("hello"))
 	g.Expect(o.Namespace()).Should(Equal(resource.Namespace("")))

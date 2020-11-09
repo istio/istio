@@ -1,10 +1,17 @@
-kind: kkk
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  ka: va_override
-  kb:
-    enabled: true
-  kc:
-    kca: "vca_override"
-  kd:
-    kda: "vda"
-    kdb: true
+  components:
+    base:
+      enabled: true
+    ingressGateways:
+      - enabled: false
+        k8s:
+          service:
+            externalTrafficPolicy: Test
+          serviceAnnotations:
+            manifest-generate: testserviceAnnotation
+        name: istio-ingressgateway
+        namespace: istio-system
+    pilot:
+      enabled: true

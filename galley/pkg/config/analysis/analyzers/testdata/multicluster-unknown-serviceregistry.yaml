@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    istio/multiCluster: "true"
+  name: istio-remote-secret-istio-remote
+  namespace: istio-system
+stringData:
+  istio-remote: |
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority-data: Sis3WWhtcHNI
+        server: https://1.2.3.4
+      name: gke_istio-test_us-central1-f_istio-remote
+    contexts:
+    - context:
+        cluster: gke_istio-test_us-central1-f_istio-remote
+        user: gke_istio-test_us-central1-f_istio-remote
+      name: gke_istio-test_us-central1-f_istio-remote
+    current-context: gke_istio-test_us-central1-f_istio-remote
+    kind: Config
+    preferences: {}
+    users:
+    - name: gke_istio-test_us-central1-f_istio-remote
+      user:
+        token: zLmlvL3NlcnZ

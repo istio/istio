@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"strings"
 
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
 	sm "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
-
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 )
 
 type generator interface {
@@ -105,7 +105,22 @@ func (srcIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, err
 	if err != nil {
 		return nil, err
 	}
-	return principalSourceIP(cidr), nil
+	return principalDirectRemoteIP(cidr), nil
+}
+
+type remoteIPGenerator struct {
+}
+
+func (remoteIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (remoteIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, error) {
+	cidr, err := matcher.CidrRange(value)
+	if err != nil {
+		return nil, err
+	}
+	return principalRemoteIP(cidr), nil
 }
 
 type srcNamespaceGenerator struct {
@@ -116,15 +131,13 @@ func (srcNamespaceGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 }
 
 func (srcNamespaceGenerator) principal(_, value string, forTCP bool) (*rbacpb.Principal, error) {
+	v := strings.Replace(value, "*", ".*", -1)
+	m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", v))
 	if forTCP {
-		regex := fmt.Sprintf(".*/ns/%s/.*", value)
-		m := matcher.StringMatcherRegex(regex)
 		return principalAuthenticated(m), nil
 	}
 	// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 	// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
-	v := strings.Replace(value, "*", ".*", -1)
-	m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", v))
 	metadata := matcher.MetadataStringMatcher(sm.AuthnFilterName, attrSrcPrincipal, m)
 	return principalMetadata(metadata), nil
 }
@@ -215,13 +228,13 @@ func (requestClaimGenerator) principal(key, value string, forTCP bool) (*rbacpb.
 		return nil, fmt.Errorf("%s must not be used in TCP", key)
 	}
 
-	claim, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestClaims))
+	claims, err := extractNameInNestedBrackets(strings.TrimPrefix(key, attrRequestClaims))
 	if err != nil {
 		return nil, err
 	}
 	// Generate a metadata list matcher for the given path keys and value.
 	// On proxy side, the value should be of list type.
-	m := matcher.MetadataListMatcher(sm.AuthnFilterName, []string{attrRequestClaims, claim}, value)
+	m := matcher.MetadataListMatcher(sm.AuthnFilterName, append([]string{attrRequestClaims}, claims...), value)
 	return principalMetadata(m), nil
 }
 

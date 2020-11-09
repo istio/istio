@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,22 +24,17 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/pkg/config/schema/resource"
-
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
 var (
-	gatewayGvk        = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
-	serviceEntryGvk   = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
-	virtualServiceGvk = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
-
 	gateway = &networking.Gateway{
 		Servers: []*networking.Server{
 			{
@@ -103,12 +98,11 @@ var (
 
 	testControllerOptions = &mcp.Options{
 		DomainSuffix: "cluster.local",
-		ConfigLedger: &model.DisabledLedger{},
 	}
 )
 
 func TestOptions(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	controller := mcp.NewController(testControllerOptions)
 
@@ -125,48 +119,48 @@ func TestOptions(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(serviceEntryGvk, "")
+	c, err := controller.List(gvk.ServiceEntry, "")
 	g.Expect(c).ToNot(BeNil())
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(c[0].Domain).To(Equal(testControllerOptions.DomainSuffix))
 }
 
 func TestHasSynced(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	g.Expect(controller.HasSynced()).To(BeFalse())
 }
 
 func TestConfigDescriptor(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 	schemas := controller.Schemas()
 	g.Expect(schemas.CollectionNames()).Should(ConsistOf(collections.Pilot.CollectionNames()))
 }
 
 func TestListInvalidType(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
-	c, err := controller.List(resource.GroupVersionKind{Kind: "bad-type"}, "some-phony-name-space.com")
+	c, err := controller.List(config.GroupVersionKind{Kind: "bad-type"}, "some-phony-name-space.com")
 	g.Expect(c).To(BeNil())
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("list unknown type"))
 }
 
 func TestListCorrectTypeNoData(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
-	c, err := controller.List(virtualServiceGvk,
+	c, err := controller.List(gvk.VirtualService,
 		"some-phony-name-space.com")
 	g.Expect(c).To(BeNil())
 	g.Expect(err).ToNot(HaveOccurred())
 }
 
 func TestListAllNameSpace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -186,12 +180,12 @@ func TestListAllNameSpace(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(gatewayGvk, "")
+	c, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(3))
 
 	for _, conf := range c {
-		g.Expect(conf.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(conf.GroupVersionKind).To(Equal(gvk.Gateway))
 		if conf.Name == "some-gateway1" {
 			g.Expect(conf.Spec).To(Equal(message))
 			g.Expect(conf.Namespace).To(Equal("namespace1"))
@@ -207,7 +201,7 @@ func TestListAllNameSpace(t *testing.T) {
 }
 
 func TestListSpecificNameSpace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	messages := convertToResources(g,
@@ -225,12 +219,12 @@ func TestListSpecificNameSpace(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(gatewayGvk, "namespace1")
+	c, err := controller.List(gvk.Gateway, "namespace1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(2))
 
 	for _, conf := range c {
-		g.Expect(conf.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(conf.GroupVersionKind).To(Equal(gvk.Gateway))
 		g.Expect(conf.Namespace).To(Equal("namespace1"))
 		if conf.Name == "some-gateway1" {
 			g.Expect(conf.Spec).To(Equal(message))
@@ -242,7 +236,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 }
 
 func TestApplyInvalidType(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
@@ -260,7 +254,7 @@ func TestApplyInvalidType(t *testing.T) {
 }
 
 func TestApplyValidTypeWithNoNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	var createAndCheckGateway = func(g *GomegaWithT, controller mcp.Controller, port uint32) {
@@ -290,11 +284,11 @@ func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 		err = controller.Apply(change)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		c, err := controller.List(gatewayGvk, "")
+		c, err := controller.List(gvk.Gateway, "")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(c)).To(Equal(1))
 		g.Expect(c[0].Name).To(Equal("some-gateway"))
-		g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(c[0].GroupVersionKind).To(Equal(gvk.Gateway))
 		g.Expect(c[0].Spec).To(Equal(message))
 		g.Expect(c[0].Spec).To(ContainSubstring(fmt.Sprintf("number:%d", port)))
 	}
@@ -303,7 +297,7 @@ func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 }
 
 func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
@@ -318,16 +312,16 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(gatewayGvk, "istio-namespace")
+	c, err := controller.List(gvk.Gateway, "istio-namespace")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gvk.Gateway))
 	g.Expect(c[0].Spec).To(Equal(message))
 }
 
 func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
@@ -342,16 +336,16 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(gatewayGvk, "")
+	c, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gvk.Gateway))
 	g.Expect(c[0].Spec).To(Equal(message))
 }
 
 func TestApplyChangeNoObjects(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -368,11 +362,11 @@ func TestApplyChangeNoObjects(t *testing.T) {
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
-	c, err := controller.List(gatewayGvk, "")
+	c, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gvk.Gateway))
 	g.Expect(c[0].Spec).To(Equal(message))
 
 	change = convertToChange([]proto.Message{},
@@ -382,13 +376,13 @@ func TestApplyChangeNoObjects(t *testing.T) {
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
-	c, err = controller.List(gatewayGvk, "")
+	c, err = controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(0))
 }
 
 func TestApplyConfigUpdate(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -411,7 +405,7 @@ func TestApplyConfigUpdate(t *testing.T) {
 }
 
 func TestInvalidResource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	gw := proto.Clone(gateway).(*networking.Gateway)
@@ -428,13 +422,13 @@ func TestInvalidResource(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err := controller.List(gatewayGvk, "")
+	entries, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(0))
 }
 
 func TestInvalidResource_BadTimestamp(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway)
@@ -452,7 +446,7 @@ func TestInvalidResource_BadTimestamp(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err := controller.List(gatewayGvk, "")
+	entries, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(0))
 }
@@ -464,12 +458,12 @@ func TestEventHandler(t *testing.T) {
 		return namespace + "/" + name
 	}
 
-	gotEvents := map[model.Event]map[string]model.Config{
+	gotEvents := map[model.Event]map[string]config.Config{
 		model.EventAdd:    {},
 		model.EventUpdate: {},
 		model.EventDelete: {},
 	}
-	controller.RegisterEventHandler(serviceEntryGvk, func(_, m model.Config, e model.Event) {
+	controller.RegisterEventHandler(gvk.ServiceEntry, func(_, m config.Config, e model.Event) {
 		gotEvents[e][makeName(m.Namespace, m.Name)] = m
 	})
 
@@ -498,12 +492,10 @@ func TestEventHandler(t *testing.T) {
 		}
 	}
 
-	makeServiceEntryModel := func(name, host, version string) model.Config {
-		return model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:              serviceEntryGvk.Kind,
-				Group:             serviceEntryGvk.Group,
-				Version:           serviceEntryGvk.Version,
+	makeServiceEntryModel := func(name, host, version string) config.Config {
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ServiceEntry,
 				Name:              name,
 				Namespace:         "default",
 				Domain:            "cluster.local",
@@ -520,7 +512,7 @@ func TestEventHandler(t *testing.T) {
 	steps := []struct {
 		name   string
 		change *sink.Change
-		want   map[model.Event]map[string]model.Config
+		want   map[model.Event]map[string]config.Config
 	}{
 		{
 			name: "initial add",
@@ -530,7 +522,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo", "foo.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventAdd: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v0"),
 				},
@@ -544,7 +536,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo", "foo.com", "v1"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventUpdate: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
 				},
@@ -559,7 +551,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventAdd: {
 					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v0"),
 				},
@@ -573,7 +565,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventDelete: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
 				},
@@ -589,7 +581,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo3", "foo3.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventAdd: {
 					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v0"),
 					"default/foo3": makeServiceEntryModel("foo3", "foo3.com", "v0"),
@@ -610,7 +602,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo5", "foo5.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventAdd: {
 					"default/foo4": makeServiceEntryModel("foo4", "foo4.com", "v0"),
 					"default/foo5": makeServiceEntryModel("foo5", "foo5.com", "v0"),
@@ -638,7 +630,7 @@ func TestEventHandler(t *testing.T) {
 				}
 			}
 			// clear saved events after every step
-			gotEvents = map[model.Event]map[string]model.Config{
+			gotEvents = map[model.Event]map[string]config.Config{
 				model.EventAdd:    {},
 				model.EventUpdate: {},
 				model.EventDelete: {},
@@ -715,12 +707,10 @@ var _ model.XDSUpdater = &FakeXdsUpdater{}
 type FakeXdsUpdater struct {
 	Events    chan string
 	Endpoints chan []*model.IstioEndpoint
-	EDSErr    chan error
 }
 
 func NewFakeXDS() *FakeXdsUpdater {
 	return &FakeXdsUpdater{
-		EDSErr:    make(chan error, 100),
 		Events:    make(chan string, 100),
 		Endpoints: make(chan []*model.IstioEndpoint, 100),
 	}
@@ -730,10 +720,12 @@ func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 	f.Events <- "ConfigUpdate"
 }
 
-func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) error {
+func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
 	f.Events <- "EDSUpdate"
 	f.Endpoints <- entry
-	return <-f.EDSErr
+}
+
+func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
 }
 
 func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {
@@ -743,7 +735,7 @@ func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {
 }
 
 func TestApplyIncrementalChangeRemove(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -760,7 +752,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err := controller.List(gatewayGvk, "")
+	entries, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(1))
 	g.Expect(entries[0].Name).To(Equal("test-gateway"))
@@ -778,7 +770,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err = controller.List(gatewayGvk, "")
+	entries, err = controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(2))
 
@@ -786,7 +778,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	g.Expect(update).To(Equal("ConfigUpdate"))
 
 	for _, gw := range entries {
-		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(gw.GroupVersionKind).To(Equal(gvk.Gateway))
 		switch gw.Name {
 		case "test-gateway":
 			g.Expect(gw.Spec).To(Equal(message))
@@ -805,7 +797,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err = controller.List(gatewayGvk, "")
+	entries, err = controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(1))
 	g.Expect(entries[0].Name).To(Equal("test-gateway2"))
@@ -816,7 +808,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 }
 
 func TestApplyIncrementalChange(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -833,7 +825,7 @@ func TestApplyIncrementalChange(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err := controller.List(gatewayGvk, "")
+	entries, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(1))
 	g.Expect(entries[0].Name).To(Equal("test-gateway"))
@@ -851,12 +843,12 @@ func TestApplyIncrementalChange(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err = controller.List(gatewayGvk, "")
+	entries, err = controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(2))
 
 	for _, gw := range entries {
-		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(gw.GroupVersionKind).To(Equal(gvk.Gateway))
 		switch gw.Name {
 		case "test-gateway":
 			g.Expect(gw.Spec).To(Equal(message))

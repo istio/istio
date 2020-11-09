@@ -1,0 +1,30 @@
+{
+  "cniVersion": "0.3.1",
+  "name": "k8s-pod-network",
+  "plugins": [
+    {
+      "bridge": "cni0",
+      "dns": {
+        "nameservers": [
+          "10.1.0.1"
+        ]
+      },
+      "ipam": {
+        "gateway": "10.1.0.1",
+        "subnet": "10.1.0.0/16",
+        "type": "host-local"
+      },
+      "name": "dbnet",
+      "type": "bridge"
+    },
+    {
+      "kubernetes": {
+        "cni_bin_dir": "/path/cni/bin",
+        "kubeconfig": "/path/to/kubeconfig"
+      },
+      "log_level": "debug",
+      "name": "istio-cni",
+      "type": "istio-cni"
+    }
+  ]
+}

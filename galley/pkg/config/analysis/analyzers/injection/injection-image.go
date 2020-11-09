@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@ package injection
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -71,7 +73,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		if r.Metadata.FullName.Name.String() == sidecarInjectorConfigName {
 			cm := r.Message.(*v1.ConfigMap)
 
-			proxyImage = getIstioProxyImage(cm)
+			proxyImage = GetIstioProxyImage(cm)
 
 			return false
 		}
@@ -86,7 +88,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 
 	// Collect the list of namespaces that have istio injection enabled.
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue {
+		if r.Metadata.Labels[util.InjectionLabelName] == util.InjectionLabelEnableValue {
 			injectedNamespaces[r.Metadata.FullName.String()] = struct{}{}
 		}
 
@@ -106,13 +108,19 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		for _, container := range pod.Spec.Containers {
-			if container.Name != istioProxyName {
+		for i, container := range pod.Spec.Containers {
+			if container.Name != util.IstioProxyName {
 				continue
 			}
 
 			if container.Image != proxyImage {
-				c.Report(collections.K8SCoreV1Pods.Name(), msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage))
+				m := msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage)
+
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ImageInContainer, i)); ok {
+					m.Line = line
+				}
+
+				c.Report(collections.K8SCoreV1Pods.Name(), m)
 			}
 		}
 
@@ -120,12 +128,16 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
-// getIstioProxyImage retrieves the proxy image name defined in the sidecar injector
+// GetIstioProxyImage retrieves the proxy image name defined in the sidecar injector
 // configuration.
-func getIstioProxyImage(cm *v1.ConfigMap) string {
+func GetIstioProxyImage(cm *v1.ConfigMap) string {
 	var m injectionConfigMap
 	if err := json.Unmarshal([]byte(cm.Data["values"]), &m); err != nil {
 		return ""
+	}
+	// The injector template has a similar '{ contains "/" ... }' conditional
+	if strings.Contains(m.Global.Proxy.Image, "/") {
+		return m.Global.Proxy.Image
 	}
 	return fmt.Sprintf("%s/%s:%s", m.Global.Hub, m.Global.Proxy.Image, m.Global.Tag)
 }

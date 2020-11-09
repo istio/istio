@@ -1,0 +1,6 @@
+{{- if .Values.enableCRDTemplates -}}
+{{- range $path, $bytes := .Files.Glob "crds/*.yaml" -}}
+---
+{{ $.Files.Get $path }}
+{{- end -}}
+{{- end -}}

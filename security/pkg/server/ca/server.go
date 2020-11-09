@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,43 +15,23 @@
 package ca
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"net"
 	"time"
 
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	pb "istio.io/api/security/v1alpha1"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	pb "istio.io/istio/security/proto"
 	"istio.io/pkg/log"
-
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-)
-
-// Config for Vault prototyping purpose
-const (
-	jwtPath              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	caCertPath           = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	k8sAPIServerURL      = "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews"
-	certExpirationBuffer = time.Minute
 )
 
 var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
-
-type authenticator interface {
-	Authenticate(ctx context.Context) (*authenticate.Caller, error)
-	AuthenticatorType() string
-}
 
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
@@ -68,15 +48,18 @@ type CertificateAuthority interface {
 // specified port.
 type Server struct {
 	monitoring     monitoringMetrics
-	Authenticators []authenticator
-	hostnames      []string
-	authorizer     authorizer
+	Authenticators []authenticate.Authenticator
 	ca             CertificateAuthority
 	serverCertTTL  time.Duration
-	certificate    *tls.Certificate
-	port           int
-	forCA          bool
-	grpcServer     *grpc.Server
+}
+
+func getConnectionAddress(ctx context.Context) string {
+	peerInfo, ok := peer.FromContext(ctx)
+	peerAddr := "unknown"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	return peerAddr
 }
 
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
@@ -90,7 +73,6 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	s.monitoring.CSR.Increment()
 	caller := s.authenticate(ctx)
 	if caller == nil {
-		serverCaLog.Warn("request authentication failure")
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
@@ -115,218 +97,45 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	}
 	s.monitoring.Success.Increment()
 	serverCaLog.Debug("CSR successfully signed.")
-
 	return response, nil
 }
 
-// extractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
-func extractRootCertExpiryTimestamp(ca CertificateAuthority) float64 {
-	rb := ca.GetCAKeyCertBundle().GetRootCertPem()
-	cert, err := util.ParsePemEncodedCertificate(rb)
+func recordCertsExpiry(keyCertBundle util.KeyCertBundle) {
+	rootCertExpiry, err := keyCertBundle.ExtractRootCertExpiryTimestamp()
 	if err != nil {
-		serverCaLog.Errorf("Failed to parse the root cert: %v", err)
-		return -1
+		serverCaLog.Errorf("failed to extract root cert expiry timestamp (error %v)", err)
 	}
-	end := cert.NotAfter
-	if end.Before(time.Now()) {
-		serverCaLog.Errorf("Expired Citadel Root found, x509.NotAfter %v, please transit your root", end)
+	rootCertExpiryTimestamp.Record(rootCertExpiry)
+
+	if len(keyCertBundle.GetCertChainPem()) == 0 {
+		return
 	}
-	return float64(end.Unix())
+
+	certChainExpiry, err := keyCertBundle.ExtractCACertExpiryTimestamp()
+	if err != nil {
+		serverCaLog.Errorf("failed to extract CA cert expiry timestamp (error %v)", err)
+	}
+	certChainExpiryTimestamp.Record(certChainExpiry)
 }
 
-// HandleCSR handles an incoming certificate signing request (CSR). It does
-// proper validation (e.g. authentication) and upon validated, signs the CSR
-// and returns the resulting certificate. If not approved, reason for refusal
-// to sign is returned as part of the response object.
-// [TODO](myidpt): Deprecate this function.
-func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.CsrResponse, error) {
-	s.monitoring.CSR.Increment()
-	caller := s.authenticate(ctx)
-	if caller == nil || len(caller.Identities) == 0 {
-		serverCaLog.Warn("request authentication failure, no caller identity")
-		s.monitoring.AuthnError.Increment()
-		return nil, status.Error(codes.Unauthenticated, "request authenticate failure, no caller identity")
-	}
-
-	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
-	if err != nil {
-		serverCaLog.Warnf("CSR Pem parsing error (error %v)", err)
-		s.monitoring.CSRError.Increment()
-		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
-	}
-
-	_, err = util.ExtractIDs(csr.Extensions)
-	if err != nil {
-		serverCaLog.Warnf("CSR identity extraction error (%v)", err)
-		s.monitoring.IDExtractionError.Increment()
-		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
-	}
-
-	// TODO: Call authorizer.
-
-	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, signErr := s.ca.Sign(
-		request.CsrPem, caller.Identities, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
-	if signErr != nil {
-		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
-		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.(*caerror.Error))
-	}
-
-	response := &pb.CsrResponse{
-		IsApproved: true,
-		SignedCert: cert,
-		CertChain:  certChainBytes,
-	}
-	serverCaLog.Debug("CSR successfully signed.")
-	s.monitoring.Success.Increment()
-
-	return response, nil
-}
-
-// Run starts a GRPC server on the specified port.
-func (s *Server) Run() error {
-	grpcServer := s.grpcServer
-	var listener net.Listener
-	var err error
-
-	if grpcServer == nil {
-		listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.port))
-		if err != nil {
-			return fmt.Errorf("cannot listen on port %d (error: %v)", s.port, err)
-		}
-
-		var grpcOptions []grpc.ServerOption
-		grpcOptions = append(grpcOptions, s.createTLSServerOption(), grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
-
-		grpcServer = grpc.NewServer(grpcOptions...)
-	}
-	pb.RegisterIstioCAServiceServer(grpcServer, s)
+// Register registers a GRPC server on the specified port.
+func (s *Server) Register(grpcServer *grpc.Server) {
 	pb.RegisterIstioCertificateServiceServer(grpcServer, s)
-
-	grpc_prometheus.EnableHandlingTimeHistogram()
-	grpc_prometheus.Register(grpcServer)
-
-	if listener != nil {
-		// grpcServer.Serve() is a blocking call, so run it in a goroutine.
-		go func() {
-			serverCaLog.Infof("Starting GRPC server on port %d", s.port)
-
-			err := grpcServer.Serve(listener)
-
-			// grpcServer.Serve() always returns a non-nil error.
-			serverCaLog.Warnf("GRPC server returns an error: %v", err)
-		}()
-	}
-
-	return nil
 }
 
-// New creates a new instance of `IstioCAServiceServer`.
-func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
-	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string) (*Server, error) {
-	return NewWithGRPC(nil, nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy, "")
-}
+// New creates a new instance of `IstioCAServiceServer`
+func New(ca CertificateAuthority, ttl time.Duration,
+	authenticators []authenticate.Authenticator) (*Server, error) {
 
-// New creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.
-func NewWithGRPC(mc *kubecontroller.Multicluster, grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
-	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string) (*Server, error) {
-
-	if len(hostlist) == 0 {
-		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
-	}
-	// Notice that the order of authenticators matters, since at runtime
-	// authenticators are activated sequentially and the first successful attempt
-	// is used as the authentication result.
-	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
-	serverCaLog.Info("added client certificate authenticator")
-
-	// Only add k8s jwt authenticator if SDS is enabled.
-	if sdsEnabled {
-		authenticator, err := authenticate.NewKubeJWTAuthenticator(mc, k8sAPIServerURL, caCertPath, jwtPath,
-			trustDomain, jwtPolicy, clusterID)
-		if err == nil {
-			authenticators = append(authenticators, authenticator)
-			serverCaLog.Info("added K8s JWT authenticator")
-		} else {
-			serverCaLog.Warnf("failed to add JWT authenticator: %v", err)
-		}
-	}
-
-	// Temporarily disable ID token authenticator by resetting the hostlist.
-	// [TODO](myidpt): enable ID token authenticator when the CSR API authz can work correctly.
-	hostlistForJwtAuth := make([]string, 0)
-	for _, host := range hostlistForJwtAuth {
-		aud := fmt.Sprintf("grpc://%s:%d", host, port)
-		if jwtAuthenticator, err := authenticate.NewIDTokenAuthenticator(aud); err != nil {
-			serverCaLog.Errorf("failed to create JWT authenticator (error %v)", err)
-		} else {
-			authenticators = append(authenticators, jwtAuthenticator)
-			serverCaLog.Infof("added general JWT authenticator")
-		}
-	}
-
-	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
+	recordCertsExpiry(ca.GetCAKeyCertBundle())
 
 	server := &Server{
 		Authenticators: authenticators,
-		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		serverCertTTL:  ttl,
 		ca:             ca,
-		hostnames:      hostlist,
-		forCA:          forCA,
-		port:           port,
-		grpcServer:     grpc,
 		monitoring:     newMonitoringMetrics(),
 	}
 	return server, nil
-}
-
-func (s *Server) createTLSServerOption() grpc.ServerOption {
-	cp := x509.NewCertPool()
-	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
-	cp.AppendCertsFromPEM(rootCertBytes)
-
-	config := &tls.Config{
-		ClientCAs:  cp,
-		ClientAuth: tls.VerifyClientCertIfGiven,
-		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			if s.certificate == nil || shouldRefresh(s.certificate) {
-				// Apply new certificate if there isn't one yet, or the one has become invalid.
-				newCert, err := s.getServerCertificate()
-				if err != nil {
-					return nil, fmt.Errorf("failed to apply TLS server certificate (%v)", err)
-				}
-				s.certificate = newCert
-			}
-			return s.certificate, nil
-		},
-	}
-	return grpc.Creds(credentials.NewTLS(config))
-}
-
-// getServerCertificate returns a valid server TLS certificate and the intermediate CA certificates,
-// signed by the current CA root.
-func (s *Server) getServerCertificate() (*tls.Certificate, error) {
-	opts := util.CertOptions{
-		RSAKeySize: 2048,
-	}
-
-	csrPEM, privPEM, err := util.GenCSR(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	certPEM, signErr := s.ca.SignWithCertChain(csrPEM, s.hostnames, s.serverCertTTL, false)
-	if signErr != nil {
-		return nil, signErr.(*caerror.Error)
-	}
-
-	cert, err := tls.X509KeyPair(certPEM, privPEM)
-	if err != nil {
-		return nil, err
-	}
-	return &cert, nil
 }
 
 // authenticate goes through a list of authenticators (provided client cert, k8s jwt, and ID token)
@@ -344,18 +153,6 @@ func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 			return u
 		}
 	}
-	serverCaLog.Warnf("Authentication failed: %s", errMsg)
+	serverCaLog.Warnf("Authentication failed for %v: %s", getConnectionAddress(ctx), errMsg)
 	return nil
-}
-
-// shouldRefresh indicates whether the given certificate should be refreshed.
-func shouldRefresh(cert *tls.Certificate) bool {
-	// Check whether there is a valid leaf certificate.
-	leaf := cert.Leaf
-	if leaf == nil {
-		return true
-	}
-
-	// Check whether the leaf certificate is about to expire.
-	return leaf.NotAfter.Add(-certExpirationBuffer).Before(time.Now())
 }

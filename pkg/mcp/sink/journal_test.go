@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"istio.io/istio/pkg/mcp/status"
-
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/status"
 )
 
 func TestJournal(t *testing.T) {

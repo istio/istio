@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,11 +19,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/textproto"
+
+	"istio.io/pkg/log"
 )
 
 const (
 	hostHeader = "Host"
 )
+
+var fwLog = log.RegisterScope("forwarder", "echo clientside", 0)
 
 func writeHeaders(requestID int, header http.Header, outBuffer bytes.Buffer, addFn func(string, string)) {
 	for key, values := range header {

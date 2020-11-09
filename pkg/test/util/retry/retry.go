@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -125,6 +125,9 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			if successes >= cfg.converge {
 				return result, err
 			}
+
+			// Skip delay if we have a success
+			continue
 		} else {
 			successes = 0
 		}

@@ -1,4 +1,5 @@
-// Copyright 2019 Istio Authors
+// +build integ
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,44 +20,41 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	inst istio.Instance
 )
 
-// This test requires `--istio.test.env=kube` because it tests istioctl managing k8s webhook configurations.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("istioctl_webhook_test", m).
+		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireEnvironment(environment.Kube).
-		RequireSingleCluster().
 		// Deploy Istio
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
 	cfg.ControlPlaneValues = `
 values:
-  global:
-    operatorManageWebhooks: true
+  meshConfig:
     certificates:
       - dnsNames: [istio-pilot.istio-system.svc, istio-pilot.istio-system]
       - secretName: dns.istio-galley-service-account
         dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
       - secretName: dns.istio-sidecar-injector-service-account
         dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+  global:
+    operatorManageWebhooks: true
 `
 }
 
@@ -64,6 +62,7 @@ values:
 func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.control-plane.k8s-certs.webhook").
 		Run(func(ctx framework.TestContext) {
 			ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
 

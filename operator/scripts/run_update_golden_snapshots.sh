@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,3 +32,4 @@ CHARTS_SNAPSHOT="${ROOTDIR}/operator/cmd/mesh/testdata/manifest-generate/data-sn
 rm -Rf "${CHARTS_SNAPSHOT:?}/"
 
 cp -Rf "${MANIFESTS_DIR}" "${CHARTS_SNAPSHOT}"/
+rm -f "${CHARTS_SNAPSHOT}"/**/*.md

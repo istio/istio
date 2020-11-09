@@ -1,0 +1,86 @@
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: proxy-service-instance
+spec:
+  hosts:
+  - example.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: STATIC
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio.io/benchmark: "true"
+---
+{{- range $i := until .Services }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs-{{$i}}
+  namespace: gateway
+spec:
+  hosts:
+  - random-a-{{$i}}.host.example
+  - random-b-{{$i}}.host.example
+  - random-c-{{$i}}.host.example
+  gateways:
+  - gateway/gateway-{{$i}}
+  http:
+  - match:
+    - uri:
+        prefix: "/route-{{$i}}"
+    route:
+    - destination:
+        host: random-{{$i}}.host.example
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway-{{$i}}
+  namespace: gateway
+spec:
+  selector:
+    istio.io/benchmark: "true"
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - random-a-{{$i}}.host.example
+    - random-b-{{$i}}.host.example
+    - random-c-{{$i}}.host.example
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - random-a-{{$i}}.host.example
+    - random-b-{{$i}}.host.example
+    - random-c-{{$i}}.host.example
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-{{$i}}
+spec:
+  hosts:
+  - random-{{$i}}.host.example
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: 1.2.3.4
+---
+{{- end }}

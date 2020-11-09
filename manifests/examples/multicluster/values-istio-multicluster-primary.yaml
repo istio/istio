@@ -1,0 +1,31 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  # https://istio.io/docs/setup/install/multicluster/shared/#main-cluster
+  values:
+    global:
+      multiCluster:
+        # unique cluster name, must be a DNS label name
+        clusterName: main0
+      network: network1
+
+      # Mesh network configuration. This is optional and may be omitted if
+      # all clusters are on the same network.
+      meshNetworks:
+        network1:
+          endpoints:
+          - fromRegistry: main0
+          gateways:
+          - registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+            port: 443
+
+        network2:
+          endpoints:
+          - fromRegistry: remote0
+          gateways:
+          - registry_service_name: istio-ingressgateway.istio-system.svc.cluster.local
+            port: 443
+
+      # Use the existing istio-ingressgateway.
+      meshExpansion:
+        enabled: true

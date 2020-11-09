@@ -4,7 +4,23 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_tls","customConfigFile":"envoy_bootstrap_v2.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"tlsSettings":{"caCertificates":"/etc/zipkin/ca.pem","mode":"SIMPLE"},"zipkin":{"address":"localhost:6000"}}},"SDS":"true","TRUSTJWT":"true"}
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_tls","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"tlsSettings":{"caCertificates":"/etc/zipkin/ca.pem","mode":"SIMPLE"},"zipkin":{"address":"localhost:6000"}}}}
+  },
+  "layered_runtime": {
+      "layers": [
+          {
+              "name": "deprecation",
+              "static_layer": {
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+                  "envoy.reloadable_features.strict_1xx_and_204_response_headers": false,
+                  "re2.max_program_size.error_level": 1024
+              }
+          },
+          {
+              "name": "admin",
+              "admin_layer": {}
+          }
+      ]
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -195,12 +211,6 @@
           "prefix": "listener_manager"
           },
           {
-          "prefix": "http_mixer_filter"
-          },
-          {
-          "prefix": "tcp_mixer_filter"
-          },
-          {
           "prefix": "server"
           },
           {
@@ -228,18 +238,23 @@
   },
   "dynamic_resources": {
     "lds_config": {
-      "ads": {}
+      "ads": {},
+      "resource_api_version": "V3"
     },
     "cds_config": {
-      "ads": {}
+      "ads": {},
+      "resource_api_version": "V3"
     },
     "ads_config": {
       "api_type": "GRPC",
+      "transport_api_version": "V3",
       "grpc_services": [
         {
+        
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
+        
         }
       ]
     }
@@ -310,8 +325,8 @@
             }]
           }]
         }
-      },
-      {
+      } 
+       , {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -355,12 +370,11 @@
         "http2_protocol_options": { }
       }
       
+      
       ,
       {
         "name": "zipkin",
-        
-        "transport_socket": {"name":"tls","typed_config":{"@type":"type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext","common_tls_context":{"validation_context":{"trusted_ca":{"filename":"/etc/zipkin/ca.pem"}}}}},
-        
+        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/zipkin/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}}}}},
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
@@ -381,7 +395,6 @@
       }
       
       
-      
     ],
     "listeners":[
       {
@@ -396,9 +409,9 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
-                  "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
                   "stat_prefix": "stats",
                   "route_config": {
@@ -416,7 +429,48 @@
                             "route": {
                               "cluster": "prometheus_stats"
                             }
-                          },
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "http_filters": [{
+                    "name": "envoy.filters.http.router",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                    }
+                  }]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": {
+          "socket_address": {
+            "protocol": "TCP",
+            "address": "0.0.0.0",
+            "port_value": 15021
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+                  "codec_type": "AUTO",
+                  "stat_prefix": "agent",
+                  "route_config": {
+                    "virtual_hosts": [
+                      {
+                        "name": "backend",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
                           {
                             "match": {
                               "prefix": "/healthz/ready"
@@ -430,9 +484,9 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
-                      "@type": "type.googleapis.com/envoy.config.filter.http.router.v2.Router"
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
                   }]
                 }
@@ -443,13 +497,12 @@
       }
     ]
   }
-  
   ,
   "tracing": {
     "http": {
-      "name": "envoy.zipkin",
+      "name": "envoy.tracers.zipkin",
       "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.trace.v2.ZipkinConfig",
+        "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
         "collector_cluster": "zipkin",
         "collector_endpoint": "/api/v2/spans",
         "collector_endpoint_version": "HTTP_JSON",
@@ -460,11 +513,10 @@
   }
   
   
-  
   ,
   "cluster_manager": {
     "outlier_detection": {
-      "event_log_path": /dev/stdout
+      "event_log_path": "/dev/stdout"
     }
   }
   

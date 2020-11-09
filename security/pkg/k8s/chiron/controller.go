@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,13 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-
-	admissionv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	admissionv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/security/pkg/listwatch"
+	"istio.io/istio/pkg/listwatch"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
@@ -62,12 +61,15 @@ const (
 	// The number of retries when requesting to create secret.
 	secretCreationRetry = 3
 
-	// The interval for reading a certificate
-	certReadInterval = 500 * time.Millisecond
 	// The number of tries for reading a certificate
 	maxNumCertRead = 10
-	// timeout for reading signed CSR
-	timeoutForReadingCSR = 5 * time.Second
+
+	// The interval for reading a certificate
+	certReadInterval = 500 * time.Millisecond
+)
+
+var (
+	certWatchTimeout = 5 * time.Second
 )
 
 // WebhookController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -82,7 +84,7 @@ type WebhookController struct {
 	// Current CA certificate
 	CACert     []byte
 	core       corev1.CoreV1Interface
-	admission  admissionv1.AdmissionregistrationV1beta1Interface
+	admission  admissionv1beta1.AdmissionregistrationV1beta1Interface
 	certClient certclient.CertificatesV1beta1Interface
 	// Controller and store for secret objects.
 	scrtController cache.Controller
@@ -98,7 +100,7 @@ type WebhookController struct {
 
 // NewWebhookController returns a pointer to a newly constructed WebhookController instance.
 func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration,
-	core corev1.CoreV1Interface, admission admissionv1.AdmissionregistrationV1beta1Interface,
+	core corev1.CoreV1Interface, admission admissionv1beta1.AdmissionregistrationV1beta1Interface,
 	certClient certclient.CertificatesV1beta1Interface, k8sCaCertFile string,
 	secretNames, dnsNames, serviceNamespaces []string) (*WebhookController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {

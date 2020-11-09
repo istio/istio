@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package ingress
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -23,20 +24,25 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 const (
 	IstioIngressController = "istio.io/ingress-controller"
+)
+
+var (
+	errNotFound = errors.New("item not found")
 )
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
@@ -69,12 +75,15 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 }
 
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
-func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.Config {
-	gateway := &networking.Gateway{
-		Selector: labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue},
-	}
+func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig, domainSuffix string) config.Config {
+	gateway := &networking.Gateway{}
+	gateway.Selector = getIngressGatewaySelector(mesh.IngressSelector, mesh.IngressService)
 
 	for i, tls := range ingress.Spec.TLS {
+		if tls.SecretName == "" {
+			log.Infof("invalid ingress rule %s:%s for hosts %q, no secretName defined", ingress.Namespace, ingress.Name, tls.Hosts)
+			continue
+		}
 		// TODO validation when multiple wildcard tls secrets are given
 		if len(tls.Hosts) == 0 {
 			tls.Hosts = []string{"*"}
@@ -103,14 +112,12 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 		Hosts: []string{"*"},
 	})
 
-	gatewayConfig := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      gatewayGvk.Kind,
-			Group:     gatewayGvk.Group,
-			Version:   gatewayGvk.Version,
-			Name:      ingress.Name + "-" + constants.IstioIngressGatewayName,
-			Namespace: ingressNamespace,
-			Domain:    domainSuffix,
+	gatewayConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.Gateway,
+			Name:             ingress.Name + "-" + constants.IstioIngressGatewayName,
+			Namespace:        ingressNamespace,
+			Domain:           domainSuffix,
 		},
 		Spec: gateway,
 	}
@@ -119,7 +126,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 }
 
 // ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
-func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*model.Config) {
+func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*config.Config, serviceLister listerv1.ServiceLister) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
@@ -173,7 +180,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 				httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix)
+			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix, serviceLister)
 			if httpRoute == nil {
 				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
 				continue
@@ -184,14 +191,12 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		virtualService.Http = httpRoutes
 
-		virtualServiceConfig := model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      virtualServiceGvk.Kind,
-				Group:     virtualServiceGvk.Group,
-				Version:   virtualServiceGvk.Version,
-				Name:      namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
-				Namespace: ingress.Namespace,
-				Domain:    domainSuffix,
+		virtualServiceConfig := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace:        ingress.Namespace,
+				Domain:           domainSuffix,
 			},
 			Spec: virtualService,
 		}
@@ -224,7 +229,8 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 	}
 }
 
-func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string, domainSuffix string) *networking.HTTPRoute {
+func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string, domainSuffix string,
+	serviceLister listerv1.ServiceLister) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
 	}
@@ -234,8 +240,12 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 	if backend.ServicePort.Type == intstr.Int {
 		port.Number = uint32(backend.ServicePort.IntVal)
 	} else {
-		// Port names are not allowed in destination rules.
-		return nil
+		resolvedPort, err := resolveNamedPort(backend, namespace, serviceLister)
+		if err != nil {
+			log.Infof("failed to resolve named port %s, error: %v", backend.ServicePort.StrVal, err)
+			return nil
+		}
+		port.Number = uint32(resolvedPort)
 	}
 
 	return &networking.HTTPRoute{
@@ -251,9 +261,23 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 	}
 }
 
+func resolveNamedPort(backend *v1beta1.IngressBackend, namespace string, serviceLister listerv1.ServiceLister) (int32, error) {
+	svc, err := serviceLister.Services(namespace).Get(backend.ServiceName)
+	if err != nil {
+		return 0, err
+	}
+	for _, port := range svc.Spec.Ports {
+		if port.Name == backend.ServicePort.StrVal {
+			return port.Port, nil
+		}
+	}
+	return 0, errNotFound
+}
+
 // shouldProcessIngress determines whether the given ingress resource should be processed
-// by the controller, based on its ingress class annotation.
-// See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
+// by the controller, based on its ingress class annotation or, in more recent versions of
+// kubernetes (v1.18+), based on the Ingress's specified IngressClass
+// See https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class
 func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress, ingressClass *v1beta1.IngressClass) bool {
 	if class, exists := ingress.Annotations[kube.IngressClassAnnotation]; exists {
 		switch mesh.IngressControllerMode {
@@ -268,7 +292,6 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 			return false
 		}
 	} else if ingressClass != nil {
-		// TODO support ingressclass.kubernetes.io/is-default-class annotation
 		return ingressClass.Spec.Controller == IstioIngressController
 	} else {
 		switch mesh.IngressControllerMode {
@@ -307,5 +330,22 @@ func createFallbackStringMatch(s string) *networking.StringMatch {
 	// Replace e.g. "foo" with a exact match
 	return &networking.StringMatch{
 		MatchType: &networking.StringMatch_Exact{Exact: s},
+	}
+}
+
+func getIngressGatewaySelector(ingressSelector, ingressService string) map[string]string {
+	// Setup the selector for the gateway
+	if ingressSelector != "" {
+		// If explicitly defined, use this one
+		return labels.Instance{constants.IstioLabel: ingressSelector}
+	} else if ingressService != "istio-ingressgateway" && ingressService != "" {
+		// Otherwise, we will use the ingress service as the default. It is common for the selector and service
+		// to be the same, so this removes the need for two configurations
+		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
+		return labels.Instance{constants.IstioLabel: ingressService}
+	} else {
+		// If we have neither an explicitly defined ingressSelector or ingressService then use a selector
+		// pointing to the ingressgateway from the default installation
+		return labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
 	}
 }

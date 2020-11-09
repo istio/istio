@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -24,17 +24,16 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/mcp/source"
-	"istio.io/istio/pkg/mcp/testing/groups"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
-
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/testing/groups"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/ctrlz/fw"
 )

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/pkg/test/env"
 	sdsTest "istio.io/istio/security/pkg/nodeagent/test"
 )
 
 func TestCSRFailure(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/22729")
+	t.Skip("https://github.com/istio/istio/issues/24220")
 	rotateInterval := 1 * time.Second
 	sdsTest.RotateCert(rotateInterval)
 	setup := sdsTest.SetupTest(t, env.CSRFailure)

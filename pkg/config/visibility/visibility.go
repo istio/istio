@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,14 @@
 
 package visibility
 
-import "fmt"
+import (
+	"fmt"
 
-// Instance defines whether a given config or service is exported to local namespace, all namespaces or none
+	"istio.io/istio/pkg/config/labels"
+)
+
+// Instance defines whether a given config or service is exported to local namespace, some set of namespaces, or
+// all namespaces or none
 type Instance string
 
 const (
@@ -24,14 +29,21 @@ const (
 	Private Instance = "."
 	// Public implies config is visible to all
 	Public Instance = "*"
+	// None implies service is visible to no one. Used for services only
+	None Instance = "~"
 )
 
-// Validate a visibility value.
+// Validate a visibility value ( ./*/~/some namespace name which is DNS1123 label)
 func (v Instance) Validate() (errs error) {
 	switch v {
 	case Private, Public:
 		return nil
+	case None:
+		return fmt.Errorf("exportTo ~ (none) is not allowed for Istio configuration objects")
 	default:
-		return fmt.Errorf("only . or * is allowed in the exportTo in the current release")
+		if !labels.IsDNS1123Label(string(v)) {
+			return fmt.Errorf("only .,*,~, or a valid DNS 1123 label is allowed as exportTo entry")
+		}
 	}
+	return nil
 }

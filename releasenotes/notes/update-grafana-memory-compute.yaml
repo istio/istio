@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+releaseNotes:
+- |
+  **Updated** the "Control Plane Dashboard" and the "Performance Dashboard" to use the `container_memory_working_set_bytes` metric
+  to display memory. This metric only counts memory that *cannot be reclaimed* by the kernel even under memory pressure,
+  and therefore more relevant for tracking. It is also consistent with `kubectl top`. The reported values are lower than
+  the previous values.

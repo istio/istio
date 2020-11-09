@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@ import (
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
+
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // GetLastUpdatedDynamicRouteTime retrieves the LastUpdated timestamp of the
@@ -55,24 +57,28 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 		return nil, err
 	}
 	drc := routeDump.GetDynamicRouteConfigs()
+	// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+	for i := range drc {
+		drc[i].RouteConfig.TypeUrl = v3.RouteType
+	}
 	sort.Slice(drc, func(i, j int) bool {
-		route := &xdsapi.RouteConfiguration{}
-		err = ptypes.UnmarshalAny(drc[i].RouteConfig, route)
+		r := &route.RouteConfiguration{}
+		err = ptypes.UnmarshalAny(drc[i].RouteConfig, r)
 		if err != nil {
 			return false
 		}
-		name := route.Name
-		err = ptypes.UnmarshalAny(drc[j].RouteConfig, route)
+		name := r.Name
+		err = ptypes.UnmarshalAny(drc[j].RouteConfig, r)
 		if err != nil {
 			return false
 		}
-		return name < route.Name
+		return name < r.Name
 	})
 
 	// In Istio 1.5, it is not enough just to sort the routes.  The virtual hosts
 	// within a route might have a different order.  Sort those too.
 	for i := range drc {
-		route := &xdsapi.RouteConfiguration{}
+		route := &route.RouteConfiguration{}
 		err = ptypes.UnmarshalAny(drc[i].RouteConfig, route)
 		if err != nil {
 			return nil, err
@@ -102,7 +108,7 @@ func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
 		return nil, err
 	}
 	routeDump := &adminapi.RoutesConfigDump{}
-	err = ptypes.UnmarshalAny(&routeDumpAny, routeDump)
+	err = ptypes.UnmarshalAny(routeDumpAny, routeDump)
 	if err != nil {
 		return nil, err
 	}

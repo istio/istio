@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,14 +21,14 @@ import (
 )
 
 func TestNewName(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewName("c1")
 	g.Expect(c.String()).To(Equal("c1"))
 }
 
 func TestNewName_Invalid(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer func() {
 		r := recover()
 		g.Expect(r).NotTo(BeNil())
@@ -38,7 +38,7 @@ func TestNewName_Invalid(t *testing.T) {
 }
 
 func TestName_String(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	c := NewName("c1")
 
 	g.Expect(c.String()).To(Equal("c1"))
@@ -58,7 +58,7 @@ func TestIsValidName_Valid(t *testing.T) {
 
 	for _, d := range data {
 		t.Run(d, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			b := IsValidName(d)
 			g.Expect(b).To(BeTrue())
 		})
@@ -77,7 +77,7 @@ func TestIsValidName_Invalid(t *testing.T) {
 
 	for _, d := range data {
 		t.Run(d, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			b := IsValidName(d)
 			g.Expect(b).To(BeFalse())
 		})

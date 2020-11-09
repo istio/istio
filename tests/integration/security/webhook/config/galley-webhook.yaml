@@ -33,15 +33,6 @@ webhooks:
           - CREATE
           - UPDATE
         apiGroups:
-          - rbac.istio.io
-        apiVersions:
-          - "*"
-        resources:
-          - "*"
-      - operations:
-          - CREATE
-          - UPDATE
-        apiGroups:
           - security.istio.io
         apiVersions:
           - "*"
@@ -96,3 +87,4 @@ webhooks:
           - templates
     failurePolicy: Fail
     sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]

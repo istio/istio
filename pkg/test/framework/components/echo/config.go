@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -31,14 +29,11 @@ type Config struct {
 	// Namespace of the echo Instance. If not provided, a default namespace "apps" is used.
 	Namespace namespace.Instance
 
+	// DefaultHostHeader overrides the default Host header for calls (`service.namespace.svc.cluster.local`)
+	DefaultHostHeader string
+
 	// Domain of the echo Instance. If not provided, a default will be selected.
 	Domain string
-
-	// Galley component (may be required, depending on the environment/configuration).
-	Galley galley.Instance
-
-	// Pilot component reference (may be required, depending on the environment/configuration).
-	Pilot pilot.Instance
 
 	// Service indicates the service name of the Echo application.
 	Service string
@@ -67,10 +62,6 @@ type Config struct {
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
 
-	// IncludeInboundPorts provides the ports that inbound listener should capture
-	// "*" means capture all.
-	IncludeInboundPorts string
-
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
 	ReadinessTimeout time.Duration
@@ -84,6 +75,19 @@ type Config struct {
 
 	// TLS settings for echo server
 	TLSSettings *common.TLSSettings
+
+	// If enabled, echo will be deployed as a "VM". This means it will run Envoy in the same pod as echo,
+	// disable sidecar injection, etc.
+	DeployAsVM bool
+
+	// If enabled, ISTIO_META_AUTO_REGISTER_GROUP will be set on the VM and the WorkloadEntry will be created automatically.
+	AutoRegisterVM bool
+
+	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
+	VMImage string
+
+	// The set of environment variables to set for `DeployAsVM` instances.
+	VMEnvironment map[string]string
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
@@ -100,6 +104,16 @@ func (c Config) String() string {
 	return fmt.Sprint("{service: ", c.Service, ", version: ", c.Version, "}")
 }
 
+// PortByName looks up a given port by name
+func (c Config) PortByName(name string) *Port {
+	for _, p := range c.Ports {
+		if p.Name == name {
+			return &p
+		}
+	}
+	return nil
+}
+
 // FQDN returns the fully qualified domain name for the service.
 func (c Config) FQDN() string {
 	out := c.Service
@@ -112,10 +126,10 @@ func (c Config) FQDN() string {
 	return out
 }
 
-// ClusterIndex returns the index of the cluster or 0 (the default) if none specified.
-func (c Config) ClusterIndex() resource.ClusterIndex {
-	if c.Cluster != nil {
-		return c.Cluster.Index()
+// HostHeader returns the Host header that will be used for calls to this service.
+func (c Config) HostHeader() string {
+	if c.DefaultHostHeader != "" {
+		return c.DefaultHostHeader
 	}
-	return 0
+	return c.FQDN()
 }

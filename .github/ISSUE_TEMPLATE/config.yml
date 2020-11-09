@@ -1,0 +1,4 @@
+contact_links:
+- name: "Crash bug"
+  url: https://istio.io/about/security-vulnerabilities/
+  about: "Please file any bug causing a crash to istio-security-vulnerability-reports@googlegroups.com."

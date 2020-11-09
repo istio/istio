@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+releaseNotes:
+- |
+  **Added** experimental caching for endpoints, to support large scale clusters. This feature is disabled by default and can
+  be enabled by setting the `PILOT_ENABLE_XDS_CACHE` environment variable in Istiod.

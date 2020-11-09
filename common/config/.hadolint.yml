@@ -6,6 +6,7 @@
 # "make update-common".
 
 ignored:
+  - DL3008
 
 trustedRegistries:
   - gcr.io

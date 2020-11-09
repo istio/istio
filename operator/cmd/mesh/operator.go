@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ func OperatorCmd() *cobra.Command {
 	oc := &cobra.Command{
 		Use:   "operator",
 		Short: "Commands related to Istio operator controller.",
-		Long:  "The operator subcommand installs, removes and shows the status of the operator controller.",
+		Long:  "The operator command installs, dumps, removes and shows the status of the operator controller.",
 	}
 
 	odArgs := &operatorDumpArgs{}

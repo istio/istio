@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 )
 
 func TestTransformer_Basics(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).MustAdd(data.Bar).Build()
 	outputs := collection.NewSchemasBuilder().MustAdd(data.Boo).MustAdd(data.Baz).Build()
@@ -55,7 +55,7 @@ func TestTransformer_Basics(t *testing.T) {
 }
 
 func TestTransformer_Selection(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).MustAdd(data.Bar).Build()
 	outputs := collection.NewSchemasBuilder().MustAdd(data.Boo).MustAdd(data.Baz).Build()
@@ -95,7 +95,7 @@ func TestTransformer_Selection(t *testing.T) {
 }
 
 func TestTransformer_InvalidEvent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).Build()
 	outputs := collection.NewSchemasBuilder().MustAdd(data.Bar).Build()
@@ -124,7 +124,7 @@ func TestTransformer_InvalidEvent(t *testing.T) {
 }
 
 func TestTransformer_Reset(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).Build()
 	outputs := collection.NewSchemasBuilder().MustAdd(data.Bar).MustAdd(data.Baz).Build()
@@ -160,7 +160,7 @@ func TestTransformer_Reset(t *testing.T) {
 }
 
 func TestTransformer_FullSync(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).MustAdd(data.Bar).Build()
 	outputs := collection.NewSchemasBuilder().MustAdd(data.Boo).MustAdd(data.Baz).Build()

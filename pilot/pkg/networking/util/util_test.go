@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,39 +15,74 @@
 package util
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/d4l3k/messagediff.v1"
 
 	networking "istio.io/api/networking/v1alpha3"
-
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
 	proto2 "istio.io/istio/pkg/proto"
 )
 
-func TestCloneLbEndpoint(t *testing.T) {
-	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+var testCla = &endpoint.ClusterLoadAssignment{
+	ClusterName: "cluster",
+	Endpoints: []*endpoint.LocalityLbEndpoints{{
+		Locality: &core.Locality{Region: "foo", Zone: "bar"},
+		LbEndpoints: []*endpoint.LbEndpoint{
+			{
+				HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+			},
+			{
+				HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		LoadBalancingWeight: &wrappers.UInt32Value{Value: 50},
+		Priority:            2,
+	}},
+}
+
+func BenchmarkCloneClusterLoadAssignment(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		cpy := CloneClusterLoadAssignment(testCla)
+		_ = cpy
 	}
-	cloned := CloneLbEndpoint(ep)
-	cloned.LoadBalancingWeight.Value = 200
-	if ep.LoadBalancingWeight.GetValue() != 100 {
-		t.Errorf("original LbEndpoint is mutated")
+}
+
+func TestCloneClusterLoadAssignment(t *testing.T) {
+	cloned := CloneClusterLoadAssignment(testCla)
+	cloned2 := CloneClusterLoadAssignment(testCla)
+	if !cmp.Equal(testCla, cloned, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the same as %v", testCla, cloned)
+	}
+	cloned.ClusterName = "foo"
+	cloned.Endpoints[0].LbEndpoints[0].LoadBalancingWeight.Value = 5
+	if cmp.Equal(testCla, cloned, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the different from %v", testCla, cloned)
+	}
+	if !cmp.Equal(testCla, cloned2, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the same as %v", testCla, cloned)
 	}
 }
 
@@ -317,18 +352,16 @@ func TestIsLocalityEmpty(t *testing.T) {
 func TestBuildConfigInfoMetadata(t *testing.T) {
 	cases := []struct {
 		name string
-		in   model.ConfigMeta
+		in   config.Meta
 		want *core.Metadata
 	}{
 		{
 			"destination-rule",
-			model.ConfigMeta{
-				Group:     "networking.istio.io",
-				Version:   "v1alpha3",
-				Name:      "svcA",
-				Namespace: "default",
-				Domain:    "svc.cluster.local",
-				Type:      "destination-rule",
+			config.Meta{
+				Name:             "svcA",
+				Namespace:        "default",
+				Domain:           "svc.cluster.local",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -351,6 +384,157 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 			got := BuildConfigInfoMetadata(v.in)
 			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
 				tt.Errorf("BuildConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
+			}
+		})
+	}
+}
+
+func TestAddConfigInfoMetadata(t *testing.T) {
+	cases := []struct {
+		name string
+		in   config.Meta
+		meta *core.Metadata
+		want *core.Metadata
+	}{
+		{
+			"nil metadata",
+			config.Meta{
+				Name:             "svcA",
+				Namespace:        "default",
+				Domain:           "svc.cluster.local",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			},
+			nil,
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"empty metadata",
+			config.Meta{
+				Name:             "svcA",
+				Namespace:        "default",
+				Domain:           "svc.cluster.local",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			},
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			},
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"existing istio metadata",
+			config.Meta{
+				Name:             "svcA",
+				Namespace:        "default",
+				Domain:           "svc.cluster.local",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			},
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"existing non-istio metadata",
+			config.Meta{
+				Name:             "svcA",
+				Namespace:        "default",
+				Domain:           "svc.cluster.local",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			},
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"other-metadata": {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+			&core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"other-metadata": {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			got := AddConfigInfoMetadata(v.meta, v.in)
+			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+				tt.Errorf("AddConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
 			}
 		})
 	}
@@ -409,63 +593,10 @@ func TestAddSubsetToMetadata(t *testing.T) {
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
 			got := AddSubsetToMetadata(v.in, v.subset)
-			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
 			}
 		})
-	}
-}
-
-func TestCloneCluster(t *testing.T) {
-	cluster := buildFakeCluster()
-	clone := CloneCluster(cluster)
-	cluster.LoadAssignment.Endpoints[0].LoadBalancingWeight.Value = 10
-	cluster.LoadAssignment.Endpoints[0].Priority = 8
-	cluster.LoadAssignment.Endpoints[0].LbEndpoints = nil
-
-	if clone.LoadAssignment.Endpoints[0].LoadBalancingWeight.GetValue() == 10 {
-		t.Errorf("LoadBalancingWeight mutated")
-	}
-	if clone.LoadAssignment.Endpoints[0].Priority == 8 {
-		t.Errorf("Priority mutated")
-	}
-	if clone.LoadAssignment.Endpoints[0].LbEndpoints == nil {
-		t.Errorf("LbEndpoints mutated")
-	}
-}
-
-func buildFakeCluster() *v2.Cluster {
-	return &v2.Cluster{
-		Name: "outbound|8080||test.example.org",
-		LoadAssignment: &v2.ClusterLoadAssignment{
-			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []*endpoint.LocalityLbEndpoints{
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone1",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone2",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-			},
-		},
 	}
 }
 
@@ -516,7 +647,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	newTimeout := ptypes.DurationProto(5 * time.Minute)
 	userHCM := &http_conn.HttpConnectionManager{
 		AddUserAgent:      proto2.BoolTrue,
-		IdleTimeout:       newTimeout,
 		StreamIdleTimeout: newTimeout,
 		UseRemoteAddress:  proto2.BoolTrue,
 		XffNumTrustedHops: 5,
@@ -530,7 +660,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 
 	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
 	expectedHCM.AddUserAgent = userHCM.AddUserAgent
-	expectedHCM.IdleTimeout = userHCM.IdleTimeout
 	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
 	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
 	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
@@ -549,8 +678,8 @@ func TestMergeAnyWithStruct(t *testing.T) {
 		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
 	}
 
-	if !reflect.DeepEqual(expectedHCM, &outHCM) {
-		t.Errorf("Merged HCM does not match the expected output")
+	if diff := cmp.Diff(expectedHCM, &outHCM, protocmp.Transform()); diff != "" {
+		t.Errorf("Merged HCM does not match the expected output: %v", diff)
 	}
 }
 
@@ -653,19 +782,6 @@ func TestBuildStatPrefix(t *testing.T) {
 				Namespace:       "namespace1",
 			},
 			"reviews.namespace1.7443",
-		},
-		{
-			"Service from non k8s registry",
-			"%SERVICE%.%SERVICE_PORT%",
-			"reviews.hostname.consul",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Consul),
-				Name:            "foo",
-				Namespace:       "bar",
-			},
-			"reviews.hostname.consul.7443",
 		},
 		{
 			"Service FQDN only pattern",
@@ -986,6 +1102,172 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := CidrRangeSliceEqual(tt.first, tt.second); got != tt.want {
 				t.Errorf("Unexpected CidrRangeSliceEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEndpointMetadata(t *testing.T) {
+	features.EndpointTelemetryLabel = true
+	cases := []struct {
+		name         string
+		network      string
+		tlsMode      string
+		workloadName string
+		namespace    string
+		labels       labels.Instance
+		want         *core.Metadata
+	}{
+		{
+			name:         "all empty",
+			tlsMode:      string(model.DisabledTLSModeLabel),
+			network:      "",
+			workloadName: "",
+			want:         nil,
+		},
+		{
+			name:         "tls mode",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "",
+			workloadName: "",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "network and tls mode",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "network",
+			workloadName: "",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"network": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "network",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "all label",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "network",
+			workloadName: "workload",
+			namespace:    "default",
+			labels: labels.Instance{
+				model.IstioCanonicalServiceLabelName:         "service",
+				model.IstioCanonicalServiceRevisionLabelName: "v1",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"network": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "network",
+								},
+							},
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "workload;default;service;v1",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "miss pod label",
+			tlsMode:      string(model.IstioMutualTLSModeLabel),
+			network:      "network",
+			workloadName: "workload",
+			namespace:    "default",
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: string(model.IstioMutualTLSModeLabel),
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"network": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "network",
+								},
+							},
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "workload;default;;",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestByteCount(t *testing.T) {
+	cases := []struct {
+		in  int
+		out string
+	}{
+		{1, "1B"},
+		{1000, "1.0kB"},
+		{1_000_000, "1.0MB"},
+		{1_500_000, "1.5MB"},
+	}
+	for _, tt := range cases {
+		t.Run(fmt.Sprint(tt.in), func(t *testing.T) {
+			if got := ByteCount(tt.in); got != tt.out {
+				t.Fatalf("got %v wanted %v", got, tt.out)
 			}
 		})
 	}

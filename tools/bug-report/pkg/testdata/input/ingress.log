@@ -1,0 +1,145 @@
+2020-06-29T23:37:27.285018Z	info	FLAG: --concurrency="0"
+2020-06-29T23:37:27.285053Z	info	FLAG: --disableInternalTelemetry="false"
+2020-06-29T23:37:27.285550Z	info	Version 1.6.3-1e8c62baad31c829c5993235c429248f36a85478-dirty-Modified
+2020-06-29T23:37:27.285885Z	info	Obtained private IP [10.36.1.5]
+2020-06-29T23:37:27.286034Z	info	Apply mesh config from file accessLogEncoding: TEXT
+accessLogFile: /dev/stdout
+accessLogFormat: ""
+defaultConfig:
+  concurrency: 2
+  configPath: ./etc/istio/proxy
+  connectTimeout: 10s
+  controlPlaneAuthPolicy: NONE
+  discoveryAddress: istiod.istio-system.svc:15012
+  drainDuration: 45s
+  parentShutdownDuration: 1m0s
+  proxyAdminPort: 15000
+  proxyMetadata:
+    DNS_AGENT: ""
+  serviceCluster: istio-proxy
+  tracing:
+    zipkin:
+      address: zipkin.istio-system:9411
+enablePrometheusMerge: false
+ingressClass: istio
+ingressControllerMode: STRICT
+ingressService: istio-ingressgateway
+protocolDetectionTimeout: 100ms
+sdsUdsPath: unix:/etc/istio/proxy/SDS
+trustDomain: cluster.local
+trustDomainAliases: null
+2020-06-29T23:37:27.287895Z	info	Effective config: binaryPath: /usr/local/bin/envoy
+configPath: ./etc/istio/proxy
+discoveryAddress: istiod.istio-system.svc:15012
+drainDuration: 45s
+envoyAccessLogService: {}
+envoyMetricsService: {}
+parentShutdownDuration: 60s
+proxyAdminPort: 15000
+proxyMetadata:
+  DNS_AGENT: ""
+serviceCluster: istio-ingressgateway
+statNameLength: 189
+statusPort: 15020
+tracing:
+  zipkin:
+    address: zipkin.istio-system:9411
+
+2020-06-29T23:37:27.287949Z	info	Proxy role: &model.Proxy{ClusterID:"", Type:"router", IPAddresses:[]string{"10.36.1.5"}, ID:"istio-ingressgateway-5855454469-5h8dq.istio-system", Locality:(*envoy_api_v2_core.Locality)(nil), DNSDomain:"istio-system.svc.cluster.local", ConfigNamespace:"", Metadata:(*model.NodeMetadata)(nil), SidecarScope:(*model.SidecarScope)(nil), PrevSidecarScope:(*model.SidecarScope)(nil), MergedGateway:(*model.MergedGateway)(nil), ServiceInstances:[]*model.ServiceInstance(nil), IstioVersion:(*model.IstioVersion)(nil), ipv6Support:false, ipv4Support:false, GlobalUnicastIP:"", XdsResourceGenerator:model.XdsResourceGenerator(nil), Active:map[string]*model.WatchedResource(nil)}
+2020-06-29T23:37:27.287957Z	info	JWT policy is third-party-jwt
+2020-06-29T23:37:27.287996Z	info	PilotSAN []string{"istiod.istio-system.svc"}
+2020-06-29T23:37:27.288004Z	info	MixerSAN []string{"spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account"}
+2020-06-29T23:37:27.335686Z	info	serverOptions.CAEndpoint == istiod.istio-system.svc:15012
+2020-06-29T23:37:27.335723Z	info	Using user-configured CA istiod.istio-system.svc:15012
+2020-06-29T23:37:27.335729Z	info	istiod uses self-issued certificate
+2020-06-29T23:37:27.335778Z	info	the CA cert of istiod is: -----BEGIN CERTIFICATE-----
+MIIC3TCCAcWgAwIBAgIQHmU40J8Uakg9c9tI3Ph9qjANBgkqhkiG9w0BAQsFADAY
+MRYwFAYDVQQKEw1jbHVzdGVyLmxvY2FsMB4XDTIwMDYyOTIzMzY1OVoXDTMwMDYy
+NzIzMzY1OVowGDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMNYik7uL57PYhv9zy+jadP7avx9JzqOXYmUFhxV
+ZopqdxtSda+Ob+PQsfvibbVqUXdLvRjNjHeffdHlFIzd6ntVlWgRQbys24jWs2QN
+ql/0HuJS9SG1WjjYxxyewIdygI6aKC5YZeMYhzcB3BkaQaT/bbYPFoO04tKdNkpT
+38/MJzGiQis+hykO5ZxrXBgFErHYU5p1e3nLJvO2X+ttJCYmzCrde4By4bUcAkEf
+5E38uKxp/NWkv4ATLM6+fWL+TQefF3Q4rC3ckSiYC8iArpQuE+gdyV5n1970NyIj
+jVw2waXpswVSg8zVRGt+t6iDJhgmlS7L0Y2/lQpIXs7MokECAwEAAaMjMCEwDgYD
+VR0PAQH/BAQDAgIEMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEB
+AL6JaL+u3KgeYJebgYx6Jsn+dJJE/phtwEnBY5koHrPwcHYPpvmNnnDPqLXVKHFa
+Ea634kf41BWYeVtpWtfBQ3BltxxtpIBXooafF5E/sJw5DL79T5Ym3HPHRCx5D45B
+SVzMVTK3vPFXmBxEn8lwm/JsRCTjHYWgz9pygaANh3Izlh0dT+ABm6yGfRt0Yojo
+5/sFhmxSt5C9zb+3huSOhW/+QMlNvBJgaflVobn8NPNnTmlihpSrSx4UqJf3+r2A
+zO0+K2tRnJnHAiVZc/spn5gvl0srg/9y0VGYbG7zznO0ag9+ZwiN5SrCZ/EM0wkE
+DVB6hVaSTSReLg0gYuj69Ic=
+-----END CERTIFICATE-----
+
+2020-06-29T23:37:27.335928Z	info	parsed scheme: ""
+2020-06-29T23:37:27.335940Z	info	scheme "" not registered, fallback to default scheme
+2020-06-29T23:37:27.336128Z	info	ccResolverWrapper: sending update to cc: {[{istiod.istio-system.svc:15012  <nil> 0 <nil>}] <nil> <nil>}
+2020-06-29T23:37:27.336149Z	info	ClientConn switching balancer to "pick_first"
+2020-06-29T23:37:27.336155Z	info	Channel switches to new LB policy "pick_first"
+2020-06-29T23:37:27.336189Z	info	Subchannel Connectivity change to CONNECTING
+2020-06-29T23:37:27.336222Z	info	Starting gateway SDS
+2020-06-29T23:37:27.336491Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {CONNECTING <nil>}
+2020-06-29T23:37:27.336645Z	info	Channel Connectivity change to CONNECTING
+2020-06-29T23:37:27.336838Z	info	Subchannel picks a new address "istiod.istio-system.svc:15012" to connect
+2020-06-29T23:37:27.349559Z	info	Subchannel Connectivity change to READY
+2020-06-29T23:37:27.349600Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {READY <nil>}
+2020-06-29T23:37:27.349610Z	info	Channel Connectivity change to READY
+2020-06-29T23:37:27.438932Z	info	sds	SDS gRPC server for workload UDS starts, listening on "./etc/istio/proxy/SDS"
+
+2020-06-29T23:37:27.438952Z	info	sds	Start SDS grpc server
+2020-06-29T23:37:27.439456Z	info	sds	SDS gRPC server for ingress gateway controller starts, listening on "/var/run/ingress_gateway/sds"
+
+2020-06-29T23:37:27.439555Z	info	sds	Start SDS grpc server for ingress gateway proxy
+2020-06-29T23:37:27.439587Z	info	Starting proxy agent
+2020-06-29T23:37:27.439698Z	info	Opening status port 15020
+
+2020-06-29T23:37:27.439724Z	info	Received new config, creating new Envoy epoch 0
+2020-06-29T23:37:27.440225Z	info	Epoch 0 starting
+2020-06-29T23:37:27.457670Z	info	Envoy command: [-c etc/istio/proxy/envoy-rev0.json --restart-epoch 0 --drain-time-s 45 --parent-shutdown-time-s 60 --service-cluster istio-ingressgateway --service-node router~10.36.1.5~istio-ingressgateway-5855454469-5h8dq.istio-system~istio-system.svc.cluster.local --max-obj-name-len 189 --local-address-ip-version v4 --log-format %Y-%m-%dT%T.%fZ	%l	envoy %n	%v -l warning --component-log-level misc:error]
+2020-06-29T23:37:27.523826Z	warning	envoy config	[bazel-out/k8-opt/bin/external/envoy/source/common/config/_virtual_includes/grpc_stream_lib/common/config/grpc_stream.h:92] StreamAggregatedResources gRPC config stream closed: 14, no healthy upstream
+2020-06-29T23:37:27.523917Z	warning	envoy config	[bazel-out/k8-opt/bin/external/envoy/source/common/config/_virtual_includes/grpc_stream_lib/common/config/grpc_stream.h:54] Unable to establish new stream
+2020-06-29T23:37:27.535235Z	info	sds	resource:default new connection
+2020-06-29T23:37:27.535593Z	info	sds	Skipping waiting for ingress gateway secret
+2020-06-29T23:37:27.573949Z	warning	envoy config	[bazel-out/k8-opt/bin/external/envoy/source/common/config/_virtual_includes/grpc_stream_lib/common/config/grpc_stream.h:92] StreamAggregatedResources gRPC config stream closed: 14, no healthy upstream
+2020-06-29T23:37:27.574147Z	warning	envoy config	[bazel-out/k8-opt/bin/external/envoy/source/common/config/_virtual_includes/grpc_stream_lib/common/config/grpc_stream.h:54] Unable to establish new stream
+2020-06-29T23:37:27.671934Z	info	cache	Root cert has changed, start rotating root cert for SDS clients
+2020-06-29T23:37:27.671993Z	info	cache	GenerateSecret default
+2020-06-29T23:37:27.672377Z	info	sds	resource:default pushed key/cert pair to proxy
+2020-06-29T23:37:29.663179Z	info	sds	resource:ROOTCA new connection
+2020-06-29T23:37:29.663470Z	info	sds	Skipping waiting for ingress gateway secret
+2020-06-29T23:37:29.663545Z	info	cache	Loaded root cert from certificate ROOTCA
+2020-06-29T23:37:29.663899Z	info	sds	resource:ROOTCA pushed root cert to proxy
+2020-06-29T23:37:30.890178Z	info	Envoy proxy is ready
+2020-06-30T00:06:51.794303Z	info	Subchannel Connectivity change to CONNECTING
+2020-06-30T00:06:51.794349Z	info	transport: loopyWriter.run returning. connection error: desc = "transport is closing"
+2020-06-30T00:06:51.794488Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {CONNECTING <nil>}
+2020-06-30T00:06:51.794505Z	info	Channel Connectivity change to CONNECTING
+2020-06-30T00:06:51.794536Z	info	Subchannel picks a new address "istiod.istio-system.svc:15012" to connect
+2020-06-30T00:06:51.805174Z	info	Subchannel Connectivity change to READY
+2020-06-30T00:06:51.805349Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {READY <nil>}
+2020-06-30T00:06:51.805437Z	info	Channel Connectivity change to READY
+2020-06-30T00:09:33.231051Z	warning	envoy config	[bazel-out/k8-opt/bin/external/envoy/source/common/config/_virtual_includes/grpc_stream_lib/common/config/grpc_stream.h:92] StreamAggregatedResources gRPC config stream closed: 13,
+2020-06-30T00:38:40.846070Z	warning	envoy config	[bazel-out/k8-opt/bin/external/envoy/source/common/config/_virtual_includes/grpc_stream_lib/common/config/grpc_stream.h:92] StreamAggregatedResources gRPC config stream closed: 13,
+2020-06-30T00:39:34.522417Z	info	Subchannel Connectivity change to CONNECTING
+2020-07-01T08:47:33.058223Z	info	Channel Connectivity change to CONNECTING
+2020-07-01T08:47:33.071304Z	info	Subchannel Connectivity change to READY
+2020-07-01T08:47:33.071500Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {READY <nil>}
+2020-07-01T08:47:33.071540Z	info	Channel Connectivity change to READY
+2020-07-01T08:51:54.097547Z	warning	envoy config	[bazel-out/k8-opt/bin/external/envoy/source/common/config/_virtual_includes/grpc_stream_lib/common/config/grpc_stream.h:92] StreamAggregatedResources gRPC config stream closed: 13,
+2020-07-01T09:17:02.028308Z	info	Subchannel Connectivity change to CONNECTING
+2020-07-01T09:17:02.028351Z	info	transport: loopyWriter.run returning. connection error: desc = "transport is closing"
+2020-07-01T09:17:02.028550Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {CONNECTING <nil>}
+2020-07-01T09:17:02.028565Z	info	Channel Connectivity change to CONNECTING
+2020-07-01T09:17:02.028552Z	info	Subchannel picks a new address "istiod.istio-system.svc:15012" to connect
+2020-07-01T09:17:02.040465Z	info	Subchannel Connectivity change to READY
+2020-07-01T09:17:02.040542Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {READY <nil>}
+2020-07-01T09:17:02.040553Z	info	Channel Connectivity change to READY
+2020-07-01T09:20:48.610558Z	warning	envoy config	[bazel-out/k8-opt/bin/external/envoy/source/common/config/_virtual_includes/grpc_stream_lib/common/config/grpc_stream.h:92] StreamAggregatedResources gRPC config stream closed: 13,
+2020-07-01T09:49:09.542608Z	info	transport: loopyWriter.run returning. connection error: desc = "transport is closing"
+2020-07-01T09:49:09.542582Z	info	Subchannel Connectivity change to CONNECTING
+2020-07-01T09:49:09.542806Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {CONNECTING <nil>}
+2020-07-01T09:49:09.542821Z	info	Channel Connectivity change to CONNECTING
+2020-07-01T09:49:09.542802Z	info	Subchannel picks a new address "istiod.istio-system.svc:15012" to connect
+2020-07-01T09:49:09.552586Z	info	Subchannel Connectivity change to READY
+2020-07-01T09:49:09.552621Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {READY <nil>}
+2020-07-01T09:49:09.552630Z	info	Channel Connectivity change to READY

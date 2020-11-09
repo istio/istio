@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 )
 
 func TestNoVersions(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	events := []event.Event{data.Event1Col1AddItem1}
 	g.Expect(events[0].Resource.Metadata.Version).NotTo(Equal(resource.Version("")))
@@ -35,7 +35,7 @@ func TestNoVersions(t *testing.T) {
 }
 
 func TestNoFullSync(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	events := []event.Event{data.Event1Col1AddItem1, data.Event1Col1Synced, data.Event2Col1AddItem2}
 	events = fixtures.NoFullSync(events)
@@ -45,7 +45,7 @@ func TestNoFullSync(t *testing.T) {
 }
 
 func TestSort(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	events := []event.Event{data.Event2Col1AddItem2, data.Event1Col1Synced, data.Event1Col1AddItem1}
 	events = fixtures.Sort(events)
@@ -55,7 +55,7 @@ func TestSort(t *testing.T) {
 }
 
 func TestChain(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	events := []event.Event{data.Event2Col1AddItem2, data.Event1Col1Synced, data.Event1Col1AddItem1}
 	fn := fixtures.Chain(fixtures.Sort, fixtures.NoFullSync, fixtures.NoVersions)

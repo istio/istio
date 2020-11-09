@@ -15,10 +15,12 @@ spec:
             requestPrincipals: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*"]
             namespaces: ["ns", "ns-prefix-*", "*-ns-suffix", "*"]
             ipBlocks: ["1.2.3.4", "5.6.0.0/16"]
+            remoteIpBlocks: ["1.2.3.4", "5.6.0.0/16"]
             notPrincipals: ["not-principal", "not-principal-prefix-*", "*-not-suffix-principal", "*"]
             notRequestPrincipals: ["not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-not-suffix-requestPrincipals", "*"]
             notNamespaces: ["not-ns", "not-ns-prefix-*", "*-not-ns-suffix", "*"]
             notIpBlocks: ["9.0.0.1", "9.2.0.0/16"]
+            notRemoteIpBlocks: ["9.0.0.1", "9.2.0.0/16"]
       to:
         - operation:
             methods: ["method", "method-prefix-*", "*-suffix-method", "*"]
@@ -34,6 +36,9 @@ spec:
           values: ["header", "header-prefix-*", "*-suffix-header", "*"]
           notValues: ["not-header", "not-header-prefix-*", "*-not-suffix-header", "*"]
         - key: "source.ip"
+          values: ["10.10.10.10", "192.168.10.0/24"]
+          notValues: ["90.10.10.10", "90.168.10.0/24"]
+        - key: "remote.ip"
           values: ["10.10.10.10", "192.168.10.0/24"]
           notValues: ["90.10.10.10", "90.168.10.0/24"]
         - key: "source.namespace"
@@ -54,6 +59,9 @@ spec:
         - key: "request.auth.claims[iss]"
           values: ["iss", "iss-prefix-*", "*-suffix-iss", "*"]
           notValues: ["not-iss", "not-iss-prefix-*", "*-not-suffix-iss", "*"]
+        - key: "request.auth.claims[nested1][nested2]"
+          values: ["nested", "nested-prefix-*", "*-suffix-nested", "*"]
+          notValues: ["not-nested", "not-nested-prefix-*", "*-not-suffix-nested", "*"]
         - key: "destination.ip"
           values: ["10.10.10.10", "192.168.10.0/24"]
           notValues: ["90.10.10.10", "90.168.10.0/24"]

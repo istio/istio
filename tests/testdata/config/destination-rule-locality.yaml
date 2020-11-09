@@ -7,7 +7,6 @@ spec:
   host: locality.cluster.local
   trafficPolicy:
     outlierDetection:
-      consecutiveErrors: 1
       interval: 1s
       baseEjectionTime: 3m
       maxEjectionPercent: 100

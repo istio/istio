@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,16 +18,15 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver/tombstone"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/tombstone"
 )
 
 func TestRecoverySuccessful(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	expected := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "mynode",
@@ -40,13 +39,13 @@ func TestRecoverySuccessful(t *testing.T) {
 }
 
 func TestUnkownTypeShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	obj := tombstone.RecoverResource(&struct{}{})
 	g.Expect(obj).To(BeNil())
 }
 
 func TestUnkownTombstoneObjectShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	obj := tombstone.RecoverResource(cache.DeletedFinalStateUnknown{
 		Obj: &struct{}{},
 	})

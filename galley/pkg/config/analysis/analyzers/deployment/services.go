@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
 package deployment
 
 import (
+	"fmt"
+
 	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/annotation"
-
 	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -53,7 +53,7 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 }
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
-		if inMesh(r, c) {
+		if util.DeploymentInMesh(r, c) {
 			s.analyzeDeployment(r, c)
 		}
 		return true
@@ -88,9 +88,14 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 			for protocol := range protMap {
 				svcNames = append(svcNames, protMap[protocol]...)
 			}
+			m := msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames)
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
+				m.Line = line
+			}
 
 			// Reporting the message for the deployment, port and conflicting services.
-			c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
+			c.Report(collections.K8SAppsV1Deployments.Name(), m)
 		}
 	}
 }
@@ -138,44 +143,4 @@ func servicePortMap(svcs []ServiceSpecWithName) PortMap {
 	}
 
 	return portMap
-}
-
-// inMesh returns true if deployment is in the service mesh (has sidecar)
-func inMesh(r *resource.Instance, c analysis.Context) bool {
-	d := r.Message.(*apps_v1.Deployment)
-
-	// If Pod has annotation, return the injection annotation value
-	if piv, pivok := getPodSidecarInjectionStatus(d); pivok {
-		return piv
-	}
-
-	// In case the annotation is not present but there is a auto-injection label on the namespace,
-	// return the auto-injection label status
-	if niv, nivok := getNamesSidecarInjectionStatus(resource.Namespace(d.Namespace), c); nivok {
-		return niv
-	}
-
-	return false
-}
-
-// getPodSidecarInjectionStatus returns two booleans: enabled and ok.
-// enabled is true when deployment d PodSpec has either the annotation 'sidecar.istio.io/inject: "true"'
-// ok is true when the PodSpec doesn't have the 'sidecar.istio.io/inject' annotation present.
-func getPodSidecarInjectionStatus(d *apps_v1.Deployment) (enabled bool, ok bool) {
-	v, ok := d.Spec.Template.Annotations[annotation.SidecarInject.Name]
-	return v == "true", ok
-}
-
-// autoInjectionEnabled returns two booleans: enabled and ok.
-// enabled is true when namespace ns has 'istio-injection' label set to 'enabled'
-// ok is true when the namespace doesn't have the label 'istio-injection'
-func getNamesSidecarInjectionStatus(ns resource.Namespace, c analysis.Context) (enabled bool, ok bool) {
-	enabled, ok = false, false
-
-	namespace := c.Find(collections.K8SCoreV1Namespaces.Name(), resource.NewFullName("", resource.LocalName(ns)))
-	if namespace != nil {
-		enabled, ok = namespace.Metadata.Labels[injection.InjectionLabelName] == injection.InjectionLabelEnableValue, true
-	}
-
-	return enabled, ok
 }

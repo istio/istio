@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ func (ctx *context) ForEach(collection.Name, IteratorFn)                        
 func (ctx *context) Canceled() bool                                             { return false }
 
 func TestCombinedAnalyzer(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col1 := newSchema("col1")
 	col2 := newSchema("col2")
@@ -90,7 +90,7 @@ func TestCombinedAnalyzer(t *testing.T) {
 }
 
 func TestGetDisabledOutputs(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	in1 := newSchema("in1")
 	in2 := newSchema("in2")

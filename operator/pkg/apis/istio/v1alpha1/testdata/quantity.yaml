@@ -1,0 +1,22 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: example-istiocontrolplane
+spec:
+  profile: demo
+  components:
+    pilot:
+      k8s:
+        hpaSpec:
+          scaleTargetRef:
+            apiVersion: extensions/v1beta1
+            kind: Deployment
+            name: istiod
+          minReplicas: 1
+          maxReplicas: 5
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageValue: 100m

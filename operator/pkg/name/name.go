@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,46 +16,71 @@ package name
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
-	"sync"
-
-	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/vfs"
-	"istio.io/istio/operator/version"
+)
+
+// Istio default namespace
+const (
+	IstioDefaultNamespace = "istio-system"
 )
 
 // Kubernetes Kind strings.
 const (
-	CRDStr                   = "CustomResourceDefinition"
-	DaemonSetStr             = "DaemonSet"
-	DeploymentStr            = "Deployment"
-	HPAStr                   = "HorizontalPodAutoscaler"
-	NamespaceStr             = "Namespace"
-	PodStr                   = "Pod"
-	PDBStr                   = "PodDisruptionBudget"
-	ReplicationControllerStr = "ReplicationController"
-	ReplicaSetStr            = "ReplicaSet"
-	RoleStr                  = "Role"
-	RoleBindingStr           = "RoleBinding"
-	SAStr                    = "ServiceAccount"
-	ServiceStr               = "Service"
-	StatefulSetStr           = "StatefulSet"
+	CRDStr                            = "CustomResourceDefinition"
+	ClusterRoleStr                    = "ClusterRole"
+	ClusterRoleBindingStr             = "ClusterRoleBinding"
+	CMStr                             = "ConfigMap"
+	DaemonSetStr                      = "DaemonSet"
+	DeploymentStr                     = "Deployment"
+	EndpointStr                       = "Endpoints"
+	HPAStr                            = "HorizontalPodAutoscaler"
+	IngressStr                        = "Ingress"
+	MutatingWebhookConfigurationStr   = "MutatingWebhookConfiguration"
+	NamespaceStr                      = "Namespace"
+	PVCStr                            = "PersistentVolumeClaim"
+	PodStr                            = "Pod"
+	PDBStr                            = "PodDisruptionBudget"
+	ReplicationControllerStr          = "ReplicationController"
+	ReplicaSetStr                     = "ReplicaSet"
+	RoleStr                           = "Role"
+	RoleBindingStr                    = "RoleBinding"
+	SAStr                             = "ServiceAccount"
+	ServiceStr                        = "Service"
+	SecretStr                         = "Secret"
+	StatefulSetStr                    = "StatefulSet"
+	ValidatingWebhookConfigurationStr = "ValidatingWebhookConfiguration"
+)
+
+// Istio Kind strings
+const (
+	EnvoyFilterStr        = "EnvoyFilter"
+	GatewayStr            = "Gateway"
+	DestinationRuleStr    = "DestinationRule"
+	MeshPolicyStr         = "MeshPolicy"
+	PeerAuthenticationStr = "PeerAuthentication"
+	VirtualServiceStr     = "VirtualService"
+	IstioOperatorStr      = "IstioOperator"
+)
+
+// Istio API Group Names
+const (
+	AuthenticationAPIGroupName = "authentication.istio.io"
+	ConfigAPIGroupName         = "config.istio.io"
+	NetworkingAPIGroupName     = "networking.istio.io"
+	OperatorAPIGroupName       = "operator.istio.io"
+	SecurityAPIGroupName       = "security.istio.io"
 )
 
 const (
 	// OperatorAPINamespace is the API namespace for operator config.
 	// TODO: move this to a base definitions file when one is created.
-	OperatorAPINamespace = "operator.istio.io"
-	// ConfigFolder is the folder where we store translation configurations
-	ConfigFolder = "translateConfig"
-	// ConfigPrefix is the prefix of IstioOperator's translation configuration file
-	ConfigPrefix = "names-"
+	OperatorAPINamespace = OperatorAPIGroupName
+
 	// DefaultProfileName is the name of the default profile.
 	DefaultProfileName = "default"
 )
@@ -68,17 +93,15 @@ const (
 	// are used for struct traversal.
 	IstioBaseComponentName ComponentName = "Base"
 	PilotComponentName     ComponentName = "Pilot"
-	PolicyComponentName    ComponentName = "Policy"
-	TelemetryComponentName ComponentName = "Telemetry"
 
 	CNIComponentName ComponentName = "Cni"
+
+	// istiod remote component
+	IstiodRemoteComponentName ComponentName = "IstiodRemote"
 
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
-
-	// Addon root component
-	AddonComponentName ComponentName = "AddonComponents"
 
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
@@ -94,19 +117,15 @@ var (
 	AllCoreComponentNames = []ComponentName{
 		IstioBaseComponentName,
 		PilotComponentName,
-		PolicyComponentName,
-		TelemetryComponentName,
 		CNIComponentName,
+		IstiodRemoteComponentName,
 	}
-	allComponentNamesMap = make(map[ComponentName]bool)
-	// DeprecatedComponentNamesMap defines the names of deprecated istio core components used in old versions,
-	// which would not appear as standalone components in current version. This is used for pruning, and alerting
-	// users to the fact that the components are deprecated.
-	DeprecatedComponentNamesMap = make(map[ComponentName]bool)
 
-	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
-	// and have built in path definitions beyond standard addons coming from external charts.
-	BundledAddonComponentNamesMap = make(map[ComponentName]bool)
+	// AllComponentNames is a list of all Istio components.
+	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName,
+		IstioOperatorComponentName, IstioOperatorCustomResourceName)
+
+	allCoreComponentNamesMap = map[ComponentName]bool{}
 
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
@@ -115,17 +134,19 @@ var (
 		"spec.values.gateways.istio-egressgateway.enabled":  "spec.components.egressGateways.[name:istio-egressgateway].enabled",
 	}
 
-	scanAddons sync.Once
+	// userFacingComponentNames are the names of components that are displayed to the user in high level CLIs
+	// (like progress log).
+	userFacingComponentNames = map[ComponentName]string{
+		IstioBaseComponentName:          "Istio core",
+		PilotComponentName:              "Istiod",
+		CNIComponentName:                "CNI",
+		IngressComponentName:            "Ingress gateways",
+		EgressComponentName:             "Egress gateways",
+		IstioOperatorComponentName:      "Istio operator",
+		IstioOperatorCustomResourceName: "Istio operator CRDs",
+		IstiodRemoteComponentName:       "Istiod remote",
+	}
 )
-
-func init() {
-	for _, n := range AllCoreComponentNames {
-		allComponentNamesMap[n] = true
-	}
-	if err := loadComponentNamesConfig(); err != nil {
-		panic(err)
-	}
-}
 
 // Manifest defines a manifest for a component.
 type Manifest struct {
@@ -135,6 +156,12 @@ type Manifest struct {
 
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
+
+func init() {
+	for _, c := range AllCoreComponentNames {
+		allCoreComponentNamesMap[c] = true
+	}
+}
 
 // Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
 // manifest.
@@ -166,19 +193,9 @@ func (mm ManifestMap) String() string {
 	return out
 }
 
-// IsCoreComponent reports whether cn is a core component.
-func (cn ComponentName) IsCoreComponent() bool {
-	return allComponentNamesMap[cn]
-}
-
 // IsGateway reports whether cn is a gateway component.
 func (cn ComponentName) IsGateway() bool {
 	return cn == IngressComponentName || cn == EgressComponentName
-}
-
-// IsAddon reports whether cn is an addon component.
-func (cn ComponentName) IsAddon() bool {
-	return cn == AddonComponentName
 }
 
 // Namespace returns the namespace for the component. It follows these rules:
@@ -218,52 +235,12 @@ func TitleCase(n ComponentName) ComponentName {
 	return ComponentName(strings.ToUpper(s[0:1]) + s[1:])
 }
 
-// loadComponentNamesConfig loads a config that defines version specific components names, such as legacy components
-// names that may not otherwise exist in the code.
-func loadComponentNamesConfig() error {
-	minorVersion := version.OperatorBinaryVersion.MinorVersion
-	f := filepath.Join(ConfigFolder, ConfigPrefix+minorVersion.String()+".yaml")
-	b, err := vfs.ReadFile(f)
-	if err != nil {
-		return fmt.Errorf("failed to read naming file: %v", err)
+// UserFacingComponentName returns the name of the given component that should be displayed to the user in high
+// level CLIs (like progress log).
+func UserFacingComponentName(name ComponentName) string {
+	ret, ok := userFacingComponentNames[name]
+	if !ok {
+		return "Unknown"
 	}
-	namesConfig := &ComponentNamesConfig{}
-	err = yaml.Unmarshal(b, &namesConfig)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal naming config file: %v", err)
-	}
-	for _, n := range namesConfig.DeprecatedComponentNames {
-		DeprecatedComponentNamesMap[ComponentName(n)] = true
-	}
-	return nil
-}
-
-// onceErr is used to report any error returned through once. It must be globally scoped.
-var onceErr error
-
-// ScanBundledAddonComponents scans the specified directory for addons distributed with Istio and dynamically creates
-// a map that can be used to refer to these component names through an API with dynamic values.
-func ScanBundledAddonComponents(chartsRootDir string) error {
-	scanAddons.Do(func() {
-		if chartsRootDir == "" {
-			if onceErr = helm.CheckCompiledInCharts(); onceErr != nil {
-				return
-			}
-		}
-
-		var addonComponentNames []string
-		addonComponentNames, onceErr = helm.GetAddonNamesFromCharts(chartsRootDir, true)
-		if onceErr != nil {
-			onceErr = fmt.Errorf("failed to scan bundled addon components: %v", onceErr)
-			return
-		}
-		for _, an := range addonComponentNames {
-			BundledAddonComponentNamesMap[ComponentName(an)] = true
-			enablementName := strings.ToLower(an[:1]) + an[1:]
-			valuePath := fmt.Sprintf("spec.values.%s.enabled", enablementName)
-			iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", enablementName)
-			ValuesEnablementPathMap[valuePath] = iopPath
-		}
-	})
-	return onceErr
+	return ret
 }

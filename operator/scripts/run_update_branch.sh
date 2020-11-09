@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
+MANIFESTS_DIR="${ROOT}/../manifests"
+
 function update_branch() {
     local FROM="${1}"
     local TO="${2}"
@@ -30,8 +32,8 @@ function update_branch() {
         # Update version string in docs.
         sed -i "s|blob/${FROM}|blob/${TO}|g" "${ROOT}"/ARCHITECTURE.md
         sed -i "s|blob/${FROM}|blob/${TO}|g" "${ROOT}"/README.md
-        # Update tag for buildin profiles.
-        find "${ROOT}"/data/profiles -type f -exec sed -i "s/tag: ${FROM}-latest-daily/tag: ${TO}-latest-daily/g" {} \;
+        # Update tag for building profiles.
+        find "${MANIFESTS_DIR}"/profiles -type f -exec sed -i "s/tag: ${FROM}-latest-daily/tag: ${TO}-latest-daily/g" {} \;
         # Update tag for testdata.
         find "${ROOT}"/cmd/mesh/testdata -type f -exec sed -i "s/tag: ${FROM}-latest-daily/tag: ${TO}-latest-daily/g" {} \;
         find "${ROOT}"/pkg/values/testdata -type f -exec sed -i "s/tag: ${FROM}-latest-daily/tag: ${TO}-latest-daily/g" {} \;

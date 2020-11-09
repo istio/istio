@@ -24,7 +24,7 @@ type Instance interface {
 	model.Controller
 	model.ServiceDiscovery
 
-	// Provider backing this service registry (i.e. Kubernetes, Consul, etc.)
+	// Provider backing this service registry (i.e. Kubernetes etc.)
 	Provider() ProviderID
 
 	// Cluster for which the service registry applies. Only needed for multicluster systems.

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 package matcher
 
 import (
-	"reflect"
 	"testing"
 
-	routepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestHeaderMatcher(t *testing.T) {
@@ -55,8 +56,8 @@ func TestHeaderMatcher(t *testing.T) {
 
 	for _, tc := range testCases {
 		actual := HeaderMatcher(tc.K, tc.V)
-		if !reflect.DeepEqual(*tc.Expect, *actual) {
-			t.Errorf("%s: expecting %v, but got %v", tc.Name, *tc.Expect, *actual)
+		if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+			t.Errorf("expecting %v, but got %v", tc.Expect, actual)
 		}
 	}
 }
@@ -129,8 +130,8 @@ func TestPathMatcher(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			actual := PathMatcher(tc.V)
-			if !reflect.DeepEqual(*tc.Expect, *actual) {
-				t.Errorf("expecting %v, but got %v", *tc.Expect, *actual)
+			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
 			}
 		})
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,80 +15,68 @@
 package envoyfilter
 
 import (
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/proto"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/pkg/log"
 )
 
-// ApplyClusterPatches applies patches to CDS clusters
-func ApplyClusterPatches(
-	patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy,
-	push *model.PushContext,
-	clusters []*xdsapi.Cluster) (out []*xdsapi.Cluster) {
-	defer runtime.HandleCrash(func() {
+func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) (out *cluster.Cluster) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.
-	out = clusters
-
-	efw := push.EnvoyFilters(proxy)
+	out = c
 	if efw == nil {
-		return out
+		return
 	}
-
-	clustersRemoved := false
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
-		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
-			cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
 		}
-		for i := range clusters {
-			if clusters[i] == nil {
-				// deleted by the remove operation
-				continue
-			}
-
-			if commonConditionMatch(patchContext, cp) && clusterMatch(clusters[i], cp) {
-				if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
-					clusters[i] = nil
-					clustersRemoved = true
-				} else {
-					proto.Merge(clusters[i], cp.Value)
-				}
-			}
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
+			proto.Merge(c, cp.Value)
 		}
 	}
+	return c
+}
 
+func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) bool {
+	if efw == nil {
+		return true
+	}
+	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
+		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
+			continue
+		}
+		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
+			return false
+		}
+	}
+	return true
+}
+
+func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) []*cluster.Cluster {
+	if efw == nil {
+		return nil
+	}
+	var result []*cluster.Cluster
 	// Add cluster if the operation is add, and patch context matches
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			if commonConditionMatch(patchContext, cp) {
-				clusters = append(clusters, proto.Clone(cp.Value).(*xdsapi.Cluster))
+			if commonConditionMatch(pctx, cp) {
+				result = append(result, proto.Clone(cp.Value).(*cluster.Cluster))
 			}
 		}
 	}
-
-	if clustersRemoved {
-		trimmedClusters := make([]*xdsapi.Cluster, 0, len(clusters))
-		for i := range clusters {
-			if clusters[i] == nil {
-				continue
-			}
-			trimmedClusters = append(trimmedClusters, clusters[i])
-		}
-		clusters = trimmedClusters
-	}
-	return clusters
+	return result
 }
 
-func clusterMatch(cluster *xdsapi.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	cMatch := cp.Match.GetCluster()
 	if cMatch == nil {
 		return true

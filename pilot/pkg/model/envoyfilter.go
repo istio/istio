@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/xds"
 )
@@ -55,11 +55,12 @@ var wellKnownVersions = map[string]string{
 	`^1\.6.*`: "1.6",
 	`^1\.7.*`: "1.7",
 	`^1\.8.*`: "1.8",
-	// Hopefully we have a better API by 1.9. If not, add it here
+	`^1\.9.*`: "1.9",
+	// Hopefully we have a better API by 1.10. If not, add it here
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
-func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
+func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
 	out := &EnvoyFilterWrapper{}
@@ -73,8 +74,15 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
 		}
-		// there won't be an error here because validation catches mismatched types
-		cpw.Value, _ = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
+		var err error
+		// Use non-strict building to avoid issues where EnvoyFilter is valid but meant
+		// for a different version of the API than we are built with
+		cpw.Value, err = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false)
+		// There generally won't be an error here because validation catches mismatched types
+		// Should only happen in tests or without validation
+		if err != nil {
+			log.Errorf("failed to build envoy filter value: %v", err)
+		}
 		if cp.Match == nil {
 			// create a match all object
 			cpw.Match = &networking.EnvoyFilter_EnvoyConfigObjectMatch{Context: networking.EnvoyFilter_ANY}
@@ -98,9 +106,10 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE ||
 			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
 			// insert_before, after or first is applicable only for network filter and http filter
-			// TODO: insert before/after is also applicable to http_routes
 			// convert the rest to add
-			if cpw.ApplyTo != networking.EnvoyFilter_HTTP_FILTER && cpw.ApplyTo != networking.EnvoyFilter_NETWORK_FILTER {
+			if cpw.ApplyTo != networking.EnvoyFilter_HTTP_FILTER &&
+				cpw.ApplyTo != networking.EnvoyFilter_NETWORK_FILTER &&
+				cpw.ApplyTo != networking.EnvoyFilter_HTTP_ROUTE {
 				cpw.Operation = networking.EnvoyFilter_Patch_ADD
 			}
 		}

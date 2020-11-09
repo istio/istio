@@ -1,6 +1,3 @@
-mixerCheckServer: istio-policy.istio-system.svc.cluster.local:15004
-mixerReportServer: istio-telemetry.istio-system.svc.cluster.local:15004
-
 rootNamespace: istio-config
 defaultServiceExportTo:
   - "*"

@@ -1,0 +1,90 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+  # Passthrough
+  - port: 34000
+    protocol: TLS
+    routes:
+      namespaces:
+        from: All
+      selector:
+        matchLabels:
+          selected: "yes"
+      kind: TLSRoute
+    tls:
+      mode: Passthrough
+      certificateRef:
+        name: my-cert-tls
+        group: core
+        kind: Secret
+  # Termination
+  - hostname: "domain.example"
+    port: 34000
+    protocol: HTTPS
+    routes:
+      namespaces:
+        from: All
+      selector:
+        matchLabels:
+          selected: "yes"
+      kind: HTTPRoute
+    tls:
+      mode: Terminate
+      certificateRef:
+        name: my-cert-http
+        group: core
+        kind: Secret
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: TLSRoute
+metadata:
+  name: tls
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  rules:
+  - forwardTo:
+    - serviceName: httpbin
+      port: 443
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: TLSRoute
+metadata:
+  name: tls-match
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  rules:
+  - matches:
+    - snis: ["foo.com"]
+    forwardTo:
+    - serviceName: httpbin
+      port: 443
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  hostnames: ["domain.example"]
+  rules:
+  - forwardTo:
+    - serviceName: httpbin
+      port: 80

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ const (
 	// PathSeparatorRune is the separator between path elements, as a rune.
 	pathSeparatorRune = '.'
 	// EscapedPathSeparator is what to use when the path shouldn't separate
-	escapedPathSeparator = "\\" + PathSeparator
+	EscapedPathSeparator = "\\" + PathSeparator
 )
 
 var (
@@ -55,7 +55,7 @@ func PathFromString(path string) Path {
 	var r []string
 	for _, str := range pv {
 		if str != "" {
-			str = strings.ReplaceAll(str, escapedPathSeparator, PathSeparator)
+			str = strings.ReplaceAll(str, EscapedPathSeparator, PathSeparator)
 			// Is str of the form node[expr], convert to "node", "[expr]"?
 			nBracket := strings.IndexRune(str, '[')
 			if nBracket > 0 {
@@ -72,6 +72,18 @@ func PathFromString(path string) Path {
 // String converts a string slice path representation of form ["a", "b", "c"] to a string representation like "a.b.c".
 func (p Path) String() string {
 	return strings.Join(p, PathSeparator)
+}
+
+func (p Path) Equals(p2 Path) bool {
+	if len(p) != len(p2) {
+		return false
+	}
+	for i, pp := range p {
+		if pp != p2[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // ToYAMLPath converts a path string to path such that the first letter of each path element is lower case.

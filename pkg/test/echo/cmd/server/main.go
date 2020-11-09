@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,16 +30,18 @@ import (
 )
 
 var (
-	httpPorts   []int
-	grpcPorts   []int
-	tcpPorts    []int
-	tlsPorts    []int
-	metricsPort int
-	uds         string
-	version     string
-	cluster     string
-	crt         string
-	key         string
+	httpPorts        []int
+	grpcPorts        []int
+	tcpPorts         []int
+	tlsPorts         []int
+	instanceIPPorts  []int
+	serverFirstPorts []int
+	metricsPort      int
+	uds              string
+	version          string
+	cluster          string
+	crt              string
+	key              string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -55,43 +57,55 @@ var (
 			for _, p := range tlsPorts {
 				tlsByPort[p] = true
 			}
+			serverFirstByPort := map[int]bool{}
+			for _, p := range serverFirstPorts {
+				serverFirstByPort[p] = true
+			}
 			portIndex := 0
 			for i, p := range httpPorts {
 				ports[portIndex] = &common.Port{
-					Name:     "http-" + strconv.Itoa(i),
-					Protocol: protocol.HTTP,
-					Port:     p,
-					TLS:      tlsByPort[p],
+					Name:        "http-" + strconv.Itoa(i),
+					Protocol:    protocol.HTTP,
+					Port:        p,
+					TLS:         tlsByPort[p],
+					ServerFirst: serverFirstByPort[p],
 				}
 				portIndex++
 			}
 			for i, p := range grpcPorts {
 				ports[portIndex] = &common.Port{
-					Name:     "grpc-" + strconv.Itoa(i),
-					Protocol: protocol.GRPC,
-					Port:     p,
-					TLS:      tlsByPort[p],
+					Name:        "grpc-" + strconv.Itoa(i),
+					Protocol:    protocol.GRPC,
+					Port:        p,
+					TLS:         tlsByPort[p],
+					ServerFirst: serverFirstByPort[p],
 				}
 				portIndex++
 			}
 			for i, p := range tcpPorts {
 				ports[portIndex] = &common.Port{
-					Name:     "tcp-" + strconv.Itoa(i),
-					Protocol: protocol.TCP,
-					Port:     p,
-					TLS:      tlsByPort[p],
+					Name:        "tcp-" + strconv.Itoa(i),
+					Protocol:    protocol.TCP,
+					Port:        p,
+					TLS:         tlsByPort[p],
+					ServerFirst: serverFirstByPort[p],
 				}
 				portIndex++
 			}
+			instanceIPByPort := map[int]struct{}{}
+			for _, p := range instanceIPPorts {
+				instanceIPByPort[p] = struct{}{}
+			}
 
 			s := server.New(server.Config{
-				Ports:     ports,
-				Metrics:   metricsPort,
-				TLSCert:   crt,
-				TLSKey:    key,
-				Version:   version,
-				Cluster:   cluster,
-				UDSServer: uds,
+				Ports:          ports,
+				Metrics:        metricsPort,
+				BindIPPortsMap: instanceIPByPort,
+				TLSCert:        crt,
+				TLSKey:         key,
+				Version:        version,
+				Cluster:        cluster,
+				UDSServer:      uds,
 			})
 
 			if err := s.Start(); err != nil {
@@ -122,6 +136,8 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tcpPorts, "tcp", []int{9090}, "TCP ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tlsPorts, "tls", []int{}, "Ports that are using TLS. These must be defined as http/grpc/tcp.")
+	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
+	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
 	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
 	rootCmd.PersistentFlags().StringVar(&version, "version", "", "Version string")

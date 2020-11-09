@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ func getKey(jwksFile string, t *testing.T) interface{} {
 	if err != nil {
 		t.Fatalf("failed to parse jwks: %s", err)
 	}
-	key, err := jwks.Keys[0].Materialize()
-	if err != nil {
+	var key interface{}
+	if err := jwks.Keys[0].Raw(&key); err != nil {
 		t.Fatalf("failed to materialize jwks: %s", err)
 	}
 	return key
@@ -58,6 +58,36 @@ func TestSampleJwtToken(t *testing.T) {
 				"iss":    "test-issuer-1@istio.io",
 				"sub":    "sub-1",
 				"exp":    4715782722.0,
+			},
+		},
+		{
+			name:  "TokenIssuer1NestedClaims1",
+			token: TokenIssuer1WithNestedClaims1,
+			wantClaims: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"key1": []interface{}{"valueA", "valueB"},
+					"nested-2": map[string]interface{}{
+						"key1": []interface{}{"valueA", "valueB"},
+					},
+				},
+				"iss": "test-issuer-1@istio.io",
+				"sub": "sub-1",
+				"exp": 4757607896.0,
+			},
+		},
+		{
+			name:  "TokenIssuer1NestedClaims2",
+			token: TokenIssuer1WithNestedClaims2,
+			wantClaims: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"key2": "valueC",
+					"nested-2": map[string]interface{}{
+						"key2": "valueC",
+					},
+				},
+				"iss": "test-issuer-1@istio.io",
+				"sub": "sub-1",
+				"exp": 4757608018.0,
 			},
 		},
 		{

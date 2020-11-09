@@ -1,5 +1,35 @@
 [
   {
+    "op": "replace",
+    "path": "/spec/containers/0/readinessProbe",
+    "value": {
+      "httpGet": {
+        "path": "/app-health/hello/readyz",
+        "port": 15020
+      }
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/spec/containers/0/livenessProbe",
+    "value": {
+      "httpGet": {
+        "path": "/app-health/hello/livez",
+        "port": 15020
+      }
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/spec/containers/1/livenessProbe",
+    "value": {
+      "httpGet": {
+        "path": "/app-health/second/livez",
+        "port": 15020
+      }
+    }
+  },
+  {
     "op": "remove",
     "path": "/spec/initContainers/0"
   },
@@ -62,6 +92,13 @@
   },
   {
     "op": "add",
+    "path": "/spec/securityContext",
+    "value": {
+      "fsGroup": 1337
+    }
+  },
+  {
+    "op": "add",
     "path": "/metadata/annotations",
     "value": {
       "prometheus.io/path": "/stats/prometheus"
@@ -103,35 +140,5 @@
     "op": "add",
     "path": "/metadata/labels/service.istio.io~1canonical-revision",
     "value": "latest"
-  },
-  {
-    "op": "replace",
-    "path": "/spec/containers/0/readinessProbe",
-    "value": {
-      "httpGet": {
-        "path": "/app-health/hello/readyz",
-        "port": 15020
-      }
-    }
-  },
-  {
-    "op": "replace",
-    "path": "/spec/containers/0/livenessProbe",
-    "value": {
-      "httpGet": {
-        "path": "/app-health/hello/livez",
-        "port": 15020
-      }
-    }
-  },
-  {
-    "op": "replace",
-    "path": "/spec/containers/1/livenessProbe",
-    "value": {
-      "httpGet": {
-        "path": "/app-health/second/livez",
-        "port": 15020
-      }
-    }
   }
 ]

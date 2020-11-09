@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,5 +17,5 @@ package resource
 // Dumper is an interface that is implemented by all components that can dump their state. In CI, it is
 // useful to get as much context as possible when a test fails. Dumper allows dumping of state from a test.
 type Dumper interface {
-	Dump()
+	Dump(ctx Context)
 }

@@ -3,8 +3,10 @@ kind: Deployment
 metadata:
   labels:
     app: istiod
+    install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
+    operator.istio.io/component: Pilot
     release: istio
   name: istiod
   namespace: istio-control
@@ -19,11 +21,15 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
+        install.operator.istio.io/owning-resource: unknown
         istio: pilot
         istio.io/rev: default
+        operator.istio.io/component: Pilot
     spec:
       containers:
       - args:
@@ -32,7 +38,6 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
         env:
@@ -57,6 +62,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.serviceAccountName
+        - name: KUBECONFIG
+          value: /var/run/secrets/remote/config
         - name: PILOT_TRACE_SAMPLING
           value: "1"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
@@ -71,13 +78,21 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: EXTERNAL_ISTIOD
+          value: "false"
+        - name: CENTRAL_ISTIOD
+          value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 15010
+          protocol: TCP
         - containerPort: 15017
+          protocol: TCP
         - containerPort: 15053
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: /ready
@@ -107,12 +122,15 @@ spec:
         - mountPath: /etc/cacerts
           name: cacerts
           readOnly: true
+        - mountPath: /var/run/secrets/remote
+          name: istio-kubeconfig
+          readOnly: true
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -128,9 +146,12 @@ spec:
         secret:
           optional: true
           secretName: cacerts
+      - name: istio-kubeconfig
+        secret:
+          optional: true
+          secretName: istio-kubeconfig
       - configMap:
           name: istio-sidecar-injector
-          optional: true
         name: inject
       - configMap:
           name: istio
@@ -143,7 +164,9 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
+    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
+    operator.istio.io/component: Pilot
     release: istio
   name: istiod
   namespace: istio-control

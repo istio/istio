@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -192,7 +192,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			return nil, fmt.Errorf("failed locating proto validation function %s", ar.Validate)
 		}
 
-		r, err := resource.Builder{
+		r := resource.Builder{
 			ClusterScoped: ar.ClusterScoped,
 			Kind:          ar.Kind,
 			Plural:        ar.Plural,
@@ -201,10 +201,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			Proto:         ar.Proto,
 			ProtoPackage:  ar.ProtoPackage,
 			ValidateProto: validateFn,
-		}.Build()
-		if err != nil {
-			return nil, err
-		}
+		}.BuildNoValidate()
 
 		key := resourceKey(ar.Group, ar.Kind)
 		if _, ok := resources[key]; ok {

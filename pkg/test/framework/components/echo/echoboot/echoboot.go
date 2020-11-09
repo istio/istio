@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,36 +15,12 @@
 package echoboot
 
 import (
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/docker"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // NewBuilder for Echo Instances.
-func NewBuilder(ctx resource.Context) (b echo.Builder, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-
-	ctx.Environment().Case(environment.Native, func() {
-		b = docker.NewBuilder(ctx)
-		err = nil
-	})
-
-	ctx.Environment().Case(environment.Kube, func() {
-		b = kube.NewBuilder(ctx)
-		err = nil
-	})
-	return
-}
-
-// NewBuilder for Echo Instances.
-func NewBuilderOrFail(t test.Failer, ctx resource.Context) echo.Builder {
-	t.Helper()
-	b, err := NewBuilder(ctx)
-	if err != nil {
-		t.Fatalf("echo.NewBuilderOrFail: %v", err)
-	}
-	return b
+func NewBuilder(ctx resource.Context) echo.Builder {
+	return kube.NewBuilder(ctx)
 }

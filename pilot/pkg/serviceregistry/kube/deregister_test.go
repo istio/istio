@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ import (
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
-
-	"istio.io/pkg/log"
 )
 
 // TestRemoveIPFromEndpoint if the provided IP to deregister has already
@@ -112,11 +110,6 @@ func TestRemoveIPFromEndpoint(t *testing.T) {
 		match = removeIPFromEndpoint(tst.input1, tst.input2)
 		if tst.expected != match {
 			t.Errorf("Expected %t got %t", tst.expected, match)
-		}
-		if !match {
-			log.Infof("Ip %s does not exist in Endpoint %v", tst.input2, tst.input1)
-		} else {
-			log.Infof("Ip %s exist in Endpoint %v", tst.input2, tst.input1)
 		}
 	}
 }

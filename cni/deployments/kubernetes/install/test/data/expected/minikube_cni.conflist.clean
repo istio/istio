@@ -1,0 +1,25 @@
+{
+  "cniVersion": "0.3.1",
+  "name": "k8s-pod-network",
+  "plugins": [
+    {
+      "addIf": "true",
+      "bridge": "mybridge",
+      "ipMasq": true,
+      "ipam": {
+        "gateway": "10.1.0.1",
+        "routes": [
+          {
+            "dst": "0.0.0.0/0"
+          }
+        ],
+        "subnet": "10.1.0.0/16",
+        "type": "host-local"
+      },
+      "isGateway": true,
+      "mtu": 1460,
+      "name": "rkt.kubernetes.io",
+      "type": "bridge"
+    }
+  ]
+}

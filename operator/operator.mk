@@ -1,4 +1,4 @@
-# Copyright 2019 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ repo_dir := .
 out_path = ${TMPDIR}
 protoc = protoc -Icommon-protos -Ioperator
 
-go_plugin_prefix := --go_out=plugins=grpc,
+go_plugin_prefix := --gogofast_out=plugins=grpc,Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types
 go_plugin := $(go_plugin_prefix):$(out_path)
 
 protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
@@ -37,5 +37,5 @@ $(v1alpha1_pb_gos) $(v1alpha1_pb_docs): $(v1alpha1_protos)
 	@rm -fr ${TMPDIR}/pkg
 	@go run $(repo_dir)/operator/pkg/apis/istio/fixup_structs/main.go -f $(v1alpha1_path)/values_types.pb.go
 
-.PHONY: operator-proto
+.PHONY: operator-proto $(v1alpha1_pb_gos) $(v1alpha1_pb_docs)
 operator-proto: $(v1alpha1_pb_gos) $(v1alpha1_pb_docs)

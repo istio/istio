@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+- |
+  **Added** support for migration and concurrent use of regular K8S tokens as well as new K8S tokens with audience. This feature is enabled by
+  default, can be disabled by REQUIRE_3P_TOKEN environment variable in Istiod, which will require new tokens with audience. The
+  TOKEN_AUDIENCE environment variable allows customizing the checked audience, default remains istio-ca.

@@ -26,6 +26,7 @@ metadata:
   name: sleep
   labels:
     app: sleep
+    service: sleep
 spec:
   ports:
   - port: 80
@@ -50,7 +51,7 @@ spec:
       serviceAccountName: vault-citadel-sa
       containers:
       - name: sleep
-        image: pstauffer/curl
+        image: curlimages/curl
         command: ["/bin/sleep", "3650d"]
         imagePullPolicy: IfNotPresent
 ---

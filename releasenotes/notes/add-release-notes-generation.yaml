@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: documentation
+issue:
+- https://github.com/istio/istio/issues/23622
+releaseNotes:
+- |
+  **Added** support for autogenerating release notes based off of a file present in the /releasenotes/notes directory.
+

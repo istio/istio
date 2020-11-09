@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,9 @@ import (
 	"path"
 	"strings"
 
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	"github.com/google/uuid"
+
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 const (
@@ -36,9 +35,6 @@ type Settings struct {
 	TestID string
 
 	RunID uuid.UUID
-
-	// Environment to run the tests in. By default, a local environment will be used.
-	Environment string
 
 	// Do not cleanup the resources after the test run.
 	NoCleanup bool
@@ -57,6 +53,10 @@ type Settings struct {
 	// This should not be depended on as a primary means for reducing test flakes.
 	Retries int
 
+	// If enabled, namespaces will be reused rather than created with dynamic names each time.
+	// This is useful when combined with NoCleanup, to allow quickly iterating on tests.
+	StableNamespaces bool
+
 	// The label selector that the user has specified.
 	SelectorString string
 
@@ -66,6 +66,10 @@ type Settings struct {
 	// EnvironmentFactory allows caller to override the environment creation. If nil, a default is used based
 	// on the known environment names.
 	EnvironmentFactory EnvironmentFactory
+
+	// The revision label on a namespace for injection webhook.
+	// If set to XXX, all the namespaces created with istio-injection=enabled will be replaced with istio.io/rev=XXX.
+	Revision string
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -91,8 +95,7 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		Environment: environment.DefaultName().String(),
-		RunID:       uuid.New(),
+		RunID: uuid.New(),
 	}
 }
 
@@ -100,12 +103,14 @@ func DefaultSettings() *Settings {
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("Environment:       %v\n", s.Environment)
 	result += fmt.Sprintf("TestID:            %s\n", s.TestID)
 	result += fmt.Sprintf("RunID:             %s\n", s.RunID.String())
 	result += fmt.Sprintf("NoCleanup:         %v\n", s.NoCleanup)
 	result += fmt.Sprintf("BaseDir:           %s\n", s.BaseDir)
 	result += fmt.Sprintf("Selector:          %v\n", s.Selector)
 	result += fmt.Sprintf("FailOnDeprecation: %v\n", s.FailOnDeprecation)
+	result += fmt.Sprintf("CIMode:            %v\n", s.CIMode)
+	result += fmt.Sprintf("Retries:           %v\n", s.Retries)
+	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
 	return result
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
-
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/monitoring"
@@ -46,6 +48,9 @@ type MergedGateway struct {
 	// Inverse of ServersByRouteName. Returning this as part of merge result allows to keep route name generation logic
 	// encapsulated within the model and, as a side effect, to avoid generating route names twice.
 	RouteNamesByServer map[*networking.Server]string
+
+	// SNIHostsByServer maps server to SNI Hosts so that recomputation is avoided on listener generation.
+	SNIHostsByServer map[*networking.Server][]string
 }
 
 var (
@@ -70,7 +75,7 @@ func recordRejectedConfig(gatewayName string) {
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
 // Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
-func MergeGateways(gateways ...Config) *MergedGateway {
+func MergeGateways(gateways ...config.Config) *MergedGateway {
 	names := make(map[string]bool, len(gateways))
 	gatewayPorts := make(map[uint32]bool)
 	servers := make(map[uint32][]*networking.Server)
@@ -80,20 +85,31 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	routeNamesByServer := make(map[*networking.Server]string)
 	gatewayNameForServer := make(map[*networking.Server]string)
 	tlsHostsByPort := map[uint32]map[string]struct{}{} // port -> host -> exists
+	sniHostsByServer := make(map[*networking.Server][]string)
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, gatewayConfig := range gateways {
-		gatewayName := fmt.Sprintf("%s/%s", gatewayConfig.Namespace, gatewayConfig.Name)
+		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name // Format: %s/%s
 		names[gatewayName] = true
 
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", gatewayName, names, gatewayCfg)
+		snames := sets.Set{}
 		for _, s := range gatewayCfg.Servers {
+			if len(s.Name) > 0 {
+				if snames.Contains(s.Name) {
+					log.Warnf("Server name %s is not unique in gateway %s and may create possible issues like stat prefix collision ",
+						s.Name, gatewayName)
+				} else {
+					snames.Insert(s.Name)
+				}
+			}
 			sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
 			p := protocol.Parse(s.Port.Protocol)
 
+			sniHostsByServer[s] = GetSNIHostsForServer(s)
 			if s.Tls != nil {
 				// Envoy will reject config that has multiple filter chain matches with the same matching rules
 				// To avoid this, we need to make sure we don't have duplicated hosts, which will become
@@ -117,7 +133,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 
 				if server, exists := plaintextServers[s.Port.Number]; exists {
 					currentProto := protocol.Parse(server[0].Port.Protocol)
-					if currentProto != p || !p.IsHTTP() {
+					if !canMergeProtocols(currentProto, p) {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
 							gatewayConfig.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, server[0].Port.Name, server[0].Port.Number, server[0].Port.Protocol)
 						recordRejectedConfig(gatewayName)
@@ -199,7 +215,37 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		GatewayNameForServer: gatewayNameForServer,
 		ServersByRouteName:   serversByRouteName,
 		RouteNamesByServer:   routeNamesByServer,
+		SNIHostsByServer:     sniHostsByServer,
 	}
+}
+
+func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
+	return (current.IsHTTP() || current == p) && p.IsHTTP()
+}
+
+func GetSNIHostsForServer(server *networking.Server) []string {
+	if server.Tls == nil {
+		return nil
+	}
+	// sanitize the server hosts as it could contain hosts of form ns/host
+	sniHosts := make(map[string]bool)
+	for _, h := range server.Hosts {
+		if strings.Contains(h, "/") {
+			parts := strings.Split(h, "/")
+			h = parts[1]
+		}
+		// do not add hosts, that have already been added
+		if !sniHosts[h] {
+			sniHosts[h] = true
+		}
+	}
+	sniHostsSlice := make([]string, 0, len(sniHosts))
+	for host := range sniHosts {
+		sniHostsSlice = append(sniHostsSlice, host)
+	}
+	sort.Strings(sniHostsSlice)
+
+	return sniHostsSlice
 }
 
 // checkDuplicates returns all of the hosts provided that are already known
@@ -246,7 +292,7 @@ func checkDuplicates(hosts []string, knownHosts map[string]struct{}) []string {
 // While we can use the same RDS route name for two servers (say HTTP and HTTPS) exposing the same set of hosts on
 // different ports, the optimization (one RDS instead of two) could quickly become useless the moment the set of
 // hosts on the two servers start differing -- necessitating the need for two different RDS routes.
-func gatewayRDSRouteName(server *networking.Server, cfg Config) string {
+func gatewayRDSRouteName(server *networking.Server, cfg config.Config) string {
 	p := protocol.Parse(server.Port.Protocol)
 	if p.IsHTTP() {
 		return fmt.Sprintf("http.%d", server.Port.Number)

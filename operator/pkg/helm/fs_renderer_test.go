@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ description: test
 				helmChartDirPath: "testdata/render",
 			},
 			wantResult: `apiVersion: v1
-description: 
+description: test
 name: addon
 version: 1.1.0
 appVersion: 1.1.0
@@ -127,7 +127,7 @@ keywords:
 				helmChartDirPath: "foo/bar",
 			},
 			wantResult: "",
-			wantErr:    errors.New("stat foo/bar: no such file or directory"),
+			wantErr:    errors.New(`component "foo-component" does not exist`),
 		},
 	}
 	for _, tt := range tests {

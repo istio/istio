@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,13 +27,19 @@ func TestKind(t *testing.T) {
 	obj := crd.IstioKind{}
 
 	spec := map[string]interface{}{"a": "b"}
-	obj.SetSpec(spec)
+	obj.Spec = spec
 	if got := obj.GetSpec(); !reflect.DeepEqual(spec, got) {
 		t.Errorf("GetSpec() => got %v, want %v", got, spec)
 	}
 
+	status := map[string]interface{}{"yo": "lit"}
+	obj.Status = status
+	if got := obj.GetStatus(); !reflect.DeepEqual(status, got) {
+		t.Errorf("GetStatus() => got %v, want %v", got, status)
+	}
+
 	meta := meta_v1.ObjectMeta{Name: "test"}
-	obj.SetObjectMeta(meta)
+	obj.ObjectMeta = meta
 	if got := obj.GetObjectMeta(); !reflect.DeepEqual(meta, got) {
 		t.Errorf("GetObjectMeta() => got %v, want %v", got, meta)
 	}
@@ -52,34 +58,6 @@ func TestKind(t *testing.T) {
 	}
 
 	if empty.DeepCopyObject() != nil {
-		t.Error("DeepCopyObject of nil should return nil")
-	}
-
-	obj2 := crd.IstioKind{}
-	spec2 := map[string]interface{}{"a": "b"}
-	obj2.SetSpec(spec2)
-
-	list := crd.IstioKindList{Items: []crd.IstioKind{obj, obj2}}
-	if got := list.GetItems(); len(got) != len(list.Items) ||
-		!reflect.DeepEqual(got[0], &obj) ||
-		!reflect.DeepEqual(got[1], &obj2) {
-		t.Errorf("GetItems() => got %#v, want %#v", got, list.Items)
-	}
-
-	if got := list.DeepCopy(); !reflect.DeepEqual(*got, list) {
-		t.Errorf("DeepCopy() => got %v, want %v", got, list)
-	}
-
-	if got := list.DeepCopyObject(); !reflect.DeepEqual(got, &list) {
-		t.Errorf("DeepCopyObject() => got %v, want %v", got, list)
-	}
-
-	var emptylist *crd.IstioKindList
-	if emptylist.DeepCopy() != nil {
-		t.Error("DeepCopy of nil should return nil")
-	}
-
-	if emptylist.DeepCopyObject() != nil {
 		t.Error("DeepCopyObject of nil should return nil")
 	}
 }

@@ -37,12 +37,10 @@ spec:
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
-        securityContext:
-          runAsUser: 1
         args:
           - --metrics=15014
           - --cluster
-          - "0"
+          - "cluster-0"
           - --port
           - "8080"
           - --port
@@ -53,6 +51,11 @@ spec:
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /
@@ -64,6 +67,11 @@ spec:
           tcpSocket:
             port: tcp-health-port
           initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
           periodSeconds: 10
           failureThreshold: 10
 ---

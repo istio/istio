@@ -80,7 +80,7 @@ spec:
   trafficPolicy:
     tls:
       mode: MUTUAL
-      # Envoy test runs in pilot/pkg/proxy/envoy/v2 directory, but envoy process base dir is set to IstioSrc
+      # Envoy test runs in pilot/pkg/xds directory, but envoy process base dir is set to IstioSrc
       clientCertificate: tests/testdata/certs/default/cert-chain.pem
       privateKey: tests/testdata/certs/default/key.pem
       caCertificates: tests/testdata/certs/default/root-cert.pem

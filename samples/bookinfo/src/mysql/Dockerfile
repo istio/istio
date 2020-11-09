@@ -1,4 +1,4 @@
-# Copyright 2017 Istio Authors
+# Copyright Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM mysql:8.0.17
+FROM mysql:8.0.20
 # MYSQL_ROOT_PASSWORD must be supplied as an env var
 
 COPY ./mysqldb-init.sql /docker-entrypoint-initdb.d

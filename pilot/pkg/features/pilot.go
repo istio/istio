@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,10 @@ package features
 import (
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
+	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 )
 
@@ -52,13 +51,8 @@ var (
 		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()
 
-	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
-	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
-	// For larger clusters it can increase memory use and GC - useful for small tests.
-	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
-
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
-	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
+	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", true, "").Get()
 
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
@@ -107,7 +101,7 @@ var (
 		return ptypes.DurationProto(timeout)
 	}()
 
-	terminationDrainDurationVar = env.RegisterIntVar(
+	TerminationDrainDuration = env.RegisterIntVar(
 		"TERMINATION_DRAIN_DURATION_SECONDS",
 		5,
 		"The amount of time allowed for connections to complete on pilot-agent shutdown. "+
@@ -115,9 +109,6 @@ var (
 			"preventing any new connections and allowing existing connections to complete. It then "+
 			"sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.",
 	)
-	TerminationDrainDuration = func() time.Duration {
-		return time.Second * time.Duration(terminationDrainDurationVar.Get())
-	}
 
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
@@ -183,11 +174,12 @@ var (
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	).Get()
 
-	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
+	// nolint
+	InboundProtocolDetectionTimeout, InboundProtocolDetectionTimeoutSet = env.RegisterDurationVar(
 		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
 		1*time.Second,
 		"Protocol detection timeout for inbound listener",
-	).Get()
+	).Lookup()
 
 	EnableHeadlessService = env.RegisterBoolVar(
 		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
@@ -226,6 +218,13 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
+	EnableSDSServer = env.RegisterBoolVar(
+		"ISTIOD_ENABLE_SDS_SERVER",
+		true,
+		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
+			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
+	).Get()
+
 	EnableCRDValidation = env.RegisterBoolVar(
 		"PILOT_ENABLE_CRD_VALIDATION",
 		false,
@@ -261,18 +260,15 @@ var (
 			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
 	).Get()
 
-	// IstiodService controls the istiod address - used for injection and as default value injected into pods
-	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
-	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
-	// istio-pilot or istiod) plus namespace and .svc.
-	// The 15010 port is used with plain text, 15011 with Spiffe certs - we need a different port for DNS cert.
-	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
-		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
+	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
+	// for examples: istiod.mycompany.com
+	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
+		"Custom host name of istiod that istiod signs the server cert.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
-		"the provider of Pilot DNS certificate.")
+		"The provider of Pilot DNS certificate.")
 
-	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 
 	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
@@ -293,10 +289,8 @@ var (
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
-		false,
-		"If enabled, Pilot will merge virtual services with delegates. "+
-			"By default, this is false, and virtualService with delegate will be ignored",
-	).Get()
+		true,
+		"If set to false, virtualService delegate will not be supported.").Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
@@ -307,8 +301,107 @@ var (
 		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
 			"to true, and then galley may push data incrementally, it depends on whether the "+
 			"resource supports incremental. By default, this is false.").Get()
+	// CentralIstioD will be Deprecated: TODO remove in 1.9 in favor of `ExternalIstioD`
 	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+	ExternalIstioD = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
+		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
 		"If this is set to false, will not create CA server in istiod.").Get()
+
+	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
+		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
+
+	EnableAdminEndpoints = env.RegisterBoolVar("ENABLE_ADMIN_ENDPOINTS", false,
+		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()
+
+	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
+		"If true, will authenticate XDS clients.").Get()
+
+	EnableXDSIdentityCheck = env.RegisterBoolVar(
+		"PILOT_ENABLE_XDS_IDENTITY_CHECK",
+		true,
+		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
+	).Get()
+
+	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
+		"If enabled, service entries with selectors will select pods from the cluster. "+
+			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+	EnableK8SServiceSelectWorkloadEntries = env.RegisterBoolVar("PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES", true,
+		"If enabled, Kubernetes services with selectors will select workload entries with matching labels. "+
+			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
+		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
+
+	SpiffeBundleEndpoints = env.RegisterStringVar("SPIFFE_BUNDLE_ENDPOINTS", "",
+		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
+			"bundle endpoint and uses it to verify client certifiates from that trust domain. The endpoint must be "+
+			"compliant to the SPIFFE Bundle Endpoint standard. For details, please refer to "+
+			"https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md . "+
+			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
+			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
+			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
+
+	EnableXDSCaching = env.RegisterBoolVar("PILOT_ENABLE_XDS_CACHE", true,
+		"If true, Pilot will cache XDS responses.").Get()
+
+	EnableXDSCacheMetrics = env.RegisterBoolVar("PILOT_XDS_CACHE_STATS", false,
+		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
+
+	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 20000,
+		"The maximum number of cache entries for the XDS cache. If the size is <= 0, the cache will have no upper bound.").Get()
+
+	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
+		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
+			"This is only enabled for migration and will be removed soon.").Get()
+
+	// EnableLegacyFSGroupInjection has first-party-jwt as allowed because we only
+	// need the fsGroup configuration for the projected service account volume mount,
+	// which is only used by first-party-jwt. The installer will automatically
+	// configure this on Kubernetes 1.19+.
+	EnableLegacyFSGroupInjection = env.RegisterBoolVar("ENABLE_LEGACY_FSGROUP_INJECTION", JwtPolicy.Get() != jwt.PolicyFirstParty,
+		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
+			`(see https://github.com/kubernetes/kubernetes/issues/57923 for details) unless JWT_POLICY is "first-party-jwt".`).Get()
+
+	EnableTLSv2OnInboundPath = env.RegisterBoolVar("PILOT_SIDECAR_ENABLE_INBOUND_TLS_V2", true,
+		"If true, Pilot will set the TLS version on server side as TLSv1_2 and also enforce strong cipher suites").Get()
+
+	XdsPushSendTimeout = env.RegisterDurationVar(
+		"PILOT_XDS_SEND_TIMEOUT",
+		5*time.Second,
+		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
+	).Get()
+
+	EndpointTelemetryLabel = env.RegisterBoolVar("PILOT_ENDPOINT_TELEMETRY_LABEL", true,
+		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
+	).Get()
+
+	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", false,
+		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
+
+	WorkloadEntryCleanupGracePeriod = env.RegisterDurationVar("PILOT_WORKLOAD_ENTRY_GRACE_PERIOD", 10*time.Second,
+		"The amount of time an auto-registered workload can remain disconnected from all Pilot instances before the "+
+			"associated WorkloadEntry is cleaned up.").Get()
+
+	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", false,
+		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
+
+	EnableFlowControl = env.RegisterBoolVar(
+		"PILOT_ENABLE_FLOW_CONTROL",
+		false,
+		"If enabled, pilot will wait for the completion of a receive operation before"+
+			"executing a push operation. This is a form of flow control and is useful in"+
+			"environments with high rates of push requests to each gateway. By default,"+
+			"this is false.").Get()
+
+	FlowControlTimeout = env.RegisterDurationVar(
+		"PILOT_FLOW_CONTROL_TIMEOUT",
+		15*time.Second,
+		"If set, the max amount of time to delay a push by. Depends on PILOT_ENABLE_FLOW_CONTROL.",
+	).Get()
+
+	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
+		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
+			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
 )

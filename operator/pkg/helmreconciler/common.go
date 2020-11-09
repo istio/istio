@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,42 +15,48 @@
 package helmreconciler
 
 import (
+	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/kubectl/pkg/scheme"
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/pkg/log"
 )
 
 const (
-	// owningResourceKey represents the name of the owner to which the resource relates
-	owningResourceKey = MetadataNamespace + "/owning-resource"
+	// MetadataNamespace is the namespace for mesh metadata (labels, annotations)
+	MetadataNamespace = "install.operator.istio.io"
+	// OwningResourceName represents the name of the owner to which the resource relates
+	OwningResourceName = MetadataNamespace + "/owning-resource"
+	// OwningResourceNamespace represents the namespace of the owner to which the resource relates
+	OwningResourceNamespace = MetadataNamespace + "/owning-resource-namespace"
 	// operatorLabelStr indicates Istio operator is managing this resource.
 	operatorLabelStr = name.OperatorAPINamespace + "/managed"
 	// operatorReconcileStr indicates that the operator will reconcile the resource.
 	operatorReconcileStr = "Reconcile"
-	// istioComponentLabelStr indicates which Istio component a resource belongs to.
-	istioComponentLabelStr = name.OperatorAPINamespace + "/component"
+	// IstioComponentLabelStr indicates which Istio component a resource belongs to.
+	IstioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
 )
 
 var (
+	// TestMode sets the controller into test mode. Used for unit tests to bypass things like waiting on resources.
+	TestMode = false
+
 	scope = log.RegisterScope("installer", "installer", 0)
 )
 
 func init() {
 	// Tree representation and wait channels are an inversion of ComponentDependencies and are constructed from it.
 	buildInstallTree()
-	for _, parent := range ComponentDependencies {
-		for _, child := range parent {
-			DependencyWaitCh[child] = make(chan struct{}, 1)
-		}
-	}
 }
 
 // ComponentTree represents a tree of component dependencies.
@@ -62,24 +68,19 @@ var (
 	// the subtree of components that must wait for cname to be installed before starting installation themselves.
 	ComponentDependencies = componentNameToListMap{
 		name.PilotComponentName: {
-			name.PolicyComponentName,
-			name.TelemetryComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
-			name.AddonComponentName,
 		},
 		name.IstioBaseComponentName: {
 			name.PilotComponentName,
+			name.IstiodRemoteComponentName,
 		},
 	}
 
 	// InstallTree is a top down hierarchy tree of dependencies where children must wait for the parent to complete
 	// before starting installation.
 	InstallTree = make(ComponentTree)
-	// DependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
-	// DependencyWaitCh[ch1]...DependencyWaitCh[chN] when it's completely installed.
-	DependencyWaitCh = make(map[name.ComponentName]chan struct{})
 )
 
 // buildInstallTree builds a tree from buildInstallTree where parents are the root of each subtree.
@@ -113,12 +114,24 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 }
 
 // applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
-func applyOverlay(current, overlay runtime.Object) error {
+func applyOverlay(current, overlay *unstructured.Unstructured) error {
 	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
 	if err != nil {
 		return err
 	}
-	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlay)
+
+	overlayUpdated := overlay.DeepCopy()
+	if strings.EqualFold(current.GetKind(), "service") {
+		if err := saveClusterIP(current, overlayUpdated); err != nil {
+			return err
+		}
+
+		if err := saveNodePorts(current, overlayUpdated); err != nil {
+			return err
+		}
+	}
+
+	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlayUpdated)
 	if err != nil {
 		return err
 	}
@@ -127,4 +140,50 @@ func applyOverlay(current, overlay runtime.Object) error {
 		return err
 	}
 	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
+}
+
+// createPortMap returns a map, mapping the value of the port and value of the nodePort
+func createPortMap(current *unstructured.Unstructured) map[string]uint32 {
+	portMap := make(map[string]uint32)
+	var svc = &v1.Service{}
+	if err := scheme.Scheme.Convert(current, svc, nil); err != nil {
+		log.Error(err.Error())
+		return portMap
+	}
+	for _, p := range svc.Spec.Ports {
+		portMap[strconv.Itoa(int(p.Port))] = uint32(p.NodePort)
+	}
+	return portMap
+}
+
+// saveNodePorts transfers the port values from the current cluster into the overlay
+func saveNodePorts(current, overlay *unstructured.Unstructured) error {
+	portMap := createPortMap(current)
+	ports, _, _ := unstructured.NestedFieldNoCopy(overlay.Object, "spec", "ports")
+	for _, port := range ports.([]interface{}) {
+		m := port.(map[string]interface{})
+		if nodePortNum, ok := m["nodePort"]; ok && fmt.Sprintf("%v", nodePortNum) == "0" {
+			if portNum, ok := m["port"]; ok {
+				if v, ok := portMap[fmt.Sprintf("%v", portNum)]; ok {
+					m["nodePort"] = v
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// saveClusterIP copies the cluster IP from the current cluster into the overlay
+func saveClusterIP(current, overlay *unstructured.Unstructured) error {
+	// Save the value of spec.clusterIP set by the cluster
+	if clusterIP, found, err := unstructured.NestedString(current.Object, "spec",
+		"clusterIP"); err != nil {
+		return err
+	} else if found {
+		if err := unstructured.SetNestedField(overlay.Object, clusterIP, "spec",
+			"clusterIP"); err != nil {
+			return err
+		}
+	}
+	return nil
 }

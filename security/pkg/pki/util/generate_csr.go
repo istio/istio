@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +20,13 @@ package util
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -31,12 +34,33 @@ import (
 	"istio.io/pkg/log"
 )
 
+// minimumRsaKeySize is the minimum RSA key size to generate certificates
+// to ensure proper security
+const minimumRsaKeySize = 2048
+
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
-	// Generates a CSR
-	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
-	if err != nil {
-		return nil, nil, fmt.Errorf("RSA key generation failed (%v)", err)
+	var priv interface{}
+	var err error
+	if options.ECSigAlg != "" {
+		switch options.ECSigAlg {
+		case EcdsaSigAlg:
+			priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			if err != nil {
+				return nil, nil, fmt.Errorf("EC key generation failed (%v)", err)
+			}
+		default:
+			return nil, nil, errors.New("csr cert generation fails due to unsupported EC signature algorithm")
+		}
+	} else {
+		if options.RSAKeySize < minimumRsaKeySize {
+			return nil, nil, fmt.Errorf("requested key size does not meet the minimum requied size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
+		}
+
+		priv, err = rsa.GenerateKey(rand.Reader, options.RSAKeySize)
+		if err != nil {
+			return nil, nil, fmt.Errorf("RSA key generation failed (%v)", err)
+		}
 	}
 	template, err := GenCSRTemplate(options)
 	if err != nil {
@@ -49,10 +73,7 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	}
 
 	csr, privKey, err := encodePem(true, csrBytes, priv, options.PKCS8Key)
-	if err != nil {
-		return nil, nil, err
-	}
-	return csr, privKey, nil
+	return csr, privKey, err
 }
 
 // GenCSRTemplate generates a certificateRequest template with the given options.

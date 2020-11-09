@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,17 +18,20 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/util/protomarshal"
-
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/gogo/protobuf/proto"
 
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -36,10 +39,56 @@ const (
 )
 
 var (
-	httpbin = labels.Collection{
-		map[string]string{
-			"app":     "httpbin",
-			"version": "v1",
+	httpbin = map[string]string{
+		"app":     "httpbin",
+		"version": "v1",
+	}
+	meshConfigGRPC = &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "default",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
+					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
+						Service:       "foo/my-custom-ext-authz",
+						Port:          9000,
+						FailOpen:      true,
+						StatusOnError: "403",
+					},
+				},
+			},
+		},
+	}
+	meshConfigHTTP = &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "default",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+						Service:                   "foo/my-custom-ext-authz",
+						Port:                      9000,
+						FailOpen:                  true,
+						StatusOnError:             "403",
+						PathPrefix:                "/check",
+						IncludeHeadersInCheck:     []string{"x-custom-id"},
+						HeadersToUpstreamOnAllow:  []string{"Authorization"},
+						HeadersToDownstreamOnDeny: []string{"Set-cookie"},
+					},
+				},
+			},
+		},
+	}
+	meshConfigInvalid = &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "default",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+						Service:    "foo/my-custom-ext-authz",
+						Port:       999999,
+						PathPrefix: "/check",
+					},
+				},
+			},
 		},
 	}
 )
@@ -49,6 +98,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		name        string
 		tdBundle    trustdomain.Bundle
 		isVersion14 bool
+		meshConfig  *meshconfig.MeshConfig
 		input       string
 		want        []string
 	}{
@@ -62,6 +112,30 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "path15",
 			input: "path15-in.yaml",
 			want:  []string{"path15-out.yaml"},
+		},
+		{
+			name:       "action-custom-grpc-provider",
+			meshConfig: meshConfigGRPC,
+			input:      "action-custom-in.yaml",
+			want:       []string{"action-custom-grpc-provider-out1.yaml", "action-custom-grpc-provider-out2.yaml"},
+		},
+		{
+			name:       "action-custom-http-provider",
+			meshConfig: meshConfigHTTP,
+			input:      "action-custom-in.yaml",
+			want:       []string{"action-custom-http-provider-out1.yaml", "action-custom-http-provider-out2.yaml"},
+		},
+		{
+			name:       "action-custom-bad-multiple-providers",
+			meshConfig: meshConfigHTTP,
+			input:      "action-custom-bad-multiple-providers-in.yaml",
+			want:       []string{"action-custom-bad-out.yaml"},
+		},
+		{
+			name:       "action-custom-bad-invalid-config",
+			meshConfig: meshConfigInvalid,
+			input:      "action-custom-in.yaml",
+			want:       []string{"action-custom-bad-out.yaml"},
 		},
 		{
 			name:  "action-both",
@@ -119,11 +193,21 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			input:    "td-aliases-source-principal-in.yaml",
 			want:     []string{"td-aliases-source-principal-out.yaml"},
 		},
+		{
+			name:  "audit-all",
+			input: "audit-all-in.yaml",
+			want:  []string{"audit-all-out.yaml"},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), !tc.isVersion14)
+			option := Option{
+				IsIstioVersionGE15:     !tc.isVersion14,
+				IsOnInboundPassthrough: false,
+				IsCustomBuilder:        tc.meshConfig != nil,
+			}
+			g := New(tc.tdBundle, inputParams(t, tc.input, tc.meshConfig), option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -135,11 +219,24 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 
 func TestGenerator_GenerateTCP(t *testing.T) {
 	testCases := []struct {
-		name     string
-		tdBundle trustdomain.Bundle
-		input    string
-		want     []string
+		name       string
+		tdBundle   trustdomain.Bundle
+		meshConfig *meshconfig.MeshConfig
+		input      string
+		want       []string
 	}{
+		{
+			name:       "action-custom-http-provider",
+			meshConfig: meshConfigHTTP,
+			input:      "action-custom-in.yaml",
+			want:       []string{},
+		},
+		{
+			name:       "action-custom-HTTP-for-TCP-filter",
+			meshConfig: meshConfigGRPC,
+			input:      "action-custom-HTTP-for-TCP-filter-in.yaml",
+			want:       []string{"action-custom-HTTP-for-TCP-filter-out1.yaml", "action-custom-HTTP-for-TCP-filter-out2.yaml"},
+		},
 		{
 			name:  "action-allow-HTTP-for-TCP-filter",
 			input: "action-allow-HTTP-for-TCP-filter-in.yaml",
@@ -150,11 +247,21 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			input: "action-deny-HTTP-for-TCP-filter-in.yaml",
 			want:  []string{"action-deny-HTTP-for-TCP-filter-out.yaml"},
 		},
+		{
+			name:  "action-audit-HTTP-for-TCP-filter",
+			input: "action-audit-HTTP-for-TCP-filter-in.yaml",
+			want:  []string{"action-audit-HTTP-for-TCP-filter-out.yaml"},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), true)
+			option := Option{
+				IsIstioVersionGE15:     true,
+				IsOnInboundPassthrough: false,
+				IsCustomBuilder:        tc.meshConfig != nil,
+			}
+			g := New(tc.tdBundle, inputParams(t, tc.input, tc.meshConfig), option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -200,15 +307,12 @@ func yamlPolicy(t *testing.T, filename string) *model.AuthorizationPolicies {
 	if err != nil {
 		t.Fatalf("failde to parse CRD: %v", err)
 	}
-	var configs []*model.Config
+	var configs []*config.Config
 	for i := range c {
 		configs = append(configs, &c[i])
 	}
-	m, err := NewAuthzPolicies(configs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return m
+
+	return newAuthzPolicies(t, configs)
 }
 
 func yamlConfig(t *testing.T, filename string, forTCP bool) proto.Message {
@@ -245,4 +349,37 @@ func convertTCP(in []*tcppb.Filter) []proto.Message {
 		ret[i] = in[i]
 	}
 	return ret
+}
+
+func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.AuthorizationPolicies {
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	for _, p := range policies {
+		if _, err := store.Create(*p); err != nil {
+			t.Fatalf("newAuthzPolicies: %v", err)
+		}
+	}
+
+	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
+		IstioConfigStore: store,
+	})
+	if err != nil {
+		t.Fatalf("newAuthzPolicies: %v", err)
+	}
+	return authzPolicies
+}
+
+func inputParams(t *testing.T, input string, config *meshconfig.MeshConfig) *plugin.InputParams {
+	t.Helper()
+	return &plugin.InputParams{
+		Node: &model.Proxy{
+			ConfigNamespace: "foo",
+			Metadata: &model.NodeMetadata{
+				Labels: httpbin,
+			},
+		},
+		Push: &model.PushContext{
+			AuthzPolicies: yamlPolicy(t, basePath+input),
+			Mesh:          config,
+		},
+	}
 }

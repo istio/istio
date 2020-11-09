@@ -1,9 +1,0 @@
-spec:
-  components:
-    telemetry:
-      enabled: true
-  values:
-    mixer:
-      adapters:
-        prometheus:
-          metricsExpiryDuration: 123m

@@ -1,4 +1,5 @@
-// Copyright 2020 Istio Authors
+// +build integ
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,45 +19,34 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 var (
 	inst istio.Instance
-	g    galley.Instance
-	p    pilot.Instance
+	apps = &util.EchoDeployments{}
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mtls_first_party_jwt", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
-			}
-			return nil
+		Setup(istio.Setup(&inst, setupConfig)).
+		Setup(func(ctx resource.Context) error {
+			// TODO: due to issue https://github.com/istio/istio/issues/25286,
+			// currently VM does not work in this test
+			return util.SetupApps(ctx, inst, apps, false)
 		}).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
 	cfg.Values["global.jwtPolicy"] = "first-party-jwt"
-	cfg.Values["global.mtls.auto"] = "true"
 }

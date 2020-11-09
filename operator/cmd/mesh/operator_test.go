@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,18 +22,19 @@ import (
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/test/env"
 )
 
 // TODO: rewrite this with running the actual top level command.
 func TestOperatorDump(t *testing.T) {
-	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
+	goldenFilepath := filepath.Join(env.IstioSrc, "operator/cmd/mesh/testdata/operator/output/operator-init.yaml")
 
 	odArgs := &operatorDumpArgs{
 		common: operatorCommonArgs{
 			hub:               "foo.io/istio",
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
-			istioNamespace:    "istio-test-namespace",
+			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
 		},
 	}
 
@@ -41,6 +42,7 @@ func TestOperatorDump(t *testing.T) {
 	cmd += " --tag " + odArgs.common.tag
 	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
 	cmd += " --istioNamespace " + odArgs.common.istioNamespace
+	cmd += " --manifests=" + string(snapshotCharts)
 
 	gotYAML, err := runCommand(cmd)
 	if err != nil {
@@ -73,7 +75,8 @@ func TestOperatorInit(t *testing.T) {
 			hub:               "foo.io/istio",
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
-			istioNamespace:    "istio-test-namespace",
+			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
+			manifestsPath:     string(snapshotCharts),
 		},
 	}
 

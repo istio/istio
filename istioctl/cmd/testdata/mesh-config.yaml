@@ -1,13 +1,5 @@
-# Set the following variable to true to disable policy checks by Mixer.
-# Note that metrics will still be reported to Mixer.
-disablePolicyChecks: false
 # Set enableTracing to false to disable request tracing.
 enableTracing: true
-#
-# To disable Mixer completely (including metrics), comment out
-# the following lines
-mixerCheckServer: istio-policy.istio-system.svc.cluster.local:15004
-mixerReportServer: istio-telemetry.istio-system.svc.cluster.local:15004
 # This is the ingress service name, update if you used a different name
 ingressService: istio-ingress
 #

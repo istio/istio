@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,8 @@ package main
 import (
 	"flag"
 
-	"github.com/spf13/cobra/doc"
-
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/version"

@@ -1,6 +1,6 @@
 // +build !race
 
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,14 +23,10 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/metadata"
-	metafake "k8s.io/client-go/metadata/fake"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	pkgtest "istio.io/istio/pkg/test"
 )
@@ -38,14 +34,14 @@ import (
 const (
 	testSecretName      = "testSecretName"
 	testSecretNameSpace = "istio-system"
-	WatchedNamespace    = "istio-system"
+	WatchedNamespaces   = "istio-system"
 	DomainSuffix        = "fake_domain"
 	ResyncPeriod        = 1 * time.Second
 )
 
 var mockserviceController = &aggregate.Controller{}
 
-func createMultiClusterSecret(k8s *fake.Clientset) error {
+func createMultiClusterSecret(k8s kube.Client) error {
 	data := map[string][]byte{}
 	secret := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -64,7 +60,7 @@ func createMultiClusterSecret(k8s *fake.Clientset) error {
 	return err
 }
 
-func deleteMultiClusterSecret(k8s *fake.Clientset) error {
+func deleteMultiClusterSecret(k8s kube.Client) error {
 	var immediate int64
 
 	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
@@ -72,15 +68,8 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 		testSecretName, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
-	return &clientcmdapi.Config{}, nil
-}
-
-func mockValidateClientConfig(_ clientcmdapi.Config) error {
-	return nil
-}
-
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
+	t.Helper()
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
 		m.m.Lock()
 		defer m.m.Unlock()
@@ -88,37 +77,30 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	})
 }
 
-func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
-	return fake.NewSimpleClientset(), nil
-}
-
-func mockCreateMetaInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.Interface, error) {
-	scheme := runtime.NewScheme()
-	metav1.AddMetaToScheme(scheme)
-	return metafake.NewSimpleMetadataClient(scheme), nil
-}
-
 // This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
-	secretcontroller.LoadKubeConfig = mockLoadKubeConfig
-	secretcontroller.ValidateClientConfig = mockValidateClientConfig
-	secretcontroller.CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
-	secretcontroller.CreateMetadataInterfaceFromClusterConfig = mockCreateMetaInterfaceFromClusterConfig
-
-	clientset := fake.NewSimpleClientset()
+	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
+	clientset := kube.NewFakeClient()
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,
 		Options{
-			WatchedNamespace: WatchedNamespace,
-			DomainSuffix:     DomainSuffix,
-			ResyncPeriod:     ResyncPeriod,
+			WatchedNamespaces: WatchedNamespaces,
+			DomainSuffix:      DomainSuffix,
+			ResyncPeriod:      ResyncPeriod,
+			SyncInterval:      time.Microsecond,
 		},
 		mockserviceController, nil, nil)
-
 	if err != nil {
 		t.Fatalf("error creating Multicluster object and startign secret controller: %v", err)
 	}
-	time.Sleep(10 * time.Millisecond)
+	cache.WaitForCacheSync(stop, mc.HasSynced)
+	clientset.RunAndWait(stop)
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.

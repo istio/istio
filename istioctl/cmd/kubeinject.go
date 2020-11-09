@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,17 +25,15 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
-
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (
@@ -170,7 +168,6 @@ func injectCommand() *cobra.Command {
 		Use:   "kube-inject",
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
 		Long: `
-
 kube-inject manually injects the Envoy sidecar into Kubernetes
 workloads. Unsupported resources are left unmodified so it is safe to
 run kube-inject over a single file that contains multiple Service,
@@ -186,26 +183,25 @@ The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
 `,
-		Example: `
-# Update resources on the fly before applying.
-kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
+		Example: `  # Update resources on the fly before applying.
+  kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
 
-# Create a persistent version of the deployment with Envoy sidecar
-# injected.
-istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
+  # Create a persistent version of the deployment with Envoy sidecar injected.
+  istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 
-# Update an existing deployment.
-kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
+  # Update an existing deployment.
+  kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 
-# Capture cluster configuration for later use with kube-inject
-kubectl -n istio-system get cm istio-sidecar-injector  -o jsonpath="{.data.config}" > /tmp/inj-template.tmpl
-kubectl -n istio-system get cm istio -o jsonpath="{.data.mesh}" > /tmp/mesh.yaml
-kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath="{.data.values}" > /tmp/values.json
-# Use kube-inject based on captured configuration
-istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
-	--injectConfigFile /tmp/inj-template.tmpl \
-	--meshConfigFile /tmp/mesh.yaml \
-	--valuesFile /tmp/values.json
+  # Capture cluster configuration for later use with kube-inject
+  kubectl -n istio-system get cm istio-sidecar-injector  -o jsonpath="{.data.config}" > /tmp/inj-template.tmpl
+  kubectl -n istio-system get cm istio -o jsonpath="{.data.mesh}" > /tmp/mesh.yaml
+  kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath="{.data.values}" > /tmp/values.json
+
+  # Use kube-inject based on captured configuration
+  istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
+    --injectConfigFile /tmp/inj-template.tmpl \
+    --meshConfigFile /tmp/mesh.yaml \
+    --valuesFile /tmp/values.json
 `,
 		RunE: func(c *cobra.Command, _ []string) (err error) {
 			if err = validateFlags(); err != nil {
@@ -306,7 +302,18 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				return nil
 			}
 
-			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig, reader, writer)
+			var warnings []string
+			retval := inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig,
+				reader, writer, func(warning string) {
+					warnings = append(warnings, warning)
+				})
+			if len(warnings) > 0 {
+				fmt.Fprintln(c.ErrOrStderr())
+			}
+			for _, warning := range warnings {
+				fmt.Fprintln(c.ErrOrStderr(), warning)
+			}
+			return retval
 		},
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;
@@ -318,9 +325,9 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 	}
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
-		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
+		"Mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
-		"injection configuration filename. Cannot be used with --injectConfigMapName")
+		"Injection configuration filename. Cannot be used with --injectConfigMapName")
 	injectCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
 		"injection values configuration filename.")
 
@@ -339,7 +346,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
 
 	injectCmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision")
+		"Control plane revision")
 
 	return injectCmd
 }

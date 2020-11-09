@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,6 +97,60 @@ func TestStsCache(t *testing.T) {
 	}
 	if mockBackend.NumGetAccessTokenCalls() != 1 {
 		t.Errorf("Number of get access token API calls does not match, expected 1 but got %d", mockBackend.NumGetAccessTokenCalls())
+	}
+}
+
+func TestStsTokenSource(t *testing.T) {
+	tests := []struct {
+		name         string
+		refreshToken bool
+	}{
+		{"token source without refresh", false},
+		{"token source with refresh", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stsServer, mockBackend, _ := setUpTestComponents(t, testSetUp{})
+			defer tearDownTest(t, stsServer, mockBackend)
+
+			st := mock.FakeSubjectToken
+			if tt.refreshToken {
+				// if refreshing token is enabled. set dummy token initially and refresh it to desired subject token later.
+				st = "initial dummy token"
+			}
+			ts := NewTokenSource(mock.FakeTrustDomain, st, "https://www.googleapis.com/auth/cloud-platform")
+
+			// Override token manager in token source to use mock plugin
+			tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(nil, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
+			tokenManager := CreateTokenManager(GoogleTokenExchange,
+				Config{TrustDomain: mock.FakeTrustDomain})
+			tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
+			ts.tm = tokenManager
+
+			if tt.refreshToken {
+				// If refreshing token is enabled, set the correct subject token.
+				ts.RefreshSubjectToken(mock.FakeSubjectToken)
+			}
+
+			// Get and verify access token
+			got, err := ts.Token()
+			if err != nil {
+				t.Fatalf("failed to get access token: %v", err)
+			}
+			if got.AccessToken != mock.FakeAccessToken {
+				t.Errorf("access token want %v got %v", mock.FakeAccessToken, got.AccessToken)
+			}
+			if got.TokenType != "Bearer" {
+				t.Errorf("access token type want %v got %v", "Bearer", got.TokenType)
+			}
+			gotExpireIn := time.Until(got.Expiry)
+			// Give wanted expire duration 10 seconds headroom.
+			wantedExpireIn := time.Duration(mock.FakeExpiresInSeconds-10) * time.Second
+			if gotExpireIn < wantedExpireIn {
+				t.Errorf("expiry too short want at least %v, got %v", wantedExpireIn, gotExpireIn)
+			}
+		})
 	}
 }
 
@@ -213,13 +267,14 @@ func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *moc
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, setup.enableCache)
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(nil, mock.FakeTrustDomain, mock.FakeProjectNum,
+		mock.FakeGKEClusterURL, setup.enableCache)
 	federatedTokenTestingEndpoint := mockServer.URL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := mockServer.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
 	// Create token manager
 	tokenManager := CreateTokenManager(GoogleTokenExchange,
-		Config{TrustDomain: mock.FakeTrustDomain})
+		Config{CredFetcher: nil, TrustDomain: mock.FakeTrustDomain})
 	tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
 	// Create STS server
 	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: "127.0.0.1", LocalPort: 0}, tokenManager)

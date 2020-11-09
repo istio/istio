@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ package cmd
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
 func TestErrorOnIssuesFound(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	msgs := []diag.Message{
 		diag.NewMessage(
@@ -44,7 +44,7 @@ func TestErrorOnIssuesFound(t *testing.T) {
 }
 
 func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	msgs := []diag.Message{
 		diag.NewMessage(
@@ -53,7 +53,7 @@ func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
 			"",
 		),
 		diag.NewMessage(
-			diag.NewMessageType(diag.Info, "A1", "Template: %q"),
+			diag.NewMessageType(diag.Warning, "A1", "Template: %q"),
 			nil,
 			"",
 		),

@@ -26,3 +26,4 @@ webhooks:
         resources:
           - pods
     sideEffects: Unknown
+    admissionReviewVersions: ["v1beta1", "v1"]

@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -39,20 +39,6 @@ func CreateForClient(serverName string, watcher CertificateWatcher) credentials.
 func CreateForClientSkipVerify() credentials.TransportCredentials {
 	config := tls.Config{
 		InsecureSkipVerify: true,
-	}
-
-	return credentials.NewTLS(&config)
-}
-
-// CreateForServer creates TransportCredentials for MCP servers.
-func CreateForServer(watcher CertificateWatcher) credentials.TransportCredentials {
-	config := tls.Config{
-		ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs:  watcher.certPool(),
-		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			c := watcher.Get()
-			return &c, nil
-		},
 	}
 
 	return credentials.NewTLS(&config)

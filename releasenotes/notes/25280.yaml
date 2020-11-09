@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 23868
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** configuration file handling for istioctl defaults. Also added environment variable `ISTIOCONFIG` for selecting that file (default $HOME/.istioctl/config.yaml). Also added 'istioctl experimental config list' subcommand to show configured flag defaults.

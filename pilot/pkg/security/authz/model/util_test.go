@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,45 +15,10 @@
 package model
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
-
-func TestStringMatch(t *testing.T) {
-	testCases := []struct {
-		Name   string
-		S      string
-		List   []string
-		Expect bool
-	}{
-		{
-			Name: "exact match", S: "product page", List: []string{"review page", "product page"},
-			Expect: true,
-		},
-		{
-			Name: "wild character match", S: "product page", List: []string{"review page", "*"},
-			Expect: true,
-		},
-		{
-			Name: "prefix match", S: "product page", List: []string{"review page", "product*"},
-			Expect: true,
-		},
-		{
-			Name: "suffix match", S: "product page", List: []string{"review page", "*page"},
-			Expect: true,
-		},
-		{
-			Name: "not matched", S: "product page", List: []string{"review page", "xyz product page"},
-			Expect: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		if actual := stringMatch(tc.S, tc.List); actual != tc.Expect {
-			t.Errorf("%s: expecting: %v, but got: %v", tc.Name, tc.Expect, actual)
-		}
-	}
-}
 
 func TestConvertToPort(t *testing.T) {
 	testCases := []struct {
@@ -98,101 +63,60 @@ func TestConvertToPort(t *testing.T) {
 	}
 }
 
-func TestConvertPortsToString(t *testing.T) {
-	testCases := []struct {
-		Name   string
-		V      []int32
-		Expect []string
-		Err    string
-	}{
-		{
-			Name:   "valid ports",
-			V:      []int32{80, 3000, 443},
-			Expect: []string{"80", "3000", "443"},
-		},
-		{
-			Name:   "valid port",
-			V:      []int32{9080},
-			Expect: []string{"9080"},
-		},
-	}
-
-	for _, tc := range testCases {
-		actual := convertPortsToString(tc.V)
-		for i := range tc.Expect {
-			if tc.Expect[i] != actual[i] {
-				t.Errorf("%s: expecting %s, but got %s", tc.Name, tc.Expect, actual)
-			}
-		}
-	}
-}
-
-func TestIsKeyBinary(t *testing.T) {
-	cases := []struct {
-		s      string
-		expect bool
-	}{
-		{s: "a[b]", expect: true},
-		{s: "a", expect: false},
-		{s: "a.b", expect: false},
-		{s: "a.b[c]", expect: true},
-		{s: "a.b[c.d]", expect: true},
-		{s: "[a]", expect: false},
-		{s: "[a", expect: false},
-		{s: "a]", expect: false},
-		{s: "a[]", expect: false},
-		{s: "a.b[c.d]e", expect: false},
-		{s: "a.b[[c.d]]", expect: true},
-	}
-
-	for _, c := range cases {
-		if isKeyBinary(c.s) != c.expect {
-			t.Errorf("isKeyBinary returned incorrect result for key: %s", c.s)
-		}
-	}
-}
-
 func TestExtractNameInBrackets(t *testing.T) {
 	cases := []struct {
-		s      string
-		expect string
-		err    bool
+		s    string
+		want string
+		err  bool
 	}{
-		{s: "[good]", expect: "good", err: false},
-		{s: "[[good]]", expect: "[good]", err: false},
-		{s: "[]", expect: "", err: false},
-		{s: "[bad", expect: "", err: true},
-		{s: "bad]", expect: "", err: true},
-		{s: "bad", expect: "", err: true},
+		{s: "[good]", want: "good"},
+		{s: "[[good]]", want: "[good]"},
+		{s: "[]", want: ""},
+		{s: "[bad", err: true},
+		{s: "bad]", err: true},
+		{s: "bad", err: true},
 	}
 
 	for _, c := range cases {
-		s, err := extractNameInBrackets(c.s)
-		if s != c.expect {
-			t.Errorf("expecting [good] but found %s", s)
-		}
-		if c.err != (err != nil) {
-			t.Errorf("unexpected error: %v", err)
-		}
+		t.Run(c.s, func(t *testing.T) {
+			s, err := extractNameInBrackets(c.s)
+			if s != c.want {
+				t.Errorf("want %s but found %s", c.want, s)
+			}
+			if c.err != (err != nil) {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }
 
-func TestExtractActualServiceAccount(t *testing.T) {
+func TestExtractNameInNestedBrackets(t *testing.T) {
 	cases := []struct {
-		in     string
-		expect string
+		s    string
+		want []string
+		err  bool
 	}{
-		{in: "service-account", expect: "service-account"},
-		{in: "spiffe://xyz.com/sa/test-sa/ns/default", expect: "test-sa"},
-		{in: "spiffe://xyz.com/wa/blabla/sa/test-sa/ns/default", expect: "test-sa"},
-		{in: "spiffe://xyz.com/sa/test-sa/", expect: "test-sa"},
-		{in: "spiffe://xyz.com/wa/blabla/sa/test-sa", expect: "test-sa"},
+		{s: "[good]", want: []string{"good"}},
+		{s: "[good][abc][xyz]", want: []string{"good", "abc", "xyz"}},
+		{s: "[]", want: []string{""}},
+		{s: "[[good]", want: []string{"[good"}},
+		{s: "[good]]", want: []string{"good]"}},
+		{s: "[[good]]", want: []string{"[good]"}},
+		{s: "x[bad]", err: true},
+		{s: "[bad", err: true},
+		{s: "bad]", err: true},
+		{s: "bad", err: true},
 	}
 
 	for _, c := range cases {
-		actual := extractActualServiceAccount(c.in)
-		if actual != c.expect {
-			t.Errorf("%s: expecting %s, but got %s", c.in, c.expect, actual)
-		}
+		t.Run(c.s, func(t *testing.T) {
+			s, err := extractNameInNestedBrackets(c.s)
+			if !reflect.DeepEqual(s, c.want) {
+				t.Errorf("want %s but found %s", c.want, s)
+			}
+			if c.err != (err != nil) {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }

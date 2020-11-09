@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -20,10 +20,12 @@ import (
 )
 
 var (
-	StatusCodeOK          = strconv.Itoa(http.StatusOK)
-	StatusUnauthorized    = strconv.Itoa(http.StatusUnauthorized)
-	StatusCodeForbidden   = strconv.Itoa(http.StatusForbidden)
-	StatusCodeUnavailable = strconv.Itoa(http.StatusServiceUnavailable)
+	StatusCodeOK              = strconv.Itoa(http.StatusOK)
+	StatusUnauthorized        = strconv.Itoa(http.StatusUnauthorized)
+	StatusCodeForbidden       = strconv.Itoa(http.StatusForbidden)
+	StatusCodeUnavailable     = strconv.Itoa(http.StatusServiceUnavailable)
+	StatusCodeBadRequest      = strconv.Itoa(http.StatusBadRequest)
+	StatusCodeTooManyRequests = strconv.Itoa(http.StatusTooManyRequests)
 )
 
 // Field is a list of fields returned in responses from the Echo server.
@@ -37,5 +39,7 @@ const (
 	URLField            Field = "URL"
 	HostField           Field = "Host"
 	HostnameField       Field = "Hostname"
+	MethodField         Field = "Method"
+	ResponseHeader      Field = "ResponseHeader"
 	ClusterField        Field = "Cluster"
 )

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,32 +17,15 @@ package networking
 import (
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
-)
-
-var (
-	proxy = &model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
-		Metadata: &model.NodeMetadata{
-			IstioVersion:    "1.4",
-			ConfigNamespace: "not-default",
-		},
-		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 4},
-		ConfigNamespace: "not-default",
-	}
 )
 
 func TestModelProtocolToListenerProtocol(t *testing.T) {
 	tests := []struct {
 		name                       string
-		node                       *model.Proxy
 		protocol                   protocol.Instance
 		direction                  core.TrafficDirection
 		sniffingEnabledForInbound  bool
@@ -51,7 +34,6 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 	}{
 		{
 			"TCP to TCP",
-			proxy,
 			protocol.TCP,
 			core.TrafficDirection_INBOUND,
 			true,
@@ -60,7 +42,6 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 		},
 		{
 			"HTTP to HTTP",
-			proxy,
 			protocol.HTTP,
 			core.TrafficDirection_INBOUND,
 			true,
@@ -69,7 +50,6 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 		},
 		{
 			"MySQL to TCP",
-			proxy,
 			protocol.MySQL,
 			core.TrafficDirection_INBOUND,
 			true,
@@ -78,7 +58,6 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 		},
 		{
 			"Inbound unknown to Auto",
-			proxy,
 			protocol.Unsupported,
 			core.TrafficDirection_INBOUND,
 			true,
@@ -87,7 +66,6 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 		},
 		{
 			"Outbound unknown to Auto",
-			proxy,
 			protocol.Unsupported,
 			core.TrafficDirection_OUTBOUND,
 			true,
@@ -96,7 +74,6 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 		},
 		{
 			"Inbound unknown to TCP",
-			proxy,
 			protocol.Unsupported,
 			core.TrafficDirection_INBOUND,
 			false,
@@ -105,7 +82,6 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 		},
 		{
 			"Outbound unknown to Auto (disable sniffing for inbound)",
-			proxy,
 			protocol.Unsupported,
 			core.TrafficDirection_OUTBOUND,
 			false,
@@ -113,7 +89,6 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			ListenerProtocolAuto,
 		}, {
 			"Inbound unknown to Auto (disable sniffing for outbound)",
-			proxy,
 			protocol.Unsupported,
 			core.TrafficDirection_INBOUND,
 			true,
@@ -132,7 +107,7 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			features.EnableProtocolSniffingForInbound = tt.sniffingEnabledForInbound
 			defer func() { features.EnableProtocolSniffingForInbound = defaultInboundValue }()
 
-			if got := ModelProtocolToListenerProtocol(tt.node, tt.protocol, tt.direction); got != tt.want {
+			if got := ModelProtocolToListenerProtocol(tt.protocol, tt.direction); got != tt.want {
 				t.Errorf("ModelProtocolToListenerProtocol() = %v, want %v", got, tt.want)
 			}
 		})

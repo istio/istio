@@ -14,11 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
 set -eu
 
 out="${1}"
 config="${out}/docker-bake.hcl"
 shift
+
 
 variants=\"$(for i in ${DOCKER_ALL_VARIANTS}; do echo "\"${i}\""; done | xargs | sed -e 's/ /\", \"/g')\"
 cat <<EOF > "${config}"
@@ -30,7 +34,9 @@ EOF
 # Generate the top header. This defines a group to build all images for each variant
 for variant in ${DOCKER_ALL_VARIANTS}; do
   # Get all images. Transform from `docker.target` to `"target"` as a comma seperated list
-  images=\"$(for i in "$@"; do echo "\"${i#docker.}-${variant}\""; done | xargs | sed -e 's/ /\", \"/g')\"
+  images=\"$(for i in "$@"; do
+    if ! "${WD}/skip-image.sh" "$i" "$variant"; then echo "\"${i#docker.}-${variant}\""; fi
+  done | xargs | sed -e 's/ /\", \"/g')\"
   cat <<EOF >> "${config}"
 group "${variant}" {
     targets = [${images}]
@@ -55,6 +61,17 @@ for file in "$@"; do
       output='output = ["type=registry"]'
     fi
 
+    # Wild card check to assign the vm name and version
+    # The name of the VM image would be app_sidecar_IMAGE_VERSION
+    # Split the $image using "_"
+    VM_IMAGE_NAME=""
+    VM_IMAGE_VERSION=""
+    if [[ "$image" == *"app_sidecar"* ]]; then
+      readarray -d _ -t split < <(printf '%s'"$image")
+      VM_IMAGE_NAME="${split[-2]}"
+      VM_IMAGE_VERSION="${split[-1]}"
+    fi
+
     cat <<EOF >> "${config}"
 target "$image-$variant" {
     context = "${out}/${file}"
@@ -65,6 +82,8 @@ target "$image-$variant" {
       BASE_DISTRIBUTION = "${variant}"
       proxy_version = "istio-proxy:${PROXY_REPO_SHA}"
       istio_version = "${VERSION}"
+      VM_IMAGE_NAME = "${VM_IMAGE_NAME}"
+      VM_IMAGE_VERSION = "${VM_IMAGE_VERSION}"
     }
     ${output}
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,11 +20,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/pkg/version"
-
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/security/pkg/testing/sdsc"
 	"istio.io/pkg/env"
+	"istio.io/pkg/version"
 )
 
 var (

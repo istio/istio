@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 23868
+  - 23583
+releaseNotes:
+  - |
+    **Removed** the installation of telemetry addons (Prometheus, Grafana, Zipkin, Jaeger, Kiali) from installation by `istioctl`. See [Reworking our Addon Integrations](/blog/2020/addon-rework/) for more info.
+  - |
+    **Removed** istio-telemetry and istio-policy from installation by `istioctl`.

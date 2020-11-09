@@ -13,3 +13,10 @@ put an X in all the areas that this PR affects.
 [ ] Test and Release
 [ ] User Experience
 [ ] Developer Infrastructure
+
+
+Pull Request Attributes
+
+Please check any characteristics that apply to this pull request. 
+
+[ ] Does not have any changes that may affect Istio users.

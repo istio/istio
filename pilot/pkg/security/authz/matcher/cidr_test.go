@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
 package matcher
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
-
-	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestCidrRange(t *testing.T) {
@@ -85,8 +85,8 @@ func TestCidrRange(t *testing.T) {
 			} else if !strings.HasPrefix(err.Error(), tc.Err) {
 				t.Errorf("%s: expecting error: %s, but got: %s", tc.Name, tc.Err, err.Error())
 			}
-		} else if !reflect.DeepEqual(*tc.Expect, *actual) {
-			t.Errorf("%s: expecting %v, but got %v", tc.Name, *tc.Expect, *actual)
+		} else if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+			t.Errorf("%s: expecting %v, but got %v", tc.Name, tc.Expect, actual)
 		}
 	}
 }

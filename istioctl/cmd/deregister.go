@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@ var (
 	deregisterCmd = &cobra.Command{
 		Use:   "deregister <svcname> <ip>",
 		Short: "De-registers a service instance",
-		Example: `# de-register an endpoint 172.17.0.2 from service my-svc:
-istioctl deregister my-svc 172.17.0.2`,
+		Example: `  # de-register an endpoint 172.17.0.2 from service my-svc:
+  istioctl deregister my-svc 172.17.0.2`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 2 {
 				cmd.Println(cmd.UsageString())

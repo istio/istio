@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,11 +23,12 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
-
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 const (
@@ -35,36 +36,54 @@ const (
 )
 
 var (
-	peerAuthenticationGvk    = collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind()
-	requestAuthenticationGvk = collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind()
-	baseTimestamp            = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
+	baseTimestamp = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
 )
 
 func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 	cases := []struct {
-		name     string
-		resource string
-		output   SdsCertificateConfig
+		name             string
+		resource         string
+		root             bool
+		key              bool
+		output           SdsCertificateConfig
+		rootResourceName string
+		resourceName     string
 	}{
 		{
 			"cert",
 			"file-cert:cert~key",
+			false,
+			true,
 			SdsCertificateConfig{"cert", "key", ""},
+			"",
+			"file-cert:cert~key",
 		},
 		{
 			"root cert",
 			"file-root:root",
+			true,
+			false,
 			SdsCertificateConfig{"", "", "root"},
+			"file-root:root",
+			"",
 		},
 		{
 			"invalid prefix",
 			"file:root",
+			false,
+			false,
 			SdsCertificateConfig{"", "", ""},
+			"",
+			"",
 		},
 		{
 			"invalid contents",
 			"file-root:root~extra",
+			false,
+			false,
 			SdsCertificateConfig{"", "", ""},
+			"",
+			"",
 		},
 	}
 	for _, tt := range cases {
@@ -72,6 +91,18 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			got, _ := SdsCertificateConfigFromResourceName(tt.resource)
 			if got != tt.output {
 				t.Fatalf("got %v, expected %v", got, tt.output)
+			}
+			if root := got.IsRootCertificate(); root != tt.root {
+				t.Fatalf("unexpected isRootCertificate got %v, expected %v", root, tt.root)
+			}
+			if key := got.IsKeyCertificate(); key != tt.key {
+				t.Fatalf("unexpected IsKeyCertificate got %v, expected %v", key, tt.key)
+			}
+			if root := got.GetRootResourceName(); root != tt.rootResourceName {
+				t.Fatalf("unexpected GetRootResourceName got %v, expected %v", root, tt.rootResourceName)
+			}
+			if cert := got.GetResourceName(); cert != tt.resourceName {
+				t.Fatalf("unexpected GetRootResourceName got %v, expected %v", cert, tt.resourceName)
 			}
 		})
 	}
@@ -84,42 +115,36 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		name                   string
 		workloadNamespace      string
 		workloadLabels         labels.Collection
-		wantRequestAuthn       []*Config
-		wantPeerAuthn          []*Config
+		wantRequestAuthn       []*config.Config
+		wantPeerAuthn          []*config.Config
 		wantNamespaceMutualTLS MutualTLSMode
 	}{
 		{
 			name:              "Empty workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -131,10 +156,8 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -152,34 +175,28 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Empty workload labels in bar",
 			workloadNamespace: "bar",
 			workloadLabels:    labels.Collection{},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "bar",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "bar",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -197,24 +214,20 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Empty workload labels in baz",
 			workloadNamespace: "baz",
 			workloadLabels:    labels.Collection{},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -232,24 +245,20 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "labels"}},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "with-selector",
-						Namespace: "foo",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-selector",
+						Namespace:        "foo",
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -261,22 +270,18 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "global-with-selector",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-selector",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -287,12 +292,10 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					},
 				},
 			},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -304,10 +307,8 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "peer-with-selector",
 						Namespace:         "foo",
@@ -324,10 +325,8 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -345,34 +344,28 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Match workload labels in bar",
 			workloadNamespace: "bar",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1"}},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "bar",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "bar",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "global-with-selector",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-selector",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -383,12 +376,10 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					},
 				},
 			},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -406,34 +397,28 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Paritial match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin"}},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "foo",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "global-with-selector",
-						Namespace: "istio-config",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-selector",
+						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -444,12 +429,10 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					},
 				},
 			},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -461,10 +444,8 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "istio-config",
@@ -502,19 +483,17 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 		name                   string
 		workloadNamespace      string
 		workloadLabels         labels.Collection
-		wantPeerAuthn          []*Config
+		wantPeerAuthn          []*config.Config
 		wantNamespaceMutualTLS MutualTLSMode
 	}{
 		{
 			name:              "Empty workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -532,26 +511,24 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			name:                   "Empty workload labels in bar",
 			workloadNamespace:      "bar",
 			workloadLabels:         labels.Collection{},
-			wantPeerAuthn:          []*Config{},
+			wantPeerAuthn:          []*config.Config{},
 			wantNamespaceMutualTLS: MTLSUnknown,
 		},
 		{
 			name:                   "Empty workload labels in baz",
 			workloadNamespace:      "baz",
 			workloadLabels:         labels.Collection{},
-			wantPeerAuthn:          []*Config{},
+			wantPeerAuthn:          []*config.Config{},
 			wantNamespaceMutualTLS: MTLSUnknown,
 		},
 		{
 			name:              "Match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "labels"}},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -563,10 +540,8 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "peer-with-selector",
 						Namespace:         "foo",
@@ -589,19 +564,17 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			name:                   "Match workload labels in bar",
 			workloadNamespace:      "bar",
 			workloadLabels:         labels.Collection{{"app": "httpbin", "version": "v1"}},
-			wantPeerAuthn:          []*Config{},
+			wantPeerAuthn:          []*config.Config{},
 			wantNamespaceMutualTLS: MTLSUnknown,
 		},
 		{
 			name:              "Paritial match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin"}},
-			wantPeerAuthn: []*Config{
+			wantPeerAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:              peerAuthenticationGvk.Kind,
-						Version:           peerAuthenticationGvk.Version,
-						Group:             peerAuthenticationGvk.Group,
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
 						CreationTimestamp: baseTimestamp,
 						Name:              "default",
 						Namespace:         "foo",
@@ -644,20 +617,18 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 		name              string
 		workloadNamespace string
 		workloadLabels    labels.Collection
-		wantRequestAuthn  []*Config
+		wantRequestAuthn  []*config.Config
 	}{
 		{
 			name:              "single hit",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: rootNamespace,
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        rootNamespace,
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
@@ -674,14 +645,12 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 			name:              "double hit",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin"}},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: rootNamespace,
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        rootNamespace,
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
@@ -693,12 +662,10 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "global-with-selector",
-						Namespace: rootNamespace,
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-selector",
+						Namespace:        rootNamespace,
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -723,14 +690,12 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 			name:              "tripple hit",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1"}},
-			wantRequestAuthn: []*Config{
+			wantRequestAuthn: []*config.Config{
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "with-selector",
-						Namespace: "foo",
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-selector",
+						Namespace:        "foo",
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -752,12 +717,10 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "default",
-						Namespace: rootNamespace,
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        rootNamespace,
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						JwtRules: []*securityBeta.JWTRule{
@@ -769,12 +732,10 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: ConfigMeta{
-						Type:      requestAuthenticationGvk.Kind,
-						Version:   requestAuthenticationGvk.Version,
-						Group:     requestAuthenticationGvk.Group,
-						Name:      "global-with-selector",
-						Namespace: rootNamespace,
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-selector",
+						Namespace:        rootNamespace,
 					},
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
@@ -806,10 +767,10 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 	}
 }
 
-func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *AuthenticationPolicies {
+func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *AuthenticationPolicies {
 	configStore := NewFakeStore()
 	for _, cfg := range configs {
-		log.Infof("add config %s\n", cfg.Name)
+		log.Infof("add config %s", cfg.Name)
 		if _, err := configStore.Create(*cfg); err != nil {
 			t.Fatalf("getTestAuthenticationPolicies %v", err)
 		}
@@ -826,14 +787,12 @@ func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *Authenticat
 	return authnPolicy
 }
 
-func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector) *Config {
-	return &Config{
-		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind(),
-			Version:   collections.IstioSecurityV1Beta1Requestauthentications.Resource().Version(),
-			Group:     collections.IstioSecurityV1Beta1Requestauthentications.Resource().Group(),
-			Name:      name,
-			Namespace: namespace,
+func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector) *config.Config {
+	return &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
+			Name:             name,
+			Namespace:        namespace,
 		},
 		Spec: &securityBeta.RequestAuthentication{
 			Selector: selector,
@@ -842,12 +801,10 @@ func createTestRequestAuthenticationResource(name string, namespace string, sele
 }
 
 func createTestPeerAuthenticationResource(name string, namespace string, timestamp time.Time,
-	selector *selectorpb.WorkloadSelector, mode securityBeta.PeerAuthentication_MutualTLS_Mode) *Config {
-	return &Config{
-		ConfigMeta: ConfigMeta{
-			Type:              collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind(),
-			Version:           collections.IstioSecurityV1Beta1Peerauthentications.Resource().Version(),
-			Group:             collections.IstioSecurityV1Beta1Peerauthentications.Resource().Group(),
+	selector *selectorpb.WorkloadSelector, mode securityBeta.PeerAuthentication_MutualTLS_Mode) *config.Config {
+	return &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(),
 			Name:              name,
 			Namespace:         namespace,
 			CreationTimestamp: timestamp,
@@ -861,8 +818,8 @@ func createTestPeerAuthenticationResource(name string, namespace string, timesta
 	}
 }
 
-func createTestConfigs(withMeshPeerAuthn bool) []*Config {
-	configs := make([]*Config, 0)
+func createTestConfigs(withMeshPeerAuthn bool) []*config.Config {
+	configs := make([]*config.Config, 0)
 
 	selector := &selectorpb.WorkloadSelector{
 		MatchLabels: map[string]string{
@@ -906,7 +863,7 @@ func createTestConfigs(withMeshPeerAuthn bool) []*Config {
 	return configs
 }
 
-func addJwtRule(issuer, jwksURI, jwks string, config *Config) {
+func addJwtRule(issuer, jwksURI, jwks string, config *config.Config) {
 	spec := config.Spec.(*securityBeta.RequestAuthentication)
 	if spec.JwtRules == nil {
 		spec.JwtRules = make([]*securityBeta.JWTRule, 0)
@@ -918,8 +875,8 @@ func addJwtRule(issuer, jwksURI, jwks string, config *Config) {
 	})
 }
 
-func createNonTrivialRequestAuthnTestConfigs(issuer string) []*Config {
-	configs := make([]*Config, 0)
+func createNonTrivialRequestAuthnTestConfigs(issuer string) []*config.Config {
+	configs := make([]*config.Config, 0)
 
 	globalCfg := createTestRequestAuthenticationResource("default", rootNamespace, nil)
 	addJwtRule(issuer, "", "", globalCfg)
@@ -949,7 +906,7 @@ func createNonTrivialRequestAuthnTestConfigs(issuer string) []*Config {
 	return configs
 }
 
-func printConfigs(configs []*Config) string {
+func printConfigs(configs []*config.Config) string {
 	s := "[\n"
 	for _, c := range configs {
 		s += fmt.Sprintf("%+v\n", c)

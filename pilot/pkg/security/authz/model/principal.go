@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 package model
 
 import (
-	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	routepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 func principalAny() *rbacpb.Principal {
@@ -67,10 +67,18 @@ func principalAuthenticated(name *matcherpb.StringMatcher) *rbacpb.Principal {
 	}
 }
 
-func principalSourceIP(cidr *corepb.CidrRange) *rbacpb.Principal {
+func principalDirectRemoteIP(cidr *corepb.CidrRange) *rbacpb.Principal {
 	return &rbacpb.Principal{
-		Identifier: &rbacpb.Principal_SourceIp{
-			SourceIp: cidr,
+		Identifier: &rbacpb.Principal_DirectRemoteIp{
+			DirectRemoteIp: cidr,
+		},
+	}
+}
+
+func principalRemoteIP(cidr *corepb.CidrRange) *rbacpb.Principal {
+	return &rbacpb.Principal{
+		Identifier: &rbacpb.Principal_RemoteIp{
+			RemoteIp: cidr,
 		},
 	}
 }

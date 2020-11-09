@@ -12,14 +12,4 @@ spec:
       enabled: true
       hub: component.cni.hub
       tag: v3.3.3
-  values:
-    prometheus:
-      enabled: true
-      hub: docker.io
-      tag: 1.1.1
-    grafana:
-      enabled: true
-    kiali:
-      enabled: true
-      hub: docker.io/testing
 

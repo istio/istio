@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ package deprecation
 import (
 	"fmt"
 
-	"istio.io/api/networking/v1alpha3"
-	"istio.io/api/rbac/v1alpha1"
+	k8sext_v1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
@@ -30,19 +30,45 @@ import (
 // FieldAnalyzer checks for deprecated Istio types and fields
 type FieldAnalyzer struct{}
 
-// Currently we don't have an Istio API that tells which Istio APIs are deprecated.
+var (
+	// Tracks Istio CRDs removed from manifests/charts/base/crds/crd-all.gen.yaml
+	deprecatedCRDs = []k8sext_v1beta1.CustomResourceDefinitionSpec{
+		{
+			Group: "rbac.istio.io",
+			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ClusterRbacConfig"},
+		},
+		{
+			Group: "rbac.istio.io",
+			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "RbacConfig"},
+		},
+		{
+			Group: "rbac.istio.io",
+			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ServiceRole"},
+		},
+		{
+			Group: "rbac.istio.io",
+			Names: k8sext_v1beta1.CustomResourceDefinitionNames{Kind: "ServiceRoleBinding"},
+		},
+	}
+)
+
+// Currently we don't have an Istio API that tells which Istio API fields are deprecated.
 // Run `find . -name "*.proto" -exec grep -i "deprecated=true" \{\} \; -print`
 // to see what is deprecated.  This analyzer is hand-crafted.
 
 // Metadata implements analyzer.Analyzer
 func (*FieldAnalyzer) Metadata() analysis.Metadata {
+	deprecationInputs := collection.Names{
+		collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+		collections.IstioNetworkingV1Alpha3Sidecars.Name(),
+		collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(),
+	}
+
 	return analysis.Metadata{
 		Name:        "deprecation.DeprecationAnalyzer",
 		Description: "Checks for deprecated Istio types and fields",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
-		},
+		Inputs: append(deprecationInputs,
+			collections.Deprecated.CollectionNames()...),
 	}
 }
 
@@ -52,10 +78,43 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeVirtualService(r, ctx)
 		return true
 	})
-	ctx.ForEach(collections.IstioRbacV1Alpha1Servicerolebindings.Name(), func(r *resource.Instance) bool {
-		fa.analyzeServiceRoleBinding(r, ctx)
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
+		fa.analyzeSidecar(r, ctx)
 		return true
 	})
+	ctx.ForEach(collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(), func(r *resource.Instance) bool {
+		fa.analyzeCRD(r, ctx)
+		return true
+	})
+	for _, name := range collections.Deprecated.CollectionNames() {
+		ctx.ForEach(name, func(r *resource.Instance) bool {
+			ctx.Report(name,
+				msg.NewDeprecated(r, crDeprecatedMessage(name.String())))
+			return true
+		})
+	}
+}
+
+func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
+	crd := r.Message.(*k8sext_v1beta1.CustomResourceDefinitionSpec)
+	for _, depCRD := range deprecatedCRDs {
+		if crd.Group == depCRD.Group && crd.Names.Kind == depCRD.Names.Kind {
+			ctx.Report(collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(),
+				msg.NewDeprecated(r, crRemovedMessage(depCRD.Group, depCRD.Names.Kind)))
+		}
+	}
+}
+
+func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context) {
+
+	sc := r.Message.(*v1alpha3.Sidecar)
+
+	if sc.OutboundTrafficPolicy != nil {
+		if sc.OutboundTrafficPolicy.EgressProxy != nil {
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+				msg.NewDeprecated(r, ignoredMessage("OutboundTrafficPolicy.EgressProxy")))
+		}
+	}
 }
 
 func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context) {
@@ -74,24 +133,18 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 	}
 }
 
-func (*FieldAnalyzer) analyzeServiceRoleBinding(r *resource.Instance, ctx analysis.Context) {
-
-	srb := r.Message.(*v1alpha1.ServiceRoleBinding)
-
-	for _, subject := range srb.Subjects {
-		if subject.Group != "" {
-			ctx.Report(collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
-				msg.NewDeprecated(r, uncertainFixMessage("ServiceRoleBinding.subjects.group")))
-		}
-	}
-}
-
 func replacedMessage(deprecated, replacement string) string {
 	return fmt.Sprintf("%s is deprecated; use %s", deprecated, replacement)
 }
 
-// uncertainFixMessage() should be used for fields we don't have a suggested replacement for.
-// It is preferable to avoid calling it and find out the replacement suggestion instead.
-func uncertainFixMessage(field string) string {
-	return fmt.Sprintf("%s is deprecated", field)
+func ignoredMessage(field string) string {
+	return fmt.Sprintf("%s ignored", field)
+}
+
+func crDeprecatedMessage(typename string) string {
+	return fmt.Sprintf("Custom resource type %q is deprecated", typename)
+}
+
+func crRemovedMessage(group, kind string) string {
+	return fmt.Sprintf("Custom resource type %s %s is removed", group, kind)
 }

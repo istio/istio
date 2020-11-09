@@ -1,4 +1,4 @@
-## Copyright 2017 Istio Authors
+## Copyright Istio Authors
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -19,23 +19,14 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.7-dev
+export VERSION ?= 1.9-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.7-dev.0
+BASE_VERSION ?= 1.9-dev.1
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
-
-ISTIO_CNI_HUB ?= gcr.io/istio-testing
-export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= latest
-export ISTIO_CNI_TAG
-
-# cumulatively track the directories/files to delete after a clean
-DIRS_TO_CLEAN:=
-FILES_TO_CLEAN:=
 
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
@@ -49,11 +40,6 @@ GO ?= go
 
 GOARCH_LOCAL := $(TARGET_ARCH)
 GOOS_LOCAL := $(TARGET_OS)
-
-export ENABLE_COREDUMP ?= false
-
-# NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
-# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set-string istio-cni.tag=v0.1-dev-foo"
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -102,7 +88,6 @@ else
   export LOCAL_OUT := $(ISTIO_OUT)
 endif
 
-export HELM=helm
 export ARTIFACTS ?= $(ISTIO_OUT)
 export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
@@ -138,10 +123,15 @@ endif
 
 export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
 
+# Use envoy as the sidecar by default
+export SIDECAR ?= envoy
+
 # OS-neutral vars. These currently only work for linux.
 export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_CENTOS_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-debug-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_CENTOS_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 
 # Envoy Linux vars.
 export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
@@ -151,9 +141,14 @@ export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
 export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
 export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
+export ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME ?= envoy-centos-debug-${ISTIO_ENVOY_LINUX_VERSION}
+export ISTIO_ENVOY_CENTOS_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME}
+
 export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
-export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= ${SIDECAR}-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
+export ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME ?= envoy-centos-${ISTIO_ENVOY_LINUX_VERSION}
+export ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME}
 
 # Envoy macOS vars.
 # TODO Change url when official envoy release for macOS is available
@@ -181,12 +176,11 @@ ifeq ($(USE_LOCAL_PROXY),1)
 endif
 
 # Allow user-override envoy bootstrap config path.
-export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap_v2.json
+export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
 export ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR = $(dir ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH})
 
-GO_VERSION_REQUIRED:=1.10
-
-HUB?=istio
+# If the hub is not explicitly set, use default to istio.
+HUB ?=istio
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
@@ -231,7 +225,7 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy and webassembly plugins
-${ISTIO_OUT}/envoy: init
+${ISTIO_OUT}/${SIDECAR}: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
 ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
@@ -260,7 +254,7 @@ ${GEN_CERT}:
 # If pre-commit script is not used, please run this manually.
 precommit: format lint
 
-format: fmt
+format: fmt ## Auto formats all code. This should be run before sending a PR.
 
 fmt: format-go format-python tidy-go
 
@@ -272,30 +266,30 @@ buildcache:
 BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pilot/cmd/pilot-agent \
-  ./mixer/cmd/mixs \
-  ./mixer/cmd/mixc \
-  ./mixer/tools/mixgen \
-  ./security/cmd/node_agent \
-  ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
-  ./mixer/test/policybackend \
-  ./operator/cmd/operator
+  ./operator/cmd/operator \
+  ./cni/cmd/istio-cni \
+  ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/istio-cni-taint \
+  ./cni/cmd/install-cni \
+  ./tools/istio-iptables \
+  ./tools/bug-report
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen node_agent istioctl sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
 
 .PHONY: build
-build: depend
-	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+build: depend ## Builds all go binaries.
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
-# This target should be expanded upon as we add more Linux architectures: i.e. buld-arm64.
+# This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
 # Then a new build target can be created such as build-container-bin that builds these
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
 # There are two use cases here:
@@ -308,7 +302,7 @@ ifeq ($(BUILD_ALL),true)
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
 else
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): $(ISTIO_OUT_LINUX)
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
 endif
 endef
 
@@ -318,33 +312,19 @@ $(foreach bin,$(BINARIES),$(eval $(call build-linux,$(bin))))
 # As an optimization, these still build everything
 $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
-MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
-
-# To save on memory, run for each folder
-lint-go-split:
-	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./pilot/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./pkg/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./samples/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./security/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./operator/...
+MARKDOWN_LINT_ALLOWLIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/charts/global.yaml
 
-lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global
+
+lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
-	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
-	@envvarlinter galley istioctl mixer pilot security
+	@envvarlinter galley istioctl pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin
-	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 gen-charts:
@@ -357,40 +337,51 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto gen-kustomize update-golden
+gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
 
 check-no-modify:
 	@bin/check_no_modify.sh
 
 gen-check: check-no-modify gen check-clean-repo
 
+# Copy the injection template file and configmap from istiod chart to istiod-remote chart
+sync-configs-from-istiod:
+	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files/
+	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.9.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml manifests/charts/istiod-remote/templates
+
 # Generate kustomize templates.
 gen-kustomize:
-	helm3 template istio --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
+	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
 	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
+	helm3 template istiod-remote --namespace istio-system manifests/charts/istiod-remote \
+		-f manifests/charts/global.yaml > manifests/charts/istiod-remote/files/gen-istiod-remote.yaml
+	helm3 template operator --namespace istio-system manifests/charts/istio-operator \
+		-f manifests/charts/global.yaml --set hub=gcr.io/istio-testing --set tag=${VERSION} > manifests/charts/istio-operator/files/gen-operator.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build
 #-----------------------------------------------------------------------------
 
 # gobuild script uses custom linker flag to set the variables.
-# Params: OUT VERSION_PKG SRC
 
 RELEASE_LDFLAGS='-extldflags -static -s -w'
-DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
 ${ISTIO_OUT}/release/istioctl-linux-amd64: depend
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-linux-armv7: depend
-	STATIC=0 GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-linux-arm64: depend
-	STATIC=0 GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-osx: depend
-	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/release/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
+	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
 ${ISTIO_OUT}/release/istioctl.bash: istioctl
@@ -431,152 +422,44 @@ ${ISTIO_BIN}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
-with_junit_report: | $(JUNIT_REPORT)
-	$(MAKE) -e $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+# This is just an alias for racetest now
+test: racetest ## Runs all unit tests
 
-# Run coverage tests
-ifeq ($(WHAT),)
-       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test operator-test
-else
-       TEST_OBJ = selected-pkg-test
-endif
-test: | $(JUNIT_REPORT)
-	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
-	$(MAKE) -e -f Makefile.core.mk --keep-going $(TEST_OBJ) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-# TODO: remove the racetest targets and just have *-test targets that call race
-
-.PHONY: pilot-test
-pilot-test: pilot-racetest
-
-.PHONY: istioctl-test
-istioctl-test: istioctl-racetest
-
-.PHONY: operator-test
-operator-test:
-	go test ${GOBUILDFLAGS} ${T} ./operator/...
-
-.PHONY: mixer-test
-mixer-test: mixer-racetest
-
-.PHONY: galley-test
-galley-test: galley-racetest
-
-.PHONY: security-test
-security-test: security-racetest
-
-.PHONY: common-test
-common-test: common-racetest
-
-.PHONY: selected-pkg-test
-selected-pkg-test:
-	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${GOBUILDFLAGS} ${T} -race ./{}
-
-#-----------------------------------------------------------------------------
-# Target: coverage
-#-----------------------------------------------------------------------------
-
-.PHONY: coverage
-
-# Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
-
-coverage-diff:
-	./bin/codecov_diff.sh
-
-.PHONY: pilot-coverage
-pilot-coverage:
-	bin/codecov.sh pilot
-
-.PHONY: istioctl-coverage
-istioctl-coverage:
-	bin/codecov.sh istioctl
-
-.PHONY: mixer-coverage
-mixer-coverage:
-	bin/codecov.sh mixer
-
-.PHONY: galley-coverage
-galley-coverage:
-	bin/codecov.sh galley
-
-.PHONY: security-coverage
-security-coverage:
-	bin/codecov.sh security/pkg
-	bin/codecov.sh security/cmd
-
-.PHONY: common-coverage
-common-coverage:
-	bin/codecov.sh pkg
-
-#-----------------------------------------------------------------------------
-# Target: go test -race
-#-----------------------------------------------------------------------------
+# For now, keep a minimal subset. This can be expanded in the future.
+BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
-
-RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest operator-racetest
 racetest: $(JUNIT_REPORT)
-	$(MAKE) -e -f Makefile.core.mk --keep-going $(RACE_TESTS) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	go test ${GOBUILDFLAGS} ${T} -race ./... 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-.PHONY: pilot-racetest
-pilot-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./pilot/...
+.PHONY: benchtest
+benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
+	prow/benchtest.sh run $(BENCH_TARGETS)
+	prow/benchtest.sh compare
 
-.PHONY: istioctl-racetest
-istioctl-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./istioctl/...
+report-benchtest:
+	prow/benchtest.sh report
 
-.PHONY: operator-racetest
-operator-racetest:
-	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./operator/...
-
-.PHONY: mixer-racetest
-mixer-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./mixer/...
-
-.PHONY: galley-racetest
-galley-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./galley/...
-
-.PHONY: security-racetest
-security-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./security/pkg/... ./security/cmd/...
-
-.PHONY: common-racetest
-common-racetest: ${BUILD_DEPS}
-	go test ${GOBUILDFLAGS} ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
+cni.install-test: docker.install-cni
+	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} -tags=integ ./cni/test/...
 
 #-----------------------------------------------------------------------------
 # Target: clean
 #-----------------------------------------------------------------------------
 .PHONY: clean
 
-clean:
+clean: ## Cleans all the intermediate files and folders previously generated.
 	rm -rf $(DIRS_TO_CLEAN)
-	rm -f $(FILES_TO_CLEAN)
 
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: push artifacts
+.PHONY: push
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
-push: docker.push
-
-FILES_TO_CLEAN+=install/consul/istio.yaml \
-                install/kubernetes/istio-auth.yaml \
-                install/kubernetes/istio-citadel-plugin-certs.yaml \
-                install/kubernetes/istio-citadel-with-health-check.yaml \
-                install/kubernetes/istio-one-namespace-auth.yaml \
-                install/kubernetes/istio-one-namespace-trust-domain.yaml \
-                install/kubernetes/istio-one-namespace.yaml \
-                install/kubernetes/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
+push: docker.push ## Build and push docker images to registry defined by $HUB and $TAG
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

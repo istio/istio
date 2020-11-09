@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ type Collection struct {
 	Kind         string `json:"kind"`
 	Disabled     bool   `json:"disabled"`
 	Pilot        bool   `json:"pilot"`
+	Deprecated   bool   `json:"deprecated"`
 }
 
 // Snapshot metadata. Describes the snapshots that should be produced.
@@ -64,15 +65,17 @@ type TransformSettings interface {
 
 // Resource metadata for resources contained within a collection.
 type Resource struct {
-	Group         string `json:"group"`
-	Version       string `json:"version"`
-	Kind          string `json:"kind"`
-	Plural        string `json:"plural"`
-	ClusterScoped bool   `json:"clusterScoped"`
-	Proto         string `json:"proto"`
-	ProtoPackage  string `json:"protoPackage"`
-	Validate      string `json:"validate"`
-	Description   string `json:"description"`
+	Group              string `json:"group"`
+	Version            string `json:"version"`
+	Kind               string `json:"kind"`
+	Plural             string `json:"plural"`
+	ClusterScoped      bool   `json:"clusterScoped"`
+	Proto              string `json:"proto"`
+	ProtoPackage       string `json:"protoPackage"`
+	StatusProto        string `json:"statusProto"`
+	StatusProtoPackage string `json:"statusProtoPackage"`
+	Validate           string `json:"validate"`
+	Description        string `json:"description"`
 }
 
 // DirectTransformSettings configuration

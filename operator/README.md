@@ -4,9 +4,9 @@
 # Istio Operator
 
 The istio/operator repo is part of istio/istio from 1.5 onwards.
-You can [contribute](CONTRIBUTING.md) by picking an
+You can [contribute](../CONTRIBUTING.md) by picking an
 [unassigned open issue](https://github.com/istio/istio/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fenvironments%2Foperator+no%3Aassignee),
-creating a [bug or feature request](BUGS-AND-FEATURE-REQUESTS.md),
+creating a [bug or feature request](../BUGS-AND-FEATURE-REQUESTS.md),
 or just coming to the weekly [Environments Working Group](https://github.com/istio/community/blob/master/WORKING-GROUPS.md)
 meeting to share your ideas.
 
@@ -18,14 +18,14 @@ architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 The operator uses the [IstioOperator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto), which has
 three main components:
 
-- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/operator.proto) for runtime config consumed directly by Istio
+- [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto) for runtime config consumed directly by Istio
 control plane components.
-- [Component configuration API](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto), for managing
+- [Component configuration API](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto#L42-L93), for managing
 K8s settings like resources, auto scaling, pod disruption budgets and others defined in the
-[KubernetesResourceSpec](https://github.com/istio/api/blob/master/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/operator/v1alpha1/component.proto)
+[KubernetesResourceSpec](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto#L217-L271)
 for Istio core and addon components.
 - The legacy
-[Helm installation API](https://istio.io/docs/reference/config/installation-options/) for backwards
+[Helm installation API](https://github.com/istio/istio/blob/master/operator/pkg/apis/istio/v1alpha1/values_types.proto) for backwards
 compatibility.
 
 Some parameters will temporarily exist both the component configuration and legacy Helm APIs - for example, K8s
@@ -35,18 +35,16 @@ for deprecation.
 
 [Profiles](https://istio.io/docs/setup/kubernetes/additional-setup/config-profiles/), are provided as a starting point for
 an Istio install and can be customized by creating customization overlay files or passing parameters through the
---set flag. For example, to select the sds profile:
+--set flag. For example, to select the minimal profile:
 
 ```yaml
-# sds.yaml
+# minimal.yaml
 
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: sds
+  profile: minimal
 ```
-
-See [Select a specific configuration_profile](#select-a-specific-configuration-profile) for more information.
 
 If you don't specify a configuration profile, Istio is installed using the `default` configuration profile. All
 profiles listed in istio.io are available by default, or `profile:` can point to a local file path to reference a custom
@@ -66,19 +64,12 @@ to execute the following step one time.
 GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@6025e8de665b
 ```
 
-#### Clone the repo
-
-```bash
-git clone https://github.com/istio/operator.git
-cd operator
-```
-
 #### CLI
 
 To build the operator CLI, simply:
 
 ```bash
-make istioctl
+make build
 ```
 
 Ensure the created binary is in your PATH to run the examples below.
@@ -88,30 +79,18 @@ Ensure the created binary is in your PATH to run the examples below.
 Building a custom controller requires a Dockerhub (or similar) account. To build using the container based build:
 
 ```bash
-HUB=docker.io/<your-account> TAG=latest make docker.all
+HUB=docker.io/<your-account> TAG=latest make docker.operator
 ```
 
 This builds the controller binary and docker file, and pushes the image to the specified hub with the `latest` tag.
-Once the images are pushed, configure kubectl to point to your cluster and install the controller. You should edit
-the file deploy/operator.yaml to point to your docker hub:
+Once the images are pushed, configure kubectl to point to your cluster and install the controller.
 
-```yaml
-          image: docker.io/<your-account>/operator
-```
-
-Install the controller manifest and example IstioOperator CR:
+Install the controller manifest:
 
 ```bash
 istioctl operator init --hub docker.io/<your-account> --tag latest
 kubectl create ns istio-system
-kubectl apply -f operator/deploy/crds/istio_v1alpha1_istiooperator_cr.yaml
-```
-
-or
-
-```bash
-kubectl apply -k operator/deploy/
-kubectl apply -f operator/deploy/crds/istio_v1alpha1_istiooperator_cr.yaml
+kubectl apply -f operator/samples/default-install.yaml
 ```
 
 This installs the controller into the cluster in the istio-operator namespace. The controller in turns installs
@@ -121,11 +100,18 @@ the Istio control plane into the istio-system namespace by default.
 
 1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
-1. From the operator repo root directory, run `go run ./cmd/manager/*.go server`
+1. Create the `WATCH_NAMESPACE` and `LEADER_ELECTION_NAMESPACE` if they are not created yet.
+
+```bash
+kubectl create ns $WATCH_NAMESPACE --dry-run -o yaml | kubectl apply -f -
+kubectl create ns $LEADER_ELECTION_NAMESPACE --dry-run -o yaml | kubectl apply -f -
+```
+
+1. From the istio repo root directory, run `go run ./operator/cmd/operator/*.go server`
 
 To use Remote debugging with IntelliJ, replace above step 2 with following:
 
-1. From ./cmd/manager path run
+1. From `./operator/cmd/operator` path run
 `
 dlv debug --headless --listen=:2345 --api-version=2 -- server
 `.
@@ -137,7 +123,7 @@ dlv debug --headless --listen=:2345 --api-version=2 -- server
 ### Relationship between the CLI and controller
 
 The CLI and controller share the same API and codebase for generating manifests from the API. You can think of the
-controller as the CLI command `istioctl manifest apply` running in a loop in a pod in the cluster and using the config
+controller as the CLI command `istioctl install` running in a loop in a pod in the cluster and using the config
 from the in-cluster IstioOperator custom resource (CR).
 There are two major differences:
 
@@ -152,7 +138,6 @@ API rather than command line.
 
 The `istioctl` command supports the following flags:
 
-- `logtostderr`: log to console (by default logs go to ./mesh-cli.log).
 - `dry-run`: console output only, nothing applied to cluster or written to files.
 - `verbose`: display entire manifest contents and other debug info (default is false).
 - `set`: select profile or override profile defaults
@@ -165,7 +150,7 @@ The following command generates a manifest with the compiled-in `default` profil
 istioctl manifest generate
 ```
 
-You can see these sources for the compiled-in profiles and charts in the repo under `data/`. These profiles and charts are also included in the Istio release tar.
+You can see these sources for the compiled-in profiles and charts in the repo under `manifests/`. These profiles and charts are also included in the Istio release tar.
 
 #### Output to dirs
 
@@ -186,7 +171,7 @@ The following command generates the manifests and applies them in the correct de
 dependencies to have the needed CRDs available:
 
 ```bash
-istioctl manifest apply
+istioctl install
 ```
 
 #### Review the values of a configuration profile
@@ -201,7 +186,7 @@ istioctl profile list
 istioctl profile dump demo
 
 # show the values after a customization file is applied
-istioctl profile dump -f samples/policy-off.yaml
+istioctl profile dump -f samples/pilot-k8s.yaml
 
 # show differences between the default and demo profiles
 istioctl profile dump default > 1.yaml
@@ -212,7 +197,6 @@ istioctl profile diff 1.yaml 2.yaml
 istioctl manifest generate > 1.yaml
 istioctl manifest generate -f samples/pilot-k8s.yaml > 2.yaml
 istioctl manifest diff 1.yam1 2.yaml
-
 ```
 
 The profile dump sub-command supports a couple of useful flags:
@@ -223,31 +207,31 @@ The profile dump sub-command supports a couple of useful flags:
 istioctl profile dump --config-path components.pilot
 ```
 
-- `set`: set a value in the configuration before dumping the resulting profile e.g. show the minimal profile:
+- `filename`: set parameters in the configuration file before dumping the resulting profile e.g. show the pilot k8s overlay settings:
 
 ```bash
-istioctl profile dump --set profile=minimal
+istioctl profile dump --filename samples/pilot-k8s.yaml
 ```
 
 #### Select a specific configuration profile
 
-The simplest customization is to select a profile different to `default` e.g. `sds`. See [samples/sds.yaml](samples/sds.yaml):
+The simplest customization is to select a profile different to `default` e.g. `minimal`. See [manifests/profiles/minimal.yaml](../manifests/profiles/minimal.yaml):
 
 ```yaml
-# sds-install.yaml
+# minimal-install.yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: sds
+  profile: minimal
 ```
 
 Use `istioctl` to generate the manifests for the new configuration profile:
 
 ```bash
-istioctl manifest generate -f samples/sds.yaml
+istioctl manifest generate -f manifests/profiles/minimal.yaml
 ```
 
-After running the command, the Helm charts are rendered using `data/profiles/sds.yaml`.
+After running the command, the Helm charts are rendered using `manifests/profiles/minimal.yaml`.
 
 ##### --set syntax
 
@@ -317,17 +301,16 @@ istioctl manifest diff ./out/helm-template/manifest.yaml ./out/mesh-manifest/man
 ### New API customization
 
 The [new platform level installation API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto)
-defines install time parameters like feature and component enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
-The simplest customization is to turn features and components on and off. For example, to turn off all policy ([samples/sds-policy-off.yaml](samples/sds-policy-off.yaml)):
+defines install time parameters like component and enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
+The simplest customization is to turn components on and off. For example, to turn on cni ([samples/cni-on.yaml](samples/cni-on.yaml):
 
 ```yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: sds
   components:
-    policy:
-      enabled: false
+    cni:
+      enabled: true
 ```
 
 The operator validates the configuration and automatically detects syntax errors. If you are
@@ -378,6 +361,9 @@ way as galley settings. Supported K8s settings currently include:
 - [toleration](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/)
 - [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
 - [deployment strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+- [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+- [service spec](https://kubernetes.io/docs/concepts/services-networking/service/)
+- [pod securityContext](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
 
 All of these K8s settings use the K8s API definitions, so [K8s documentation](https://kubernetes.io/docs/concepts/) can
 be used for reference. All K8s overlay values are also validated in the operator.
@@ -410,10 +396,8 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   values:
-    mixer:
-      telemetry:
-        loadshedding:
-          latencyThreshold: 200ms
+    pilot:
+      traceSampling: 0.1 # override from 1.0
 ```
 
 ### Advanced K8s resource overlays
@@ -453,8 +437,8 @@ the spec.
 ## Interaction with controller
 
 The controller shares the same API as the operator CLI, so it's possible to install any of the above examples as a CR
-in the cluster in the istio-operator namespace and the controller will react to it with the same outcome as running
-`istioctl manifest apply -f <path-to-custom-resource-file>`.
+in the cluster in the istio-system namespace and the controller will react to it with the same outcome as running
+`istioctl install -f <path-to-custom-resource-file>`.
 
 ## Architecture
 

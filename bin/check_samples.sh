@@ -28,9 +28,5 @@ go build -o $ISTIOCTL ./istioctl/cmd/istioctl
 for f in samples/**/*.yaml; do
   echo "Validating $f..."
   $ISTIOCTL validate -x \
-    -f mixer/testdata/config/attributes.yaml \
-    -f mixer/template/metric/template.yaml \
-    -f mixer/test/prometheus/prometheus-nosession.yaml \
-    -f samples/httpbin/policy/keyval-template.yaml \
     -f "$f"
 done

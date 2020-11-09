@@ -42,7 +42,7 @@ func TestCamelCase(t *testing.T) {
 
 	for k, v := range cases {
 		t.Run(k, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			a := strcase.CamelCase(k)
 			g.Expect(a).To(Equal(v))
@@ -62,7 +62,7 @@ func TestCamelCaseToKebabCase(t *testing.T) {
 
 	for k, v := range cases {
 		t.Run(k, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			a := strcase.CamelCaseToKebabCase(k)
 			g.Expect(a).To(Equal(v))

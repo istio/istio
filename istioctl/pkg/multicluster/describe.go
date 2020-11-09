@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -211,7 +211,7 @@ func (o *describeOptions) addFlags(flags *pflag.FlagSet) {
 	o.filenameOption.addFlags(flags)
 
 	flags.BoolVar(&o.all, "all", true,
-		"describe the status of all clustersByContext in the mesh")
+		"Describe the status of all clustersByContext in the mesh")
 }
 
 func NewDescribeCommand() *cobra.Command {

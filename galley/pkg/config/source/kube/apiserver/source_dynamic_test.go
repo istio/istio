@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,16 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
+	. "github.com/onsi/gomega"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic/fake"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -34,15 +42,6 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
-
-	"github.com/gogo/protobuf/types"
-	. "github.com/onsi/gomega"
-	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic/fake"
-	k8sTesting "k8s.io/client-go/testing"
 )
 
 func TestNewSource(t *testing.T) {
@@ -73,7 +72,7 @@ func TestStartTwice(t *testing.T) {
 }
 
 func TestStartStop_WithStatusCtl(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Create the source
 	w, _, cl := createMocks()
@@ -105,7 +104,7 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 }
 
 func TestReport(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Create the source
 	w, _, cl := createMocks()
@@ -132,7 +131,7 @@ func TestReport(t *testing.T) {
 }
 
 func TestEvents(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -194,7 +193,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -299,7 +298,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 }
 
 func TestEvents_NonAddEvent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -325,7 +324,7 @@ func TestEvents_NonAddEvent(t *testing.T) {
 }
 
 func TestEvents_NoneForDisabled(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -398,7 +397,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 }
 
 func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	defer func() {
 		r := recover()

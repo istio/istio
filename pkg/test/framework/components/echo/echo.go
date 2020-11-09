@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"context"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	dto "github.com/prometheus/client_model/go"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -48,8 +49,8 @@ type Builder interface {
 
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.
-	Build() error
-	BuildOrFail(t test.Failer)
+	Build() (Instances, error)
+	BuildOrFail(t test.Failer) Instances
 }
 
 // Instance is a component that provides access to a deployed echo service.
@@ -62,13 +63,6 @@ type Instance interface {
 	// Address of the service (e.g. Kubernetes cluster IP). May be "" if headless.
 	Address() string
 
-	// WaitUntilCallable waits until each of the provided instances are callable from
-	// this Instance. If this instance has a sidecar, this waits until Envoy has
-	// received outbound configuration (e.g. clusters, routes, listeners) for every
-	// port.
-	WaitUntilCallable(instances ...Instance) error
-	WaitUntilCallableOrFail(t test.Failer, instances ...Instance)
-
 	// Workloads retrieves the list of all deployed workloads for this Echo service.
 	// Guarantees at least one workload, if error == nil.
 	Workloads() ([]Workload, error)
@@ -77,6 +71,11 @@ type Instance interface {
 	// Call makes a call from this Instance to a target Instance.
 	Call(options CallOptions) (client.ParsedResponses, error)
 	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
+
+	// CallWithRetry is the same as call, except that it will attempt to retry based on the provided
+	// options. If no options are provided, uses defaults.
+	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
+	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) client.ParsedResponses
 }
 
 // Workload port exposed by an Echo instance
@@ -89,6 +88,9 @@ type WorkloadPort struct {
 
 	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
 	TLS bool
+
+	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
+	ServerFirst bool
 }
 
 // Port exposed by an Echo Instance
@@ -110,10 +112,15 @@ type Port struct {
 
 	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
 	TLS bool
+
+	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
+	ServerFirst bool
 }
 
 // Workload provides an interface for a single deployed echo server.
 type Workload interface {
+	// PodName gets the original pod name for the workload.
+	PodName() string
 	// Address returns the network address of the endpoint.
 	Address() string
 
@@ -160,4 +167,7 @@ type Sidecar interface {
 	Logs() (string, error)
 	// LogsOrFail returns the logs for the sidecar container, or aborts if an error is found
 	LogsOrFail(t test.Failer) string
+
+	Stats() (map[string]*dto.MetricFamily, error)
+	StatsOrFail(t test.Failer) map[string]*dto.MetricFamily
 }

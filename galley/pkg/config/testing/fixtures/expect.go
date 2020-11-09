@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ func ExpectNone(t *testing.T, acc *Accumulator) {
 // ExpectFilter works similar to Expect, except it filters out events based on the given function.
 func ExpectFilter(t *testing.T, acc *Accumulator, fn FilterFn, expected ...event.Event) {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	wrapFn := func() []event.Event {
 		e := acc.Events()

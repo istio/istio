@@ -1,3 +1,13 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
 spec:
-  kb:
-    enabled: true
+  components:
+    pilot:
+      enabled: true
+    ingressGateways:
+      - namespace: istio-system
+        name: istio-ingressgateway
+        enabled: true
+        k8s:
+          service:
+            externalTrafficPolicy: Test

@@ -1,6 +1,6 @@
 name: envoy.filters.http.rbac
 typedConfig:
-  '@type': type.googleapis.com/envoy.config.filter.http.rbac.v2.RBAC
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
   rules:
     policies:
       ns[foo]-policy[allow-all]-rule[0]:

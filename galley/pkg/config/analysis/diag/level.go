@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ var (
 	Info = Level{2, "Info"}
 
 	// Warning level is for warning messages
-	Warning = Level{1, "Warn"}
+	Warning = Level{1, "Warning"}
 
 	// Error level is for error messages
 	Error = Level{0, "Error"}

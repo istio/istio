@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package matcher
 import (
 	"strings"
 
-	routepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.

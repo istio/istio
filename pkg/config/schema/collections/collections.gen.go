@@ -4,84 +4,24 @@
 package collections
 
 import (
+	"reflect"
+
+	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicorev1 "k8s.io/api/core/v1"
+	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	k8sioapiextensionsapiserverpkgapisapiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	sigsk8sioserviceapisapisv1alpha1 "sigs.k8s.io/service-apis/apis/v1alpha1"
+
+	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
+	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
+	istioioapinetworkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 )
 
 var (
-
-	// IstioConfigV1Alpha2Adapters describes the collection
-	// istio/config/v1alpha2/adapters
-	IstioConfigV1Alpha2Adapters = collection.Builder{
-		Name:         "istio/config/v1alpha2/adapters",
-		VariableName: "IstioConfigV1Alpha2Adapters",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "adapter",
-			Plural:        "adapters",
-			Version:       "v1alpha2",
-			Proto:         "google.protobuf.Struct",
-			ProtoPackage:  "github.com/gogo/protobuf/types",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioConfigV1Alpha2Httpapispecbindings describes the collection
-	// istio/config/v1alpha2/httpapispecbindings
-	IstioConfigV1Alpha2Httpapispecbindings = collection.Builder{
-		Name:         "istio/config/v1alpha2/httpapispecbindings",
-		VariableName: "IstioConfigV1Alpha2Httpapispecbindings",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "HTTPAPISpecBinding",
-			Plural:        "httpapispecbindings",
-			Version:       "v1alpha2",
-			Proto:         "istio.mixer.v1.config.client.HTTPAPISpecBinding",
-			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateHTTPAPISpecBinding,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioConfigV1Alpha2Httpapispecs describes the collection
-	// istio/config/v1alpha2/httpapispecs
-	IstioConfigV1Alpha2Httpapispecs = collection.Builder{
-		Name:         "istio/config/v1alpha2/httpapispecs",
-		VariableName: "IstioConfigV1Alpha2Httpapispecs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "HTTPAPISpec",
-			Plural:        "httpapispecs",
-			Version:       "v1alpha2",
-			Proto:         "istio.mixer.v1.config.client.HTTPAPISpec",
-			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateHTTPAPISpec,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioConfigV1Alpha2Templates describes the collection
-	// istio/config/v1alpha2/templates
-	IstioConfigV1Alpha2Templates = collection.Builder{
-		Name:         "istio/config/v1alpha2/templates",
-		VariableName: "IstioConfigV1Alpha2Templates",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "template",
-			Plural:        "templates",
-			Version:       "v1alpha2",
-			Proto:         "google.protobuf.Struct",
-			ProtoPackage:  "github.com/gogo/protobuf/types",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
 
 	// IstioMeshV1Alpha1MeshConfig describes the collection
 	// istio/mesh/v1alpha1/MeshConfig
@@ -95,45 +35,29 @@ var (
 			Plural:        "meshconfigs",
 			Version:       "v1alpha1",
 			Proto:         "istio.mesh.v1alpha1.MeshConfig",
+			ReflectType:   reflect.TypeOf(&istioioapimeshv1alpha1.MeshConfig{}).Elem(),
 			ProtoPackage:  "istio.io/api/mesh/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
-	// IstioMixerV1ConfigClientQuotaspecbindings describes the collection
-	// istio/mixer/v1/config/client/quotaspecbindings
-	IstioMixerV1ConfigClientQuotaspecbindings = collection.Builder{
-		Name:         "istio/mixer/v1/config/client/quotaspecbindings",
-		VariableName: "IstioMixerV1ConfigClientQuotaspecbindings",
+	// IstioMeshV1Alpha1MeshNetworks describes the collection
+	// istio/mesh/v1alpha1/MeshNetworks
+	IstioMeshV1Alpha1MeshNetworks = collection.Builder{
+		Name:         "istio/mesh/v1alpha1/MeshNetworks",
+		VariableName: "IstioMeshV1Alpha1MeshNetworks",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "QuotaSpecBinding",
-			Plural:        "quotaspecbindings",
-			Version:       "v1alpha2",
-			Proto:         "istio.mixer.v1.config.client.QuotaSpecBinding",
-			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
+			Group:         "",
+			Kind:          "MeshNetworks",
+			Plural:        "meshnetworks",
+			Version:       "v1alpha1",
+			Proto:         "istio.mesh.v1alpha1.MeshNetworks",
+			ReflectType:   reflect.TypeOf(&istioioapimeshv1alpha1.MeshNetworks{}).Elem(),
+			ProtoPackage:  "istio.io/api/mesh/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.ValidateQuotaSpecBinding,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioMixerV1ConfigClientQuotaspecs describes the collection
-	// istio/mixer/v1/config/client/quotaspecs
-	IstioMixerV1ConfigClientQuotaspecs = collection.Builder{
-		Name:         "istio/mixer/v1/config/client/quotaspecs",
-		VariableName: "IstioMixerV1ConfigClientQuotaspecs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "QuotaSpec",
-			Plural:        "quotaspecs",
-			Version:       "v1alpha2",
-			Proto:         "istio.mixer.v1.config.client.QuotaSpec",
-			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateQuotaSpec,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -144,12 +68,13 @@ var (
 		VariableName: "IstioNetworkingV1Alpha3Destinationrules",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "DestinationRule",
-			Plural:        "destinationrules",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.DestinationRule",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "DestinationRule",
+			Plural:  "destinationrules",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.DestinationRule", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.DestinationRule{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateDestinationRule,
 		}.MustBuild(),
@@ -162,12 +87,13 @@ var (
 		VariableName: "IstioNetworkingV1Alpha3Envoyfilters",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "EnvoyFilter",
-			Plural:        "envoyfilters",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.EnvoyFilter",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "EnvoyFilter",
+			Plural:  "envoyfilters",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateEnvoyFilter,
 		}.MustBuild(),
@@ -180,12 +106,13 @@ var (
 		VariableName: "IstioNetworkingV1Alpha3Gateways",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "Gateway",
-			Plural:        "gateways",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.Gateway",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "Gateway",
+			Plural:  "gateways",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.Gateway", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Gateway{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateGateway,
 		}.MustBuild(),
@@ -198,12 +125,13 @@ var (
 		VariableName: "IstioNetworkingV1Alpha3Serviceentries",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "ServiceEntry",
-			Plural:        "serviceentries",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.ServiceEntry",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "ServiceEntry",
+			Plural:  "serviceentries",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.ServiceEntry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceEntry,
 		}.MustBuild(),
@@ -216,12 +144,13 @@ var (
 		VariableName: "IstioNetworkingV1Alpha3Sidecars",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "Sidecar",
-			Plural:        "sidecars",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.Sidecar",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "Sidecar",
+			Plural:  "sidecars",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.Sidecar", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Sidecar{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateSidecar,
 		}.MustBuild(),
@@ -234,12 +163,13 @@ var (
 		VariableName: "IstioNetworkingV1Alpha3Virtualservices",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "VirtualService",
-			Plural:        "virtualservices",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.VirtualService",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "VirtualService",
+			Plural:  "virtualservices",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.VirtualService", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.VirtualService{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateVirtualService,
 		}.MustBuild(),
@@ -252,158 +182,34 @@ var (
 		VariableName: "IstioNetworkingV1Alpha3Workloadentries",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "WorkloadEntry",
-			Plural:        "workloadentries",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.WorkloadEntry",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "WorkloadEntry",
+			Plural:  "workloadentries",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.WorkloadEntry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateWorkloadEntry,
 		}.MustBuild(),
 	}.MustBuild()
 
-	// IstioPolicyV1Beta1Attributemanifests describes the collection
-	// istio/policy/v1beta1/attributemanifests
-	IstioPolicyV1Beta1Attributemanifests = collection.Builder{
-		Name:         "istio/policy/v1beta1/attributemanifests",
-		VariableName: "IstioPolicyV1Beta1Attributemanifests",
+	// IstioNetworkingV1Alpha3Workloadgroups describes the collection
+	// istio/networking/v1alpha3/workloadgroups
+	IstioNetworkingV1Alpha3Workloadgroups = collection.Builder{
+		Name:         "istio/networking/v1alpha3/workloadgroups",
+		VariableName: "IstioNetworkingV1Alpha3Workloadgroups",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "attributemanifest",
-			Plural:        "attributemanifests",
-			Version:       "v1alpha2",
-			Proto:         "istio.policy.v1beta1.AttributeManifest",
-			ProtoPackage:  "istio.io/api/policy/v1beta1",
+			Group:   "networking.istio.io",
+			Kind:    "WorkloadGroup",
+			Plural:  "workloadgroups",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.WorkloadGroup", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioPolicyV1Beta1Handlers describes the collection
-	// istio/policy/v1beta1/handlers
-	IstioPolicyV1Beta1Handlers = collection.Builder{
-		Name:         "istio/policy/v1beta1/handlers",
-		VariableName: "IstioPolicyV1Beta1Handlers",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "handler",
-			Plural:        "handlers",
-			Version:       "v1alpha2",
-			Proto:         "istio.policy.v1beta1.Handler",
-			ProtoPackage:  "istio.io/api/policy/v1beta1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioPolicyV1Beta1Instances describes the collection
-	// istio/policy/v1beta1/instances
-	IstioPolicyV1Beta1Instances = collection.Builder{
-		Name:         "istio/policy/v1beta1/instances",
-		VariableName: "IstioPolicyV1Beta1Instances",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "instance",
-			Plural:        "instances",
-			Version:       "v1alpha2",
-			Proto:         "istio.policy.v1beta1.Instance",
-			ProtoPackage:  "istio.io/api/policy/v1beta1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioPolicyV1Beta1Rules describes the collection
-	// istio/policy/v1beta1/rules
-	IstioPolicyV1Beta1Rules = collection.Builder{
-		Name:         "istio/policy/v1beta1/rules",
-		VariableName: "IstioPolicyV1Beta1Rules",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "rule",
-			Plural:        "rules",
-			Version:       "v1alpha2",
-			Proto:         "istio.policy.v1beta1.Rule",
-			ProtoPackage:  "istio.io/api/policy/v1beta1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioRbacV1Alpha1Clusterrbacconfigs describes the collection
-	// istio/rbac/v1alpha1/clusterrbacconfigs
-	IstioRbacV1Alpha1Clusterrbacconfigs = collection.Builder{
-		Name:         "istio/rbac/v1alpha1/clusterrbacconfigs",
-		VariableName: "IstioRbacV1Alpha1Clusterrbacconfigs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ClusterRbacConfig",
-			Plural:        "clusterrbacconfigs",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.RbacConfig",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: true,
-			ValidateProto: validation.ValidateClusterRbacConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioRbacV1Alpha1Rbacconfigs describes the collection
-	// istio/rbac/v1alpha1/rbacconfigs
-	IstioRbacV1Alpha1Rbacconfigs = collection.Builder{
-		Name:         "istio/rbac/v1alpha1/rbacconfigs",
-		VariableName: "IstioRbacV1Alpha1Rbacconfigs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "RbacConfig",
-			Plural:        "rbacconfigs",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.RbacConfig",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateRbacConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioRbacV1Alpha1Servicerolebindings describes the collection
-	// istio/rbac/v1alpha1/servicerolebindings
-	IstioRbacV1Alpha1Servicerolebindings = collection.Builder{
-		Name:         "istio/rbac/v1alpha1/servicerolebindings",
-		VariableName: "IstioRbacV1Alpha1Servicerolebindings",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ServiceRoleBinding",
-			Plural:        "servicerolebindings",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.ServiceRoleBinding",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceRoleBinding,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// IstioRbacV1Alpha1Serviceroles describes the collection
-	// istio/rbac/v1alpha1/serviceroles
-	IstioRbacV1Alpha1Serviceroles = collection.Builder{
-		Name:         "istio/rbac/v1alpha1/serviceroles",
-		VariableName: "IstioRbacV1Alpha1Serviceroles",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ServiceRole",
-			Plural:        "serviceroles",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.ServiceRole",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceRole,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -414,12 +220,13 @@ var (
 		VariableName: "IstioSecurityV1Beta1Authorizationpolicies",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "security.istio.io",
-			Kind:          "AuthorizationPolicy",
-			Plural:        "authorizationpolicies",
-			Version:       "v1beta1",
-			Proto:         "istio.security.v1beta1.AuthorizationPolicy",
-			ProtoPackage:  "istio.io/api/security/v1beta1",
+			Group:   "security.istio.io",
+			Kind:    "AuthorizationPolicy",
+			Plural:  "authorizationpolicies",
+			Version: "v1beta1",
+			Proto:   "istio.security.v1beta1.AuthorizationPolicy", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.AuthorizationPolicy{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateAuthorizationPolicy,
 		}.MustBuild(),
@@ -432,12 +239,13 @@ var (
 		VariableName: "IstioSecurityV1Beta1Peerauthentications",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "security.istio.io",
-			Kind:          "PeerAuthentication",
-			Plural:        "peerauthentications",
-			Version:       "v1beta1",
-			Proto:         "istio.security.v1beta1.PeerAuthentication",
-			ProtoPackage:  "istio.io/api/security/v1beta1",
+			Group:   "security.istio.io",
+			Kind:    "PeerAuthentication",
+			Plural:  "peerauthentications",
+			Version: "v1beta1",
+			Proto:   "istio.security.v1beta1.PeerAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.PeerAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidatePeerAuthentication,
 		}.MustBuild(),
@@ -450,12 +258,13 @@ var (
 		VariableName: "IstioSecurityV1Beta1Requestauthentications",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "security.istio.io",
-			Kind:          "RequestAuthentication",
-			Plural:        "requestauthentications",
-			Version:       "v1beta1",
-			Proto:         "istio.security.v1beta1.RequestAuthentication",
-			ProtoPackage:  "istio.io/api/security/v1beta1",
+			Group:   "security.istio.io",
+			Kind:    "RequestAuthentication",
+			Plural:  "requestauthentications",
+			Version: "v1beta1",
+			Proto:   "istio.security.v1beta1.RequestAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.RequestAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRequestAuthentication,
 		}.MustBuild(),
@@ -473,6 +282,7 @@ var (
 			Plural:        "CustomResourceDefinitions",
 			Version:       "v1beta1",
 			Proto:         "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
+			ReflectType:   reflect.TypeOf(&k8sioapiextensionsapiserverpkgapisapiextensionsv1beta1.CustomResourceDefinition{}).Elem(),
 			ProtoPackage:  "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -490,187 +300,8 @@ var (
 			Plural:        "Deployments",
 			Version:       "v1",
 			Proto:         "k8s.io.api.apps.v1.Deployment",
+			ReflectType:   reflect.TypeOf(&k8sioapiappsv1.Deployment{}).Elem(),
 			ProtoPackage:  "k8s.io/api/apps/v1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Adapters describes the collection
-	// k8s/config.istio.io/v1alpha2/adapters
-	K8SConfigIstioIoV1Alpha2Adapters = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/adapters",
-		VariableName: "K8SConfigIstioIoV1Alpha2Adapters",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "adapter",
-			Plural:        "adapters",
-			Version:       "v1alpha2",
-			Proto:         "google.protobuf.Struct",
-			ProtoPackage:  "github.com/gogo/protobuf/types",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Attributemanifests describes the collection
-	// k8s/config.istio.io/v1alpha2/attributemanifests
-	K8SConfigIstioIoV1Alpha2Attributemanifests = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/attributemanifests",
-		VariableName: "K8SConfigIstioIoV1Alpha2Attributemanifests",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "attributemanifest",
-			Plural:        "attributemanifests",
-			Version:       "v1alpha2",
-			Proto:         "istio.policy.v1beta1.AttributeManifest",
-			ProtoPackage:  "istio.io/api/policy/v1beta1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Handlers describes the collection
-	// k8s/config.istio.io/v1alpha2/handlers
-	K8SConfigIstioIoV1Alpha2Handlers = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/handlers",
-		VariableName: "K8SConfigIstioIoV1Alpha2Handlers",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "handler",
-			Plural:        "handlers",
-			Version:       "v1alpha2",
-			Proto:         "istio.policy.v1beta1.Handler",
-			ProtoPackage:  "istio.io/api/policy/v1beta1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Httpapispecbindings describes the collection
-	// k8s/config.istio.io/v1alpha2/httpapispecbindings
-	K8SConfigIstioIoV1Alpha2Httpapispecbindings = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/httpapispecbindings",
-		VariableName: "K8SConfigIstioIoV1Alpha2Httpapispecbindings",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "HTTPAPISpecBinding",
-			Plural:        "httpapispecbindings",
-			Version:       "v1alpha2",
-			Proto:         "istio.mixer.v1.config.client.HTTPAPISpecBinding",
-			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateHTTPAPISpecBinding,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Httpapispecs describes the collection
-	// k8s/config.istio.io/v1alpha2/httpapispecs
-	K8SConfigIstioIoV1Alpha2Httpapispecs = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/httpapispecs",
-		VariableName: "K8SConfigIstioIoV1Alpha2Httpapispecs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "HTTPAPISpec",
-			Plural:        "httpapispecs",
-			Version:       "v1alpha2",
-			Proto:         "istio.mixer.v1.config.client.HTTPAPISpec",
-			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateHTTPAPISpec,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Instances describes the collection
-	// k8s/config.istio.io/v1alpha2/instances
-	K8SConfigIstioIoV1Alpha2Instances = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/instances",
-		VariableName: "K8SConfigIstioIoV1Alpha2Instances",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "instance",
-			Plural:        "instances",
-			Version:       "v1alpha2",
-			Proto:         "istio.policy.v1beta1.Instance",
-			ProtoPackage:  "istio.io/api/policy/v1beta1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Quotaspecbindings describes the collection
-	// k8s/config.istio.io/v1alpha2/quotaspecbindings
-	K8SConfigIstioIoV1Alpha2Quotaspecbindings = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/quotaspecbindings",
-		VariableName: "K8SConfigIstioIoV1Alpha2Quotaspecbindings",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "QuotaSpecBinding",
-			Plural:        "quotaspecbindings",
-			Version:       "v1alpha2",
-			Proto:         "istio.mixer.v1.config.client.QuotaSpecBinding",
-			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateQuotaSpecBinding,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Quotaspecs describes the collection
-	// k8s/config.istio.io/v1alpha2/quotaspecs
-	K8SConfigIstioIoV1Alpha2Quotaspecs = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/quotaspecs",
-		VariableName: "K8SConfigIstioIoV1Alpha2Quotaspecs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "QuotaSpec",
-			Plural:        "quotaspecs",
-			Version:       "v1alpha2",
-			Proto:         "istio.mixer.v1.config.client.QuotaSpec",
-			ProtoPackage:  "istio.io/api/mixer/v1/config/client",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateQuotaSpec,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Rules describes the collection
-	// k8s/config.istio.io/v1alpha2/rules
-	K8SConfigIstioIoV1Alpha2Rules = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/rules",
-		VariableName: "K8SConfigIstioIoV1Alpha2Rules",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "rule",
-			Plural:        "rules",
-			Version:       "v1alpha2",
-			Proto:         "istio.policy.v1beta1.Rule",
-			ProtoPackage:  "istio.io/api/policy/v1beta1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SConfigIstioIoV1Alpha2Templates describes the collection
-	// k8s/config.istio.io/v1alpha2/templates
-	K8SConfigIstioIoV1Alpha2Templates = collection.Builder{
-		Name:         "k8s/config.istio.io/v1alpha2/templates",
-		VariableName: "K8SConfigIstioIoV1Alpha2Templates",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "config.istio.io",
-			Kind:          "template",
-			Plural:        "templates",
-			Version:       "v1alpha2",
-			Proto:         "google.protobuf.Struct",
-			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -687,6 +318,7 @@ var (
 			Plural:        "configmaps",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.ConfigMap",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ConfigMap{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -704,6 +336,7 @@ var (
 			Plural:        "endpoints",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.Endpoints",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Endpoints{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -721,6 +354,7 @@ var (
 			Plural:        "namespaces",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.NamespaceSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.NamespaceSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
@@ -738,6 +372,7 @@ var (
 			Plural:        "nodes",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.NodeSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.NodeSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
@@ -755,6 +390,7 @@ var (
 			Plural:        "pods",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.Pod",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Pod{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -772,6 +408,7 @@ var (
 			Plural:        "secrets",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.Secret",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Secret{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -789,6 +426,7 @@ var (
 			Plural:        "services",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.ServiceSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -802,12 +440,13 @@ var (
 		VariableName: "K8SExtensionsV1Beta1Ingresses",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "extensions",
-			Kind:          "Ingress",
-			Plural:        "ingresses",
-			Version:       "v1beta1",
-			Proto:         "k8s.io.api.extensions.v1beta1.IngressSpec",
-			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
+			Group:   "extensions",
+			Kind:    "Ingress",
+			Plural:  "ingresses",
+			Version: "v1beta1",
+			Proto:   "k8s.io.api.extensions.v1beta1.IngressSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.IngressStatus",
+			ReflectType: reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressStatus{}).Elem(),
+			ProtoPackage: "k8s.io/api/extensions/v1beta1", StatusPackage: "k8s.io/api/extensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -820,12 +459,13 @@ var (
 		VariableName: "K8SNetworkingIstioIoV1Alpha3Destinationrules",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "DestinationRule",
-			Plural:        "destinationrules",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.DestinationRule",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "DestinationRule",
+			Plural:  "destinationrules",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.DestinationRule", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.DestinationRule{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateDestinationRule,
 		}.MustBuild(),
@@ -838,12 +478,13 @@ var (
 		VariableName: "K8SNetworkingIstioIoV1Alpha3Envoyfilters",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "EnvoyFilter",
-			Plural:        "envoyfilters",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.EnvoyFilter",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "EnvoyFilter",
+			Plural:  "envoyfilters",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateEnvoyFilter,
 		}.MustBuild(),
@@ -856,12 +497,13 @@ var (
 		VariableName: "K8SNetworkingIstioIoV1Alpha3Gateways",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "Gateway",
-			Plural:        "gateways",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.Gateway",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "Gateway",
+			Plural:  "gateways",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.Gateway", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Gateway{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateGateway,
 		}.MustBuild(),
@@ -874,12 +516,13 @@ var (
 		VariableName: "K8SNetworkingIstioIoV1Alpha3Serviceentries",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "ServiceEntry",
-			Plural:        "serviceentries",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.ServiceEntry",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "ServiceEntry",
+			Plural:  "serviceentries",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.ServiceEntry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateServiceEntry,
 		}.MustBuild(),
@@ -892,12 +535,13 @@ var (
 		VariableName: "K8SNetworkingIstioIoV1Alpha3Sidecars",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "Sidecar",
-			Plural:        "sidecars",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.Sidecar",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "Sidecar",
+			Plural:  "sidecars",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.Sidecar", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Sidecar{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateSidecar,
 		}.MustBuild(),
@@ -910,12 +554,13 @@ var (
 		VariableName: "K8SNetworkingIstioIoV1Alpha3Virtualservices",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "VirtualService",
-			Plural:        "virtualservices",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.VirtualService",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "VirtualService",
+			Plural:  "virtualservices",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.VirtualService", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.VirtualService{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateVirtualService,
 		}.MustBuild(),
@@ -928,86 +573,34 @@ var (
 		VariableName: "K8SNetworkingIstioIoV1Alpha3Workloadentries",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.istio.io",
-			Kind:          "WorkloadEntry",
-			Plural:        "workloadentries",
-			Version:       "v1alpha3",
-			Proto:         "istio.networking.v1alpha3.WorkloadEntry",
-			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			Group:   "networking.istio.io",
+			Kind:    "WorkloadEntry",
+			Plural:  "workloadentries",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.WorkloadEntry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateWorkloadEntry,
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SRbacIstioIoV1Alpha1Clusterrbacconfigs describes the collection
-	// k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs
-	K8SRbacIstioIoV1Alpha1Clusterrbacconfigs = collection.Builder{
-		Name:         "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs",
-		VariableName: "K8SRbacIstioIoV1Alpha1Clusterrbacconfigs",
+	// K8SNetworkingIstioIoV1Alpha3Workloadgroups describes the collection
+	// k8s/networking.istio.io/v1alpha3/workloadgroups
+	K8SNetworkingIstioIoV1Alpha3Workloadgroups = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1alpha3/workloadgroups",
+		VariableName: "K8SNetworkingIstioIoV1Alpha3Workloadgroups",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ClusterRbacConfig",
-			Plural:        "clusterrbacconfigs",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.RbacConfig",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: true,
-			ValidateProto: validation.ValidateClusterRbacConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SRbacIstioIoV1Alpha1Policy describes the collection
-	// k8s/rbac.istio.io/v1alpha1/policy
-	K8SRbacIstioIoV1Alpha1Policy = collection.Builder{
-		Name:         "k8s/rbac.istio.io/v1alpha1/policy",
-		VariableName: "K8SRbacIstioIoV1Alpha1Policy",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ServiceRoleBinding",
-			Plural:        "servicerolebindings",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.ServiceRoleBinding",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
+			Group:   "networking.istio.io",
+			Kind:    "WorkloadGroup",
+			Plural:  "workloadgroups",
+			Version: "v1alpha3",
+			Proto:   "istio.networking.v1alpha3.WorkloadGroup", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceRoleBinding,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SRbacIstioIoV1Alpha1Rbacconfigs describes the collection
-	// k8s/rbac.istio.io/v1alpha1/rbacconfigs
-	K8SRbacIstioIoV1Alpha1Rbacconfigs = collection.Builder{
-		Name:         "k8s/rbac.istio.io/v1alpha1/rbacconfigs",
-		VariableName: "K8SRbacIstioIoV1Alpha1Rbacconfigs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "RbacConfig",
-			Plural:        "rbacconfigs",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.RbacConfig",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateRbacConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SRbacIstioIoV1Alpha1Serviceroles describes the collection
-	// k8s/rbac.istio.io/v1alpha1/serviceroles
-	K8SRbacIstioIoV1Alpha1Serviceroles = collection.Builder{
-		Name:         "k8s/rbac.istio.io/v1alpha1/serviceroles",
-		VariableName: "K8SRbacIstioIoV1Alpha1Serviceroles",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "rbac.istio.io",
-			Kind:          "ServiceRole",
-			Plural:        "serviceroles",
-			Version:       "v1alpha1",
-			Proto:         "istio.rbac.v1alpha1.ServiceRole",
-			ProtoPackage:  "istio.io/api/rbac/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceRole,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -1018,12 +611,13 @@ var (
 		VariableName: "K8SSecurityIstioIoV1Beta1Authorizationpolicies",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "security.istio.io",
-			Kind:          "AuthorizationPolicy",
-			Plural:        "authorizationpolicies",
-			Version:       "v1beta1",
-			Proto:         "istio.security.v1beta1.AuthorizationPolicy",
-			ProtoPackage:  "istio.io/api/security/v1beta1",
+			Group:   "security.istio.io",
+			Kind:    "AuthorizationPolicy",
+			Plural:  "authorizationpolicies",
+			Version: "v1beta1",
+			Proto:   "istio.security.v1beta1.AuthorizationPolicy", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.AuthorizationPolicy{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateAuthorizationPolicy,
 		}.MustBuild(),
@@ -1036,12 +630,13 @@ var (
 		VariableName: "K8SSecurityIstioIoV1Beta1Peerauthentications",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "security.istio.io",
-			Kind:          "PeerAuthentication",
-			Plural:        "peerauthentications",
-			Version:       "v1beta1",
-			Proto:         "istio.security.v1beta1.PeerAuthentication",
-			ProtoPackage:  "istio.io/api/security/v1beta1",
+			Group:   "security.istio.io",
+			Kind:    "PeerAuthentication",
+			Plural:  "peerauthentications",
+			Version: "v1beta1",
+			Proto:   "istio.security.v1beta1.PeerAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.PeerAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidatePeerAuthentication,
 		}.MustBuild(),
@@ -1054,14 +649,34 @@ var (
 		VariableName: "K8SSecurityIstioIoV1Beta1Requestauthentications",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "security.istio.io",
-			Kind:          "RequestAuthentication",
-			Plural:        "requestauthentications",
-			Version:       "v1beta1",
-			Proto:         "istio.security.v1beta1.RequestAuthentication",
-			ProtoPackage:  "istio.io/api/security/v1beta1",
+			Group:   "security.istio.io",
+			Kind:    "RequestAuthentication",
+			Plural:  "requestauthentications",
+			Version: "v1beta1",
+			Proto:   "istio.security.v1beta1.RequestAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.RequestAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateRequestAuthentication,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SServiceApisV1Alpha1Backendpolicies describes the collection
+	// k8s/service_apis/v1alpha1/backendpolicies
+	K8SServiceApisV1Alpha1Backendpolicies = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/backendpolicies",
+		VariableName: "K8SServiceApisV1Alpha1Backendpolicies",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "networking.x-k8s.io",
+			Kind:    "BackendPolicy",
+			Plural:  "backendpolicies",
+			Version: "v1alpha1",
+			Proto:   "k8s.io.service_apis.api.v1alpha1.BackendPolicySpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.BackendPolicyStatus",
+			ReflectType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.BackendPolicySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.BackendPolicyStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1", StatusPackage: "sigs.k8s.io/service-apis/apis/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -1072,12 +687,13 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Gatewayclasses",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
-			Kind:          "GatewayClass",
-			Plural:        "gatewayclasses",
-			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			Group:   "networking.x-k8s.io",
+			Kind:    "GatewayClass",
+			Plural:  "gatewayclasses",
+			Version: "v1alpha1",
+			Proto:   "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.GatewayClassStatus",
+			ReflectType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.GatewayClassSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.GatewayClassStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1", StatusPackage: "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1090,14 +706,15 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Gateways",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
-			Kind:          "Gateway",
-			Plural:        "gateways",
-			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.GatewaySpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			Group:   "networking.x-k8s.io",
+			Kind:    "Gateway",
+			Plural:  "gateways",
+			Version: "v1alpha1",
+			Proto:   "k8s.io.service_apis.api.v1alpha1.GatewaySpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.GatewayStatus",
+			ReflectType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.GatewaySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.GatewayStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1", StatusPackage: "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.ValidateGateway,
+			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -1108,12 +725,13 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Httproutes",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
-			Kind:          "HTTPRoute",
-			Plural:        "httproutes",
-			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			Group:   "networking.x-k8s.io",
+			Kind:    "HTTPRoute",
+			Plural:  "httproutes",
+			Version: "v1alpha1",
+			Proto:   "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.HTTPRouteStatus",
+			ReflectType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.HTTPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.HTTPRouteStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1", StatusPackage: "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1126,30 +744,32 @@ var (
 		VariableName: "K8SServiceApisV1Alpha1Tcproutes",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
-			Kind:          "TcpRoute",
-			Plural:        "tcproutes",
-			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			Group:   "networking.x-k8s.io",
+			Kind:    "TCPRoute",
+			Plural:  "tcproutes",
+			Version: "v1alpha1",
+			Proto:   "k8s.io.service_apis.api.v1alpha1.TCPRouteSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.TCPRouteStatus",
+			ReflectType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.TCPRouteStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1", StatusPackage: "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SServiceApisV1Alpha1Trafficsplits describes the collection
-	// k8s/service_apis/v1alpha1/trafficsplits
-	K8SServiceApisV1Alpha1Trafficsplits = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/trafficsplits",
-		VariableName: "K8SServiceApisV1Alpha1Trafficsplits",
+	// K8SServiceApisV1Alpha1Tlsroutes describes the collection
+	// k8s/service_apis/v1alpha1/tlsroutes
+	K8SServiceApisV1Alpha1Tlsroutes = collection.Builder{
+		Name:         "k8s/service_apis/v1alpha1/tlsroutes",
+		VariableName: "K8SServiceApisV1Alpha1Tlsroutes",
 		Disabled:     false,
 		Resource: resource.Builder{
-			Group:         "networking.x.k8s.io",
-			Kind:          "TrafficSplit",
-			Plural:        "trafficsplits",
-			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/api/v1alpha1",
+			Group:   "networking.x-k8s.io",
+			Kind:    "TLSRoute",
+			Plural:  "tlsroutes",
+			Version: "v1alpha1",
+			Proto:   "k8s.io.service_apis.api.v1alpha1.TLSRouteSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.TLSRouteStatus",
+			ReflectType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8sioserviceapisapisv1alpha1.TLSRouteStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1", StatusPackage: "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1157,13 +777,8 @@ var (
 
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
-		MustAdd(IstioConfigV1Alpha2Adapters).
-		MustAdd(IstioConfigV1Alpha2Httpapispecbindings).
-		MustAdd(IstioConfigV1Alpha2Httpapispecs).
-		MustAdd(IstioConfigV1Alpha2Templates).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
-		MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
-		MustAdd(IstioMixerV1ConfigClientQuotaspecs).
+		MustAdd(IstioMeshV1Alpha1MeshNetworks).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
@@ -1171,29 +786,12 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-		MustAdd(IstioPolicyV1Beta1Attributemanifests).
-		MustAdd(IstioPolicyV1Beta1Handlers).
-		MustAdd(IstioPolicyV1Beta1Instances).
-		MustAdd(IstioPolicyV1Beta1Rules).
-		MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Rbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
-		MustAdd(IstioRbacV1Alpha1Serviceroles).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
 		MustAdd(K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
-		MustAdd(K8SConfigIstioIoV1Alpha2Adapters).
-		MustAdd(K8SConfigIstioIoV1Alpha2Attributemanifests).
-		MustAdd(K8SConfigIstioIoV1Alpha2Handlers).
-		MustAdd(K8SConfigIstioIoV1Alpha2Httpapispecbindings).
-		MustAdd(K8SConfigIstioIoV1Alpha2Httpapispecs).
-		MustAdd(K8SConfigIstioIoV1Alpha2Instances).
-		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecbindings).
-		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecs).
-		MustAdd(K8SConfigIstioIoV1Alpha2Rules).
-		MustAdd(K8SConfigIstioIoV1Alpha2Templates).
 		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
 		MustAdd(K8SCoreV1Namespaces).
@@ -1209,29 +807,22 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
-		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
-		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
-		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
-		MustAdd(K8SRbacIstioIoV1Alpha1Serviceroles).
+		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
+		MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
 		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
 		MustAdd(K8SServiceApisV1Alpha1Gateways).
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
+		MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
 		Build()
 
 	// Istio contains only Istio collections.
 	Istio = collection.NewSchemasBuilder().
-		MustAdd(IstioConfigV1Alpha2Adapters).
-		MustAdd(IstioConfigV1Alpha2Httpapispecbindings).
-		MustAdd(IstioConfigV1Alpha2Httpapispecs).
-		MustAdd(IstioConfigV1Alpha2Templates).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
-		MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
-		MustAdd(IstioMixerV1ConfigClientQuotaspecs).
+		MustAdd(IstioMeshV1Alpha1MeshNetworks).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
@@ -1239,14 +830,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-		MustAdd(IstioPolicyV1Beta1Attributemanifests).
-		MustAdd(IstioPolicyV1Beta1Handlers).
-		MustAdd(IstioPolicyV1Beta1Instances).
-		MustAdd(IstioPolicyV1Beta1Rules).
-		MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Rbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
-		MustAdd(IstioRbacV1Alpha1Serviceroles).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -1256,16 +840,6 @@ var (
 	Kube = collection.NewSchemasBuilder().
 		MustAdd(K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
-		MustAdd(K8SConfigIstioIoV1Alpha2Adapters).
-		MustAdd(K8SConfigIstioIoV1Alpha2Attributemanifests).
-		MustAdd(K8SConfigIstioIoV1Alpha2Handlers).
-		MustAdd(K8SConfigIstioIoV1Alpha2Httpapispecbindings).
-		MustAdd(K8SConfigIstioIoV1Alpha2Httpapispecs).
-		MustAdd(K8SConfigIstioIoV1Alpha2Instances).
-		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecbindings).
-		MustAdd(K8SConfigIstioIoV1Alpha2Quotaspecs).
-		MustAdd(K8SConfigIstioIoV1Alpha2Rules).
-		MustAdd(K8SConfigIstioIoV1Alpha2Templates).
 		MustAdd(K8SCoreV1Configmaps).
 		MustAdd(K8SCoreV1Endpoints).
 		MustAdd(K8SCoreV1Namespaces).
@@ -1281,26 +855,20 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
-		MustAdd(K8SRbacIstioIoV1Alpha1Clusterrbacconfigs).
-		MustAdd(K8SRbacIstioIoV1Alpha1Policy).
-		MustAdd(K8SRbacIstioIoV1Alpha1Rbacconfigs).
-		MustAdd(K8SRbacIstioIoV1Alpha1Serviceroles).
+		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
+		MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
 		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
 		MustAdd(K8SServiceApisV1Alpha1Gateways).
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
+		MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
-		MustAdd(IstioConfigV1Alpha2Httpapispecbindings).
-		MustAdd(IstioConfigV1Alpha2Httpapispecs).
-		MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
-		MustAdd(IstioMixerV1ConfigClientQuotaspecs).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
@@ -1308,10 +876,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-		MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Rbacconfigs).
-		MustAdd(IstioRbacV1Alpha1Servicerolebindings).
-		MustAdd(IstioRbacV1Alpha1Serviceroles).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -1319,10 +884,6 @@ var (
 
 	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
 	PilotServiceApi = collection.NewSchemasBuilder().
-			MustAdd(IstioConfigV1Alpha2Httpapispecbindings).
-			MustAdd(IstioConfigV1Alpha2Httpapispecs).
-			MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
-			MustAdd(IstioMixerV1ConfigClientQuotaspecs).
 			MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 			MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 			MustAdd(IstioNetworkingV1Alpha3Gateways).
@@ -1330,17 +891,19 @@ var (
 			MustAdd(IstioNetworkingV1Alpha3Sidecars).
 			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 			MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-			MustAdd(IstioRbacV1Alpha1Clusterrbacconfigs).
-			MustAdd(IstioRbacV1Alpha1Rbacconfigs).
-			MustAdd(IstioRbacV1Alpha1Servicerolebindings).
-			MustAdd(IstioRbacV1Alpha1Serviceroles).
+			MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 			MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).
+			MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
 			MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
 			MustAdd(K8SServiceApisV1Alpha1Gateways).
 			MustAdd(K8SServiceApisV1Alpha1Httproutes).
 			MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
+			MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
+			Build()
+
+	// Deprecated contains only collections used by that will soon be used by nothing.
+	Deprecated = collection.NewSchemasBuilder().
 			Build()
 )
