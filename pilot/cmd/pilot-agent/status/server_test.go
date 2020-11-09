@@ -30,9 +30,9 @@ import (
 	"time"
 
 	"github.com/prometheus/common/expfmt"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
@@ -330,13 +330,13 @@ func TestAppProbe(t *testing.T) {
 
 	simpleConfig := KubeAppProbers{
 		"/app-health/hello-world/readyz": &Prober{
-			HTTPGet: &v1.HTTPGetAction{
+			HTTPGet: &apimirror.HTTPGetAction{
 				Path: "/hello/sunnyvale",
 				Port: intstr.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 		"/app-health/hello-world/livez": &Prober{
-			HTTPGet: &v1.HTTPGetAction{
+			HTTPGet: &apimirror.HTTPGetAction{
 				Port: intstr.IntOrString{IntVal: int32(appPort)},
 			},
 		},
@@ -366,10 +366,10 @@ func TestAppProbe(t *testing.T) {
 			probePath: "app-health/header/readyz",
 			config: KubeAppProbers{
 				"/app-health/header/readyz": &Prober{
-					HTTPGet: &v1.HTTPGetAction{
+					HTTPGet: &apimirror.HTTPGetAction{
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
-						HTTPHeaders: []v1.HTTPHeader{
+						HTTPHeaders: []apimirror.HTTPHeader{
 							{"Host", testHostValue},
 							{testHeader, testHeaderValue},
 						},
@@ -382,7 +382,7 @@ func TestAppProbe(t *testing.T) {
 			probePath: "app-health/hello-world/readyz",
 			config: KubeAppProbers{
 				"/app-health/hello-world/readyz": &Prober{
-					HTTPGet: &v1.HTTPGetAction{
+					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "hello/texas",
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 					},
@@ -394,7 +394,7 @@ func TestAppProbe(t *testing.T) {
 			probePath: "app-health/hello-world/livez",
 			config: KubeAppProbers{
 				"/app-health/hello-world/livez": &Prober{
-					HTTPGet: &v1.HTTPGetAction{
+					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "hello/texas",
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 					},
