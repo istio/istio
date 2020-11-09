@@ -939,7 +939,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 		delete(c.workloadInstancesByIP, si.Endpoint.Address)
 	default: // add or update
 		// Check to see if the workload entry changed. If it did, clear the old entry
-		k := si.Name + "~" + si.Namespace
+		k := si.Namespace + "/" + si.Name
 		existing := c.workloadInstancesIPsByName[k]
 		if existing != si.Endpoint.Address {
 			delete(c.workloadInstancesByIP, existing)
