@@ -16,13 +16,11 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"google.golang.org/grpc/grpclog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -95,7 +93,6 @@ var (
 )
 
 func configureLogging(_ *cobra.Command, _ []string) error {
-	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
