@@ -427,7 +427,7 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 	}, func(fc *listener.FilterChainMatch) bool {
 		if !hasTLSInspector {
 			// Without tls inspector, transport protocol will always be raw buffer
-			return fc.GetTransportProtocol() == xdsfilters.RawBufferTransportProtocol && input.TLS != MTLS
+			return fc.GetTransportProtocol() == xdsfilters.RawBufferTransportProtocol && input.TLS == Plaintext
 		}
 		switch fc.GetTransportProtocol() {
 		case xdsfilters.TLSTransportProtocol:

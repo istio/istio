@@ -18,6 +18,7 @@ import (
 	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -112,9 +113,8 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 
 	// Then generate the per-port passthrough filter chains.
 	for port := range applier.PortLevelSetting() {
-		// Skip the per-port passthrough filterchain if the port is found in service instances, which means it should already
-		// be covered by OnInboundFilterChains().
-		if portFoundInServices(port, in.Node) {
+		// Skip the per-port passthrough filterchain if the port is already handled by OnInboundFilterChains().
+		if portAlreadyHandled(port, in.Node) {
 			continue
 		}
 
@@ -133,7 +133,21 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	return filterChains
 }
 
-func portFoundInServices(port uint32, node *model.Proxy) bool {
+func portAlreadyHandled(port uint32, node *model.Proxy) bool {
+	// If there is any sidecar defined, check if the port is explicitly defined there.
+	// This means the sidecar resource takes precedence over the service. A port defined in service but not in sidecar
+	// means the port is going to be handled by the pass through filter chain.
+	if node.SidecarScope.HasCustomIngressListeners {
+		rule := node.SidecarScope.Config.Spec.(*v1alpha3.Sidecar)
+		for _, ingressListener := range rule.Ingress {
+			if port == ingressListener.Port.Number {
+				return true
+			}
+		}
+		return false
+	}
+
+	// If there is no sidecar, check if the port is appearing in any service.
 	for _, si := range node.ServiceInstances {
 		if port == si.Endpoint.EndpointPort {
 			return true

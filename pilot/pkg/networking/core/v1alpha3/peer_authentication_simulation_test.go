@@ -22,6 +22,8 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 )
 
+// TestPeerAuthenticationPassthrough tests the PeerAuthentication policy applies correctly on the passthrough filter chain,
+// including both global configuration and port level configuration.
 func TestPeerAuthenticationPassthrough(t *testing.T) {
 	paStrict := `
 apiVersion: security.istio.io/v1beta1
@@ -335,6 +337,268 @@ spec:
 					Name:   "mtls port 9000",
 					Call:   mkCall(9000, simulation.MTLS),
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+				},
+			},
+		},
+	}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
+	for _, tt := range cases {
+		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+			name:   tt.name,
+			config: tt.config,
+			calls:  tt.calls,
+		})
+	}
+}
+
+// TestPeerAuthenticationWithSidecar tests the PeerAuthentication policy applies correctly to filter chain generated from
+// either the service or sidecar resource.
+func TestPeerAuthenticationWithSidecar(t *testing.T) {
+	pa := `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  selector:
+    matchLabels:
+      app: foo
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    9090:
+      mode: DISABLE
+---`
+	sidecar := `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  labels:
+    app: foo
+  name: sidecar
+spec:
+  ingress:
+  - defaultEndpoint: 127.0.0.1:8080
+    port:
+      name: tls
+      number: 8080
+      protocol: TCP
+  - defaultEndpoint: 127.0.0.1:9090
+    port:
+      name: plaintext
+      number: 9090
+      protocol: TCP
+  egress:
+  - hosts:
+    - "*/*"
+  workloadSelector:
+    labels:
+      app: foo
+---`
+	partialSidecar := `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  labels:
+    app: foo
+  name: sidecar
+spec:
+  ingress:
+  - defaultEndpoint: 127.0.0.1:8080
+    port:
+      name: tls
+      number: 8080
+      protocol: TCP
+  egress:
+  - hosts:
+    - "*/*"
+  workloadSelector:
+    labels:
+      app: foo
+---`
+	instancePorts := `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: se
+spec:
+  hosts:
+  - foo.bar
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      app: foo
+  location: MESH_INTERNAL
+  resolution: STATIC
+  ports:
+  - name: tls
+    number: 8080
+    protocol: TCP
+  - name: plaintext
+    number: 9090
+    protocol: TCP
+---`
+	instanceNoPorts := `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: se
+spec:
+  hosts:
+  - foo.bar
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      app: foo
+  location: MESH_INTERNAL
+  resolution: STATIC
+  ports:
+  - name: random
+    number: 5050
+    protocol: TCP
+---`
+	mkCall := func(port int, tls simulation.TLSMode) simulation.Call {
+		// TODO https://github.com/istio/istio/issues/28506 address should not be required here
+		return simulation.Call{Port: port, CallMode: simulation.CallModeInbound, TLS: tls, Address: "1.1.1.1"}
+	}
+	cases := []struct {
+		name   string
+		config string
+		calls  []simulation.Expect
+	}{
+		{
+			name:   "service, no sidecar",
+			config: pa + instancePorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name:   "tls on tls port",
+					Call:   mkCall(8080, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+				},
+				{
+					Name:   "plaintext on plaintext port",
+					Call:   mkCall(9090, simulation.Plaintext),
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+				},
+				{
+					Name:   "tls on plaintext port",
+					Call:   mkCall(9090, simulation.MTLS),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+			},
+		},
+		{
+			name:   "service, full sidecar",
+			config: pa + sidecar + instancePorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name:   "tls on tls port",
+					Call:   mkCall(8080, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+				},
+				{
+					Name:   "plaintext on plaintext port",
+					Call:   mkCall(9090, simulation.Plaintext),
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+				},
+				{
+					Name:   "tls on plaintext port",
+					Call:   mkCall(9090, simulation.MTLS),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+			},
+		},
+		{
+			name:   "no service, no sidecar",
+			config: pa + instanceNoPorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name: "tls on tls port",
+					Call: mkCall(8080, simulation.MTLS),
+					// no ports defined, so we will passthrough
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+				},
+				{
+					Name: "plaintext on plaintext port",
+					Call: mkCall(9090, simulation.Plaintext),
+					// no ports defined, so we will fail. STRICT enforced
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+				},
+				{
+					Name: "tls on plaintext port",
+					Call: mkCall(9090, simulation.MTLS),
+					// no ports defined, so we will fail. STRICT allows
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+			},
+		},
+		{
+			name:   "no service, full sidecar",
+			config: pa + sidecar + instanceNoPorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name:   "tls on tls port",
+					Call:   mkCall(8080, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+				},
+				{
+					Name:   "plaintext on plaintext port",
+					Call:   mkCall(9090, simulation.Plaintext),
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+				},
+				{
+					Name:   "tls on plaintext port",
+					Call:   mkCall(9090, simulation.MTLS),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+			},
+		},
+		{
+			name:   "service, partial sidecar",
+			config: pa + partialSidecar + instancePorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name:   "tls on tls port",
+					Call:   mkCall(8080, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+				},
+				// Despite being defined in the Service, we get no filter chain since its not in Sidecar
+				{
+					Name: "plaintext on plaintext port",
+					Call: mkCall(9090, simulation.Plaintext),
+					// port 9090 not defined in partialSidecar and will use plain text, plaintext request should pass.
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+				},
+				{
+					Name: "tls on plaintext port",
+					Call: mkCall(9090, simulation.MTLS),
+					// port 9090 not defined in partialSidecar and will use plain text, mTLS request should fail.
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
 				},
 			},
 		},
