@@ -558,7 +558,8 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error 
 
 // ValidateEnvoyFilter checks envoy filter config supplied by user
 var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
+		errs := Validation{}
 		rule, ok := cfg.Spec.(*networking.EnvoyFilter)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to Envoy filter")
@@ -570,30 +571,30 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 
 		for _, cp := range rule.ConfigPatches {
 			if cp == nil {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: golint,stylecheck
 				continue
 			}
 			if cp.ApplyTo == networking.EnvoyFilter_INVALID {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: golint,stylecheck
 				continue
 			}
 			if cp.Patch == nil {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: golint,stylecheck
 				continue
 			}
 			if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: golint,stylecheck
 				continue
 			}
 			if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: golint,stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: golint,stylecheck
 				continue
 			}
 
 			// ensure that the supplied regex for proxy version compiles
 			if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
 				if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
-					errs = appendErrors(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: golint,stylecheck
+					errs = appendValidation(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: golint,stylecheck
 					continue
 				}
 			}
@@ -605,7 +606,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				networking.EnvoyFilter_HTTP_FILTER:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetListener() == nil {
-						errs = appendErrors(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: golint,stylecheck
+						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: golint,stylecheck
 						continue
 					}
 					listenerMatch := cp.Match.GetListener()
@@ -613,23 +614,23 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 						if listenerMatch.FilterChain.Filter != nil {
 							// filter names are required if network filter matches are being made
 							if listenerMatch.FilterChain.Filter.Name == "" {
-								errs = appendErrors(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: golint,stylecheck
+								errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: golint,stylecheck
 								continue
 							} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
 								// sub filter match is supported only for applyTo HTTP_FILTER
 								if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
-									errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: golint,stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: golint,stylecheck
 									continue
 								}
 								// sub filter match requires the network filter to match to envoy http connection manager
 								if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
 									listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
-									errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: golint,stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: golint,stylecheck
 										wellknown.HTTPConnectionManager))
 									continue
 								}
 								if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
-									errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: golint,stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: golint,stylecheck
 									continue
 								}
 							}
@@ -639,7 +640,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetRouteConfiguration() == nil {
-						errs = appendErrors(errs,
+						errs = appendValidation(errs,
 							fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: golint,stylecheck
 					}
 				}
@@ -647,17 +648,23 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			case networking.EnvoyFilter_CLUSTER:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetCluster() == nil {
-						errs = appendErrors(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: golint,stylecheck
+						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: golint,stylecheck
 					}
 				}
 			}
 			// ensure that the struct is valid
-			if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value); err != nil {
-				errs = appendErrors(errs, err)
+			if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false); err != nil {
+				errs = appendValidation(errs, err)
+			} else {
+				// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
+				// We do not want to reject in case the proto is valid but our libraries are outdated
+				if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, true); err != nil {
+					errs = appendValidation(errs, WrapWarning(err))
+				}
 			}
 		}
 
-		return
+		return errs.Unwrap()
 	})
 
 // validates that hostname in ns/<hostname> is a valid hostname according to
@@ -1228,6 +1235,22 @@ func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
 	return nil
 }
 
+// ValidateMaxServerConnectionAge validate negative duration
+func ValidateMaxServerConnectionAge(in time.Duration) error {
+	if err := IsNegativeDuration(in); err != nil {
+		return fmt.Errorf("%v: --keepaliveMaxServerConnectionAge only accepts positive duration eg: 30m", err)
+	}
+	return nil
+}
+
+// IsNegativeDuration check if the duration is negative
+func IsNegativeDuration(in time.Duration) error {
+	if in < 0 {
+		return fmt.Errorf("invalid duration: %s", in.String())
+	}
+	return nil
+}
+
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
@@ -1257,6 +1280,10 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	}
 
 	if err := validateTrustDomainConfig(mesh); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	if err := validateExtensionProvider(mesh); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -1402,39 +1429,76 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to AuthorizationPolicy")
 		}
-		name := cfg.Name
-		namespace := cfg.Namespace
 
+		var errs error
 		if err := validateWorkloadSelector(in.Selector); err != nil {
-			return nil, err
+			errs = appendErrors(errs, err)
+		}
+
+		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
+			if in.Rules == nil {
+				errs = appendErrors(errs, fmt.Errorf("CUSTOM action without `rules` is meaningless as it will never be triggered, "+
+					"add an empty rule `{}` if you want it be triggered for every request"))
+			} else {
+				if in.GetProvider() == nil || in.GetProvider().GetName() == "" {
+					errs = appendErrors(errs, fmt.Errorf("`provider.name` must not be empty"))
+				}
+			}
+			// TODO(yangminzhu): Add support for more matching rules.
+			for _, rule := range in.GetRules() {
+				check := func(invalid bool, name string) error {
+					if invalid {
+						return fmt.Errorf("%s is currently not supported with CUSTOM action", name)
+					}
+					return nil
+				}
+				for _, from := range rule.GetFrom() {
+					if src := from.GetSource(); src != nil {
+						errs = appendErrors(errs, check(len(src.Namespaces) != 0, "From.Namespaces"))
+						errs = appendErrors(errs, check(len(src.NotNamespaces) != 0, "From.NotNamespaces"))
+						errs = appendErrors(errs, check(len(src.Principals) != 0, "From.Principals"))
+						errs = appendErrors(errs, check(len(src.NotPrincipals) != 0, "From.NotPrincipals"))
+						errs = appendErrors(errs, check(len(src.RequestPrincipals) != 0, "From.RequestPrincipals"))
+						errs = appendErrors(errs, check(len(src.NotRequestPrincipals) != 0, "From.NotRequestPrincipals"))
+					}
+				}
+				for _, when := range rule.GetWhen() {
+					errs = appendErrors(errs, check(when.Key == "source.namespace", when.Key))
+					errs = appendErrors(errs, check(when.Key == "source.principal", when.Key))
+					errs = appendErrors(errs, check(strings.HasPrefix(when.Key, "request.auth."), when.Key))
+				}
+			}
+		}
+		if in.GetProvider() != nil && in.Action != security_beta.AuthorizationPolicy_CUSTOM {
+			errs = appendErrors(errs, fmt.Errorf("`provider` must not be with non CUSTOM action, found %s", in.Action))
 		}
 
 		if in.Action == security_beta.AuthorizationPolicy_DENY && in.Rules == nil {
-			return nil, fmt.Errorf("a deny policy without `rules` is meaningless and has no effect, found in %s.%s", name, namespace)
+			errs = appendErrors(errs, fmt.Errorf("DENY action without `rules` is meaningless as it will never be triggered, "+
+				"add an empty rule `{}` if you want it be triggered for every request"))
 		}
 
-		var errs error
 		for i, rule := range in.GetRules() {
 			if rule == nil {
-				errs = appendErrors(errs, fmt.Errorf("`rule` must not be null, found at rule %d in %s.%s", i, name, namespace))
+				errs = appendErrors(errs, fmt.Errorf("`rule` must not be nil, found at rule %d", i))
 				continue
 			}
 			if rule.From != nil && len(rule.From) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+				errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d", i))
 			}
 			for _, from := range rule.From {
 				if from == nil {
-					errs = appendErrors(errs, fmt.Errorf("`from` must not be null, found at rule %d in %s.%s", i, name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`from` must not be nil, found at rule %d", i))
 					continue
 				}
 				if from.Source == nil {
-					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d", i))
 				} else {
 					src := from.Source
 					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
 						len(src.RemoteIpBlocks) == 0 && len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 &&
 						len(src.NotIpBlocks) == 0 && len(src.NotRemoteIpBlocks) == 0 {
-						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d", i))
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetNotIpBlocks()))
@@ -1453,20 +1517,20 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				}
 			}
 			if rule.To != nil && len(rule.To) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("`to` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+				errs = appendErrors(errs, fmt.Errorf("`to` must not be empty, found at rule %d", i))
 			}
 			for _, to := range rule.To {
 				if to == nil {
-					errs = appendErrors(errs, fmt.Errorf("`to` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`to` must not be nil, found at rule %d", i))
 					continue
 				}
 				if to.Operation == nil {
-					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d", i))
 				} else {
 					op := to.Operation
 					if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 &&
 						len(op.NotPorts) == 0 && len(op.NotMethods) == 0 && len(op.NotPaths) == 0 && len(op.NotHosts) == 0 {
-						errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+						errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be empty, found at rule %d", i))
 					}
 					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetPorts()))
 					errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetNotPorts()))
@@ -1483,23 +1547,23 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 			for _, condition := range rule.GetWhen() {
 				key := condition.GetKey()
 				if key == "" {
-					errs = appendErrors(errs, fmt.Errorf("`key` must not be empty, found in %s.%s", name, namespace))
+					errs = appendErrors(errs, fmt.Errorf("`key` must not be empty"))
 				} else {
 					if len(condition.GetValues()) == 0 && len(condition.GetNotValues()) == 0 {
-						errs = appendErrors(errs, fmt.Errorf("at least one of `values` or `notValues` must be set for key %s, found in %s.%s",
-							key, name, namespace))
+						errs = appendErrors(errs, fmt.Errorf("at least one of `values` or `notValues` must be set for key %s",
+							key))
 					} else {
 						if err := security.ValidateAttribute(key, condition.GetValues()); err != nil {
-							errs = appendErrors(errs, fmt.Errorf("invalid `value` for `key` %s: %v, found in %s.%s", key, err, name, namespace))
+							errs = appendErrors(errs, fmt.Errorf("invalid `value` for `key` %s: %v", key, err))
 						}
 						if err := security.ValidateAttribute(key, condition.GetNotValues()); err != nil {
-							errs = appendErrors(errs, fmt.Errorf("invalid `notValue` for `key` %s: %v, found in %s.%s", key, err, name, namespace))
+							errs = appendErrors(errs, fmt.Errorf("invalid `notValue` for `key` %s: %v", key, err))
 						}
 					}
 				}
 			}
 		}
-		return nil, errs
+		return nil, multierror.Prefix(errs, fmt.Sprintf("invalid policy %s.%s:", cfg.Name, cfg.Namespace))
 	})
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
@@ -1672,7 +1736,6 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendValidation(errs, validateHTTPRoute(httpRoute, isDelegate))
 		}
 		for _, tlsRoute := range virtualService.Tls {
-			log.Errorf("howardjohn: %v~%T", validateTLSRoute(tlsRoute, virtualService), validateTLSRoute(tlsRoute, virtualService))
 			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
 		}
 		for _, tcpRoute := range virtualService.Tcp {

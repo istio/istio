@@ -87,6 +87,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	go w.Run(stop)
 	controller := w.(*configMapWatcher).c
 	cache.WaitForCacheSync(stop, controller.HasSynced)
+	client.RunAndWait(stop)
 
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
 	steps := []struct {

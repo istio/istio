@@ -106,14 +106,14 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 		{"Values.global.tracer.stackdriver.maxNumberOfAnnotations", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", 0},
 		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0},
 		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
-		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/istiod-gateway/", false},
+		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/multicluster/", false},
 		{"Values.global.trustDomain", "meshConfig.trustDomain", false},
 		{"Values.gateways.istio-ingressgateway.meshExpansionPorts", "components.ingressGateways[name=istio-ingressgateway].k8s.service.ports", nil},
 		{"AddonComponents.istiocoredns.Enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		{"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
 			false},
-		{"Values.global.centralIstiod", "Values.global.externallIstiod", false},
+		{"Values.global.centralIstiod", "Values.global.externalIstiod", false},
 	}
 
 	failHardSettings := []deprecatedSettings{

@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -59,9 +60,16 @@ var (
 		Short:             "Start Istio proxy discovery service.",
 		Args:              cobra.ExactArgs(0),
 		PersistentPreRunE: configureLogging,
+		PreRunE: func(c *cobra.Command, args []string) error {
+			// If keepaliveMaxServerConnectionAge is negative, istiod crash
+			// https://github.com/istio/istio/issues/27257
+			if err := validation.ValidateMaxServerConnectionAge(serverArgs.KeepaliveOptions.MaxServerConnectionAge); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
-			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -87,6 +95,7 @@ var (
 )
 
 func configureLogging(_ *cobra.Command, _ []string) error {
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}

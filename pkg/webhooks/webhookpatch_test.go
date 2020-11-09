@@ -16,14 +16,13 @@ package webhooks
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
 	"strings"
 	"testing"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestMutatingWebhookPatch(t *testing.T) {
@@ -81,6 +80,32 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			[]byte("fake CA"),
 			"",
 		},
+		{
+			"MultipleWebhooks",
+			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "config1",
+						},
+						Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
+							{
+								Name:         "webhook1",
+								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+							},
+							{
+								Name:         "webhook1",
+								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+							},
+						},
+					},
+				},
+			},
+			"config1",
+			"webhook1",
+			[]byte("fake CA"),
+			"",
+		},
 	}
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
@@ -95,14 +120,14 @@ func TestMutatingWebhookPatch(t *testing.T) {
 					t.Fatalf("Got %q, want %q", err, tc.err)
 				}
 			} else {
-				config := admissionregistrationv1beta1.MutatingWebhookConfiguration{}
-				patch := client.Actions()[1].(k8stesting.PatchAction).GetPatch()
-				err = json.Unmarshal(patch, &config)
+				obj, err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.Background(), tc.configName, metav1.GetOptions{})
 				if err != nil {
-					t.Fatalf("Fail to parse the patch: %s", err.Error())
+					t.Fatal(err)
 				}
-				if !bytes.Equal(config.Webhooks[0].ClientConfig.CABundle, tc.pemData) {
-					t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, config.Webhooks[0].ClientConfig.CABundle)
+				for _, w := range obj.Webhooks {
+					if !bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
+						t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, w.ClientConfig.CABundle)
+					}
 				}
 			}
 		})

@@ -53,6 +53,11 @@ spec:
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /
@@ -113,6 +118,11 @@ spec:
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /

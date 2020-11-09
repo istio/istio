@@ -55,9 +55,9 @@ const (
 		"If you’re using manual injection, you can upgrade the sidecar by executing:\n" +
 		"    kubectl apply -f < (istioctl kube-inject -f <original application deployment yaml>)"
 
-	// releaseURLPathTemplete is used to construct a download URL for a tar at a given version. The osx tar is
+	// releaseURLPathTemplate is used to construct a download URL for a tar at a given version. The osx tar is
 	// used because it's stable between 1.5->1.6 and only the profiles are used, not binaries.
-	releaseURLPathTemplete = "https://github.com/istio/istio/releases/download/%s/istio-%s-osx.tar.gz"
+	releaseURLPathTemplate = "https://github.com/istio/istio/releases/download/%s/istio-%s-osx.tar.gz"
 )
 
 type upgradeArgs struct {
@@ -160,7 +160,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(kubeClient, currentVersion)
+	err = checkSupportedVersions(kubeClient, currentVersion, targetVersion, l)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
@@ -237,13 +237,13 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 // releaseURLFromVersion generates default installation url from version number.
 func releaseURLFromVersion(version string) string {
-	return fmt.Sprintf(releaseURLPathTemplete, version, version)
+	return fmt.Sprintf(releaseURLPathTemplate, version, version)
 }
 
 // checkUpgradeIOPS checks the upgrade eligibility by comparing the current IOPS with the target IOPS
 func checkUpgradeIOPS(curIOPS, tarIOPS, ignoreIOPS string, l clog.Logger) {
 	diff := compare.YAMLCmpWithIgnore(curIOPS, tarIOPS, nil, ignoreIOPS)
-	if diff == "" {
+	if util.IsYAMLEqual(curIOPS, tarIOPS) {
 		l.LogAndPrintf("Upgrade check: IOPS unchanged. The target IOPS are identical to the current IOPS.\n")
 	} else {
 		l.LogAndPrintf("Upgrade check: Warning!!! The following IOPS will be changed as part of upgrade. "+
@@ -261,16 +261,25 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.8")
+var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.9")
 
-func checkSupportedVersions(kubeClient *Client, currentVersion string) error {
+func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion string, l clog.Logger) error {
 	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
 		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
 	}
-
+	targetGoVersion, err := goversion.NewVersion(targetVersion)
+	if err != nil {
+		return fmt.Errorf("failed to parse the target version %q: %v", targetVersion, err)
+	}
 	if !SupportedIstioVersions.Check(curGoVersion) {
 		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
+	}
+	// Warn if user is trying skip one minor verion eg: 1.6.x to 1.8.x
+	if (targetGoVersion.Segments()[1] - curGoVersion.Segments()[1]) > 1 {
+		l.LogAndPrint("!!! WARNING !!!")
+		l.LogAndPrintf("Upgrading across more than one minor version (e.g., %v to %v)"+
+			" in one step is not officially tested or recommended.\n", curGoVersion, targetGoVersion)
 	}
 
 	return kubeClient.CheckUnsupportedAlphaSecurityCRD()

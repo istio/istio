@@ -98,7 +98,7 @@ function setup_kind_registry() {
   if [[ "${running}" != 'true' ]]; then
       docker run \
         -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
-        registry:2
+        gcr.io/istio-testing/registry:2
 
     # Allow kind nodes to reach the registry
     docker network connect "kind" "${KIND_REGISTRY_NAME}"
@@ -109,7 +109,7 @@ function setup_kind_registry() {
     # TODO get context/config from existing variables
     kind export kubeconfig --name="${cluster}"
     for node in $(kind get nodes --name="${cluster}"); do
-      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
+      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}" --overwrite;
     done
   done
 }

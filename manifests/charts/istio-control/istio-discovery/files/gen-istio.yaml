@@ -738,6 +738,8 @@ spec:
       labels:
         app: istiod
         istio.io/rev: default
+        install.operator.istio.io/owning-resource: unknown
+        operator.istio.io/component: "Pilot"
         istio: pilot
       annotations:
         prometheus.io/port: "15014"
@@ -1088,8 +1090,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -1122,8 +1122,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: stats_inbound
@@ -1156,8 +1154,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio",
                       "disable_host_header_fallback": true
                     }
                 vm_config:
@@ -1201,8 +1197,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -1233,8 +1227,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -1265,8 +1257,6 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "debug": "false",
-                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound

@@ -136,6 +136,10 @@ var (
 	// VirtualServiceIneffectiveMatch defines a diag.MessageType for message "VirtualServiceIneffectiveMatch".
 	// Description: A VirtualService rule match duplicates a match in a previous rule.
 	VirtualServiceIneffectiveMatch = diag.NewMessageType(diag.Info, "IST0131", "VirtualService rule %v match %v is not used (duplicates a match in rule %v).")
+
+	// VirtualServiceHostNotFoundInGateway defines a diag.MessageType for message "VirtualServiceHostNotFoundInGateway".
+	// Description: Host defined in VirtualService not found in Gateway.
+	VirtualServiceHostNotFoundInGateway = diag.NewMessageType(diag.Warning, "IST0132", "one or more host %v defined in VirtualService %s not found in Gateway %s.")
 )
 
 // All returns a list of all known message types.
@@ -173,6 +177,7 @@ func All() []*diag.MessageType {
 		NoServerCertificateVerificationPortLevel,
 		VirtualServiceUnreachableRule,
 		VirtualServiceIneffectiveMatch,
+		VirtualServiceHostNotFoundInGateway,
 	}
 }
 
@@ -495,5 +500,16 @@ func NewVirtualServiceIneffectiveMatch(r *resource.Instance, ruleno string, matc
 		ruleno,
 		matchno,
 		dupno,
+	)
+}
+
+// NewVirtualServiceHostNotFoundInGateway returns a new diag.Message based on VirtualServiceHostNotFoundInGateway.
+func NewVirtualServiceHostNotFoundInGateway(r *resource.Instance, host []string, virtualservice string, gateway string) diag.Message {
+	return diag.NewMessage(
+		VirtualServiceHostNotFoundInGateway,
+		r,
+		host,
+		virtualservice,
+		gateway,
 	)
 }

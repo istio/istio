@@ -73,7 +73,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		if r.Metadata.FullName.Name.String() == sidecarInjectorConfigName {
 			cm := r.Message.(*v1.ConfigMap)
 
-			proxyImage = getIstioProxyImage(cm)
+			proxyImage = GetIstioProxyImage(cm)
 
 			return false
 		}
@@ -128,9 +128,9 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
-// getIstioProxyImage retrieves the proxy image name defined in the sidecar injector
+// GetIstioProxyImage retrieves the proxy image name defined in the sidecar injector
 // configuration.
-func getIstioProxyImage(cm *v1.ConfigMap) string {
+func GetIstioProxyImage(cm *v1.ConfigMap) string {
 	var m injectionConfigMap
 	if err := json.Unmarshal([]byte(cm.Data["values"]), &m); err != nil {
 		return ""

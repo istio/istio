@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 21340
+
+releaseNotes:
+- |
+  **Added** AuthorizationPolicy now supports nested JWT claims.

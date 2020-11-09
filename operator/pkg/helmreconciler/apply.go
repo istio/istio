@@ -193,8 +193,8 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 	}
 
 	gvk := obj.GetObjectKind().GroupVersionKind()
-
-	if serverSideApply {
+	// Skip CRD for SSA because of: https://github.com/kubernetes/kubernetes/issues/96060
+	if serverSideApply && obj.GetKind() != name.CRDStr {
 		return h.serverSideApply(obj)
 	}
 
@@ -205,7 +205,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 
 		switch {
 		case errors2.IsNotFound(err):
-			scope.Infof("creating resource: %s", objectStr)
+			scope.Infof("Creating %s (%s/%s)", objectStr, h.iop.Name, h.iop.Spec.Revision)
 			err = h.client.Create(context.TODO(), obj)
 			if err != nil {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
@@ -215,7 +215,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 				Increment()
 			return nil
 		case err == nil:
-			scope.Infof("updating resource: %s", objectStr)
+			scope.Infof("Updating %s (%s/%s)", objectStr, h.iop.Name, h.iop.Spec.Revision)
 			// The correct way to do this is with a server-side apply. However, this requires users to be running Kube 1.16.
 			// When we no longer support < 1.16 use the code described in the linked issue.
 			// https://github.com/kubernetes-sigs/controller-runtime/issues/347

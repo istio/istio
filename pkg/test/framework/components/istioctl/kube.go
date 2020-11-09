@@ -29,13 +29,13 @@ import (
 type kubeComponent struct {
 	config  Config
 	id      resource.ID
-	cluster kube.Cluster
+	cluster *kube.Cluster
 }
 
 func newKube(ctx resource.Context, config Config) Instance {
 	n := &kubeComponent{
 		config:  config,
-		cluster: ctx.Clusters().GetOrDefault(config.Cluster).(kube.Cluster),
+		cluster: ctx.Clusters().GetOrDefault(config.Cluster).(*kube.Cluster),
 	}
 	n.id = ctx.TrackResource(n)
 

@@ -76,6 +76,7 @@ var (
 	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
 	// is specified through the command line
 	DefaultPlugins = []string{
+		plugin.AuthzCustom,
 		plugin.Authn,
 		plugin.Authz,
 		plugin.Health,
@@ -228,7 +229,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s.initMeshConfiguration(args, s.fileWatcher)
-	spiffe.SetTrustDomain(s.environment.Mesh().TrustDomain)
+	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -1141,7 +1142,7 @@ func (s *Server) initMeshHandlers() {
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
-		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
+		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,

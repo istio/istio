@@ -80,7 +80,7 @@ type Config struct {
 	// disable sidecar injection, etc.
 	DeployAsVM bool
 
-	// If enabled, ISTIO_META_AUTO_REGISTER will be set on the VM and the WorkloadEntry will be created automatically.
+	// If enabled, ISTIO_META_AUTO_REGISTER_GROUP will be set on the VM and the WorkloadEntry will be created automatically.
 	AutoRegisterVM bool
 
 	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.

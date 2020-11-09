@@ -65,6 +65,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	auditPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
 	auditPolicy.Action = authpb.AuthorizationPolicy_AUDIT
 
+	customPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	customPolicy.Action = authpb.AuthorizationPolicy_CUSTOM
+
 	cases := []struct {
 		name           string
 		ns             string
@@ -73,6 +76,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		wantDeny       []AuthorizationPolicy
 		wantAllow      []AuthorizationPolicy
 		wantAudit      []AuthorizationPolicy
+		wantCustom     []AuthorizationPolicy
 	}{
 		{
 			name:      "no policies",
@@ -127,6 +131,20 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 					Name:      "authz-1",
 					Namespace: "bar",
 					Spec:      auditPolicy,
+				},
+			},
+		},
+		{
+			name: "one custom policy",
+			ns:   "bar",
+			configs: []config.Config{
+				newConfig("authz-1", "bar", customPolicy),
+			},
+			wantCustom: []AuthorizationPolicy{
+				{
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      customPolicy,
 				},
 			},
 		},
@@ -302,16 +320,18 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			gotDeny, gotAllow, gotAudit := authzPolicies.ListAuthorizationPolicies(
-				tc.ns, []labels.Instance{tc.workloadLabels})
-			if !reflect.DeepEqual(tc.wantAllow, gotAllow) {
-				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, gotAllow)
+			result := authzPolicies.ListAuthorizationPolicies(tc.ns, []labels.Instance{tc.workloadLabels})
+			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
+				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, result.Allow)
 			}
-			if !reflect.DeepEqual(tc.wantDeny, gotDeny) {
-				t.Errorf("wantDeny:%v\n but got: %v\n", tc.wantDeny, gotDeny)
+			if !reflect.DeepEqual(tc.wantDeny, result.Deny) {
+				t.Errorf("wantDeny:%v\n but got: %v\n", tc.wantDeny, result.Deny)
 			}
-			if !reflect.DeepEqual(tc.wantAudit, gotAudit) {
-				t.Errorf("wantAudit:%v\n but got: %v\n", tc.wantAudit, gotAudit)
+			if !reflect.DeepEqual(tc.wantAudit, result.Audit) {
+				t.Errorf("wantAudit:%v\n but got: %v\n", tc.wantAudit, result.Audit)
+			}
+			if !reflect.DeepEqual(tc.wantCustom, result.Custom) {
+				t.Errorf("wantCustom:%v\n but got: %v\n", tc.wantCustom, result.Custom)
 			}
 		})
 	}

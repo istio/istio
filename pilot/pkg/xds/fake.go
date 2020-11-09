@@ -92,7 +92,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.Authn, plugin.Authz}, "pilot-123")
+	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz}, "pilot-123")
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -319,6 +319,10 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 	if err != nil {
 		f.t.Fatalf("Error connecting: %v", err)
 	}
+	if err := adscConn.Run(); err != nil {
+		f.t.Fatalf("ADSC: failed running: %v", err)
+	}
+
 	if len(wait) > 0 {
 		_, err = adscConn.Wait(10*time.Second, wait...)
 		if err != nil {

@@ -27,7 +27,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -141,7 +140,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
-	adsResponse, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
+	adsc, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:  []string{"100.1.1.2"},
 			Namespace:    "ns1",
@@ -154,33 +153,35 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer adsResponse.Close()
+	defer adsc.Close()
+	if err := adsc.Run(); err != nil {
+		t.Fatal("ADSC: failed running ", err)
+	}
 
-	adsResponse.Watch()
-
-	upd, err := adsResponse.Wait(10*time.Second, watchAll...)
+	adsc.Watch()
+	upd, err := adsc.Wait(10*time.Second, watchAll...)
 	if err != nil {
 		t.Fatal("Failed to receive XDS response", err, upd)
 		return
 	}
 
 	// Expect 6 listeners : 2 orig_dst, 4 outbound (http, tcp1, istio-policy and istio-telemetry)
-	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 6 {
-		t.Fatalf("Expected 7 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
+	if (len(adsc.GetHTTPListeners()) + len(adsc.GetTCPListeners())) != 6 {
+		t.Fatalf("Expected 7 listeners, got %d\n", len(adsc.GetHTTPListeners())+len(adsc.GetTCPListeners()))
 	}
 
 	// Expect 11 CDS clusters:
 	// 2 inbound(http, inbound passthroughipv4) notes: no passthroughipv6
 	// 9 outbound (2 http services, 1 tcp service, 2 istio-system services,
 	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
-	if (len(adsResponse.GetClusters()) + len(adsResponse.GetEdsClusters())) != 11 {
-		t.Fatalf("Expected 12 clusters in CDS output. Got %d", len(adsResponse.GetClusters())+len(adsResponse.GetEdsClusters()))
+	if (len(adsc.GetClusters()) + len(adsc.GetEdsClusters())) != 11 {
+		t.Fatalf("Expected 12 clusters in CDS output. Got %d", len(adsc.GetClusters())+len(adsc.GetEdsClusters()))
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)
 	// plus one extra due to mem registry
-	if len(adsResponse.GetRoutes()["8080"].VirtualHosts) != 3 {
-		t.Fatalf("Expected 3 VirtualHosts in RDS output. Got %d", len(adsResponse.GetRoutes()["8080"].VirtualHosts))
+	if len(adsc.GetRoutes()["8080"].VirtualHosts) != 3 {
+		t.Fatalf("Expected 3 VirtualHosts in RDS output. Got %d", len(adsc.GetRoutes()["8080"].VirtualHosts))
 	}
 }
 
@@ -198,14 +199,10 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	gwClusters := features.FilterGatewayClusterConfig
-	features.FilterGatewayClusterConfig = false
-	defer func() { features.FilterGatewayClusterConfig = gwClusters }()
-
 	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
-	adsResponse, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
+	adsc, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:  []string{"99.1.1.1"}, // as service instance of ingress gateway
 			Namespace:    "istio-system",
@@ -215,15 +212,16 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		Namespace: "istio-system",
 		NodeType:  "router",
 	})
-
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer adsResponse.Close()
+	defer adsc.Close()
+	if err := adsc.Run(); err != nil {
+		t.Fatal("ADSC: failed running ", err)
+	}
 
-	adsResponse.Watch()
-
-	_, err = adsResponse.Wait(10*time.Second, v3.ListenerType)
+	adsc.Watch()
+	_, err = adsc.Wait(10*time.Second, v3.ListenerType)
 	if err != nil {
 		t.Fatal("Failed to receive LDS response", err)
 		return
@@ -231,13 +229,13 @@ func TestLDSWithIngressGateway(t *testing.T) {
 
 	// Expect 2 listeners : 1 for 80, 1 for 443
 	// where 443 listener has 3 filter chains
-	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 2 {
-		t.Fatalf("Expected 2 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
+	if (len(adsc.GetHTTPListeners()) + len(adsc.GetTCPListeners())) != 2 {
+		t.Fatalf("Expected 2 listeners, got %d\n", len(adsc.GetHTTPListeners())+len(adsc.GetTCPListeners()))
 	}
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 	// instead of looking at it as a listener with multiple filter chains
-	l := adsResponse.GetHTTPListeners()["0.0.0.0_443"]
+	l := adsc.GetHTTPListeners()["0.0.0.0_443"]
 
 	if l != nil {
 		if len(l.FilterChains) != 3 {
@@ -289,7 +287,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
-	adsResponse, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
+	adsc, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{
 		Meta: model.NodeMetadata{
 			InstanceIPs:  []string{"98.1.1.1"}, // as service instance of ingress gateway
 			Namespace:    "consumerns",
@@ -303,11 +301,13 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer adsResponse.Close()
+	defer adsc.Close()
+	if err := adsc.Run(); err != nil {
+		t.Fatal("ADSC: failed running ", err)
+	}
 
-	adsResponse.Watch()
-
-	_, err = adsResponse.Wait(10*time.Second, v3.ListenerType)
+	adsc.Watch()
+	_, err = adsc.Wait(10*time.Second, v3.ListenerType)
 	if err != nil {
 		t.Fatal("Failed to receive LDS response", err)
 		return
@@ -316,13 +316,13 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	// Expect 2 HTTP listeners for outbound 8081 and one virtualInbound which has the same inbound 9080
 	// as a filter chain. Since the adsclient code treats any listener with a HTTP connection manager filter in ANY
 	// filter chain,  as a HTTP listener, we end up getting both 9080 and virtualInbound.
-	if len(adsResponse.GetHTTPListeners()) != 2 {
-		t.Fatalf("Expected 2 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
+	if len(adsc.GetHTTPListeners()) != 2 {
+		t.Fatalf("Expected 2 http listeners, got %d", len(adsc.GetHTTPListeners()))
 	}
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 	// instead of looking at it as a listener with multiple filter chains
-	if l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]; l != nil {
+	if l := adsc.GetHTTPListeners()["0.0.0.0_8081"]; l != nil {
 		expected := 2
 		if len(l.FilterChains) != expected {
 			t.Fatalf("Expected %d filter chains, got %d", expected, len(l.FilterChains))
@@ -331,15 +331,15 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		t.Fatal("Expected listener for 0.0.0.0_8081")
 	}
 
-	if l := adsResponse.GetHTTPListeners()["virtualInbound"]; l == nil {
+	if l := adsc.GetHTTPListeners()["virtualInbound"]; l == nil {
 		t.Fatal("Expected listener virtualInbound")
 	}
 
 	// Expect only one eds cluster for http1.ns1.svc.cluster.local
-	if len(adsResponse.GetEdsClusters()) != 1 {
-		t.Fatalf("Expected 1 eds cluster, got %d", len(adsResponse.GetEdsClusters()))
+	if len(adsc.GetEdsClusters()) != 1 {
+		t.Fatalf("Expected 1 eds cluster, got %d", len(adsc.GetEdsClusters()))
 	}
-	if cluster, ok := adsResponse.GetEdsClusters()["outbound|8081||http1.ns1.svc.cluster.local"]; !ok {
+	if cluster, ok := adsc.GetEdsClusters()["outbound|8081||http1.ns1.svc.cluster.local"]; !ok {
 		t.Fatalf("Expected eds cluster outbound|8081||http1.ns1.svc.cluster.local, got %v", cluster.Name)
 	}
 }
@@ -406,7 +406,9 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer adsResponse.Close()
-
+			if err := adsResponse.Run(); err != nil {
+				t.Fatal("ADSC: failed running ", err)
+			}
 			adsResponse.Watch()
 			_, err = adsResponse.Wait(10*time.Second, v3.ListenerType)
 			if err != nil {

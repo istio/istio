@@ -43,6 +43,8 @@ spec:
     route:
     - destination:
         host: httpbin.default.svc.cluster.local
+        port:
+          number: 443
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -62,6 +64,8 @@ spec:
     route:
     - destination:
         host: httpbin.default.svc.cluster.local
+        port:
+          number: 443
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -78,4 +82,6 @@ spec:
   - route:
     - destination:
         host: httpbin.default.svc.cluster.local
+        port:
+          number: 80
 ---

@@ -386,4 +386,22 @@ var (
 
 	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", false,
 		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
+
+	EnableFlowControl = env.RegisterBoolVar(
+		"PILOT_ENABLE_FLOW_CONTROL",
+		false,
+		"If enabled, pilot will wait for the completion of a receive operation before"+
+			"executing a push operation. This is a form of flow control and is useful in"+
+			"environments with high rates of push requests to each gateway. By default,"+
+			"this is false.").Get()
+
+	FlowControlTimeout = env.RegisterDurationVar(
+		"PILOT_FLOW_CONTROL_TIMEOUT",
+		15*time.Second,
+		"If set, the max amount of time to delay a push by. Depends on PILOT_ENABLE_FLOW_CONTROL.",
+	).Get()
+
+	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
+		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
+			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
 )
