@@ -97,8 +97,8 @@ template: |
     {{- if not .Values.istio_cni.enabled }}
       readOnlyRootFilesystem: false
       runAsGroup: 0
-      runAsNonRoot: false
-      runAsUser: 0
+      runAsNonRoot: true
+      runAsUser: 1337
     {{- else }}
       readOnlyRootFilesystem: true
       runAsGroup: 1337
