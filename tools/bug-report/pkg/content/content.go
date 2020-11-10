@@ -278,7 +278,7 @@ func GetCoredumps(p *Params) (map[string]string, error) {
 	for idx, cd := range cds {
 		outStr, err := kubectlcmd.Cat(p.Client, p.Namespace, p.Pod, p.Container, cd, p.DryRun)
 		if err != nil {
-			log.Warna(err)
+			log.Warn(err)
 			continue
 		}
 		ret[fmt.Sprint(idx)+".core"] = outStr

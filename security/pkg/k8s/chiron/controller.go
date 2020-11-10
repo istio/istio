@@ -293,7 +293,7 @@ func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
 		log.Warnf("failed to parse certificates in secret %s/%s (error: %v), refreshing the secret.",
 			namespace, name, err)
 		if err = wc.refreshSecret(scrt); err != nil {
-			log.Errora(err)
+			log.Error(err)
 		}
 
 		return

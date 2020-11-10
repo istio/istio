@@ -211,6 +211,6 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 	if err != nil {
 		return err
 	}
-	log.Infoa("DNS certificates created in ", dnsCertDir)
+	log.Info("DNS certificates created in ", dnsCertDir)
 	return nil
 }

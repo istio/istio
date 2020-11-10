@@ -54,7 +54,7 @@ type TearDownFunc func()
 func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, TearDownFunc) {
 	server, tearDown, err := setup(args...)
 	if err != nil {
-		log.Errora("Failed to vim  in-process server: ", err)
+		log.Error("Failed to vim  in-process server: ", err)
 		panic(err)
 	}
 	return server, tearDown

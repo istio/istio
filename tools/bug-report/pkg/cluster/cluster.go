@@ -92,7 +92,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 		}
 	}
 	if len(errs) != 0 {
-		log.Warna(strings.Join(errs, "\n"))
+		log.Warn(strings.Join(errs, "\n"))
 	}
 	return out, nil
 }

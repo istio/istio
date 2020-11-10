@@ -482,7 +482,7 @@ func init() {
 // No CLI parameters.
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
+		log.Error(err)
 		os.Exit(-1)
 	}
 }

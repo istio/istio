@@ -243,7 +243,7 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/text")
 	if _, err := w.Write(body.Bytes()); err != nil {
-		epLog.Warna(err)
+		epLog.Warn(err)
 	}
 	epLog.Infof("Response Headers: %+v", w.Header())
 }

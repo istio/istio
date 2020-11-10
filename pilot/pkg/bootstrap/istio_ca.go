@@ -194,7 +194,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
-			log.Warna("Starting with invalid K8S JWT token", err, string(token))
+			log.Warn("Starting with invalid K8S JWT token", err, string(token))
 		} else {
 			if iss == "" {
 				iss = tok.Iss
@@ -223,9 +223,9 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		oidcAuth, err := authenticate.NewJwtAuthenticator(iss, opts.TrustDomain, aud)
 		if err == nil {
 			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
-			log.Infoa("Using out-of-cluster JWT authentication")
+			log.Info("Using out-of-cluster JWT authentication")
 		} else {
-			log.Infoa("K8S token doesn't support OIDC, using only in-cluster auth")
+			log.Info("K8S token doesn't support OIDC, using only in-cluster auth")
 		}
 	}
 
