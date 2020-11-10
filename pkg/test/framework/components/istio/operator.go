@@ -259,6 +259,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return i, err
 	}
 
+	if ctx.Clusters().IsMulticluster() {
+		// For multicluster, configure direct access so each control plane can get endpoints from all
+		// API servers.
+		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
+			return nil, err
+		}
+	}
+
 	// Deploy Istio to remote clusters
 	// Under external control plane mode, we only use config and external control plane(primary)clusters for now
 	if !i.isExternalControlPlane() {
@@ -268,8 +276,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			if cluster.IsRemote() && !cluster.IsConfig() {
 				cluster := cluster
 				errG.Go(func() error {
-					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile); err != nil {
-						return fmt.Errorf("failed deploying control plane to remote cluster %s: %v", cluster.Name(), err)
+					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile, istioctlConfigFiles.remoteOperatorSpec); err != nil {
+						return fmt.Errorf("failed installing remote cluster %s: %v", cluster.Name(), err)
 					}
 					return nil
 				})
@@ -277,25 +285,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 		if errs := errG.Wait(); errs != nil {
 			return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
-		}
-
-		// Remote secrets must be present for remote install to succeed
-		if env.IsMulticluster() {
-			// For multicluster, configure direct access so each control plane can get endpoints from all
-			// API servers.
-			if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
-				return nil, err
-			}
-			for _, cluster := range ctx.Clusters() {
-				if cluster.IsRemote() && !cluster.IsConfig() {
-					// remote clusters only need this gateway for multi-network purposes
-					if i.ctx.Environment().IsMultinetwork() {
-						if err := i.deployEastWestGateway(cluster, istioctlConfigFiles.remoteOperatorSpec.Revision); err != nil {
-							return i, err
-						}
-					}
-				}
-			}
 		}
 
 		if env.IsMultinetwork() {
@@ -475,9 +464,6 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	var istiodAddress net.TCPAddr
 	if !cluster.IsConfig() {
 		configCluster := cluster.Config()
-		if err != nil {
-			return err
-		}
 		istiodAddress, err = i.RemoteDiscoveryAddressFor(configCluster)
 		if err != nil {
 			return err
@@ -515,7 +501,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 }
 
 // Deploy Istio to remote clusters
-func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
+func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string, spec *opAPI.IstioOperatorSpec) error {
 	// TODO this method should handle setting up discovery from remote config clusters to their control-plane
 	// TODO(cont) and eventually we should always use istiod-less remotes
 	scopes.Framework.Infof("setting up %s as remote cluster", cluster.Name())
@@ -550,6 +536,14 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 	if err := install(i, installSettings, istioCtl, cluster.Name()); err != nil {
 		return err
 	}
+
+	// remote clusters only need this gateway for multi-network purposes
+	if i.ctx.Environment().IsMultinetwork() {
+		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
