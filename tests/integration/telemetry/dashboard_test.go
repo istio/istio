@@ -124,10 +124,11 @@ func TestDashboard(t *testing.T) {
 			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
 			setupDashboardTest(ctx)
 			waitForMetrics(ctx, p)
-			for _, cl := range ctx.Clusters() {
 				for _, d := range dashboards {
 					d := d
 					ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
+						for _, cl := range ctx.Clusters() {
+							t.Logf("Verifying %s for cluster %s",d.name, cl.Name())
 						cm, err := cl.CoreV1().ConfigMaps(i.Settings().TelemetryNamespace).Get(
 							context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 						if err != nil {
@@ -146,12 +147,12 @@ func TestDashboard(t *testing.T) {
 
 						for _, query := range queries {
 							if err := checkMetric(cl, p, query, d.excluded); err != nil {
-								t.Errorf("Check query failed: %v", err)
+								t.Errorf("Check query failed for cluster %s: %v",cl.Name(), err)
 							}
+						}
 						}
 					})
 				}
-			}
 		})
 }
 
