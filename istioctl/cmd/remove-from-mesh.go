@@ -90,7 +90,7 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
-				return fmt.Errorf("namespace %s is a system namesapce and has no Istio sidecar injected", ns)
+				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
 			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
@@ -131,7 +131,7 @@ func svcUnMeshifyCmd() *cobra.Command {
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
-				return fmt.Errorf("namespace %s is a system namesapce and has no Istio sidecar injected", ns)
+				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
 			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {

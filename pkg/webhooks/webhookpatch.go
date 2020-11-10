@@ -73,7 +73,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 	var retry bool
 	if err = patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 		injectionWebhookConfigName, webhookName, caCertPem); err != nil {
-		log.Warna("Error patching Webhook ", err)
+		log.Warn("Error patching Webhook ", err)
 		retry = true
 	}
 

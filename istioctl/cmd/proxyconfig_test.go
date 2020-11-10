@@ -61,6 +61,11 @@ func TestProxyConfig(t *testing.T) {
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config listeners invalid" should fail
 		},
+		{ // logging empty
+			args:           strings.Split("proxy-config log", " "),
+			expectedString: "Error: log requires pod name or --selector",
+			wantException:  true, // "istioctl proxy-config logging empty" should fail
+		},
 		{ // logging invalid
 			args:           strings.Split("proxy-config log invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",

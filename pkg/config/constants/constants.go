@@ -99,4 +99,6 @@ const (
 
 	// DefaultConfigServiceAccountName is the default service account to use for external Istiod cluster access.
 	DefaultConfigServiceAccountName = "istiod-service-account"
+
+	TestVMLabel = "istio.io/test-vm"
 )

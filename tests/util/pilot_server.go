@@ -54,7 +54,7 @@ type TearDownFunc func()
 func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, TearDownFunc) {
 	server, tearDown, err := setup(args...)
 	if err != nil {
-		log.Errora("Failed to vim  in-process server: ", err)
+		log.Error("Failed to vim  in-process server: ", err)
 		panic(err)
 	}
 	return server, tearDown
@@ -110,7 +110,6 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 			// Static testdata, should include all configs we want to test.
 			FileDir: env.IstioSrc + "/tests/testdata/config",
 		}
-		p.MCPOptions.MaxMessageSize = 1024 * 1024 * 4
 		p.KeepaliveOptions = keepalive.DefaultOption()
 		p.MeshConfigFile = meshFile.Name()
 

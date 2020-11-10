@@ -242,8 +242,6 @@ func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfCluster
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	// It doesn't make sense for a single proxy to be found in more than one registry.
-	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
 		nodeClusterID := nodeClusterID(node)
 		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName) {
@@ -255,7 +253,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 		instances := r.GetProxyServiceInstances(node)
 		if len(instances) > 0 {
 			out = append(out, instances...)
-			break
 		}
 	}
 

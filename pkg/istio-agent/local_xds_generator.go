@@ -156,7 +156,7 @@ func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets 
 	syncOk := ads.WaitConfigSync(10 * time.Second)
 	if !syncOk {
 		// TODO: have the store return a sync map, or better expose sync events/status
-		log.Warna("Incomplete sync")
+		log.Warn("Incomplete sync")
 	}
 
 	// TODO: wait for config to sync before starting the rest

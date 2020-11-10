@@ -302,10 +302,16 @@ type GroupVersionKind struct {
 }
 
 func (g GroupVersionKind) String() string {
-	if g.Group == "" {
-		return "core/" + g.Version + "/" + g.Kind
+	return g.CanonicalGroup() + "/" + g.Version + "/" + g.Kind
+}
+
+// CanonicalGroup returns the group with defaulting applied. This means an empty group will
+// be treated as "core", following Kubernetes API standards
+func (g GroupVersionKind) CanonicalGroup() string {
+	if g.Group != "" {
+		return g.Group
 	}
-	return g.Group + "/" + g.Version + "/" + g.Kind
+	return "core"
 }
 
 // PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
