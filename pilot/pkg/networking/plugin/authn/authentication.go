@@ -28,6 +28,10 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	authnLog = log.RegisterScope("authn", "authn debugging", 0)
+)
+
 // Plugin implements Istio mTLS auth
 type Plugin struct{}
 
@@ -114,11 +118,11 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	// Then generate the per-port passthrough filter chains.
 	for port := range applier.PortLevelSetting() {
 		// Skip the per-port passthrough filterchain if the port is already handled by OnInboundFilterChains().
-		if portAlreadyHandled(port, in.Node) {
+		if !needPerPortPassthroughFilterChain(port, in.Node) {
 			continue
 		}
 
-		log.Debugf("Generated extra passthrough filter chain for port: %d", port)
+		authnLog.Debugf("InboundPassthroughFilterChains: build extra pass through filter chain for %v:%d", in.Node.ID, port)
 		portLevelFilterChains := applier.InboundFilterChain(port, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, trustDomains)
 		for _, fc := range portLevelFilterChains {
 			// Set the port to distinguish from the default passthrough filter chain.
@@ -133,25 +137,25 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	return filterChains
 }
 
-func portAlreadyHandled(port uint32, node *model.Proxy) bool {
-	// If there is any sidecar defined, check if the port is explicitly defined there.
-	// This means the sidecar resource takes precedence over the service. A port defined in service but not in sidecar
+func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
+	// If there is any Sidecar defined, check if the port is explicitly defined there.
+	// This means the Sidecar resource takes precedence over the service. A port defined in service but not in Sidecar
 	// means the port is going to be handled by the pass through filter chain.
 	if node.SidecarScope.HasCustomIngressListeners {
 		rule := node.SidecarScope.Config.Spec.(*v1alpha3.Sidecar)
 		for _, ingressListener := range rule.Ingress {
 			if port == ingressListener.Port.Number {
-				return true
+				return false
 			}
 		}
-		return false
+		return true
 	}
 
-	// If there is no sidecar, check if the port is appearing in any service.
+	// If there is no Sidecar, check if the port is appearing in any service.
 	for _, si := range node.ServiceInstances {
 		if port == si.Endpoint.EndpointPort {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }

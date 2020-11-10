@@ -356,8 +356,8 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains, needTLSForPassThroughFilterChain := buildInboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
 	if features.EnableProtocolSniffingForInbound {
-		var fc []*listener.FilterChain
-		fc, needTLSForPassThroughFilterChain = buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)
+		fc, needTLS := buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)
+		needTLSForPassThroughFilterChain = needTLSForPassThroughFilterChain || needTLS
 		filterChains = append(filterChains, fc...)
 	}
 	lb.virtualInboundListener = &listener.Listener{
