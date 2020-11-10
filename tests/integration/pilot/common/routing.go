@@ -486,7 +486,7 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	// TODO add VMs to clients when DNS works for VMs. Blocked by https://github.com/istio/istio/issues/27154
-	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless, apps.VM} {
+	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
 		for _, client := range clients {
 			destinationSets := []echo.Instances{
 				apps.PodA,
