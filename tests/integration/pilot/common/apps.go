@@ -180,9 +180,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 				},
 				Cluster: c,
 			})
-	}
-	if !ctx.Settings().SkipVM {
-		for _, c := range ctx.Clusters().ByNetwork() {
+		if !ctx.Settings().SkipVM {
 			builder.With(nil, echo.Config{
 				Service:        VMSvc,
 				Namespace:      apps.Namespace,
@@ -190,7 +188,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 				DeployAsVM:     true,
 				AutoRegisterVM: false, // TODO support auto-registration with multi-primary
 				Subsets:        []echo.SubsetConfig{{}},
-				Cluster:        c[0],
+				Cluster:        c,
 			})
 		}
 	}
@@ -206,9 +204,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
-	if !ctx.Settings().SkipVM {
-		apps.VM = echos.Match(echo.Service(VMSvc))
-	}
+	apps.VM = echos.Match(echo.Service(VMSvc))
 
 	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), `
 apiVersion: networking.istio.io/v1alpha3

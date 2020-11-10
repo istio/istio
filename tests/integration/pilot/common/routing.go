@@ -486,7 +486,7 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	// TODO add VMs to clients when DNS works for VMs. Blocked by https://github.com/istio/istio/issues/27154
-	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
+	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless, apps.VM} {
 		for _, client := range clients {
 			destinationSets := []echo.Instances{
 				apps.PodA,
@@ -507,7 +507,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
 				if (apps.Headless.Contains(client) || apps.Headless.Contains(destination)) && len(apps.Headless) > 1 {
-					// TODO(landow) fix DNS issues with multicluster/VMs/headless
+					// TODO(landow) fix multicluster + headless (https://github.com/istio/istio/issues/27342)
 					continue
 				}
 				if apps.Naked.Contains(client) && apps.VM.Contains(destination) {
