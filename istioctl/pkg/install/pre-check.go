@@ -373,7 +373,7 @@ func NewPrecheckCommand() *cobra.Command {
 
 			// The Istio namespace does exist, but it wasn't installed by 1.6.0+ because no
 			// IstioOperator is there.
-			c.Printf("Istio already installed in namespace %q.  Skipping pre-check.  Confirm with 'istioctl verify-install'.\n", targetNamespace)
+			c.Printf("Istio is already installed in the %q namespace. Skipping pre-check. Confirm with 'istioctl verify-install'.\n", targetNamespace)
 			c.Printf("Use 'istioctl upgrade' to upgrade or 'istioctl install --set revision=<revision>' to install another control plane.\n")
 			return nil
 		},
