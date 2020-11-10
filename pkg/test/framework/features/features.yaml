@@ -119,7 +119,6 @@ features:
       uninstall_manifest:
       uninstall_purge:
     multicluster:
-      central-istiod:
       multimaster:
       remote:
       centralremotekubeconfig:
