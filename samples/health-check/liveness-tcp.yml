@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: liveness-tcp
+  labels:
+    app: liveness-tcp
+    service: liveness-tcp
+spec:
+  ports:
+  - name: tcp
+    port: 8001
+  selector:
+    app: liveness-tcp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: liveness-tcp
+spec:
+  selector:
+    matchLabels:
+      app: liveness-tcp
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: liveness-tcp
+        version: v1
+    spec:
+      containers:
+      - name: liveness-tcp
+        image: docker.io/istio/health:example
+        ports:
+        - containerPort: 8001
+        livenessProbe:
+          tcpSocket:
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5
