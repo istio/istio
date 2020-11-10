@@ -46,9 +46,10 @@ import (
 
 var (
 	dashboards = []struct {
-		configmap string
-		name      string
-		excluded  []string
+		configmap                       string
+		name                            string
+		excluded                        []string
+		skipValidateOnNonPrimaryCluster bool
 	}{
 		{
 			"istio-grafana-dashboards",
@@ -71,6 +72,8 @@ var (
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
 			},
+			// Pilot is installed only on Primary cluster, hence validate for primary clusters only.
+			true,
 		},
 		{
 			"istio-services-grafana-dashboards",
@@ -80,6 +83,7 @@ var (
 				"istio_tcp_",
 				"max(pilot_k8s_cfg_events{",
 			},
+			false,
 		},
 		{
 			"istio-services-grafana-dashboards",
@@ -87,6 +91,7 @@ var (
 			[]string{
 				"istio_tcp_",
 			},
+			false,
 		},
 		{
 			"istio-services-grafana-dashboards",
@@ -94,6 +99,7 @@ var (
 			[]string{
 				"istio_tcp_",
 			},
+			false,
 		},
 		{
 			"istio-grafana-dashboards",
@@ -105,6 +111,7 @@ var (
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
 			},
+			true,
 		},
 		{
 			"istio-services-grafana-dashboards",
@@ -112,6 +119,7 @@ var (
 			[]string{
 				"avg(envoy_wasm_vm_v8_",
 			},
+			false,
 		},
 	}
 )
@@ -128,6 +136,10 @@ func TestDashboard(t *testing.T) {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
 					for _, cl := range ctx.Clusters() {
+						if !cl.IsPrimary() && d.skipValidateOnNonPrimaryCluster {
+							// Skip verification of dashboards that won't be present on non primary(remote) clusters.
+							continue
+						}
 						t.Logf("Verifying %s for cluster %s", d.name, cl.Name())
 						cm, err := cl.CoreV1().ConfigMaps(i.Settings().TelemetryNamespace).Get(
 							context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
