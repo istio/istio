@@ -140,9 +140,6 @@ spec:
 {{- if $p.ServerFirst }}
           - --server-first={{ $p.Port }}
 {{- end }}
-{{- if $p.InstanceIP }}
-          - --bind-ip={{ $p.Port }}
-{{- end }}
 {{- end }}
           - --version
           - "{{ $subset.Version }}"

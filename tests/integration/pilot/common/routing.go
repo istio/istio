@@ -565,22 +565,23 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 		destination := apps.PodB[0]
 		// so we can validate all clusters are hit
 		callCount := callsPerCluster * len(apps.PodB)
-		cases = append(cases, TrafficTestCase{
-			name: "without sidecar",
-			call: client.CallWithRetryOrFail,
-			opts: echo.CallOptions{
-				Target:    destination,
-				PortName:  "http-instance",
-				Scheme:    scheme.HTTP,
-				Count:     callCount,
-				Timeout:   time.Second * 5,
-				Validator: echo.And(echo.ExpectCode("503")),
+		cases = append(cases,
+			TrafficTestCase{
+				name: "without sidecar",
+				call: client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Target:    destination,
+					PortName:  "http-instance",
+					Scheme:    scheme.HTTP,
+					Count:     callCount,
+					Timeout:   time.Second * 5,
+					Validator: echo.And(echo.ExpectCode("503")),
+				},
 			},
-		})
-		cases = append(cases, TrafficTestCase{
-			name: "with sidecar",
-			call: client.CallWithRetryOrFail,
-			config: `
+			TrafficTestCase{
+				name: "with sidecar",
+				call: client.CallWithRetryOrFail,
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -598,15 +599,15 @@ spec:
       protocol: HTTP
     defaultEndpoint: 0.0.0.0:82
 `,
-			opts: echo.CallOptions{
-				Target:    destination,
-				PortName:  "http-instance",
-				Scheme:    scheme.HTTP,
-				Count:     callCount,
-				Timeout:   time.Second * 5,
-				Validator: echo.And(echo.ExpectOK()),
-			},
-		})
+				opts: echo.CallOptions{
+					Target:    destination,
+					PortName:  "http-instance",
+					Scheme:    scheme.HTTP,
+					Count:     callCount,
+					Timeout:   time.Second * 5,
+					Validator: echo.And(echo.ExpectOK()),
+				},
+			})
 	}
 	return cases
 }
