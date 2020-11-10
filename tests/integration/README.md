@@ -568,6 +568,9 @@ The test framework supports the following command-line flags:
 
   -istio.test.revision string
         Overwrite the default namespace label (istio-enabled=true) with revision lable (istio.io/rev=XXX). (default is no overwrite)
+
+  -istio.test.skipVM bool
+        Skip all the VM related parts in all the tests. (default is "false")
 ```
 
 }

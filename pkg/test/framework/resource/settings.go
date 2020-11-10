@@ -70,6 +70,9 @@ type Settings struct {
 	// The revision label on a namespace for injection webhook.
 	// If set to XXX, all the namespaces created with istio-injection=enabled will be replaced with istio.io/rev=XXX.
 	Revision string
+
+	// Skip VM related parts for all the tests.
+	SkipVM bool
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -112,5 +115,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("CIMode:            %v\n", s.CIMode)
 	result += fmt.Sprintf("Retries:           %v\n", s.Retries)
 	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
+	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
+	result += fmt.Sprintf("SkipVM:            %v\n", s.SkipVM)
 	return result
 }

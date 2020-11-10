@@ -328,6 +328,18 @@ spec:
 				NakedSvc: 10,
 			},
 		}
+		if len(apps.VM) == 0 {
+			splits = []map[string]int{
+				{
+					PodBSvc:  67,
+					NakedSvc: 33,
+				},
+				{
+					PodBSvc:  88,
+					NakedSvc: 12,
+				},
+			}
+		}
 
 		for _, split := range splits {
 			split := split
@@ -431,6 +443,7 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 		apps.Headless,
 		apps.External,
 	}
+
 	for _, d := range destinationSets {
 		d := d
 		if len(d) == 0 {
