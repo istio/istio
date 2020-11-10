@@ -101,7 +101,7 @@ func (s *StatusSyncer) onEvent() error {
 
 func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 	if _, err := s.runningAddresses(ingressNamespace); err != nil {
-		log.Warna("Missing ingress, skip status updates")
+		log.Warn("Missing ingress, skip status updates")
 		err = wait.PollUntil(10*time.Second, func() (bool, error) {
 			if sa, err := s.runningAddresses(ingressNamespace); err != nil || len(sa) == 0 {
 				return false, nil
@@ -109,7 +109,7 @@ func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 			return true, nil
 		}, stop)
 		if err != nil {
-			log.Warna("Error waiting for ingress")
+			log.Warn("Error waiting for ingress")
 			return
 		}
 	}

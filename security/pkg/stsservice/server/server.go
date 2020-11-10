@@ -94,7 +94,7 @@ func NewServer(config Config, tokenManager stsservice.TokenManager) (*Server, er
 		stsServerLog.Infof("Start listening on %s:%d", config.LocalHostAddr, s.Port)
 		err := s.stsServer.Serve(ln)
 		// ListenAndServe always returns a non-nil error.
-		stsServerLog.Errora(err)
+		stsServerLog.Error(err)
 	}()
 	return s, nil
 }

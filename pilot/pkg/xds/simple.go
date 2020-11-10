@@ -154,7 +154,7 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 	go func() {
 		err = gs.Serve(lis)
 		if err != nil {
-			log.Infoa("Serve done ", err)
+			log.Info("Serve done ", err)
 		}
 	}()
 	return nil
@@ -210,7 +210,7 @@ func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mode
 	// Need to change the signature of Generator to take Request as parameter.
 	err := p.adsc.Send(w.LastRequest)
 	if err != nil {
-		log.Debuga("Failed to send, connection probably closed ", err)
+		log.Debug("Failed to send, connection probably closed ", err)
 	}
 
 	return nil

@@ -58,6 +58,6 @@ func Execute() {
 }
 
 func handleError(err error) {
-	log.Errora(err)
+	log.Error(err)
 	os.Exit(1)
 }

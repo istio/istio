@@ -167,7 +167,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
-			log.Errora("Failed to generate bootstrap config: ", err)
+			log.Error("Failed to generate bootstrap config: ", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
 		}
 		fname = out

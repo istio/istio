@@ -111,7 +111,7 @@ func registerBooleanParameter(name string, value bool, usage string) {
 
 func bindViper(name string) {
 	if err := viper.BindPFlag(name, rootCmd.Flags().Lookup(name)); err != nil {
-		log.Errora(err)
+		log.Error(err)
 		os.Exit(1)
 	}
 }
