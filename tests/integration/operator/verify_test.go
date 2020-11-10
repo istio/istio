@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/scopes"
@@ -35,7 +34,7 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 		Features("installation.istioctl.postinstall_verify").
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Environment().Clusters().Default()
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
 				t.Fatal(err)
