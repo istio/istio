@@ -402,7 +402,7 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 		fmt.Sprintf("generated from %s", filename),
 		restClientGetter,
 		writer,
-		iop.Spec.InstallPackagePath)
+		manifestsPath)
 	if err != nil {
 		return generatedCrds, generatedDeployments, err
 	}
