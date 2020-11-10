@@ -328,6 +328,18 @@ spec:
 				NakedSvc: 10,
 			},
 		}
+		if len(apps.VM) == 0 {
+			splits = []map[string]int{
+				{
+					PodBSvc:  67,
+					NakedSvc: 33,
+				},
+				{
+					PodBSvc:  88,
+					NakedSvc: 12,
+				},
+			}
+		}
 
 		for _, split := range splits {
 			split := split
@@ -431,6 +443,7 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 		apps.Headless,
 		apps.External,
 	}
+
 	for _, d := range destinationSets {
 		d := d
 		if len(d) == 0 {
@@ -486,6 +499,9 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			}
 
 			for _, destinations := range destinationSets {
+				if len(destinations) == 0 {
+					continue
+				}
 				client := client
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
