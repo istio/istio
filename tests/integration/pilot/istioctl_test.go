@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/url"
@@ -487,14 +488,22 @@ func TestAuthZCheck(t *testing.T) {
 }
 
 func TestVerifyInstall(t *testing.T) {
-	framework.NewTest(t).Features("usability.helpers.verify-install").
+	framework.NewTest(t).Features("installation.istioctl.verify_install").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
+			out, err := shell.Execute(false, "kubectl get istiooperator --all-namespaces")
+			if err != nil {
+				ctx.Fatalf("error executing kbuectl get: %v", err)
+			}
+			fmt.Printf("kubectl get yielded %q\n", out)
+
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			g := gomega.NewWithT(t)
 
-			args := []string{"verify-install"}
+			cfg := i.Settings()
+			args := []string{"verify-install",
+				fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 			output, _ := istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.ContainSubstring("Istio is installed successfully"))
 			g.Expect(output).To(gomega.ContainSubstring("Checked 1 Istio Deployments"))

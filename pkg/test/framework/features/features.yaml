@@ -118,6 +118,7 @@ features:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
+      verify_install:
     multicluster:
       multimaster:
       remote:
