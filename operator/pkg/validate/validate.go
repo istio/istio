@@ -24,6 +24,7 @@ import (
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
@@ -37,6 +38,7 @@ var (
 		"MeshConfig":                         validateMeshConfig,
 		"Hub":                                validateHub,
 		"Tag":                                validateTag,
+		"Revision":                           validateRevision,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
 	}
@@ -188,6 +190,14 @@ func validateHub(path util.Path, val interface{}) util.Errors {
 
 func validateTag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
+}
+
+func validateRevision(_ util.Path, val interface{}) util.Errors {
+	if !labels.IsDNS1123Label(val.(string)) {
+		err := fmt.Errorf("invalid revision specified: %s", val.(string))
+		return util.Errors{err}
+	}
+	return nil
 }
 
 func validateGatewayName(path util.Path, val interface{}) util.Errors {
