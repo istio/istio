@@ -499,7 +499,7 @@ func TestVerifyInstall(t *testing.T) {
 			if err != nil {
 				ctx.Fatalf("error executing kubectl get: %v", err)
 			}
-			fmt.Printf("kubectl get yielded %q\n", out)
+			fmt.Printf("kubectl get yielded\n%s\n", out)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
