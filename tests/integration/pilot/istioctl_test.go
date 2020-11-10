@@ -491,9 +491,13 @@ func TestVerifyInstall(t *testing.T) {
 	framework.NewTest(t).Features("installation.istioctl.verify_install").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-			out, err := shell.Execute(false, "kubectl get istiooperator --all-namespaces")
+			cfg := i.Settings()
+
+			// TODO remove this whole paragraph
+			cmd := fmt.Sprintf("kubectl get -n %s istiooperator -o yaml", cfg.SystemNamespace)
+			out, err := shell.Execute(false, cmd)
 			if err != nil {
-				ctx.Fatalf("error executing kbuectl get: %v", err)
+				ctx.Fatalf("error executing kubectl get: %v", err)
 			}
 			fmt.Printf("kubectl get yielded %q\n", out)
 
@@ -501,7 +505,6 @@ func TestVerifyInstall(t *testing.T) {
 
 			g := gomega.NewWithT(t)
 
-			cfg := i.Settings()
 			args := []string{"verify-install",
 				fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 			output, _ := istioCtl.InvokeOrFail(t, args)
