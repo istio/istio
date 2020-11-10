@@ -485,3 +485,18 @@ func TestAuthZCheck(t *testing.T) {
 			}
 		})
 }
+
+func TestVerifyInstall(t *testing.T) {
+	framework.NewTest(t).Features("usability.helpers.verify-install").
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			g := gomega.NewWithT(t)
+
+			args := []string{"verify-install"}
+			output, _ := istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.ContainSubstring("Istio is installed successfully"))
+			g.Expect(output).To(gomega.ContainSubstring("Checked 1 Istio Deployments"))
+		})
+}
