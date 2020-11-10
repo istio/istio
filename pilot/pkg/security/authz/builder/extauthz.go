@@ -32,6 +32,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/host"
 )
@@ -57,28 +58,13 @@ type builtExtAuthz struct {
 	tcp  *extauthztcp.ExtAuthz
 }
 
-func notAllTheSame(names []string) bool {
-	for i := 1; i < len(names); i++ {
-		if names[i-1] != names[i] {
-			return true
-		}
-	}
-	return false
-}
-
-func buildExtAuthz(configs []*meshconfig.MeshConfig_ExtensionProvider, providers []string) (*builtExtAuthz, error) {
-	if notAllTheSame(providers) {
-		return nil, fmt.Errorf("all extension providers must be the same for a specific workload, found multiple different providers: %v", providers)
-	} else if len(providers) < 1 {
-		return nil, fmt.Errorf("no extension provider found")
-	}
-	provider := providers[0]
-
-	resolved := map[string]*builtExtAuthz{}
+func processExtensionProvider(in *plugin.InputParams) (map[string]*builtExtAuthz, error) {
 	var errs error
+	configs := in.Push.Mesh.ExtensionProviders
 	if len(configs) == 0 {
 		errs = multierror.Append(errs, fmt.Errorf("at least 1 extension provider must be defined"))
 	}
+	resolved := map[string]*builtExtAuthz{}
 	for i, config := range configs {
 		if config.Name == "" {
 			errs = multierror.Append(errs, fmt.Errorf("extension provider name must not be empty, found empty at index: %d", i))
@@ -90,9 +76,9 @@ func buildExtAuthz(configs []*meshconfig.MeshConfig_ExtensionProvider, providers
 		// TODO(yangminzhu): Refactor and cache the ext_authz config.
 		switch p := config.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			parsed, err = buildExtAuthzHTTP(p.EnvoyExtAuthzHttp)
+			parsed, err = buildExtAuthzHTTP(in, p.EnvoyExtAuthzHttp)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			parsed, err = buildExtAuthzGRPC(p.EnvoyExtAuthzGrpc)
+			parsed, err = buildExtAuthzGRPC(in, p.EnvoyExtAuthzGrpc)
 		default:
 			err = fmt.Errorf("unsupported extension provider: %s", config.Name)
 		}
@@ -101,6 +87,36 @@ func buildExtAuthz(configs []*meshconfig.MeshConfig_ExtensionProvider, providers
 		}
 		resolved[config.Name] = parsed
 	}
+	if errs != nil {
+		return nil, errs
+	}
+
+	if authzLog.DebugEnabled() {
+		authzLog.Debugf("Resolved extension providers: %v", spew.Sdump(resolved))
+	}
+	return resolved, nil
+}
+
+func notAllTheSame(names []string) bool {
+	for i := 1; i < len(names); i++ {
+		if names[i-1] != names[i] {
+			return true
+		}
+	}
+	return false
+}
+
+func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*builtExtAuthz, error) {
+	if notAllTheSame(providers) {
+		return nil, fmt.Errorf("all extension providers must be the same for a specific workload, found multiple different providers: %v", providers)
+	} else if len(providers) < 1 {
+		return nil, fmt.Errorf("no extension provider found")
+	} else if resolved == nil {
+		return nil, fmt.Errorf("extension provider not defiend or failed to process")
+	}
+
+	var errs error
+	provider := providers[0]
 	ret, found := resolved[provider]
 	if !found {
 		var li []string
@@ -113,19 +129,16 @@ func buildExtAuthz(configs []*meshconfig.MeshConfig_ExtensionProvider, providers
 		return nil, errs
 	}
 
-	if authzLog.DebugEnabled() {
-		authzLog.Debugf("Resolved provider %s to config: %v", provider, spew.Sdump(ret))
-	}
 	return ret, nil
 }
 
-func buildExtAuthzHTTP(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) (*builtExtAuthz, error) {
+func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) (*builtExtAuthz, error) {
 	var errs error
 	port, err := parsePort(config.Port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	hostname, cluster, err := parseService(config.Service, port)
+	hostname, cluster, err := parseService(in, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -148,13 +161,13 @@ func buildExtAuthzHTTP(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExte
 	return generateHTTPConfig(hostname, cluster, status, config), nil
 }
 
-func buildExtAuthzGRPC(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider) (*builtExtAuthz, error) {
+func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider) (*builtExtAuthz, error) {
 	var errs error
 	port, err := parsePort(config.Port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	_, cluster, err := parseService(config.Service, port)
+	_, cluster, err := parseService(in, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -169,7 +182,7 @@ func buildExtAuthzGRPC(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExte
 	return generateGRPCConfig(cluster, config.FailOpen, status), nil
 }
 
-func parseService(service string, port int) (hostname string, cluster string, err error) {
+func parseService(in *plugin.InputParams, service string, port int) (hostname string, cluster string, err error) {
 	if service == "" {
 		return "", "", fmt.Errorf("service must not be empty")
 	}
@@ -181,13 +194,23 @@ func parseService(service string, port int) (hostname string, cluster string, er
 	if len(parts) == 2 {
 		namespace, name = parts[0], parts[1]
 	} else {
-		// TODO(yangminzhu): Fix to use the namespace of MeshConfig.
-		namespace, name = "istio-system", parts[0]
+		namespace, name = in.Push.MeshConfigNamespace, parts[0]
 	}
 
-	// TODO(yangminzhu): The following is temporary and still under development, the next PR is to to properly get the
-	// corresponding cluster name for the k8s service and ServiceEntry.
-	hostname = fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
+	for _, svc := range in.Push.Services(in.Node) {
+		if svc.Attributes.ResourceName == name && svc.Attributes.ResourceNamespace == namespace {
+			if svc.Hostname.IsWildCarded() {
+				authzLog.Warnf("Skipped unsupported wildcard host %s for service %s/%s", svc.Hostname, namespace, name)
+				continue
+			}
+			hostname = string(svc.Hostname)
+			break
+		}
+	}
+	if hostname == "" {
+		return "", "", fmt.Errorf("could not find valid hostname for service %s/%s", namespace, name)
+	}
+
 	cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(hostname), port)
 	return hostname, cluster, nil
 }
@@ -256,7 +279,7 @@ func generateGRPCConfig(cluster string, failOpen bool, status *envoytypev3.HttpS
 	// The cluster includes the character `|` that is invalid in gRPC authority header and will cause the connection
 	// rejected in the server side, replace it with a valid character and set in authority otherwise ext_authz will
 	// use the cluster name as default authority.
-	authority := strings.ReplaceAll(cluster, "|", "-")
+	authority := strings.ReplaceAll(cluster, "|", "_.")
 	grpc := &envoy_config_core_v3.GrpcService{
 		TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
 			EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{

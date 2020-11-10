@@ -143,8 +143,10 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	defer stopFn()
 
 	expectedServices := []*model.Service{
-		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
-		makeService("tcpstatic.com", "tcpStatic", "172.217.0.1", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
+		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080},
+			true, model.DNSLB, "httpDNS", "httpDNS"),
+		makeService("tcpstatic.com", "tcpStatic", "172.217.0.1", map[string]int{"tcp-444": 444},
+			true, model.ClientSideLB, "tcpStatic", "tcpStatic"),
 	}
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
@@ -1098,7 +1100,7 @@ func TestServicesDiff(t *testing.T) {
 				c.Name = "httpDNS1"
 				return &c
 			}(),
-			unchanged: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
+			updated: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
 		},
 		{
 			name: "different resolution",

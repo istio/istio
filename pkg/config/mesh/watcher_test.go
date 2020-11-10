@@ -185,6 +185,10 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
 	w := mesh.NewConfigMapWatcher(client, namespace, name, key)
 
+	if w.MeshConfigNamespace() != namespace {
+		t.Errorf("want mesh config namespace %s got %s", namespace, w.MeshConfigNamespace())
+	}
+
 	defaultMesh := mesh.DefaultMeshConfig()
 
 	var mu sync.Mutex

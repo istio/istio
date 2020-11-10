@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/configmapwatcher"
 	"istio.io/pkg/filewatcher"
@@ -35,6 +36,7 @@ import (
 // Holder of a mesh configuration.
 type Holder interface {
 	Mesh() *meshconfig.MeshConfig
+	MeshConfigNamespace() string
 }
 
 // Watcher is a Holder whose mesh config can be updated asynchronously.
@@ -48,16 +50,18 @@ type Watcher interface {
 var _ Watcher = &watcher{}
 
 type watcher struct {
-	mutex    sync.Mutex
-	handlers []func()
-	mesh     *meshconfig.MeshConfig
+	mutex     sync.Mutex
+	handlers  []func()
+	mesh      *meshconfig.MeshConfig
+	namespace string
 }
 
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
 // fire any events, since the config never changes.
 func NewFixedWatcher(mesh *meshconfig.MeshConfig) Watcher {
 	return &watcher{
-		mesh: mesh,
+		mesh:      mesh,
+		namespace: constants.IstioSystemNamespace,
 	}
 }
 
@@ -70,7 +74,8 @@ func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watch
 	}
 
 	w := &watcher{
-		mesh: meshConfig,
+		mesh:      meshConfig,
+		namespace: constants.IstioSystemNamespace,
 	}
 
 	// Watch the config file for changes and reload if it got modified
@@ -89,9 +94,9 @@ func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watch
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
 func NewConfigMapWatcher(client kube.Client, namespace, name, key string) Watcher {
 	defaultMesh := DefaultMeshConfig()
-	w := &watcher{mesh: &defaultMesh}
+	w := &watcher{mesh: &defaultMesh, namespace: namespace}
 	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
-		meshConfig, err := readConfigMap(cm, key)
+		meshConfig, err := ReadConfigMap(cm, key)
 		if err != nil {
 			// Keep the last known config in case there's a misconfiguration issue.
 			log.Warnf("failed to read mesh config from ConfigMap: %v", err)
@@ -110,6 +115,11 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string) Watche
 // Mesh returns the latest mesh config.
 func (w *watcher) Mesh() *meshconfig.MeshConfig {
 	return (*meshconfig.MeshConfig)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.mesh))))
+}
+
+// Namespace returns the namespace of the mesh config.
+func (w *watcher) MeshConfigNamespace() string {
+	return w.namespace
 }
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
@@ -140,7 +150,7 @@ func (w *watcher) handleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 	}
 }
 
-func readConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error) {
+func ReadConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error) {
 	if cm == nil {
 		log.Info("no ConfigMap found, using default mesh config")
 		defaultMesh := DefaultMeshConfig()

@@ -97,6 +97,7 @@ features:
       conditions:
       grpc-protocol:
       path-normalization:
+      custom:
     authentication:
       jwt:
       ingressjwt:

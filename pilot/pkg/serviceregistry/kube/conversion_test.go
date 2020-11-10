@@ -214,6 +214,11 @@ func TestServiceConversion(t *testing.T) {
 	if !reflect.DeepEqual(sa, expected) {
 		t.Fatalf("Unexpected service accounts %v (expecting %v)", sa, expected)
 	}
+
+	if service.Attributes.ResourceName != serviceName || service.Attributes.ResourceNamespace != namespace {
+		t.Fatalf("resource name/namespace incorrect, found %s/%s but want %s/%s",
+			service.Attributes.ResourceName, service.Attributes.ResourceNamespace, serviceName, namespace)
+	}
 }
 
 func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {

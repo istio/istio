@@ -368,9 +368,9 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 	return authzPolicies
 }
 
-func inputParams(t *testing.T, input string, config *meshconfig.MeshConfig) *plugin.InputParams {
+func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig) *plugin.InputParams {
 	t.Helper()
-	return &plugin.InputParams{
+	ret := &plugin.InputParams{
 		Node: &model.Proxy{
 			ConfigNamespace: "foo",
 			Metadata: &model.NodeMetadata{
@@ -379,7 +379,24 @@ func inputParams(t *testing.T, input string, config *meshconfig.MeshConfig) *plu
 		},
 		Push: &model.PushContext{
 			AuthzPolicies: yamlPolicy(t, basePath+input),
-			Mesh:          config,
+			Mesh:          mc,
 		},
 	}
+	// First add an wildcard host, should be skipped.
+	ret.Push.ServiceIndex.AddPublicServiceForTest(&model.Service{
+		Hostname: "*.foo.svc.cluster.local",
+		Attributes: model.ServiceAttributes{
+			ResourceName:      "my-custom-ext-authz",
+			ResourceNamespace: "foo",
+		},
+	})
+	// Then add the real host that should be used.
+	ret.Push.ServiceIndex.AddPublicServiceForTest(&model.Service{
+		Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
+		Attributes: model.ServiceAttributes{
+			ResourceName:      "my-custom-ext-authz",
+			ResourceNamespace: "foo",
+		},
+	})
+	return ret
 }

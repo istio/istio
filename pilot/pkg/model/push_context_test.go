@@ -397,6 +397,11 @@ func TestInitPushContext(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The namespace for fixed mesh config is default to istio system namespace.
+	if newPush.MeshConfigNamespace != constants.IstioSystemNamespace {
+		t.Errorf("want mesh config namespace %s got %s", constants.IstioSystemNamespace, newPush.MeshConfigNamespace)
+	}
+
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
 	diff := cmp.Diff(old, newPush,

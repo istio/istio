@@ -40,6 +40,10 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 	}
 }
 
+func (mh mockMeshConfigHolder) MeshConfigNamespace() string {
+	return "istio-system"
+}
+
 var (
 	meshHolder mockMeshConfigHolder
 	discovery1 *mock.ServiceDiscovery
