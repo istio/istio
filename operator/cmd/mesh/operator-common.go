@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"context"
+	"strings"
 
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -33,6 +34,8 @@ type operatorCommonArgs struct {
 	hub string
 	// tag is the tag for the operator image.
 	tag string
+	// comma sepatated imagePullSecrets used to pull operator image from private registry
+	imagePullSecrets string
 	// operatorNamespace is the namespace the operator controller is installed into.
 	operatorNamespace string
 	// watchedNamespaces is the namespaces the operator controller watches, could be namespace list separated by comma.
@@ -72,12 +75,23 @@ func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, st
 		return "", "", err
 	}
 
+	var imagePullSecrets []string
+	if ocArgs.imagePullSecrets != "" {
+		imagePullSecrets = strings.Split(ocArgs.imagePullSecrets, ",")
+	}
+
 	tmpl := `
 operatorNamespace: {{.OperatorNamespace}}
 istioNamespace: {{.IstioNamespace}}
 watchedNamespaces: {{.WatchedNamespaces}}
 hub: {{.Hub}}
 tag: {{.Tag}}
+{{- if .ImagePullSecrets }}
+imagePullSecrets:
+{{- range .ImagePullSecrets }}
+- {{ . }}
+{{- end }}
+{{- end }}
 revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 `
 
@@ -87,6 +101,7 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		WatchedNamespaces string
 		Hub               string
 		Tag               string
+		ImagePullSecrets  []string
 		Revision          string
 	}{
 		OperatorNamespace: ocArgs.operatorNamespace,
@@ -94,6 +109,7 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		WatchedNamespaces: ocArgs.watchedNamespaces,
 		Hub:               ocArgs.hub,
 		Tag:               ocArgs.tag,
+		ImagePullSecrets:  imagePullSecrets,
 		Revision:          ocArgs.revision,
 	}
 	vals, err := util.RenderTemplate(tmpl, tv)

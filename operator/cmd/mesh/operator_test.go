@@ -27,12 +27,13 @@ import (
 
 // TODO: rewrite this with running the actual top level command.
 func TestOperatorDump(t *testing.T) {
-	goldenFilepath := filepath.Join(env.IstioSrc, "operator/cmd/mesh/testdata/operator/output/operator-init.yaml")
+	goldenFilepath := filepath.Join(env.IstioSrc, "operator/cmd/mesh/testdata/operator/output/operator-dump.yaml")
 
 	odArgs := &operatorDumpArgs{
 		common: operatorCommonArgs{
 			hub:               "foo.io/istio",
 			tag:               "1.2.3",
+			imagePullSecrets:  "imagePullSecret1,imagePullSecret2",
 			operatorNamespace: "operator-test-namespace",
 			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
 		},
@@ -40,9 +41,10 @@ func TestOperatorDump(t *testing.T) {
 
 	cmd := "operator dump --hub " + odArgs.common.hub
 	cmd += " --tag " + odArgs.common.tag
+	cmd += " --imagePullSecrets " + odArgs.common.imagePullSecrets
 	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
 	cmd += " --istioNamespace " + odArgs.common.istioNamespace
-	cmd += " --manifests=" + string(snapshotCharts)
+	cmd += " --manifests=" + string(liveCharts)
 
 	gotYAML, err := runCommand(cmd)
 	if err != nil {
@@ -76,7 +78,7 @@ func TestOperatorInit(t *testing.T) {
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
 			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
-			manifestsPath:     string(snapshotCharts),
+			manifestsPath:     string(liveCharts),
 		},
 	}
 
