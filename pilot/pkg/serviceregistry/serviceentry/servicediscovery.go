@@ -180,6 +180,10 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	if !fullPush {
 		s.edsUpdate(append(instancesUpdated, instancesDeleted...), true)
+		// trigger full xds push to the related sidecar proxy
+		if event == model.EventAdd {
+			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
+		}
 		return
 	}
 
