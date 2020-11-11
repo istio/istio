@@ -28,6 +28,7 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -65,6 +66,8 @@ type installArgs struct {
 	skipConfirmation bool
 	// force proceeds even if there are validation errors
 	force bool
+	// verify after installation
+	verify bool
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
 	set []string
@@ -82,6 +85,7 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, VerifyCRInstallHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
@@ -160,9 +164,23 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	if err := InstallManifests(setFlags, iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
-		iArgs.kubeConfigPath, iArgs.context, iArgs.readinessTimeout, l); err != nil {
+	iop, err := InstallManifests(setFlags, iArgs.inFilenames, iArgs.force, rootArgs.dryRun,
+		iArgs.kubeConfigPath, iArgs.context, iArgs.readinessTimeout, l)
+	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
+	}
+
+	if iArgs.verify {
+		if rootArgs.dryRun {
+			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
+			return nil
+		}
+		l.LogAndPrint("\n\nVerifying installation:")
+		installationVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
+			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l, iop)
+		if err := installationVerifier.Verify(); err != nil {
+			return fmt.Errorf("verification failed with the following error: %v", err)
+		}
 	}
 
 	return nil
@@ -172,23 +190,24 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
+// Returns final IstioOperator after installation if successful.
 func InstallManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
-	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) error {
+	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
 
 	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		return err
+		return nil, err
 	}
 	_, iop, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := createNamespace(clientset, iop.Namespace, networkName(iop)); err != nil {
-		return err
+		return iop, err
 	}
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
@@ -197,14 +216,14 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 		Force: force}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
-		return err
+		return iop, err
 	}
 	status, err := reconciler.Reconcile()
 	if err != nil {
-		return fmt.Errorf("errors occurred during operation: %v", err)
+		return iop, fmt.Errorf("errors occurred during operation: %v", err)
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return fmt.Errorf("errors occurred during operation")
+		return iop, fmt.Errorf("errors occurred during operation")
 	}
 
 	opts.ProgressLog.SetState(progress.StateComplete)
@@ -213,10 +232,10 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 	iop.Name = savedIOPName(iop)
 	iopStr, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
-		return err
+		return iop, err
 	}
 
-	return saveIOPToCluster(reconciler, iopStr)
+	return iop, saveIOPToCluster(reconciler, iopStr)
 }
 
 func savedIOPName(iop *v1alpha12.IstioOperator) string {

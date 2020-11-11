@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 21715
+releaseNotes:
+- |
+  **Added** post-install/in-place upgrade verification of control plane health. Use `--verify` flag with `istioctl install` or `istioctl upgrade`
