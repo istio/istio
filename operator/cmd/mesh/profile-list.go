@@ -15,7 +15,6 @@
 package mesh
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -40,25 +39,25 @@ func profileListCmd(rootArgs *rootArgs, plArgs *profileListArgs) *cobra.Command 
 		Long:  "The list subcommand lists the available Istio configuration profiles.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return profileList(rootArgs, plArgs)
+			return profileList(cmd, rootArgs, plArgs)
 		}}
 
 }
 
 // profileList list all the builtin profiles.
-func profileList(args *rootArgs, plArgs *profileListArgs) error {
+func profileList(cmd *cobra.Command, args *rootArgs, plArgs *profileListArgs) error {
 	initLogsOrExit(args)
 	profiles, err := helm.ListProfiles(plArgs.manifestsPath)
 	if err != nil {
 		return err
 	}
 	if len(profiles) == 0 {
-		fmt.Println("No profiles available.")
+		cmd.Println("No profiles available.")
 	} else {
-		fmt.Println("Istio configuration profiles:")
+		cmd.Println("Istio configuration profiles:")
 		sort.Strings(profiles)
 		for _, profile := range profiles {
-			fmt.Printf("    %s\n", profile)
+			cmd.Printf("    %s\n", profile)
 		}
 	}
 
