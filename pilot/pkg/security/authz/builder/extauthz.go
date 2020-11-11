@@ -107,12 +107,14 @@ func notAllTheSame(names []string) bool {
 }
 
 func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*builtExtAuthz, error) {
+	if resolved == nil {
+		return nil, fmt.Errorf("extension provider not defiend or failed to process")
+	}
+	if len(providers) < 1 {
+		return nil, fmt.Errorf("no extension provider found")
+	}
 	if notAllTheSame(providers) {
 		return nil, fmt.Errorf("all extension providers must be the same for a specific workload, found multiple different providers: %v", providers)
-	} else if len(providers) < 1 {
-		return nil, fmt.Errorf("no extension provider found")
-	} else if resolved == nil {
-		return nil, fmt.Errorf("extension provider not defiend or failed to process")
 	}
 
 	var errs error
