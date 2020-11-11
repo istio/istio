@@ -87,6 +87,7 @@ func Test_KubeSecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stop)
 	})
+
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,
 		Options{
@@ -95,7 +96,7 @@ func Test_KubeSecretController(t *testing.T) {
 			ResyncPeriod:      ResyncPeriod,
 			SyncInterval:      time.Microsecond,
 		},
-		mockserviceController, nil, nil, nil)
+		mockserviceController, nil, nil)
 	if err != nil {
 		t.Fatalf("error creating Multicluster object and startign secret controller: %v", err)
 	}

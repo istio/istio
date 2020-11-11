@@ -16,8 +16,8 @@ package bootstrap
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/features"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -82,11 +82,10 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		args.RegistryOptions.KubeOptions,
 		s.ServiceController(),
 		s.serviceEntryStore,
-		s.XDSServer,
 		s.environment)
 
 	if err != nil {
-		log.Info("failed initializing Kubernetes service registry controller: %v", err)
+		log.Errorf("failed initializing Kubernetes service registry controller: %v", err)
 		return err
 	}
 
@@ -95,6 +94,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
 	}
 
+	// other (remote) clusters will need to patch their webhook cert to allow external access
 	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
 		mc.EnableCertPatch(s.caBundlePath, s.fetchCARoot)
 	}

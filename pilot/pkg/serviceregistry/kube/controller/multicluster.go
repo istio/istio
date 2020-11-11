@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
@@ -52,23 +52,21 @@ type kubeController struct {
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
-	WatchedNamespaces string
-	DomainSuffix      string
-	ResyncPeriod      time.Duration
+	opts Options
+
 	serviceController *aggregate.Controller
 	serviceEntryStore *serviceentry.ServiceEntryStore
 	XDSUpdater        model.XDSUpdater
-	metrics           model.Metrics
-	endpointMode      EndpointMode
 
 	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
 	networksWatcher       mesh.NetworksWatcher
 
 	// fetchCaRoot maps the certificate name to the certificate
-	fetchCaRoot      func() map[string]string
-	caBundlePath     string
-	systemNamespace  string
+	fetchCaRoot  func() map[string]string
+	caBundlePath string
+
+	// secretNamespace where we get cluster-access secrets
 	secretNamespace  string
 	secretController *secretcontroller.Controller
 	syncInterval     time.Duration
@@ -82,7 +80,6 @@ func NewMulticluster(
 	opts Options,
 	serviceController *aggregate.Controller,
 	serviceEntryStore *serviceentry.ServiceEntryStore,
-	xds model.XDSUpdater,
 	networksWatcher mesh.NetworksWatcher,
 ) (*Multicluster, error) {
 	remoteKubeController := make(map[string]*kubeController)
@@ -92,18 +89,13 @@ func NewMulticluster(
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
-		WatchedNamespaces:     opts.WatchedNamespaces,
-		DomainSuffix:          opts.DomainSuffix,
-		ResyncPeriod:          opts.ResyncPeriod,
+		opts: opts,
 		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
-		XDSUpdater:            xds,
+		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
-		metrics:               opts.Metrics,
-		systemNamespace:       opts.SystemNamespace,
 		secretNamespace:       secretNamespace,
-		endpointMode:          opts.EndpointMode,
 		syncInterval:          opts.GetSyncInterval(),
 	}
 	mc.initSecretController(kc)
@@ -125,18 +117,8 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	var remoteKubeController kubeController
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
-	options := Options{
-		SystemNamespace:   m.systemNamespace,
-		WatchedNamespaces: m.WatchedNamespaces,
-		ResyncPeriod:      m.ResyncPeriod,
-		DomainSuffix:      m.DomainSuffix,
-		XDSUpdater:        m.XDSUpdater,
-		ClusterID:         clusterID,
-		NetworksWatcher:   m.networksWatcher,
-		Metrics:           m.metrics,
-		EndpointMode:      m.endpointMode,
-		SyncInterval:      m.syncInterval,
-	}
+	options := m.opts
+	options.ClusterID = clusterID
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
 
