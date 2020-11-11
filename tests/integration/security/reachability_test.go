@@ -78,7 +78,6 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "beta-per-port-mtls.yaml",
@@ -90,7 +89,6 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return opts.PortName != "http"
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "beta-mtls-automtls.yaml",
@@ -147,7 +145,6 @@ func TestReachability(t *testing.T) {
 						// When mTLS is disabled, all traffic should work.
 						return true
 					},
-					SkippedForMulticluster: true,
 				},
 				// --------start of auto mtls partial test cases ---------------
 				// The follow three consecutive test together ensures the auto mtls works as intended
