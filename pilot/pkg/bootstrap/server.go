@@ -808,9 +808,7 @@ func (s *Server) initRegistryEventHandlers() error {
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	}
-	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
-		return fmt.Errorf("append service handler failed: %v", err)
-	}
+	s.ServiceController().AppendServiceHandler(serviceHandler)
 
 	if s.configController != nil {
 		configHandler := func(_, curr config.Config, event model.Event) {
