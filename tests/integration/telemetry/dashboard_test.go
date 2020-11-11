@@ -46,10 +46,10 @@ import (
 
 var (
 	dashboards = []struct {
-		configmap                       string
-		name                            string
-		excluded                        []string
-		skipValidateOnNonPrimaryCluster bool
+		configmap      string
+		name           string
+		excluded       []string
+		requirePrimary bool
 	}{
 		{
 			"istio-grafana-dashboards",
@@ -136,7 +136,7 @@ func TestDashboard(t *testing.T) {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
 					for _, cl := range ctx.Clusters() {
-						if !cl.IsPrimary() && d.skipValidateOnNonPrimaryCluster {
+						if !cl.IsPrimary() && d.requirePrimary {
 							// Skip verification of dashboards that won't be present on non primary(remote) clusters.
 							continue
 						}
