@@ -23,6 +23,7 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/metrics"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -196,6 +197,29 @@ func validateRevision(_ util.Path, val interface{}) util.Errors {
 	if !labels.IsDNS1123Label(val.(string)) {
 		err := fmt.Errorf("invalid revision specified: %s", val.(string))
 		return util.Errors{err}
+	}
+	return nil
+}
+
+func validateRevisionFromIOPYAML(iopYAML string) error {
+	var specTree = make(map[string]interface{})
+	spec, err := tpath.GetConfigSubtree(iopYAML, "spec")
+	if err != nil {
+		return err
+	}
+	err = yaml.Unmarshal([]byte(spec), &specTree)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling spec overlay yaml into untype tree %v", err)
+	}
+	// fail early if revision is not a string eg: revision: 18, revision: 1.8, revision: 1.8.0
+	rev := specTree["revision"]
+	if !util.IsString(rev) {
+		return fmt.Errorf("invalid revision specified: %v", rev.(float64))
+	}
+	// revision can be invalid string eg: "1.8", "1.8.0", which will be validated in next step
+	revision := rev.(string)
+	if !labels.IsDNS1123Label(revision) {
+		return fmt.Errorf("invalid revision specified: %s", rev)
 	}
 	return nil
 }

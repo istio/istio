@@ -284,6 +284,11 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
 		iopYAML = util.ToYAML(un)
 	}
+	// TODO: find a better way to validate all the invalid values in IOP YAML
+	// before it is unmarshal into IstioOperator
+	if err := validateRevisionFromIOPYAML(iopYAML); err != nil {
+		return nil, err
+	}
 	iop := &v1alpha1.IstioOperator{}
 	if err := util.UnmarshalWithJSONPB(iopYAML, iop, false); err != nil {
 		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)
