@@ -1734,13 +1734,34 @@ func buildTracingConfig(config *meshconfig.ProxyConfig) *hcm.HttpConnectionManag
 					Value: config.Tracing.MaxPathTagLength,
 				}
 		}
+		tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 
-		if len(config.Tracing.CustomTags) != 0 {
-			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
-		}
 	}
 
 	return tracingCfg
+}
+
+func buildCanonicalServiceTags() []*tracing.CustomTag {
+	tags := make([]*tracing.CustomTag, 0, 2)
+	tags = append(tags, &tracing.CustomTag{
+		Tag: "canonical_revision",
+		Type: &tracing.CustomTag_Environment_{
+			Environment: &tracing.CustomTag_Environment{
+				Name:         "CANONICAL_REVISION",
+				DefaultValue: "latest",
+			},
+		},
+	})
+	tags = append(tags, &tracing.CustomTag{
+		Tag: "canonical_service",
+		Type: &tracing.CustomTag_Environment_{
+			Environment: &tracing.CustomTag_Environment{
+				Name:         "CANONICAL_SERVICE",
+				DefaultValue: "unknown",
+			},
+		},
+	})
+	return tags
 }
 
 func getPilotRandomSamplingEnv() float64 {
@@ -1775,6 +1796,8 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tracing.CustomTag {
 	var tags []*tracing.CustomTag
+
+	tags = append(tags, buildCanonicalServiceTags()...)
 
 	for tagName, tagInfo := range customTags {
 		switch tag := tagInfo.Type.(type) {

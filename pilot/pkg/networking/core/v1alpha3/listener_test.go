@@ -36,6 +36,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1587,6 +1588,26 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -1609,6 +1630,26 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
+				},
+				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -1633,6 +1674,26 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -1656,6 +1717,26 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -1678,6 +1759,26 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
+				},
+				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -1703,6 +1804,26 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -1726,6 +1847,26 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
+				},
+				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -1772,6 +1913,24 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
 					{
 						Tag: "custom_tag_env",
 						Type: &tracing.CustomTag_Environment_{
@@ -1831,6 +1990,24 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100,
 				},
 				CustomTags: []*tracing.CustomTag{
+					{
+						Tag: "canonical_revision",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_REVISION",
+								DefaultValue: "latest",
+							},
+						},
+					},
+					{
+						Tag: "canonical_service",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "CANONICAL_SERVICE",
+								DefaultValue: "unknown",
+							},
+						},
+					},
 					{
 						Tag: "custom_tag_request_header",
 						Type: &tracing.CustomTag_RequestHeader{
@@ -1893,10 +2070,10 @@ func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expecte
 		}
 
 		tracing := cmgr.GetTracing()
-		ok := reflect.DeepEqual(tracing, expected)
+		diff, ok := messagediff.PrettyDiff(tracing, expected)
 
 		if !ok {
-			t.Fatalf("Testcase failure: %s custom tags did match not expected output", name)
+			t.Fatalf("Testcase failure: %s custom tags did match not expected output; diff: %v", name, diff)
 		}
 	}
 }
