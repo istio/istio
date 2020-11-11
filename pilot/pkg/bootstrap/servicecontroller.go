@@ -35,6 +35,10 @@ func (s *Server) ServiceController() *aggregate.Controller {
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
+
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
+	serviceControllers.AddRegistry(s.serviceEntryStore)
+
 	registered := make(map[serviceregistry.ProviderID]bool)
 	for _, r := range args.RegistryOptions.Registries {
 		serviceRegistry := serviceregistry.ProviderID(r)
@@ -46,27 +50,14 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
 		case serviceregistry.Kubernetes:
-			if err := s.initKubeRegistry(serviceControllers, args); err != nil {
+			if err := s.initKubeRegistry(args); err != nil {
 				return err
 			}
 		case serviceregistry.Mock:
-			s.initMockRegistry(serviceControllers)
+			s.initMockRegistry()
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
-	}
-
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
-	serviceControllers.AddRegistry(s.serviceEntryStore)
-
-	if features.EnableServiceEntrySelectPods && s.kubeRegistry != nil {
-		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
-		s.kubeRegistry.AppendWorkloadHandler(s.serviceEntryStore.WorkloadInstanceHandler)
-	}
-
-	if features.EnableK8SServiceSelectWorkloadEntries && s.kubeRegistry != nil {
-		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-		s.serviceEntryStore.AppendWorkloadHandler(s.kubeRegistry.WorkloadInstanceHandler)
 	}
 
 	// Defer running of the service controllers.
@@ -79,21 +70,42 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 }
 
 // initKubeRegistry creates all the k8s service controllers under this pilot
-func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
+func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 
-	log.Infof("Initializing Kubernetes service registry %q", args.RegistryOptions.KubeOptions.ClusterID)
-	kubeRegistry := kubecontroller.NewController(s.kubeClient, args.RegistryOptions.KubeOptions)
-	s.kubeRegistry = kubeRegistry
-	serviceControllers.AddRegistry(kubeRegistry)
+	// TODO is there a reason we didn't set this up on the local cluster before?
+	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
+	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
+		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
+	}
+
+	mc, err := kubecontroller.NewMulticluster(s.kubeClient,
+		args.RegistryOptions.ClusterRegistriesNamespace,
+		args.RegistryOptions.KubeOptions,
+		s.ServiceController(),
+		s.serviceEntryStore,
+		s.XDSServer,
+		s.environment)
+
+	if err != nil {
+		log.Info("failed initializing Kubernetes service registry controller: %v", err)
+		return err
+	}
+
+	// initialize the "main" cluster registry
+	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
+		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
+	}
+
+	s.multicluster = mc
 	return
 }
 
-func (s *Server) initMockRegistry(serviceControllers *aggregate.Controller) {
+func (s *Server) initMockRegistry() {
 	// MemServiceDiscovery implementation
 	discovery := mock.NewDiscovery(map[host.Name]*model.Service{}, 2)
 
@@ -103,5 +115,5 @@ func (s *Server) initMockRegistry(serviceControllers *aggregate.Controller) {
 		Controller:       &mock.Controller{},
 	}
 
-	serviceControllers.AddRegistry(registry)
+	s.ServiceController().AddRegistry(registry)
 }

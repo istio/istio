@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"strings"
 	"sync"
 	"time"
@@ -55,6 +56,7 @@ type Multicluster struct {
 	DomainSuffix      string
 	ResyncPeriod      time.Duration
 	serviceController *aggregate.Controller
+	serviceEntryStore *serviceentry.ServiceEntryStore
 	XDSUpdater        model.XDSUpdater
 	metrics           model.Metrics
 	endpointMode      EndpointMode
@@ -74,9 +76,15 @@ type Multicluster struct {
 
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
-func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Options,
-	serviceController *aggregate.Controller, xds model.XDSUpdater, networksWatcher mesh.NetworksWatcher) (*Multicluster, error) {
-
+func NewMulticluster(
+	kc kubernetes.Interface,
+	secretNamespace string,
+	opts Options,
+	serviceController *aggregate.Controller,
+	serviceEntryStore *serviceentry.ServiceEntryStore,
+	xds model.XDSUpdater,
+	networksWatcher mesh.NetworksWatcher,
+) (*Multicluster, error) {
 	remoteKubeController := make(map[string]*kubeController)
 	if opts.ResyncPeriod == 0 {
 		// make sure a resync time of 0 wasn't passed in.
@@ -88,6 +96,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		DomainSuffix:          opts.DomainSuffix,
 		ResyncPeriod:          opts.ResyncPeriod,
 		serviceController:     serviceController,
+		serviceEntryStore:     serviceEntryStore,
 		XDSUpdater:            xds,
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
@@ -107,7 +116,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string) error {
+func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string) error {
 	// stopCh to stop controller created here when cluster removed.
 	stopCh := make(chan struct{})
 	var remoteKubeController kubeController
@@ -126,32 +135,43 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 		SyncInterval:      m.syncInterval,
 	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
-	kubectl := NewController(clients, options)
+	kubeRegistry := NewController(client, options)
 
-	remoteKubeController.Controller = kubectl
-	m.serviceController.AddRegistry(kubectl)
+	remoteKubeController.Controller = kubeRegistry
+	m.serviceController.AddRegistry(kubeRegistry)
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()
 
 	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`,
 	// because when endpoints update `XDSUpdater.EDSUpdate` has already been called.
-	kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
+	kubeRegistry.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
 
-	go kubectl.Run(stopCh)
+	// TODO move instance cache out of registries
+	if m.serviceEntryStore != nil && features.EnableServiceEntrySelectPods {
+		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
+		kubeRegistry.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler)
+	}
+
+	if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
+		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
+		m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+	}
+
+	go kubeRegistry.Run(stopCh)
 	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 	if m.fetchCaRoot != nil {
-		nc := NewNamespaceController(m.fetchCaRoot, clients)
+		nc := NewNamespaceController(m.fetchCaRoot, client)
 		go nc.Run(stopCh)
-		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clients.Kube(), stopCh)
-		valicationWebhookController := webhooks.CreateValidationWebhookController(clients, webhookConfigName,
+		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, client.Kube(), stopCh)
+		valicationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
 		if valicationWebhookController != nil {
 			go valicationWebhookController.Start(stopCh)
 		}
 	}
 
-	clients.RunAndWait(stopCh)
+	client.RunAndWait(stopCh)
 	return nil
 }
 

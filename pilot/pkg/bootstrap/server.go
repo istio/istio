@@ -120,8 +120,6 @@ type Server struct {
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
 
-	// kubeRegistry is the service registry handling the primary cluster.
-	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
@@ -293,16 +291,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.initRegistryEventHandlers()
 
 	s.initDiscoveryService(args)
-
-	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
-	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
-	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
-		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
-	}
-
-	if err := s.initClusterRegistries(args); err != nil {
-		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
-	}
 
 	s.initSDSServer(args)
 
