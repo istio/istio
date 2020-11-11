@@ -557,6 +557,61 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	return cases
 }
 
+// Todo merge with security TestReachability code
+func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, client := range apps.PodA {
+		client := client
+		destination := apps.PodB[0]
+		// so we can validate all clusters are hit
+		callCount := callsPerCluster * len(apps.PodB)
+		cases = append(cases,
+			TrafficTestCase{
+				name: "without sidecar",
+				call: client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Target:    destination,
+					PortName:  "http-instance",
+					Scheme:    scheme.HTTP,
+					Count:     callCount,
+					Timeout:   time.Second * 5,
+					Validator: echo.And(echo.ExpectCode("503")),
+				},
+			},
+			TrafficTestCase{
+				name: "with sidecar",
+				call: client.CallWithRetryOrFail,
+				config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: sidecar
+spec:
+  workloadSelector:
+    labels:
+      app: b
+  egress:
+  - hosts:
+    - "./*"
+  ingress:
+  - port:
+      number: 82
+      protocol: HTTP
+    defaultEndpoint: 0.0.0.0:82
+`,
+				opts: echo.CallOptions{
+					Target:    destination,
+					PortName:  "http-instance",
+					Scheme:    scheme.HTTP,
+					Count:     callCount,
+					Timeout:   time.Second * 5,
+					Validator: echo.And(echo.ExpectOK()),
+				},
+			})
+	}
+	return cases
+}
+
 type vmCase struct {
 	name string
 	from echo.Instance
