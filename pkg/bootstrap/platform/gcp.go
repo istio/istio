@@ -83,7 +83,6 @@ var (
 		}
 		return cb, nil
 	}
-
 	constructGKEClusterURL = func(md map[string]string) (string, error) {
 		projectID, found := md[GCPProject]
 		if !found {
