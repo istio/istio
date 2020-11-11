@@ -89,6 +89,11 @@ const (
 	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
 	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
 
+	// VirtualOutboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
+	VirtualOutboundBlackholeFilterChainName = "virtualOutbound-blackhole"
+	// VirtualInboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
+	VirtualInboundBlackholeFilterChainName = "virtualInbound-blackhole"
+
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 
@@ -685,7 +690,7 @@ allChainsLabel:
 	}
 	// Filters are serialized one time into an opaque struct once we have the complete list.
 	if err := buildCompleteFilterChain(mutable, listenerOpts); err != nil {
-		log.Warna("buildSidecarInboundListeners ", err.Error())
+		log.Warn("buildSidecarInboundListeners ", err.Error())
 		return nil
 	}
 
@@ -1021,7 +1026,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 		FilterChains: []istionetworking.FilterChain{{}},
 	}
 	if err := buildCompleteFilterChain(mutable, opts); err != nil {
-		log.Warna("buildHTTPProxy filter chain error  ", err.Error())
+		log.Warn("buildHTTPProxy filter chain error  ", err.Error())
 		return nil
 	}
 	return l
@@ -1470,7 +1475,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	// Filters are serialized one time into an opaque struct once we have the complete list.
 	if err := buildCompleteFilterChain(mutable, listenerOpts); err != nil {
-		log.Warna("buildSidecarOutboundListeners: ", err.Error())
+		log.Warn("buildSidecarOutboundListeners: ", err.Error())
 		return
 	}
 

@@ -34,8 +34,8 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -63,7 +63,7 @@ func TestUninstallByRevision(t *testing.T) {
 				if err != nil {
 					scopes.Framework.Errorf("failed to uninstall: %v, output: %v", err, out)
 				}
-				cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+				cs := ctx.Clusters().Default()
 
 				retry.UntilSuccessOrFail(t, func() error {
 					for _, gvk := range append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...) {
@@ -107,7 +107,7 @@ spec:
 				"--filename=" + iopFile, "--skip-confirmation",
 			}
 			istioCtl.InvokeOrFail(t, uninstallCmd)
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default()
 			retry.UntilSuccessOrFail(t, func() error {
 				manifestMap, _, err := manifest.GenManifests([]string{iopFile}, []string{}, true, nil, nil)
 				if err != nil {
@@ -143,7 +143,7 @@ func TestUninstallPurge(t *testing.T) {
 				"--purge", "--skip-confirmation",
 			}
 			istioCtl.InvokeOrFail(t, uninstallCmd)
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default()
 
 			retry.UntilSuccessOrFail(t, func() error {
 				for _, gvk := range append(helmreconciler.NamespacedResources, helmreconciler.AllClusterResources...) {
@@ -158,12 +158,19 @@ func TestUninstallPurge(t *testing.T) {
 		})
 }
 
-func checkResourcesNotInCluster(cs kube.Cluster, gvr schema.GroupVersionResource, ls string) error {
+func checkResourcesNotInCluster(cs resource.Cluster, gvr schema.GroupVersionResource, ls string) error {
 	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
 	if usList != nil && len(usList.Items) != 0 {
 		var stalelist []string
 		for _, item := range usList.Items {
+			// ignore IstioOperator CRD because the operator CR is not in the pruning list
+			if item.GetName() == "istiooperators.install.istio.io" {
+				continue
+			}
 			stalelist = append(stalelist, item.GroupVersionKind().String()+"/"+item.GetName())
+		}
+		if len(stalelist) == 0 {
+			return nil
 		}
 		msg := fmt.Sprintf("resources expected to be pruned but still exist in the cluster: %s",
 			strings.Join(stalelist, " "))

@@ -270,6 +270,9 @@ type WatchedResource struct {
 	// NonceAcked is the last acked message.
 	NonceAcked string
 
+	// NonceNacked is the last nacked message. This is reset following a successful ACK
+	NonceNacked string
+
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
 
@@ -896,7 +899,7 @@ const (
 func ParsePort(addr string) int {
 	port, err := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
 	if err != nil {
-		log.Warna(err)
+		log.Warn(err)
 	}
 
 	return port
@@ -955,4 +958,9 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	}
 
 	return InterceptionRedirect
+}
+
+func (node *Proxy) IsVM() bool {
+	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
+	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
 }

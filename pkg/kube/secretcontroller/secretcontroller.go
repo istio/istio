@@ -65,6 +65,8 @@ type Controller struct {
 	updateCallback updateSecretCallback
 	removeCallback removeSecretCallback
 
+	syncInterval time.Duration
+
 	mu          sync.RWMutex
 	initialSync bool
 }
@@ -168,7 +170,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
-	if !cache.WaitForCacheSync(stopCh, c.informer.HasSynced) {
+	if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
 		utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
 		return
 	}
@@ -185,10 +187,11 @@ func (c *Controller) HasSynced() bool {
 
 // StartSecretController creates the secret controller.
 func StartSecretController(k8s kubernetes.Interface, addCallback addSecretCallback,
-	updateCallback updateSecretCallback, removeCallback removeSecretCallback, namespace string) *Controller {
+	updateCallback updateSecretCallback, removeCallback removeSecretCallback, namespace string, syncInterval time.Duration) *Controller {
 	stopCh := make(chan struct{})
 	clusterStore := newClustersStore()
 	controller := NewController(k8s, namespace, clusterStore, addCallback, updateCallback, removeCallback)
+	controller.syncInterval = syncInterval
 
 	go controller.Run(stopCh)
 

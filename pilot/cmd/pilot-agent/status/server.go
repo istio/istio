@@ -224,7 +224,7 @@ func (s *Server) Run(ctx context.Context) {
 
 	go func() {
 		if err := http.Serve(l, mux); err != nil {
-			log.Errora(err)
+			log.Error(err)
 			select {
 			case <-ctx.Done():
 				// We are shutting down already, don't trigger SIGTERM
@@ -456,7 +456,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 			// Probe has specific host header override; honor it
 			appReq.Host = h.Value
 		} else {
-			appReq.Header.Add(h.Name, h.Value)
+			appReq.Header.Set(h.Name, h.Value)
 		}
 	}
 
@@ -481,7 +481,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 func notifyExit() {
 	p, err := os.FindProcess(os.Getpid())
 	if err != nil {
-		log.Errora(err)
+		log.Error(err)
 	}
 	if err := p.Signal(syscall.SIGTERM); err != nil {
 		log.Errorf("failed to send SIGTERM to self: %v", err)

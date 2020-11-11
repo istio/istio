@@ -77,6 +77,50 @@ func (c Clusters) ByNetwork() map[string]Clusters {
 	return out
 }
 
+// Primaries returns the subset that are primary clusters.
+func (c Clusters) Primaries(excluded ...Cluster) Clusters {
+	return c.filterClusters(func(cc Cluster) bool {
+		return cc.IsPrimary()
+	}, exclude(excluded...))
+}
+
+// Configs returns the subset that are config clusters.
+func (c Clusters) Configs(excluded ...Cluster) Clusters {
+	return c.filterClusters(func(cc Cluster) bool {
+		return cc.IsConfig()
+	}, exclude(excluded...))
+}
+
+// Remotes returns the subset that are remote clusters.
+func (c Clusters) Remotes(excluded ...Cluster) Clusters {
+	return c.filterClusters(func(cc Cluster) bool {
+		return cc.IsRemote()
+	}, exclude(excluded...))
+}
+
+func exclude(exclude ...Cluster) func(Cluster) bool {
+	return func(cc Cluster) bool {
+		for _, e := range exclude {
+			if cc.Name() == e.Name() {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func (c Clusters) filterClusters(included func(Cluster) bool,
+	excluded func(Cluster) bool) Clusters {
+
+	var out Clusters
+	for _, cc := range c {
+		if !excluded(cc) && included(cc) {
+			out = append(out, cc)
+		}
+	}
+	return out
+}
+
 func (c Clusters) String() string {
 	return fmt.Sprintf("%v", c.Names())
 }
@@ -94,6 +138,26 @@ type Cluster interface {
 
 	// Index of this Cluster within the Environment
 	Index() ClusterIndex
+
+	// IsPrimary returns true if this is a primary cluster, containing an instance
+	// of the Istio control plane.
+	IsPrimary() bool
+
+	// IsConfig returns true if this is a config cluster, used as the source of
+	// Istio config for one or more control planes.
+	IsConfig() bool
+
+	// IsRemote returns true if this is a remote cluster, which uses a control plane
+	// residing in another cluster.
+	IsRemote() bool
+
+	// Primary returns the primary cluster for this cluster. Will return itself if
+	// IsPrimary.
+	Primary() Cluster
+
+	// Config returns the config cluster for this cluster. Will return itself if
+	// IsConfig.
+	Config() Cluster
 }
 
 var _ Cluster = FakeCluster{}
@@ -105,6 +169,11 @@ type FakeCluster struct {
 	NameValue        string
 	NetworkNameValue string
 	IndexValue       int
+	IsPrimaryCluster bool
+	IsConfigCluster  bool
+	IsRemoteCluster  bool
+	PrimaryCluster   Cluster
+	ConfigCluster    Cluster
 }
 
 func (m FakeCluster) String() string {
@@ -121,4 +190,24 @@ func (m FakeCluster) NetworkName() string {
 
 func (m FakeCluster) Index() ClusterIndex {
 	return ClusterIndex(m.IndexValue)
+}
+
+func (m FakeCluster) IsPrimary() bool {
+	return m.IsPrimaryCluster
+}
+
+func (m FakeCluster) IsConfig() bool {
+	return m.IsConfigCluster
+}
+
+func (m FakeCluster) IsRemote() bool {
+	return m.IsRemoteCluster
+}
+
+func (m FakeCluster) Primary() Cluster {
+	return m.PrimaryCluster
+}
+
+func (m FakeCluster) Config() Cluster {
+	return m.ConfigCluster
 }

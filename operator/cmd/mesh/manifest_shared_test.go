@@ -206,7 +206,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*Objec
 
 	iop.Spec.InstallPackagePath = string(chartSource)
 
-	if err := createNamespace(testK8Interface, iop.Namespace); err != nil {
+	if err := createNamespace(testK8Interface, iop.Namespace, networkName(iop)); err != nil {
 		return nil, err
 	}
 

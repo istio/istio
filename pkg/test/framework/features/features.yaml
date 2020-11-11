@@ -64,6 +64,8 @@ features:
     peer:
       secure-naming:
       trust-domain-validation:
+      trust-domain-alias-secure-naming:
+      file-mounted-certs:
     user:
     ingress:
       mtls:
@@ -116,11 +118,14 @@ features:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
+      postinstall_verify:
     multicluster:
-      central-istiod:
       multimaster:
       remote:
       centralremotekubeconfig:
+    helm:
+      default:
+      firstpartyjwt:
   # describes internal build and testing infrastrcuture
   infrastructure:
     # the testing framework

@@ -109,8 +109,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	c.address = fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
-	scopes.Framework.Infof("Stackdriver in-cluster address: %s", c.address)
+	c.address = fmt.Sprintf("%s:%d", pod.Status.HostIP, svc.Spec.Ports[0].NodePort)
+	scopes.Framework.Infof("Stackdriver address: %s NodeName %s", c.address, pod.Spec.NodeName)
 
 	return c, nil
 }
@@ -180,6 +180,7 @@ func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
 			l.HttpRequest.RequestSize = 0
 			l.HttpRequest.ServerIp = ""
 			l.HttpRequest.RemoteIp = ""
+			l.HttpRequest.UserAgent = ""
 			l.HttpRequest.Latency = nil
 		}
 		delete(l.Labels, "request_id")

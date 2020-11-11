@@ -79,6 +79,15 @@ messages:
       - name: err
         type: error
 
+  - name: "SchemaWarning"
+    code: IST0133
+    level: Warning
+    description: "The resource has a schema validation warning."
+    template: "Schema validation warning: %v"
+    args:
+      - name: err
+        type: error
+
   - name: "MisplacedAnnotation"
     code: IST0107
     level: Warning
@@ -352,4 +361,17 @@ messages:
       - name: matchno
         type: string
       - name: dupno
+        type: string
+
+  - name: "VirtualServiceHostNotFoundInGateway"
+    code: IST0132
+    level: Warning
+    description: "Host defined in VirtualService not found in Gateway."
+    template: "one or more host %v defined in VirtualService %s not found in Gateway %s."
+    args:
+      - name: host
+        type: "[]string"
+      - name: virtualservice
+        type: string
+      - name: gateway
         type: string

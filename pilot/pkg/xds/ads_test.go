@@ -22,9 +22,11 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
@@ -40,6 +42,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -77,7 +80,7 @@ func TestAgent(t *testing.T) {
 	defer tearDown()
 
 	// TODO: when authz is implemented, verify labels are checked.
-	cert, key, err := bs.CA.GenKeyCert([]string{spiffe.Identity{"cluster.local", "test", "sa"}.String()}, 1*time.Hour)
+	cert, key, err := bs.CA.GenKeyCert([]string{spiffe.Identity{"cluster.local", "test", "sa"}.String()}, 1*time.Hour, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,6 +131,9 @@ func TestAgent(t *testing.T) {
 			t.Fatal("Failed to connect", err)
 		}
 		defer ldsr.Close()
+		if err := ldsr.Run(); err != nil {
+			t.Fatal("ADSC: failed running ", err)
+		}
 
 		r, err := ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 		if err != nil {
@@ -753,6 +759,78 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 		ResourceNames: []string{routeA, routeB},
 		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
+	})
+}
+
+func TestBlockedPush(t *testing.T) {
+	original := features.EnableFlowControl
+	t.Cleanup(func() {
+		features.EnableFlowControl = original
+	})
+	t.Run("flow control enabled", func(t *testing.T) {
+		features.EnableFlowControl = true
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		ads := s.ConnectADS().WithType(v3.ClusterType)
+		ads.RequestResponseAck(nil)
+		// Send push, get a response but do not ACK it
+		xds.AdsPushAll(s.Discovery)
+		res := ads.ExpectResponse()
+
+		// Another push results in no response as we are blocked
+		xds.AdsPushAll(s.Discovery)
+		ads.ExpectNoResponse()
+
+		// ACK, unblocking the previous push
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		res = ads.ExpectResponse()
+
+		// ACK again, ensure we do not response
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		ads.ExpectNoResponse()
+
+		// request new resources, expect response
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo"}})
+		res = ads.ExpectResponse()
+		// request new resources, expect response, even without explicit ACK
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo", "bar"}})
+		ads.ExpectResponse()
+	})
+	t.Run("flow control enabled NACK", func(t *testing.T) {
+		log.FindScope("ads").SetOutputLevel(log.DebugLevel)
+		features.EnableFlowControl = true
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		ads := s.ConnectADS().WithType(v3.ClusterType)
+		ads.RequestResponseAck(nil)
+
+		// Send push, get a response and NACK it
+		xds.AdsPushAll(s.Discovery)
+		res := ads.ExpectResponse()
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ErrorDetail: &status.Status{Message: "Test request NACK"}})
+
+		// Another push results in a response as we are not blocked (NACK unblocks)
+		xds.AdsPushAll(s.Discovery)
+		ads.ExpectResponse()
+
+		// ACK should not get push
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		ads.ExpectNoResponse()
+	})
+	t.Run("flow control disabled", func(t *testing.T) {
+		features.EnableFlowControl = false
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		ads := s.ConnectADS().WithType(v3.ClusterType)
+		ads.RequestResponseAck(nil)
+		// Send push, get a response but do not ACK it
+		xds.AdsPushAll(s.Discovery)
+		res := ads.ExpectResponse()
+
+		// Another push results in response as we do not care that we are blocked
+		xds.AdsPushAll(s.Discovery)
+		ads.ExpectResponse()
+
+		// ACK gets no response as we don't have flow control enabled
+		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		ads.ExpectNoResponse()
 	})
 }
 

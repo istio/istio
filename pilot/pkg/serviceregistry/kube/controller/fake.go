@@ -152,6 +152,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if opts.Client == nil {
 		opts.Client = kubelib.NewFakeClient()
 	}
+
 	options := Options{
 		WatchedNamespaces: opts.WatchedNamespaces, // default is all namespaces
 		DomainSuffix:      domainSuffix,
@@ -160,6 +161,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		NetworksWatcher:   opts.NetworksWatcher,
 		EndpointMode:      opts.Mode,
 		ClusterID:         opts.ClusterID,
+		SyncInterval:      time.Microsecond,
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {
@@ -177,5 +179,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x
 	}
+
 	return &FakeController{c}, fx
 }

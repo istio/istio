@@ -314,6 +314,35 @@ func TestValidateConnectTimeout(t *testing.T) {
 	}
 }
 
+func TestValidateMaxServerConnectionAge(t *testing.T) {
+	type durationCheck struct {
+		duration time.Duration
+		isValid  bool
+	}
+	durMin, _ := time.ParseDuration("-30m")
+	durHr, _ := time.ParseDuration("-1.5h")
+	checks := []durationCheck{
+		{
+			duration: 30 * time.Minute,
+			isValid:  true,
+		},
+		{
+			duration: durMin,
+			isValid:  false,
+		},
+		{
+			duration: durHr,
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateMaxServerConnectionAge(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
+		}
+	}
+}
+
 func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	type durationCheck struct {
 		duration *types.Duration
@@ -353,17 +382,50 @@ func TestValidateMeshConfig(t *testing.T) {
 		DefaultConfig:      &meshconfig.ProxyConfig{},
 		TrustDomain:        "",
 		TrustDomainAliases: []string{"a.$b", "a/b", ""},
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{{
+			Name: "default",
+			Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+				EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+					Service: "foo/ext-authz",
+					Port:    999999,
+				},
+			},
+		},
+		},
 	}
 
 	err := ValidateMeshConfig(&invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
+		wantErrors := []string{
+			"invalid proxy listen port",
+			"invalid connect timeout",
+			"invalid protocol detection timeout: duration: nil Duration",
+			"config path must be set",
+			"binary path must be set",
+			"service cluster must be set",
+			"invalid parent and drain time combination invalid drain duration",
+			"invalid parent and drain time combination invalid parent shutdown duration",
+			"discovery address must be set to the proxy discovery service",
+			"invalid proxy admin port",
+			"trustDomain: empty domain name not allowed",
+			"trustDomainAliases[0]",
+			"trustDomainAliases[1]",
+			"trustDomainAliases[2]",
+			"invalid extension provider default: port number 999999",
+		}
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 7 {
-				t.Errorf("expected an error for each field %v", err)
+			if len(err.Errors) != len(wantErrors) {
+				t.Errorf("expected %d errors but found %v", len(wantErrors), err)
+			} else {
+				for i := 0; i < len(wantErrors); i++ {
+					if !strings.HasPrefix(err.Errors[i].Error(), wantErrors[i]) {
+						t.Errorf("expected error %q at index %d but found %q", wantErrors[i], i, err.Errors[i])
+					}
+				}
 			}
 		default:
 			t.Errorf("expected a multi error as output")
@@ -3502,6 +3564,98 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "custom-good",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "my-custom-authz",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name: "custom-empty-provider",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name: "custom-nil-provider",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				Rules:  []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name: "custom-invalid-rule",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "my-custom-authz",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Namespaces:           []string{"ns"},
+									NotNamespaces:        []string{"ns"},
+									Principals:           []string{"id"},
+									NotPrincipals:        []string{"id"},
+									RequestPrincipals:    []string{"req"},
+									NotRequestPrincipals: []string{"req"},
+								},
+							},
+						},
+						When: []*security_beta.Condition{
+							{
+								Key:       "source.namespace",
+								Values:    []string{"source.namespace1"},
+								NotValues: []string{"source.namespace2"},
+							},
+							{
+								Key:       "source.principal",
+								Values:    []string{"source.principal1"},
+								NotValues: []string{"source.principal2"},
+							},
+							{
+								Key:       "request.auth.claims[a]",
+								Values:    []string{"claims1"},
+								NotValues: []string{"claims2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "provider-wrong-action",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
 			name: "allow-rules-nil",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_ALLOW,
@@ -4130,11 +4284,15 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if _, got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
-				t.Errorf("got: %v\nwant: %v", got, c.valid)
-			}
-		})
+		if _, got := ValidateAuthorizationPolicy(config.Config{
+			Meta: config.Meta{
+				Name:      "name",
+				Namespace: "namespace",
+			},
+			Spec: c.in,
+		}); (got == nil) != c.valid {
+			t.Errorf("got: %v\nwant: %v", got, c.valid)
+		}
 	}
 }
 

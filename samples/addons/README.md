@@ -54,7 +54,7 @@ It helps you to understand the structure of your service mesh by inferring the t
 Kiali provides detailed metrics, and a basic [Grafana](#grafana) integration is available for advanced queries.
 Distributed tracing is provided by integrating [Jaeger](#jaeger).
 
-For more information about using Kiali, see the [Visualizing Your Mesh](istio.io/docs/tasks/observability/kiali/) task.
+For more information about using Kiali, see the [Visualizing Your Mesh](https://istio.io/docs/tasks/observability/kiali/) task.
 
 ### Jaeger
 

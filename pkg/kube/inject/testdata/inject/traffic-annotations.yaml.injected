@@ -90,7 +90,7 @@ spec:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar"},"meshId":"cluster.local"}
+            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar"}}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -111,6 +111,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/traffic
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         - name: FOO
           value: bar
         image: gcr.io/istio-testing/proxyv2:latest
@@ -127,6 +129,7 @@ spec:
             port: 15021
           initialDelaySeconds: 1
           periodSeconds: 2
+          timeoutSeconds: 3
         resources:
           requests:
             cpu: "4"

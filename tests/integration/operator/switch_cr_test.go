@@ -34,20 +34,16 @@ import (
 	api "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/config/protocol"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/util/sanitycheck"
 	"istio.io/pkg/log"
 )
 
@@ -75,7 +71,7 @@ func TestController(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default()
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
 				t.Fatal(err)
@@ -138,7 +134,7 @@ func TestOperatorRemove(t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			cs := ctx.Clusters().Default()
 			s, err := image.SettingsFromCommandLine()
 			if err != nil {
 				t.Fatal(err)
@@ -236,7 +232,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 	return nil
 }
 
-func cleanupInClusterCRs(t *testing.T, cs kube.Cluster) {
+func cleanupInClusterCRs(t *testing.T, cs resource.Cluster) {
 	// clean up hanging installed-state CR from previous tests
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
@@ -303,39 +299,8 @@ func verifyInstallation(t *testing.T, ctx resource.Context,
 	if err := compareInClusterAndGeneratedResources(t, istioCtl, profileName, revision, cs); err != nil {
 		t.Fatalf("in cluster resources does not match with the generated ones: %v", err)
 	}
-	sanityCheck(t, ctx)
+	sanitycheck.RunTrafficTest(t, ctx)
 	scopes.Framework.Infof("=== succeeded ===")
-}
-
-func sanityCheck(t *testing.T, ctx resource.Context) {
-	scopes.Framework.Infof("running sanity test")
-	var client, server echo.Instance
-	test := namespace.NewOrFail(t, ctx, namespace.Config{
-		Prefix: "default",
-		Inject: true,
-	})
-	echoboot.NewBuilder(ctx).
-		With(&client, echo.Config{
-			Service:   "client",
-			Namespace: test,
-			Ports:     []echo.Port{},
-		}).
-		With(&server, echo.Config{
-			Service:   "server",
-			Namespace: test,
-			Ports: []echo.Port{
-				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
-				}},
-		}).
-		BuildOrFail(t)
-	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:    server,
-		PortName:  "http",
-		Validator: echo.ExpectOK(),
-	})
 }
 
 func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Instance, profileName string, revision string,
@@ -430,4 +395,3 @@ func revName(name, revision string) string {
 	return name + "-" + revision
 
 }
-

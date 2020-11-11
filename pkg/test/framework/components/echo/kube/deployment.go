@@ -123,6 +123,9 @@ spec:
 {{- if $p.ServerFirst }}
           - --server-first={{ $p.Port }}
 {{- end }}
+{{- if $p.InstanceIP }}
+          - --bind-ip={{ $p.Port }}
+{{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
 {{- if eq .Protocol "TCP" }}
@@ -151,6 +154,11 @@ spec:
           name: tcp-health-port
 {{- end }}
 {{- end }}
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /
@@ -304,8 +312,15 @@ spec:
 {{- if $p.ServerFirst }}
              --server-first={{ $p.Port }} \
 {{- end }}
+{{- if $p.InstanceIP }}
+             --bind-ip={{ $p.Port }} \
+{{- end }}
 {{- end }}
         env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         {{- range $name, $value := $.Environment }}
         - name: {{ $name }}
           value: "{{ $value }}"
@@ -409,6 +424,7 @@ func generateYAMLWithSettings(
 
 	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
+		// TODO if possible, use istioctl x workload ... to configure the VM
 		ist, err := istio.Get(ctx)
 		if err != nil {
 			return "", "", err

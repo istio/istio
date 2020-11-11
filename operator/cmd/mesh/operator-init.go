@@ -123,7 +123,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	}
 
 	if customResource != "" {
-		if err := createNamespace(clientset, istioNamespace); err != nil {
+		if err := createNamespace(clientset, istioNamespace, ""); err != nil {
 			l.LogAndFatal(err)
 
 		}

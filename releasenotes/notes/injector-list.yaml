@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 23892
+releaseNotes:
+- |
+  **Added** `istioctl x injector list` command to show which namespaces have Istio sidecar injection
+  and, for control plane canaries, show all Istio injectors and the namespaces they control.

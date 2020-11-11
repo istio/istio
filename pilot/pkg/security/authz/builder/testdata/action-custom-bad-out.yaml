@@ -1,0 +1,11 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    action: DENY
+    policies:
+      default-deny-all-due-to-bad-CUSTOM-action:
+        permissions:
+        - any: true
+        principals:
+        - any: true

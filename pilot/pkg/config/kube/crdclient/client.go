@@ -110,11 +110,11 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler fun
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
-	scope.Infoa("Starting Pilot K8S CRD controller")
+	scope.Info("Starting Pilot K8S CRD controller")
 
 	go func() {
 		cache.WaitForCacheSync(stop, cl.HasSynced)
-		scope.Infoa("Pilot K8S CRD controller synced ", time.Since(t0))
+		scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
 		cl.queue.Run(stop)
 	}()
 
@@ -133,9 +133,13 @@ func (cl *Client) HasSynced() bool {
 }
 
 func New(client kube.Client, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
+	schemas := collections.Pilot
+	if features.EnableServiceApis {
+		schemas = collections.PilotServiceApi
+	}
 	out := &Client{
 		domainSuffix:      options.DomainSuffix,
-		schemas:           collections.PilotServiceApi,
+		schemas:           schemas,
 		revision:          revision,
 		queue:             queue.NewQueue(1 * time.Second),
 		kinds:             map[config.GroupVersionKind]*cacheHandler{},

@@ -283,9 +283,7 @@ func (a *ADSC) Dial() error {
 	if err != nil {
 		return err
 	}
-
-	err = a.Run()
-	return err
+	return nil
 }
 
 // Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
@@ -442,7 +440,7 @@ func (a *ADSC) handleRecv() {
 		// Group-value-kind - used for high level api generator.
 		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
 
-		adscLog.Infoa("Received ", a.url, " type ", msg.TypeUrl,
+		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
 			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
 		if a.cfg.ResponseHandler != nil {
 			a.cfg.ResponseHandler.HandleResponse(a, msg)
@@ -454,7 +452,7 @@ func (a *ADSC) handleRecv() {
 			m := &v1alpha1.MeshConfig{}
 			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
-				log.Warna("Failed to unmarshal mesh config", err)
+				log.Warn("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
@@ -1114,7 +1112,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 	}
 	val, err := mcpToPilot(m)
 	if err != nil {
-		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
+		adscLog.Warn("Invalid data ", err, " ", string(valBytes))
 		return err
 	}
 	val.GroupVersionKind = config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}

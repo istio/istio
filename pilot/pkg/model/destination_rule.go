@@ -19,6 +19,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -79,6 +80,10 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 
 	// DestinationRule does not exist for the resolved host so add it
 	p.hosts = append(p.hosts, resolvedHost)
+	if p.hostsMap == nil {
+		p.hostsMap = make(map[host.Name]struct{})
+	}
+	p.hostsMap[resolvedHost] = struct{}{}
 	p.destRule[resolvedHost] = &destRuleConfig
 	p.exportTo[resolvedHost] = exportToMap
 }

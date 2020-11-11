@@ -153,6 +153,15 @@ func getMaxCidrPrefix(addr string) uint32 {
 	return 32
 }
 
+func ListContains(haystack []string, needle string) bool {
+	for _, n := range haystack {
+		if needle == n {
+			return true
+		}
+	}
+	return false
+}
+
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
 	if len(addr) == 0 {

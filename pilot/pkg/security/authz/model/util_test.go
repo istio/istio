@@ -15,6 +15,7 @@
 package model
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -64,25 +65,58 @@ func TestConvertToPort(t *testing.T) {
 
 func TestExtractNameInBrackets(t *testing.T) {
 	cases := []struct {
-		s      string
-		expect string
-		err    bool
+		s    string
+		want string
+		err  bool
 	}{
-		{s: "[good]", expect: "good", err: false},
-		{s: "[[good]]", expect: "[good]", err: false},
-		{s: "[]", expect: "", err: false},
-		{s: "[bad", expect: "", err: true},
-		{s: "bad]", expect: "", err: true},
-		{s: "bad", expect: "", err: true},
+		{s: "[good]", want: "good"},
+		{s: "[[good]]", want: "[good]"},
+		{s: "[]", want: ""},
+		{s: "[bad", err: true},
+		{s: "bad]", err: true},
+		{s: "bad", err: true},
 	}
 
 	for _, c := range cases {
-		s, err := extractNameInBrackets(c.s)
-		if s != c.expect {
-			t.Errorf("expecting [good] but found %s", s)
-		}
-		if c.err != (err != nil) {
-			t.Errorf("unexpected error: %v", err)
-		}
+		t.Run(c.s, func(t *testing.T) {
+			s, err := extractNameInBrackets(c.s)
+			if s != c.want {
+				t.Errorf("want %s but found %s", c.want, s)
+			}
+			if c.err != (err != nil) {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestExtractNameInNestedBrackets(t *testing.T) {
+	cases := []struct {
+		s    string
+		want []string
+		err  bool
+	}{
+		{s: "[good]", want: []string{"good"}},
+		{s: "[good][abc][xyz]", want: []string{"good", "abc", "xyz"}},
+		{s: "[]", want: []string{""}},
+		{s: "[[good]", want: []string{"[good"}},
+		{s: "[good]]", want: []string{"good]"}},
+		{s: "[[good]]", want: []string{"[good]"}},
+		{s: "x[bad]", err: true},
+		{s: "[bad", err: true},
+		{s: "bad]", err: true},
+		{s: "bad", err: true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.s, func(t *testing.T) {
+			s, err := extractNameInNestedBrackets(c.s)
+			if !reflect.DeepEqual(s, c.want) {
+				t.Errorf("want %s but found %s", c.want, s)
+			}
+			if c.err != (err != nil) {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
 	}
 }

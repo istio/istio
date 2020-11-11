@@ -46,8 +46,9 @@ type StatusSyncer struct {
 	meshHolder mesh.Holder
 	client     kubernetes.Interface
 
-	// Name of service (ingressgateway default) to find the IP
-	ingressService string
+	// Name of service (istio-ingressgateway default) to find the IP
+	ingressService  string
+	ingressSelector string
 
 	queue              queue.Instance
 	ingressLister      listerv1beta1.IngressLister
@@ -85,6 +86,7 @@ func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSynce
 		ingressClassLister: ingressClassLister,
 		queue:              q,
 		ingressService:     meshHolder.Mesh().IngressService,
+		ingressSelector:    meshHolder.Mesh().IngressSelector,
 	}
 }
 
@@ -99,7 +101,7 @@ func (s *StatusSyncer) onEvent() error {
 
 func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 	if _, err := s.runningAddresses(ingressNamespace); err != nil {
-		log.Warna("Missing ingress, skip status updates")
+		log.Warn("Missing ingress, skip status updates")
 		err = wait.PollUntil(10*time.Second, func() (bool, error) {
 			if sa, err := s.runningAddresses(ingressNamespace); err != nil || len(sa) == 0 {
 				return false, nil
@@ -107,7 +109,7 @@ func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 			return true, nil
 		}, stop)
 		if err != nil {
-			log.Warna("Error waiting for ingress")
+			log.Warn("Error waiting for ingress")
 			return
 		}
 	}
@@ -185,13 +187,14 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 		return addrs, nil
 	}
 
-	// get information about all the pods running the ingress controller (gateway)
-	pods, err := s.podLister.Pods(ingressNamespace).List(labels.SelectorFromSet(map[string]string{"app": "ingressgateway"}))
+	// get all pods acting as ingress gateways
+	igSelector := getIngressGatewaySelector(s.ingressSelector, s.ingressService)
+	igPods, err := s.podLister.Pods(ingressNamespace).List(labels.SelectorFromSet(igSelector))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, pod := range pods {
+	for _, pod := range igPods {
 		// only Running pods are valid
 		if pod.Status.Phase != coreV1.PodRunning {
 			continue

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+
+releaseNotes:
+- |
+  **Added**  `enableIstioConfigCRDs` to `base` to allow user specify whether the istio crds will be installed.

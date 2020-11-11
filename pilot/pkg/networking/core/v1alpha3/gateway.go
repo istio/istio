@@ -46,7 +46,7 @@ import (
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.node.MergedGateway == nil {
-		log.Debuga("buildGatewayListeners: no gateways for router ", builder.node.ID)
+		log.Debug("buildGatewayListeners: no gateways for router ", builder.node.ID)
 		return builder
 	}
 
@@ -154,7 +154,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		}
 		for _, p := range configgen.Plugins {
 			if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
-				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
+				log.Warn("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
@@ -190,7 +190,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	routeName string) *route.RouteConfiguration {
 
 	if node.MergedGateway == nil {
-		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
+		log.Debug("buildGatewayRoutes: no gateways for router ", node.ID)
 		return nil
 	}
 

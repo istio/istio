@@ -17,6 +17,7 @@
 set -euo pipefail
 
 SINGLE_CLUSTER=0
+REVISION=""
 while (( "$#" )); do
   case "$1" in
     # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
@@ -35,6 +36,10 @@ while (( "$#" )); do
     ;;
     --mesh)
       MESH=$2
+      shift 2
+    ;;
+    --revision)
+      REVISION=$2
       shift 2
     ;;
     -*)
@@ -62,6 +67,7 @@ kind: IstioOperator
 metadata:
   name: eastwest
 spec:
+  revision: "${REVISION}"
   profile: empty
   components:
     ingressGateways:

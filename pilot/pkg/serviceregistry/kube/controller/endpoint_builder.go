@@ -138,7 +138,7 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 	if b.controller.cidrRanger() != nil {
 		entries, err := b.controller.cidrRanger().ContainingNetworks(net.ParseIP(endpointIP))
 		if err != nil {
-			log.Errora(err)
+			log.Error(err)
 			return ""
 		}
 		if len(entries) > 1 {
@@ -161,4 +161,9 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 
 	// Fallback to legacy fromRegistry setting, all endpoints from this cluster are on that network.
 	return b.controller.defaultNetwork()
+}
+
+// TODO(lambdai): Make it true everywhere.
+func (b *EndpointBuilder) supportsH2Tunnel() bool {
+	return false
 }

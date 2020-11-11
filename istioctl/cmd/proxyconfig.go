@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -412,6 +413,7 @@ func listenerConfigCmd() *cobra.Command {
 
 func logCmd() *cobra.Command {
 	var podName, podNamespace string
+	var podNames []string
 
 	logCmd := &cobra.Command{
 		Use:   "log [<type>/]<name>[.<namespace>]",
@@ -431,9 +433,9 @@ func logCmd() *cobra.Command {
 `,
 		Aliases: []string{"o"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
+			if labelSelector == "" && len(args) < 1 {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("log requires pod name")
+				return fmt.Errorf("log requires pod name or --selector")
 			}
 			if reset && loggerLevelString != "" {
 				cmd.Println(cmd.UsageString())
@@ -443,12 +445,27 @@ func logCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var err error
-			if podName, podNamespace, err = getPodName(args[0]); err != nil {
-				return err
-			}
-			loggerNames, err := setupEnvoyLogConfig("", podName, podNamespace)
-			if err != nil {
-				return err
+			var loggerNames []string
+			if labelSelector != "" {
+				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
+					return err
+				}
+				for _, pod := range podNames {
+					name, err = setupEnvoyLogConfig("", pod, podNamespace)
+					loggerNames = append(loggerNames, name)
+				}
+				if err != nil {
+					return err
+				}
+			} else {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				name, err := setupEnvoyLogConfig("", podName, podNamespace)
+				loggerNames = append(loggerNames, name)
+				if err != nil {
+					return err
+				}
 			}
 
 			destLoggerLevels := map[string]Level{}
@@ -477,8 +494,10 @@ func logCmd() *cobra.Command {
 						}
 					} else {
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
-						if !strings.Contains(loggerNames, loggerLevel[0]) {
-							return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+						for _, logName := range loggerNames {
+							if !strings.Contains(logName, loggerLevel[0]) {
+								return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+							}
 						}
 						level, ok := stringToLevel[loggerLevel[1]]
 						if !ok {
@@ -519,7 +538,9 @@ func logCmd() *cobra.Command {
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
 	s := strings.Join(activeLoggers, ", ")
+
 	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
+	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" [<logger>:]<level>,[<logger>:]<level>,... where logger can be one of %s and level can be one of %s",
@@ -776,7 +797,7 @@ func proxyConfig() *cobra.Command {
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
 		Long:  `A group of commands used to retrieve information about proxy configuration from the Envoy config dump`,
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
-  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap> <pod-name[.namespace]>`,
+  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap|log|secret> <pod-name[.namespace]>`,
 		Aliases: []string{"pc"},
 	}
 
@@ -806,4 +827,27 @@ func getPodName(podflag string) (string, string, error) {
 		return "", "", err
 	}
 	return podName, ns, nil
+}
+
+func getPodNameBySelector(labelSelector string) ([]string, string, error) {
+	var (
+		podNames []string
+		ns       string
+	)
+	client, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create k8s client: %w", err)
+	}
+	pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+	if err != nil {
+		return nil, "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+	}
+	if len(pl.Items) < 1 {
+		return nil, "", errors.New("no pods found")
+	}
+	for _, pod := range pl.Items {
+		podNames = append(podNames, pod.Name)
+	}
+	ns = pl.Items[0].Namespace
+	return podNames, ns, nil
 }

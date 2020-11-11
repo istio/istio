@@ -144,17 +144,19 @@ func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets 
 		// we are in 'envoy using proxy' mode.
 		return fmt.Errorf("adsc: %v", err)
 	}
-
 	ads.LocalCacheDir = savePath.Get()
 	ads.Store = sa.localXDSGenerator.xdsServer.MemoryConfigStore
 	ads.Registry = sa.localXDSGenerator.xdsServer.DiscoveryServer.MemRegistry
+	if err := ads.Run(); err != nil {
+		return fmt.Errorf("ADSC: failed running %v", err)
+	}
 
 	sa.localXDSGenerator.proxyGen.AddClient(ads)
 
 	syncOk := ads.WaitConfigSync(10 * time.Second)
 	if !syncOk {
 		// TODO: have the store return a sync map, or better expose sync events/status
-		log.Warna("Incomplete sync")
+		log.Warn("Incomplete sync")
 	}
 
 	// TODO: wait for config to sync before starting the rest

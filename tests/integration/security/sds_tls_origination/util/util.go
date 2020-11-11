@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -87,7 +86,7 @@ func CreateKubeSecret(ctx framework.TestContext, credNames []string,
 		return
 	}
 	// Create Kubernetes secret for gateway
-	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	cluster := ctx.Clusters().Default()
 	for _, cn := range credNames {
 		secret := createSecret(credentialType, cn, systemNS.Name(), egressCred, isNotGeneric)
 		_, err := cluster.CoreV1().Secrets(systemNS.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})

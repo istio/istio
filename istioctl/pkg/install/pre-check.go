@@ -36,6 +36,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	"istio.io/istio/istioctl/pkg/verifier"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
@@ -373,7 +374,7 @@ func NewPrecheckCommand() *cobra.Command {
 
 			// The Istio namespace does exist, but it wasn't installed by 1.6.0+ because no
 			// IstioOperator is there.
-			c.Printf("Istio already installed in namespace %q.  Skipping pre-check.  Confirm with 'istioctl verify-install'.\n", targetNamespace)
+			c.Printf("Istio is already installed in the %q namespace. Skipping pre-check. Confirm with 'istioctl verify-install'.\n", targetNamespace)
 			c.Printf("Use 'istioctl upgrade' to upgrade or 'istioctl install --set revision=<revision>' to install another control plane.\n")
 			return nil
 		},
@@ -392,7 +393,7 @@ func findIstios(client dynamic.Interface) ([]istioInstall, error) {
 	retval := make([]istioInstall, 0)
 
 	// First, look for IstioOperator CRs left by 'istioctl install' or 'kubectl apply'
-	iops, err := allOperatorsInCluster(client)
+	iops, err := verifier.AllOperatorsInCluster(client)
 	if err != nil {
 		return retval, err
 	}

@@ -17,7 +17,6 @@ package webhooks
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"time"
@@ -26,8 +25,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
@@ -37,14 +34,9 @@ import (
 	"istio.io/pkg/log"
 )
 
-// patchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
 func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
 	webhookConfigName, webhookName string, caBundle []byte) error {
 	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	prev, err := json.Marshal(config)
 	if err != nil {
 		return err
 	}
@@ -53,25 +45,14 @@ func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 		if w.Name == webhookName {
 			config.Webhooks[i].ClientConfig.CABundle = caBundle
 			found = true
-			break
 		}
 	}
 	if !found {
 		return apierrors.NewInternalError(fmt.Errorf(
 			"webhook entry %q not found in config %q", webhookName, webhookConfigName))
 	}
-	curr, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, v1beta1.MutatingWebhookConfiguration{})
-	if err != nil {
-		return err
-	}
 
-	if string(patch) != "{}" {
-		_, err = client.Patch(context.TODO(), webhookConfigName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	}
+	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
 	return err
 }
 
@@ -92,7 +73,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 	var retry bool
 	if err = patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 		injectionWebhookConfigName, webhookName, caCertPem); err != nil {
-		log.Warna("Error patching Webhook ", err)
+		log.Warn("Error patching Webhook ", err)
 		retry = true
 	}
 

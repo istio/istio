@@ -23,8 +23,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 //	Virtual service topology
@@ -220,17 +219,6 @@ func verifyTrafficMirror(dest, mirror echo.Instances, tc testCaseMirror, testID 
 		log.Infof("Got expected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, , testID: %s)",
 			tc.percentage, actualPercent, tc.threshold, testID)
 	}
-
-	//if tc.percentage < 100 {
-	//	if len(countsB) < len(dest.Clusters()) {
-	//		merr = multierror.Append(merr, fmt.Errorf("expected original destination in all clusters to be reached, but got: %v", countsB))
-	//	}
-	//}
-	//if tc.percentage > 0 {
-	//	if len(countsC) < len(mirror.Clusters()) {
-	//		merr = multierror.Append(merr, fmt.Errorf("expected mirror destination in all clusters to be reached, but got: %v", countsC))
-	//	}
-	//}
 
 	return merr.ErrorOrNil()
 }

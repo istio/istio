@@ -34,6 +34,7 @@ var (
 	grpcPorts        []int
 	tcpPorts         []int
 	tlsPorts         []int
+	instanceIPPorts  []int
 	serverFirstPorts []int
 	metricsPort      int
 	uds              string
@@ -91,19 +92,24 @@ var (
 				}
 				portIndex++
 			}
+			instanceIPByPort := map[int]struct{}{}
+			for _, p := range instanceIPPorts {
+				instanceIPByPort[p] = struct{}{}
+			}
 
 			s := server.New(server.Config{
-				Ports:     ports,
-				Metrics:   metricsPort,
-				TLSCert:   crt,
-				TLSKey:    key,
-				Version:   version,
-				Cluster:   cluster,
-				UDSServer: uds,
+				Ports:          ports,
+				Metrics:        metricsPort,
+				BindIPPortsMap: instanceIPByPort,
+				TLSCert:        crt,
+				TLSKey:         key,
+				Version:        version,
+				Cluster:        cluster,
+				UDSServer:      uds,
 			})
 
 			if err := s.Start(); err != nil {
-				log.Errora(err)
+				log.Error(err)
 				os.Exit(-1)
 			}
 			defer func() {
@@ -130,6 +136,7 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tcpPorts, "tcp", []int{9090}, "TCP ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tlsPorts, "tls", []int{}, "Ports that are using TLS. These must be defined as http/grpc/tcp.")
+	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
 	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")

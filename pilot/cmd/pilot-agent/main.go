@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -26,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"google.golang.org/grpc/grpclog"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
@@ -171,7 +169,6 @@ var (
 		PersistentPreRunE: configureLogging,
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
-			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Extract pod variables.
 			podName := podNameVar.Get()
@@ -485,7 +482,7 @@ func init() {
 // No CLI parameters.
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
+		log.Error(err)
 		os.Exit(-1)
 	}
 }
