@@ -89,7 +89,7 @@ func NewMulticluster(
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
-		opts: opts,
+		opts:                  opts,
 		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
 		XDSUpdater:            opts.XDSUpdater,
@@ -146,6 +146,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	go kubeRegistry.Run(stopCh)
 	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 	if m.fetchCaRoot != nil {
+		log.Infof("initializing webhook cert patch for cluster %s", clusterID)
 		nc := NewNamespaceController(m.fetchCaRoot, client)
 		go nc.Run(stopCh)
 		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, client.Kube(), stopCh)

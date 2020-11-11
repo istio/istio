@@ -87,7 +87,6 @@ func Test_KubeSecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stop)
 	})
-
 	mc, err := NewMulticluster(clientset,
 		testSecretNameSpace,
 		Options{
