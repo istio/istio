@@ -83,7 +83,6 @@ func NewXDS() *SimpleServer {
 	mc := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
-	env.PushContext.MeshConfigNamespace = env.Watcher.MeshConfigNamespace()
 
 	ds := NewDiscoveryServer(env, nil, "pilot-123")
 	ds.CachesSynced()

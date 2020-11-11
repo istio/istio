@@ -187,16 +187,15 @@ func parseService(in *plugin.InputParams, service string, port int) (hostname st
 		return "", "", fmt.Errorf("service must not be empty")
 	}
 	parts := strings.Split(service, "/")
-	if len(parts) > 2 {
-		return "", "", fmt.Errorf("service not in format [<namespace>/]<service>, found: %s", service)
+	if len(parts) != 2 {
+		// TODO(yangminzhu): Currently the API will use the namespace of the mesh config resource if it's not specified.
+		// Investigate if we should require user to always specify the namespace or use the root namespace as default because
+		// mesh config could be loaded from a file that doesn't belong to any namespace.
+		return "", "", fmt.Errorf("service not in format <namespace>/<service>, found: %s", service)
 	}
-	var name, namespace string
-	if len(parts) == 2 {
-		namespace, name = parts[0], parts[1]
-	} else {
-		namespace, name = in.Push.MeshConfigNamespace, parts[0]
-	}
-
+	namespace, name := parts[0], parts[1]
+	// TODO(yangminzhu): refactor to loop the service only once in each push instead of doing it on each workload that has
+	// authz policy with CUSTOM action.
 	for _, svc := range in.Push.Services(in.Node) {
 		if svc.Attributes.ResourceName == name && svc.Attributes.ResourceNamespace == namespace {
 			if svc.Hostname.IsWildCarded() {

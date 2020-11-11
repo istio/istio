@@ -195,9 +195,6 @@ type PushContext struct {
 	// Mesh configuration for the mesh.
 	Mesh *meshconfig.MeshConfig `json:"-"`
 
-	// Namespace of the mesh configuration.
-	MeshConfigNamespace string `json:"-"`
-
 	// Networks configuration.
 	MeshNetworks *meshconfig.MeshNetworks `json:"-"`
 
@@ -875,7 +872,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.MeshConfigNamespace = env.MeshConfigNamespace()
 	ps.MeshNetworks = env.Networks()
 	ps.ServiceDiscovery = env
 	ps.IstioConfigStore = env

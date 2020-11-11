@@ -1268,6 +1268,7 @@ func TestAuthorization_Audit(t *testing.T) {
 }
 
 func configureExtensionProviders(t *testing.T, ctx framework.TestContext, ns string) {
+	// Get the existing mesh config.
 	systemNs := istio.ClaimSystemNamespaceOrFail(t, ctx)
 	configMap, err := ctx.Clusters().Default().CoreV1().ConfigMaps(systemNs.Name()).Get(context.Background(), "istio", v1.GetOptions{})
 	if err != nil {
@@ -1278,6 +1279,7 @@ func configureExtensionProviders(t *testing.T, ctx framework.TestContext, ns str
 		ctx.Fatalf("Failed to read config map: %v", err)
 	}
 
+	// Create two extension providers using the same ext-authz service, one for HTTP and the other for gRPC ext-authz API.
 	service := fmt.Sprintf("%s/ext-authz", ns)
 	httpProvider := &v1alpha1.MeshConfig_ExtensionProvider{
 		Name: "ext-authz-http",
@@ -1300,13 +1302,14 @@ func configureExtensionProviders(t *testing.T, ctx framework.TestContext, ns str
 		},
 	}
 
+	// Update the mesh config.
 	meshConfig.ExtensionProviders = []*v1alpha1.MeshConfig_ExtensionProvider{httpProvider, grpcProvider}
 	configMap.Data["mesh"], err = protomarshal.ToYAML(meshConfig)
 	if err != nil {
 		ctx.Fatalf("Failed to marshal mesh config: %v", err)
 	}
-
-	if _, err := ctx.Clusters().Default().CoreV1().ConfigMaps(systemNs.Name()).Update(context.Background(), configMap, v1.UpdateOptions{}); err != nil {
+	if _, err := ctx.Clusters().Default().CoreV1().ConfigMaps(systemNs.Name()).Update(
+		context.Background(), configMap, v1.UpdateOptions{}); err != nil {
 		ctx.Fatalf("Failed to update config map: %v", err)
 	}
 
@@ -1342,6 +1345,7 @@ func TestAuthorization_Custom(t *testing.T) {
 				return policy
 			}
 
+			// Configure mesh config to add the definition of the ext-authz server.
 			configureExtensionProviders(t, ctx, nsExtServer.Name())
 			// Deploy and wait for the ext-authz server to be ready.
 			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", nsExtServer)
@@ -1375,6 +1379,8 @@ func TestAuthorization_Custom(t *testing.T) {
 					ExpectAllowed: expectAllowed,
 				}
 			}
+			// Path "/custom" is protected by ext-authz service and is accessible with the header `x-ext-authz: allow`.
+			// Path "/health" is not protected and is accessible to public.
 			cases := []rbacUtil.TestCase{
 				newTestCase(b, "/custom", "allow", true),
 				newTestCase(b, "/custom", "deny", false),
