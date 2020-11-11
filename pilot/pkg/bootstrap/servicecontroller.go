@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -77,11 +78,23 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 
+	// other (remote) clusters will need to patch their webhook cert to allow external access
+	var (
+		caBundlePath string
+		fetchCARoot  func() map[string]string
+	)
+	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
+		caBundlePath = s.caBundlePath
+		fetchCARoot = s.fetchCARoot
+	}
+
 	mc, err := kubecontroller.NewMulticluster(s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
 		s.ServiceController(),
 		s.serviceEntryStore,
+		caBundlePath,
+		fetchCARoot,
 		s.environment)
 
 	if err != nil {
@@ -92,11 +105,6 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	// initialize the "main" cluster registry
 	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
 		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
-	}
-
-	// other (remote) clusters will need to patch their webhook cert to allow external access
-	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
-		mc.EnableCertPatch(s.caBundlePath, s.fetchCARoot)
 	}
 
 	s.multicluster = mc

@@ -80,6 +80,8 @@ func NewMulticluster(
 	opts Options,
 	serviceController *aggregate.Controller,
 	serviceEntryStore *serviceentry.ServiceEntryStore,
+	caBundlePath string,
+	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
 ) (*Multicluster, error) {
 	remoteKubeController := make(map[string]*kubeController)
@@ -92,6 +94,8 @@ func NewMulticluster(
 		opts:                  opts,
 		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
+		caBundlePath:          caBundlePath,
+		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
@@ -101,11 +105,6 @@ func NewMulticluster(
 	mc.initSecretController(kc)
 
 	return mc, nil
-}
-
-func (m *Multicluster) EnableCertPatch(caBundlePath string, fetchCaRoot func() map[string]string) {
-	m.caBundlePath = caBundlePath
-	m.fetchCaRoot = fetchCaRoot
 }
 
 // AddMemberCluster is passed to the secret controller as a callback to be called
@@ -143,12 +142,19 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 	}
 
+	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	go kubeRegistry.Run(stopCh)
-	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 	if m.fetchCaRoot != nil {
-		log.Infof("initializing webhook cert patch for cluster %s", clusterID)
+		log.Infof("initializing namespace controller for cluster %s", clusterID)
+		// TODO remove initNamespaceController (and probably need leader election here? how will that work with multi-primary?)
 		nc := NewNamespaceController(m.fetchCaRoot, client)
 		go nc.Run(stopCh)
+	}
+
+	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
+	if m.caBundlePath != "" {
+		// TODO remove the patch loop init from initSidecarInjector (does this need leader elect? how well does it work with multi-primary?)
+		log.Infof("initializing webhook cert patch for cluster %s", clusterID)
 		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, client.Kube(), stopCh)
 		validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
