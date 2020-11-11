@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+- |
+  **Added** canonical service tags to Envoy-generated trace spans. These tags are 'canonical_service' and 'canonical_revision'.
