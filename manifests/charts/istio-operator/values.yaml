@@ -1,4 +1,5 @@
 hub: gcr.io/istio-testing
+image: operator
 tag: latest
 
 operatorNamespace: istio-operator
@@ -15,6 +16,7 @@ revision: ""
 
 # Operator resource defaults
 operator:
+  nodeSelector: {}
   resources:
     limits:
       cpu: 200m
@@ -22,4 +24,3 @@ operator:
     requests:
       cpu: 50m
       memory: 128Mi
-
