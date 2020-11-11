@@ -211,13 +211,17 @@ func validateRevisionFromIOPYAML(iopYAML string) error {
 	if err != nil {
 		return fmt.Errorf("error unmarshalling spec overlay yaml into untype tree %v", err)
 	}
-	// fail early if revision is not a string eg: revision: 18, revision: 1.8, revision: 1.8.0
 	rev := specTree["revision"]
-	if !util.IsString(rev) {
+	// Skip if revision is not specified in any of the profile
+	if util.IsEmptyString(rev) {
+		return nil
+	}
+	revision, ok := rev.(string)
+	// fail early if revision is not a string eg: revision: 18, revision: 1.8, revision: 1.8.0
+	if !ok {
 		return fmt.Errorf("invalid revision specified: %v", rev.(float64))
 	}
 	// revision can be invalid string eg: "1.8", "1.8.0", which will be validated in next step
-	revision := rev.(string)
 	if !labels.IsDNS1123Label(revision) {
 		return fmt.Errorf("invalid revision specified: %s", rev)
 	}
