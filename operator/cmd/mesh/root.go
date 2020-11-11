@@ -51,7 +51,7 @@ This flag can be specified multiple times to overlay multiple files. Multiple fi
 	ContextFlagHelpStr      = `The name of the kubeconfig context to use.`
 	HubFlagHelpStr          = `The hub for the operator controller image.`
 	TagFlagHelpStr          = `The tag for the operator controller image.`
-	ImagePullSecretsHelpStr = `The imagePullSecrets used to pull the operator image from private registry,
+	ImagePullSecretsHelpStr = `The imagePullSecrets is used to pull the operator image from the private registry,
 could be secret list separated by comma, eg. 'imagePullSecret1,imagePullSecret2'`
 	OperatorNamespaceHelpstr = `The namespace the operator controller is installed into.`
 	ComponentFlagHelpStr     = "Specify which component to generate manifests for."
