@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -320,5 +321,17 @@ func getProfileNSAndEnabledComponents(setOverlay []string, inFilenames []string,
 			}
 		}
 	}
-	return profile, iop.Namespace, enabledComponents, nil
+
+	// check if non default namespace is used
+	globalI := iop.Spec.Values["global"]
+	global, ok := globalI.(map[string]interface{})
+	if !ok {
+		return profile, controller.IstioNamespace, enabledComponents, nil
+	}
+	ns, ok := global["istioNamespace"].(string)
+	if !ok {
+		return profile, controller.IstioNamespace, enabledComponents, nil
+	} else {
+		return profile, ns, enabledComponents, nil
+	}
 }
