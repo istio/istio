@@ -521,7 +521,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 	t.Run("add workload", func(t *testing.T) {
 		// Add a WLE, we expect this to update
 		createConfigs([]*config.Config{wle}, store, t)
-		//expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"})
 
 		instances := []*model.ServiceInstance{
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
