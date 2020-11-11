@@ -16,7 +16,6 @@ package bootstrap
 
 import (
 	"fmt"
-	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -105,6 +104,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	// initialize the "main" cluster registry
 	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
 		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
+		return err
 	}
 
 	s.multicluster = mc
