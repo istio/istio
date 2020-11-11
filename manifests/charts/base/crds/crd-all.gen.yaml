@@ -2884,11 +2884,11 @@ spec:
                 - exec
               properties:
                 exec:
-                  description: health is determined by how the command that is executed
+                  description: Health is determined by how the command that is executed
                     exited.
                   properties:
                     command:
-                      description: command to run.
+                      description: Command to run.
                       items:
                         format: string
                         type: string
@@ -2906,7 +2906,7 @@ spec:
                       format: string
                       type: string
                     httpHeaders:
-                      description: headers the proxy will pass on to make the request.
+                      description: Headers the proxy will pass on to make the request.
                       items:
                         properties:
                           name:
@@ -2922,7 +2922,7 @@ spec:
                       format: string
                       type: string
                     port:
-                      description: port on which the endpoint lives.
+                      description: Port on which the endpoint lives.
                       type: integer
                     scheme:
                       format: string
@@ -2943,7 +2943,7 @@ spec:
                   format: int32
                   type: integer
                 tcpSocket:
-                  description: health is determined by if the proxy is able to connect.
+                  description: Health is determined by if the proxy is able to connect.
                   properties:
                     host:
                       format: string
