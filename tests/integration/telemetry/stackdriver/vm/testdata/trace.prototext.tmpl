@@ -1,8 +1,8 @@
 project_id:"projects/test-project"
 spans:{ 
     labels:{key:"OperationName"  value:"Ingress"}
-    labels:{key:"canonical_service_name"  value:"vm-server"}
-    labels:{key:"canonical_service_revision"  value:"v1"}
+    labels:{key:"canonical_service"  value:"vm-server"}
+    labels:{key:"canonical_revision"  value:"v1"}
     labels:{key:"component"  value:"proxy"}
     labels:{key:"downstream_cluster"  value:"-"}
     labels:{key:"http.method"  value:"GET"} 
@@ -16,8 +16,8 @@ spans:{
     labels:{key:"user_agent"  value:"Go-http-client/1.1"}}
 spans:{
     labels:{key:"OperationName" value:"Egress"}
-    labels:{key:"canonical_service_name"  value:"client"}
-    labels:{key:"canonical_service_revision"  value:"v1"}
+    labels:{key:"canonical_service"  value:"client"}
+    labels:{key:"canonical_revision"  value:"v1"}
     labels:{key:"component"  value:"proxy"}
     labels:{key:"downstream_cluster"  value:"-"}
     labels:{key:"http.method"  value:"GET"}
