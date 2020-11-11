@@ -141,6 +141,32 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	}, features.WorkloadEntryCleanupGracePeriod)
 }
 
+// workloadGroupHandler handles changes to a WorkloadGroup. Generally, WorkloadGroups only exist in-cluster
+// for auto-registration purposes, so we handle all their updates here.
+func (sg *InternalGen) workloadGroupHandler(old config.Config, new config.Config, event model.Event) error {
+	// TODO every pilot doesn't need to do this...
+	// TODO fetch latest, dedupe events at same resource version
+	switch event {
+	case model.EventDelete:
+		items, err := sg.store.List(gvk.WorkloadEntry, new.Namespace)
+		if err != nil {
+			return err
+		}
+		for _, wle := range items {
+			if wle.Annotations[AutoRegistrationGroupAnnotation] == new.Name {
+				wle := wle
+				sg.cleanupQueue.Push(func() error {
+					return sg.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace)
+				})
+			}
+		}
+	case model.EventUpdate:
+		// TODO update case
+	}
+	// we don't need to handle Add
+	return nil
+}
+
 // UpdateWorkloadEntryHealth updates the associated WorkloadEntries health status
 // based on the corresponding health check performed by istio-agent.
 func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {

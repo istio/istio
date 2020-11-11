@@ -16,6 +16,8 @@ package xds
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -113,6 +115,11 @@ func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCach
 	sg.cleanupQueue = queue.NewDelayed()
 	sg.updateQueue = queue.NewQueue(1 * time.Second)
 	sg.store = store
+	sg.store.RegisterEventHandler(gvk.WorkloadGroup, func(old config.Config, new config.Config, event model.Event) {
+		sg.updateQueue.Push(func() error {
+			return sg.workloadGroupHandler(old, new, event)
+		})
+	})
 }
 
 func (sg *InternalGen) Run(stop <-chan struct{}) {
