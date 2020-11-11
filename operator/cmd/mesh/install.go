@@ -331,7 +331,6 @@ func getProfileNSAndEnabledComponents(setOverlay []string, inFilenames []string,
 	ns, ok := global["istioNamespace"].(string)
 	if !ok {
 		return profile, controller.IstioNamespace, enabledComponents, nil
-	} else {
-		return profile, ns, enabledComponents, nil
 	}
+	return profile, ns, enabledComponents, nil
 }
