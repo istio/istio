@@ -16,8 +16,8 @@ package bootstrap
 
 import (
 	"fmt"
-
 	"istio.io/istio/pilot/pkg/features"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -77,12 +77,6 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 
-	// TODO is there a reason we didn't set this up on the local cluster before?
-	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
-	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
-		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
-	}
-
 	mc, err := kubecontroller.NewMulticluster(s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
@@ -99,6 +93,10 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	// initialize the "main" cluster registry
 	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
 		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
+	}
+
+	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
+		mc.EnableCertPatch(s.caBundlePath, s.fetchCARoot)
 	}
 
 	s.multicluster = mc

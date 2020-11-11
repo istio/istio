@@ -101,8 +101,6 @@ func NewMulticluster(
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
 		metrics:               opts.Metrics,
-		fetchCaRoot:           opts.FetchCaRoot,
-		caBundlePath:          opts.CABundlePath,
 		systemNamespace:       opts.SystemNamespace,
 		secretNamespace:       secretNamespace,
 		endpointMode:          opts.EndpointMode,
@@ -111,6 +109,11 @@ func NewMulticluster(
 	mc.initSecretController(kc)
 
 	return mc, nil
+}
+
+func (m *Multicluster) EnableCertPatch(caBundlePath string, fetchCaRoot func() map[string]string) {
+	m.caBundlePath = caBundlePath
+	m.fetchCaRoot = fetchCaRoot
 }
 
 // AddMemberCluster is passed to the secret controller as a callback to be called
@@ -164,10 +167,10 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		nc := NewNamespaceController(m.fetchCaRoot, client)
 		go nc.Run(stopCh)
 		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, client.Kube(), stopCh)
-		valicationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
+		validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
-		if valicationWebhookController != nil {
-			go valicationWebhookController.Start(stopCh)
+		if validationWebhookController != nil {
+			go validationWebhookController.Start(stopCh)
 		}
 	}
 
