@@ -16,19 +16,30 @@ package mesh
 
 import (
 	"bytes"
+	"path/filepath"
 	"testing"
 
 	"github.com/onsi/gomega"
+
+	"istio.io/istio/pkg/test/env"
 )
 
-func TestInstallEmptyRevision(t *testing.T) {
+func TestProfileList(t *testing.T) {
 	g := gomega.NewWithT(t)
-	args := []string{"install", "--dry-run", "--revision", ""}
+	args := []string{"profile", "list", "--dry-run", "--manifests", filepath.Join(env.IstioSrc, "manifests")}
+
 	rootCmd := GetRootCmd(args)
 	var out bytes.Buffer
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)
 
 	err := rootCmd.Execute()
-	g.Expect(err).To(gomega.HaveOccurred())
+	if err != nil {
+		t.Fatalf("failed to execute istioctl profile command: %v", err)
+	}
+	output := out.String()
+	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "remote"}
+	for _, prof := range expectedProfiles {
+		g.Expect(output).To(gomega.ContainSubstring(prof))
+	}
 }
