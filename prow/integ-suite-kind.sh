@@ -141,7 +141,6 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
 
-    export TEST_ENV=kind-metallb
     export INTEGRATION_TEST_KUBECONFIG
     INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
 
