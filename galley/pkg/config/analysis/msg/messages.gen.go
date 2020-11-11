@@ -131,9 +131,14 @@ var (
 	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
 =======
 	// ServiceEntryProtocolAndAddressesEmpty defines a diag.MessageType for message "ServiceEntryProtocolAndAddressesEmpty".
+<<<<<<< HEAD
 	// Description: Addresses and Protocol is Empty in ServiceEntry.
 	ServiceEntryProtocolAndAddressesEmpty = diag.NewMessageType(diag.Warning, "IST0133", "one or more Protocol empty in ServiceEntry %s with Addresses Empty.")
 >>>>>>> Init service entry analyzer, add analyze for empty protocol and addresses
+=======
+	// Description: Addresses and Protocol is empty in ServiceEntry.
+	ServiceEntryProtocolAndAddressesEmpty = diag.NewMessageType(diag.Warning, "IST0133", "missing Protocol and Addresses.")
+>>>>>>> Refactor Service Entry Analyzer to pass linting
 )
 
 // All returns a list of all known message types.

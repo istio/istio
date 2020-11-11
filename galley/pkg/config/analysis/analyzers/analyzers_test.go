@@ -437,7 +437,7 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/serviceentry-empty-protocol-addresses.yaml",
 		},
-		analyzer: &serviceentry.ServiceEntryAnalyzer{},
+		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
 		expected: []message{
 			{msg.ServiceEntryProtocolAndAddressesEmpty, "ServiceEntry service-entry-test-03.default"},
 			{msg.ServiceEntryProtocolAndAddressesEmpty, "ServiceEntry service-entry-test-04.default"},

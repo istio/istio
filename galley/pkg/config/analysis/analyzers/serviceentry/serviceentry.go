@@ -26,13 +26,13 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-type ServiceEntryAnalyzer struct{}
+type ProtocolAdressesAnalyzer struct{}
 
-var _ analysis.Analyzer = &ServiceEntryAnalyzer{}
+var _ analysis.Analyzer = &ProtocolAdressesAnalyzer{}
 
-func (serviceEntry *ServiceEntryAnalyzer) Metadata() analysis.Metadata {
+func (serviceEntry *ProtocolAdressesAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "serviceentry.ServiceEntryAnalyzer",
+		Name:        "serviceentry.Analyzer",
 		Description: "Checks the validity of ServiceEntry",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
@@ -40,22 +40,20 @@ func (serviceEntry *ServiceEntryAnalyzer) Metadata() analysis.Metadata {
 	}
 }
 
-func (serviceEntry *ServiceEntryAnalyzer) Analyze(context analysis.Context) {
-
+func (serviceEntry *ProtocolAdressesAnalyzer) Analyze(context analysis.Context) {
 	context.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(resource *resource.Instance) bool {
 		serviceEntry.analyzeProtocolAddressesEmpty(resource, context)
 		return true
 	})
 }
 
-func (serviceEntry *ServiceEntryAnalyzer) analyzeProtocolAddressesEmpty(resource *resource.Instance, context analysis.Context) {
+func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddressesEmpty(resource *resource.Instance, context analysis.Context) {
 	se := resource.Message.(*v1alpha3.ServiceEntry)
-	seName := resource.Metadata.FullName
 
 	if se.Addresses == nil {
 		for index, port := range se.Ports {
 			if port.Protocol == "" {
-				message := msg.NewServiceEntryProtocolAndAddressesEmpty(resource, seName.String())
+				message := msg.NewServiceEntryProtocolAndAddressesEmpty(resource)
 
 				if line, ok := util.ErrorLine(resource, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
 					message.Line = line
