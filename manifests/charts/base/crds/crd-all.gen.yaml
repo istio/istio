@@ -1201,6 +1201,7 @@ spec:
     listKind: EnvoyFilterList
     plural: envoyfilters
     singular: envoyfilter
+  preserveUnknownFields: true
   scope: Namespaced
   subresources:
     status: {}
