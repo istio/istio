@@ -16,6 +16,7 @@ package xds
 
 import (
 	"fmt"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -54,14 +55,16 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
-	// Store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
-	// do not support writing.
-	Store model.ConfigStoreCache
-
-	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
+	// TODO move WorkloadEntry related tasks into their own object and give InternalGen a reference.
+	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
+	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
+	store model.ConfigStoreCache
+	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
 	cleanupLimit *rate.Limiter
-
+	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
+	// updateQueue handles updates to autoregistry WorkloadEntries when their WorkloadGroup changes
+	updateQueue queue.Instance
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
@@ -70,9 +73,6 @@ type InternalGen struct {
 func NewInternalGen(s *DiscoveryServer) *InternalGen {
 	return &InternalGen{
 		Server: s,
-		// TODO make this configurable
-		cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
-		cleanupQueue: queue.NewDelayed(),
 	}
 }
 
@@ -108,10 +108,18 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
 }
 
+func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCache) {
+	sg.cleanupLimit = rate.NewLimiter(rate.Limit(20), 1)
+	sg.cleanupQueue = queue.NewDelayed()
+	sg.updateQueue = queue.NewQueue(1 * time.Second)
+	sg.store = store
+}
+
 func (sg *InternalGen) Run(stop <-chan struct{}) {
-	if sg.Store != nil && sg.cleanupQueue != nil {
+	if sg.store != nil && sg.cleanupQueue != nil {
 		go sg.periodicWorkloadEntryCleanup(stop)
 		go sg.cleanupQueue.Run(stop)
+		go sg.updateQueue.Run(stop)
 	}
 }
 

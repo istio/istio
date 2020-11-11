@@ -65,7 +65,7 @@ var (
 func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig.Store = store
+	ig.EnableWorkloadEntryController(store)
 	createOrFail(t, store, wgA)
 
 	cases := map[string]*model.Proxy{
@@ -78,7 +78,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ig.RegisterWorkload(tc, &Connection{proxy: tc, Connect: time.Now()})
+			_ = ig.RegisterWorkload(tc, &Connection{proxy: tc, Connect: time.Now()})
 			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if err != nil {
 				t.Fatalf("failed listing WorkloadEntry: %v", err)
@@ -186,9 +186,9 @@ func TestUpdateHealthCondition(t *testing.T) {
 func setup(t *testing.T) (*InternalGen, *InternalGen, model.ConfigStoreCache) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig1 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig1.Store = store
+	ig1.EnableWorkloadEntryController(store)
 	ig2 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-2"})
-	ig2.Store = store
+	ig2.EnableWorkloadEntryController(store)
 	createOrFail(t, store, wgA)
 	return ig1, ig2, store
 }

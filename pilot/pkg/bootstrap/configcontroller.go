@@ -128,7 +128,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
-	s.XDSServer.InternalGen.Store = configController
+	s.XDSServer.InternalGen.EnableWorkloadEntryController(configController)
 	return nil
 }
 
