@@ -494,7 +494,7 @@ func TestVerifyInstall(t *testing.T) {
 			cfg := i.Settings()
 
 			// TODO remove this whole paragraph
-			cmd := fmt.Sprintf("kubectl get -n %s istiooperator -o yaml", cfg.SystemNamespace)
+			cmd := fmt.Sprintf("kubectl get -n %s istiooperator installed-state -o yaml", cfg.SystemNamespace)
 			out, err := shell.Execute(false, cmd)
 			if err != nil {
 				ctx.Fatalf("error executing kubectl get: %v", err)
