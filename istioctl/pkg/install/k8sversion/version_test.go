@@ -22,6 +22,11 @@ import (
 )
 
 var (
+	version1_16 = &version.Info{
+		Major:      "1",
+		Minor:      "16",
+		GitVersion: "1.16",
+	}
 	version1_17 = &version.Info{
 		Major:      "1",
 		Minor:      "17",
@@ -61,6 +66,12 @@ func TestExtractKubernetesVersion(t *testing.T) {
 		errMsg   error
 		isValid  bool
 	}{
+		{
+			version:  version1_16,
+			expected: 16,
+			errMsg:   nil,
+			isValid:  true,
+		},
 		{
 			version:  version1_17,
 			expected: 17,
