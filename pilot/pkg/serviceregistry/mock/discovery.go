@@ -250,13 +250,9 @@ func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
 
 type Controller struct{}
 
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	return nil
-}
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {}
 
-func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
-	return nil
-}
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {}
 
 func (c *Controller) Run(<-chan struct{}) {}
 
