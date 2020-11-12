@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"istio.io/istio/operator/pkg/util"
@@ -33,7 +34,7 @@ func TestOperatorDump(t *testing.T) {
 		common: operatorCommonArgs{
 			hub:               "foo.io/istio",
 			tag:               "1.2.3",
-			imagePullSecrets:  "imagePullSecret1,imagePullSecret2",
+			imagePullSecrets:  []string{"imagePullSecret1,imagePullSecret2"},
 			operatorNamespace: "operator-test-namespace",
 			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
 		},
@@ -41,10 +42,10 @@ func TestOperatorDump(t *testing.T) {
 
 	cmd := "operator dump --hub " + odArgs.common.hub
 	cmd += " --tag " + odArgs.common.tag
-	cmd += " --imagePullSecrets " + odArgs.common.imagePullSecrets
+	cmd += " --imagePullSecrets " + strings.Join(odArgs.common.imagePullSecrets, ",")
 	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
 	cmd += " --istioNamespace " + odArgs.common.istioNamespace
-	cmd += " --manifests=" + string(liveCharts)
+	cmd += " --manifests=" + string(snapshotCharts)
 
 	gotYAML, err := runCommand(cmd)
 	if err != nil {
@@ -78,7 +79,7 @@ func TestOperatorInit(t *testing.T) {
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
 			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
-			manifestsPath:     string(liveCharts),
+			manifestsPath:     string(snapshotCharts),
 		},
 	}
 
