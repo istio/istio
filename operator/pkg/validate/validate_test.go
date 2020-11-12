@@ -188,6 +188,21 @@ func TestValidateRevisionFromIOPYAML(t *testing.T) {
 		isValid bool
 	}{
 		{
+			desc: "empty revision string",
+			yamlStr: `
+spec:
+  revision: ""
+`,
+			isValid: true,
+		},
+		{
+			desc: "no revision string",
+			yamlStr: `
+spec:
+`,
+			isValid: true,
+		},
+		{
 			desc: "valid revision string",
 			yamlStr: `
 spec:
