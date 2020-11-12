@@ -144,7 +144,7 @@ func handleError(err error) {
 }
 
 func handleErrorWithCode(err error, code int) {
-	log.Errora(err)
+	log.Error(err)
 	os.Exit(code)
 }
 

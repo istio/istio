@@ -48,6 +48,7 @@ spec:
       labels:
         app: sleep
     spec:
+      terminationGracePeriodSeconds: 0
       serviceAccountName: sleep
       containers:
       - name: sleep

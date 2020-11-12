@@ -121,14 +121,14 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 		if err != nil {
 			return nil, err
 		}
-		citadelClientLog.Infoa("Citadel client using public DNS: ", c.caEndpoint)
+		citadelClientLog.Info("Citadel client using public DNS: ", c.caEndpoint)
 	} else {
 		certPool = x509.NewCertPool()
 		ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
 		if !ok {
 			return nil, fmt.Errorf("failed to append certificates")
 		}
-		citadelClientLog.Infoa("Citadel client using custom root: ", c.caEndpoint, " ", string(c.caTLSRootCert))
+		citadelClientLog.Info("Citadel client using custom root: ", c.caEndpoint, " ", string(c.caTLSRootCert))
 	}
 	var certificate tls.Certificate
 	config := tls.Config{

@@ -34,6 +34,9 @@ export TARGET_OUT=${CONTAINER_TARGET_OUT}
 export TARGET_OUT_LINUX=${CONTAINER_TARGET_OUT_LINUX}
 export REPO_ROOT=/work
 
+MOUNT_SOURCE="${MOUNT_SOURCE:-${PWD}}"
+MOUNT_DEST="${MOUNT_DEST:-/work}"
+
 # $CONTAINER_OPTIONS becomes an empty arg when quoted, so SC2086 is disabled for the
 # following command only
 # shellcheck disable=SC2086
@@ -45,9 +48,9 @@ export REPO_ROOT=/work
     --env-file <(env | grep -v ${ENV_BLOCKLIST}) \
     -e IN_BUILD_CONTAINER=1 \
     -e TZ="${TIMEZONE:-$TZ}" \
-    --mount "type=bind,source=${PWD},destination=/work,consistency=cached" \
+    --mount "type=bind,source=${MOUNT_SOURCE},destination=/work,consistency=cached" \
     --mount "type=volume,source=go,destination=/go,consistency=cached" \
     --mount "type=volume,source=gocache,destination=/gocache,consistency=cached" \
     --mount "type=volume,source=cache,destination=/home/.cache,consistency=cached" \
     ${CONDITIONAL_HOST_MOUNTS} \
-    -w /work "${IMG}" "$@"
+    -w "${MOUNT_DEST}" "${IMG}" "$@"

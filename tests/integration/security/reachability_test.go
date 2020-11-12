@@ -106,7 +106,6 @@ func TestReachability(t *testing.T) {
 						}
 						return true
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "beta-mtls-partial-automtls.yaml",
@@ -125,7 +124,6 @@ func TestReachability(t *testing.T) {
 						// will fail on all ports on b, except http port.
 						return !apps.B.Contains(opts.Target) || opts.PortName == "http"
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "global-plaintext.yaml",
@@ -176,7 +174,6 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "automtls-partial-sidecar-dr-disable.yaml",
@@ -201,7 +198,6 @@ func TestReachability(t *testing.T) {
 						// Only the request to legacy one succeeds as we disable mtls explicitly.
 						return opts.Path == "/vlegacy"
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "automtls-partial-sidecar-dr-mutual.yaml",
@@ -226,7 +222,6 @@ func TestReachability(t *testing.T) {
 						// Only the request to vistio one succeeds as we enable mtls explicitly.
 						return opts.Path == "/vistio"
 					},
-					SkippedForMulticluster: true,
 				},
 				// ----- end of automtls partial test suites -----
 			}

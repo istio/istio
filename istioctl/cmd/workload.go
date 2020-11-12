@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -44,6 +45,7 @@ import (
 )
 
 var (
+	// TODO refactor away from package vars and add more UTs
 	tokenDuration  int64
 	name           string
 	serviceAccount string
@@ -53,6 +55,7 @@ var (
 	ingressIP      string
 	ingressSvc     string
 	autoRegister   bool
+	dnsCapture     bool
 	ports          []string
 )
 
@@ -222,6 +225,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+istioNamespace+" namespace will be used.")
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
 	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
+	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
 	opts.AttachControlPlaneFlags(configureCmd)
 	return configureCmd
 }
@@ -364,7 +368,6 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	}
 	md := meshConfig.DefaultConfig.ProxyMetadata
 	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
-	md["DNS_AGENT"] = ""
 	md["POD_NAMESPACE"] = wg.Namespace
 	md["SERVICE_ACCOUNT"] = we.ServiceAccount
 	md["TRUST_DOMAIN"] = meshConfig.TrustDomain
@@ -385,6 +388,9 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if autoRegister {
 		md["ISTIO_META_AUTO_REGISTER_GROUP"] = wg.Name
 	}
+
+	md["ISTIO_META_DNS_CAPTURE"] = strconv.FormatBool(dnsCapture)
+	md["DNS_AGENT"] = strconv.FormatBool(dnsCapture)
 
 	proxyYAML, err := gogoprotomarshal.ToYAML(meshConfig.DefaultConfig)
 	if err != nil {

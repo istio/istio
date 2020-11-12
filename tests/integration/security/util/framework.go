@@ -42,6 +42,8 @@ const (
 )
 
 type EchoDeployments struct {
+	// TODO: Consolidate the echo config and reduce/reuse echo instances (https://github.com/istio/istio/issues/28599)
+	// Namespace1 is used as the default namespace for reachability tests and other tests which share the same config
 	Namespace1       namespace.Instance
 	A, B, C, D, E, F echo.Instances
 	Multiversion     echo.Instances
@@ -80,6 +82,26 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.GRPC,
 			},
 		},
+		// Workload Ports needed by TestPassThroughFilterChain
+		// The port 8085,8086,8087,8088 will be defined only in the workload and not in the k8s service.
+		WorkloadOnlyPorts: []echo.WorkloadPort{
+			{
+				Port:     8085,
+				Protocol: protocol.HTTP,
+			},
+			{
+				Port:     8086,
+				Protocol: protocol.HTTP,
+			},
+			{
+				Port:     8087,
+				Protocol: protocol.TCP,
+			},
+			{
+				Port:     8088,
+				Protocol: protocol.TCP,
+			},
+		},
 		Cluster: cluster,
 	}
 
@@ -94,7 +116,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, buildVM bool) error {
 	var err error
 	apps.Namespace1, err = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns",
+		Prefix: "test-ns1",
 		Inject: true,
 	})
 	if err != nil {
@@ -136,6 +158,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		builder.With(nil, EchoConfig(HeadlessNakedSvc, apps.Namespace1, true, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), c[0]))
 	}
+
 	echos, err := builder.Build()
 	if err != nil {
 		return err

@@ -96,8 +96,15 @@ while (( "$#" )); do
   esac
 done
 
+# Default IP family of the cluster is IPv4
+export IP_FAMILY="${IP_FAMILY:-ipv4}"
+
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
+# LoadBalancer in Kind is supported using metallb if not ipv6.
+if [ "${IP_FAMILY}" != "ipv6" ]; then
+  export TEST_ENV=kind-metallb
+fi
 
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
@@ -117,9 +124,6 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   export HUB
 fi
 
-# Default IP family of the cluster is IPv4
-export IP_FAMILY="${IP_FAMILY:-ipv4}"
-
 # Setup junit report and verbose logging
 export T="${T:-"-v -count=1"}"
 export CI="true"
@@ -137,7 +141,6 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
 
-    export TEST_ENV=kind-metallb
     export INTEGRATION_TEST_KUBECONFIG
     INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
 

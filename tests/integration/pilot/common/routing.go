@@ -328,6 +328,18 @@ spec:
 				NakedSvc: 10,
 			},
 		}
+		if len(apps.VM) == 0 {
+			splits = []map[string]int{
+				{
+					PodBSvc:  67,
+					NakedSvc: 33,
+				},
+				{
+					PodBSvc:  88,
+					NakedSvc: 12,
+				},
+			}
+		}
 
 		for _, split := range splits {
 			split := split
@@ -431,6 +443,7 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 		apps.Headless,
 		apps.External,
 	}
+
 	for _, d := range destinationSets {
 		d := d
 		if len(d) == 0 {
@@ -486,6 +499,9 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			}
 
 			for _, destinations := range destinationSets {
+				if len(destinations) == 0 {
+					continue
+				}
 				client := client
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
@@ -537,6 +553,61 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				}
 			}
 		}
+	}
+	return cases
+}
+
+// Todo merge with security TestReachability code
+func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, client := range apps.PodA {
+		client := client
+		destination := apps.PodB[0]
+		// so we can validate all clusters are hit
+		callCount := callsPerCluster * len(apps.PodB)
+		cases = append(cases,
+			TrafficTestCase{
+				name: "without sidecar",
+				call: client.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Target:    destination,
+					PortName:  "http-instance",
+					Scheme:    scheme.HTTP,
+					Count:     callCount,
+					Timeout:   time.Second * 5,
+					Validator: echo.And(echo.ExpectCode("503")),
+				},
+			},
+			TrafficTestCase{
+				name: "with sidecar",
+				call: client.CallWithRetryOrFail,
+				config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: sidecar
+spec:
+  workloadSelector:
+    labels:
+      app: b
+  egress:
+  - hosts:
+    - "./*"
+  ingress:
+  - port:
+      number: 82
+      protocol: HTTP
+    defaultEndpoint: 0.0.0.0:82
+`,
+				opts: echo.CallOptions{
+					Target:    destination,
+					PortName:  "http-instance",
+					Scheme:    scheme.HTTP,
+					Count:     callCount,
+					Timeout:   time.Second * 5,
+					Validator: echo.And(echo.ExpectOK()),
+				},
+			})
 	}
 	return cases
 }

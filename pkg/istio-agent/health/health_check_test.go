@@ -19,18 +19,19 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/test/util/reserveport"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 	t.Run("tcp", func(t *testing.T) {
+		port := reserveport.NewPortManagerOrFail(t).ReservePortNumberOrFail(t)
 		tcpHealthChecker := NewWorkloadHealthChecker(&v1alpha3.ReadinessProbe{
 			InitialDelaySeconds: 0,
 			TimeoutSeconds:      1,
@@ -40,7 +41,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			HealthCheckMethod: &v1alpha3.ReadinessProbe_TcpSocket{
 				TcpSocket: &v1alpha3.TCPHealthCheckConfig{
 					Host: "localhost",
-					Port: 5991,
+					Port: uint32(port),
 				},
 			},
 		})
@@ -58,37 +59,34 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			{Healthy: false}}
 		tcpHealthStatuses := [6]bool{true, false, true, false, true, false}
 
-		tcpFinishedEvents := sync.WaitGroup{}
-
+		cont := make(chan struct{}, 6)
 		// wait for go-ahead for state change
 		go func() {
 			for i := 0; i < len(tcpHealthStatuses); i++ {
 				if tcpHealthStatuses[i] {
 					// open port until we get confirmation that
-					srv, err := net.Listen("tcp", "localhost:5991")
+					srv, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 					if err != nil {
 						t.Log(err)
 						return
 					}
-					// add to delta and wait for event received
-					tcpFinishedEvents.Add(1)
-					tcpFinishedEvents.Wait()
+					<-cont
 					srv.Close()
 				} else {
-					// dont listen or anything, just wait for event to finish to
-					// start next iteration
-					tcpFinishedEvents.Add(1)
-					tcpFinishedEvents.Wait()
+					<-cont
 				}
 			}
 		}()
 
 		eventNum := atomic.NewInt32(0)
 		go tcpHealthChecker.PerformApplicationHealthCheck(func(event *ProbeEvent) {
-			tcpFinishedEvents.Done()
+			if eventNum.Load() >= 6 {
+				return
+			}
 			if event.Healthy != expectedTCPEvents[eventNum.Load()].Healthy {
 				t.Errorf("%s: got event healthy: %v at idx %v when expected healthy: %v", "tcp", event.Healthy, eventNum.Load(), expectedTCPEvents[eventNum.Load()].Healthy)
 			}
+			cont <- struct{}{}
 			eventNum.Inc()
 		}, quitChan)
 		retry.UntilSuccessOrFail(t, func() error {
@@ -101,6 +99,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 	})
 	t.Run("http", func(t *testing.T) {
 		httpPath := "/test/health/check"
+		port := reserveport.NewPortManagerOrFail(t).ReservePortNumberOrFail(t)
 		httpHealthChecker := NewWorkloadHealthChecker(&v1alpha3.ReadinessProbe{
 			InitialDelaySeconds: 0,
 			TimeoutSeconds:      1,
@@ -110,7 +109,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			HealthCheckMethod: &v1alpha3.ReadinessProbe_HttpGet{
 				HttpGet: &v1alpha3.HTTPHealthCheckConfig{
 					Path:   httpPath,
-					Port:   65112,
+					Port:   uint32(port),
 					Scheme: "http",
 					Host:   "127.0.0.1",
 				},
@@ -127,7 +126,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 		}
 		httpHealthStatuses := [4]bool{true, false, true, false}
 
-		mockListener, err := net.Listen("tcp", "127.0.0.1:65112")
+		mockListener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 		if err != nil {
 			t.Errorf("unable to start mock listener: %v", err)
 		}

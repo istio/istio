@@ -220,8 +220,8 @@ func (s *Snapshotter) publish(o SnapshotOptions) {
 
 	s.markSnapshotTime()
 	atomic.StoreInt64(&s.pendingEvents, 0)
-	scope.Processing.Infoa("Publishing snapshot for group: ", o.Group)
-	scope.Processing.Debuga(sn)
+	scope.Processing.Info("Publishing snapshot for group: ", o.Group)
+	scope.Processing.Debug(sn)
 	o.Distributor.Distribute(o.Group, sn)
 }
 

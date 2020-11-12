@@ -27,7 +27,7 @@ import (
 
 var (
 	i    istio.Instance
-	ingr ingress.Instance
+	ingr []ingress.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -36,7 +36,9 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(ctx resource.Context) (err error) {
-			ingr = i.IngressFor(ctx.Clusters().Default())
+			for _, cl := range ctx.Clusters() {
+				ingr = append(ingr, i.IngressFor(cl))
+			}
 			return nil
 		}).
 		Run()

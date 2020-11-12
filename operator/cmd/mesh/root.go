@@ -53,6 +53,7 @@ This flag can be specified multiple times to overlay multiple files. Multiple fi
 	TagFlagHelpStr           = `The tag for the operator controller image.`
 	OperatorNamespaceHelpstr = `The namespace the operator controller is installed into.`
 	ComponentFlagHelpStr     = "Specify which component to generate manifests for."
+	VerifyCRInstallHelpStr   = "Verify the Istio control plane after installation/in-place upgrade"
 )
 
 type rootArgs struct {

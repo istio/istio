@@ -109,7 +109,7 @@ var (
 			})
 
 			if err := s.Start(); err != nil {
-				log.Errora(err)
+				log.Error(err)
 				os.Exit(-1)
 			}
 			defer func() {

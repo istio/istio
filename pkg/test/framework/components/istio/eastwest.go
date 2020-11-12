@@ -110,7 +110,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 	return nil
 }
 
-func (i *operatorComponent) applyCrossNetworkGateway(cluster resource.Cluster) error {
+func (i *operatorComponent) exposeUserServices(cluster resource.Cluster) error {
 	scopes.Framework.Infof("Exposing services via eastwestgateway in %v", cluster.Name())
 	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeServicesGateway)
 }
