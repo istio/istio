@@ -143,7 +143,7 @@ spec:
 				{
 					Name:   "mtls",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
 					Name:   "plaintext",

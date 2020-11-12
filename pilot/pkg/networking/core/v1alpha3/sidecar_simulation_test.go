@@ -146,7 +146,7 @@ spec:
 					CallMode: simulation.CallModeInbound,
 				},
 				Result: simulation.Result{
-					Error: simulation.ErrNoFilterChain,
+					ClusterMatched: "InboundPassthroughClusterIpv4",
 				},
 			},
 		},
