@@ -52,7 +52,9 @@ var (
 	).Get()
 
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
-	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", true, "").Get()
+	// TODO enable by default once https://github.com/istio/istio/issues/28315 is resolved
+	// Currently this may cause a bug when we go from N clusters -> 0 clusters -> N clusters
+	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
 
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
