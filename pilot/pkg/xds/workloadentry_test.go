@@ -37,6 +37,7 @@ import (
 func init() {
 	features.WorkloadEntryAutoRegistration = true
 	features.WorkloadEntryHealthChecks = true
+	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
 }
 
 var (
@@ -116,7 +117,6 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 }
 
 func TestAutoregistrationLifecycle(t *testing.T) {
-	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
 	ig1, ig2, store := setup(t)
 	stopped1 := false
 	stop1, stop2 := make(chan struct{}), make(chan struct{})
