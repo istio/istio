@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -143,15 +142,18 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		return err
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
+
+	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(setFlags, iArgs.inFilenames, iArgs.force, l)
+	if err != nil {
+		return fmt.Errorf("failed to get profile, namespace or enabled components: %v", err)
+	}
+
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
-	_ = DetectIstioVersionDiff(cmd, tag, kubeClient, iArgs)
+	_ = DetectIstioVersionDiff(cmd, tag, ns, kubeClient, iArgs)
+
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
-		profile, enabledComponents, err := getProfileAndEnabledComponents(setFlags, iArgs.inFilenames, iArgs.force, l)
-		if err != nil {
-			return fmt.Errorf("failed to get profile and enabled components: %v", err)
-		}
 		prompt := fmt.Sprintf("This will install the Istio %s %s profile with %q components into the cluster. Proceed? (y/N)", tag, profile, enabledComponents)
 		if profile == "empty" {
 			prompt = fmt.Sprintf("This will install the Istio %s %s profile into the cluster. Proceed? (y/N)", tag, profile)
@@ -251,8 +253,8 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 
 // DetectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
-func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.ExtendedClient, iArgs *installArgs) error {
-	icps, err := kubeClient.GetIstioVersions(context.TODO(), controller.IstioNamespace)
+func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClient kube.ExtendedClient, iArgs *installArgs) error {
+	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {
 		return err
 	}
@@ -275,7 +277,7 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, kubeClient kube.Exte
 				icpTag = val
 			}
 		}
-		// when the revision is not passed
+		// when the revision is not passed and if the ns has a prior istio
 		if iArgs.revision == "" && tag != icpTag {
 			cmd.Printf("! Istio control planes installed: %s.\n"+
 				"! An older installed version of Istio has been detected. Running this command will overwrite it.\n", strings.Join(icpTags, ", "))
@@ -301,16 +303,16 @@ func GetTagVersion(tagInfo string) (string, error) {
 	return tag.String(), nil
 }
 
-// GetProfileAndEnabledComponents get the profile and all the enabled components
+// GetProfileNSAndEnabledComponents get the profile and all the enabled components
 // from the given input files and --set flag overlays.
-func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, force bool, l clog.Logger) (string, []string, error) {
+func getProfileNSAndEnabledComponents(setOverlay []string, inFilenames []string, force bool, l clog.Logger) (string, string, []string, error) {
 	overlayYAML, profile, err := manifest.ReadYamlProfile(inFilenames, setOverlay, force, l)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to read profile: %v", err)
+		return "", "", nil, fmt.Errorf("failed to read profile: %v", err)
 	}
 	_, iop, err := manifest.GenIOPFromProfile(profile, overlayYAML, setOverlay, force, false, nil, l)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to generate IOP from profile %s: %v", profile, err)
+		return "", "", nil, fmt.Errorf("failed to generate IOP from profile %s: %v", profile, err)
 	}
 
 	var enabledComponents []string
@@ -318,7 +320,7 @@ func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, f
 		for _, c := range name.AllCoreComponentNames {
 			enabled, err := translate.IsComponentEnabledInSpec(c, iop.Spec)
 			if err != nil {
-				return "", nil, fmt.Errorf("failed to check if component: %s is enabled or not: %v", string(c), err)
+				return "", "", nil, fmt.Errorf("failed to check if component: %s is enabled or not: %v", string(c), err)
 			}
 			if enabled {
 				enabledComponents = append(enabledComponents, name.UserFacingComponentName(c))
@@ -337,5 +339,5 @@ func getProfileAndEnabledComponents(setOverlay []string, inFilenames []string, f
 			}
 		}
 	}
-	return profile, enabledComponents, nil
+	return profile, v1alpha12.Namespace(iop.Spec), enabledComponents, nil
 }
