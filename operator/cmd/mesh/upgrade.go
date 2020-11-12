@@ -30,8 +30,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -80,8 +78,6 @@ type upgradeArgs struct {
 	force bool
 	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	manifestsPath string
-	// verify verifies control plane health
-	verify bool
 }
 
 // addUpgradeFlags adds upgrade related flags into cobra command
@@ -101,7 +97,6 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, VerifyCRInstallHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
@@ -209,7 +204,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation && !rootArgs.dryRun, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	iop, err := InstallManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
+	err = InstallManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
 		args.kubeConfigPath, args.context, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
@@ -234,19 +229,6 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 		l.LogAndPrintf("Upgrade rollout completed. " +
 			"All Istio control plane pods are running on the target version.\n\n")
 		l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", targetVersion)
-	}
-
-	if args.verify {
-		if rootArgs.dryRun {
-			l.LogAndPrint("Control plane health check is not applicable for upgrade in dry-run mode")
-		} else {
-			l.LogAndPrint("\n\nVerifying installation after upgrade:")
-			installationVerifier := verifier.NewStatusVerifier(iop.Namespace, args.manifestsPath, args.kubeConfigPath,
-				args.context, args.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l, iop)
-			if err := installationVerifier.Verify(); err != nil {
-				return fmt.Errorf("verification failed with the following error: %v", err)
-			}
-		}
 	}
 
 	l.LogAndPrintf(upgradeSidecarMessage)

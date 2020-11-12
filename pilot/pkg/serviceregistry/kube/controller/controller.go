@@ -1176,11 +1176,13 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 }
 
 // AppendServiceHandler implements a service catalog operation
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.serviceHandlers = append(c.serviceHandlers, f)
+	return nil
 }
 
 // AppendWorkloadHandler implements a service catalog operation
-func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
 	c.workloadHandlers = append(c.workloadHandlers, f)
+	return nil
 }

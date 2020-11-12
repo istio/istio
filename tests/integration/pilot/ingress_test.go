@@ -267,10 +267,9 @@ spec:
 				if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 					t.Skip("ingress status not supported without load balancer")
 				}
-
 				ip := apps.Ingress.HTTPAddress().IP.String()
 				retry.UntilSuccessOrFail(t, func() error {
-					ing, err := ctx.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+					ing, err := ctx.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "istio-test", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -278,7 +277,7 @@ spec:
 						return fmt.Errorf("unexpected ingress status, got %+v want %v", ing.Status.LoadBalancer, ip)
 					}
 					return nil
-				}, retry.Delay(time.Second*5), retry.Timeout(time.Second*90))
+				})
 
 			})
 

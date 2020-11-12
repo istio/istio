@@ -311,7 +311,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			endpointAddress := actualLocalHost
 			port := 0
 			var err error
-			instanceIPCluster := false
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
 				// this is a UDS endpoint. assign it as is
 				endpointAddress = ingressListener.DefaultEndpoint
@@ -323,10 +322,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				}
 				if port, err = strconv.Atoi(parts[1]); err != nil {
 					continue
-				}
-				if parts[0] == model.PodIPAddressPrefix {
-					endpointAddress = cb.proxy.IPAddresses[0]
-					instanceIPCluster = true
 				}
 			}
 
@@ -340,19 +335,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			instance.Endpoint.EndpointPort = uint32(port)
 
 			localCluster := cb.buildInboundClusterForPortOrUDS(nil, instance, endpointAddress)
-			if instanceIPCluster {
-				// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
-				// config which will be skipped. This mirrors the "passthrough" clusters.
-				// TODO: consider moving all clusters to use this for consistency.
-				localCluster.UpstreamBindConfig = &core.BindConfig{
-					SourceAddress: &core.SocketAddress{
-						Address: util.InboundPassthroughBindIpv4,
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: uint32(0),
-						},
-					},
-				}
-			}
 			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
 	}

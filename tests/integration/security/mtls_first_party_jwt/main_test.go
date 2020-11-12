@@ -33,6 +33,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {

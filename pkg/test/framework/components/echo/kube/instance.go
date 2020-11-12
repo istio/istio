@@ -254,7 +254,6 @@ func getContainerPorts(ports []echo.Port) echoCommon.PortList {
 			Port:        p.InstancePort,
 			TLS:         p.TLS,
 			ServerFirst: p.ServerFirst,
-			InstanceIP:  p.InstanceIP,
 		}
 		containerPorts = append(containerPorts, cport)
 

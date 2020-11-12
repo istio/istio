@@ -296,16 +296,24 @@ func (c *Controller) HasSynced() bool {
 }
 
 // AppendServiceHandler implements a service catalog operation
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	for _, r := range c.GetRegistries() {
-		r.AppendServiceHandler(f)
+		if err := r.AppendServiceHandler(f); err != nil {
+			log.Infof("Fail to append service handler to adapter %s", r.Provider())
+			return err
+		}
 	}
+	return nil
 }
 
-func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
 	for _, r := range c.GetRegistries() {
-		r.AppendWorkloadHandler(f)
+		if err := r.AppendWorkloadHandler(f); err != nil {
+			log.Infof("Fail to append workload handler to adapter %s", r.Provider())
+			return err
+		}
 	}
+	return nil
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation.

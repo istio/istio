@@ -125,16 +125,9 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 				for _, client := range clients {
 					ctx.NewSubTest(fmt.Sprintf("%s in %s",
 						client.Config().Service, client.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
-						aSet := apps.A
-						bSet := apps.B
-						// TODO: check why 503 is received for global-plaintext.yaml (https://github.com/istio/istio/issues/28766)
-						if c.ConfigFile == "global-plaintext.yaml" {
-							aSet = apps.A.Match(echo.InCluster(client.Config().Cluster))
-							bSet = apps.B.Match(echo.InCluster(client.Config().Cluster))
-						}
 						destinationSets := []echo.Instances{
-							aSet,
-							bSet,
+							apps.A,
+							apps.B,
 							// only hit same cluster headless services
 							apps.Headless.Match(echo.InCluster(client.Config().Cluster)),
 							// only hit same cluster multiversion services

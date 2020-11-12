@@ -152,7 +152,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
 		SkipRun:             true,
 	})
-	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
+	if err := cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler); err != nil {
+		t.Fatal(err)
+	}
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
 	// Disable debounce to reduce test times
@@ -197,8 +199,12 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if !ok {
 			continue
 		}
-		cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler)
-		k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler)
+		if err := cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler); err != nil {
+			t.Fatal(err)
+		}
+		if err := k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// Start in memory gRPC listener

@@ -51,13 +51,13 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return profileDiff(cmd, rootArgs, pfArgs, args)
+			return profileDiff(rootArgs, pfArgs, args)
 		}}
 
 }
 
 // profileDiff compare two profile files.
-func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) error {
+func profileDiff(rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) error {
 	initLogsOrExit(rootArgs)
 
 	a, err := helm.ReadProfileYAML(args[0], pfArgs.manifestsPath)
@@ -72,9 +72,9 @@ func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs
 
 	diff := util.YAMLDiff(a, b)
 	if diff == "" {
-		cmd.Println("Profiles are identical")
+		fmt.Println("Profiles are identical")
 	} else {
-		cmd.Printf("The difference between profiles:\n%s", diff)
+		fmt.Printf("The difference between profiles:\n%s", diff)
 		os.Exit(1)
 	}
 

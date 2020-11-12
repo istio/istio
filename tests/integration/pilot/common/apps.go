@@ -78,7 +78,6 @@ var EchoPorts = []echo.Port{
 	{Name: "auto-tcp-server", Protocol: protocol.TCP, ServicePort: 9093, InstancePort: 16061, ServerFirst: true},
 	{Name: "auto-http", Protocol: protocol.HTTP, ServicePort: 81, InstancePort: 18081},
 	{Name: "auto-grpc", Protocol: protocol.GRPC, ServicePort: 7071, InstancePort: 17071},
-	{Name: "http-instance", Protocol: protocol.HTTP, ServicePort: 82, InstancePort: 18082, InstanceIP: true},
 }
 
 func serviceEntryPorts() []echo.Port {
