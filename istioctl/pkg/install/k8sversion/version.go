@@ -16,14 +16,12 @@ package k8sversion
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	goversion "github.com/hashicorp/go-version"
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgVersion "istio.io/pkg/version"
 )
@@ -45,20 +43,12 @@ func CheckKubernetesVersion(versionInfo *version.Info) (bool, error) {
 
 // extractKubernetesVersion returns the Kubernetes minor version. For example, `v1.19.1` will return `19`
 func extractKubernetesVersion(versionInfo *version.Info) (int, error) {
-	versionMatchRE := regexp.MustCompile(`^\s*v?([0-9]+(?:\.[0-9]+)*)(.*)*$`)
-	parts := versionMatchRE.FindStringSubmatch(versionInfo.GitVersion)
-	if parts == nil {
-		return 0, fmt.Errorf("could not parse %q as version", versionInfo.GitVersion)
-	}
-	numbers := parts[1]
-	components := strings.Split(numbers, ".")
-	if len(components) <= 1 {
-		return 0, fmt.Errorf("the version %q is invalid", versionInfo.GitVersion)
-	}
-	num, err := strconv.Atoi(components[1])
+	ver, err := goversion.NewVersion(versionInfo.String())
 	if err != nil {
-		return 0, fmt.Errorf("the version %q is invalid: %v", versionInfo.GitVersion, err)
+		return 0, err
 	}
+	// Segments provide slice of int eg: v1.19.1 => [1, 19, 1]
+	num := ver.Segments()[1]
 	return num, nil
 }
 
