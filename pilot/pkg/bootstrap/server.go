@@ -289,9 +289,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
 	// This should be called only after controllers are initialized.
-	if err := s.initRegistryEventHandlers(); err != nil {
-		return nil, fmt.Errorf("error initializing handlers: %v", err)
-	}
+	s.initRegistryEventHandlers()
 
 	s.initDiscoveryService(args)
 
@@ -793,7 +791,7 @@ func (s *Server) cachesSynced() bool {
 }
 
 // initRegistryEventHandlers sets up event handlers for config and service updates
-func (s *Server) initRegistryEventHandlers() error {
+func (s *Server) initRegistryEventHandlers() {
 	log.Info("initializing registry event handlers")
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
@@ -846,8 +844,6 @@ func (s *Server) initRegistryEventHandlers() error {
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
-
-	return nil
 }
 
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
