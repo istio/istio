@@ -91,6 +91,7 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
+	cases["instanceip"] = instanceIPTests(apps)
 	if !ctx.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
