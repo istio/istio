@@ -180,3 +180,85 @@ meshConfig:
 		})
 	}
 }
+
+func TestValidateRevisionFromIOPYAML(t *testing.T) {
+	tests := []struct {
+		desc    string
+		yamlStr string
+		isValid bool
+	}{
+		{
+			desc: "valid revision string",
+			yamlStr: `
+spec:
+  revision: "1-8-0"
+`,
+			isValid: true,
+		},
+		{
+			desc: "valid revision string",
+			yamlStr: `
+spec:
+  revision: "canary"
+`,
+			isValid: true,
+		},
+		{
+			desc: "invalid revision with float64 value",
+			yamlStr: `
+spec:
+  revision: 18
+`,
+			isValid: false,
+		},
+		{
+			desc: "invalid revision with float64 value",
+			yamlStr: `
+spec:
+  revision: 1.8
+`,
+			isValid: false,
+		},
+		{
+			desc: "invalid revision with float64 value",
+			yamlStr: `
+spec:
+  revision: 1.8.0
+`,
+			isValid: false,
+		},
+		{
+			desc: "invalid revision string",
+			yamlStr: `
+spec:
+  revision: "18"
+`,
+			isValid: false,
+		},
+		{
+			desc: "invalid revision string",
+			yamlStr: `
+spec:
+  revision: "1.8"
+`,
+			isValid: false,
+		},
+		{
+			desc: "invalid revision string",
+			yamlStr: `
+spec:
+  revision: "1.8.0"
+`,
+			isValid: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			errs := validateRevisionFromIOPYAML(tt.yamlStr)
+			if tt.isValid && errs != nil {
+				t.Errorf("(%v)(%v)", tt.yamlStr, errs)
+			}
+		})
+	}
+}
