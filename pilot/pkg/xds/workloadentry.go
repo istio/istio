@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -263,6 +264,8 @@ func setConnectMeta(c *config.Config, controller string, con *Connection) {
 	c.Annotations[ConnectedAtAnnotation] = con.Connect.Format(timeFormat)
 }
 
+var workloadGroupIsController = true
+
 func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Config) *config.Config {
 	group := groupCfg.Spec.(*v1alpha3.WorkloadGroup)
 	entry := group.Template.DeepCopy()
@@ -283,6 +286,13 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 			Namespace:        proxy.Metadata.Namespace,
 			Labels:           entry.Labels,
 			Annotations:      map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         groupCfg.GroupVersionKind.GroupVersion(),
+				Kind:               groupCfg.GroupVersionKind.Kind,
+				Name:               groupCfg.Name,
+				UID:                kubetypes.UID(groupCfg.UID),
+				Controller:         &workloadGroupIsController,
+			}},
 		},
 		Spec: entry,
 		// TODO status fields used for garbage collection
