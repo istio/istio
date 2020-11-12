@@ -165,6 +165,7 @@ func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
 		l.HttpRequest.RequestSize = 0
 		l.HttpRequest.ServerIp = ""
 		l.HttpRequest.RemoteIp = ""
+		l.HttpRequest.UserAgent = ""
 		l.HttpRequest.Latency = nil
 		delete(l.Labels, "request_id")
 		delete(l.Labels, "source_name")

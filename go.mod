@@ -159,8 +159,8 @@ require (
 	gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 v3.2.0
 	istio.io/api v0.0.0-20201005161549-d516b0116b1e
-	istio.io/gogo-genproto v0.0.0-20200709220749-8607e17318e8
-	istio.io/pkg v0.0.0-20200709220414-14d5de656564
+	istio.io/gogo-genproto v0.0.0-20201005161743-abf9e8cbe7a4
+	istio.io/pkg v0.0.0-20201005161447-26c76ee34ff9
 	k8s.io/api v0.18.1
 	k8s.io/apiextensions-apiserver v0.18.0
 	k8s.io/apimachinery v0.18.1
