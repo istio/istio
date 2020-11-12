@@ -49,6 +49,9 @@ type Port struct {
 
 	// ServerFirst if a port will be server first
 	ServerFirst bool
+
+	// InstanceIP determines if echo will listen on the instance IP, or wildcard
+	InstanceIP bool
 }
 
 // PortList is a set of ports

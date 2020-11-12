@@ -15,31 +15,8 @@
 
 package telemetry
 
-import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
+const (
+	// For multicluster tests we multiply the number of requests with a
+	// constant multiplier to make sure we have cross cluster traffic.
+	RequestCountMultipler = 3
 )
-
-var (
-	i    istio.Instance
-	ingr []ingress.Instance
-)
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(&i, nil)).
-		Setup(func(ctx resource.Context) (err error) {
-			for _, cl := range ctx.Clusters() {
-				ingr = append(ingr, i.IngressFor(cl))
-			}
-			return nil
-		}).
-		Run()
-}

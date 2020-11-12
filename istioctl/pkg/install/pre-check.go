@@ -36,6 +36,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	"istio.io/istio/istioctl/pkg/verifier"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
@@ -392,7 +393,7 @@ func findIstios(client dynamic.Interface) ([]istioInstall, error) {
 	retval := make([]istioInstall, 0)
 
 	// First, look for IstioOperator CRs left by 'istioctl install' or 'kubectl apply'
-	iops, err := allOperatorsInCluster(client)
+	iops, err := verifier.AllOperatorsInCluster(client)
 	if err != nil {
 		return retval, err
 	}

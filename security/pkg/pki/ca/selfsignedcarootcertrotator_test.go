@@ -293,6 +293,7 @@ func TestRollbackAtRootCertRotatorForSigningCitadel(t *testing.T) {
 // TestRootCertRotatorGoroutineForSigningCitadel verifies that rotator
 // periodically rotates root cert, updates key cert bundle and config map.
 func TestRootCertRotatorGoroutineForSigningCitadel(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/26570")
 	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
 
 	// Make a copy of CA secret, a copy of root cert form key cert bundle, and

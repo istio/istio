@@ -115,6 +115,9 @@ type Port struct {
 
 	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
 	ServerFirst bool
+
+	// InstanceIP determines if echo will listen on the instance IP, or wildcard
+	InstanceIP bool
 }
 
 // Workload provides an interface for a single deployed echo server.
