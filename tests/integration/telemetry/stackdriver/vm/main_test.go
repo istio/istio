@@ -120,6 +120,7 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.Values["meshConfig.enableTracing"] = "true"
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
+			cfg.Values["global.meshID"] = "proj-test-mesh"
 			cfg.Values["global.proxy.tracer"] = "stackdriver"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
