@@ -188,48 +188,6 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
-func TestWorkloadGroupUpdates(t *testing.T) {
-	store := memory.NewSyncController(memory.Make(collections.All))
-	ig := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig.EnableWorkloadEntryController(store)
-	stop := make(chan struct{})
-	go ig.Run(stop)
-	defer close(stop)
-
-	createOrFail(t, store, wgNw)
-
-	// TODO create other group/entry in same ns, make sure they aren't deleted
-	// TODO create other group/entry in different ns, make sure they aren't deleted
-
-	p := fakeProxy("1.2.3.4", wgA, "")
-	p2 := fakeProxy("1.2.3.4", wgA, "network-2")
-
-	t.Run("inherits WorkloadGroup network", func(t *testing.T) {
-		_ = ig.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
-		checkEntryOrFail(t, store, wgNw, p, "pilot-1")
-	})
-
-	// TODO test update network, workload entry updated
-
-	t.Run("overrides WorkloadGroup network", func(t *testing.T) {
-		_ = ig.RegisterWorkload(p2, &Connection{proxy: p2, Connect: time.Now()})
-		checkEntryOrFail(t, store, wgNw, p2, "pilot-1")
-	})
-
-	t.Run("WorkloadEntries deleted when WorkloadGroup deleted", func(t *testing.T) {
-		deleteOrFail(t, store, wgNw)
-		retry.UntilSuccessOrFail(t, func() error {
-			if err := checkNoEntry(store, wgNw, p); err != nil {
-				return err
-			}
-			if err := checkNoEntry(store, wgNw, p2); err != nil {
-				return err
-			}
-			return nil
-		}, retry.Timeout(30*time.Second))
-	})
-}
-
 func TestUpdateHealthCondition(t *testing.T) {
 	ig, _, store := setup(t)
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
