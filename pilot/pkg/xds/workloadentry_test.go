@@ -61,27 +61,6 @@ var (
 		Spec:   tmplA,
 		Status: nil,
 	}
-	tmplNw = &v1alpha3.WorkloadGroup{
-		Template: &v1alpha3.WorkloadEntry{
-			Ports:          map[string]uint32{"http": 80},
-			Labels:         map[string]string{"app": "a"},
-			Weight:         1,
-			ServiceAccount: "sa-a",
-			Network:        "network-3",
-		},
-	}
-	wgNw = config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.WorkloadGroup,
-			Namespace:        "a",
-			Name:             "wg-a",
-			Labels: map[string]string{
-				"grouplabel": "notonentry",
-			},
-		},
-		Spec:   tmplNw,
-		Status: nil,
-	}
 )
 
 func TestNonAutoregisteredWorkloads(t *testing.T) {
@@ -372,12 +351,5 @@ func fakeProxy(ip string, wg config.Config, nw string) *model.Proxy {
 func createOrFail(t test.Failer, store model.ConfigStoreCache, cfg config.Config) {
 	if _, err := store.Create(cfg); err != nil {
 		t.Fatalf("failed creating %s/%s: %v", cfg.Namespace, cfg.Name, err)
-	}
-}
-
-// deleteOrFail wraps config deletion with convience for failing tests
-func deleteOrFail(t test.Failer, store model.ConfigStoreCache, cfg config.Config) {
-	if err := store.Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace); err != nil {
-		t.Fatalf("failed deleting %s/%s: %v", cfg.Namespace, cfg.Name, err)
 	}
 }
