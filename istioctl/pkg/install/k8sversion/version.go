@@ -45,7 +45,7 @@ func CheckKubernetesVersion(versionInfo *version.Info) (bool, error) {
 func extractKubernetesVersion(versionInfo *version.Info) (int, error) {
 	ver, err := goversion.NewVersion(versionInfo.String())
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("could not parse %v", err)
 	}
 	// Segments provide slice of int eg: v1.19.1 => [1, 19, 1]
 	num := ver.Segments()[1]

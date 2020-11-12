@@ -37,6 +37,11 @@ var (
 		Minor:      "19",
 		GitVersion: "v1.19.4",
 	}
+	version1_19_rc = &version.Info{
+		Major:      "1",
+		Minor:      "19",
+		GitVersion: "v1.19.5-rc.0",
+	}
 	version1_17GKE = &version.Info{
 		Major:      "1",
 		Minor:      "17+",
@@ -85,6 +90,12 @@ func TestExtractKubernetesVersion(t *testing.T) {
 			isValid:  true,
 		},
 		{
+			version:  version1_19_rc,
+			expected: 19,
+			errMsg:   nil,
+			isValid:  true,
+		},
+		{
 			version:  version1_17GKE,
 			expected: 17,
 			errMsg:   nil,
@@ -98,12 +109,12 @@ func TestExtractKubernetesVersion(t *testing.T) {
 		},
 		{
 			version: versionInvalid1,
-			errMsg:  fmt.Errorf("Malformed version: %v", versionInvalid1.GitVersion),
+			errMsg:  fmt.Errorf("could not parse Malformed version: %v", versionInvalid1.GitVersion),
 			isValid: false,
 		},
 		{
 			version: versionInvalid2,
-			errMsg:  fmt.Errorf("Malformed version: %v", versionInvalid2.GitVersion),
+			errMsg:  fmt.Errorf("could not parse Malformed version: %v", versionInvalid2.GitVersion),
 			isValid: false,
 		},
 	}
