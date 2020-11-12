@@ -1,8 +1,10 @@
 project_id:"projects/test-project"
 spans:{ 
     labels:{key:"OperationName"  value:"Ingress"}
-    labels:{key:"canonical_service"  value:"vm-server"}
-    labels:{key:"canonical_revision"  value:"v1"}
+    labels:{key:"istio.canonical_service"  value:"vm-server"}
+    labels:{key:"istio.canonical_revision"  value:"v1"}
+    labels:{key:"istio.mesh_id"  value:"proj-test-mesh"}
+    labels:{key:"istio.namespace"  value:"{{ .EchoNamespace }}"}
     labels:{key:"component"  value:"proxy"}
     labels:{key:"downstream_cluster"  value:"-"}
     labels:{key:"http.method"  value:"GET"} 
@@ -16,8 +18,10 @@ spans:{
     labels:{key:"user_agent"  value:"Go-http-client/1.1"}}
 spans:{
     labels:{key:"OperationName" value:"Egress"}
-    labels:{key:"canonical_service"  value:"client"}
-    labels:{key:"canonical_revision"  value:"v1"}
+    labels:{key:"istio.canonical_service"  value:"client"}
+    labels:{key:"istio.canonical_revision"  value:"v1"}
+    labels:{key:"istio.mesh_id"  value:"proj-test-mesh"}
+    labels:{key:"istio.namespace"  value:"{{ .EchoNamespace }}"}
     labels:{key:"component"  value:"proxy"}
     labels:{key:"downstream_cluster"  value:"-"}
     labels:{key:"http.method"  value:"GET"}
