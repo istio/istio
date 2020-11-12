@@ -94,6 +94,7 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.0.0-20201017001424-6003fad69a88 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.1.0
+	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/genproto v0.0.0-20201019141844-1ed22bb0c154
 	google.golang.org/grpc v1.33.1
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect

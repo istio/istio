@@ -197,9 +197,6 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
-      - hostPath:
-          path: /mnt/disks/ssd0
-        name: data
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -224,6 +221,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      - hostPath:
+          path: /mnt/disks/ssd0
+        name: data
   updateStrategy: {}
 status:
   replicas: 0

@@ -12,7 +12,7 @@ template: |-
     image: example.com/proxy:latest
     args:
       - --statusPort
-      - 15020
+      - "15020"
   imagePullSecrets:
   - name: istio-image-pull-secrets
   volumes:
