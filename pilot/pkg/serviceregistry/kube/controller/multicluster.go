@@ -136,7 +136,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 
 	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`,
 	// because when endpoints update `XDSUpdater.EDSUpdate` has already been called.
-	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
+	kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
 
 	go kubectl.Run(stopCh)
 	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)

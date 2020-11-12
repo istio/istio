@@ -165,7 +165,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {
-		_ = c.AppendServiceHandler(opts.ServiceHandler)
+		c.AppendServiceHandler(opts.ServiceHandler)
 	}
 	c.stop = make(chan struct{})
 	// Run in initiation to prevent calling each test

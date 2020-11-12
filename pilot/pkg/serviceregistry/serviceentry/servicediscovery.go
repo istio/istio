@@ -426,14 +426,11 @@ func (s *ServiceEntryStore) Cluster() string {
 }
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
-func (s *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Event)) error {
-	return nil
-}
+func (s *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Event)) {}
 
 // AppendWorkloadHandler adds instance event handler. Service Entries does not use these handlers.
-func (s *ServiceEntryStore) AppendWorkloadHandler(h func(*model.WorkloadInstance, model.Event)) error {
+func (s *ServiceEntryStore) AppendWorkloadHandler(h func(*model.WorkloadInstance, model.Event)) {
 	s.workloadHandlers = append(s.workloadHandlers, h)
-	return nil
 }
 
 // Run is used by some controllers to execute background jobs after init is done.
