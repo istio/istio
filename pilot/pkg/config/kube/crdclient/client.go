@@ -26,6 +26,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"time"
 
 	"gomodules.xyz/jsonpatch/v2"
@@ -354,6 +355,8 @@ func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 		Labels:          config.Labels,
 		Annotations:     config.Annotations,
 		ResourceVersion: config.ResourceVersion,
+		OwnerReferences: config.OwnerReferences,
+		UID:             types.UID(config.UID),
 	}
 }
 

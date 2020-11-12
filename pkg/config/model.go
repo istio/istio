@@ -18,6 +18,7 @@ import (
 	bytes "bytes"
 	"encoding/json"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"time"
 
@@ -41,6 +42,9 @@ type Meta struct {
 	// GroupVersionKind is a short configuration name that matches the content message type
 	// (e.g. "route-rule")
 	GroupVersionKind GroupVersionKind `json:"type,omitempty"`
+
+	// UID
+	UID string `json:"uid,omitempty"`
 
 	// Name is a unique immutable identifier in a namespace
 	Name string `json:"name,omitempty"`
@@ -77,6 +81,9 @@ type Meta struct {
 
 	// CreationTimestamp records the creation time
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
+
+	// OwnerReferences allows specifying in-namespace owning objects.
+	OwnerReferences []metav1.OwnerReference `json:"ownerReferences,omitempty"`
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
@@ -303,6 +310,14 @@ type GroupVersionKind struct {
 
 func (g GroupVersionKind) String() string {
 	return g.CanonicalGroup() + "/" + g.Version + "/" + g.Kind
+}
+
+// GroupVersion returns the group/version similar to what would be found in the apiVersion field of a Kubernetes resource.
+func (g GroupVersionKind) GroupVersion() string {
+	if g.Group == "" {
+		return g.Version
+	}
+	return g.Group + "/" + g.Version
 }
 
 // CanonicalGroup returns the group with defaulting applied. This means an empty group will
