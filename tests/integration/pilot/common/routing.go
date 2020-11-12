@@ -383,13 +383,12 @@ spec:
 										return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
 									}
 
-									hostDestinations := apps.All.Match(echo.Service(host))
-									if host == NakedSvc {
-										// only expect to hit same-network clusters for nakedSvc
-										hostDestinations = apps.All.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
-									}
-
 									// TODO fix flakes where 1 cluster is not hit (https://github.com/istio/istio/issues/28834)
+									//hostDestinations := apps.All.Match(echo.Service(host))
+									//if host == NakedSvc {
+									//	// only expect to hit same-network clusters for nakedSvc
+									//	hostDestinations = apps.All.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
+									//}
 									// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
 									//if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
 									//	return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
