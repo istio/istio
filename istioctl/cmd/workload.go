@@ -289,6 +289,9 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	clusterEnv := map[string]string{
+		// TODO use a better mechanism to trigger using token-auth
+		// TODO allow configuring cert vs token auth in cmd
+		"PROV_CERT":           "",
 		"ISTIO_INBOUND_PORTS": portBehavior,
 		"ISTIO_NAMESPACE":     wg.Namespace,
 		"ISTIO_SERVICE":       fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
