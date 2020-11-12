@@ -72,6 +72,7 @@ type Event struct {
 	kind      string
 	host      string
 	namespace string
+	proxyIP   string
 	endpoints int
 	pushReq   *model.PushRequest
 }
@@ -90,7 +91,8 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	fx.Events <- Event{kind: "xds", pushReq: req}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_, ip string) {
+	fx.Events <- Event{kind: "xds", proxyIP: ip}
 }
 
 func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ model.Event) {
@@ -521,7 +523,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com",
-			namespace: selector.Namespace, endpoints: 2})
+			namespace: selector.Namespace, endpoints: 2},
+			Event{kind: "xds", proxyIP: "2.2.2.2"})
 	})
 
 	t.Run("another workload", func(t *testing.T) {
@@ -540,7 +543,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4})
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4},
+			Event{kind: "xds", proxyIP: "3.3.3.3"})
 	})
 
 	t.Run("deletion", func(t *testing.T) {
