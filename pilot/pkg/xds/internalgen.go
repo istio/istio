@@ -16,9 +16,6 @@ package xds
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,6 +25,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"golang.org/x/time/rate"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -65,8 +63,6 @@ type InternalGen struct {
 	cleanupLimit *rate.Limiter
 	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
-	// updateQueue handles updates to autoregistry WorkloadEntries when their WorkloadGroup changes
-	updateQueue queue.Instance
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
@@ -111,22 +107,17 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 }
 
 func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCache) {
-	sg.cleanupLimit = rate.NewLimiter(rate.Limit(20), 1)
-	sg.cleanupQueue = queue.NewDelayed()
-	sg.updateQueue = queue.NewQueue(1 * time.Second)
-	sg.store = store
-	sg.store.RegisterEventHandler(gvk.WorkloadGroup, func(old config.Config, new config.Config, event model.Event) {
-		sg.updateQueue.Push(func() error {
-			return sg.workloadGroupHandler(old, new, event)
-		})
-	})
+	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
+		sg.store = store
+		sg.cleanupLimit = rate.NewLimiter(rate.Limit(20), 1)
+		sg.cleanupQueue = queue.NewDelayed()
+	}
 }
 
 func (sg *InternalGen) Run(stop <-chan struct{}) {
 	if sg.store != nil && sg.cleanupQueue != nil {
 		go sg.periodicWorkloadEntryCleanup(stop)
 		go sg.cleanupQueue.Run(stop)
-		go sg.updateQueue.Run(stop)
 	}
 }
 
