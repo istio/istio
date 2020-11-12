@@ -17,11 +17,11 @@ package k8sversion
 import (
 	"fmt"
 
+	goversion "github.com/hashicorp/go-version"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	goversion "github.com/hashicorp/go-version"
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgVersion "istio.io/pkg/version"
 )
