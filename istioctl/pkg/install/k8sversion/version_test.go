@@ -37,7 +37,7 @@ var (
 		Minor:      "19",
 		GitVersion: "v1.19.4",
 	}
-	version1_19_rc = &version.Info{
+	version1_19RC = &version.Info{
 		Major:      "1",
 		Minor:      "19",
 		GitVersion: "v1.19.5-rc.0",
@@ -90,7 +90,7 @@ func TestExtractKubernetesVersion(t *testing.T) {
 			isValid:  true,
 		},
 		{
-			version:  version1_19_rc,
+			version:  version1_19RC,
 			expected: 19,
 			errMsg:   nil,
 			isValid:  true,
