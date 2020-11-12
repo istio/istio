@@ -389,7 +389,7 @@ spec:
 										hostDestinations = apps.All.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
 									}
 
-									// TODO fix flakes where 1 cluster is not hit
+									// TODO fix flakes where 1 cluster is not hit (https://github.com/istio/istio/issues/28834)
 									// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
 									//if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
 									//	return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
@@ -454,7 +454,7 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 		cases = append(cases, TrafficTestCase{
 			name:   fqdn,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
-			// TODO call ingress in each cluster & fix flakes calling "external"
+			// TODO call ingress in each cluster & fix flakes calling "external" (https://github.com/istio/istio/issues/28834)
 			skip: apps.External.Contains(d[0]) && d.Clusters().IsMulticluster(),
 			call: apps.Ingress.CallEchoWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -570,7 +570,7 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 		callCount := callsPerCluster * len(apps.PodB)
 		cases = append(cases,
 			TrafficTestCase{
-				// TODO fix flakes where 503 does not occur from one or more clusters
+				// TODO fix flakes where 503 does not occur from one or more clusters (https://github.com/istio/istio/issues/28834)
 				skip: apps.PodB.Clusters().IsMulticluster(),
 				name: "without sidecar",
 				call: client.CallWithRetryOrFail,
