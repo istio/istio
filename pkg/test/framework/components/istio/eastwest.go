@@ -78,6 +78,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 	installSettings := []string{
 		"--istioNamespace", i.settings.SystemNamespace,
 		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
+		"--revision", revision,
 		"--set", "hub=" + imgSettings.Hub,
 		"--set", "tag=" + imgSettings.Tag,
 		"--set", "values.global.imagePullPolicy=" + imgSettings.PullPolicy,
