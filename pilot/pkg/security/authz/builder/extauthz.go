@@ -108,7 +108,7 @@ func notAllTheSame(names []string) bool {
 
 func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*builtExtAuthz, error) {
 	if resolved == nil {
-		return nil, fmt.Errorf("extension provider not defiend or failed to process")
+		return nil, fmt.Errorf("extension provider not defined or failed to process")
 	}
 	if len(providers) < 1 {
 		return nil, fmt.Errorf("no extension provider found")
@@ -186,34 +186,26 @@ func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 
 func parseService(in *plugin.InputParams, service string, port int) (hostname string, cluster string, err error) {
 	if service == "" {
-		return "", "", fmt.Errorf("service must not be empty")
+		err = fmt.Errorf("service must not be empty")
+		return
 	}
 	parts := strings.Split(service, "/")
+	// TODO(yangminzhu): Currently require the user to always specify namespace, may relax this later.
 	if len(parts) != 2 {
-		// TODO(yangminzhu): Currently the API will use the namespace of the mesh config resource if it's not specified.
-		// Investigate if we should require user to always specify the namespace or use the root namespace as default because
-		// mesh config could be loaded from a file that doesn't belong to any namespace.
-		return "", "", fmt.Errorf("service not in format <namespace>/<service>, found: %s", service)
-	}
-	namespace, name := parts[0], parts[1]
-	// TODO(yangminzhu): refactor to loop the service only once in each push instead of doing it on each workload that has
-	// authz policy with CUSTOM action.
-	for _, svc := range in.Push.Services(in.Node) {
-		if svc.Attributes.ResourceName == name && svc.Attributes.ResourceNamespace == namespace {
-			if svc.Hostname.IsWildCarded() {
-				authzLog.Warnf("Skipped unsupported wildcard host %s for service %s/%s", svc.Hostname, namespace, name)
-				continue
-			}
-			hostname = string(svc.Hostname)
-			break
-		}
-	}
-	if hostname == "" {
-		return "", "", fmt.Errorf("could not find valid hostname for service %s/%s", namespace, name)
+		err = fmt.Errorf("service not in format <namespace>/<hostname>, found: %s", service)
+		return
 	}
 
-	cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(hostname), port)
-	return hostname, cluster, nil
+	namespace, name := parts[0], parts[1]
+	if svc := in.Push.ServiceForHostnameAndNamespace(in.Node, host.Name(name), namespace); svc != nil {
+		// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
+		hostname = string(svc.Hostname)
+		cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
+		return
+	}
+
+	err = fmt.Errorf("could not find service for %s/%s", namespace, name)
+	return
 }
 
 func parsePort(port uint32) (int, error) {

@@ -87,11 +87,6 @@ func newServiceIndex() serviceIndex {
 	}
 }
 
-// AddPublicServiceForTest adds a public service, must only be used for unit tests.
-func (si *serviceIndex) AddPublicServiceForTest(service *Service) {
-	si.public = append(si.public, service)
-}
-
 // exportToDefaults contains the default exportTo values.
 type exportToDefaults struct {
 	service         map[visibility.Instance]bool
@@ -665,10 +660,14 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	return out
 }
 
-// ServiceForHostname returns the service associated with a given hostname following SidecarScope
-func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
+// ServiceForHostnameAndNamespace returns the service associated with a given hostname in the given namespace following SidecarScope
+func (ps *PushContext) ServiceForHostnameAndNamespace(proxy *Proxy, hostname host.Name, namespace string) *Service {
 	if proxy != nil && proxy.SidecarScope != nil {
 		return proxy.SidecarScope.servicesByHostname[hostname]
+	}
+
+	if namespace != "" {
+		return ps.ServiceIndex.HostnameAndNamespace[hostname][namespace]
 	}
 
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,

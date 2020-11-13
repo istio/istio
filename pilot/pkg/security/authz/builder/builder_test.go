@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -49,7 +50,7 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
-						Service:       "foo/my-custom-ext-authz",
+						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:          9000,
 						FailOpen:      true,
 						StatusOnError: "403",
@@ -64,7 +65,7 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-						Service:                   "foo/my-custom-ext-authz",
+						Service:                   "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:                      9000,
 						FailOpen:                  true,
 						StatusOnError:             "403",
@@ -382,21 +383,12 @@ func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig) *plugin.
 			Mesh:          mc,
 		},
 	}
-	// First add an wildcard host, should be skipped.
-	ret.Push.ServiceIndex.AddPublicServiceForTest(&model.Service{
-		Hostname: "*.foo.svc.cluster.local",
-		Attributes: model.ServiceAttributes{
-			ResourceName:      "my-custom-ext-authz",
-			ResourceNamespace: "foo",
+	ret.Push.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+		"my-custom-ext-authz.foo.svc.cluster.local": {
+			"foo": &model.Service{
+				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
+			},
 		},
-	})
-	// Then add the real host that should be used.
-	ret.Push.ServiceIndex.AddPublicServiceForTest(&model.Service{
-		Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
-		Attributes: model.ServiceAttributes{
-			ResourceName:      "my-custom-ext-authz",
-			ResourceNamespace: "foo",
-		},
-	})
+	}
 	return ret
 }

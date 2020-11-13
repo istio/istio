@@ -1280,7 +1280,7 @@ func configureExtensionProviders(t *testing.T, ctx framework.TestContext, ns str
 	}
 
 	// Create two extension providers using the same ext-authz service, one for HTTP and the other for gRPC ext-authz API.
-	service := fmt.Sprintf("%s/ext-authz", ns)
+	service := fmt.Sprintf("%s/ext-authz.%s.svc.cluster.local", ns, ns)
 	httpProvider := &v1alpha1.MeshConfig_ExtensionProvider{
 		Name: "ext-authz-http",
 		Provider: &v1alpha1.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
@@ -1393,6 +1393,6 @@ func TestAuthorization_Custom(t *testing.T) {
 				newTestCase(c, "/health", "deny", true),
 			}
 
-			rbacUtil.RunRBACTest(t, cases)
+			rbacUtil.RunRBACTest(ctx, cases)
 		})
 }
