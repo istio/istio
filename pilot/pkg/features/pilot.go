@@ -400,4 +400,8 @@ var (
 	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
 		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
 			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
+
+	EnableInboundDestinationRule = env.RegisterBoolVar("ISTIOD_ENABLE_INBOUND_DESTINATION_RULE", true,
+		"If enabled, `DestinationRule` `connectionPool` settings will apply to inbound clusters, as well outbound clusters. "+
+			"This option is deprecated, in favor of configuring the `Sidecar` `connectionPool` setting.").Get()
 )

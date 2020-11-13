@@ -241,7 +241,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return c
 }
 
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, instance *model.ServiceInstance, bind string) *cluster.Cluster {
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, instance *model.ServiceInstance, bind string, pool *networking.ConnectionPoolSettings) *cluster.Cluster {
 	clusterName := util.BuildInboundSubsetKey(proxy, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
@@ -254,20 +254,25 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, in
 	}
 	setUpstreamProtocol(cb.proxy, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
 
-	// When users specify circuit breakers, they need to be set on the receiver end
-	// (server side) as well as client side, so that the server has enough capacity
-	// (not the defaults) to handle the increased traffic volume
-	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
-	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	cfg := cb.push.DestinationRule(cb.proxy, instance.Service)
-	if cfg != nil {
-		destinationRule := cfg.Spec.(*networking.DestinationRule)
-		if destinationRule.TrafficPolicy != nil {
-			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
-			// only connection pool settings make sense on the inbound path.
-			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
-			util.AddConfigInfoMetadata(localCluster.Metadata, cfg.Meta)
+	if pool != nil {
+		// Apply the connection pool if the user has provided one (from Sidecar)
+		applyConnectionPool(cb.push.Mesh, localCluster, pool)
+	} else if features.EnableInboundDestinationRule {
+		// When users specify circuit breakers, they need to be set on the receiver end
+		// (server side) as well as client side, so that the server has enough capacity
+		// (not the defaults) to handle the increased traffic volume
+		// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
+		// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
+		cfg := cb.push.DestinationRule(cb.proxy, instance.Service)
+		if cfg != nil {
+			destinationRule := cfg.Spec.(*networking.DestinationRule)
+			if destinationRule.TrafficPolicy != nil {
+				connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
+				// only connection pool settings make sense on the inbound path.
+				// upstream TLS settings/outlier detection/load balancer don't apply here.
+				applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
+				util.AddConfigInfoMetadata(localCluster.Metadata, cfg.Meta)
+			}
 		}
 	}
 	return localCluster
