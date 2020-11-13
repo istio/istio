@@ -1,4 +1,7 @@
 template: |
+  {{- $holdProxyPC := boolValueOrDefault .ProxyConfig.HoldApplicationUntilProxyStarts "" }}
+  {{- $holdProxyMC := .Values.global.proxy.holdApplicationUntilProxyStarts }}
+  {{- $holdProxy := valueOrDefault $holdProxyPC $holdProxyMC }}
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
@@ -171,7 +174,7 @@ template: |
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
-  {{- else if .Values.global.proxy.holdApplicationUntilProxyStarts}}
+  {{- else if $holdProxy }}
     lifecycle:
       postStart:
         exec:
