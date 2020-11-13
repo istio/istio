@@ -355,6 +355,13 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	}
 }
 
+func (a *v1beta1PolicyApplier) PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS {
+	if a.consolidatedPeerPolicy != nil {
+		return a.consolidatedPeerPolicy.PortLevelMtls
+	}
+	return nil
+}
+
 func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
 	if a.consolidatedPeerPolicy == nil {
 		return model.MTLSPermissive

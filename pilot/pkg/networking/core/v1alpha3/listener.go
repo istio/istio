@@ -559,11 +559,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		allChains = append(allChains, chains...)
 	}
 
-	if len(allChains) == 0 {
-		// add one empty entry to the list so we generate a default listener below
-		allChains = []istionetworking.FilterChain{{}}
-	}
-
 	tlsInspectorEnabled := false
 	hasTLSContext := false
 allChainsLabel:

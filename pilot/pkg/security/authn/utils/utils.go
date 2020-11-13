@@ -49,7 +49,7 @@ var (
 func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy,
 	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
-		return nil
+		return []networking.FilterChain{{}}
 	}
 
 	meta := node.Metadata
@@ -123,5 +123,5 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 			},
 		}
 	}
-	return nil
+	return []networking.FilterChain{{}}
 }

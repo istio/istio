@@ -1367,7 +1367,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 				},
 			},
 			sdsUdsPath: "/tmp/sdsuds.sock",
-			expected:   nil,
+			expected:   []networking.FilterChain{{}},
 		},
 		{
 			name: "Single policy - permissive mode",
