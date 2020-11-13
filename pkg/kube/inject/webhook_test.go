@@ -1378,5 +1378,5 @@ func defaultInstallPackageDir() string {
 	if err != nil {
 		panic(err)
 	}
-	return filepath.Join(wd, "../../../operator/cmd/mesh/testdata/manifest-generate/data-snapshot")
+	return filepath.Join(wd, "../../../manifests/")
 }

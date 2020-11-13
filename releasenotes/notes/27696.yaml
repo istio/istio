@@ -1,0 +1,12 @@
+
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 27696
+
+releaseNotes:
+- |
+  **Added** `holdProxyUntilApplicationStarts` can now be set in ProxyConfig, 
+  allowing it to be set at the pod level. Pod level setting has precedence over
+  the MeshConfig global value setting.
