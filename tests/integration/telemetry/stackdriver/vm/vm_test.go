@@ -23,10 +23,11 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
-	"gopkg.in/d4l3k/messagediff.v1"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -161,7 +162,7 @@ func gotTrafficAssertion(want *edgespb.TrafficAssertion) bool {
 		ta.Source.Uid = ""
 		ta.Destination.Uid = ""
 
-		if diff, equal := messagediff.PrettyDiff(ta, want); !equal {
+		if diff := cmp.Diff(ta, want, protocmp.Transform()); diff != "" {
 			log.Errorf("different edge found: %v", diff)
 			continue
 		}
