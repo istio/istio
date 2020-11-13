@@ -36,7 +36,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
@@ -131,6 +134,7 @@ type sdsservice struct {
 
 	// Credential fetcher
 	credFetcher security.CredFetcher
+	Xds         *xds.XdsServer
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -170,10 +174,66 @@ func newSDSService(st security.SecretManager,
 		outputKeyCertToDir:   secOpt.OutputKeyCertToDir,
 		credFetcher:          secOpt.CredFetcher,
 	}
+	xdsserver := &xds.XdsServer{
+		InitializeStream: func() {
+
+		},
+		IsServerReady: func() bool {
+			return true
+		},
+		Authenticate: func(ctx context.Context) ([]string, error) {
+			return nil, nil
+		},
+		//Generators:       nil,
+	}
+	xdsserver.ProcessRequest = func(req *discovery.DiscoveryRequest, con *xds.Connection) error {
+		if !xdsserver.ShouldRespond(con, req) {
+			return nil
+		}
+		return xdsserver.PushXds(con, &model.PushContext{Version: "foo"}, "foo", con.Watched(req.TypeUrl), &model.PushRequest{Full: true})
+	}
+	xdsserver.PushConnection = func(con *xds.Connection, pushRequest *model.PushRequest) error {
+		return xdsserver.PushXds(con, pushRequest.Push, "foo", con.Watched(v3.SecretType), pushRequest)
+	}
+	xdsserver.Generators = map[string]model.XdsResourceGenerator{
+		v3.SecretType: ret,
+	}
+	ret.Xds = xdsserver
 
 	go ret.clearStaledClientsJob()
 
 	return ret
+}
+
+func (s *sdsservice) fetchToken() (string, error) {
+	if s.localJWT {
+		// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
+		t, err := s.getToken()
+		if err != nil {
+			return "", fmt.Errorf("failed to get credential token: %v", err)
+		}
+		return t, nil
+	}
+	return "", nil
+}
+
+func (s *sdsservice) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) model.Resources {
+	ctx := context.Background()
+	token, err := s.fetchToken()
+	if err != nil {
+		sdsServiceLog.Errorf("failed to fetch token: %v", err)
+		return nil
+	}
+	resources := model.Resources{}
+	for _, resourceName := range w.ResourceNames {
+		secret, err := s.st.GenerateSecret(ctx, "fake", resourceName, token)
+		if err != nil {
+			sdsServiceLog.Errorf("failed to generate secret for %v: %v", resourceName, err)
+			continue
+		}
+		resources = append(resources, util.MessageToAny(toEnvoySecret(secret)))
+	}
+	return resources
 }
 
 // register adds the SDS handle to the grpc server
@@ -223,6 +283,7 @@ func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecrets
 
 // StreamSecrets serves SDS discovery requests and SDS push requests
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+	return s.Xds.Stream(stream)
 	token := ""
 	ctx := context.Background()
 
@@ -631,18 +692,7 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *security.SecretItem, resourceName, typeURL string) (*discovery.DiscoveryResponse, error) {
-	resp := &discovery.DiscoveryResponse{
-		TypeUrl: typeURL,
-	}
-	conIDresourceNamePrefix := sdsLogPrefix(resourceName)
-	if s == nil {
-		sdsServiceLog.Warnf("%s got nil secret for proxy", conIDresourceNamePrefix)
-		return resp, nil
-	}
-
-	resp.VersionInfo = s.Version
-	resp.Nonce = s.Version
+func toEnvoySecret(s *security.SecretItem) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
@@ -672,6 +722,23 @@ func sdsDiscoveryResponse(s *security.SecretItem, resourceName, typeURL string) 
 			},
 		}
 	}
+
+	return secret
+}
+func sdsDiscoveryResponse(s *security.SecretItem, resourceName, typeURL string) (*discovery.DiscoveryResponse, error) {
+	resp := &discovery.DiscoveryResponse{
+		TypeUrl: typeURL,
+	}
+	conIDresourceNamePrefix := sdsLogPrefix(resourceName)
+	if s == nil {
+		sdsServiceLog.Warnf("%s got nil secret for proxy", conIDresourceNamePrefix)
+		return resp, nil
+	}
+
+	resp.VersionInfo = s.Version
+	resp.Nonce = s.Version
+
+	secret := toEnvoySecret(s)
 
 	ms, err := ptypes.MarshalAny(secret)
 	if err != nil {
