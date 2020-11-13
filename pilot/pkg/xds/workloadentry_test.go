@@ -37,6 +37,7 @@ import (
 func init() {
 	features.WorkloadEntryAutoRegistration = true
 	features.WorkloadEntryHealthChecks = true
+	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
 }
 
 var (
@@ -65,8 +66,11 @@ var (
 func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig.Store = store
+	ig.EnableWorkloadEntryController(store)
 	createOrFail(t, store, wgA)
+	stop := make(chan struct{})
+	go ig.Run(stop)
+	defer close(stop)
 
 	cases := map[string]*model.Proxy{
 		"missing group":      {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: wgA.Namespace}},
@@ -78,7 +82,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ig.RegisterWorkload(tc, &Connection{proxy: tc, Connect: time.Now()})
+			_ = ig.RegisterWorkload(tc, &Connection{proxy: tc, Connect: time.Now()})
 			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if err != nil {
 				t.Fatalf("failed listing WorkloadEntry: %v", err)
@@ -92,7 +96,6 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 }
 
 func TestAutoregistrationLifecycle(t *testing.T) {
-	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
 	ig1, ig2, store := setup(t)
 	stopped1 := false
 	stop1, stop2 := make(chan struct{}), make(chan struct{})
@@ -111,12 +114,12 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
-		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+		_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 	})
 	t.Run("multinetwork same ip", func(t *testing.T) {
 		// make sure we don't overrwrite a similar entry for a different network
-		ig2.RegisterWorkload(p2, &Connection{proxy: p2, Connect: time.Now()})
+		_ = ig2.RegisterWorkload(p2, &Connection{proxy: p2, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 		checkEntryOrFail(t, store, wgA, p2, ig2.Server.instanceID)
 	})
@@ -127,7 +130,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the same instance id
-			ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+			_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 			checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 		})
 		t.Run("different instance", func(t *testing.T) {
@@ -136,7 +139,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the new instance id
-			ig2.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+			_ = ig2.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 			checkEntryOrFail(t, store, wgA, p, ig2.Server.instanceID)
 		})
 	})
@@ -147,7 +150,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			return checkNoEntry(store, wgA, p)
 		})
 		// reconnect
-		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+		_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
@@ -167,7 +170,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 func TestUpdateHealthCondition(t *testing.T) {
 	ig, _, store := setup(t)
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
-	ig.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+	_ = ig.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 	t.Run("auto registered healthy health", func(t *testing.T) {
 		ig.UpdateWorkloadEntryHealth(p, HealthEvent{
 			Healthy: true,
@@ -186,9 +189,9 @@ func TestUpdateHealthCondition(t *testing.T) {
 func setup(t *testing.T) (*InternalGen, *InternalGen, model.ConfigStoreCache) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig1 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig1.Store = store
+	ig1.EnableWorkloadEntryController(store)
 	ig2 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-2"})
-	ig2.Store = store
+	ig2.EnableWorkloadEntryController(store)
 	createOrFail(t, store, wgA)
 	return ig1, ig2, store
 }
@@ -231,6 +234,16 @@ func checkEntry(
 	}
 	if we.Address != proxy.IPAddresses[0] {
 		err = multierror.Append(fmt.Errorf("entry has address %s; expected %s", we.Address, proxy.IPAddresses[0]))
+	}
+
+	if proxy.Metadata.Network != "" {
+		if we.Network != proxy.Metadata.Network {
+			err = multierror.Append(fmt.Errorf("entry has network %s; expected to match meta network %s", we.Network, proxy.Metadata.Network))
+		}
+	} else {
+		if we.Network != tmpl.Template.Network {
+			err = multierror.Append(fmt.Errorf("entry has network %s; expected to match group template network %s", we.Network, tmpl.Template.Network))
+		}
 	}
 
 	// check controller annotations
@@ -300,16 +313,16 @@ func checkEntryHealth(store model.ConfigStoreCache, proxy *model.Proxy, healthy 
 		}
 	}
 	if !found {
-		multierror.Append(fmt.Errorf("expected condition of type Health on WorkloadEntry %s/%s",
+		err = multierror.Append(err, fmt.Errorf("expected condition of type Health on WorkloadEntry %s/%s",
 			name, proxy.Metadata.Namespace))
 	} else {
 		statStr := stat.Conditions[idx].Status
 		if healthy && statStr != "True" {
-			multierror.Append(fmt.Errorf("expected healthy condition on WorkloadEntry %s/%s",
+			err = multierror.Append(err, fmt.Errorf("expected healthy condition on WorkloadEntry %s/%s",
 				name, proxy.Metadata.Namespace))
 		}
 		if !healthy && statStr != "False" {
-			multierror.Append(fmt.Errorf("expected unhealthy condition on WorkloadEntry %s/%s",
+			err = multierror.Append(err, fmt.Errorf("expected unhealthy condition on WorkloadEntry %s/%s",
 				name, proxy.Metadata.Namespace))
 		}
 	}
