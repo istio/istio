@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -339,5 +340,11 @@ func getProfileNSAndEnabledComponents(setOverlay []string, inFilenames []string,
 			}
 		}
 	}
+
+	configuredNamespace := v1alpha12.Namespace(iop.Spec)
+	if configuredNamespace == "" {
+		return profile, controller.IstioNamespace, enabledComponents, nil
+	}
+
 	return profile, v1alpha12.Namespace(iop.Spec), enabledComponents, nil
 }
