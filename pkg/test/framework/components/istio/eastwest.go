@@ -48,6 +48,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 		return err
 	}
 
+	fmt.Println("linsun: revision is " + revision)
 	// generate istio operator yaml
 	args := []string{
 		"--cluster", cluster.Name(),
