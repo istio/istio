@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
+
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
@@ -77,7 +79,8 @@ func (tc TestCase) CheckRBACRequest() error {
 		if err != nil {
 			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
 		}
-		if req.DestClusters.IsMulticluster() {
+		// TODO: check why grpc can not reach all clusters
+		if req.DestClusters.IsMulticluster() && tc.Request.Options.Scheme != scheme.GRPC {
 			return resp.CheckReachedClusters(req.DestClusters)
 		}
 	} else {

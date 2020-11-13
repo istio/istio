@@ -54,7 +54,9 @@ type EchoDeployments struct {
 	// Namespace2 is used by most authorization test cases within authorization_test.go
 	Namespace2 namespace.Instance
 	// Namespace3 is used by TestAuthorization_Conditions and there is one C echo instance deployed
-	Namespace3             namespace.Instance
+	Namespace3 namespace.Instance
+	// Namespace4 is used by TestAuthorization_TCP
+	Namespace4             namespace.Instance
 	A, B, C, D, E, F, G, X echo.Instances
 	Multiversion           echo.Instances
 	Headless               echo.Instances
@@ -123,6 +125,39 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 	return out
 }
 
+func EchoConfigForTestAuthorization_TCP(name string, ns namespace.Instance, cluster resource.Cluster) echo.Config {
+	ports := []echo.Port{
+		{
+			Name:         "http-8090",
+			Protocol:     protocol.HTTP,
+			InstancePort: 8090,
+		},
+		{
+			Name:         "http-8091",
+			Protocol:     protocol.HTTP,
+			InstancePort: 8091,
+		},
+		{
+			Name:         "tcp-8092",
+			Protocol:     protocol.TCP,
+			InstancePort: 8092,
+		},
+		{
+			Name:         "tcp-8093",
+			Protocol:     protocol.TCP,
+			InstancePort: 8093,
+		},
+	}
+	return echo.Config{
+		Subsets:        []echo.SubsetConfig{{}},
+		Namespace:      ns,
+		Service:        name,
+		Ports:          ports,
+		ServiceAccount: true,
+		Cluster:        cluster,
+	}
+}
+
 func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, buildVM bool) error {
 	var err error
 	apps.Namespace1, err = namespace.New(ctx, namespace.Config{
@@ -141,6 +176,13 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	}
 	apps.Namespace3, err = namespace.New(ctx, namespace.Config{
 		Prefix: "test-ns3",
+		Inject: true,
+	})
+	if err != nil {
+		return err
+	}
+	apps.Namespace4, err = namespace.New(ctx, namespace.Config{
+		Prefix: "test-ns4",
 		Inject: true,
 	})
 	if err != nil {
@@ -201,7 +243,12 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 						InstancePort: portC,
 					},
 				},
-				Cluster: cluster})
+				Cluster: cluster}).
+			With(nil, EchoConfigForTestAuthorization_TCP(ASvc, apps.Namespace4, cluster)).
+			With(nil, EchoConfigForTestAuthorization_TCP(BSvc, apps.Namespace4, cluster)).
+			With(nil, EchoConfigForTestAuthorization_TCP(CSvc, apps.Namespace4, cluster)).
+			With(nil, EchoConfigForTestAuthorization_TCP(DSvc, apps.Namespace4, cluster)).
+			With(nil, EchoConfigForTestAuthorization_TCP(ESvc, apps.Namespace4, cluster))
 	}
 	echos, err := builder.Build()
 	if err != nil {
