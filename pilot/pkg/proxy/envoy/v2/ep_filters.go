@@ -78,8 +78,8 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				lbEndpoints = append(lbEndpoints, lbEp)
 			} else {
 				// Only send endpoints from the networks in the network view requested by the proxy.
-				// The default network view assigned to the Proxy is nil, in that case match any network.
-				if networkView != nil && !networkView[epNetwork] {
+				// The default network view assigned to the Proxy is "" (UnnamedNetwork), in that case match any network if only contains it in the list.
+				if len(networkView) > 1 && !networkView[epNetwork] {
 					// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 					continue
 				}
