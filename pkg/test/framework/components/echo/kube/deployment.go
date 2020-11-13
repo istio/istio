@@ -273,6 +273,7 @@ spec:
           # hack: remove certs that are bundled in the image
           sudo rm /var/run/secrets/istio/cert-chain.pem  
           sudo rm /var/run/secrets/istio/key.pem  
+          sudo chown -R istio-proxy /var/run/secrets
 
           # replace root-cert with what was mounted
           sudo cp /var/run/secrets/istio/rootmount/* /var/run/secrets/istio
