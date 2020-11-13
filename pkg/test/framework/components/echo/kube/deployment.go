@@ -266,8 +266,15 @@ spec:
           # Capture all inbound and outbound traffic
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_INBOUND_PORTS=* >> /var/lib/istio/envoy/cluster.env'
+          
           # Read root cert from and place signed certs here
           sudo mkdir -p /var/run/secrets/istio
+ 
+          # hack: remove certs that are bundled in the image
+          sudo rm /var/run/secrets/istio/cert-chain.pem  
+          sudo rm /var/run/secrets/istio/key.pem  
+
+          # replace root-cert with what was mounted
           sudo cp /var/run/secrets/istio/rootmount/* /var/run/secrets/istio
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
@@ -317,7 +324,7 @@ spec:
 {{- end }}
 {{- if $p.InstanceIP }}
              --bind-ip={{ $p.Port }} \
-{{- end }} 
+{{- end }}
 {{- end }}
         env:
         - name: INSTANCE_IP
