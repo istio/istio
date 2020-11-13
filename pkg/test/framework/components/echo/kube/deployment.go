@@ -267,6 +267,8 @@ spec:
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_INBOUND_PORTS=* >> /var/lib/istio/envoy/cluster.env'
           # Read root cert from and place signed certs here
+          sudo mkdir -p /var/run/secrets/istio
+          sudo cp /var/run/secrets/istio/rootmount/* /var/run/secrets/istio
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           # Block standard inbound ports
@@ -315,7 +317,7 @@ spec:
 {{- end }}
 {{- if $p.InstanceIP }}
              --bind-ip={{ $p.Port }} \
-{{- end }}
+{{- end }} 
 {{- end }}
         env:
         - name: INSTANCE_IP
@@ -336,7 +338,7 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/tokens
           name: {{ $.Service }}-istio-token
-        - mountPath: /var/run/secrets/istio
+        - mountPath: /var/run/secrets/istio/rootmount
           name: istio-ca-root-cert
         {{- range $name, $value := $subset.Annotations }}
         {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
