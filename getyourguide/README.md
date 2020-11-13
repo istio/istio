@@ -3,7 +3,7 @@
 ## Pilot
 
 1.  Disables support for workload label updates, based on [upstream patch](https://github.com/istio/istio/pull/16748).
-2.  Filters out STATIC service entry endpoints from Ingress Gateways, based on [upstream patch](https://github.com/istio/istio/pull/26729/files). Context for the problem can be found in [this doc](https://docs.google.com/document/d/19Bp-rL4GSZfuwKZKJSt9VPPOAwfnW1MrWyO_mvmBjXE/edit#heading=h.jepy8uc455ut).
+2.  Filters out STATIC service entry endpoints with `network` field from Ingress Gateways, based on [upstream patch](https://github.com/istio/istio/pull/26729/files). Context for the problem can be found in [this doc](https://docs.google.com/document/d/19Bp-rL4GSZfuwKZKJSt9VPPOAwfnW1MrWyO_mvmBjXE/edit#heading=h.jepy8uc455ut).
 
     -   `REQUESTED_NETWORK_VIEW` needs to be set in the Ingress Gateway to `networkA`.
     -   `network` needs to be set to the ServiceEntry (with resolution type `STATIC`) to `networkB`.
