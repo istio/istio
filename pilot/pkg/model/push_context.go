@@ -208,7 +208,8 @@ type PushContext struct {
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkGateways map[string][]*Gateway
 
-	initDone atomic.Bool
+	initDone        atomic.Bool
+	initializeMutex sync.Mutex
 }
 
 // Gateway is the gateway of a network
@@ -853,6 +854,10 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
+	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
+	// If this does happen, one thread will block then exit early from initDone=true
+	ps.initializeMutex.Lock()
+	defer ps.initializeMutex.Unlock()
 	if ps.initDone.Load() {
 		return nil
 	}
