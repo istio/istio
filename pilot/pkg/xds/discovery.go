@@ -67,6 +67,7 @@ type debounceOptions struct {
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's xds APIs
 type DiscoveryServer struct {
+	StreamHandler *XdsServer
 	// Env is the model environment.
 	Env *model.Environment
 
@@ -181,6 +182,37 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 	}
 
 	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.Cache)
+
+	out.StreamHandler = &XdsServer{
+		InitializeStream: out.InitializeStream,
+		ProcessRequest: func(con *Connection, req *discovery.DiscoveryRequest) error {
+			return out.processRequest(req, con)
+		},
+		PushConnection: func(con *Connection, pushRequest *model.PushRequest) error {
+			return out.pushConnection(con, pushRequest)
+		},
+		Generators: out.Generators,
+		OnNack: func(proxy *model.Proxy, request *discovery.DiscoveryRequest) {
+			if out.InternalGen != nil {
+				out.InternalGen.OnNack(proxy, request)
+			}
+		},
+		OnDisconnect: func(con *Connection) {
+			out.removeCon(con.ConID)
+			if out.InternalGen != nil {
+				out.InternalGen.OnDisconnect(con)
+			}
+		},
+		OnConnection: func(con *Connection) {
+			out.InternalGen.RegisterWorkload(con.proxy, con)
+			out.setProxyState(con.proxy, out.globalPushContext())
+			out.addCon(con.ConID, con)
+
+			if out.InternalGen != nil {
+				out.InternalGen.OnConnect(con)
+			}
+		},
+	}
 
 	return out
 }

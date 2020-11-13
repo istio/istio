@@ -1,7 +1,6 @@
 package xds
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -18,11 +17,10 @@ import (
 )
 
 type XdsServer struct {
-	InitializeStream func()
-	IsServerReady    func() bool
-	Authenticate     func(ctx context.Context) ([]string, error)
+	// Authenticate, wait until ready, etc
+	InitializeStream func(*Connection) error
 
-	ProcessRequest func(req *discovery.DiscoveryRequest, con *Connection) error
+	ProcessRequest func(con *Connection, req *discovery.DiscoveryRequest) error
 	PushConnection func(con *Connection, pushRequest *model.PushRequest) error
 
 	// Generators allow customizing the generated config, based on the client metadata.
@@ -31,6 +29,10 @@ type XdsServer struct {
 	// different generator for a type.
 	// Normal istio clients use the default generator - will not be impacted by this.
 	Generators map[string]model.XdsResourceGenerator
+
+	OnConnection func(con *Connection)
+	OnDisconnect func(con *Connection)
+	OnNack       func(proxy *model.Proxy, request *discovery.DiscoveryRequest)
 }
 
 func (s *XdsServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
@@ -104,39 +106,21 @@ func (s *XdsServer) PushXds(con *Connection, push *model.PushContext,
 	return nil
 }
 
-// StreamAggregatedResources implements the ADS interface.
-func (s *XdsServer) Stream(stream DiscoveryStream) error {
-	// Check if server is ready to accept clients and process new requests.
-	// Currently ready means caches have been synced and hence can build
-	// clusters correctly. Without this check, InitContext() call below would
-	// initialize with empty config, leading to reconnected Envoys loosing
-	// configuration. This is an additional safety check inaddition to adding
-	// cachesSynced logic to readiness probe to handle cases where kube-proxy
-	// ip tables update latencies.
-	// See https://github.com/istio/istio/issues/25495.
-	if !s.IsServerReady() {
-		return errors.New("server is not ready to serve discovery information")
-	}
-
+func getPeerAddress(stream DiscoveryStream) string {
 	ctx := stream.Context()
 	peerAddr := "0.0.0.0"
 	if peerInfo, ok := peer.FromContext(ctx); ok {
 		peerAddr = peerInfo.Addr.String()
 	}
+	return peerAddr
+}
 
-	ids, err := s.Authenticate(ctx)
-	if err != nil {
+// StreamAggregatedResources implements the ADS interface.
+func (s *XdsServer) Stream(stream DiscoveryStream) error {
+	con := newConnection(stream)
+	if err := s.InitializeStream(con); err != nil {
 		return err
 	}
-	if ids != nil {
-		adsLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
-	} else {
-		adsLog.Debuga("Unauthenticated XDS: ", peerAddr)
-	}
-
-	s.InitializeStream()
-	con := newConnection(peerAddr, stream)
-	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
 	// when the connection is no longer used. Closing the channel can cause subtle race conditions
@@ -167,7 +151,7 @@ func (s *XdsServer) Stream(stream DiscoveryStream) error {
 			}
 			// processRequest is calling pushXXX, accessing common structs with pushConnection.
 			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
-			err := s.ProcessRequest(req, con)
+			err := s.ProcessRequest(con, req)
 			if err != nil {
 				return err
 			}
@@ -200,9 +184,7 @@ func (s *XdsServer) ShouldRespond(con *Connection, request *discovery.DiscoveryR
 		errCode := codes.Code(request.ErrorDetail.Code)
 		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
-		//if s.InternalGen != nil {
-		//	s.InternalGen.OnNack(con.proxy, request)
-		//}
+		s.OnNack(con.proxy, request)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = request.ResponseNonce
 		con.proxy.Unlock()
@@ -307,10 +289,7 @@ func (s *XdsServer) receive(con *Connection, reqChannel chan *discovery.Discover
 			}
 			adsLog.Infof("ADS: new connection for node:%s", con.ConID)
 			defer func() {
-				//s.removeCon(con.ConID)
-				//if s.InternalGen != nil {
-				//	s.InternalGen.OnDisconnect(con)
-				//}
+				s.OnDisconnect(con)
 			}()
 		}
 
@@ -326,7 +305,7 @@ func (s *XdsServer) receive(con *Connection, reqChannel chan *discovery.Discover
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *XdsServer) initConnection(node *core.Node, con *Connection) error {
-	proxy, err := s.initProxy(node, con)
+	proxy, err := s.initProxy(node)
 	if err != nil {
 		return err
 	}
@@ -354,33 +333,7 @@ func (s *XdsServer) initConnection(node *core.Node, con *Connection) error {
 		con.proxy.VerifiedIdentity = id
 	}
 
-	//s.addCon(con.ConID, con)
-
-	//if s.InternalGen != nil {
-	//	s.InternalGen.OnConnect(con)
-	//}
-
-	return nil
-}
-
-// initProxy initializes the Proxy from node.
-func (s *XdsServer) initProxy(node *core.Node, con *Connection) (*model.Proxy, error) {
-	meta, err := model.ParseMetadata(node.Metadata)
-	if err != nil {
-		return nil, err
-	}
-	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
-	if err != nil {
-		return nil, err
-	}
-	// Update the config namespace associated with this proxy
-	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
-
-	// this should be done before we look for service instances, but after we load metadata
-	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	//s.InternalGen.RegisterWorkload(proxy, con)
-	//
-	//s.setProxyState(proxy, s.globalPushContext())
+	s.OnConnection(con)
 
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality.
@@ -399,6 +352,22 @@ func (s *XdsServer) initProxy(node *core.Node, con *Connection) (*model.Proxy, e
 			SubZone: node.Locality.GetSubZone(),
 		}
 	}
+
+	return nil
+}
+
+// initProxy initializes the Proxy from node.
+func (s *XdsServer) initProxy(node *core.Node) (*model.Proxy, error) {
+	meta, err := model.ParseMetadata(node.Metadata)
+	if err != nil {
+		return nil, err
+	}
+	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
+	if err != nil {
+		return nil, err
+	}
+	// Update the config namespace associated with this proxy
+	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPVersions()

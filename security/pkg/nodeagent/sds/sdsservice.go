@@ -192,18 +192,17 @@ func newSDSService(st security.SecretManager,
 		credFetcher:          secOpt.CredFetcher,
 	}
 	xdsserver := &xds.XdsServer{
-		InitializeStream: func() {
-
+		InitializeStream: func(connection *xds.Connection) error {
+			return nil
 		},
-		IsServerReady: func() bool {
-			return true
+		Generators: map[string]model.XdsResourceGenerator{
+			v3.SecretType: ret,
 		},
-		Authenticate: func(ctx context.Context) ([]string, error) {
-			return nil, nil
-		},
-		//Generators:       nil,
+		OnConnection: func(con *xds.Connection) {},
+		OnNack:       func(proxy *model.Proxy, request *discovery.DiscoveryRequest) {},
+		OnDisconnect: func(con *xds.Connection) {},
 	}
-	xdsserver.ProcessRequest = func(req *discovery.DiscoveryRequest, con *xds.Connection) error {
+	xdsserver.ProcessRequest = func(con *xds.Connection, req *discovery.DiscoveryRequest) error {
 		if !xdsserver.ShouldRespond(con, req) {
 			return nil
 		}
@@ -211,9 +210,6 @@ func newSDSService(st security.SecretManager,
 	}
 	xdsserver.PushConnection = func(con *xds.Connection, pushRequest *model.PushRequest) error {
 		return xdsserver.PushXds(con, pushRequest.Push, "foo", con.Watched(v3.SecretType), pushRequest)
-	}
-	xdsserver.Generators = map[string]model.XdsResourceGenerator{
-		v3.SecretType: ret,
 	}
 	ret.Xds = xdsserver
 	ret.Gcp = NewXdsServer()
@@ -301,8 +297,8 @@ func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecrets
 
 // StreamSecrets serves SDS discovery requests and SDS push requests
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	return s.Gcp.Server.StreamSecrets(stream)
 	return s.Xds.Stream(stream)
+	return s.Gcp.Server.StreamSecrets(stream)
 	token := ""
 	ctx := context.Background()
 
