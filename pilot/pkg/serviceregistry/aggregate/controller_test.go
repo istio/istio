@@ -427,7 +427,7 @@ func TestAddRegistry(t *testing.T) {
 	}
 }
 
-func TestDeleteRegistry(t *testing.T) {
+func TestGetDeleteRegistry(t *testing.T) {
 	registries := []serviceregistry.Simple{
 		{
 			ProviderID: "registry1",
@@ -437,41 +437,31 @@ func TestDeleteRegistry(t *testing.T) {
 			ProviderID: "registry2",
 			ClusterID:  "cluster2",
 		},
+		{
+			ProviderID: "registry3",
+			ClusterID:  "cluster3",
+		},
 	}
 	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
-	ctrl.DeleteRegistry(registries[0].ClusterID)
-	if l := len(ctrl.registries); l != 1 {
-		t.Fatalf("Expected length of the registries slice should be 1, got %d", l)
-	}
-}
 
-func TestGetRegistries(t *testing.T) {
-	registries := []serviceregistry.Simple{
-		{
-			ProviderID: "registry1",
-			ClusterID:  "cluster1",
-		},
-		{
-			ProviderID: "registry2",
-			ClusterID:  "cluster2",
-		},
-	}
-	ctrl := NewController(Options{})
-	for _, r := range registries {
-		ctrl.AddRegistry(r)
-	}
+	// Test Get
 	result := ctrl.GetRegistries()
-	if len(ctrl.registries) != len(result) {
-		t.Fatal("Length of the original registries slice does not match to returned by GetRegistries.")
+	if l := len(result); l != 3 {
+		t.Fatalf("Expected length of the registries slice should be 3, got %d", l)
 	}
 
-	for i := range result {
-		if !reflect.DeepEqual(result[i], ctrl.registries[i]) {
-			t.Fatal("The original registries slice and resulting slice supposed to be identical.")
-		}
+	// Test Delete cluster2
+	ctrl.DeleteRegistry(registries[1].ClusterID)
+	result = ctrl.GetRegistries()
+	if l := len(result); l != 2 {
+		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
+	}
+	// check left registries are orders as before
+	if !reflect.DeepEqual(result[0], registries[0]) || !reflect.DeepEqual(result[1], registries[2]) {
+		t.Fatalf("Expected registries order has been changed")
 	}
 }
 
