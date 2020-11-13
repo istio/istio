@@ -43,10 +43,12 @@ spec:
   selector:
     matchLabels:
       app: sleep
+      version: v1
   template:
     metadata:
       labels:
         app: sleep
+        version: v1
     spec:
       serviceAccountName: vault-citadel-sa
       containers:
