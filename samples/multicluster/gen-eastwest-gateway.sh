@@ -67,7 +67,7 @@ kind: IstioOperator
 metadata:
   name: eastwest
 spec:
-  revision: "${REVISION}"
+  revision: ${REVISION}
   profile: empty
   components:
     ingressGateways:
