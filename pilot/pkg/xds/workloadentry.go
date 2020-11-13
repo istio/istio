@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -66,7 +67,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 	}
 
 	// Try to patch, if it fails then try to create
-	_, err := sg.Store.Patch(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace, func(cfg config.Config) config.Config {
+	_, err := sg.store.Patch(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace, func(cfg config.Config) config.Config {
 		setConnectMeta(&cfg, sg.Server.instanceID, con)
 		return cfg
 	})
@@ -79,7 +80,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 	}
 
 	// No WorkloadEntry, create one using fields from the associated WorkloadGroup
-	groupCfg := sg.Store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
+	groupCfg := sg.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if groupCfg == nil {
 		adsLog.Errorf("auto-registration of %v failed: cannot find WorkloadGroup %s/%s",
 			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
@@ -88,7 +89,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
 	setConnectMeta(entry, sg.Server.instanceID, con)
-	_, err = sg.Store.Create(*entry)
+	_, err = sg.store.Create(*entry)
 	if err != nil {
 		adsLog.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 		return fmt.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
@@ -107,7 +108,7 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	}
 
 	// unset controller, set disconnect time
-	cfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	cfg := sg.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
 		// we failed to create the workload entry in the first place or it is not propagated
 		return
@@ -121,7 +122,7 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	delete(wle.Annotations, WorkloadControllerAnnotation)
 	wle.Annotations[DisconnectedAtAnnotation] = time.Now().Format(timeFormat)
 	// use update instead of patch to prevent race condition
-	_, err := sg.Store.Update(wle)
+	_, err := sg.store.Update(wle)
 	if err != nil && !errors.IsConflict(err) {
 		adsLog.Warnf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 		return
@@ -130,7 +131,7 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	// after grace period, check if the workload ever reconnected
 	ns := proxy.Metadata.Namespace
 	sg.cleanupQueue.PushDelayed(func() error {
-		wle := sg.Store.Get(gvk.WorkloadEntry, entryName, ns)
+		wle := sg.store.Get(gvk.WorkloadEntry, entryName, ns)
 		if wle == nil {
 			return nil
 		}
@@ -157,7 +158,7 @@ func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event Healt
 	}
 
 	// get previous status
-	cfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	cfg := sg.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
 		adsLog.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
 		return
@@ -178,7 +179,7 @@ func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event Healt
 	status.Conditions = UpdateHealthCondition(status.Conditions, event)
 
 	// update the status
-	_, err := sg.Store.UpdateStatus(wle)
+	_, err := sg.store.UpdateStatus(wle)
 	if err != nil {
 		adsLog.Errorf("error while updating WorkloadEntry status: %v for %v", err, proxy.ID)
 	}
@@ -194,7 +195,7 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			wles, err := sg.Store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
+			wles, err := sg.store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
 			if err != nil {
 				adsLog.Warnf("error listing WorkloadEntry for cleanup: %v", err)
 				continue
@@ -218,7 +219,7 @@ func (sg *InternalGen) cleanupEntry(wle config.Config) {
 	if err := sg.cleanupLimit.Wait(context.TODO()); err != nil {
 		adsLog.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
 	}
-	if err := sg.Store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
+	if err := sg.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
 		adsLog.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
 	}
 }
@@ -249,6 +250,8 @@ func setConnectMeta(c *config.Config, controller string, con *Connection) {
 	c.Annotations[ConnectedAtAnnotation] = con.Connect.Format(timeFormat)
 }
 
+var workloadGroupIsController = true
+
 func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Config) *config.Config {
 	group := groupCfg.Spec.(*v1alpha3.WorkloadGroup)
 	entry := group.Template.DeepCopy()
@@ -269,6 +272,13 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 			Namespace:        proxy.Metadata.Namespace,
 			Labels:           entry.Labels,
 			Annotations:      map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: groupCfg.GroupVersionKind.GroupVersion(),
+				Kind:       groupCfg.GroupVersionKind.Kind,
+				Name:       groupCfg.Name,
+				UID:        kubetypes.UID(groupCfg.UID),
+				Controller: &workloadGroupIsController,
+			}},
 		},
 		Spec: entry,
 		// TODO status fields used for garbage collection
