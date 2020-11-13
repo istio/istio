@@ -74,3 +74,6 @@ security/cmd/node_agent/na/cert_file
 security/cmd/node_agent/na/pkey
 # Test artifacts
 tests/e2e/local/minikube/docker-machine-driver-hyperkit
+
+out/
+var/
