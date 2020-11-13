@@ -58,6 +58,7 @@ func CreateInjectionFuncmap() template.FuncMap {
 		"toLower":             strings.ToLower,
 		"appendMultusNetwork": appendMultusNetwork,
 		"env":                 env,
+		"boolValueOrDefault":  boolValueOrDefault,
 	}
 }
 
@@ -125,6 +126,15 @@ func valueOrDefault(value interface{}, defaultValue interface{}) interface{} {
 		return defaultValue
 	}
 	return value
+}
+
+func boolValueOrDefault(value interface{}, defaultValue interface{}) interface{} {
+	bv := value.(*types.BoolValue)
+	if bv == nil {
+		return defaultValue
+	}
+
+	return bv.GetValue()
 }
 
 func toJSON(m map[string]string) string {
