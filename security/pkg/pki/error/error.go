@@ -28,6 +28,10 @@ const (
 	TTLError
 	// CertGenError means an error happened during the certificate generation.
 	CertGenError
+	// CAIllegalConfig means the configuration/deployment parameters for CA are incorrect
+	CAIllegalConfig
+	// CAInitFail means some other unexpected and fatal initilization failure
+	CAInitFail
 )
 
 // Error encapsulates the short and long errors.
