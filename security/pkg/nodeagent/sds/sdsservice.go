@@ -30,6 +30,8 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
+	xdscache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	serverv3 "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -135,6 +137,21 @@ type sdsservice struct {
 	// Credential fetcher
 	credFetcher security.CredFetcher
 	Xds         *xds.XdsServer
+	Gcp         *XdsServer
+}
+
+type XdsServer struct {
+	Server serverv3.Server
+	Cache  xdscache.SnapshotCache
+}
+
+func NewXdsServer() *XdsServer {
+	cache := xdscache.NewSnapshotCache(false, xdscache.IDHash{}, nil)
+	srv := serverv3.NewServer(context.Background(), cache, nil)
+	return &XdsServer{
+		Server: srv,
+		Cache:  cache,
+	}
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -199,6 +216,7 @@ func newSDSService(st security.SecretManager,
 		v3.SecretType: ret,
 	}
 	ret.Xds = xdsserver
+	ret.Gcp = NewXdsServer()
 
 	go ret.clearStaledClientsJob()
 
@@ -283,6 +301,7 @@ func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecrets
 
 // StreamSecrets serves SDS discovery requests and SDS push requests
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+	return s.Gcp.Server.StreamSecrets(stream)
 	return s.Xds.Stream(stream)
 	token := ""
 	ctx := context.Background()
