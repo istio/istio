@@ -1115,7 +1115,7 @@
           ],
           "dateFormat": "YYYY-MM-DD HH:mm:ss",
           "decimals": 2,
-          "pattern": "Value #D",
+          "pattern": "Value #C",
           "thresholds": [],
           "type": "number",
           "unit": "s"
@@ -1130,7 +1130,7 @@
           ],
           "dateFormat": "YYYY-MM-DD HH:mm:ss",
           "decimals": 2,
-          "pattern": "Value #E",
+          "pattern": "Value #D",
           "thresholds": [],
           "type": "number",
           "unit": "s"
@@ -1145,7 +1145,7 @@
           ],
           "dateFormat": "YYYY-MM-DD HH:mm:ss",
           "decimals": 2,
-          "pattern": "Value #F",
+          "pattern": "Value #E",
           "thresholds": [
             ".95",
             " 1.00"
@@ -1328,7 +1328,7 @@
           ],
           "dateFormat": "YYYY-MM-DD HH:mm:ss",
           "decimals": 2,
-          "pattern": "Value #C",
+          "pattern": "Value #B",
           "thresholds": [],
           "type": "number",
           "unit": "Bps"
