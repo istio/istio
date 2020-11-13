@@ -115,6 +115,22 @@ func TestMergeUpdateRequest(t *testing.T) {
 	}
 }
 
+func TestConcurrentMerge(t *testing.T) {
+	reqA := &PushRequest{Reason: make([]TriggerReason, 0, 100)}
+	reqB := &PushRequest{Reason: []TriggerReason{ServiceUpdate, ProxyUpdate}}
+	for i := 0; i < 50; i++ {
+		go func() {
+			reqA.Merge(reqB)
+		}()
+	}
+	if len(reqA.Reason) != 0 {
+		t.Fatalf("reqA modified: %v", reqA.Reason)
+	}
+	if len(reqB.Reason) != 2 {
+		t.Fatalf("reqB modified: %v", reqB.Reason)
+	}
+}
+
 func TestEnvoyFilters(t *testing.T) {
 	proxyVersionRegex := regexp.MustCompile(`1\.4.*`)
 	envoyFilters := []*EnvoyFilterWrapper{
