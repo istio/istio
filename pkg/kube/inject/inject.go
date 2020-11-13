@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -33,7 +34,6 @@ import (
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -75,30 +75,21 @@ const (
 	// ValidationContainerName is the name of the init container that validates
 	// if CNI has made the necessary changes to iptables
 	ValidationContainerName = "istio-validation"
-)
 
-// SidecarInjectionSpec collects all container types and volumes for
-// sidecar mesh injection
-type SidecarInjectionSpec struct {
-	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
-	// will be rewritten to be redirected by pilot agent.
-	PodRedirectAnnot                map[string]string             `yaml:"podRedirectAnnot"`
-	RewriteAppHTTPProbe             bool                          `yaml:"rewriteAppHTTPProbe"`
-	HoldApplicationUntilProxyStarts bool                          `yaml:"holdApplicationUntilProxyStarts"`
-	InitContainers                  []corev1.Container            `yaml:"initContainers"`
-	Containers                      []corev1.Container            `yaml:"containers"`
-	Volumes                         []corev1.Volume               `yaml:"volumes"`
-	DNSConfig                       *corev1.PodDNSConfig          `yaml:"dnsConfig"`
-	ImagePullSecrets                []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
-}
+	// InitContainerName is the name of the init container that deploys iptables
+	InitContainerName = "istio-init"
+
+	// EnableCoreDumpName is the name of the init container that allows core dumps
+	EnableCoreDumpName = "enable-core-dump"
+)
 
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
 	TypeMeta       *metav1.TypeMeta
 	DeploymentMeta *metav1.ObjectMeta
-	ObjectMeta     *metav1.ObjectMeta
-	Spec           *corev1.PodSpec
+	ObjectMeta     metav1.ObjectMeta
+	Spec           corev1.PodSpec
 	ProxyConfig    *meshconfig.ProxyConfig
 	MeshConfig     *meshconfig.MeshConfig
 	Values         map[string]interface{}
@@ -130,7 +121,7 @@ type Config struct {
 	InjectedAnnotations map[string]string `json:"injectedAnnotations"`
 }
 
-func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
+func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -239,36 +230,29 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	return required
 }
 
-// InjectionData renders sidecarTemplate with valuesConfig.
-func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta) (
-	*SidecarInjectionSpec, string, error) {
-	spec := &params.pod.Spec
+// RunTemplate renders the sidecar template
+// Returns the raw string template, as well as the parse pod form
+func RunTemplate(params InjectionParameters) ([]byte, *corev1.PodSpec, error) {
 	metadata := &params.pod.ObjectMeta
 	meshConfig := params.meshConfig
-	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
-	if spec.DNSPolicy != "" && spec.DNSPolicy != corev1.DNSClusterFirst {
-		podName := potentialPodName(metadata)
-		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
-			metadata.Namespace+"/"+podName, corev1.DNSClusterFirst)
-	}
 
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		log.Errorf("Injection failed due to invalid annotations: %v", err)
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
 		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
 		if merr != nil {
-			return nil, "", merr
+			return nil, nil, merr
 		}
 	}
 
 	valuesStruct := &opconfig.Values{}
 	if err := gogoprotomarshal.ApplyYAML(params.valuesConfig, valuesStruct); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
-		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
+		return nil, nil, multierror.Prefix(err, "could not parse configuration values:")
 	}
 
 	cluster := valuesStruct.GetGlobal().GetMultiCluster().GetClusterName()
@@ -297,19 +281,20 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 	values := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(params.valuesConfig), &values); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
-		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
+		return nil, nil, multierror.Prefix(err, "could not parse configuration values:")
 	}
 
+	strippedPod := stripPod(params)
+
 	data := SidecarTemplateData{
-		TypeMeta:       typeMetadata,
-		DeploymentMeta: deploymentMetadata,
-		ObjectMeta:     metadata,
-		Spec:           spec,
+		TypeMeta:       params.typeMeta,
+		DeploymentMeta: params.deployMeta,
+		ObjectMeta:     strippedPod.ObjectMeta,
+		Spec:           strippedPod.Spec,
 		ProxyConfig:    meshConfig.GetDefaultConfig(),
 		MeshConfig:     meshConfig,
 		Values:         values,
 	}
-
 	funcMap := CreateInjectionFuncmap()
 
 	// Need to use FuncMap and SidecarTemplateData context
@@ -324,40 +309,63 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 
 	bbuf, err := parseTemplate(params.template, funcMap, data)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
-	var sic SidecarInjectionSpec
-	if err := yaml.Unmarshal(bbuf.Bytes(), &sic); err != nil {
-		// This usually means an invalid injector template; we can't check
-		// the template itself because it is merely a string.
-		log.Warnf("Failed to unmarshal template: %v\n %s", err, bbuf.String())
-		return nil, "", multierror.Prefix(err, "failed parsing generated injected YAML (check Istio sidecar injector configuration):")
+	podSpec := corev1.PodSpec{}
+	if err := yaml.Unmarshal(bbuf.Bytes(), &podSpec); err != nil {
+		return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
+	}
+	return bbuf.Bytes(), &podSpec, nil
+}
+
+func stripPod(req InjectionParameters) *corev1.Pod {
+	pod := req.pod.DeepCopy()
+	prevStatus := injectionStatus(pod)
+	if prevStatus == nil {
+		return req.pod
+	}
+	// We found a previous status annotation. Possibly we are re-injecting the pod
+	// To ensure idempotency, remove our injected containers first
+	for _, c := range prevStatus.Containers {
+		pod.Spec.Containers = modifyContainers(pod.Spec.Containers, c, Remove)
+	}
+	for _, c := range prevStatus.InitContainers {
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, c, Remove)
 	}
 
-	// set sidecar --concurrency
-	applyConcurrency(sic.Containers)
-	overwriteClusterInfo(sic.Containers, params)
+	targetPort := strconv.Itoa(int(req.meshConfig.GetDefaultConfig().GetStatusPort()))
+	if cur, f := pod.Annotations["prometheus.io/port"]; f {
+		// We have already set the port, assume user is controlling this or, more likely, re-injected
+		// the pod.
+		if cur == targetPort {
+			delete(pod.Annotations, "prometheus.io/scrape")
+			delete(pod.Annotations, "prometheus.io/path")
+			delete(pod.Annotations, "prometheus.io/port")
+		}
+	}
+	delete(pod.Annotations, annotation.SidecarStatus.Name)
 
-	status := &SidecarInjectionStatus{Version: params.version}
-	for _, c := range sic.InitContainers {
-		status.InitContainers = append(status.InitContainers, c.Name)
+	return pod
+}
+
+func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
+	var statusBytes []byte
+	if pod.ObjectMeta.Annotations != nil {
+		if value, ok := pod.ObjectMeta.Annotations[annotation.SidecarStatus.Name]; ok {
+			statusBytes = []byte(value)
+		}
 	}
-	for _, c := range sic.Containers {
-		status.Containers = append(status.Containers, c.Name)
+	if statusBytes == nil {
+		return nil
 	}
-	for _, c := range sic.Volumes {
-		status.Volumes = append(status.Volumes, c.Name)
+
+	// default case when injected pod has explicit status
+	var iStatus SidecarInjectionStatus
+	if err := json.Unmarshal(statusBytes, &iStatus); err == nil {
+		return &iStatus
 	}
-	for _, c := range sic.ImagePullSecrets {
-		status.ImagePullSecrets = append(status.ImagePullSecrets, c.Name)
-	}
-	statusAnnotationValue, err := json.Marshal(status)
-	if err != nil {
-		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
-	}
-	sic.HoldApplicationUntilProxyStarts, _, _ = unstructured.NestedBool(data.Values, "global", "proxy", "holdApplicationUntilProxyStarts")
-	return &sic, string(statusAnnotationValue), nil
+	return nil
 }
 
 func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarTemplateData) (bytes.Buffer, error) {
@@ -545,7 +553,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		ObjectMeta: *metadata,
 		Spec:       *podSpec,
 	}
-	if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, &pod.ObjectMeta) {
+	if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 		warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
 		return out, nil
 	}
@@ -615,7 +623,7 @@ func sidecarTemplateVersionHash(in string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func potentialPodName(metadata *metav1.ObjectMeta) string {
+func potentialPodName(metadata metav1.ObjectMeta) string {
 	if metadata.Name != "" {
 		return metadata.Name
 	}
