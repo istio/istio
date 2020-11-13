@@ -1469,7 +1469,7 @@
           }
         }
       ],
-      "title": "Inbound workloads",
+      "title": "Inbound Workloads",
       "type": "row"
     },
     {
@@ -2417,7 +2417,7 @@
           }
         }
       ],
-      "title": "Outbound Workloads",
+      "title": "Outbound Services",
       "type": "row"
     }
   ],
