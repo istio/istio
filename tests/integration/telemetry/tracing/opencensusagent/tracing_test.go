@@ -45,9 +45,13 @@ func TestProxyTracing(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 			for _, cl := range ctx.Clusters() {
+				clName := cl.Name()
+				if clName == "cluster-3" {
+					// TODO: Skipping cluster-3 as per https://github.com/istio/istio/issues/28890
+					continue
+				}
 				retry.UntilSuccessOrFail(t, func() error {
 
-					clName := cl.Name()
 					t.Logf("Verifying for cluster %s", clName)
 					err := tracing.SendTraffic(t, nil, cl)
 					if err != nil {
