@@ -494,6 +494,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
 		return fmt.Errorf("could not parse configuration values: %v", err)
 	}
+	// nolint: staticcheck
 	holdPod := mc.DefaultConfig.HoldApplicationUntilProxyStarts.GetValue() ||
 		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
 
