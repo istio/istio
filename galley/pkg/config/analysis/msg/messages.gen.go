@@ -69,14 +69,6 @@ var (
 	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
 	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
 
-	// PolicySpecifiesPortNameThatDoesntExist defines a diag.MessageType for message "PolicySpecifiesPortNameThatDoesntExist".
-	// Description: A Policy targets a port name that cannot be found.
-	PolicySpecifiesPortNameThatDoesntExist = diag.NewMessageType(diag.Warning, "IST0114", "Port name %s could not be found for host %s, which means the Policy won't be enforced.")
-
-	// DestinationRuleUsesMTLSForWorkloadWithoutSidecar defines a diag.MessageType for message "DestinationRuleUsesMTLSForWorkloadWithoutSidecar".
-	// Description: A DestinationRule uses mTLS for a workload that has no sidecar.
-	DestinationRuleUsesMTLSForWorkloadWithoutSidecar = diag.NewMessageType(diag.Error, "IST0115", "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from workloads with sidecars will fail.")
-
 	// DeploymentAssociatedToMultipleServices defines a diag.MessageType for message "DeploymentAssociatedToMultipleServices".
 	// Description: The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols.
 	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment %s is associated with multiple services using port %d but different protocols: %v")
@@ -92,14 +84,6 @@ var (
 	// JwtFailureDueToInvalidServicePortPrefix defines a diag.MessageType for message "JwtFailureDueToInvalidServicePortPrefix".
 	// Description: Authentication policy with JWT targets Service with invalid port specification.
 	JwtFailureDueToInvalidServicePortPrefix = diag.NewMessageType(diag.Warning, "IST0119", "Authentication policy with JWT targets Service with invalid port specification (port: %d, name: %s, protocol: %s, targetPort: %s).")
-
-	// PolicyResourceIsDeprecated defines a diag.MessageType for message "PolicyResourceIsDeprecated".
-	// Description: The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource.
-	PolicyResourceIsDeprecated = diag.NewMessageType(diag.Info, "IST0120", "The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource.")
-
-	// MeshPolicyResourceIsDeprecated defines a diag.MessageType for message "MeshPolicyResourceIsDeprecated".
-	// Description: The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource.
-	MeshPolicyResourceIsDeprecated = diag.NewMessageType(diag.Info, "IST0121", "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource.")
 
 	// InvalidRegexp defines a diag.MessageType for message "InvalidRegexp".
 	// Description: Invalid Regex
@@ -156,14 +140,10 @@ func All() []*diag.MessageType {
 		MultipleSidecarsWithoutWorkloadSelectors,
 		VirtualServiceDestinationPortSelectorRequired,
 		MTLSPolicyConflict,
-		PolicySpecifiesPortNameThatDoesntExist,
-		DestinationRuleUsesMTLSForWorkloadWithoutSidecar,
 		DeploymentAssociatedToMultipleServices,
 		DeploymentRequiresServiceAssociated,
 		PortNameIsNotUnderNamingConvention,
 		JwtFailureDueToInvalidServicePortPrefix,
-		PolicyResourceIsDeprecated,
-		MeshPolicyResourceIsDeprecated,
 		InvalidRegexp,
 		NamespaceMultipleInjectionLabels,
 		InvalidAnnotation,
@@ -324,26 +304,6 @@ func NewMTLSPolicyConflict(r *resource.Instance, host string, destinationRuleNam
 	)
 }
 
-// NewPolicySpecifiesPortNameThatDoesntExist returns a new diag.Message based on PolicySpecifiesPortNameThatDoesntExist.
-func NewPolicySpecifiesPortNameThatDoesntExist(r *resource.Instance, portName string, host string) diag.Message {
-	return diag.NewMessage(
-		PolicySpecifiesPortNameThatDoesntExist,
-		r,
-		portName,
-		host,
-	)
-}
-
-// NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar returns a new diag.Message based on DestinationRuleUsesMTLSForWorkloadWithoutSidecar.
-func NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(r *resource.Instance, destinationRuleName string, host string) diag.Message {
-	return diag.NewMessage(
-		DestinationRuleUsesMTLSForWorkloadWithoutSidecar,
-		r,
-		destinationRuleName,
-		host,
-	)
-}
-
 // NewDeploymentAssociatedToMultipleServices returns a new diag.Message based on DeploymentAssociatedToMultipleServices.
 func NewDeploymentAssociatedToMultipleServices(r *resource.Instance, deployment string, port int32, services []string) diag.Message {
 	return diag.NewMessage(
@@ -383,22 +343,6 @@ func NewJwtFailureDueToInvalidServicePortPrefix(r *resource.Instance, port int, 
 		portName,
 		protocol,
 		targetPort,
-	)
-}
-
-// NewPolicyResourceIsDeprecated returns a new diag.Message based on PolicyResourceIsDeprecated.
-func NewPolicyResourceIsDeprecated(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		PolicyResourceIsDeprecated,
-		r,
-	)
-}
-
-// NewMeshPolicyResourceIsDeprecated returns a new diag.Message based on MeshPolicyResourceIsDeprecated.
-func NewMeshPolicyResourceIsDeprecated(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		MeshPolicyResourceIsDeprecated,
-		r,
 	)
 }
 
