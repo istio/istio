@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
@@ -56,6 +57,7 @@ func (b *builder) Build() (echo.Instances, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build instance: %v", err)
 	}
+	scopes.Framework.Debugf("created echo deployments in %v", time.Since(t0))
 
 	if err := b.initializeInstances(instances); err != nil {
 		return nil, fmt.Errorf("initialize instances: %v", err)
@@ -82,12 +84,23 @@ func (b *builder) BuildOrFail(t test.Failer) echo.Instances {
 
 func (b *builder) newInstances() ([]echo.Instance, error) {
 	instances := make([]echo.Instance, 0, len(b.configs))
+	g := errgroup.Group{}
+	mu := sync.Mutex{}
 	for _, cfg := range b.configs {
-		inst, err := newInstance(b.ctx, cfg)
-		if err != nil {
-			return nil, err
-		}
-		instances = append(instances, inst)
+		cfg := cfg
+		g.Go(func() error {
+			inst, err := newInstance(b.ctx, cfg)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			instances = append(instances, inst)
+			mu.Unlock()
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 	return instances, nil
 }
