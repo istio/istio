@@ -91,7 +91,7 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string) Watche
 	defaultMesh := DefaultMeshConfig()
 	w := &watcher{mesh: &defaultMesh}
 	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
-		meshConfig, err := readConfigMap(cm, key)
+		meshConfig, err := ReadConfigMap(cm, key)
 		if err != nil {
 			// Keep the last known config in case there's a misconfiguration issue.
 			log.Warnf("failed to read mesh config from ConfigMap: %v", err)
@@ -140,7 +140,7 @@ func (w *watcher) handleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 	}
 }
 
-func readConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error) {
+func ReadConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error) {
 	if cm == nil {
 		log.Info("no ConfigMap found, using default mesh config")
 		defaultMesh := DefaultMeshConfig()

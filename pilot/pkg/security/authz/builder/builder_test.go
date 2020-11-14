@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -49,7 +50,7 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
-						Service:       "foo/my-custom-ext-authz",
+						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:          9000,
 						FailOpen:      true,
 						StatusOnError: "403",
@@ -64,7 +65,7 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-						Service:                   "foo/my-custom-ext-authz",
+						Service:                   "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:                      9000,
 						FailOpen:                  true,
 						StatusOnError:             "403",
@@ -368,9 +369,9 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 	return authzPolicies
 }
 
-func inputParams(t *testing.T, input string, config *meshconfig.MeshConfig) *plugin.InputParams {
+func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig) *plugin.InputParams {
 	t.Helper()
-	return &plugin.InputParams{
+	ret := &plugin.InputParams{
 		Node: &model.Proxy{
 			ConfigNamespace: "foo",
 			Metadata: &model.NodeMetadata{
@@ -379,7 +380,15 @@ func inputParams(t *testing.T, input string, config *meshconfig.MeshConfig) *plu
 		},
 		Push: &model.PushContext{
 			AuthzPolicies: yamlPolicy(t, basePath+input),
-			Mesh:          config,
+			Mesh:          mc,
 		},
 	}
+	ret.Push.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+		"my-custom-ext-authz.foo.svc.cluster.local": {
+			"foo": &model.Service{
+				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
+			},
+		},
+	}
+	return ret
 }
