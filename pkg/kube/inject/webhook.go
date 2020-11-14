@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
@@ -475,15 +476,33 @@ func applyMetadata(pod *corev1.Pod, injectedPodSpec corev1.PodSpec, req Injectio
 
 // reorderPod ensures containers are properly ordered after merging
 func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
+	var (
+		merr error
+	)
+	mc := &meshconfig.MeshConfig{
+		DefaultConfig: &meshconfig.ProxyConfig{},
+	}
+	// Get copy of pod proxyconfig, to determine container ordering
+	if pca, f := req.pod.ObjectMeta.GetAnnotations()[annotation.ProxyConfig.Name]; f {
+		mc, merr = mesh.ApplyProxyConfig(pca, *req.meshConfig)
+		if merr != nil {
+			return merr
+		}
+	}
+
 	valuesStruct := &opconfig.Values{}
 	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
 		return fmt.Errorf("could not parse configuration values: %v", err)
 	}
-	holdPod := valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
+	holdPod := mc.DefaultConfig.HoldApplicationUntilProxyStarts.GetValue() ||
+		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
+
 	proxyLocation := MoveLast
+	// If HoldApplicationUntilProxyStarts is set, reorder the proxy location
 	if holdPod {
 		proxyLocation = MoveFirst
 	}
+
 	// Proxy container should be last, unless HoldApplicationUntilProxyStarts is set
 	// This is to ensure `kubectl exec` and similar commands continue to default to the user's container
 	pod.Spec.Containers = modifyContainers(pod.Spec.Containers, ProxyContainerName, proxyLocation)

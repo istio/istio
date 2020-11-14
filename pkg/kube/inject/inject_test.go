@@ -199,7 +199,7 @@ func TestInjection(t *testing.T) {
 			want: "hello-probes-proxyHoldApplication-ProxyConfig.yaml.injected",
 		},
 		{
-			// Verifies that HoldApplicationUntilProxyStarts=false in proxyconfig overrides MeshConfig setting
+			// Verifies that HoldApplicationUntilProxyStarts=false in proxyconfig 'OR's with MeshConfig setting
 			in:   "hello-probes-noProxyHoldApplication-ProxyConfig.yaml",
 			want: "hello-probes-noProxyHoldApplication-ProxyConfig.yaml.injected",
 			setFlags: []string{
