@@ -72,7 +72,7 @@ type EndpointBuilder struct {
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
-	svc := push.ServiceForHostnameAndNamespace(proxy, hostname, "")
+	svc := push.ServiceForHostname(proxy, hostname)
 	return EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,

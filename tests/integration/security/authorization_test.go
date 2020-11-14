@@ -22,10 +22,6 @@ import (
 	"testing"
 	"time"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -39,12 +35,17 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/authn"
 	"istio.io/istio/tests/integration/security/util/connection"
 	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
+)
+
+var (
+	// The extAuthzServiceNamespace namespace is used to deploy the sample ext-authz server.
+	extAuthzServiceNamespace    namespace.Instance
+	extAuthzServiceNamespaceErr error
 )
 
 type rootNS struct {
@@ -1267,73 +1268,11 @@ func TestAuthorization_Audit(t *testing.T) {
 		})
 }
 
-func configureExtensionProviders(t *testing.T, ctx framework.TestContext, ns string) {
-	// Get the existing mesh config.
-	systemNs := istio.ClaimSystemNamespaceOrFail(t, ctx)
-	configMap, err := ctx.Clusters().Default().CoreV1().ConfigMaps(systemNs.Name()).Get(context.Background(), "istio", v1.GetOptions{})
-	if err != nil {
-		ctx.Fatalf("Failed to get config map: %v", err)
-	}
-	meshConfig, err := mesh.ReadConfigMap(configMap, "mesh")
-	if err != nil {
-		ctx.Fatalf("Failed to read config map: %v", err)
-	}
-
-	// Create two extension providers using the same ext-authz service, one for HTTP and the other for gRPC ext-authz API.
-	service := fmt.Sprintf("%s/ext-authz.%s.svc.cluster.local", ns, ns)
-	httpProvider := &v1alpha1.MeshConfig_ExtensionProvider{
-		Name: "ext-authz-http",
-		Provider: &v1alpha1.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
-			EnvoyExtAuthzHttp: &v1alpha1.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-				Service:               service,
-				Port:                  8000,
-				PathPrefix:            "/check",
-				IncludeHeadersInCheck: []string{"x-ext-authz"},
-			},
-		},
-	}
-	grpcProvider := &v1alpha1.MeshConfig_ExtensionProvider{
-		Name: "ext-authz-grpc",
-		Provider: &v1alpha1.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
-			EnvoyExtAuthzGrpc: &v1alpha1.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
-				Service: service,
-				Port:    9000,
-			},
-		},
-	}
-
-	// Update the mesh config.
-	meshConfig.ExtensionProviders = []*v1alpha1.MeshConfig_ExtensionProvider{httpProvider, grpcProvider}
-	configMap.Data["mesh"], err = protomarshal.ToYAML(meshConfig)
-	if err != nil {
-		ctx.Fatalf("Failed to marshal mesh config: %v", err)
-	}
-	if _, err := ctx.Clusters().Default().CoreV1().ConfigMaps(systemNs.Name()).Update(
-		context.Background(), configMap, v1.UpdateOptions{}); err != nil {
-		ctx.Fatalf("Failed to update config map: %v", err)
-	}
-
-	// Restart istiod to make sure the change to istiod is ready for the following tests.
-	err = ctx.Clusters().Default().CoreV1().Pods(systemNs.Name()).DeleteCollection(
-		context.Background(), kube.DeleteOptionsForeground(), v1.ListOptions{LabelSelector: "app=istiod"})
-	if err != nil {
-		ctx.Fatalf("Failed to restart istiod after mesh config update: %v", err)
-	}
-	if _, err := kube.WaitUntilPodsAreReady(
-		kube.NewPodFetch(ctx.Clusters().Default(), systemNs.Name(), "app=istiod")); err != nil {
-		ctx.Fatalf("Wait for istiod restart failed: %v", err)
-	}
-}
-
 // TestAuthorization_Custom tests that the CUSTOM action with the sample ext_authz server.
 func TestAuthorization_Custom(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.custom").
 		Run(func(ctx framework.TestContext) {
-			nsExtServer := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "v1beta1-custom-ext-server",
-				Inject: true,
-			})
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-custom",
 				Inject: true,
@@ -1345,12 +1284,13 @@ func TestAuthorization_Custom(t *testing.T) {
 				return policy
 			}
 
-			// Configure mesh config to add the definition of the ext-authz server.
-			configureExtensionProviders(t, ctx, nsExtServer.Name())
 			// Deploy and wait for the ext-authz server to be ready.
-			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", nsExtServer)
-			defer ctx.Config().DeleteYAMLOrFail(t, nsExtServer.Name(), extAuthzServer...)
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), nsExtServer.Name(), "ext-authz"); err != nil {
+			if extAuthzServiceNamespace == nil {
+				ctx.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
+			}
+			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace)
+			defer ctx.Config().DeleteYAMLOrFail(t, extAuthzServiceNamespace.Name(), extAuthzServer...)
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
 				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
 

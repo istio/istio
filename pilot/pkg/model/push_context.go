@@ -660,14 +660,10 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	return out
 }
 
-// ServiceForHostnameAndNamespace returns the service associated with a given hostname in the given namespace following SidecarScope
-func (ps *PushContext) ServiceForHostnameAndNamespace(proxy *Proxy, hostname host.Name, namespace string) *Service {
+// ServiceForHostname returns the service associated with a given hostname following SidecarScope
+func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
 	if proxy != nil && proxy.SidecarScope != nil {
 		return proxy.SidecarScope.servicesByHostname[hostname]
-	}
-
-	if namespace != "" {
-		return ps.ServiceIndex.HostnameAndNamespace[hostname][namespace]
 	}
 
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,

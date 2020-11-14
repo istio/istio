@@ -197,7 +197,7 @@ func parseService(in *plugin.InputParams, service string, port int) (hostname st
 	}
 
 	namespace, name := parts[0], parts[1]
-	if svc := in.Push.ServiceForHostnameAndNamespace(in.Node, host.Name(name), namespace); svc != nil {
+	if svc := in.Push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
 		// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
 		hostname = string(svc.Hostname)
 		cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
