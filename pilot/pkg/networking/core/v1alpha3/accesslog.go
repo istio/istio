@@ -285,7 +285,7 @@ func buildTCPGrpcAccessLog(isListener bool) *accesslog.AccessLog {
 		},
 	}
 
-	filter := &accesslog.AccessLogFilter{}
+	var filter *accesslog.AccessLogFilter
 	if isListener {
 		filter = addAccessLogFiler()
 	}
