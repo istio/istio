@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -39,6 +40,12 @@ import (
 	"istio.io/istio/tests/integration/security/util/authn"
 	"istio.io/istio/tests/integration/security/util/connection"
 	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
+)
+
+var (
+	// The extAuthzServiceNamespace namespace is used to deploy the sample ext-authz server.
+	extAuthzServiceNamespace    namespace.Instance
+	extAuthzServiceNamespaceErr error
 )
 
 type rootNS struct {
@@ -1256,6 +1263,75 @@ func TestAuthorization_Audit(t *testing.T) {
 
 			policy := applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+
+			rbacUtil.RunRBACTest(ctx, cases)
+		})
+}
+
+// TestAuthorization_Custom tests that the CUSTOM action with the sample ext_authz server.
+func TestAuthorization_Custom(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.custom").
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-custom",
+				Inject: true,
+			})
+			args := map[string]string{"Namespace": ns.Name()}
+			applyYAML := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				return policy
+			}
+
+			// Deploy and wait for the ext-authz server to be ready.
+			if extAuthzServiceNamespace == nil {
+				ctx.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
+			}
+			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace)
+			defer ctx.Config().DeleteYAMLOrFail(t, extAuthzServiceNamespace.Name(), extAuthzServer...)
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
+				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
+			}
+
+			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+
+			var a, b, c echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				BuildOrFail(t)
+
+			newTestCase := func(target echo.Instance, path string, header string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					Headers:       map[string]string{"x-ext-authz": header},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			// Path "/custom" is protected by ext-authz service and is accessible with the header `x-ext-authz: allow`.
+			// Path "/health" is not protected and is accessible to public.
+			cases := []rbacUtil.TestCase{
+				newTestCase(b, "/custom", "allow", true),
+				newTestCase(b, "/custom", "deny", false),
+				newTestCase(b, "/health", "allow", true),
+				newTestCase(b, "/health", "deny", true),
+
+				newTestCase(c, "/custom", "allow", true),
+				newTestCase(c, "/custom", "deny", false),
+				newTestCase(c, "/health", "allow", true),
+				newTestCase(c, "/health", "deny", true),
+			}
 
 			rbacUtil.RunRBACTest(ctx, cases)
 		})

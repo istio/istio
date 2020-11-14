@@ -24,7 +24,6 @@ import (
 	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -52,7 +51,7 @@ type Builder struct {
 
 	// populated when building for CUSTOM action.
 	customPolicies []model.AuthorizationPolicy
-	extensions     []*meshconfig.MeshConfig_ExtensionProvider
+	extensions     map[string]*builtExtAuthz
 
 	// populated when building for ALLOW/DENY/AUDIT action.
 	denyPolicies  []model.AuthorizationPolicy
@@ -72,9 +71,13 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 			authzLog.Debugf("No CUSTOM policy for workload %v in %s", workload, namespace)
 			return nil
 		}
+		extAuthzExtensions, err := processExtensionProvider(in)
+		if err != nil {
+			authzLog.Errorf("Failed to process extension provider: %v", err)
+		}
 		return &Builder{
 			customPolicies:    policies.Custom,
-			extensions:        in.Push.Mesh.ExtensionProviders,
+			extensions:        extAuthzExtensions,
 			trustDomainBundle: trustDomainBundle,
 			option:            option,
 		}
@@ -207,7 +210,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, providers []string) []*httppb.Htt
 		}
 	}
 
-	extauthz, err := buildExtAuthz(b.extensions, providers)
+	extauthz, err := getExtAuthz(b.extensions, providers)
 	if err != nil {
 		authzLog.Errorf("Failed parsing CUSTOM action, will generate a deny all config: %v", err)
 		rbac := &rbachttppb.RBAC{Rules: rbacDefaultDenyAll}
@@ -247,7 +250,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, providers []string) []*tcppb.Filte
 		}
 	}
 
-	if extauthz, err := buildExtAuthz(b.extensions, providers); err != nil {
+	if extauthz, err := getExtAuthz(b.extensions, providers); err != nil {
 		authzLog.Errorf("Failed parsing CUSTOM action, will generate a deny all config: %v", err)
 		rbac := &rbactcppb.RBAC{Rules: rbacDefaultDenyAll, StatPrefix: authzmodel.RBACTCPFilterStatPrefix}
 		return []*tcppb.Filter{
