@@ -27,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -160,7 +159,7 @@ func containerRestarted(pod corev1.Pod, container string) bool {
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodLogs(r resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodLogs(_ resource.Context, c resource.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
 	for _, pod := range pods {
@@ -260,8 +259,8 @@ func checkIfVM(pod corev1.Pod) bool {
 	return false
 }
 
-func DumpNdsz(ctx resource.Context, c resource.Cluster, workDir string, namespace string, pods ...corev1.Pod) {
-	cp, istiod, err := getControlPlane(ctx, c)
+func DumpNdsz(_ resource.Context, c resource.Cluster, workDir string, _ string, pods ...corev1.Pod) {
+	cp, istiod, err := getControlPlane(c)
 	if err != nil {
 		scopes.Framework.Errorf("failed dumping ndsz: %v", err)
 		return
@@ -293,12 +292,9 @@ func dumpDebug(cp resource.Cluster, istiodPod corev1.Pod, endpoint string) (stri
 	return out, nil
 }
 
-func getControlPlane(ctx resource.Context, cluster resource.Cluster) (resource.Cluster, corev1.Pod, error) {
+func getControlPlane(cluster resource.Cluster) (resource.Cluster, corev1.Pod, error) {
 	// fetch istiod from the control-plane cluster
-	cp, err := ctx.Environment().(*kube.Environment).GetControlPlaneCluster(cluster)
-	if err != nil {
-		return nil, corev1.Pod{}, err
-	}
+	cp := cluster.Primary()
 	// TODO use namespace from framework
 	istiodPods, err := cp.PodsForSelector(context.TODO(), "istio-system", "istio=pilot")
 	if err != nil {
