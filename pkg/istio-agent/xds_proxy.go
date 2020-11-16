@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"math"
 	"net"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -411,6 +412,14 @@ func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
 	if agent.secOpts.ProvCert != "" {
 		key = path.Join(agent.secOpts.ProvCert, constants.KeyFilename)
 		cert = path.Join(path.Join(agent.secOpts.ProvCert, constants.CertChainFilename))
+
+		// CSR may not have completed – use JWT to auth.
+		if _, err := os.Stat(key); os.IsNotExist(err) {
+			return "", ""
+		}
+		if _, err := os.Stat(cert); os.IsNotExist(err) {
+			return "", ""
+		}
 	} else if agent.secOpts.FileMountedCerts {
 		key = agent.proxyConfig.ProxyMetadata[MetadataClientCertKey]
 		cert = agent.proxyConfig.ProxyMetadata[MetadataClientCertChain]
