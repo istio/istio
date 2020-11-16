@@ -48,8 +48,52 @@ func TestRateLimiting(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
+			yaml, err := setupEnvoyFilter(ctx, "testdata/enable_envoy_ratelimit.yaml")
+			if err != nil {
+				t.Fatalf("Could not setup envoy filter patches.")
+			}
+			defer cleanupEnvoyFilter(ctx, yaml)
+
+			// TODO(gargnupur): Figure out a way to query, envoy is ready to talk to rate limit service.
+			// Also, change to use mock rate limit and redis service.
+			time.Sleep(time.Second * 60)
+
 			if !sendTrafficAndCheckIfRatelimited(t) {
-				t.Errorf("No request received StatusTooMantRequest Error.")
+				t.Errorf("No request received StatusTooManyRequest Error.")
+			}
+		})
+}
+
+func TestLocalRateLimiting(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ratelimit.envoy").
+		Run(func(ctx framework.TestContext) {
+			yaml, err := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit.yaml")
+			if err != nil {
+				t.Fatalf("Could not setup envoy filter patches.")
+			}
+			defer cleanupEnvoyFilter(ctx, yaml)
+
+			if !sendTrafficAndCheckIfRatelimited(t) {
+				t.Errorf("No request received StatusTooManyRequest Error.")
+			}
+		})
+}
+
+func TestLocalRouteSpecificRateLimiting(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ratelimit.envoy").
+		Run(func(ctx framework.TestContext) {
+			yaml, err := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
+			if err != nil {
+				t.Fatalf("Could not setup envoy filter patches.")
+			}
+			defer cleanupEnvoyFilter(ctx, yaml)
+
+			if !sendTrafficAndCheckIfRatelimited(t) {
+				t.Errorf("No request received StatusTooManyRequest Error.")
 			}
 		})
 }
@@ -129,15 +173,11 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	// TODO(gargnupur): Figure out a way to query, envoy is ready to talk to rate limit service.
-	// Also, change to use mock rate limit and redis service.
-	time.Sleep(time.Second * 60)
-
 	return nil
 }
 
-func setupEnvoyFilter(ctx resource.Context) error {
-	content, err := ioutil.ReadFile("testdata/enable_envoy_ratelimit.yaml")
+func setupEnvoyFilter(ctx resource.Context, file string) (string, error) {
+	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
 	}
