@@ -125,30 +125,17 @@ var (
 	// Description: Host defined in VirtualService not found in Gateway.
 	VirtualServiceHostNotFoundInGateway = diag.NewMessageType(diag.Warning, "IST0132", "one or more host %v defined in VirtualService %s not found in Gateway %s.")
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 	// SchemaWarning defines a diag.MessageType for message "SchemaWarning".
 	// Description: The resource has a schema validation warning.
 	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
-=======
-	// ServiceEntryProtocolAndAddressesEmpty defines a diag.MessageType for message "ServiceEntryProtocolAndAddressesEmpty".
-<<<<<<< HEAD
-	// Description: Addresses and Protocol is Empty in ServiceEntry.
-	ServiceEntryProtocolAndAddressesEmpty = diag.NewMessageType(diag.Warning, "IST0133", "one or more Protocol empty in ServiceEntry %s with Addresses Empty.")
->>>>>>> Init service entry analyzer, add analyze for empty protocol and addresses
-=======
-	// Description: Addresses and Protocol is empty in ServiceEntry.
-	ServiceEntryProtocolAndAddressesEmpty = diag.NewMessageType(diag.Warning, "IST0133", "missing Protocol and Addresses.")
->>>>>>> Refactor Service Entry Analyzer to pass linting
-=======
+
 	// ServiceEntryMissingAddressesAndProtocol defines a diag.MessageType for message "ServiceEntryMissingAddressesAndProtocol".
 	// Description: missing Addresses and Protocol in ServiceEntry, which can lead to undefined behavior.
-	ServiceEntryMissingAddressesAndProtocol = diag.NewMessageType(diag.Warning, "IST0133", "missing Addresses and Protocol, which can lead to undefined behavior.")
+	ServiceEntryMissingAddressesAndProtocol = diag.NewMessageType(diag.Warning, "IST0134", "missing Addresses and Protocol, which can lead to undefined behavior.")
 
 	// ServiceEntryMissingAddressesAndProtocolTCP defines a diag.MessageType for message "ServiceEntryMissingAddressesAndProtocolTCP".
 	// Description: missing Addresses with Protocol TCP in ServiceEntry, which can lead to undefined behavior.
-	ServiceEntryMissingAddressesAndProtocolTCP = diag.NewMessageType(diag.Warning, "IST0134", "missing Addresses with Protocol TCP, which can lead to undefined behavior.")
->>>>>>> Refactor Service Entry Analyzer, add TCP protocol analyzer
+	ServiceEntryMissingAddressesAndProtocolTCP = diag.NewMessageType(diag.Warning, "IST0135", "missing Addresses with Protocol TCP, which can lead to undefined behavior.")
 )
 
 // All returns a list of all known message types.
@@ -183,16 +170,9 @@ func All() []*diag.MessageType {
 		VirtualServiceUnreachableRule,
 		VirtualServiceIneffectiveMatch,
 		VirtualServiceHostNotFoundInGateway,
-<<<<<<< HEAD
-<<<<<<< HEAD
 		SchemaWarning,
-=======
-		ServiceEntryProtocolAndAddressesEmpty,
->>>>>>> Init service entry analyzer, add analyze for empty protocol and addresses
-=======
 		ServiceEntryMissingAddressesAndProtocol,
 		ServiceEntryMissingAddressesAndProtocolTCP,
->>>>>>> Refactor Service Entry Analyzer, add TCP protocol analyzer
 	}
 }
 
@@ -499,5 +479,21 @@ func NewSchemaWarning(r *resource.Instance, err error) diag.Message {
 		SchemaWarning,
 		r,
 		err,
+	)
+}
+
+// NewServiceEntryMissingAddressesAndProtocol returns a new diag.Message based on ServiceEntryMissingAddressesAndProtocol.
+func NewServiceEntryMissingAddressesAndProtocol(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		ServiceEntryMissingAddressesAndProtocol,
+		r,
+	)
+}
+
+// NewServiceEntryMissingAddressesAndProtocolTCP returns a new diag.Message based on ServiceEntryMissingAddressesAndProtocolTCP.
+func NewServiceEntryMissingAddressesAndProtocolTCP(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		ServiceEntryMissingAddressesAndProtocolTCP,
+		r,
 	)
 }

@@ -348,3 +348,14 @@ messages:
       - name: err
         type: error
 
+  - name: "ServiceEntryMissingAddressesAndProtocol"
+    code: IST0134
+    level: Warning
+    description: "missing Addresses and Protocol in ServiceEntry, which can lead to undefined behavior."
+    template: "missing Addresses and Protocol, which can lead to undefined behavior."
+
+  - name: "ServiceEntryMissingAddressesAndProtocolTCP"
+    code: IST0135
+    level: Warning
+    description: "missing Addresses with Protocol TCP in ServiceEntry, which can lead to undefined behavior."
+    template: "missing Addresses with Protocol TCP, which can lead to undefined behavior."
