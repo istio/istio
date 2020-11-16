@@ -7,8 +7,6 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 
-RUN chown -R istio-proxy /var/lib/istio
-
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 FROM gcr.io/howardjohn-istio/distroless:iptables as distroless
 
