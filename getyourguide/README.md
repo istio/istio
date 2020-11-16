@@ -22,8 +22,7 @@
     -   All proxies without `REQUESTED_NETWORK_VIEW` set will see all networks. Proxies with `REQUESTED_NETWORK_VIEW` configured will only see the local network plus the ones explicitly defined.
 
 ```shell
-docker build -t sre/istio-sidecar-injector -f getyourguide/pilot.dockerfile .
-docker tag sre/istio-pilot:latest 130607246975.dkr.ecr.eu-central-1.amazonaws.com/sre/istio-pilot:1.1.8-patched
+docker build -t 130607246975.dkr.ecr.eu-central-1.amazonaws.com/sre/istio-pilot:1.1.8-patched -f getyourguide/pilot.dockerfile .
 docker push 130607246975.dkr.ecr.eu-central-1.amazonaws.com/sre/istio-pilot:1.1.8-patched
 ```
 
