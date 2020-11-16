@@ -216,9 +216,7 @@ data:
     injectedAnnotations:
 
     template: |
-      {{- $holdProxyPC := boolValueOrDefault .ProxyConfig.HoldApplicationUntilProxyStarts "" }}
-      {{- $holdProxyMC := .Values.global.proxy.holdApplicationUntilProxyStarts }}
-      {{- $holdProxy := valueOrDefault $holdProxyPC $holdProxyMC }}
+      {{- $holdProxy := or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts }}
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
       {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
