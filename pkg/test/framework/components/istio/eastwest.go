@@ -84,6 +84,9 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 		"--set", "values.global.imagePullPolicy=" + imgSettings.PullPolicy,
 		"-f", iopFile,
 	}
+	if revision != "" {
+		installSettings = append(installSettings, "--revision", revision)
+	}
 	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
 	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
