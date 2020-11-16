@@ -2337,6 +2337,30 @@ func checkValidation(t *testing.T, gotWarning Warning, gotError error, valid boo
 	}
 }
 
+func stringOrEmpty(v error) string {
+	if v == nil {
+		return ""
+	}
+	return v.Error()
+}
+
+func checkValidationMessage(t *testing.T, gotWarning Warning, gotError error, wantWarning string, wantError string) {
+	t.Helper()
+	if (gotError == nil) != (wantError == "") {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+	if !strings.Contains(stringOrEmpty(gotError), wantError) {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+
+	if (gotWarning == nil) != (wantWarning == "") {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
+	}
+	if !strings.Contains(stringOrEmpty(gotWarning), wantWarning) {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
+	}
+}
+
 func TestValidateDestinationRule(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -2800,9 +2824,10 @@ func TestValidateOutlierDetection(t *testing.T) {
 
 func TestValidateEnvoyFilter(t *testing.T) {
 	tests := []struct {
-		name  string
-		in    proto.Message
-		error string
+		name    string
+		in      proto.Message
+		error   string
+		warning string
 	}{
 		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
 
@@ -3062,7 +3087,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 										Fields: map[string]*types.Value{
 											"@type": {
 												Kind: &types.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
+													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
 												},
 											},
 										},
@@ -3072,6 +3097,40 @@ func TestValidateEnvoyFilter(t *testing.T) {
 						},
 					},
 				},
+				{
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Name: "envoy.tcp_proxy",
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"typed_config": {
+									Kind: &types.Value_StructValue{StructValue: &types.Struct{
+										Fields: map[string]*types.Value{
+											"@type": {
+												Kind: &types.Value_StringValue{
+													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+												},
+											},
+										},
+									}},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: ""},
+		{name: "deprecated config", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
 					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
@@ -3103,24 +3162,18 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: ""},
+		}, error: "", warning: "envoyfilter using deprecated type_url"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ValidateEnvoyFilter(config.Config{
+			warn, err := ValidateEnvoyFilter(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
 				Spec: tt.in,
 			})
-			if err == nil && tt.error != "" {
-				t.Fatalf("ValidateEnvoyFilter(%v) = nil, wanted %q", tt.in, tt.error)
-			} else if err != nil && tt.error == "" {
-				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.error) {
-				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted %q", tt.in, err, tt.error)
-			}
+			checkValidationMessage(t, warn, err, tt.warning, tt.error)
 		})
 	}
 }

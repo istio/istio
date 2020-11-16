@@ -25,9 +25,15 @@ import (
 	"strings"
 	"time"
 
+	udpaa "github.com/cncf/udpa/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -658,14 +664,74 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			} else {
 				// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
 				// We do not want to reject in case the proto is valid but our libraries are outdated
-				if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, true); err != nil {
+				obj, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, true)
+				if err != nil {
 					errs = appendValidation(errs, WrapWarning(err))
 				}
+
+				// Append any deprecation notices
+				errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
 			}
 		}
 
 		return errs.Unwrap()
 	})
+
+func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
+	var topError error
+	var deprecatedTypes []string
+	if message == nil {
+		return nil, nil
+	}
+	message.Range(func(descriptor protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+		m, isMessage := value.Interface().(protoreflect.Message)
+		if isMessage {
+			anyMessage, isAny := m.Interface().(*any.Any)
+			if isAny {
+				mt, err := protoregistry.GlobalTypes.FindMessageByURL(anyMessage.TypeUrl)
+				if err != nil {
+					topError = err
+					return false
+				}
+				var fileOpts proto.Message = mt.Descriptor().ParentFile().Options().(*descriptorpb.FileOptions)
+				if proto.HasExtension(fileOpts, udpaa.E_FileStatus) {
+					ext, err := proto.GetExtension(fileOpts, udpaa.E_FileStatus)
+					if err != nil {
+						topError = err
+						return false
+					}
+					udpaext, ok := ext.(*udpaa.StatusAnnotation)
+					if !ok {
+						topError = fmt.Errorf("extension was of wrong type: %T", ext)
+						return false
+					}
+					if udpaext.PackageVersionStatus == udpaa.PackageVersionStatus_FROZEN {
+						deprecatedTypes = append(deprecatedTypes, anyMessage.TypeUrl)
+					}
+				}
+			}
+			newTypes, err := recurseDeprecatedTypes(m)
+			if err != nil {
+				topError = err
+				return false
+			}
+			deprecatedTypes = append(deprecatedTypes, newTypes...)
+		}
+		return true
+	})
+	return deprecatedTypes, topError
+}
+
+func validateDeprecatedFilterTypes(obj proto.Message) error {
+	deprecated, err := recurseDeprecatedTypes(proto.MessageReflect(obj))
+	if err != nil {
+		return fmt.Errorf("failed to find deprecated types: %v", err)
+	}
+	if len(deprecated) > 0 {
+		return WrapWarning(fmt.Errorf("envoyfilter using deprecated type_url(s); %v", strings.Join(deprecated, ", ")))
+	}
+	return nil
+}
 
 // validates that hostname in ns/<hostname> is a valid hostname according to
 // API specs
