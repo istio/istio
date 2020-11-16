@@ -63,7 +63,7 @@ type instance struct {
 }
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {
-	cfg := originalCfg
+	cfg := originalCfg.DeepCopy()
 	// Fill in defaults for any missing values.
 	common.AddPortIfMissing(&cfg, protocol.GRPC)
 	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
