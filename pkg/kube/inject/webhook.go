@@ -681,28 +681,11 @@ type InjectionParameters struct {
 func injectPod(req InjectionParameters) ([]byte, error) {
 	pod := req.pod
 
-	applyMetadata(pod, injectedPodSpec, req)
-
 	if err := reorderPod(pod, req); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func applyMetadata(pod *corev1.Pod, injectedPodSpec corev1.PodSpec, req InjectionParameters) {
-	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, req.deployMeta.Name)
-	setIfUnset(pod.Labels, label.TLSMode, model.IstioMutualTLSModeLabel)
-	setIfUnset(pod.Labels, model.IstioCanonicalServiceLabelName, canonicalSvc)
-	setIfUnset(pod.Labels, label.IstioRev, req.revision)
-	setIfUnset(pod.Labels, model.IstioCanonicalServiceRevisionLabelName, canonicalRev)
-
-	// Add all additional injected annotations. These are overridden if needed
-	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodSpec, req.version)
-	for k, v := range req.injectedAnnotations {
-		pod.Annotations[k] = v
-	}
-
 }
 
 // reorderPod ensures containers are properly ordered after merging
@@ -744,26 +727,6 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveLast)
 	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveLast)
 
-	return nil
-}
-
-func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
-	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
-		return fmt.Errorf("could not parse configuration values: %v", err)
-	}
-
-	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
-	sidecar := FindSidecar(pod.Spec.Containers)
-
-	// We don't have to escape json encoding here when using golang libraries.
-	if rewrite && sidecar != nil {
-		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
-			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
-		}
-		patchRewriteProbe(pod.Annotations, pod, req.meshConfig.GetDefaultConfig().GetStatusPort())
-	}
 	return nil
 }
 
