@@ -138,7 +138,10 @@ func (c Config) HostHeader() string {
 
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
-	return copyInternal(c).(Config)
+	newc := copyInternal(c).(Config)
+	newc.Cluster = c.Cluster
+	newc.Namespace = c.Namespace
+	return newc
 }
 
 func copyInternal(v interface{}) interface{} {
