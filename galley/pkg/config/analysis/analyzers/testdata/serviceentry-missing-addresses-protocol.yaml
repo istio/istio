@@ -37,7 +37,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: service-entry-test-03 # Expected: validation error addresses and protocol empty
+  name: service-entry-test-03 # Expected: validation error missing addresses and protocol
   namespace: default
 spec:
   hosts:
@@ -53,7 +53,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: service-entry-test-04 # Expected: validation error addresses and protocol empty
+  name: service-entry-test-04 # Expected: validation error missing addresses and protocol
   namespace: default
 spec:
   hosts:

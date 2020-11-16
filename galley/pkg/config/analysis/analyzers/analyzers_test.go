@@ -433,14 +433,24 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "Protocol and Addresses empty in Service Entry",
+		name: "missing Addresses and Protocol in Service Entry",
 		inputFiles: []string{
-			"testdata/serviceentry-empty-protocol-addresses.yaml",
+			"testdata/serviceentry-missing-addresses-protocol.yaml",
 		},
 		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
 		expected: []message{
-			{msg.ServiceEntryProtocolAndAddressesEmpty, "ServiceEntry service-entry-test-03.default"},
-			{msg.ServiceEntryProtocolAndAddressesEmpty, "ServiceEntry service-entry-test-04.default"},
+			{msg.ServiceEntryMissingAddressesAndProtocol, "ServiceEntry service-entry-test-03.default"},
+			{msg.ServiceEntryMissingAddressesAndProtocol, "ServiceEntry service-entry-test-04.default"},
+		},
+	},
+	{
+		name: "missing Addresses and Protocol TCP in Service Entry",
+		inputFiles: []string{
+			"testdata/serviceentry-missing-addresses-protocol-tcp.yaml",
+		},
+		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryMissingAddressesAndProtocolTCP, "ServiceEntry service-entry-test-03.default"},
 		},
 	},
 }

@@ -126,6 +126,7 @@ var (
 	VirtualServiceHostNotFoundInGateway = diag.NewMessageType(diag.Warning, "IST0132", "one or more host %v defined in VirtualService %s not found in Gateway %s.")
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 	// SchemaWarning defines a diag.MessageType for message "SchemaWarning".
 	// Description: The resource has a schema validation warning.
 	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
@@ -139,6 +140,15 @@ var (
 	// Description: Addresses and Protocol is empty in ServiceEntry.
 	ServiceEntryProtocolAndAddressesEmpty = diag.NewMessageType(diag.Warning, "IST0133", "missing Protocol and Addresses.")
 >>>>>>> Refactor Service Entry Analyzer to pass linting
+=======
+	// ServiceEntryMissingAddressesAndProtocol defines a diag.MessageType for message "ServiceEntryMissingAddressesAndProtocol".
+	// Description: missing Addresses and Protocol in ServiceEntry, which can lead to undefined behavior.
+	ServiceEntryMissingAddressesAndProtocol = diag.NewMessageType(diag.Warning, "IST0133", "missing Addresses and Protocol, which can lead to undefined behavior.")
+
+	// ServiceEntryMissingAddressesAndProtocolTCP defines a diag.MessageType for message "ServiceEntryMissingAddressesAndProtocolTCP".
+	// Description: missing Addresses with Protocol TCP in ServiceEntry, which can lead to undefined behavior.
+	ServiceEntryMissingAddressesAndProtocolTCP = diag.NewMessageType(diag.Warning, "IST0134", "missing Addresses with Protocol TCP, which can lead to undefined behavior.")
+>>>>>>> Refactor Service Entry Analyzer, add TCP protocol analyzer
 )
 
 // All returns a list of all known message types.
@@ -174,10 +184,15 @@ func All() []*diag.MessageType {
 		VirtualServiceIneffectiveMatch,
 		VirtualServiceHostNotFoundInGateway,
 <<<<<<< HEAD
+<<<<<<< HEAD
 		SchemaWarning,
 =======
 		ServiceEntryProtocolAndAddressesEmpty,
 >>>>>>> Init service entry analyzer, add analyze for empty protocol and addresses
+=======
+		ServiceEntryMissingAddressesAndProtocol,
+		ServiceEntryMissingAddressesAndProtocolTCP,
+>>>>>>> Refactor Service Entry Analyzer, add TCP protocol analyzer
 	}
 }
 
