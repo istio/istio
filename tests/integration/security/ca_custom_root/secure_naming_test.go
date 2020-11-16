@@ -105,6 +105,10 @@ func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").
 		Run(func(ctx framework.TestContext) {
+			//TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
+			if ctx.Clusters().IsMulticluster() {
+				ctx.Skip()
+			}
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "secure-naming",
