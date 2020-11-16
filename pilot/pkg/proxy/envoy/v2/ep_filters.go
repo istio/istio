@@ -39,6 +39,8 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 		network = ""
 	}
 
+	networkView := model.GetNetworkView(conn.modelNode)
+
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
@@ -75,6 +77,12 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				}
 				lbEndpoints = append(lbEndpoints, lbEp)
 			} else {
+				// Only send endpoints from the networks in the network view requested by the proxy.
+				// The default network view assigned to the Proxy is "" (UnnamedNetwork), in that case match any network if only contains it in the list.
+				if !networkView[model.UnnamedNetwork] && !networkView[epNetwork] {
+					// Endpoint's network doesn't match the set of networks that the proxy wants to see.
+					continue
+				}
 				// Remote endpoint. Increase the weight counter
 				remoteEps[epNetwork]++
 			}
