@@ -7,6 +7,6 @@ issue:
 
 releaseNotes:
 - |
-  **Added** `holdProxyUntilApplicationStarts` can now be set in ProxyConfig, 
-  allowing it to be set at the pod level. Pod level setting has precedence over
-  the MeshConfig global value setting.
+  **Added** `holdApplicationUntilProxyStarts` can now be set in ProxyConfig, 
+  allowing it to be set at the pod level. Should not be used in conjunction with
+  the deprecated `values.global.proxy.holdApplicationUntilProxyStarts` value.
