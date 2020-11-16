@@ -104,7 +104,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 					log.Errorf("failed to delete configuration: %v", err)
 				}
 			})
-			for _, clients := range []echo.Instances{apps.A, apps.B, apps.Headless, apps.Naked, apps.HeadlessNaked} {
+			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {
 					ctx.NewSubTest(fmt.Sprintf("%s in %s",
 						client.Config().Service, client.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
