@@ -335,6 +335,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return first
 	}
 
+	reason := make([]TriggerReason, 0, len(first.Reason)+len(other.Reason))
+	reason = append(reason, first.Reason...)
+	reason = append(reason, other.Reason...)
 	merged := &PushRequest{
 		// Keep the first (older) start time
 		Start: first.Start,
@@ -346,7 +349,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Push: other.Push,
 
 		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
-		Reason: append(first.Reason, other.Reason...),
+		Reason: reason,
 	}
 
 	// Do not merge when any one is empty
