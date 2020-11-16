@@ -78,7 +78,6 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 	installSettings := []string{
 		"--istioNamespace", i.settings.SystemNamespace,
 		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
-		"--revision", revision,
 		"--set", "hub=" + imgSettings.Hub,
 		"--set", "tag=" + imgSettings.Tag,
 		"--set", "values.global.imagePullPolicy=" + imgSettings.PullPolicy,
@@ -87,6 +86,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 	if revision != "" {
 		installSettings = append(installSettings, "--revision", revision)
 	}
+
 	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
 	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
