@@ -290,7 +290,7 @@ type client struct {
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
-func newClientInternal(clientFactory util.Factory, revision string, extended bool) (*client, error) {
+func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
 	var c client
 	var err error
 
@@ -301,20 +301,18 @@ func newClientInternal(clientFactory util.Factory, revision string, extended boo
 		return nil, err
 	}
 
-	if extended {
-		c.revision = revision
+	c.revision = revision
 
-		c.restClient, err = clientFactory.RESTClient()
-		if err != nil {
-			return nil, err
-		}
-
-		c.discoveryClient, err = clientFactory.ToDiscoveryClient()
-		if err != nil {
-			return nil, err
-		}
-		c.mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(c.discoveryClient))
+	c.restClient, err = clientFactory.RESTClient()
+	if err != nil {
+		return nil, err
 	}
+
+	c.discoveryClient, err = clientFactory.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+	c.mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(c.discoveryClient))
 
 	c.Interface, err = kubernetes.NewForConfig(c.config)
 	c.kube = c.Interface
@@ -360,12 +358,12 @@ func newClientInternal(clientFactory util.Factory, revision string, extended boo
 // NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
 func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
-	return newClientInternal(newClientFactory(clientConfig), revision, true)
+	return newClientInternal(newClientFactory(clientConfig), revision)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
 func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig), "", true)
+	return newClientInternal(newClientFactory(clientConfig), "")
 }
 
 func (c *client) RESTConfig() *rest.Config {
