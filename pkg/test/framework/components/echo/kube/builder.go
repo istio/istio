@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
@@ -83,24 +82,15 @@ func (b *builder) BuildOrFail(t test.Failer) echo.Instances {
 }
 
 func (b *builder) newInstances() ([]echo.Instance, error) {
+	// TODO consider making this parallel. This was attempted but had issues with concurrent writes
+	// it should be possible though.
 	instances := make([]echo.Instance, 0, len(b.configs))
-	g := errgroup.Group{}
-	mu := sync.Mutex{}
 	for _, cfg := range b.configs {
-		cfg := cfg
-		g.Go(func() error {
-			inst, err := newInstance(b.ctx, cfg)
-			if err != nil {
-				return err
-			}
-			mu.Lock()
-			instances = append(instances, inst)
-			mu.Unlock()
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return nil, err
+		inst, err := newInstance(b.ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		instances = append(instances, inst)
 	}
 	return instances, nil
 }
