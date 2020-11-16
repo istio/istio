@@ -107,6 +107,12 @@ spec:
           value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}},"/app-health/world/livez":{"httpGet":{"port":90}}}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - pilot-agent
+              - wait
         name: istio-proxy
         ports:
         - containerPort: 15090
