@@ -640,6 +640,9 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 									continue
 								}
 							}
+
+							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetName()))
+							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetSubFilter().GetName()))
 						}
 					}
 				}
@@ -676,6 +679,13 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 
 		return errs.Unwrap()
 	})
+
+func validateListenerMatchName(name string) error {
+	if newName, f := xds.ReverseDeprecatedFilterNames[name]; f {
+		return WrapWarning(fmt.Errorf("using deprecated filter name %q; use %q instead", name, newName))
+	}
+	return nil
+}
 
 func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 	var topError error
@@ -728,7 +738,7 @@ func validateDeprecatedFilterTypes(obj proto.Message) error {
 		return fmt.Errorf("failed to find deprecated types: %v", err)
 	}
 	if len(deprecated) > 0 {
-		return WrapWarning(fmt.Errorf("envoyfilter using deprecated type_url(s); %v", strings.Join(deprecated, ", ")))
+		return WrapWarning(fmt.Errorf("using deprecated type_url(s); %v", strings.Join(deprecated, ", ")))
 	}
 	return nil
 }
