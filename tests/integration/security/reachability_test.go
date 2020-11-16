@@ -59,10 +59,8 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-permissive.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls from naked->VM since naked has no Envoy
-						// so k8s is responsible for DNS resolution
-						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
-						return !apps.IsNaked(opts.Target) && !(apps.IsNaked(src) && apps.VM.Contains(opts.Target))
+						// Exclude calls to naked since we are applying ISTIO_MUTUAL
+						return !apps.IsNaked(opts.Target)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -72,8 +70,7 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-off.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls from naked->VM.
-						return !(apps.IsNaked(src) && apps.VM.Contains(opts.Target))
+						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -131,13 +128,6 @@ func TestReachability(t *testing.T) {
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if apps.IsHeadless(opts.Target) && opts.PortName == "tcp" {
-							return false
-						}
-
-						// Exclude calls from naked->VM since naked has no Envoy
-						// so k8s is responsible for DNS resolution
-						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
-						if apps.IsNaked(src) && apps.VM.Contains(opts.Target) {
 							return false
 						}
 
