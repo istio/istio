@@ -42,8 +42,8 @@ func TestProxyTracing(t *testing.T) {
 
 			for _, cl := range ctx.Clusters() {
 				clName := cl.Name()
-				if clName == "cluster-3" {
-					// TODO: Skipping cluster-3 as per https://github.com/istio/istio/issues/28890
+				if clName == "cluster-3" || clName == "cluster-4" {
+					// TODO: Skipping cluster-3 and cluster-4 as per https://github.com/istio/istio/issues/28890
 					continue
 				}
 				retry.UntilSuccessOrFail(t, func() error {
