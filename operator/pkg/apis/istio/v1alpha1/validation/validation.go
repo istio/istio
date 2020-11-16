@@ -95,7 +95,7 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 		{"Values.global.proxy.envoyAccessLogService.enabled", "meshConfig.enableEnvoyAccessLogService", nil},
 		{"Values.global.proxy.envoyMetricsService", "meshConfig.defaultConfig.envoyMetricsService", nil},
 		{"Values.global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
-		{"Values.global.proxy.holdApplicationUntilProxyStarts", "ProxyConfig holdApplicationUntilProxyStarts", nil},		
+		{"Values.global.proxy.holdApplicationUntilProxyStarts", "ProxyConfig holdApplicationUntilProxyStarts", nil},
 		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},
 		{"Values.global.mtls.enabled", "the PeerAuthentication resource", nil},
 		{"Values.global.mtls.auto", "meshConfig.enableAutoMtls", nil},
