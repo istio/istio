@@ -411,18 +411,20 @@ func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.Sec
 	}
 	// TODO: use the common init !
 	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
-	cs, err := kube.CreateClientset("", "")
-	if err != nil {
-		log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-		os.Exit(1)
+	if !sa.secOpts.FileMountedCerts {
+		cs, err := kube.CreateClientset("", "")
+		if err != nil {
+			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+			os.Exit(1)
+		}
+
+		gSecretFetcher.FallbackSecretName = "gateway-fallback"
+
+		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
+
+		gatewaySecretChan = make(chan struct{})
+		gSecretFetcher.Run(gatewaySecretChan)
 	}
-
-	gSecretFetcher.FallbackSecretName = "gateway-fallback"
-
-	gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
-
-	gatewaySecretChan = make(chan struct{})
-	gSecretFetcher.Run(gatewaySecretChan)
 	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
 	return gatewaySecretCache
 }

@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+releaseNotes:
+- |
+  **Fixed** when proxy is configured with FILE_MOUNTED_CERTS, gateway secret fetcher is not run.
