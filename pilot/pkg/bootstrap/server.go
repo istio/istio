@@ -232,18 +232,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 
-	// Parse and validate Istiod Address.
-	istiodHost, _, err := e.GetDiscoveryAddress()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.initControllers(args); err != nil {
-		return nil, err
-	}
-
-	s.initJwtPolicy()
-
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
 		TrustDomain:      s.environment.Mesh().TrustDomain,
@@ -254,6 +242,18 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// CA signing certificate must be created first if needed.
 	if err := s.maybeCreateCA(caOpts); err != nil {
+		return nil, err
+	}
+
+	if err := s.initControllers(args); err != nil {
+		return nil, err
+	}
+
+	s.initJwtPolicy()
+
+	// Parse and validate Istiod Address.
+	istiodHost, _, err := e.GetDiscoveryAddress()
+	if err != nil {
 		return nil, err
 	}
 
