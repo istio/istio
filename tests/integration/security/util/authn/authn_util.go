@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/test/echo/common/response"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -66,6 +68,9 @@ func (c *TestCase) CheckAuthn() error {
 				return fmt.Errorf("%s: expect header %s=%s in body, got response\n%s", c, k, v, results[0].Body)
 			}
 		}
+	}
+	if c.ExpectResponseCode == response.StatusCodeOK && c.Request.DestClusters.IsMulticluster() {
+		return results.CheckReachedClusters(c.Request.DestClusters)
 	}
 	return nil
 }

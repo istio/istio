@@ -27,6 +27,10 @@ import (
 const (
 	ASvc             = "a"
 	BSvc             = "b"
+	CSvc             = "c"
+	DSvc             = "d"
+	ESvc             = "e"
+	FSvc             = "f"
 	MultiversionSvc  = "multiversion"
 	VMSvc            = "vm"
 	HeadlessSvc      = "headless"
@@ -38,14 +42,14 @@ const (
 )
 
 type EchoDeployments struct {
-	Namespace     namespace.Instance
-	A, B          echo.Instances
-	Multiversion  echo.Instances
-	Headless      echo.Instances
-	Naked         echo.Instances
-	VM            echo.Instances
-	HeadlessNaked echo.Instances
-	All           echo.Instances
+	Namespace1       namespace.Instance
+	A, B, C, D, E, F echo.Instances
+	Multiversion     echo.Instances
+	Headless         echo.Instances
+	Naked            echo.Instances
+	VM               echo.Instances
+	HeadlessNaked    echo.Instances
+	All              echo.Instances
 }
 
 func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations, cluster resource.Cluster) echo.Config {
@@ -89,8 +93,8 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 
 func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, buildVM bool) error {
 	var err error
-	apps.Namespace, err = namespace.New(ctx, namespace.Config{
-		Prefix: "reachability",
+	apps.Namespace1, err = namespace.New(ctx, namespace.Config{
+		Prefix: "test-ns",
 		Inject: true,
 	})
 	if err != nil {
@@ -99,7 +103,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	builder := echoboot.NewBuilder(ctx)
 	for _, cluster := range ctx.Clusters() {
 		// Multi-version specific setup
-		cfg := EchoConfig(MultiversionSvc, apps.Namespace, false, nil, cluster)
+		cfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil, cluster)
 		cfg.Subsets = []echo.SubsetConfig{
 			// Istio deployment, with sidecar.
 			{
@@ -112,20 +116,24 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			},
 		}
 		builder.
-			With(nil, EchoConfig(ASvc, apps.Namespace, false, nil, cluster)).
-			With(nil, EchoConfig(BSvc, apps.Namespace, false, nil, cluster)).
+			With(nil, EchoConfig(ASvc, apps.Namespace1, false, nil, cluster)).
+			With(nil, EchoConfig(BSvc, apps.Namespace1, false, nil, cluster)).
+			With(nil, EchoConfig(CSvc, apps.Namespace1, false, nil, cluster)).
+			With(nil, EchoConfig(DSvc, apps.Namespace1, false, nil, cluster)).
+			With(nil, EchoConfig(ESvc, apps.Namespace1, false, nil, cluster)).
+			With(nil, EchoConfig(FSvc, apps.Namespace1, false, nil, cluster)).
 			With(nil, cfg).
-			With(nil, EchoConfig(NakedSvc, apps.Namespace, false, echo.NewAnnotations().
+			With(nil, EchoConfig(NakedSvc, apps.Namespace1, false, echo.NewAnnotations().
 				SetBool(echo.SidecarInject, false), cluster))
 	}
 	for _, c := range ctx.Clusters().ByNetwork() {
 		// VM specific setup
-		vmCfg := EchoConfig(VMSvc, apps.Namespace, false, nil, c[0])
+		vmCfg := EchoConfig(VMSvc, apps.Namespace1, false, nil, c[0])
 		// for test cases that have `buildVM` off, vm will function like a regular pod
 		vmCfg.DeployAsVM = buildVM
 		builder.With(nil, vmCfg)
-		builder.With(nil, EchoConfig(HeadlessSvc, apps.Namespace, true, nil, c[0]))
-		builder.With(nil, EchoConfig(HeadlessNakedSvc, apps.Namespace, true, echo.NewAnnotations().
+		builder.With(nil, EchoConfig(HeadlessSvc, apps.Namespace1, true, nil, c[0]))
+		builder.With(nil, EchoConfig(HeadlessNakedSvc, apps.Namespace1, true, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), c[0]))
 	}
 	echos, err := builder.Build()
@@ -135,6 +143,10 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	apps.All = echos
 	apps.A = echos.Match(echo.Service(ASvc))
 	apps.B = echos.Match(echo.Service(BSvc))
+	apps.C = echos.Match(echo.Service(CSvc))
+	apps.D = echos.Match(echo.Service(DSvc))
+	apps.E = echos.Match(echo.Service(ESvc))
+	apps.F = echos.Match(echo.Service(FSvc))
 	apps.Multiversion = echos.Match(echo.Service(MultiversionSvc))
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
