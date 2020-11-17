@@ -159,7 +159,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	go kubeRegistry.Run(stopCh)
-	if features.ExternalIstioD || features.CentralIstioD || firstCluster {
+	if m.fetchCaRoot() != nil && (features.ExternalIstioD || features.CentralIstioD || firstCluster) {
 		// TODO remove initNamespaceController (and probably need leader election here? how will that work with multi-primary?)
 		leaderelection.
 			NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
