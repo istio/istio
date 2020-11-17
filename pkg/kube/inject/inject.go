@@ -40,7 +40,6 @@ import (
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -593,7 +592,11 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 	if err != nil {
 		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
 	}
-	sic.HoldApplicationUntilProxyStarts, _, _ = unstructured.NestedBool(data.Values, "global", "proxy", "holdApplicationUntilProxyStarts")
+
+	// nolint: staticcheck
+	sic.HoldApplicationUntilProxyStarts = meshConfig.DefaultConfig.HoldApplicationUntilProxyStarts.GetValue() ||
+		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
+
 	return &sic, string(statusAnnotationValue), nil
 }
 
