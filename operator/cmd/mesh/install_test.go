@@ -59,5 +59,5 @@ func TestInstallValidRevision(t *testing.T) {
 	rootCmd.SetErr(&out)
 
 	err := rootCmd.Execute()
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(err).Should(gomega.BeNil())
 }
