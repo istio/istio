@@ -508,7 +508,7 @@ func (s *DiscoveryServer) Clients() []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
 	clients := make([]*Connection, 0, len(s.adsClients))
-	for _, con := range clients {
+	for _, con := range s.adsClients {
 		clients = append(clients, con)
 	}
 	return clients
