@@ -339,15 +339,15 @@ func setupDashboardTest(t framework.TestContext) {
 			}).
 			BuildOrFail(t)
 	}
-	for _, ing := range ingr {
-		// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
-		// Spread out over 5s so rate() queries will behave correctly
-		g, _ := errgroup.WithContext(context.Background())
-		tcpAddr := ing.TCPAddress()
-		ticker := time.NewTicker(time.Second * 5)
-		for t := 0; t < 20; t++ {
-			<-ticker.C
-			g.Go(func() error {
+	// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
+	// Spread out over 20s so rate() queries will behave correctly
+	g, _ := errgroup.WithContext(context.Background())
+	ticker := time.NewTicker(time.Second)
+	for t := 0; t < 20; t++ {
+		<-ticker.C
+		g.Go(func() error {
+			for _, ing := range ingr {
+				tcpAddr := ing.TCPAddress()
 				for i := 0; i < 10; i++ {
 					_, err := ing.CallEcho(echo.CallOptions{
 						Port: &echo.Port{
@@ -366,7 +366,7 @@ func setupDashboardTest(t framework.TestContext) {
 				}
 				_, err := ing.CallEcho(echo.CallOptions{
 					Port: &echo.Port{
-						Protocol:    protocol.HTTP,
+						Protocol:    protocol.TCP,
 						ServicePort: tcpAddr.Port,
 					},
 					Address: tcpAddr.IP.String(),
@@ -380,12 +380,12 @@ func setupDashboardTest(t framework.TestContext) {
 					// These calls are not under tests, the dashboards are, so we can be leniant here
 					log.Warnf("requests failed: %v", err)
 				}
-				return nil
-			})
-		}
-		if err := g.Wait(); err != nil {
-			t.Fatalf("ingress call failed: %v", err)
-		}
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		t.Fatalf("ingress call failed: %v", err)
 	}
 }
 
