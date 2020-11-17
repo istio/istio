@@ -233,7 +233,8 @@ dockerx:
 		BASE_VERSION=$(BASE_VERSION) \
 		DOCKERX_PUSH=$(DOCKERX_PUSH) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
-	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
+		{ docker logs buildx_buildkit_container-builder0; exit 1; }
 
 # Support individual images like `dockerx.pilot`
 dockerx.%:
