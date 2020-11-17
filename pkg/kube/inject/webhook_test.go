@@ -698,11 +698,20 @@ func createTestWebhookFromFile(templateFile string, t *testing.T) *Webhook {
 	if err := yaml.Unmarshal(util.ReadFile(templateFile, t), injectConfig); err != nil {
 		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
 	}
+	valuesConfig := &struct {
+		Values string `json:"values"`
+	}{}
+	if err := yaml.Unmarshal(util.ReadFile(templateFile, t), valuesConfig); err != nil {
+		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
+	}
+	if valuesConfig.Values == "" {
+		valuesConfig.Values = "{}"
+	}
 	m := mesh.DefaultMeshConfig()
 	return &Webhook{
 		Config:       injectConfig,
 		meshConfig:   &m,
-		valuesConfig: "{}",
+		valuesConfig: valuesConfig.Values,
 	}
 }
 
