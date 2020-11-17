@@ -717,15 +717,12 @@ func (s *DiscoveryServer) adsClientCount() int {
 func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	var connection *Connection
 
-	s.adsClientsMutex.RLock()
-	for _, v := range s.adsClients {
+	for _, v := range s.Clients() {
 		if v.proxy.Metadata.ClusterID == clusterID && v.proxy.IPAddresses[0] == ip {
 			connection = v
 			break
 		}
-
 	}
-	s.adsClientsMutex.RUnlock()
 
 	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
 	if connection == nil {
@@ -789,14 +786,13 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	s.adsClientsMutex.RLock()
 
 	// Create a temp map to avoid locking the add/remove
-	pending := make([]*Connection, 0, len(s.adsClients))
-	for _, v := range s.adsClients {
+	clients := s.Clients()
+	pending := make([]*Connection, 0, len(clients))
+	for _, v := range clients {
 		pending = append(pending, v)
 	}
-	s.adsClientsMutex.RUnlock()
 
 	if adsLog.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
