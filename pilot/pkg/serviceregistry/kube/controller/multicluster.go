@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -52,8 +53,13 @@ type kubeController struct {
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
+	// serverID of this pilot instance used for leader election
+	serverID string
+
+	// options to use when creating kube controllers
 	opts Options
 
+	// client for reading remote-secrets to initialize multicluster registries
 	client kubernetes.Interface
 
 	serviceController *aggregate.Controller
@@ -77,6 +83,7 @@ type Multicluster struct {
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
 func NewMulticluster(
+	serverID string,
 	kc kubernetes.Interface,
 	secretNamespace string,
 	opts Options,
@@ -93,6 +100,7 @@ func NewMulticluster(
 		log.Info("Resync time was configured to 0, resetting to 30")
 	}
 	mc := &Multicluster{
+		serverID:              serverID,
 		opts:                  opts,
 		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
@@ -127,14 +135,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	m.serviceController.AddRegistry(kubeRegistry)
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
-
-	if len(m.remoteKubeControllers) == 1 {
-		// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
-		if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
-			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-		}
-	}
+	firstCluster := len(m.remoteKubeControllers) == 1
 
 	m.m.Unlock()
 
@@ -148,13 +149,31 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler)
 	}
 
+	if firstCluster {
+		// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
+		if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
+			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
+			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+		}
+	}
+
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	go kubeRegistry.Run(stopCh)
-	if m.fetchCaRoot != nil {
-		log.Infof("initializing namespace controller for cluster %s", clusterID)
+	if features.ExternalIstioD || features.CentralIstioD || firstCluster {
 		// TODO remove initNamespaceController (and probably need leader election here? how will that work with multi-primary?)
-		nc := NewNamespaceController(m.fetchCaRoot, client)
-		go nc.Run(stopCh)
+		leaderelection.
+			NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				log.Infof("starting namespace controller for cluster %s", clusterID)
+				nc := NewNamespaceController(m.fetchCaRoot, client)
+				// Start informers again. This fixes the case where informers for namespace do not start,
+				// as we create them only after acquiring the leader lock
+				// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+				// basically lazy loading the informer, if we stop it when we lose the lock we will never
+				// recreate it again.
+				client.RunAndWait(stopCh)
+				nc.Run(leaderStop)
+			}).Run(stopCh)
 	}
 
 	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)

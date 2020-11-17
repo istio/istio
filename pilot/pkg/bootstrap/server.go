@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
@@ -310,8 +309,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Start CA or RA server. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
-
-	s.initNamespaceController(args)
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
@@ -1021,29 +1018,6 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
 	return nil
-}
-
-// initNamespaceController initializes namespace controller to sync config map.
-func (s *Server) initNamespaceController(args *PilotArgs) {
-	if s.CA != nil && s.kubeClient != nil {
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient.Kube()).
-				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("Starting namespace controller")
-					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, s.kubeClient)
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after acquiring the leader lock
-					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-					// basically lazy loading the informer, if we stop it when we lose the lock we will never
-					// recreate it again.
-					s.kubeClient.RunAndWait(stop)
-					nc.Run(leaderStop)
-				}).
-				Run(stop)
-			return nil
-		})
-	}
 }
 
 // initJwtPolicy initializes JwtPolicy.

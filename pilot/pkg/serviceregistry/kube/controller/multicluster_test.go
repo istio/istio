@@ -87,7 +87,9 @@ func Test_KubeSecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stop)
 	})
-	mc := NewMulticluster(clientset,
+	mc := NewMulticluster(
+		"pilot-abc-123",
+		clientset,
 		testSecretNameSpace,
 		Options{
 			WatchedNamespaces: WatchedNamespaces,

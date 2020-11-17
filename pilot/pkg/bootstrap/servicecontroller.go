@@ -17,7 +17,6 @@ package bootstrap
 import (
 	"fmt"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -77,23 +76,14 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 
-	// other (remote) clusters will need to patch their webhook cert to allow external access
-	var (
-		caBundlePath string
-		fetchCARoot  func() map[string]string
-	)
-	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
-		caBundlePath = s.caBundlePath
-		fetchCARoot = s.fetchCARoot
-	}
-
-	mc := kubecontroller.NewMulticluster(s.kubeClient,
+	mc := kubecontroller.NewMulticluster(args.PodName,
+		s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
 		s.ServiceController(),
 		s.serviceEntryStore,
-		caBundlePath,
-		fetchCARoot,
+		s.caBundlePath,
+		s.fetchCARoot,
 		s.environment)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
