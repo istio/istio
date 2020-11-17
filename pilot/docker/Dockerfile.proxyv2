@@ -16,6 +16,8 @@ FROM gcr.io/istio-release/iptables@sha256:8601b3cb13984e375d9a9a85687f23c88bc798
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 
+WORKDIR /
+
 ARG proxy_version
 ARG istio_version
 ARG SIDECAR=envoy
