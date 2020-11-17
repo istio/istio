@@ -209,7 +209,6 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 		}
 		allFiles = append(allFiles, files...)
 	}
-	allFiles = append(allFiles, filepath.Join(manifestDir, "global.yaml"))
 	for _, f := range allFiles {
 		b, err := ioutil.ReadFile(f)
 		if err != nil {
