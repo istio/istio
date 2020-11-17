@@ -32,7 +32,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 
 		// SDS requires Kubernetes 1.13
