@@ -264,6 +264,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 			Subsets: []echo.SubsetConfig{{
 				Version: "v1",
 			}},
+			Cluster: ctx.Clusters().Default(),
 		}).
 		With(&externalServer, echo.Config{
 			Service:   "server",
@@ -298,6 +299,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				Version:     "v1",
 				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 			}},
+			Cluster: ctx.Clusters().Default(),
 		}).
 		BuildOrFail(t)
 
