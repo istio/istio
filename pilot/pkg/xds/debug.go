@@ -444,7 +444,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
-		_, _ = fmt.Fprintf(w, "Pushed to %d servers", len(s.Clients()))
+		_, _ = fmt.Fprintf(w, "Pushed to %d servers", s.adsClientCount())
 		return
 	}
 
