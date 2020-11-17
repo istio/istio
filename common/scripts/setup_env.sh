@@ -69,7 +69,7 @@ export UID
 DOCKER_GID=$(grep '^docker:' /etc/group | cut -f3 -d:)
 export DOCKER_GID
 
-TIMEZONE=$(readlink $readlink_flags /etc/localtime | sed -e 's/^.*zoneinfo\///')
+TIMEZONE=$(readlink "$readlink_flags" /etc/localtime | sed -e 's/^.*zoneinfo\///')
 export TIMEZONE
 
 export TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}_${TARGET_ARCH}}"
