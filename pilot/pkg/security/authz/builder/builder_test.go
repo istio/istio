@@ -44,6 +44,21 @@ var (
 		"app":     "httpbin",
 		"version": "v1",
 	}
+	meshConfigGRPCNoNamespace = &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "default",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
+					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
+						Service:       "my-custom-ext-authz.foo.svc.cluster.local",
+						Port:          9000,
+						FailOpen:      true,
+						StatusOnError: "403",
+					},
+				},
+			},
+		},
+	}
 	meshConfigGRPC = &meshconfig.MeshConfig{
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
@@ -107,6 +122,12 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "path",
 			input: "path-in.yaml",
 			want:  []string{"path-out.yaml"},
+		},
+		{
+			name:       "action-custom-grpc-provider-no-namespace",
+			meshConfig: meshConfigGRPCNoNamespace,
+			input:      "action-custom-in.yaml",
+			want:       []string{"action-custom-grpc-provider-out1.yaml", "action-custom-grpc-provider-out2.yaml"},
 		},
 		{
 			name:       "action-custom-grpc-provider",
