@@ -194,6 +194,19 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			// Verifies that HoldApplicationUntilProxyStarts in proxyconfig sets lifecycle hook
+			in:   "hello-probes-proxyHoldApplication-ProxyConfig.yaml",
+			want: "hello-probes-proxyHoldApplication-ProxyConfig.yaml.injected",
+		},
+		{
+			// Verifies that HoldApplicationUntilProxyStarts=false in proxyconfig 'OR's with MeshConfig setting
+			in:   "hello-probes-noProxyHoldApplication-ProxyConfig.yaml",
+			want: "hello-probes-noProxyHoldApplication-ProxyConfig.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
+		{
 			// A test with no pods is not relevant for webhook
 			in:          "hello-service.yaml",
 			want:        "hello-service.yaml.injected",

@@ -955,7 +955,9 @@ message ProxyConfig {
   TypeMapStringInterface lifecycle = 36;
 
   // Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
-  google.protobuf.BoolValue holdApplicationUntilProxyStarts = 37;
+  //
+  // Deprecated: replaced by ProxyConfig setting which allows per-pod configuration of this behavior.
+  google.protobuf.BoolValue holdApplicationUntilProxyStarts = 37 [deprecated=true];
 }
 
 // Specifies which tracer to use.

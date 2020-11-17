@@ -1,0 +1,12 @@
+
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 27696
+
+releaseNotes:
+- |
+  **Added** `holdApplicationUntilProxyStarts` can now be set in ProxyConfig, 
+  allowing it to be set at the pod level. Should not be used in conjunction with
+  the deprecated `values.global.proxy.holdApplicationUntilProxyStarts` value.

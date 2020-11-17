@@ -216,6 +216,7 @@ data:
     injectedAnnotations:
 
     template: |
+      {{- $holdProxy := or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts }}
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
       {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
@@ -388,7 +389,7 @@ data:
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
-      {{- else if .Values.global.proxy.holdApplicationUntilProxyStarts}}
+      {{- else if $holdProxy }}
         lifecycle:
           postStart:
             exec:
