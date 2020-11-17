@@ -28,12 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/telemetry"
 	"istio.io/istio/tests/integration/telemetry/tracing"
-)
-
-var (
-	traceHeader = "x-client-trace-id"
 )
 
 // TestClientTracing exercises the trace generation features of Istio, based on the Envoy Trace driver for zipkin using
@@ -44,26 +39,37 @@ func TestClientTracing(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.tracing.client").
 		Run(func(ctx framework.TestContext) {
-			bookinfoNsInst := tracing.GetBookinfoNamespaceInstance()
-			ingress := tracing.GetIngressInstance()
-			// Send test traffic with a trace header.
-			id := uuid.NewV4().String()
-			addr := ingress.HTTPAddress()
-			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			extraHeader := fmt.Sprintf("%s: %s", traceHeader, id)
+			appNsInst := tracing.GetAppNamespace()
 
-			retry.UntilSuccessOrFail(t, func() error {
-				util.SendTraffic(ingress, t, "Sending traffic", url, extraHeader, 1)
-				traces, err := tracing.GetZipkinInstance().QueryTraces(100,
-					fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()), fmt.Sprintf("guid:x-client-trace-id=%s", id))
-				if err != nil {
-					return fmt.Errorf("cannot get traces from zipkin: %v", err)
+			for _, cl := range ctx.Clusters() {
+				clName := cl.Name()
+				if clName == "cluster-3" || clName == "cluster-4" {
+					// TODO: Skipping cluster-3 and cluster-4 as per https://github.com/istio/istio/issues/28890
+					continue
 				}
-				if !tracing.VerifyBookinfoTraces(t, bookinfoNsInst.Name(), traces) {
-					return errors.New("cannot find expected traces")
-				}
-				return nil
-			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+				t.Logf("Verifying for cluster %s", clName)
+				retry.UntilSuccessOrFail(t, func() error {
+					// Send test traffic with a trace header.
+					id := uuid.NewV4().String()
+					extraHeader := map[string][]string{
+						tracing.TraceHeader: {id},
+					}
+					err := tracing.SendTraffic(t, extraHeader, cl)
+					if err != nil {
+						return fmt.Errorf("cannot send traffic from cluster %s: %v", clName, err)
+					}
+					traces, err := tracing.GetZipkinInstance().QueryTraces(100,
+						fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
+					if err != nil {
+						return fmt.Errorf("cannot get traces from zipkin: %v", err)
+					}
+					if !tracing.VerifyEchoTraces(t, appNsInst.Name(), clName, traces) {
+						return errors.New("cannot find expected traces")
+					}
+					return nil
+
+				}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+			}
 		})
 }
 
@@ -75,7 +81,7 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(_ resource.Context, cfg *istio.Config) {
+func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}

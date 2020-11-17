@@ -16,14 +16,14 @@
 package security
 
 import (
+	"fmt"
 	"testing"
-
-	"istio.io/istio/pkg/test/framework/resource"
-
-	"istio.io/istio/tests/integration/security/util"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 var (
@@ -41,16 +41,35 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(_ resource.Context, cfg *istio.Config) {
+func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.ControlPlaneValues = `
+
+	// Create the namespace instance ahead of time so that it can be used in the mesh config.
+	extAuthzServiceNamespace, extAuthzServiceNamespaceErr = namespace.New(ctx, namespace.Config{
+		Prefix: "test-ns-ext-authz-service",
+		Inject: true,
+	})
+	service := fmt.Sprintf("%s/ext-authz.%s.svc.cluster.local", extAuthzServiceNamespace.Name(), extAuthzServiceNamespace.Name())
+
+	cfg.ControlPlaneValues = fmt.Sprintf(`
 meshConfig:
   accessLogEncoding: JSON
   accessLogFile: /dev/stdout
   defaultConfig:
     gatewayTopology:
       numTrustedProxies: 1
-`
+  extensionProviders:
+  - name: "ext-authz-http"
+    envoyExtAuthzHttp:
+      service: %q
+      port: 8000
+      pathPrefix: "/check"
+      includeHeadersInCheck: ["x-ext-authz"]
+  - name: "ext-authz-grpc"
+    envoyExtAuthzGrpc:
+      service: %q
+      port: 9000
+`, service, service)
 }

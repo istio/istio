@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -83,7 +82,7 @@ func TestReachability(t *testing.T) {
 				},
 				{
 					ConfigFile: "beta-per-port-mtls.yaml",
-					Namespace:  apps.Namespace,
+					Namespace:  apps.Namespace1,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Include all tests that target app B, which has the single-port config.
 						return apps.B.Contains(opts.Target)
@@ -95,7 +94,7 @@ func TestReachability(t *testing.T) {
 				},
 				{
 					ConfigFile: "beta-mtls-automtls.yaml",
-					Namespace:  apps.Namespace,
+					Namespace:  apps.Namespace1,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -107,11 +106,10 @@ func TestReachability(t *testing.T) {
 						}
 						return true
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "beta-mtls-partial-automtls.yaml",
-					Namespace:  apps.Namespace,
+					Namespace:  apps.Namespace1,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
@@ -126,7 +124,6 @@ func TestReachability(t *testing.T) {
 						// will fail on all ports on b, except http port.
 						return !apps.B.Contains(opts.Target) || opts.PortName == "http"
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "global-plaintext.yaml",
@@ -157,7 +154,7 @@ func TestReachability(t *testing.T) {
 				// for sidecar migration scenario.
 				{
 					ConfigFile: "automtls-partial-sidecar-dr-no-tls.yaml",
-					Namespace:  apps.Namespace,
+					Namespace:  apps.Namespace1,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -177,11 +174,10 @@ func TestReachability(t *testing.T) {
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "automtls-partial-sidecar-dr-disable.yaml",
-					Namespace:  apps.Namespace,
+					Namespace:  apps.Namespace1,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -202,11 +198,10 @@ func TestReachability(t *testing.T) {
 						// Only the request to legacy one succeeds as we disable mtls explicitly.
 						return opts.Path == "/vlegacy"
 					},
-					SkippedForMulticluster: true,
 				},
 				{
 					ConfigFile: "automtls-partial-sidecar-dr-mutual.yaml",
-					Namespace:  apps.Namespace,
+					Namespace:  apps.Namespace1,
 					CallOpts: []echo.CallOptions{
 						{
 							PortName: "http",
@@ -227,7 +222,6 @@ func TestReachability(t *testing.T) {
 						// Only the request to vistio one succeeds as we enable mtls explicitly.
 						return opts.Path == "/vistio"
 					},
-					SkippedForMulticluster: true,
 				},
 				// ----- end of automtls partial test suites -----
 			}

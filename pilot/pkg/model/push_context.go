@@ -208,7 +208,8 @@ type PushContext struct {
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkGateways map[string][]*Gateway
 
-	initDone atomic.Bool
+	initDone        atomic.Bool
+	initializeMutex sync.Mutex
 }
 
 // Gateway is the gateway of a network
@@ -222,6 +223,8 @@ type Gateway struct {
 type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
 	hosts []host.Name
+	// Map of dest rule hosts.
+	hostsMap map[host.Name]struct{}
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
@@ -333,6 +336,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return first
 	}
 
+	reason := make([]TriggerReason, 0, len(first.Reason)+len(other.Reason))
+	reason = append(reason, first.Reason...)
+	reason = append(reason, other.Reason...)
 	merged := &PushRequest{
 		// Keep the first (older) start time
 		Start: first.Start,
@@ -344,7 +350,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Push: other.Push,
 
 		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
-		Reason: append(first.Reason, other.Reason...),
+		Reason: reason,
 	}
 
 	// Do not merge when any one is empty
@@ -758,7 +764,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
-				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hosts); ok {
+				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hostsMap,
+				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hosts,
+			); ok {
 				return ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].destRule[hostname]
 			}
 		}
@@ -767,7 +775,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.destinationRuleIndex.rootNamespaceLocal.hosts); ok {
+			ps.destinationRuleIndex.rootNamespaceLocal.hostsMap,
+			ps.destinationRuleIndex.rootNamespaceLocal.hosts,
+		); ok {
 			return ps.destinationRuleIndex.rootNamespaceLocal.destRule[hostname]
 		}
 	}
@@ -806,7 +816,10 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *config.Config {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
-		if specificHostname, ok := MostSpecificHostMatch(hostname, ps.destinationRuleIndex.exportedByNamespace[owningNamespace].hosts); ok {
+		if specificHostname, ok := MostSpecificHostMatch(hostname,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].hostsMap,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].hosts,
+		); ok {
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
 			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
@@ -820,7 +833,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	_, ok := MostSpecificHostMatch(service.Hostname, ps.clusterLocalHosts)
+	_, ok := MostSpecificHostMatch(service.Hostname, nil, ps.clusterLocalHosts)
 	return ok
 }
 
@@ -853,6 +866,10 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
+	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
+	// If this does happen, one thread will block then exit early from initDone=true
+	ps.initializeMutex.Lock()
+	defer ps.initializeMutex.Unlock()
 	if ps.initDone.Load() {
 		return nil
 	}

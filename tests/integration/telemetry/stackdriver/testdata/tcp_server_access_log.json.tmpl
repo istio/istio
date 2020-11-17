@@ -1,5 +1,5 @@
 {
-    "text_payload": "clt --> srv",
+    "text_payload": "clt-{{ .ClusterName }} --> srv",
     "labels": {
         "destination_app": "srv",
         "destination_canonical_revision": "v1",
@@ -14,13 +14,13 @@
         "mesh_uid": "proj-test-mesh",
         "response_flag": "-",
         "service_authentication_policy": "MUTUAL_TLS",
-        "source_app": "clt",
+        "source_app": "clt-{{ .ClusterName }}",
         "source_canonical_revision": "v1",
-        "source_canonical_service": "clt",
+        "source_canonical_service": "clt-{{ .ClusterName }}",
         "source_namespace": "{{ .EchoNamespace }}",
         "source_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
         "source_version": "v1",
-        "source_workload": "clt-v1",
+        "source_workload": "clt-{{ .ClusterName }}-v1",
         "protocol": "tcp",
         "log_sampled": "false",
         "requested_server_name": "outbound_.9090_._.srv.{{ .EchoNamespace }}.svc.cluster.local",

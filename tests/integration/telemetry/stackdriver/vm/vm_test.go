@@ -178,7 +178,7 @@ func gotTrafficAssertion(want *edgespb.TrafficAssertion) bool {
 func gotTrace(want *cloudtrace.Trace) bool {
 	traces, err := sdInst.ListTraces()
 	if err != nil {
-		log.Errorf("failed to retreive list of tracespans from stackdriver: %v", err)
+		log.Errorf("failed to retrieve list of tracespans from stackdriver: %v", err)
 		return false
 	}
 

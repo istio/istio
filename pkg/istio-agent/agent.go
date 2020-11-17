@@ -188,7 +188,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	}
 	// If the root-cert is in the old location, use it.
 	if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
-		log.Warna("Using existing certificate ", certDir)
+		log.Warn("Using existing certificate ", certDir)
 		CitadelCACertPath = certDir
 	}
 
@@ -405,7 +405,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		tls := true
 		if strings.HasSuffix(sa.secOpts.CAEndpoint, ":15010") {
 			tls = false
-			log.Warna("Debug mode or IP-secure network")
+			log.Warn("Debug mode or IP-secure network")
 		}
 		if tls {
 			caCertFile := sa.FindRootCAForCA()

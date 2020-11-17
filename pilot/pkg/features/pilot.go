@@ -295,12 +295,6 @@ var (
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
-	EnableIncrementalMCP = env.RegisterBoolVar(
-		"PILOT_ENABLE_INCREMENTAL_MCP",
-		false,
-		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
-			"to true, and then galley may push data incrementally, it depends on whether the "+
-			"resource supports incremental. By default, this is false.").Get()
 	// CentralIstioD will be Deprecated: TODO remove in 1.9 in favor of `ExternalIstioD`
 	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
@@ -400,4 +394,8 @@ var (
 		15*time.Second,
 		"If set, the max amount of time to delay a push by. Depends on PILOT_ENABLE_FLOW_CONTROL.",
 	).Get()
+
+	PilotEnableLoopBlockers = env.RegisterBoolVar("PILOT_ENABLE_LOOP_BLOCKER", true,
+		"If enabled, Envoy will be configured to prevent traffic directly the the inbound/outbound "+
+			"ports (15001/15006). This prevents traffic loops. This option will be removed, and considered always enabled, in 1.9.").Get()
 )

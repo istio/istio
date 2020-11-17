@@ -35,7 +35,7 @@ function set_download_command () {
   # Try curl.
   if command -v curl > /dev/null; then
     if curl --version | grep Protocols  | grep https > /dev/null; then
-      DOWNLOAD_COMMAND='curl -fLSs'
+      DOWNLOAD_COMMAND="curl -fLSs --retry 5 --retry-delay 1 --retry-connrefused"
       return
     fi
     echo curl does not support https, will try wget for downloading files.
@@ -45,7 +45,7 @@ function set_download_command () {
 
   # Try wget.
   if command -v wget > /dev/null; then
-    DOWNLOAD_COMMAND='wget -qO -'
+    DOWNLOAD_COMMAND="wget -qO -"
     return
   fi
   echo wget is not installed.
@@ -66,7 +66,7 @@ function download_envoy_if_necessary () {
     pushd "$(dirname "$2")"
 
     # Download and extract the binary to the output directory.
-    echo "Downloading ${SIDECAR}: ${DOWNLOAD_COMMAND} $1 to $2"
+    echo "Downloading ${SIDECAR}: $1 to $2"
     time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
 
     # Copy the extracted binary to the output location
@@ -96,7 +96,7 @@ function download_wasm_if_necessary () {
     pushd "${download_file_dir}"
 
     # Download the WebAssembly plugin files to the output directory.
-    echo "Downloading WebAssembly file: ${DOWNLOAD_COMMAND} $1 to ${download_file_path}"
+    echo "Downloading WebAssembly file: $1 to ${download_file_path}"
     if [[ ${DOWNLOAD_COMMAND} == curl* ]]; then
       time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -o "${download_file_name}"
     elif [[ ${DOWNLOAD_COMMAND} == wget* ]]; then

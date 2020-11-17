@@ -34,6 +34,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,6 +45,7 @@ import (
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -55,6 +57,7 @@ import (
 	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -89,9 +92,6 @@ type Client interface {
 	kubernetes.Interface
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
-
-	// Rest returns the raw Kubernetes REST client.
-	REST() rest.Interface
 
 	// Ext returns the API extensions client.
 	Ext() kubeExtClient.Interface
@@ -257,12 +257,8 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 type client struct {
 	kubernetes.Interface
 
-	// These may be set only when creating an extended client. TODO: remove this entirely
 	clientFactory util.Factory
-	restClient    *rest.RESTClient
-	revision      string
-
-	config *rest.Config
+	config        *rest.Config
 
 	extSet        kubeExtClient.Interface
 	versionClient discovery.ServerVersionInterface
@@ -285,6 +281,12 @@ type client struct {
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
+
+	// These may be set only when creating an extended client.
+	revision        string
+	restClient      *rest.RESTClient
+	discoveryClient discovery.CachedDiscoveryInterface
+	mapper          meta.RESTMapper
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -293,6 +295,12 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	var err error
 
 	c.clientFactory = clientFactory
+
+	c.config, err = clientFactory.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	c.revision = revision
 
 	c.restClient, err = clientFactory.RESTClient()
@@ -300,10 +308,11 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 		return nil, err
 	}
 
-	c.config, err = clientFactory.ToRESTConfig()
+	c.discoveryClient, err = clientFactory.ToDiscoveryClient()
 	if err != nil {
 		return nil, err
 	}
+	c.mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(c.discoveryClient))
 
 	c.Interface, err = kubernetes.NewForConfig(c.config)
 	c.kube = c.Interface
@@ -360,10 +369,6 @@ func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
 func (c *client) RESTConfig() *rest.Config {
 	cpy := *c.config
 	return &cpy
-}
-
-func (c *client) REST() rest.Interface {
-	return c.restClient
 }
 
 func (c *client) Ext() kubeExtClient.Interface {
@@ -818,21 +823,14 @@ func (c *client) UtilFactory() util.Factory {
 	return c.clientFactory
 }
 
+// TODO once we drop Kubernetes 1.15 support we can drop all of this code in favor of Server Side Apply
+// Following https://ymmt2005.hatenablog.com/entry/2020/04/14/An_example_of_using_dynamic_client_of_k8s.io/client-go
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
-	dynamicClient, err := c.clientFactory.DynamicClient()
-	if err != nil {
-		return err
-	}
-	discoveryClient, err := c.clientFactory.ToDiscoveryClient()
-	if err != nil {
-		return err
-	}
-
 	// Create the options.
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
 	opts := apply.NewApplyOptions(streams)
-	opts.DynamicClient = dynamicClient
-	opts.DryRunVerifier = resource.NewDryRunVerifier(dynamicClient, discoveryClient)
+	opts.DynamicClient = c.dynamic
+	opts.DryRunVerifier = resource.NewDryRunVerifier(c.dynamic, c.discoveryClient)
 	opts.FieldManager = fieldManager
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
@@ -858,22 +856,20 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 
 	opts.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
 	opts.DeleteOptions = &kubectlDelete.DeleteOptions{
-		DynamicClient:   dynamicClient,
+		DynamicClient:   c.dynamic,
 		IOStreams:       streams,
 		FilenameOptions: opts.DeleteFlags.FileNameFlags.ToOptions(),
 	}
 
 	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
 
+	var err error
 	opts.Validator, err = c.clientFactory.Validator(true)
 	if err != nil {
 		return err
 	}
 	opts.Builder = c.clientFactory.NewBuilder()
-	opts.Mapper, err = c.clientFactory.ToRESTMapper()
-	if err != nil {
-		return err
-	}
+	opts.Mapper = c.mapper
 
 	opts.PostProcessorFn = opts.PrintAndPrunePostProcessor()
 
@@ -917,14 +913,6 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 		Filenames: []string{file},
 	}
 
-	dynamicClient, err := c.clientFactory.DynamicClient()
-	if err != nil {
-		return err
-	}
-	discoveryClient, err := c.clientFactory.ToDiscoveryClient()
-	if err != nil {
-		return err
-	}
 	opts := kubectlDelete.DeleteOptions{
 		FilenameOptions:  fileOpts,
 		Cascade:          true,
@@ -932,8 +920,8 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 		IgnoreNotFound:   true,
 		WaitForDeletion:  true,
 		WarnClusterScope: enforceNamespace,
-		DynamicClient:    dynamicClient,
-		DryRunVerifier:   resource.NewDryRunVerifier(dynamicClient, discoveryClient),
+		DynamicClient:    c.dynamic,
+		DryRunVerifier:   resource.NewDryRunVerifier(c.dynamic, c.discoveryClient),
 		IOStreams:        streams,
 	}
 	if dryRun {
@@ -957,10 +945,7 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 	}
 	opts.Result = r
 
-	opts.Mapper, err = c.clientFactory.ToRESTMapper()
-	if err != nil {
-		return err
-	}
+	opts.Mapper = c.mapper
 
 	if err := opts.RunDelete(c.clientFactory); err != nil {
 		// Concatenate the stdout and stderr

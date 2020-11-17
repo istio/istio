@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 27994
+
+releaseNotes:
+  - |
+    **Added** support of PeerAuthentication per-port-level configuration on pass through filter chains.
+
+upgradeNotes:
+  - title: PeerAuthentication per-port-level configuration will now also apply to pass through filter chains.
+    content: |
+      Previously the PeerAuthentication per-port-level configuration is ignored if the port number is not defined in a
+      service and the traffic will be handled by a pass through filter chain. Now the per-port-level setting will be
+      supported even if the port number is not defined in a service, a special pass through filter chain will be added
+      to respect the corresponidng per-port-level mTLS specification.
+      Pleae check your PeerAuthentication to make sure you are not using the per-port-level configuration on pass through
+      filter chains, it was not a supported feature and you should update your PeerAuthentication accordingly if you are
+      currently relying on the unsupported behavior before the upgrade.
+      You don't need to do anything if you are not using per-port-level PeerAuthentication on pass through filter chains.

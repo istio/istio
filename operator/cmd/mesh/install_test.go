@@ -23,7 +23,7 @@ import (
 
 func TestInstallEmptyRevision(t *testing.T) {
 	g := gomega.NewWithT(t)
-	args := []string{"install", "--revision", ""}
+	args := []string{"install", "--dry-run", "--revision", ""}
 	rootCmd := GetRootCmd(args)
 	var out bytes.Buffer
 	rootCmd.SetOut(&out)

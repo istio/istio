@@ -62,7 +62,8 @@ type instance struct {
 	cluster   resource.Cluster
 }
 
-func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
+func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {
+	cfg := originalCfg.DeepCopy()
 	// Fill in defaults for any missing values.
 	common.AddPortIfMissing(&cfg, protocol.GRPC)
 	if err = common.FillInDefaults(ctx, defaultDomain, &cfg); err != nil {
@@ -254,6 +255,7 @@ func getContainerPorts(ports []echo.Port) echoCommon.PortList {
 			Port:        p.InstancePort,
 			TLS:         p.TLS,
 			ServerFirst: p.ServerFirst,
+			InstanceIP:  p.InstanceIP,
 		}
 		containerPorts = append(containerPorts, cport)
 

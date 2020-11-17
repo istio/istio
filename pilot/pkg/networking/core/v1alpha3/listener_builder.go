@@ -356,7 +356,9 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	filterChains, needTLSForPassThroughFilterChain := buildInboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
 	if features.EnableProtocolSniffingForInbound {
-		filterChains = append(filterChains, buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)...)
+		fc, needTLS := buildInboundCatchAllHTTPFilterChains(configgen, lb.node, lb.push)
+		needTLSForPassThroughFilterChain = needTLSForPassThroughFilterChain || needTLS
+		filterChains = append(filterChains, fc...)
 	}
 	lb.virtualInboundListener = &listener.Listener{
 		Name:                                VirtualInboundListenerName,
@@ -461,7 +463,22 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	if node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
-	filterChains := make([]*listener.FilterChain, 0, 2)
+	filterChains := make([]*listener.FilterChain, 0, 3)
+	if features.PilotEnableLoopBlockers {
+		filterChains = append(filterChains, &listener.FilterChain{
+			Name: VirtualInboundBlackholeFilterChainName,
+			FilterChainMatch: &listener.FilterChainMatch{
+				DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
+			},
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				})},
+			}},
+		})
+	}
 
 	needTLS := false
 	for _, clusterName := range ipVersions {
@@ -493,19 +510,12 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 			chains := p.OnInboundPassthroughFilterChains(in)
 			allChains = append(allChains, chains...)
 		}
-
-		if len(allChains) == 0 {
-			// Add one empty entry to the list if none of the plugins are interested in updating the filter chains.
-			allChains = []istionetworking.FilterChain{{}}
-		}
 		// Override the filter chain match to make sure the pass through filter chain captures the pass through traffic.
 		for i := range allChains {
 			chain := &allChains[i]
 			if chain.FilterChainMatch == nil {
 				chain.FilterChainMatch = &listener.FilterChainMatch{}
 			}
-			// Port : EMPTY to match all ports
-			chain.FilterChainMatch.DestinationPort = nil
 			chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{
 				util.ConvertAddressToCidr(matchingIP),
 			}
@@ -528,6 +538,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 				Filters:          append(chain.TCP, tcpProxyFilter),
 			}
 			if chain.TLSContext != nil {
+				needTLS = true
 				filterChain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
 				// Update transport socket from the TLS context configured by the plugin.
 				filterChain.TransportSocket = &core.TransportSocket{
@@ -537,12 +548,6 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 			} else {
 				filterChain.FilterChainMatch.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 			}
-			for _, filter := range chain.ListenerFilters {
-				if filter.Name == wellknown.TlsInspector {
-					needTLS = true
-					break
-				}
-			}
 			filterChain.Name = VirtualInboundListenerName
 			filterChains = append(filterChains, filterChain)
 		}
@@ -551,7 +556,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	return filterChains, needTLS
 }
 
-func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, bool) {
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
 	if node.SupportsIPv4() {
@@ -562,6 +567,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *
 	}
 	filterChains := make([]*listener.FilterChain, 0, 2)
 
+	needTLS := false
 	for _, clusterName := range ipVersions {
 		matchingIP := ""
 		if clusterName == util.InboundPassthroughClusterIpv4 {
@@ -588,11 +594,6 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *
 			chains := p.OnInboundPassthroughFilterChains(in)
 			allChains = append(allChains, chains...)
 		}
-		if len(allChains) == 0 {
-			// Add one empty entry to the list if none of the plugins are interested in updating the filter chains.
-			allChains = []istionetworking.FilterChain{{}}
-		}
-
 		// Override the filter chain match to make sure the pass through filter chain captures the pass through traffic.
 		for i := range allChains {
 			chain := &allChains[i]
@@ -637,6 +638,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *
 				Filters:          []*listener.Filter{filter},
 			}
 			if chain.TLSContext != nil {
+				needTLS = true
 				filterChain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
 				filterChain.FilterChainMatch.ApplicationProtocols =
 					append(filterChain.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
@@ -654,7 +656,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *
 		}
 	}
 
-	return filterChains
+	return filterChains, needTLS
 }
 
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
@@ -698,11 +700,25 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
-
-	return []*listener.FilterChain{
-		{
-			Name:    VirtualOutboundCatchAllTCPFilterChainName,
-			Filters: filterStack,
-		},
+	chains := make([]*listener.FilterChain, 0, 2)
+	if features.PilotEnableLoopBlockers {
+		chains = append(chains, &listener.FilterChain{
+			Name: VirtualOutboundBlackholeFilterChainName,
+			FilterChainMatch: &listener.FilterChainMatch{
+				// We should not allow requests to the listen port directly. Requests must be
+				// sent to some other original port and iptables redirected to 15001. This
+				// ensures we do not passthrough back to the listen port.
+				DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyListenPort)},
+			},
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				})},
+			}},
+		})
 	}
+	chains = append(chains, &listener.FilterChain{Name: VirtualOutboundCatchAllTCPFilterChainName, Filters: filterStack})
+	return chains
 }

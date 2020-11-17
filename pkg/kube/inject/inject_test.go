@@ -194,6 +194,19 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			// Verifies that HoldApplicationUntilProxyStarts in proxyconfig sets lifecycle hook
+			in:   "hello-probes-proxyHoldApplication-ProxyConfig.yaml",
+			want: "hello-probes-proxyHoldApplication-ProxyConfig.yaml.injected",
+		},
+		{
+			// Verifies that HoldApplicationUntilProxyStarts=false in proxyconfig 'OR's with MeshConfig setting
+			in:   "hello-probes-noProxyHoldApplication-ProxyConfig.yaml",
+			want: "hello-probes-noProxyHoldApplication-ProxyConfig.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
+		{
 			// A test with no pods is not relevant for webhook
 			in:          "hello-service.yaml",
 			want:        "hello-service.yaml.injected",
@@ -343,52 +356,10 @@ func TestInjection(t *testing.T) {
 				wantYAMLs := splitYamlFile(wantFilePath, t)
 				for i := 0; i < len(inputYAMLs); i++ {
 					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
-						// Convert the input YAML to a deployment.
-						inputYAML := inputYAMLs[i]
-						inputRaw, err := FromRawToObject(inputYAML)
-						if err != nil {
-							t.Fatal(err)
-						}
-						inputPod := objectToPod(t, inputRaw)
-
-						// Convert the wanted YAML to a deployment.
-						wantYAML := wantYAMLs[i]
-						wantRaw, err := FromRawToObject(wantYAML)
-						if err != nil {
-							t.Fatal(err)
-						}
-						wantPod := objectToPod(t, wantRaw)
-
-						// Generate the patch.  At runtime, the webhook would actually generate the patch against the
-						// pod configuration. But since our input files are deployments, rather than actual pod instances,
-						// we have to apply the patch to the template portion of the deployment only.
-						templateJSON := convertToJSON(inputPod, t)
-						got := webhook.inject(&kube.AdmissionReview{
-							Request: &kube.AdmissionRequest{
-								Object: runtime.RawExtension{
-									Raw: templateJSON,
-								},
-								Namespace: jsonToUnstructured(inputYAML, t).GetNamespace(),
-							},
-						}, "")
-						var gotPod *corev1.Pod
-						// Apply the generated patch to the template.
-						if got.Patch != nil {
-							patchedPod := &corev1.Pod{}
-							patch := prettyJSON(got.Patch, t)
-							patchedTemplateJSON := applyJSONPatch(templateJSON, patch, t)
-							if err := json.Unmarshal(patchedTemplateJSON, patchedPod); err != nil {
-								t.Fatal(err)
-							}
-							gotPod = patchedPod
-						} else {
-							gotPod = inputPod
-						}
-
-						// normalize and compare the patched deployment with the one we expected.
-						if err := normalizeAndCompareDeployments(gotPod, wantPod, t); err != nil {
-							t.Fatal(err)
-						}
+						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i])
+						t.Run("idempotency", func(t *testing.T) {
+							runWebhook(t, webhook, wantYAMLs[i], wantYAMLs[i])
+						})
 					})
 				}
 			})
@@ -401,6 +372,116 @@ func TestInjection(t *testing.T) {
 	}
 	if len(allOutputFiles) != 0 {
 		t.Fatalf("stale golden files found: %v", allOutputFiles.UnsortedList())
+	}
+}
+
+// TestStrategicMerge ensures we can use https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md
+// directives in the injection template
+func TestStrategicMerge(t *testing.T) {
+	webhook := &Webhook{
+		Config: &Config{
+			Template: `
+containers:
+- name: hello
+  image: "fake.docker.io/google-samples/hello-go-gke:1.1"
+  resources:
+    $patch: replace
+    limits:
+      cpu: 100m
+      memory: 50m
+`,
+			Policy: InjectionPolicyEnabled,
+		},
+	}
+	pod := `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello
+spec:
+  containers:
+  - name: hello
+    image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 50m
+`
+	// nolint: lll
+	expectedPod := `
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    prometheus.io/path: /stats/prometheus
+    prometheus.io/port: "0"
+    prometheus.io/scrape: "true"
+    sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+  name: hello
+  labels:
+    istio.io/rev: ""
+    security.istio.io/tlsMode: istio
+    service.istio.io/canonical-name: hello
+    service.istio.io/canonical-revision: latest
+spec:
+  containers:
+  - name: hello
+    image: "fake.docker.io/google-samples/hello-go-gke:1.1"
+    resources:
+     limits:
+       cpu: 100m
+       memory: 50m
+  securityContext:
+    fsGroup: 1337
+`
+	// We expect resources to only have limits, since we had the "replace" directive.
+	runWebhook(t, webhook, []byte(pod), []byte(expectedPod))
+}
+
+func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte) {
+	// Convert the input YAML to a deployment.
+	inputRaw, err := FromRawToObject(inputYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputPod := objectToPod(t, inputRaw)
+
+	// Convert the wanted YAML to a deployment.
+	wantRaw, err := FromRawToObject(wantYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPod := objectToPod(t, wantRaw)
+
+	// Generate the patch.  At runtime, the webhook would actually generate the patch against the
+	// pod configuration. But since our input files are deployments, rather than actual pod instances,
+	// we have to apply the patch to the template portion of the deployment only.
+	templateJSON := convertToJSON(inputPod, t)
+	got := webhook.inject(&kube.AdmissionReview{
+		Request: &kube.AdmissionRequest{
+			Object: runtime.RawExtension{
+				Raw: templateJSON,
+			},
+			Namespace: jsonToUnstructured(inputYAML, t).GetNamespace(),
+		},
+	}, "")
+	var gotPod *corev1.Pod
+	// Apply the generated patch to the template.
+	if got.Patch != nil {
+		patchedPod := &corev1.Pod{}
+		patch := prettyJSON(got.Patch, t)
+		patchedTemplateJSON := applyJSONPatch(templateJSON, patch, t)
+		if err := json.Unmarshal(patchedTemplateJSON, patchedPod); err != nil {
+			t.Fatal(err)
+		}
+		gotPod = patchedPod
+	} else {
+		gotPod = inputPod
+	}
+
+	// normalize and compare the patched deployment with the one we expected.
+	if err := normalizeAndCompareDeployments(gotPod, wantPod, t); err != nil {
+		t.Fatal(err)
 	}
 }
 

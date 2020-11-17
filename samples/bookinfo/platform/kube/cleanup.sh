@@ -31,7 +31,7 @@ if [[ -n ${NAMESPACE} ]];then
   fi
 fi
 
-# if no namesapce is provided, use default namespace
+# if no namespace is provided, use default namespace
 if [[ -z ${NAMESPACE} ]];then
   NAMESPACE=default
 fi

@@ -138,7 +138,7 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 	if b.controller.cidrRanger() != nil {
 		entries, err := b.controller.cidrRanger().ContainingNetworks(net.ParseIP(endpointIP))
 		if err != nil {
-			log.Errora(err)
+			log.Error(err)
 			return ""
 		}
 		if len(entries) > 1 {

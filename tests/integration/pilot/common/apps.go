@@ -78,6 +78,7 @@ var EchoPorts = []echo.Port{
 	{Name: "auto-tcp-server", Protocol: protocol.TCP, ServicePort: 9093, InstancePort: 16061, ServerFirst: true},
 	{Name: "auto-http", Protocol: protocol.HTTP, ServicePort: 81, InstancePort: 18081},
 	{Name: "auto-grpc", Protocol: protocol.GRPC, ServicePort: 7071, InstancePort: 17071},
+	{Name: "http-instance", Protocol: protocol.HTTP, ServicePort: 82, InstancePort: 18082, InstanceIP: true},
 }
 
 func serviceEntryPorts() []echo.Port {
@@ -181,17 +182,18 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 				Cluster: c,
 			})
 	}
-
-	for _, c := range ctx.Clusters().ByNetwork() {
-		builder.With(nil, echo.Config{
-			Service:        VMSvc,
-			Namespace:      apps.Namespace,
-			Ports:          EchoPorts,
-			DeployAsVM:     true,
-			AutoRegisterVM: false, // TODO support auto-registration with multi-primary
-			Subsets:        []echo.SubsetConfig{{}},
-			Cluster:        c[0],
-		})
+	if !ctx.Settings().SkipVM {
+		for _, c := range ctx.Clusters().ByNetwork() {
+			builder.With(nil, echo.Config{
+				Service:        VMSvc,
+				Namespace:      apps.Namespace,
+				Ports:          EchoPorts,
+				DeployAsVM:     true,
+				AutoRegisterVM: false, // TODO support auto-registration with multi-primary
+				Subsets:        []echo.SubsetConfig{{}},
+				Cluster:        c[0],
+			})
+		}
 	}
 
 	echos, err := builder.Build()
@@ -205,7 +207,9 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
-	apps.VM = echos.Match(echo.Service(VMSvc))
+	if !ctx.Settings().SkipVM {
+		apps.VM = echos.Match(echo.Service(VMSvc))
+	}
 
 	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), `
 apiVersion: networking.istio.io/v1alpha3

@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"math"
 	"net"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -34,7 +35,6 @@ import (
 	"golang.org/x/oauth2"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
@@ -413,6 +413,14 @@ func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
 	if agent.secOpts.ProvCert != "" {
 		key = path.Join(agent.secOpts.ProvCert, constants.KeyFilename)
 		cert = path.Join(path.Join(agent.secOpts.ProvCert, constants.CertChainFilename))
+
+		// CSR may not have completed – use JWT to auth.
+		if _, err := os.Stat(key); os.IsNotExist(err) {
+			return "", ""
+		}
+		if _, err := os.Stat(cert); os.IsNotExist(err) {
+			return "", ""
+		}
 	} else if agent.secOpts.FileMountedCerts {
 		key = agent.proxyConfig.ProxyMetadata[MetadataClientCertKey]
 		cert = agent.proxyConfig.ProxyMetadata[MetadataClientCertChain]
@@ -438,12 +446,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	// connection to upstream has been made.
 	dialOptions := []grpc.DialOption{
 		tlsOpts,
-		grpc.WithConnectParams(grpc.ConnectParams{
-			Backoff:           backoff.DefaultConfig,
-			MinConnectTimeout: 1 * time.Second,
-		}),
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
-		grpc.WithBlock(),
 	}
 
 	// TODO: This is not a valid way of detecting if we are on VM vs k8s

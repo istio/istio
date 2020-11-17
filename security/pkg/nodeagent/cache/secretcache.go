@@ -233,7 +233,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 			return nil, err
 		}
 
-		cacheLog.Infoa("GenerateSecret ", resourceName)
+		cacheLog.Info("GenerateSecret ", resourceName)
 		sc.secrets.Store(connKey, *ns)
 		return ns, nil
 	}
@@ -268,7 +268,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		CreatedTime:  t,
 		Version:      t.String(),
 	}
-	cacheLog.Infoa("Loaded root cert from certificate ", resourceName)
+	cacheLog.Info("Loaded root cert from certificate ", resourceName)
 	sc.secrets.Store(connKey, *ns)
 	cacheLog.Debugf("%s successfully generate secret for proxy", logPrefix)
 	return ns, nil
@@ -821,7 +821,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 				logPrefix, err)
 			return sdsFromFile, nil, err
 		}
-		cacheLog.Infoa("GenerateSecret from file ", resourceName)
+		cacheLog.Info("GenerateSecret from file ", resourceName)
 		sc.secrets.Store(connKey, *sitem)
 		return sdsFromFile, sitem, nil
 	}

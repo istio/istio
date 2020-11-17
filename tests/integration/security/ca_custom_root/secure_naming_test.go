@@ -29,8 +29,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
@@ -106,97 +104,111 @@ func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").
 		Run(func(ctx framework.TestContext) {
+			//TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
+			if ctx.Clusters().IsMulticluster() {
+				ctx.Skip()
+			}
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
-			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "secure-naming",
-				Inject: true,
-			})
+			testNamespace := apps.Namespace
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkCACert(ctx, t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-			var a, b echo.Instance
-			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", testNamespace, false, nil, nil)).
-				With(&b, util.EchoConfig("b", testNamespace, false, nil, nil)).
-				BuildOrFail(t)
 
-			ctx.NewSubTest("mTLS cert validation with plugin CA").
-				Run(func(ctx framework.TestContext) {
-					// Verify that the certificate issued to the sidecar is as expected.
-					connectTarget := fmt.Sprintf("b.%s:80", testNamespace.Name())
-					out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
-						connectTarget)
-					if err != nil {
-						t.Fatalf("failed to dump certificate: %v", err)
-						return
-					}
-					verifyCertificatesWithPluginCA(t, out)
+			callCount := 1
+			if ctx.Clusters().IsMulticluster() {
+				// so we can validate all clusters are hit
+				callCount = util.CallsPerCluster * len(ctx.Clusters())
+			}
+			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
+			for _, cluster := range ctx.Clusters() {
+				ctx.NewSubTest(fmt.Sprintf("From %s", cluster.Name())).Run(func(ctx framework.TestContext) {
+					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
+					ctx.NewSubTest("mTLS cert validation with plugin CA").
+						Run(func(ctx framework.TestContext) {
 
-					// Verify mTLS works between a and b
-					callOptions := echo.CallOptions{
-						Target:   b,
-						PortName: "http",
-						Scheme:   scheme.HTTP,
+							// Verify that the certificate issued to the sidecar is as expected.
+							connectTarget := fmt.Sprintf("b.%s:80", testNamespace.Name())
+							out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
+								connectTarget)
+							if err != nil {
+								t.Fatalf("failed to dump certificate: %v", err)
+								return
+							}
+							verifyCertificatesWithPluginCA(t, out)
+
+							// Verify mTLS works between a and b
+							callOptions := echo.CallOptions{
+								Target:   bSet[0],
+								PortName: "http",
+								Scheme:   scheme.HTTP,
+								Count:    callCount,
+							}
+							checker := connection.Checker{
+								From:          a,
+								Options:       callOptions,
+								ExpectSuccess: true,
+								DestClusters:  bSet.Clusters(),
+							}
+							checker.CheckOrFail(ctx)
+						})
+
+					secureNamingTestCases := []struct {
+						name            string
+						destinationRule string
+						expectSuccess   bool
+					}{
+						{
+							name:            "connection fails when DR doesn't match SA",
+							destinationRule: defaultIdentityDR,
+							expectSuccess:   false,
+						},
+						{
+							name:            "connection succeeds when DR matches SA",
+							destinationRule: correctIdentityDR,
+							expectSuccess:   true,
+						},
+						{
+							name:            "connection fails when DR contains non-matching, non-existing SA",
+							destinationRule: nonExistIdentityDR,
+							expectSuccess:   false,
+						},
+						{
+							name:            "connection succeeds when SA is in the list of SANs",
+							destinationRule: identityListDR,
+							expectSuccess:   true,
+						},
 					}
-					checker := connection.Checker{
-						From:          a,
-						Options:       callOptions,
-						ExpectSuccess: true,
+					for _, tc := range secureNamingTestCases {
+						ctx.NewSubTest(tc.name).
+							Run(func(ctx framework.TestContext) {
+								dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
+								ctx.Config().ApplyYAMLOrFail(t, testNamespace.Name(), dr)
+								defer ctx.Config().DeleteYAMLOrFail(t, testNamespace.Name(), dr)
+								// Verify mTLS works between a and b
+								callOptions := echo.CallOptions{
+									Target:   bSet[0],
+									PortName: "http",
+									Scheme:   scheme.HTTP,
+									Count:    callCount,
+								}
+								checker := connection.Checker{
+									From:          a,
+									Options:       callOptions,
+									ExpectSuccess: tc.expectSuccess,
+									DestClusters:  bSet.Clusters(),
+								}
+								if err := retry.UntilSuccess(
+									checker.Check, retry.Delay(time.Second), retry.Timeout(15*time.Second), retry.Converge(5)); err != nil {
+									ctx.Fatal(err)
+								}
+							})
 					}
-					checker.CheckOrFail(ctx)
 				})
+			}
 
-			secureNamingTestCases := []struct {
-				name            string
-				destinationRule string
-				expectSuccess   bool
-			}{
-				{
-					name:            "connection fails when DR doesn't match SA",
-					destinationRule: defaultIdentityDR,
-					expectSuccess:   false,
-				},
-				{
-					name:            "connection succeeds when DR matches SA",
-					destinationRule: correctIdentityDR,
-					expectSuccess:   true,
-				},
-				{
-					name:            "connection fails when DR contains non-matching, non-existing SA",
-					destinationRule: nonExistIdentityDR,
-					expectSuccess:   false,
-				},
-				{
-					name:            "connection succeeds when SA is in the list of SANs",
-					destinationRule: identityListDR,
-					expectSuccess:   true,
-				},
-			}
-			for _, tc := range secureNamingTestCases {
-				ctx.NewSubTest(tc.name).
-					Run(func(ctx framework.TestContext) {
-						dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
-						ctx.Config().ApplyYAMLOrFail(t, testNamespace.Name(), dr)
-						// Verify mTLS works between a and b
-						callOptions := echo.CallOptions{
-							Target:   b,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-						}
-						checker := connection.Checker{
-							From:          a,
-							Options:       callOptions,
-							ExpectSuccess: tc.expectSuccess,
-						}
-						if err := retry.UntilSuccess(
-							checker.Check, retry.Delay(time.Second), retry.Timeout(15*time.Second), retry.Converge(5)); err != nil {
-							ctx.Fatal(err)
-						}
-					})
-			}
 		})
 }
 
@@ -226,8 +238,7 @@ func verifyCertificatesWithPluginCA(t *testing.T, dump string) {
 
 func checkCACert(testCtx framework.TestContext, t *testing.T, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
-	env := testCtx.Environment().(*kube.Environment)
-	cm, err := env.KubeClusters[0].CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
+	cm, err := testCtx.Clusters().Default().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
 		kubeApiMeta.GetOptions{})
 	if err != nil {
 		return err

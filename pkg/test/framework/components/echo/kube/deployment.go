@@ -123,6 +123,9 @@ spec:
 {{- if $p.ServerFirst }}
           - --server-first={{ $p.Port }}
 {{- end }}
+{{- if $p.InstanceIP }}
+          - --bind-ip={{ $p.Port }}
+{{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
 {{- if eq .Protocol "TCP" }}
@@ -151,6 +154,11 @@ spec:
           name: tcp-health-port
 {{- end }}
 {{- end }}
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /
@@ -258,8 +266,19 @@ spec:
           # Capture all inbound and outbound traffic
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_INBOUND_PORTS=* >> /var/lib/istio/envoy/cluster.env'
-          # Use token auth not certs
-          sudo sh -c 'echo PROV_CERT="" >> /var/lib/istio/envoy/cluster.env'
+          
+          # Read root cert from and place signed certs here
+          sudo mkdir -p /var/run/secrets/istio
+ 
+          # hack: remove certs that are bundled in the image
+          sudo rm /var/run/secrets/istio/cert-chain.pem  
+          sudo rm /var/run/secrets/istio/key.pem  
+          sudo chown -R istio-proxy /var/run/secrets
+
+          # replace root-cert with what was mounted
+          sudo cp /var/run/secrets/istio/rootmount/* /var/run/secrets/istio
+          sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
           # Proxy XDS via agent first
@@ -304,8 +323,15 @@ spec:
 {{- if $p.ServerFirst }}
              --server-first={{ $p.Port }} \
 {{- end }}
+{{- if $p.InstanceIP }}
+             --bind-ip={{ $p.Port }} \
+{{- end }}
 {{- end }}
         env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         {{- range $name, $value := $.Environment }}
         - name: {{ $name }}
           value: "{{ $value }}"
@@ -320,7 +346,7 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/tokens
           name: {{ $.Service }}-istio-token
-        - mountPath: /var/run/secrets/istio
+        - mountPath: /var/run/secrets/istio/rootmount
           name: istio-ca-root-cert
         {{- range $name, $value := $subset.Annotations }}
         {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
@@ -409,6 +435,7 @@ func generateYAMLWithSettings(
 
 	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
+		// TODO if possible, use istioctl x workload ... to configure the VM
 		ist, err := istio.Get(ctx)
 		if err != nil {
 			return "", "", err

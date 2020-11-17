@@ -101,7 +101,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 			&PushRequest{Full: true, ConfigsUpdated: nil},
 			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
 				Kind: config.GroupVersionKind{Kind: "cfg2"}}: {}}},
-			PushRequest{Full: true, ConfigsUpdated: nil},
+			PushRequest{Full: true, ConfigsUpdated: nil, Reason: []TriggerReason{}},
 		},
 	}
 
@@ -109,9 +109,25 @@ func TestMergeUpdateRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.left.Merge(tt.right)
 			if !reflect.DeepEqual(&tt.merged, got) {
-				t.Fatalf("expected %v, got %v", tt.merged, got)
+				t.Fatalf("expected %v, got %v", &tt.merged, got)
 			}
 		})
+	}
+}
+
+func TestConcurrentMerge(t *testing.T) {
+	reqA := &PushRequest{Reason: make([]TriggerReason, 0, 100)}
+	reqB := &PushRequest{Reason: []TriggerReason{ServiceUpdate, ProxyUpdate}}
+	for i := 0; i < 50; i++ {
+		go func() {
+			reqA.Merge(reqB)
+		}()
+	}
+	if len(reqA.Reason) != 0 {
+		t.Fatalf("reqA modified: %v", reqA.Reason)
+	}
+	if len(reqB.Reason) != 2 {
+		t.Fatalf("reqB modified: %v", reqB.Reason)
 	}
 }
 
@@ -404,7 +420,7 @@ func TestInitPushContext(t *testing.T) {
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{}, AuthenticationPolicies{}),
 		// These are not feasible/worth comparing
-		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}),
+		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
 	)
 	if diff != "" {

@@ -1,0 +1,252 @@
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: testing-gateway-01-test-01
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - testing-01.com
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-01-test-01
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-01
+  hosts:
+  - testing-01.com # Expected: no validation error since this host exists
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-02-test-01
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-01
+  hosts:
+  - wrong-01.com # Expected: validation error since this host does not exist
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: testing-gateway-01-test-02
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*.testing-02.com'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-01-test-02
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-02
+  hosts:
+  - 'web.testing-02.com' # Expected: no validation error since this host match the wildcard
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-02-test-02
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-02
+  hosts:
+  - 'web.wrong.com' # Expected: validation error since this host does not exist
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: testing-gateway-01-test-03
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*.api.testing-03.com'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: testing-gateway-02-test-03
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*.homepage.testing-03.com'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-01-test-03
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-03
+  - istio-system/testing-gateway-02-test-03
+  hosts:
+  - 'user.api.testing-03.com'
+  - 'profile.homepage.testing-03.com' # Expected: no validation error since this host match the wildcard
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-02-test-03
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-03
+  - istio-system/testing-gateway-02-test-03
+  hosts:
+  - 'user.api.testing-03.com' # Expected: validation error since this host does not exist
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: testing-gateway-01-test-04
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*.testing-01-04.com'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+  - hosts:
+    - 'web.testing-02-04.com'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-01-test-04
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-04
+  hosts:
+  - 'web.testing-02-04.com' # Expected: no validation error since this host exists
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-02-test-04
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-04
+  hosts:
+  - 'profile.user.testing-01-04.com' # Expected: no validation error since this host match the wildcard
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: testing-service-03-test-04
+  namespace: default
+spec:
+  gateways:
+  - istio-system/testing-gateway-01-test-04
+  hosts:
+  - 'user.testing-02-04.com'
+  - 'users.testing-02-04.com' # Expected: validation error since this host does not exist
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: ratings

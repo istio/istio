@@ -314,6 +314,35 @@ func TestValidateConnectTimeout(t *testing.T) {
 	}
 }
 
+func TestValidateMaxServerConnectionAge(t *testing.T) {
+	type durationCheck struct {
+		duration time.Duration
+		isValid  bool
+	}
+	durMin, _ := time.ParseDuration("-30m")
+	durHr, _ := time.ParseDuration("-1.5h")
+	checks := []durationCheck{
+		{
+			duration: 30 * time.Minute,
+			isValid:  true,
+		},
+		{
+			duration: durMin,
+			isValid:  false,
+		},
+		{
+			duration: durHr,
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateMaxServerConnectionAge(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
+		}
+	}
+}
+
 func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	type durationCheck struct {
 		duration *types.Duration
@@ -353,17 +382,50 @@ func TestValidateMeshConfig(t *testing.T) {
 		DefaultConfig:      &meshconfig.ProxyConfig{},
 		TrustDomain:        "",
 		TrustDomainAliases: []string{"a.$b", "a/b", ""},
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{{
+			Name: "default",
+			Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+				EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+					Service: "foo/ext-authz",
+					Port:    999999,
+				},
+			},
+		},
+		},
 	}
 
 	err := ValidateMeshConfig(&invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
+		wantErrors := []string{
+			"invalid proxy listen port",
+			"invalid connect timeout",
+			"invalid protocol detection timeout: duration: nil Duration",
+			"config path must be set",
+			"binary path must be set",
+			"service cluster must be set",
+			"invalid parent and drain time combination invalid drain duration",
+			"invalid parent and drain time combination invalid parent shutdown duration",
+			"discovery address must be set to the proxy discovery service",
+			"invalid proxy admin port",
+			"trustDomain: empty domain name not allowed",
+			"trustDomainAliases[0]",
+			"trustDomainAliases[1]",
+			"trustDomainAliases[2]",
+			"invalid extension provider default: port number 999999",
+		}
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 7 {
-				t.Errorf("expected an error for each field %v", err)
+			if len(err.Errors) != len(wantErrors) {
+				t.Errorf("expected %d errors but found %v", len(wantErrors), err)
+			} else {
+				for i := 0; i < len(wantErrors); i++ {
+					if !strings.HasPrefix(err.Errors[i].Error(), wantErrors[i]) {
+						t.Errorf("expected error %q at index %d but found %q", wantErrors[i], i, err.Errors[i])
+					}
+				}
 			}
 		default:
 			t.Errorf("expected a multi error as output")
@@ -2275,6 +2337,30 @@ func checkValidation(t *testing.T, gotWarning Warning, gotError error, valid boo
 	}
 }
 
+func stringOrEmpty(v error) string {
+	if v == nil {
+		return ""
+	}
+	return v.Error()
+}
+
+func checkValidationMessage(t *testing.T, gotWarning Warning, gotError error, wantWarning string, wantError string) {
+	t.Helper()
+	if (gotError == nil) != (wantError == "") {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+	if !strings.Contains(stringOrEmpty(gotError), wantError) {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+
+	if (gotWarning == nil) != (wantWarning == "") {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
+	}
+	if !strings.Contains(stringOrEmpty(gotWarning), wantWarning) {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
+	}
+}
+
 func TestValidateDestinationRule(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -2738,9 +2824,10 @@ func TestValidateOutlierDetection(t *testing.T) {
 
 func TestValidateEnvoyFilter(t *testing.T) {
 	tests := []struct {
-		name  string
-		in    proto.Message
-		error string
+		name    string
+		in      proto.Message
+		error   string
+		warning string
 	}{
 		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
 
@@ -3000,7 +3087,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 										Fields: map[string]*types.Value{
 											"@type": {
 												Kind: &types.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
+													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
 												},
 											},
 										},
@@ -3010,6 +3097,40 @@ func TestValidateEnvoyFilter(t *testing.T) {
 						},
 					},
 				},
+				{
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Name: "envoy.tcp_proxy",
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"typed_config": {
+									Kind: &types.Value_StructValue{StructValue: &types.Struct{
+										Fields: map[string]*types.Value{
+											"@type": {
+												Kind: &types.Value_StringValue{
+													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+												},
+											},
+										},
+									}},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: ""},
+		{name: "deprecated config", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
 					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
@@ -3041,24 +3162,40 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: ""},
+		}, error: "", warning: "using deprecated type_url"},
+		{name: "deprecated type", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name: "envoy.http_connection_manager",
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+						Value:     &types.Struct{},
+					},
+				},
+			},
+		}, error: "", warning: "using deprecated filter name"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ValidateEnvoyFilter(config.Config{
+			warn, err := ValidateEnvoyFilter(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
 				Spec: tt.in,
 			})
-			if err == nil && tt.error != "" {
-				t.Fatalf("ValidateEnvoyFilter(%v) = nil, wanted %q", tt.in, tt.error)
-			} else if err != nil && tt.error == "" {
-				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.error) {
-				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted %q", tt.in, err, tt.error)
-			}
+			checkValidationMessage(t, warn, err, tt.warning, tt.error)
 		})
 	}
 }
@@ -3500,6 +3637,98 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+		{
+			name: "custom-good",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "my-custom-authz",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name: "custom-empty-provider",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name: "custom-nil-provider",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				Rules:  []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name: "custom-invalid-rule",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "my-custom-authz",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Namespaces:           []string{"ns"},
+									NotNamespaces:        []string{"ns"},
+									Principals:           []string{"id"},
+									NotPrincipals:        []string{"id"},
+									RequestPrincipals:    []string{"req"},
+									NotRequestPrincipals: []string{"req"},
+								},
+							},
+						},
+						When: []*security_beta.Condition{
+							{
+								Key:       "source.namespace",
+								Values:    []string{"source.namespace1"},
+								NotValues: []string{"source.namespace2"},
+							},
+							{
+								Key:       "source.principal",
+								Values:    []string{"source.principal1"},
+								NotValues: []string{"source.principal2"},
+							},
+							{
+								Key:       "request.auth.claims[a]",
+								Values:    []string{"claims1"},
+								NotValues: []string{"claims2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "provider-wrong-action",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: false,
 		},
 		{
 			name: "allow-rules-nil",
@@ -4130,11 +4359,15 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if _, got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
-				t.Errorf("got: %v\nwant: %v", got, c.valid)
-			}
-		})
+		if _, got := ValidateAuthorizationPolicy(config.Config{
+			Meta: config.Meta{
+				Name:      "name",
+				Namespace: "namespace",
+			},
+			Spec: c.in,
+		}); (got == nil) != c.valid {
+			t.Errorf("got: %v\nwant: %v", got, c.valid)
+		}
 	}
 }
 

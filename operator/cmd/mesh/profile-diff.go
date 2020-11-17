@@ -39,6 +39,11 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 		Use:   "diff <file1.yaml> <file2.yaml>",
 		Short: "Diffs two Istio configuration profiles",
 		Long:  "The diff subcommand displays the differences between two Istio configuration profiles.",
+		Example: `  # Profile diff by providing yaml files
+  istioctl profile diff manifests/profiles/default.yaml manifests/profiles/demo.yaml
+
+  # Profile diff by providing a profile name
+  istioctl profile diff default demo`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return fmt.Errorf("diff requires two profiles")
@@ -46,13 +51,13 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return profileDiff(rootArgs, pfArgs, args)
+			return profileDiff(cmd, rootArgs, pfArgs, args)
 		}}
 
 }
 
 // profileDiff compare two profile files.
-func profileDiff(rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) error {
+func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) error {
 	initLogsOrExit(rootArgs)
 
 	a, err := helm.ReadProfileYAML(args[0], pfArgs.manifestsPath)
@@ -67,9 +72,9 @@ func profileDiff(rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) err
 
 	diff := util.YAMLDiff(a, b)
 	if diff == "" {
-		fmt.Println("Profiles are identical")
+		cmd.Println("Profiles are identical")
 	} else {
-		fmt.Printf("Difference of profiles:\n%s", diff)
+		cmd.Printf("The difference between profiles:\n%s", diff)
 		os.Exit(1)
 	}
 

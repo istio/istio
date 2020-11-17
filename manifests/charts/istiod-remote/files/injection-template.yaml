@@ -1,4 +1,5 @@
 template: |
+  {{- $holdProxy := or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts }}
   rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
@@ -15,11 +16,11 @@ template: |
     args:
     - istio-iptables
     - "-p"
-    - 15001
+    - "15001"
     - "-z"
     - "15006"
     - "-u"
-    - 1337
+    - "1337"
     - "-m"
     - "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
     - "-i"
@@ -171,7 +172,7 @@ template: |
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
-  {{- else if .Values.global.proxy.holdApplicationUntilProxyStarts}}
+  {{- else if $holdProxy }}
     lifecycle:
       postStart:
         exec:

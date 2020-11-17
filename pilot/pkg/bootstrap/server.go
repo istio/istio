@@ -76,6 +76,7 @@ var (
 	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
 	// is specified through the command line
 	DefaultPlugins = []string{
+		plugin.AuthzCustom,
 		plugin.Authn,
 		plugin.Authz,
 		plugin.Health,
@@ -156,7 +157,7 @@ type Server struct {
 
 	certController *chiron.WebhookController
 	CA             *ca.IstioCA
-	RA             *ra.IstioRA
+	RA             ra.RegistrationAuthority
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -228,7 +229,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s.initMeshConfiguration(args, s.fileWatcher)
-	spiffe.SetTrustDomain(s.environment.Mesh().TrustDomain)
+	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -249,7 +250,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	caOpts := &caOptions{
 		TrustDomain:      s.environment.Mesh().TrustDomain,
 		Namespace:        args.Namespace,
-		ExternalCAType:   CaExternalType(externalCaType),
+		ExternalCAType:   ra.CaExternalType(externalCaType),
 		ExternalCASigner: k8sSigner,
 	}
 
@@ -288,9 +289,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
 	// This should be called only after controllers are initialized.
-	if err := s.initRegistryEventHandlers(); err != nil {
-		return nil, fmt.Errorf("error initializing handlers: %v", err)
-	}
+	s.initRegistryEventHandlers()
 
 	s.initDiscoveryService(args)
 
@@ -391,7 +390,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 	}()
 
@@ -406,7 +405,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
 		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 	}()
 
@@ -414,7 +413,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		go func() {
 			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
 			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-				log.Warna(err)
+				log.Warn(err)
 			}
 		}()
 	}
@@ -530,18 +529,22 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 
 	if shouldMultiplex {
 		s.monitoringMux = s.httpMux
-		log.Infoa("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
+		log.Info("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
 
+	whc := func() string {
+		return wh.Config.Template
+	}
+
 	// Debug Server.
-	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
 	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
 	if !shouldMultiplex {
-		s.XDSServer.AddDebugHandlers(s.httpMux, args.ServerOptions.EnableProfiling, wh)
+		s.XDSServer.AddDebugHandlers(s.httpMux, args.ServerOptions.EnableProfiling, whc)
 	}
 
 	// Monitoring Server.
@@ -577,7 +580,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	} else if s.GRPCListener == nil {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Infoa("multplexing gRPC on http port ", s.HTTPListener.Addr())
+		log.Info("multplexing gRPC on http port ", s.HTTPListener.Addr())
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 		s.HTTPListener = m.Match(cmux.Any())
@@ -624,11 +627,11 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownDuration)
 		defer cancel()
 		if err := s.httpServer.Shutdown(ctx); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 		if s.httpsServer != nil {
 			if err := s.httpsServer.Shutdown(ctx); err != nil {
-				log.Warna(err)
+				log.Warn(err)
 			}
 		}
 
@@ -647,7 +650,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	if args.ServerOptions.SecureGRPCAddr == "" {
-		log.Infoa("The secure discovery port is disabled, multiplexing on httpAddr ")
+		log.Info("The secure discovery port is disabled, multiplexing on httpAddr ")
 		return nil
 	}
 
@@ -788,7 +791,7 @@ func (s *Server) cachesSynced() bool {
 }
 
 // initRegistryEventHandlers sets up event handlers for config and service updates
-func (s *Server) initRegistryEventHandlers() error {
+func (s *Server) initRegistryEventHandlers() {
 	log.Info("initializing registry event handlers")
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
@@ -803,9 +806,7 @@ func (s *Server) initRegistryEventHandlers() error {
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	}
-	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
-		return fmt.Errorf("append service handler failed: %v", err)
-	}
+	s.ServiceController().AppendServiceHandler(serviceHandler)
 
 	if s.configController != nil {
 		configHandler := func(_, curr config.Config, event model.Event) {
@@ -843,8 +844,6 @@ func (s *Server) initRegistryEventHandlers() error {
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
-
-	return nil
 }
 
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
@@ -1062,7 +1061,7 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 // initJwtPolicy initializes JwtPolicy.
 func (s *Server) initJwtPolicy() {
 	if features.JwtPolicy.Get() != jwt.PolicyThirdParty {
-		log.Infoa("JWT policy is ", features.JwtPolicy.Get())
+		log.Info("JWT policy is ", features.JwtPolicy.Get())
 	}
 
 	switch features.JwtPolicy.Get() {
@@ -1141,7 +1140,7 @@ func (s *Server) initMeshHandlers() {
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
-		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
+		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,

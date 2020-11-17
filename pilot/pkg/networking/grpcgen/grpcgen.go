@@ -159,7 +159,7 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 	for _, n := range names {
 		hn, portn, err := net.SplitHostPort(n)
 		if err != nil {
-			log.Warna("Failed to parse ", n, " ", err)
+			log.Warn("Failed to parse ", n, " ", err)
 			continue
 		}
 		rc := &cluster.Cluster{
@@ -190,12 +190,12 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 	for _, n := range routeNames {
 		hn, portn, err := net.SplitHostPort(n)
 		if err != nil {
-			log.Warna("Failed to parse ", n, " ", err)
+			log.Warn("Failed to parse ", n, " ", err)
 			continue
 		}
 		port, err := strconv.Atoi(portn)
 		if err != nil {
-			log.Warna("Failed to parse port ", n, " ", err)
+			log.Warn("Failed to parse port ", n, " ", err)
 			continue
 		}
 		el := node.SidecarScope.GetEgressListenerForRDS(port, "")

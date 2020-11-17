@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -99,7 +98,7 @@ func CreateIngressKubeSecret(ctx framework.TestContext, credNames []string,
 		return
 	}
 	// Create Kubernetes secret for ingress gateway
-	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	cluster := ctx.Clusters().Default()
 	for _, cn := range credNames {
 		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred, isCompoundAndNotGeneric)
 		_, err := cluster.CoreV1().Secrets(systemNS.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
@@ -137,7 +136,7 @@ func DeleteKubeSecret(ctx framework.TestContext, credNames []string) {
 		return
 	}
 	// Create Kubernetes secret for ingress gateway
-	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	cluster := ctx.Clusters().Default()
 	for _, cn := range credNames {
 		var immediate int64
 		err := cluster.CoreV1().Secrets(systemNS.Name()).Delete(context.TODO(), cn,

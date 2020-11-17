@@ -21,13 +21,14 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGateway(t *testing.T) {
@@ -52,20 +53,14 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname:
-      match: Domain
-      name: domain.example
+  - hostname: "*.domain.example"
     port: 80
     protocol: HTTP
     routes:
-      routeNamespaces: {}
       kind: HTTPRoute
-  - hostname:
-      match: Any
-    port: 31400
+  - port: 31400
     protocol: TCP
     routes:
-      routeNamespaces: {}
       kind: TCPRoute
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
@@ -191,7 +186,8 @@ spec:
               serviceName: b
               servicePort: 80`
 
-			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig, fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
+			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+				fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
 				t.Fatal(err)
 			}
 
@@ -271,9 +267,10 @@ spec:
 				if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 					t.Skip("ingress status not supported without load balancer")
 				}
+
 				ip := apps.Ingress.HTTPAddress().IP.String()
 				retry.UntilSuccessOrFail(t, func() error {
-					ing, err := ctx.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "istio-test", metav1.GetOptions{})
+					ing, err := ctx.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -281,13 +278,14 @@ spec:
 						return fmt.Errorf("unexpected ingress status, got %+v want %v", ing.Status.LoadBalancer, ip)
 					}
 					return nil
-				})
+				}, retry.Delay(time.Second*5), retry.Timeout(time.Second*90))
 
 			})
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
 			const updateIngressName = "update-test-ingress"
-			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig, fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
+			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
 				t.Fatal(err)
 			}
 			// these cases make sure that when new Ingress configs are applied our controller picks up on them

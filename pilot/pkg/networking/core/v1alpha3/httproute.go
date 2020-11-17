@@ -235,12 +235,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	}
 
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap,
-		virtualServices, listenerPort)
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
 
 	vhosts := sets.Set{}
 	vhdomains := sets.Set{}
+	knownFQDN := sets.Set{}
+
+	for _, virtualHostWrapper := range virtualHostWrappers {
+		for _, svc := range virtualHostWrapper.Services {
+			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
+			knownFQDN.Insert(name)
+			knownFQDN.Insert(string(svc.Hostname))
+		}
+	}
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
@@ -255,16 +263,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			if !duplicate {
 				domains := []string{hostname, name}
 				dl := len(domains)
-				domains = dedupeDomains(domains, vhdomains)
+				domains = dedupeDomains(domains, vhdomains, nil, nil)
 				if dl != len(domains) {
 					duplicate = true
 				}
-				virtualHosts = append(virtualHosts, &route.VirtualHost{
-					Name:                       name,
-					Domains:                    domains,
-					Routes:                     virtualHostWrapper.Routes,
-					IncludeRequestAttemptCount: true,
-				})
+				if len(domains) > 0 {
+					virtualHosts = append(virtualHosts, &route.VirtualHost{
+						Name:                       name,
+						Domains:                    domains,
+						Routes:                     virtualHostWrapper.Routes,
+						IncludeRequestAttemptCount: true,
+					})
+				}
 			}
 
 			if duplicate {
@@ -277,23 +287,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
 			duplicate := duplicateVirtualHost(name, vhosts)
 			if !duplicate {
-				domains := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node, push)
+				domains, altHosts := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node, push)
 				dl := len(domains)
-				domains = dedupeDomains(domains, vhdomains)
+				domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
 				if dl != len(domains) {
 					duplicate = true
 				}
-				virtualHosts = append(virtualHosts, &route.VirtualHost{
-					Name:                       name,
-					Domains:                    domains,
-					Routes:                     virtualHostWrapper.Routes,
-					IncludeRequestAttemptCount: true,
-				})
+				if len(domains) > 0 {
+					virtualHosts = append(virtualHosts, &route.VirtualHost{
+						Name:                       name,
+						Domains:                    domains,
+						Routes:                     virtualHostWrapper.Routes,
+						IncludeRequestAttemptCount: true,
+					})
+				}
 			}
 
 			if duplicate {
 				// This means we have hit a duplicate virtual host name/ domain name.
-				push.AddMetric(model.DuplicatedDomains, name, node.ID, fmt.Sprintf("duplicate domain from  service: %s", name))
+				push.AddMetric(model.DuplicatedDomains, name, node.ID, fmt.Sprintf("duplicate domain from service: %s", name))
 			}
 		}
 
@@ -320,13 +332,22 @@ func duplicateVirtualHost(vhost string, vhosts sets.Set) bool {
 }
 
 // dedupeDomains removes the duplicate domains from the passed in domains.
-func dedupeDomains(domains []string, vhdomains sets.Set) []string {
+func dedupeDomains(domains []string, vhdomains sets.Set, expandedHosts []string, knownFQDNs sets.Set) []string {
 	temp := domains[:0]
 	for _, d := range domains {
-		if !vhdomains.Contains(d) {
-			temp = append(temp, d)
-			vhdomains.Insert(d)
+		if vhdomains.Contains(d) {
+			continue
 		}
+		// Check if the domain is an "expanded" host, and its also a known FQDN
+		// This prevents a case where a domain like "foo.com.cluster.local" gets expanded to "foo.com", overwriting
+		// the real "foo.com"
+		// This works by providing a list of domains that were added as expanding the DNS domain as part of expandedHosts,
+		// and a list of known unexpanded FQDNs to compare against
+		if util.ListContains(expandedHosts, d) && knownFQDNs.Contains(d) { // O(n) search, but n is at most 10
+			continue
+		}
+		temp = append(temp, d)
+		vhdomains.Insert(d)
 	}
 	return temp
 }
@@ -353,9 +374,10 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy, push *model.PushContext) []string {
+func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy, push *model.PushContext) ([]string, []string) {
+	altHosts := generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
 	domains := []string{string(service.Hostname), domainName(string(service.Hostname), port)}
-	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
+	domains = append(domains, altHosts...)
 
 	if service.Resolution == model.Passthrough &&
 		service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
@@ -372,7 +394,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 			domains = append(domains, svcAddr, domainName(svcAddr, port))
 		}
 	}
-	return domains
+	return domains, altHosts
 }
 
 // Given a service, and a port, this function generates all possible HTTP Host headers.
@@ -405,6 +427,7 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
 
 	// adds all the other variants (foo.local, foo.local:80)
+	// TODO(https://github.com/istio/istio/issues/28407) splitting on each dot is not right
 	for i := len(sharedDNSDomain) - 1; i > 0; i-- {
 		if sharedDNSDomain[i] == '.' {
 			variant := uniqHostname + "." + sharedDNSDomain[:i]

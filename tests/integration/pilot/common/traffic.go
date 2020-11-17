@@ -48,8 +48,8 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children.
-	call     func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
-	opts     echo.CallOptions
+	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
+	opts echo.CallOptions
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -90,7 +90,11 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
-	cases["vm"] = VMTestCases(apps.VM, apps)
+	cases["loop"] = trafficLoopCases(apps)
+	cases["instanceip"] = instanceIPTests(apps)
+	if !ctx.Settings().SkipVM {
+		cases["vm"] = VMTestCases(apps.VM, apps)
+	}
 	for name, tts := range cases {
 		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
 			for _, tt := range tts {

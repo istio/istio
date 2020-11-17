@@ -101,6 +101,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				if pc.podsByIP[ip] == key {
 					pc.deleteIP(ip)
 				}
+				ev = model.EventDelete
 			} else {
 				switch pod.Status.Phase {
 				case v1.PodPending, v1.PodRunning:

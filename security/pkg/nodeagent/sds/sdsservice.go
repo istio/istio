@@ -391,7 +391,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					conIDresourceNamePrefix, proxyID, err)
 				return err
 			}
-			sdsServiceLog.Infoa("Dynamic push for secret ", resourceName)
+			sdsServiceLog.Info("Dynamic push for secret ", resourceName)
 		}
 	}
 }

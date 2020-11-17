@@ -63,9 +63,7 @@ func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
-	registries := c.registries
-	registries = append(registries, registry)
-	c.registries = registries
+	c.registries = append(c.registries, registry)
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
@@ -82,9 +80,7 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 		log.Warnf("Registry is not found in the registries list, nothing to delete")
 		return
 	}
-	registries := c.registries
-	registries = append(registries[:index], registries[index+1:]...)
-	c.registries = registries
+	c.registries = append(c.registries[:index], c.registries[index+1:]...)
 	log.Infof("Registry for the cluster %s has been deleted.", clusterID)
 }
 
@@ -242,8 +238,6 @@ func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfCluster
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	// It doesn't make sense for a single proxy to be found in more than one registry.
-	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
 		nodeClusterID := nodeClusterID(node)
 		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName) {
@@ -255,7 +249,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 		instances := r.GetProxyServiceInstances(node)
 		if len(instances) > 0 {
 			out = append(out, instances...)
-			break
 		}
 	}
 
@@ -299,24 +292,16 @@ func (c *Controller) HasSynced() bool {
 }
 
 // AppendServiceHandler implements a service catalog operation
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
 	for _, r := range c.GetRegistries() {
-		if err := r.AppendServiceHandler(f); err != nil {
-			log.Infof("Fail to append service handler to adapter %s", r.Provider())
-			return err
-		}
+		r.AppendServiceHandler(f)
 	}
-	return nil
 }
 
-func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
 	for _, r := range c.GetRegistries() {
-		if err := r.AppendWorkloadHandler(f); err != nil {
-			log.Infof("Fail to append workload handler to adapter %s", r.Provider())
-			return err
-		}
+		r.AppendWorkloadHandler(f)
 	}
-	return nil
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation.

@@ -19,12 +19,10 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
-
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -48,7 +46,7 @@ func (c *Checker) Check() error {
 				c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme, err)
 		}
 		// TODO: check why grpc can not reach all clusters
-		if c.DestClusters.IsMulticluster() && c.Options.Scheme != scheme.GRPC {
+		if c.DestClusters.IsMulticluster() && c.Options.Scheme != scheme.GRPC && c.Options.Count > 1 {
 			err = results.CheckReachedClusters(c.DestClusters)
 			if err != nil {
 				return err
