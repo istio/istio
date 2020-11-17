@@ -42,9 +42,9 @@ func TestGCPMonitoringSidecarInjection(t *testing.T) {
 		wantVal *view.Row
 	}{
 		{"totalSuccessfulInjections", totalSuccessfulInjections, &view.Row{
-			Tags: []tag.Tag{{Key: tag.MustNewKey("success"), Value: "true"}}, Data: &view.SumData{1.0}}},
+			Tags: []tag.Tag{{Key: tag.MustNewKey("success"), Value: "true"}}, Data: &view.SumData{Value: 1.0}}},
 		{"totalFailedInjections", totalFailedInjections, &view.Row{
-			Tags: []tag.Tag{{Key: tag.MustNewKey("success"), Value: "false"}}, Data: &view.SumData{1.0}}},
+			Tags: []tag.Tag{{Key: tag.MustNewKey("success"), Value: "false"}}, Data: &view.SumData{Value: 1.0}}},
 	}
 
 	for _, tt := range cases {
