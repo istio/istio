@@ -54,6 +54,8 @@ type kubeController struct {
 type Multicluster struct {
 	opts Options
 
+	client kubernetes.Interface
+
 	serviceController *aggregate.Controller
 	serviceEntryStore *serviceentry.ServiceEntryStore
 	XDSUpdater        model.XDSUpdater
@@ -83,7 +85,7 @@ func NewMulticluster(
 	caBundlePath string,
 	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
-) (*Multicluster, error) {
+) *Multicluster {
 	remoteKubeController := make(map[string]*kubeController)
 	if opts.ResyncPeriod == 0 {
 		// make sure a resync time of 0 wasn't passed in.
@@ -101,10 +103,10 @@ func NewMulticluster(
 		networksWatcher:       networksWatcher,
 		secretNamespace:       secretNamespace,
 		syncInterval:          opts.GetSyncInterval(),
+		client:                kc,
 	}
-	mc.initSecretController(kc)
 
-	return mc, nil
+	return mc
 }
 
 // AddMemberCluster is passed to the secret controller as a callback to be called
@@ -223,8 +225,8 @@ func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interfac
 	return nil
 }
 
-func (m *Multicluster) initSecretController(kc kubernetes.Interface) {
-	m.secretController = secretcontroller.StartSecretController(kc,
+func (m *Multicluster) InitSecretController() {
+	m.secretController = secretcontroller.StartSecretController(m.client,
 		m.AddMemberCluster,
 		m.UpdateMemberCluster,
 		m.DeleteMemberCluster,

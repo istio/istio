@@ -87,7 +87,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		fetchCARoot = s.fetchCARoot
 	}
 
-	mc, err := kubecontroller.NewMulticluster(s.kubeClient,
+	mc := kubecontroller.NewMulticluster(s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
 		s.ServiceController(),
@@ -96,16 +96,14 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		fetchCARoot,
 		s.environment)
 
-	if err != nil {
-		log.Errorf("failed initializing Kubernetes service registry controller: %v", err)
-		return err
-	}
-
-	// initialize the "main" cluster registry
+	// initialize the "main" cluster registry before starting controllers for remote clusters
 	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
 		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
 		return err
 	}
+
+	// start remote cluster controllers
+	mc.InitSecretController()
 
 	s.multicluster = mc
 	return
