@@ -16,9 +16,11 @@ package mesh
 
 import (
 	"bytes"
+	"path/filepath"
 	"testing"
 
 	"github.com/onsi/gomega"
+	"istio.io/istio/pkg/test/env"
 )
 
 func TestInstallEmptyRevision(t *testing.T) {
@@ -44,4 +46,17 @@ func TestInstallInvalidRevision(t *testing.T) {
 
 	err := rootCmd.Execute()
 	g.Expect(err).To(gomega.MatchError("invalid revision specified: 1.8.0"))
+}
+
+func TestInstallValidRevision(t *testing.T) {
+	g := gomega.NewWithT(t)
+	args := []string{"install", "--dry-run", "--revision", "1-8-0", "--manifests", filepath.Join(env.IstioSrc, "manifests")}
+
+	rootCmd := GetRootCmd(args)
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+
+	err := rootCmd.Execute()
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 }
