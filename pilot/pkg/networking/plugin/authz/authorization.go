@@ -98,7 +98,7 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 
 	switch in.ListenerProtocol {
 	case networking.ListenerProtocolTCP:
-		option.Logger.Debugf("building filters for TCP listener protocol")
+		option.Logger.AppendDebugf("building filters for TCP listener protocol")
 		tcpFilters := b.BuildTCP()
 		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
@@ -107,37 +107,37 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 			httpFilters := b.BuildHTTP()
 			for cnum := range mutable.FilterChains {
 				if mutable.FilterChains[cnum].ListenerProtocol == networking.ListenerProtocolHTTP {
-					option.Logger.Debugf("added %d HTTP filters to gateway filter chain %d", len(httpFilters), cnum)
+					option.Logger.AppendDebugf("added %d HTTP filters to gateway filter chain %d", len(httpFilters), cnum)
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
 				} else {
-					option.Logger.Debugf("added %d TCP filters to gateway filter chain %d", len(tcpFilters), cnum)
+					option.Logger.AppendDebugf("added %d TCP filters to gateway filter chain %d", len(tcpFilters), cnum)
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
 				}
 			}
 		} else {
 			for cnum := range mutable.FilterChains {
-				option.Logger.Debugf("added %d TCP filter to filter chain %d", len(tcpFilters), cnum)
+				option.Logger.AppendDebugf("added %d TCP filter to filter chain %d", len(tcpFilters), cnum)
 				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
 			}
 		}
 	case networking.ListenerProtocolHTTP:
-		option.Logger.Debugf("building filters for HTTP listener protocol")
+		option.Logger.AppendDebugf("building filters for HTTP listener protocol")
 		httpFilters := b.BuildHTTP()
 		for cnum := range mutable.FilterChains {
-			option.Logger.Debugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
+			option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
 		}
 	case networking.ListenerProtocolAuto:
-		option.Logger.Debugf("building filters for AUTO listener protocol")
+		option.Logger.AppendDebugf("building filters for AUTO listener protocol")
 		httpFilters := b.BuildHTTP()
 		tcpFilters := b.BuildTCP()
 		for cnum := range mutable.FilterChains {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
 			case networking.ListenerProtocolTCP:
-				option.Logger.Debugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
+				option.Logger.AppendDebugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
 				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
 			case networking.ListenerProtocolHTTP:
-				option.Logger.Debugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
+				option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
 				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
 			}
 		}
