@@ -59,7 +59,7 @@ func TestGCPMonitoringGalleyValidation(t *testing.T) {
 					{Key: tag.MustNewKey("success"), Value: "false"},
 					{Key: tag.MustNewKey("type"), Value: "r"},
 				},
-				Data: &view.SumData{1.0}}},
+				Data: &view.SumData{Value: 1.0}}},
 		{"validation_success", reportValidationPass,
 			&admissionRequest,
 			&view.Row{
@@ -67,7 +67,7 @@ func TestGCPMonitoringGalleyValidation(t *testing.T) {
 					{Key: tag.MustNewKey("success"), Value: "true"},
 					{Key: tag.MustNewKey("type"), Value: "r"},
 				},
-				Data: &view.SumData{1.0}}},
+				Data: &view.SumData{Value: 1.0}}},
 	}
 
 	for _, tt := range cases {
