@@ -127,6 +127,15 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	m.serviceController.AddRegistry(kubeRegistry)
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
+
+	if len(m.remoteKubeControllers) == 1 {
+		// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
+		if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
+			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
+			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+		}
+	}
+
 	m.m.Unlock()
 
 	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`,
@@ -137,11 +146,6 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	if m.serviceEntryStore != nil && features.EnableServiceEntrySelectPods {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler)
-	}
-
-	if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
-		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-		m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 	}
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
