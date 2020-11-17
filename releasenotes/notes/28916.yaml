@@ -5,4 +5,4 @@ issue:
   - 28916
 releaseNotes:
   - |
-    **Fixed** Fix HPA settings for telemetry is overridden by the inline replicas.
+    **Fixed** HPA settings for telemetry is overridden by the inline replicas.
