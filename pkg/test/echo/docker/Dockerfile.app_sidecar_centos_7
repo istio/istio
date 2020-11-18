@@ -1,5 +1,5 @@
 ARG BASE_VERSION=latest
-FROM docker.io/istio/app_sidecar_base_centos_7:${BASE_VERSION}
+FROM gcr.io/istio-release/app_sidecar_base_centos_7:${BASE_VERSION}
 
 # Install the certs.
 COPY certs/                           /var/lib/istio/
