@@ -501,3 +501,15 @@ func (s *DiscoveryServer) initGenerators() {
 func (s *DiscoveryServer) Shutdown() {
 	s.pushQueue.ShutDown()
 }
+
+// Clients returns all currently connected clients. This method can be safely called concurrently, but care
+// should be taken with the underlying objects (ie model.Proxy) to ensure proper locking.
+func (s *DiscoveryServer) Clients() []*Connection {
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+	clients := make([]*Connection, 0, len(s.adsClients))
+	for _, con := range s.adsClients {
+		clients = append(clients, con)
+	}
+	return clients
+}
