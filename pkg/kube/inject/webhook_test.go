@@ -594,6 +594,11 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_cron_job.patch",
 			templateFile: "TestWebhookInject_cron_job_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_podRedirectAnnot.yaml",
+			wantFile:     "TestWebhookInject_podRedirectAnnot.patch",
+			templateFile: "TestWebhookInject_podRedirectAnnot_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
@@ -868,7 +873,7 @@ func jsonToUnstructured(obj []byte, t *testing.T) *unstructured.Unstructured {
 	return out
 }
 
-func normalizeAndCompareDeployments(got, want *corev1.Pod, t *testing.T) error {
+func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAnnotationsEnv bool, t *testing.T) error {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
 	delete(got.Annotations, annotation.SidecarStatus.Name)
@@ -889,6 +894,11 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, t *testing.T) error {
 		}
 	}
 
+	if ignoreIstioMetaJSONAnnotationsEnv {
+		removeContainerEnvEntry(got, "ISTIO_METAJSON_ANNOTATIONS")
+		removeContainerEnvEntry(want, "ISTIO_METAJSON_ANNOTATIONS")
+	}
+
 	marshaler := jsonpb.Marshaler{
 		Indent: "  ",
 	}
@@ -902,6 +912,17 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, t *testing.T) error {
 	}
 
 	return util.Compare([]byte(gotString), []byte(wantString))
+}
+
+func removeContainerEnvEntry(pod *corev1.Pod, envVarName string) {
+	for i, c := range pod.Spec.Containers {
+		for j, v := range c.Env {
+			if v.Name == envVarName {
+				pod.Spec.Containers[i].Env = append(c.Env[:j], c.Env[j+1:]...)
+				break
+			}
+		}
+	}
 }
 
 func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
