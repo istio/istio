@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -54,13 +56,7 @@ func TestRateLimiting(t *testing.T) {
 			}
 			defer cleanupEnvoyFilter(ctx, yaml)
 
-			// TODO(gargnupur): Figure out a way to query, envoy is ready to talk to rate limit service.
-			// Also, change to use mock rate limit and redis service.
-			time.Sleep(time.Second * 60)
-
-			if !sendTrafficAndCheckIfRatelimited(t) {
-				t.Errorf("No request received StatusTooManyRequest Error.")
-			}
+			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
 
@@ -75,9 +71,7 @@ func TestLocalRateLimiting(t *testing.T) {
 			}
 			defer cleanupEnvoyFilter(ctx, yaml)
 
-			if !sendTrafficAndCheckIfRatelimited(t) {
-				t.Errorf("No request received StatusTooManyRequest Error.")
-			}
+			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
 
@@ -92,9 +86,7 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 			}
 			defer cleanupEnvoyFilter(ctx, yaml)
 
-			if !sendTrafficAndCheckIfRatelimited(t) {
-				t.Errorf("No request received StatusTooManyRequest Error.")
-			}
+			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
 
@@ -200,20 +192,22 @@ func cleanupEnvoyFilter(ctx resource.Context, yaml string) error {
 	return nil
 }
 
-func sendTrafficAndCheckIfRatelimited(t *testing.T) bool {
+func sendTrafficAndCheckIfRatelimited(t *testing.T) {
 	t.Helper()
-	t.Logf("Sending 300 requests...")
-	httpOpts := echo.CallOptions{
-		Target:   srv,
-		PortName: "http",
-		Count:    300,
-	}
-	if parsedResponse, err := clt.Call(httpOpts); err == nil {
-		for _, resp := range parsedResponse {
-			if response.StatusCodeTooManyRequests == resp.Code {
-				return true
+	retry.UntilSuccessOrFail(t, func() error {
+		t.Logf("Sending 5 requests...")
+		httpOpts := echo.CallOptions{
+			Target:   srv,
+			PortName: "http",
+			Count:    5,
+		}
+		if parsedResponse, err := clt.Call(httpOpts); err == nil {
+			for _, resp := range parsedResponse {
+				if response.StatusCodeTooManyRequests == resp.Code {
+					return fmt.Errorf("No request received StatusTooManyRequest Error.")
+				}
 			}
 		}
-	}
-	return false
+		return nil
+	}, retry.Delay(5*time.Second), retry.Timeout(60*time.Second))
 }
