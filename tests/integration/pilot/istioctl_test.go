@@ -410,26 +410,35 @@ func TestProxyStatus(t *testing.T) {
 			// the printing code printed it.
 			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())))
 
-			args = []string{
-				"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())}
-			output, _ = istioCtl.InvokeOrFail(t, args)
-			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
-			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
-			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
+			expectSubstrings := func(have string, wants ...string) error {
+				for _, want := range wants {
+					if !strings.Contains(have, want) {
+						return fmt.Errorf("substring %q not found; have %q", want, have)
+					}
+				}
+				return nil
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				args = []string{
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
+			})
 
 			// test the --file param
-			filename := "ps-configdump.json"
-			cs := ctx.Clusters().Default()
-			dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
-			g.Expect(err).ShouldNot(gomega.HaveOccurred())
-			err = ioutil.WriteFile(filename, dump, os.ModePerm)
-			g.Expect(err).ShouldNot(gomega.HaveOccurred())
-			args = []string{
-				"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename}
-			output, _ = istioCtl.InvokeOrFail(t, args)
-			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
-			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
-			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
+			retry.UntilSuccessOrFail(t, func() error {
+				filename := "ps-configdump.json"
+				cs := ctx.Clusters().Default()
+				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				err = ioutil.WriteFile(filename, dump, os.ModePerm)
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				args = []string{
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
+			})
 		})
 }
 
