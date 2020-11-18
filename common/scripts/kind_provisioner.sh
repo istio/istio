@@ -155,6 +155,9 @@ EOF
   if [[ -n ${METRICS_SERVER_CONFIG_DIR} ]]; then
     kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
   fi
+
+  # Install Metallb
+  install_metallb ""
 }
 
 ###############################################################################
@@ -232,9 +235,7 @@ EOF
   export KUBECONFIGS
   for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
     KUBECONFIG_FILE="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
-    if [[ ${NUM_CLUSTERS} -gt 1 ]]; then
-      install_metallb "${KUBECONFIG_FILE}"
-    fi
+    install_metallb "${KUBECONFIG_FILE}"
     KUBECONFIGS+=("${KUBECONFIG_FILE}")
   done
 
