@@ -222,9 +222,14 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 	if !exists {
 		return nil
 	}
-	item, exists, err := pc.informer.GetStore().GetByKey(key)
-	if !exists || err != nil {
-		return nil
+	return pc.getPodByKey(key)
+}
+
+// getPodByKey returns the pod or nil if pod not found or an error occurred
+func (pc *PodCache) getPodByKey(key string) *v1.Pod {
+	item, _, _ := pc.informer.GetStore().GetByKey(key)
+	if item != nil {
+		return item.(*v1.Pod)
 	}
-	return item.(*v1.Pod)
+	return nil
 }

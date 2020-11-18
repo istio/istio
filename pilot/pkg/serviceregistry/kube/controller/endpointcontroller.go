@@ -121,19 +121,15 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 //   should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
 //   correctness and security.
 func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (rpod *v1.Pod, expectPod bool) {
-	pod := c.pods.getPodByIP(ip)
-	if pod != nil {
-		return pod, false
-	}
-	// This means, the endpoint event has arrived before pod event.
-	// This might happen because PodCache is eventually consistent.
 	if targetRef != nil && targetRef.Kind == "Pod" {
 		key := kube.KeyFunc(targetRef.Name, targetRef.Namespace)
 		// There is a small chance getInformer may have the pod, but it hasn't
 		// made its way to the PodCache yet as it a shared queue.
-		podFromInformer, f, err := c.pods.informer.GetStore().GetByKey(key)
-		if err != nil || !f {
-			log.Debugf("Endpoint without pod %s %s.%s error: %v", ip, ep.Name, ep.Namespace, err)
+		pod := c.pods.getPodByKey(key)
+		if pod == nil {
+			// This means, the endpoint event has arrived before pod event.
+			// This might happen because PodCache is eventually consistent.
+			log.Debugf("Endpoint without pod %s %s.%s", ip, ep.Name, ep.Namespace)
 			endpointsWithNoPods.Increment()
 			if c.metrics != nil {
 				c.metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
@@ -141,9 +137,10 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 			// Tell pod cache we want to queue the endpoint event when this pod arrives.
 			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
 			c.pods.queueEndpointEventOnPodArrival(epkey, ip)
-			return nil, true
 		}
-		pod = podFromInformer.(*v1.Pod)
+		return pod, true
 	}
+	// This means the endpoint is manually controlled
+	pod := c.pods.getPodByIP(ip)
 	return pod, false
 }
