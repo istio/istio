@@ -147,10 +147,11 @@ See also 'istioctl experimental remove-from-mesh deployment' which does the reve
 			if err != nil {
 				return err
 			}
-			var sidecarTemplate, valuesConfig string
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			writer := cmd.OutOrStdout()
 
+			var valuesConfig string
+			var sidecarTemplate inject.Templates
 			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig)
 			if err != nil {
 				return err
@@ -201,10 +202,11 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 			if err != nil {
 				return err
 			}
-			var sidecarTemplate, valuesConfig string
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			writer := cmd.OutOrStdout()
 
+			var valuesConfig string
+			var sidecarTemplate inject.Templates
 			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig)
 			if err != nil {
 				return err
@@ -228,7 +230,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 	return cmd
 }
 
-func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate, valuesConfig,
+func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.Templates, valuesConfig,
 	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	for _, dep := range deps {
@@ -286,7 +288,7 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 	return cmd
 }
 
-func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshConfig, error) {
+func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var err error
 	if meshConfigFile != "" {
@@ -303,11 +305,11 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 		if err != nil {
 			return nil, err
 		}
-		var injectConfig inject.Config
-		if err := yaml.Unmarshal(injectionConfig, &injectConfig); err != nil {
+		injectConfig, err := inject.UnmarshalConfig(injectionConfig)
+		if err != nil {
 			return nil, multierror.Append(err, fmt.Errorf("loading --injectConfigFile"))
 		}
-		*sidecarTemplate = injectConfig.Template
+		*sidecarTemplate = injectConfig.Templates
 	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
 		return nil, err
 	}
@@ -323,7 +325,7 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 	return meshConfig, err
 }
 
-func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate, valuesConfig,
+func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.Templates, valuesConfig,
 	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",

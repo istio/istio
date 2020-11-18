@@ -314,7 +314,7 @@ func TestInjection(t *testing.T) {
 			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
 			t.Run("kube-inject", func(t *testing.T) {
 				var got bytes.Buffer
-				if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", mc, in, &got, nullWarningHandler); err != nil {
+				if err = IntoResourceFile(sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, nullWarningHandler); err != nil {
 					if c.expectedError != "" {
 						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
 							t.Fatalf("expected error %q got %q", c.expectedError, err)
@@ -379,7 +379,7 @@ func TestInjection(t *testing.T) {
 func TestStrategicMerge(t *testing.T) {
 	webhook := &Webhook{
 		Config: &Config{
-			Template: `
+			Templates: map[string]string{SidecarTemplateName: `
 containers:
 - name: hello
   image: "fake.docker.io/google-samples/hello-go-gke:1.1"
@@ -388,7 +388,7 @@ containers:
     limits:
       cpu: 100m
       memory: 50m
-`,
+`},
 			Policy: InjectionPolicyEnabled,
 		},
 	}

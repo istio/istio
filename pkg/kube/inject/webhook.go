@@ -108,8 +108,8 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 }
 
 func unmarshalConfig(data []byte) (*Config, error) {
-	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil {
+	c, err := UnmarshalConfig(data)
+	if err != nil {
 		return nil, err
 	}
 
@@ -117,7 +117,7 @@ func unmarshalConfig(data []byte) (*Config, error) {
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
-	log.Debugf("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
+	log.Debugf("Templates: |\n  %v", c.Templates, "\n", "\n  ", -1)
 	return &c, nil
 }
 
@@ -335,7 +335,7 @@ type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          *metav1.ObjectMeta
 	typeMeta            *metav1.TypeMeta
-	template            string
+	template            Templates
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
@@ -648,7 +648,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		pod:                 &pod,
 		deployMeta:          deploy,
 		typeMeta:            typeMeta,
-		template:            wh.Config.Template,
+		template:            wh.Config.Templates,
 		meshConfig:          wh.meshConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
