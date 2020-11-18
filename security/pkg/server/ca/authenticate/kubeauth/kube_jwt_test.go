@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package authenticate
+package kubeauth
 
 import (
 	"fmt"
@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
@@ -89,7 +90,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedID:     fmt.Sprintf(identityTemplate, "example.com", "default", "example-pod-sa"),
+			expectedID:     fmt.Sprintf(authenticate.IdentityTemplate, "example.com", "default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
 		"not found remote cluster results in error": {
@@ -111,7 +112,7 @@ func TestAuthenticate(t *testing.T) {
 			ctx := context.Background()
 			if tc.metadata != nil {
 				if tc.token != "" {
-					token := bearerTokenPrefix + tc.token
+					token := authenticate.BearerTokenPrefix + tc.token
 					tc.metadata.Append("authorization", token)
 				}
 				ctx = metadata.NewIncomingContext(ctx, tc.metadata)
@@ -169,8 +170,8 @@ func TestAuthenticate(t *testing.T) {
 				return
 			}
 
-			expectedCaller := &Caller{
-				AuthSource: AuthSourceIDToken,
+			expectedCaller := &authenticate.Caller{
+				AuthSource: authenticate.AuthSourceIDToken,
 				Identities: []string{tc.expectedID},
 			}
 
