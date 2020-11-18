@@ -956,7 +956,7 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	for _, ip := range ips {
 		eas = append(eas, v1.EndpointAddress{IP: ip, TargetRef: &v1.ObjectReference{
 			Kind:      "Pod",
-			Name:      name,
+			Name:      "pod",
 			Namespace: namespace,
 		}})
 	}
