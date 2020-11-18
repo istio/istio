@@ -84,16 +84,7 @@ var (
 tracing:
   stackdriver:
     debug: true
-  sampling: 100.0
-  custom_tags:
-    canonical_service_name:
-      environment:
-        name: CANONICAL_SERVICE
-        defaultValue: "unknown"
-    canonical_service_revision:
-      environment:
-        name: CANONICAL_REVISION
-        defaultValue: "earliest"`
+  sampling: 100.0`
 )
 
 const enforceMTLS = `
@@ -129,10 +120,7 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.Values["meshConfig.enableTracing"] = "true"
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
-			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_name.environment.name"] = "CANONICAL_SERVICE"
-			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_name.environment.defaultValue"] = "unknown"
-			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.name"] = "CANONICAL_REVISION"
-			cfg.Values["meshConfig.defaultConfig.tracing.custom_tags.canonical_service_revision.environment.defaultValue"] = "earliest"
+			cfg.Values["global.meshID"] = "proj-test-mesh"
 			cfg.Values["global.proxy.tracer"] = "stackdriver"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
