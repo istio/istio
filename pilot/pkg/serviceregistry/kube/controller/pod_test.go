@@ -107,6 +107,30 @@ func TestPodCache(t *testing.T) {
 	})
 }
 
+func TestHostNetworkPod(t *testing.T) {
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+	defer c.Stop()
+	initTestEnv(t, c.client, fx)
+	createPod := func(ip, name string) {
+		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
+	}
+
+	createPod("128.0.0.1", "pod1")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/pod1" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	createPod("128.0.0.1", "pod2")
+	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/pod2" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+
+	p := c.pods.getPodByKey("ns/pod1")
+	if p == nil || p.Name != "pod1" {
+		t.Fatalf("unexpected pod: %v", p)
+	}
+}
+
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
