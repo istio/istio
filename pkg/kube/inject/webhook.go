@@ -73,10 +73,10 @@ const (
 
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
-	mu                     sync.RWMutex
-	Config                 *Config
-	meshConfig             *meshconfig.MeshConfig
-	valuesConfig           string
+	mu           sync.RWMutex
+	Config       *Config
+	meshConfig   *meshconfig.MeshConfig
+	valuesConfig string
 
 	healthCheckInterval time.Duration
 	healthCheckFile     string
