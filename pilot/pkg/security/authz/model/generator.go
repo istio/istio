@@ -167,7 +167,7 @@ func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permis
 
 func (requestPrincipalGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	m := matcher.MetadataStringMatcher(sm.AuthnFilterName, key, matcher.StringMatcher(value))
@@ -205,7 +205,7 @@ func (requestHeaderGenerator) permission(_, _ string, _ bool) (*rbacpb.Permissio
 
 func (requestHeaderGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
@@ -225,7 +225,7 @@ func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 
 func (requestClaimGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	claims, err := extractNameInNestedBrackets(strings.TrimPrefix(key, attrRequestClaims))
@@ -243,7 +243,7 @@ type hostGenerator struct {
 
 func (hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	m := matcher.HeaderMatcher(hostHeader, value)
@@ -256,17 +256,11 @@ func (hostGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principa
 }
 
 type pathGenerator struct {
-	isIstioVersionGE15 bool
 }
 
 func (g pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
-	}
-
-	if !g.isIstioVersionGE15 {
-		m := matcher.HeaderMatcher(":path", value)
-		return permissionHeader(m), nil
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	m := matcher.PathMatcher(value)
@@ -282,7 +276,7 @@ type methodGenerator struct {
 
 func (methodGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	m := matcher.HeaderMatcher(methodHeader, value)

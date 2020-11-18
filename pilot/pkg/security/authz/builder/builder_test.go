@@ -84,9 +84,10 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-						Service:    "foo/my-custom-ext-authz",
-						Port:       999999,
-						PathPrefix: "/check",
+						Service:       "foo/my-custom-ext-authz",
+						Port:          999999,
+						PathPrefix:    "check",
+						StatusOnError: "999",
 					},
 				},
 			},
@@ -96,23 +97,16 @@ var (
 
 func TestGenerator_GenerateHTTP(t *testing.T) {
 	testCases := []struct {
-		name        string
-		tdBundle    trustdomain.Bundle
-		isVersion14 bool
-		meshConfig  *meshconfig.MeshConfig
-		input       string
-		want        []string
+		name       string
+		tdBundle   trustdomain.Bundle
+		meshConfig *meshconfig.MeshConfig
+		input      string
+		want       []string
 	}{
 		{
-			name:        "path14",
-			input:       "path14-in.yaml",
-			isVersion14: true,
-			want:        []string{"path14-out.yaml"},
-		},
-		{
-			name:  "path15",
-			input: "path15-in.yaml",
-			want:  []string{"path15-out.yaml"},
+			name:  "path",
+			input: "path-in.yaml",
+			want:  []string{"path-out.yaml"},
 		},
 		{
 			name:       "action-custom-grpc-provider",
@@ -154,6 +148,11 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "allow-all",
 			input: "allow-all-in.yaml",
 			want:  []string{"allow-all-out.yaml"},
+		},
+		{
+			name:  "allow-none",
+			input: "allow-none-in.yaml",
+			want:  []string{"allow-none-out.yaml"},
 		},
 		{
 			name:  "deny-all",
@@ -204,11 +203,12 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
-				IsIstioVersionGE15:     !tc.isVersion14,
-				IsOnInboundPassthrough: false,
-				IsCustomBuilder:        tc.meshConfig != nil,
+				IsCustomBuilder: tc.meshConfig != nil,
+				Logger:          &AuthzLogger{},
 			}
-			g := New(tc.tdBundle, inputParams(t, tc.input, tc.meshConfig), option)
+			in := inputParams(t, tc.input, tc.meshConfig)
+			defer option.Logger.Report(in)
+			g := New(tc.tdBundle, in, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -258,11 +258,12 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
-				IsIstioVersionGE15:     true,
-				IsOnInboundPassthrough: false,
-				IsCustomBuilder:        tc.meshConfig != nil,
+				IsCustomBuilder: tc.meshConfig != nil,
+				Logger:          &AuthzLogger{},
 			}
-			g := New(tc.tdBundle, inputParams(t, tc.input, tc.meshConfig), option)
+			in := inputParams(t, tc.input, tc.meshConfig)
+			defer option.Logger.Report(in)
+			g := New(tc.tdBundle, in, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -373,6 +374,7 @@ func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig) *plugin.
 	t.Helper()
 	ret := &plugin.InputParams{
 		Node: &model.Proxy{
+			ID:              "test-node",
 			ConfigNamespace: "foo",
 			Metadata: &model.NodeMetadata{
 				Labels: httpbin,

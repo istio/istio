@@ -71,7 +71,7 @@ type Model struct {
 }
 
 // New returns a model representing a single authorization policy.
-func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
+func New(r *authzpb.Rule) (*Model, error) {
 	m := Model{}
 
 	basePermission := ruleList{}
@@ -131,7 +131,7 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 		merged := basePermission.copy()
 		if o := to.Operation; o != nil {
 			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
-			merged.insertFront(pathGenerator{isIstioVersionGE15: isIstioVersionGE15}, pathMatcher, o.Paths, o.NotPaths)
+			merged.insertFront(pathGenerator{}, pathMatcher, o.Paths, o.NotPaths)
 			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
 			merged.insertFront(hostGenerator{}, hostHeader, o.Hosts, o.NotHosts)
 		}

@@ -18,7 +18,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/spiffe"
@@ -56,7 +55,7 @@ func (p Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.M
 		return nil
 	}
 
-	p.buildFilter(in, mutable, false)
+	p.buildFilter(in, mutable)
 	return nil
 }
 
@@ -74,13 +73,13 @@ func (p Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Mu
 		return nil
 	}
 
-	p.buildFilter(in, mutable, false)
+	p.buildFilter(in, mutable)
 	return nil
 }
 
-func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isOnInboundPassthrough bool) {
+func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) {
 	if in.Push == nil || in.Push.AuthzPolicies == nil {
-		authzLog.Debugf("no authorization policy in push context")
+		authzLog.Debugf("No authorization policy for %s", in.Node.ID)
 		return
 	}
 
@@ -88,11 +87,10 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 	// https://github.com/istio/istio/issues/17873
 	tdBundle := trustdomain.NewBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
 	option := builder.Option{
-		IsIstioVersionGE15:     util.IsIstioVersionGE15(in.Node),
-		IsOnInboundPassthrough: isOnInboundPassthrough,
-		IsCustomBuilder:        p.actionType == Custom,
+		IsCustomBuilder: p.actionType == Custom,
+		Logger:          &builder.AuthzLogger{},
 	}
-
+	defer option.Logger.Report(in)
 	b := builder.New(tdBundle, in, option)
 	if b == nil {
 		return
@@ -100,7 +98,7 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 
 	switch in.ListenerProtocol {
 	case networking.ListenerProtocolTCP:
-		authzLog.Debugf("building filter for TCP listener protocol")
+		option.Logger.AppendDebugf("building filters for TCP listener protocol")
 		tcpFilters := b.BuildTCP()
 		if in.Node.Type == model.Router {
 			// For gateways, due to TLS termination, a listener marked as TCP could very well
@@ -109,51 +107,38 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 			httpFilters := b.BuildHTTP()
 			for cnum := range mutable.FilterChains {
 				if mutable.FilterChains[cnum].ListenerProtocol == networking.ListenerProtocolHTTP {
-					for _, httpFilter := range httpFilters {
-						authzLog.Debugf("added HTTP filter to gateway filter chain %d", cnum)
-						mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
-					}
+					option.Logger.AppendDebugf("added %d HTTP filters to gateway filter chain %d", len(httpFilters), cnum)
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
 				} else {
-					for _, tcpFilter := range tcpFilters {
-						authzLog.Debugf("added TCP filter to gateway filter chain %d", cnum)
-						mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
-					}
+					option.Logger.AppendDebugf("added %d TCP filters to gateway filter chain %d", len(tcpFilters), cnum)
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
 				}
 			}
 		} else {
-			for _, tcpFilter := range tcpFilters {
-				for cnum := range mutable.FilterChains {
-					authzLog.Debugf("added TCP filter to filter chain %d", cnum)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
-				}
+			for cnum := range mutable.FilterChains {
+				option.Logger.AppendDebugf("added %d TCP filter to filter chain %d", len(tcpFilters), cnum)
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
 			}
 		}
 	case networking.ListenerProtocolHTTP:
-		authzLog.Debugf("building filter for HTTP listener protocol")
+		option.Logger.AppendDebugf("building filters for HTTP listener protocol")
 		httpFilters := b.BuildHTTP()
-		for _, filter := range httpFilters {
-			for cnum := range mutable.FilterChains {
-				authzLog.Debugf("added HTTP filter to filter chain %d", cnum)
-				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
-			}
+		for cnum := range mutable.FilterChains {
+			option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
 		}
 	case networking.ListenerProtocolAuto:
-		authzLog.Debugf("building filter for AUTO listener protocol")
+		option.Logger.AppendDebugf("building filters for AUTO listener protocol")
 		httpFilters := b.BuildHTTP()
 		tcpFilters := b.BuildTCP()
-
 		for cnum := range mutable.FilterChains {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
 			case networking.ListenerProtocolTCP:
-				for _, tcpFilter := range tcpFilters {
-					authzLog.Debugf("added TCP filter to filter chain %d", cnum)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
-				}
+				option.Logger.AppendDebugf("added %d TCP filters to filter chain %d", len(tcpFilters), cnum)
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilters...)
 			case networking.ListenerProtocolHTTP:
-				for _, httpFilter := range httpFilters {
-					authzLog.Debugf("added HTTP filter to filter chain %d", cnum)
-					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
-				}
+				option.Logger.AppendDebugf("added %d HTTP filters to filter chain %d", len(httpFilters), cnum)
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilters...)
 			}
 		}
 	}
@@ -166,7 +151,7 @@ func (p Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking
 		return nil
 	}
 
-	p.buildFilter(in, mutable, true)
+	p.buildFilter(in, mutable)
 	return nil
 }
 
