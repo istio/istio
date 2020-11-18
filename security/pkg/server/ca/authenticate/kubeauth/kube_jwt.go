@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package authenticate
+package kubeauth
 
 import (
 	"fmt"
-	"strings"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
@@ -24,17 +23,15 @@ import (
 
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
 )
 
 const (
-	// identityTemplate is the SPIFFE format template of the identity.
-	identityTemplate         = "spiffe://%s/ns/%s/sa/%s"
 	KubeJWTAuthenticatorType = "KubeJWTAuthenticator"
-)
 
-// TODO: move this under pkg/k8s - it depends on k8s client library.
-// The cert and OIDC are independent of k8s.
+	clusterIDMeta = "clusterid"
+)
 
 type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
@@ -52,7 +49,7 @@ type KubeJWTAuthenticator struct {
 	remoteKubeClientGetter RemoteKubeClientGetter
 }
 
-var _ Authenticator = &KubeJWTAuthenticator{}
+var _ authenticate.Authenticator = &KubeJWTAuthenticator{}
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
 func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
@@ -73,8 +70,8 @@ func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
-func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
-	targetJWT, err := extractBearerToken(ctx)
+func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
+	targetJWT, err := authenticate.ExtractBearerToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
@@ -112,9 +109,9 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	}
 	callerNamespace := id[0]
 	callerServiceAccount := id[1]
-	return &Caller{
-		AuthSource: AuthSourceIDToken,
-		Identities: []string{fmt.Sprintf(identityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
+	return &authenticate.Caller{
+		AuthSource: authenticate.AuthSourceIDToken,
+		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
 	}, nil
 }
 
@@ -135,26 +132,6 @@ func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interf
 	// we did not find the kube client for this cluster.
 	// return nil so that logs will show that this cluster is not available in istiod
 	return nil
-}
-
-func extractBearerToken(ctx context.Context) (string, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return "", fmt.Errorf("no metadata is attached")
-	}
-
-	authHeader, exists := md[authorizationMeta]
-	if !exists {
-		return "", fmt.Errorf("no HTTP authorization header exists")
-	}
-
-	for _, value := range authHeader {
-		if strings.HasPrefix(value, bearerTokenPrefix) {
-			return strings.TrimPrefix(value, bearerTokenPrefix), nil
-		}
-	}
-
-	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }
 
 func extractClusterID(ctx context.Context) string {
