@@ -387,7 +387,7 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 	}
 
 	// Run the injection template, giving us a partial pod spec
-	spec, injectedSpec, err := RunTemplate(req)
+	spec, injectedPodData, err := RunTemplate(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run injection template: %v", err)
 	}
@@ -401,7 +401,7 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 	pod.Spec = mergedPodSpec
 
 	// Apply some additional transformations to the pod
-	if err := postProcessPod(pod, *injectedSpec, req); err != nil {
+	if err := postProcessPod(pod, *injectedPodData, req); err != nil {
 		return nil, fmt.Errorf("failed to process pod: %v", err)
 	}
 
@@ -428,7 +428,7 @@ func createPatch(pod *corev1.Pod, original []byte) ([]byte, error) {
 
 // postProcessPod applies additionally transformations to the pod after merging with the injected template
 // This is generally things that cannot reasonably be added to the template
-func postProcessPod(pod *corev1.Pod, injectedPodSpec corev1.Pod, req InjectionParameters) error {
+func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParameters) error {
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}
@@ -450,7 +450,7 @@ func postProcessPod(pod *corev1.Pod, injectedPodSpec corev1.Pod, req InjectionPa
 		return err
 	}
 
-	applyMetadata(pod, injectedPodSpec, req)
+	applyMetadata(pod, injectedPod, req)
 
 	if err := reorderPod(pod, req); err != nil {
 		return err
@@ -459,7 +459,7 @@ func postProcessPod(pod *corev1.Pod, injectedPodSpec corev1.Pod, req InjectionPa
 	return nil
 }
 
-func applyMetadata(pod *corev1.Pod, injectedPodSpec corev1.Pod, req InjectionParameters) {
+func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionParameters) {
 	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, req.deployMeta.Name)
 	setIfUnset(pod.Labels, label.TLSMode, model.IstioMutualTLSModeLabel)
 	setIfUnset(pod.Labels, model.IstioCanonicalServiceLabelName, canonicalSvc)
@@ -467,11 +467,11 @@ func applyMetadata(pod *corev1.Pod, injectedPodSpec corev1.Pod, req InjectionPar
 	setIfUnset(pod.Labels, model.IstioCanonicalServiceRevisionLabelName, canonicalRev)
 
 	// Add all additional injected annotations. These are overridden if needed
-	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodSpec.Spec, req.version)
+	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec, req.version)
 
 	for k := range AnnotationValidation {
-		if injectedPodSpec.ObjectMeta.Annotations[k] != "" {
-			pod.Annotations[k] = injectedPodSpec.ObjectMeta.Annotations[k]
+		if injectedPodData.ObjectMeta.Annotations[k] != "" {
+			pod.Annotations[k] = injectedPodData.ObjectMeta.Annotations[k]
 		}
 	}
 

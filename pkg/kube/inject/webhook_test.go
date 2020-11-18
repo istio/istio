@@ -895,8 +895,8 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 	}
 
 	if ignoreIstioMetaJSONAnnotationsEnv {
-		removeIstioMetaJSONAnnotationsEnv(got)
-		removeIstioMetaJSONAnnotationsEnv(want)
+		removeContainerEnvEntry(got, "ISTIO_METAJSON_ANNOTATIONS")
+		removeContainerEnvEntry(want, "ISTIO_METAJSON_ANNOTATIONS")
 	}
 
 	marshaler := jsonpb.Marshaler{
@@ -914,10 +914,10 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 	return util.Compare([]byte(gotString), []byte(wantString))
 }
 
-func removeIstioMetaJSONAnnotationsEnv(pod *corev1.Pod) {
+func removeContainerEnvEntry(pod *corev1.Pod, envVarName string) {
 	for i, c := range pod.Spec.Containers {
 		for j, v := range c.Env {
-			if v.Name == "ISTIO_METAJSON_ANNOTATIONS" {
+			if v.Name == envVarName {
 				pod.Spec.Containers[i].Env = append(c.Env[:j], c.Env[j+1:]...)
 				break
 			}
