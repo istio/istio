@@ -1,7 +1,7 @@
 ARG VM_IMAGE_NAME=ubuntu
 ARG VM_IMAGE_VERSION=bionic
 ARG BASE_VERSION=latest
-FROM docker.io/istio/app_sidecar_base_${VM_IMAGE_NAME}_${VM_IMAGE_VERSION}:${BASE_VERSION}
+FROM gcr.io/istio-release/app_sidecar_base_${VM_IMAGE_NAME}_${VM_IMAGE_VERSION}:${BASE_VERSION}
 
 # Install the certs.
 COPY certs/                           /var/lib/istio/
