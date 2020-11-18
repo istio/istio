@@ -231,7 +231,7 @@ spec:
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
-          {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
+          {{- $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
             value: {{ .Values.global.network }}
@@ -338,7 +338,7 @@ spec:
           optional: true
       {{- end }}
       affinity:
-      {{- include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | indent 6 }}
+{{ include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | trim | indent 8 }}
       {{- include "podAntiAffinity" $gateway | indent 6 }}
 {{- if $gateway.tolerations }}
       tolerations:
