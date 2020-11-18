@@ -862,16 +862,6 @@ func TestRunAndServe(t *testing.T) {
 	validPatch := []byte(`[
 {
     "op": "add",
-    "path": "/metadata/labels",
-    "value": {
-        "istio.io/rev": "",
-        "security.istio.io/tlsMode": "istio",
-        "service.istio.io/canonical-name": "test",
-        "service.istio.io/canonical-revision": "latest"
-    }
-},
-{
-    "op": "add",
     "path": "/metadata/annotations",
     "value": {
         "prometheus.io/path": "/stats/prometheus",
@@ -906,13 +896,6 @@ func TestRunAndServe(t *testing.T) {
     "value": {
         "name": "istio-proxy",
         "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/securityContext",
-    "value": {
-        "fsGroup": 1337
     }
 },
 {

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
@@ -52,6 +53,8 @@ func TestInjection(t *testing.T) {
 		mesh          func(m *meshapi.MeshConfig)
 		skipWebhook   bool
 		expectedError string
+		setup         func()
+		teardown      func()
 	}
 	cases := []testCase{
 		// verify cni
@@ -239,6 +242,18 @@ func TestInjection(t *testing.T) {
 			in:            "traffic-annotations-bad-excludeoutboundports.yaml",
 			expectedError: "excludeoutboundports",
 		},
+		{
+			in:   "hello.yaml",
+			want: "hello-no-seccontext.yaml.injected",
+			setup: func() {
+				features.EnableLegacyFSGroupInjection = false
+				os.Setenv("ENABLE_LEGACY_FSGROUP_INJECTION", "false")
+			},
+			teardown: func() {
+				features.EnableLegacyFSGroupInjection = true
+				os.Setenv("ENABLE_LEGACY_FSGROUP_INJECTION", "true")
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -287,7 +302,15 @@ func TestInjection(t *testing.T) {
 			testName = fmt.Sprintf("[%02d] %s", i, c.in)
 		}
 		t.Run(testName, func(t *testing.T) {
-			t.Parallel()
+			if c.setup != nil {
+				c.setup()
+			} else {
+				// Tests with custom setup modify global state and cannot run in parallel
+				t.Parallel()
+			}
+			if c.teardown != nil {
+				t.Cleanup(c.teardown)
+			}
 
 			mc, err := mesh.DeepCopyMeshConfig(defaultMesh)
 			if err != nil {
@@ -349,6 +372,7 @@ func TestInjection(t *testing.T) {
 					Config:       sidecarTemplate,
 					meshConfig:   mc,
 					valuesConfig: valuesConfig,
+					revision:     "default",
 				}
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
@@ -421,16 +445,10 @@ metadata:
   name: hello
   labels:
     istio.io/injected: "true"
-    istio.io/rev: ""
-    security.istio.io/tlsMode: istio
-    service.istio.io/canonical-name: hello
-    service.istio.io/canonical-revision: latest
 spec:
   containers:
     - name: hello
       image: "fake.docker.io/google-samples/hello-go-gke:1.1"
-  securityContext:
-    fsGroup: 1337
 `)
 }
 
@@ -475,11 +493,6 @@ metadata:
     prometheus.io/scrape: "true"
     sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
   name: hello
-  labels:
-    istio.io/rev: ""
-    security.istio.io/tlsMode: istio
-    service.istio.io/canonical-name: hello
-    service.istio.io/canonical-revision: latest
 spec:
   containers:
   - name: hello
@@ -488,8 +501,6 @@ spec:
      limits:
        cpu: 100m
        memory: 50m
-  securityContext:
-    fsGroup: 1337
 `)
 }
 

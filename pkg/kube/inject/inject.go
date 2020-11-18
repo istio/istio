@@ -92,6 +92,7 @@ type SidecarTemplateData struct {
 	ProxyConfig    *meshconfig.ProxyConfig
 	MeshConfig     *meshconfig.MeshConfig
 	Values         map[string]interface{}
+	Revision       string
 }
 
 type Template *corev1.Pod
@@ -330,6 +331,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		ProxyConfig:    meshConfig.GetDefaultConfig(),
 		MeshConfig:     meshConfig,
 		Values:         values,
+		Revision:       params.revision,
 	}
 	funcMap := CreateInjectionFuncmap()
 
