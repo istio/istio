@@ -17,6 +17,7 @@ package builder
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -42,15 +43,24 @@ const (
 )
 
 var (
+	rbacPolicyMatchAll = &rbacpb.Policy{
+		Permissions: []*rbacpb.Permission{{Rule: &rbacpb.Permission_Any{Any: true}}},
+		Principals:  []*rbacpb.Principal{{Identifier: &rbacpb.Principal_Any{Any: true}}},
+	}
 	rbacDefaultDenyAll = &rbacpb.RBAC{
 		Action: rbacpb.RBAC_DENY,
 		Policies: map[string]*rbacpb.Policy{
-			"default-deny-all-due-to-bad-CUSTOM-action": {
-				Permissions: []*rbacpb.Permission{{Rule: &rbacpb.Permission_Any{Any: true}}},
-				Principals:  []*rbacpb.Principal{{Identifier: &rbacpb.Principal_Any{Any: true}}},
-			},
+			"default-deny-all-due-to-bad-CUSTOM-action": rbacPolicyMatchAll,
 		},
 	}
+	supportedStatus = func() []int {
+		var supported []int
+		for code := range envoytypev3.StatusCode_name {
+			supported = append(supported, int(code))
+		}
+		sort.Ints(supported)
+		return supported
+	}()
 )
 
 type builtExtAuthz struct {
@@ -83,7 +93,7 @@ func processExtensionProvider(in *plugin.InputParams) (map[string]*builtExtAuthz
 			err = fmt.Errorf("unsupported extension provider: %s", config.Name)
 		}
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to parse extension provider %s: %v", config.Name, err))
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to parse extension provider %q:", config.Name)))
 		}
 		resolved[config.Name] = parsed
 	}
@@ -108,13 +118,13 @@ func notAllTheSame(names []string) bool {
 
 func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*builtExtAuthz, error) {
 	if resolved == nil {
-		return nil, fmt.Errorf("extension provider not defined or failed to process")
+		return nil, fmt.Errorf("extension provider is either invalid or undefined")
 	}
 	if len(providers) < 1 {
-		return nil, fmt.Errorf("no extension provider found")
+		return nil, fmt.Errorf("no provider specified in authorization policy")
 	}
 	if notAllTheSame(providers) {
-		return nil, fmt.Errorf("all extension providers must be the same for a specific workload, found multiple different providers: %v", providers)
+		return nil, fmt.Errorf("only 1 provider can be used per workload, found multiple providers: %v", providers)
 	}
 
 	var errs error
@@ -125,7 +135,7 @@ func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*built
 		for p := range resolved {
 			li = append(li, p)
 		}
-		errs = multierror.Append(fmt.Errorf("extension provider %s not found, available providers are %v", provider, li))
+		errs = multierror.Append(fmt.Errorf("available providers are %v but found %q", li, provider))
 	}
 	if errs != nil {
 		return nil, errs
@@ -150,7 +160,7 @@ func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	}
 	if config.PathPrefix != "" {
 		if _, err := url.Parse(config.PathPrefix); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("invalid pathPrefix %q: %v", config.PathPrefix, err))
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid pathPrefix %q:", config.PathPrefix)))
 		}
 		if !strings.HasPrefix(config.PathPrefix, "/") {
 			errs = multierror.Append(errs, fmt.Errorf("pathPrefix must begin with `/`, found: %q", config.PathPrefix))
@@ -221,10 +231,10 @@ func parseStatusOnError(status string) (*envoytypev3.HttpStatus, error) {
 	}
 	code, err := strconv.ParseInt(status, 10, 32)
 	if err != nil {
-		return nil, fmt.Errorf("invalid statusOnError %s: %v", status, err)
+		return nil, multierror.Prefix(err, fmt.Sprintf("invalid statusOnError %q:", status))
 	}
 	if _, found := envoytypev3.StatusCode_name[int32(code)]; !found {
-		return nil, fmt.Errorf("unsupported statusOnError %s, supported values: %v", status, envoytypev3.StatusCode_name)
+		return nil, fmt.Errorf("unsupported statusOnError %s, supported values: %v", status, supportedStatus)
 	}
 	return &envoytypev3.HttpStatus{Code: envoytypev3.StatusCode(code)}, nil
 }
