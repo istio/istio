@@ -21,4 +21,3 @@ package basicmeta
 //go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go basicmeta basicmeta.yaml collections.gen.go
 
 //go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/testing/basicmeta/collections.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/testing/basicmeta/collections.gen.go"
