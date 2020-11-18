@@ -627,7 +627,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Incoming Requests by Source And Response Code",
+          "title": "Incoming Requests By Source And Response Code",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -900,7 +900,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Incoming Request Duration by Source",
+          "title": "Incoming Request Duration By Source",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1576,7 +1576,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Outgoing Requests by Destination And Response Code",
+          "title": "Outgoing Requests By Destination And Response Code",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -1849,7 +1849,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Outgoing Request Duration by Destination",
+          "title": "Outgoing Request Duration By Destination",
           "tooltip": {
             "shared": true,
             "sort": 0,
