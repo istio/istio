@@ -22,7 +22,6 @@ import (
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"golang.org/x/time/rate"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -75,18 +74,6 @@ func NewInternalGen(s *DiscoveryServer) *InternalGen {
 }
 
 func (sg *InternalGen) OnConnect(con *Connection) {
-	if con.node.Metadata != nil && con.node.Metadata.Fields != nil {
-		con.node.Metadata.Fields["istiod"] = &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: "TODO", // TODO: fill in the Istiod address - may include network, cluster, IP
-			},
-		}
-		con.node.Metadata.Fields["con"] = &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: con.ConID,
-			},
-		}
-	}
 	sg.startPush(TypeURLConnections, []proto.Message{con.node})
 }
 
@@ -94,16 +81,6 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 	sg.QueueUnregisterWorkload(con.proxy)
 
 	sg.startPush(TypeURLDisconnect, []proto.Message{con.node})
-
-	if con.node.Metadata != nil && con.node.Metadata.Fields != nil {
-		con.node.Metadata.Fields["istiod"] = &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: "", // TODO: using empty string to indicate this node has no istiod connection. We'll iterate.
-			},
-		}
-	}
-
-	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
 }
 
 func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCache) {
