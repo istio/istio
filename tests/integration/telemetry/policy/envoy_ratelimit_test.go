@@ -204,7 +204,7 @@ func sendTrafficAndCheckIfRatelimited(t *testing.T) {
 		if parsedResponse, err := clt.Call(httpOpts); err == nil {
 			for _, resp := range parsedResponse {
 				if response.StatusCodeTooManyRequests == resp.Code {
-					return errors.New("no request received StatusTooManyRequest Error.")
+					return errors.New("no request received StatusTooManyRequest error")
 				}
 			}
 		}
