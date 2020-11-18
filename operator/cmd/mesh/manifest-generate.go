@@ -71,7 +71,7 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
   istioctl manifest generate
 
   # Enable Tracing
-  istioctl install --set meshConfig.enableTracing=true
+  istioctl manifest generate --set meshConfig.enableTracing=true
 
   # Generate the demo profile
   istioctl manifest generate --set profile=demo
