@@ -212,7 +212,7 @@
               "expr": "sum(irate(istio_requests_total{reporter=\"source\",destination_service=~\"$service\",response_code!~\"5.*\"}[5m])) / sum(irate(istio_requests_total{reporter=\"source\",destination_service=~\"$service\"}[5m]))",
               "format": "time_series",
               "intervalFactor": 1,
-              "refId": "B"
+              "refId": "A"
             }
           ],
           "thresholds": "95, 99, 99.5",
@@ -410,7 +410,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(irate(istio_tcp_received_bytes_total{reporter=\"source\", destination_service=~\"$service\"}[1m]))",
+              "expr": "sum(irate(istio_tcp_received_bytes_total{reporter=\"destination\", destination_service=~\"$service\"}[1m]))",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
@@ -787,7 +787,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(irate(istio_tcp_sent_bytes_total{reporter=\"source\", destination_service=~\"$service\"}[1m]))",
+              "expr": "sum(irate(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_service=~\"$service\"}[1m]))",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
@@ -916,7 +916,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Incoming Requests by Source And Response Code",
+          "title": "Incoming Requests By Source And Response Code",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -1189,7 +1189,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Incoming Request Duration by Source",
+          "title": "Incoming Request Duration By Source",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1700,7 +1700,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy=\"mutual_tls\", reporter=\"source\", destination_service=~\"$service\", source_workload=~\"$srcwl\", source_workload_namespace=~\"$srcns\"}[1m])) by (source_workload, source_workload_namespace), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy=\"mutual_tls\", reporter=\"destination\", destination_service=~\"$service\", source_workload=~\"$srcwl\", source_workload_namespace=~\"$srcns\"}[1m])) by (source_workload, source_workload_namespace), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ source_workload }}.{{ source_workload_namespace}} (🔐mTLS)",
@@ -1708,7 +1708,7 @@
               "step": 2
             },
             {
-              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy!=\"mutual_tls\", reporter=\"source\", destination_service=~\"$service\", source_workload=~\"$srcwl\", source_workload_namespace=~\"$srcns\"}[1m])) by (source_workload, source_workload_namespace), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy!=\"mutual_tls\", reporter=\"destination\", destination_service=~\"$service\", source_workload=~\"$srcwl\", source_workload_namespace=~\"$srcns\"}[1m])) by (source_workload, source_workload_namespace), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ source_workload }}.{{ source_workload_namespace}}",
@@ -1865,7 +1865,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Incoming Requests by Destination Workload And Response Code",
+          "title": "Incoming Requests By Destination Workload And Response Code",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -2138,7 +2138,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Incoming Request Duration by Service Workload",
+          "title": "Incoming Request Duration By Service Workload",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -2545,7 +2545,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(istio_tcp_received_bytes_total{reporter=\"source\", connection_security_policy=\"mutual_tls\", destination_service=~\"$service\", destination_workload=~\"$dstwl\", destination_workload_namespace=~\"$dstns\"}[1m])) by (destination_workload, destination_workload_namespace), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_received_bytes_total{reporter=\"destination\", connection_security_policy=\"mutual_tls\", destination_service=~\"$service\", destination_workload=~\"$dstwl\", destination_workload_namespace=~\"$dstns\"}[1m])) by (destination_workload, destination_workload_namespace), 0.001)",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
@@ -2554,7 +2554,7 @@
               "step": 2
             },
             {
-              "expr": "round(sum(irate(istio_tcp_received_bytes_total{reporter=\"source\", connection_security_policy!=\"mutual_tls\", destination_service=~\"$service\", destination_workload=~\"$dstwl\", destination_workload_namespace=~\"$dstns\"}[1m])) by (destination_workload, destination_workload_namespace), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_received_bytes_total{reporter=\"destination\", connection_security_policy!=\"mutual_tls\", destination_service=~\"$service\", destination_workload=~\"$dstwl\", destination_workload_namespace=~\"$dstns\"}[1m])) by (destination_workload, destination_workload_namespace), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace}}",
@@ -2649,7 +2649,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy=\"mutual_tls\", reporter=\"source\", destination_service=~\"$service\", destination_workload=~\"$dstwl\", destination_workload_namespace=~\"$dstns\"}[1m])) by (destination_workload, destination_workload_namespace), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy=\"mutual_tls\", reporter=\"destination\", destination_service=~\"$service\", destination_workload=~\"$dstwl\", destination_workload_namespace=~\"$dstns\"}[1m])) by (destination_workload, destination_workload_namespace), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_workload }}.{{destination_workload_namespace }} (🔐mTLS)",
@@ -2657,7 +2657,7 @@
               "step": 2
             },
             {
-              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy!=\"mutual_tls\", reporter=\"source\", destination_service=~\"$service\", destination_workload=~\"$dstwl\", destination_workload_namespace=~\"$dstns\"}[1m])) by (destination_workload, destination_workload_namespace), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy!=\"mutual_tls\", reporter=\"destination\", destination_service=~\"$service\", destination_workload=~\"$dstwl\", destination_workload_namespace=~\"$dstns\"}[1m])) by (destination_workload, destination_workload_namespace), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_workload }}.{{destination_workload_namespace }}",
