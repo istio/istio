@@ -347,7 +347,6 @@ func TestInjection(t *testing.T) {
 			t.Run("webhook", func(t *testing.T) {
 				webhook := &Webhook{
 					Config:                 sidecarTemplate,
-					sidecarTemplateVersion: "unit-test-fake-version",
 					meshConfig:             mc,
 					valuesConfig:           valuesConfig,
 				}

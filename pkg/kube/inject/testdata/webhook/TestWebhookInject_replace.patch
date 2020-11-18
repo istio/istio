@@ -27,7 +27,7 @@
   {
     "op": "replace",
     "path": "/metadata/annotations/sidecar.istio.io~1status",
-    "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":null,\"containers\":null,\"volumes\":null,\"imagePullSecrets\":null}"
+    "value": "{\"initContainers\":null,\"containers\":null,\"volumes\":null,\"imagePullSecrets\":null}"
   },
   {
     "op": "add",

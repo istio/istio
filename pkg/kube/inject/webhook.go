@@ -75,7 +75,6 @@ const (
 type Webhook struct {
 	mu                     sync.RWMutex
 	Config                 *Config
-	sidecarTemplateVersion string
 	meshConfig             *meshconfig.MeshConfig
 	valuesConfig           string
 
@@ -225,11 +224,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 }
 
 func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
-	version := sidecarTemplateVersionHash(sidecarConfig.Template)
 	wh.mu.Lock()
 	wh.Config = sidecarConfig
 	wh.valuesConfig = valuesConfig
-	wh.sidecarTemplateVersion = version
 	wh.mu.Unlock()
 }
 
@@ -339,7 +336,6 @@ type InjectionParameters struct {
 	deployMeta          *metav1.ObjectMeta
 	typeMeta            *metav1.TypeMeta
 	template            string
-	version             string
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
@@ -358,8 +354,8 @@ func checkPreconditions(params InjectionParameters) {
 	}
 }
 
-func getInjectionStatus(podSpec corev1.PodSpec, version string) string {
-	stat := &SidecarInjectionStatus{Version: version}
+func getInjectionStatus(podSpec corev1.PodSpec) string {
+	stat := &SidecarInjectionStatus{}
 	for _, c := range podSpec.InitContainers {
 		stat.InitContainers = append(stat.InitContainers, c.Name)
 	}
@@ -467,7 +463,7 @@ func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionPar
 	setIfUnset(pod.Labels, model.IstioCanonicalServiceRevisionLabelName, canonicalRev)
 
 	// Add all additional injected annotations. These are overridden if needed
-	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec, req.version)
+	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec)
 
 	for k := range AnnotationValidation {
 		if injectedPodData.ObjectMeta.Annotations[k] != "" {
@@ -653,7 +649,6 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		deployMeta:          deploy,
 		typeMeta:            typeMeta,
 		template:            wh.Config.Template,
-		version:             wh.sidecarTemplateVersion,
 		meshConfig:          wh.meshConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
