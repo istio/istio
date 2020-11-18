@@ -289,11 +289,12 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	clusterEnv := map[string]string{
-		"ISTIO_INBOUND_PORTS": portBehavior,
-		"ISTIO_NAMESPACE":     wg.Namespace,
-		"ISTIO_SERVICE":       fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
-		"ISTIO_SERVICE_CIDR":  "*",
-		"SERVICE_ACCOUNT":     we.ServiceAccount,
+		"ISTIO_INBOUND_PORTS":    portBehavior,
+		"ISTIO_NAMESPACE":        wg.Namespace,
+		"ISTIO_SERVICE":          fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
+		"ISTIO_SERVICE_CIDR":     "*",
+		"SERVICE_ACCOUNT":        we.ServiceAccount,
+		"ISTIO_META_DNS_CAPTURE": strconv.FormatBool(dnsCapture),
 	}
 	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
 }
@@ -388,9 +389,6 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if autoRegister {
 		md["ISTIO_META_AUTO_REGISTER_GROUP"] = wg.Name
 	}
-
-	md["ISTIO_META_DNS_CAPTURE"] = strconv.FormatBool(dnsCapture)
-	md["DNS_AGENT"] = strconv.FormatBool(dnsCapture)
 
 	proxyYAML, err := gogoprotomarshal.ToYAML(meshConfig.DefaultConfig)
 	if err != nil {
