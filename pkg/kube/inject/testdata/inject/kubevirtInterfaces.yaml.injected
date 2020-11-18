@@ -17,11 +17,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "123"
-        traffic.sidecar.istio.io/includeInboundPorts: '*'
-        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
         traffic.sidecar.istio.io/kubevirtInterfaces: net1
       creationTimestamp: null
       labels:
