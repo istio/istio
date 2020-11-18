@@ -192,8 +192,7 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := make([]SyncStatus, 0)
-	s.adsClientsMutex.RLock()
-	for _, con := range s.adsClients {
+	for _, con := range s.Clients() {
 		node := con.proxy
 		if node != nil {
 			syncz = append(syncz, SyncStatus{
@@ -210,7 +209,6 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 			})
 		}
 	}
-	s.adsClientsMutex.RUnlock()
 	out, err := json.MarshalIndent(&syncz, "", "    ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -318,8 +316,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		proxyNamespace := req.URL.Query().Get("proxy_namespace")
 		knownVersions := make(map[string]string)
 		var results []SyncedVersions
-		s.adsClientsMutex.RLock()
-		for _, con := range s.adsClients {
+		for _, con := range s.Clients() {
 			// wrap this in independent scope so that panic's don't bypass Unlock...
 			con.proxy.RLock()
 
@@ -337,7 +334,6 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			}
 			con.proxy.RUnlock()
 		}
-		s.adsClientsMutex.RUnlock()
 
 		out, err := json.MarshalIndent(&results, "", "    ")
 		if err != nil {
@@ -448,18 +444,12 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
-		s.adsClientsMutex.RLock()
-		_, _ = fmt.Fprintf(w, "Pushed to %d servers", len(s.adsClients))
-		s.adsClientsMutex.RUnlock()
+		_, _ = fmt.Fprintf(w, "Pushed to %d servers", s.adsClientCount())
 		return
 	}
 
-	s.adsClientsMutex.RLock()
-	clients := s.adsClients
-	s.adsClientsMutex.RUnlock()
-
 	adsClients := &AdsClients{}
-	for _, c := range clients {
+	for _, c := range s.Clients() {
 		adsClient := AdsClient{
 			ConnectionID: c.ConID,
 			ConnectedAt:  c.Connect,
@@ -770,12 +760,9 @@ func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Reque
 }
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
-	s.adsClientsMutex.RLock()
-	defer s.adsClientsMutex.RUnlock()
-
-	for conID := range s.adsClients {
-		if strings.Contains(conID, proxyID) {
-			return s.adsClients[conID]
+	for _, con := range s.Clients() {
+		if strings.Contains(con.ConID, proxyID) {
+			return con
 		}
 	}
 
@@ -787,15 +774,13 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
 	instances := map[string][]*model.ServiceInstance{}
-	s.adsClientsMutex.RLock()
-	for _, con := range s.adsClients {
+	for _, con := range s.Clients() {
 		con.proxy.RLock()
 		if con.proxy != nil {
 			instances[con.proxy.ID] = con.proxy.ServiceInstances
 		}
 		con.proxy.RUnlock()
 	}
-	s.adsClientsMutex.RUnlock()
 	by, _ := json.MarshalIndent(instances, "", "  ")
 
 	_, _ = w.Write(by)
