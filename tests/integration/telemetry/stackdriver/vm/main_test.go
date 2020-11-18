@@ -18,16 +18,17 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"istio.io/api/annotation"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/stackdriver"
-	"istio.io/istio/pkg/test/util/tmpl"
-
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/components/stackdriver"
+	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
@@ -39,13 +40,13 @@ const (
 )
 
 var (
-	i       istio.Instance
 	p       pilot.Instance
+	i       istio.Instance
 	ns      namespace.Instance
 	gceInst gcemetadata.Instance
 	sdInst  stackdriver.Instance
-	srv     echo.Instance
-	clt     echo.Instance
+	server  echo.Instance
+	client  echo.Instance
 	vmEnv   map[string]string
 )
 
@@ -68,6 +69,10 @@ values:
       enabled: true`
 			cfg.Values["telemetry.enabled"] = "true"
 			cfg.Values["telemetry.v1.enabled"] = "false"
+			cfg.Values["meshConfig.enableTracing"] = "true"
+			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
+			cfg.Values["global.meshID"] = "proj-test-mesh"
+			cfg.Values["global.proxy.tracer"] = "stackdriver"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"

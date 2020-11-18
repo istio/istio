@@ -38,6 +38,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mixerClient "istio.io/api/mixer/v1/config/client"
@@ -1512,9 +1513,35 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		out              *hcm.HttpConnectionManager_Tracing
 		tproxy           model.Proxy
 		envPilotSampling float64
+		disableIstioTags bool
 	}{
 		{
 			name:             "random-sampling-env",
+			tproxy:           *getProxy(),
+			envPilotSampling: 80.0,
+			in: &meshconfig.Tracing{
+				Tracer:           nil,
+				CustomTags:       nil,
+				MaxPathTagLength: 0,
+				Sampling:         0,
+			},
+			out: &hcm.HttpConnectionManager_Tracing{
+				MaxPathTagLength: nil,
+				ClientSampling: &xdstype.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &xdstype.Percent{
+					Value: 80.0,
+				},
+				OverallSampling: &xdstype.Percent{
+					Value: 100.0,
+				},
+				CustomTags: defaultTags(),
+			},
+		},
+		{
+			name:             "random-sampling-env-without-istio-tags",
+			disableIstioTags: true,
 			tproxy:           *getProxy(),
 			envPilotSampling: 80.0,
 			in: &meshconfig.Tracing{
@@ -1557,6 +1584,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: defaultTags(),
 			},
 		},
 		{
@@ -1580,6 +1608,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: defaultTags(),
 			},
 		},
 		{
@@ -1603,6 +1632,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: defaultTags(),
 			},
 		},
 		{
@@ -1626,6 +1656,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: defaultTags(),
 			},
 		},
 		{
@@ -1650,6 +1681,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: defaultTags(),
 			},
 		},
 		{
@@ -1674,11 +1706,85 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
+				CustomTags: defaultTags(),
 			},
 		},
 		{
 			name:   "custom-tags-sidecar",
 			tproxy: *getProxy(),
+			in: &meshconfig.Tracing{
+				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
+					"custom_tag_env": {
+						Type: &meshconfig.Tracing_CustomTag_Environment{
+							Environment: &meshconfig.Tracing_Environment{
+								Name:         "custom_tag_env-var",
+								DefaultValue: "custom-tag-env-default",
+							},
+						},
+					},
+					"custom_tag_request_header": {
+						Type: &meshconfig.Tracing_CustomTag_Header{
+							Header: &meshconfig.Tracing_RequestHeader{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
+						},
+					},
+					// leave this in non-alphanumeric order to verify
+					// the stable sorting doing when creating the custom tag filter
+					"custom_tag_literal": {
+						Type: &meshconfig.Tracing_CustomTag_Literal{
+							Literal: &meshconfig.Tracing_Literal{
+								Value: "literal-value",
+							},
+						},
+					},
+				},
+			},
+			out: &hcm.HttpConnectionManager_Tracing{
+				ClientSampling: &xdstype.Percent{
+					Value: 100.0,
+				},
+				RandomSampling: &xdstype.Percent{
+					Value: 100.0,
+				},
+				OverallSampling: &xdstype.Percent{
+					Value: 100.0,
+				},
+				CustomTags: append([]*tracing.CustomTag{
+					{
+						Tag: "custom_tag_env",
+						Type: &tracing.CustomTag_Environment_{
+							Environment: &tracing.CustomTag_Environment{
+								Name:         "custom_tag_env-var",
+								DefaultValue: "custom-tag-env-default",
+							},
+						},
+					},
+					{
+						Tag: "custom_tag_literal",
+						Type: &tracing.CustomTag_Literal_{
+							Literal: &tracing.CustomTag_Literal{
+								Value: "literal-value",
+							},
+						},
+					},
+					{
+						Tag: "custom_tag_request_header",
+						Type: &tracing.CustomTag_RequestHeader{
+							RequestHeader: &tracing.CustomTag_Header{
+								Name:         "custom_tag_request_header_name",
+								DefaultValue: "custom-defaulted-value-request-header",
+							},
+						},
+					},
+				}, defaultTags()...),
+			},
+		},
+		{
+			name:             "custom-tags-sidecar-without-istio-tags",
+			disableIstioTags: true,
+			tproxy:           *getProxy(),
 			in: &meshconfig.Tracing{
 				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
 					"custom_tag_env": {
@@ -1777,7 +1883,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				MaxPathTagLength: &wrappers.UInt32Value{
 					Value: 100,
 				},
-				CustomTags: []*tracing.CustomTag{
+				CustomTags: append([]*tracing.CustomTag{
 					{
 						Tag: "custom_tag_request_header",
 						Type: &tracing.CustomTag_RequestHeader{
@@ -1786,8 +1892,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 								DefaultValue: "custom-defaulted-value-request-header",
 							},
 						},
-					},
-				},
+					}}, defaultTags()...),
 			},
 		},
 	}
@@ -1801,6 +1906,8 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			pilotTraceSamplingEnv = tc.envPilotSampling
 			featuresSet = true
 		}
+
+		features.EnableIstioTags = !tc.disableIstioTags
 
 		env := buildListenerEnv(nil)
 		if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -1840,10 +1947,10 @@ func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expecte
 		}
 
 		tracing := cmgr.GetTracing()
-		ok := reflect.DeepEqual(tracing, expected)
+		diff, ok := messagediff.PrettyDiff(tracing, expected)
 
 		if !ok {
-			t.Fatalf("Testcase failure: %s custom tags did match not expected output", name)
+			t.Fatalf("Testcase failure: %s custom tags did match not expected output; diff: %v", name, diff)
 		}
 	}
 }

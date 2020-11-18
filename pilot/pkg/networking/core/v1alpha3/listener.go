@@ -1960,13 +1960,51 @@ func buildTracingConfig(config *meshconfig.ProxyConfig) *hcm.HttpConnectionManag
 					Value: config.Tracing.MaxPathTagLength,
 				}
 		}
-
-		if len(config.Tracing.CustomTags) != 0 {
-			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
-		}
+		tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 	}
 
 	return tracingCfg
+}
+
+func defaultTags() []*tracing.CustomTag {
+	return []*tracing.CustomTag{
+		{
+			Tag: "istio.canonical_revision",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         "CANONICAL_REVISION",
+					DefaultValue: "latest",
+				},
+			},
+		},
+		{
+			Tag: "istio.canonical_service",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         "CANONICAL_SERVICE",
+					DefaultValue: "unknown",
+				},
+			},
+		},
+		{
+			Tag: "istio.mesh_id",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         "ISTIO_META_MESH_ID",
+					DefaultValue: "unknown",
+				},
+			},
+		},
+		{
+			Tag: "istio.namespace",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         "POD_NAMESPACE",
+					DefaultValue: "default",
+				},
+			},
+		},
+	}
 }
 
 func getPilotRandomSamplingEnv() float64 {
@@ -2000,7 +2038,13 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tracing.CustomTag {
+
 	var tags []*tracing.CustomTag
+
+	if features.EnableIstioTags {
+		defaultTags := defaultTags()
+		tags = append(tags, defaultTags...)
+	}
 
 	for tagName, tagInfo := range customTags {
 		switch tag := tagInfo.Type.(type) {

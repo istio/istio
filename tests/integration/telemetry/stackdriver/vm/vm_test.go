@@ -72,7 +72,7 @@ spec:
 
 			// builder to build the instances iteratively
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&clt, echo.Config{
+				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,
 					Ports:     ports,
@@ -89,7 +89,7 @@ spec:
 				BuildOrFail(t)
 
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&srv, echo.Config{
+				With(&server, echo.Config{
 					Service:       "server",
 					Namespace:     ns,
 					Ports:         ports,
@@ -103,8 +103,8 @@ spec:
 			cltReceived := false
 			logReceived := false
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := clt.Call(echo.CallOptions{
-					Target:   srv,
+				_, err := client.Call(echo.CallOptions{
+					Target:   server,
 					PortName: "http",
 					Count:    1,
 				})
