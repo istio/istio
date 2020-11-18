@@ -27,7 +27,6 @@ import (
 	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
@@ -36,7 +35,6 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 )
 
-const fieldOwnerOperator = "istio-operator"
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
@@ -90,18 +88,6 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		scope.Infof("Generated manifest objects are the same as cached for component %s.", cname)
 	}
 
-	// check minor version only
-	serverSideApply := false
-	if h.restConfig != nil {
-		k8sVer, err := k8sversion.GetKubernetesVersion(h.restConfig)
-		if err != nil {
-			scope.Errorf("failed to get k8s version: %s", err)
-		}
-		if k8sVer >= 16 {
-			serverSideApply = true
-		}
-	}
-
 	// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
 	nsObjs := object.KindObjects(changedObjects, name.NamespaceStr)
 	crdObjs := object.KindObjects(changedObjects, name.CRDStr)
@@ -114,7 +100,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 				return nil, 0, err
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject(), serverSideApply); err != nil {
+			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
 				scope.Error(err.Error())
 				errs = util.AppendErr(errs, err)
 				continue
@@ -160,7 +146,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
-func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideApply bool) error {
+func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		var errs util.Errors
 		list, err := obj.ToList()
@@ -169,7 +155,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 			return err
 		}
 		for _, item := range list.Items {
-			err = h.ApplyObject(&item, serverSideApply)
+			err = h.ApplyObject(&item)
 			if err != nil {
 				errs = util.AppendErr(errs, err)
 			}
@@ -193,11 +179,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 	}
 
 	gvk := obj.GetObjectKind().GroupVersionKind()
-	if serverSideApply {
-		return h.serverSideApply(obj)
-	}
 
-	// for k8s version before 1.16
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
 		err := h.client.Get(context.TODO(), objectKey, receiver)
@@ -232,15 +214,4 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 		return nil
 	})
 
-}
-
-// use server-side apply, require kubernetes 1.16+
-func (h *HelmReconciler) serverSideApply(obj *unstructured.Unstructured) error {
-	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
-	scope.Infof("using server side apply to update obj: %v", objectStr)
-	opts := []client.PatchOption{client.ForceOwnership, client.FieldOwner(fieldOwnerOperator)}
-	if err := h.client.Patch(context.TODO(), obj, client.Apply, opts...); err != nil {
-		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)
-	}
-	return nil
 }
