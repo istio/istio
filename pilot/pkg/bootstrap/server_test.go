@@ -251,8 +251,8 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 		secureGRPCport   string
 	}{
 		{
-			name:           "Mock Registry",
-			registry:       "Mock",
+			name:             "Mock Registry",
+			registry:         "Mock",
 			expectedRegistry: serviceregistry.Mock,
 		},
 	}
@@ -285,8 +285,8 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 				}
 
 				p.RegistryOptions = RegistryOptions{
-					Registries: []string{c.registry},
-					FileDir: configDir,
+					Registries:  []string{c.registry},
+					FileDir:     configDir,
 				}
 
 				// Include all of the default plugins
