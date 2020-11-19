@@ -14,8 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
+# Exit immediately for non zero status
+set -e
+# Check unset variables
+set -u
+# Print commands
+set -x
+
 readonly SHARED_VPC_HOST_BOSKOS_RESOURCE="shared-vpc-host-gke-project"
 readonly SHARED_VPC_SVC_BOSKOS_RESOURCE="shared-vpc-svc-gke-project"
+readonly VPC_SC_BOSKOS_RESOURCE="vpc-sc-gke-project"
 
 # The network and firewall rule resources are very likely leaked if we
 # teardown them with `kubetest2 --down`, so we leverage boskos-janitor here
@@ -53,6 +64,26 @@ function multiproject_multicluster_setup() {
   done
 
   echo "${host_project},${service_project1},${service_project2}"
+}
+
+# Setup the project for VPC-SC testing, as per the instructions in
+# https://docs.google.com/document/d/11yYDxxI-fbbqlpvUYRtJiBmGdY_nIKPJLbssM3YQtKI/edit#heading=h.e2laig460f1d
+function vpc_sc_project_setup() {
+  local project_id
+  project_id=$(boskos_acquire "${VPC_SC_BOSKOS_RESOURCE}")
+
+  # Create the route as per the user guide above.
+  # Currently only the route needs to be recreated since only it will be cleaned
+  # up by Boskos janitor.
+  # TODO(chizhg): create everything else from scratch here after we are able to
+  # use Boskos janitor to clean them up as well, as per the long-term plan in go/asm-vpc-sc-testing-plan
+  gcloud compute routes create "restricted-vip" \
+    --network=default \
+    --destination-range=199.36.153.4/30 \
+    --next-hop-gateway=default-internet-gateway \
+    --project="${project_id}" > /dev/null 2>&1
+
+  echo "${project_id}"
 }
 
 #####################################################################
