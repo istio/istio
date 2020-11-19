@@ -157,26 +157,29 @@ func (i *operatorComponent) Close() error {
 		for _, cluster := range i.ctx.Clusters() {
 			cluster := cluster
 			errG.Go(func() (err error) {
-				for _, manifest := range i.installManifest[cluster.Name()] {
-					if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
-						err = multierror.Append(err, e)
-					}
-				}
-
-				// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
-				for _, cm := range leaderElectionConfigMaps {
-					if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
-						kubeApiMeta.DeleteOptions{}); e != nil {
-						err = multierror.Append(err, e)
-					}
-				}
 				if i.environment.IsMulticluster() {
+					// in multicluster mode we simply delete the namespace
 					if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
 						kube2.DeleteOptionsForeground()); e != nil {
 						err = multierror.Append(err, e)
 					}
 					if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
 						err = multierror.Append(err, e)
+					}
+				} else {
+					// in single cluster mode we can be more specific about what we clean up
+					for _, manifest := range i.installManifest[cluster.Name()] {
+						if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
+							err = multierror.Append(err, e)
+						}
+					}
+
+					// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
+					for _, cm := range leaderElectionConfigMaps {
+						if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
+							kubeApiMeta.DeleteOptions{}); e != nil {
+							err = multierror.Append(err, e)
+						}
 					}
 				}
 				return
