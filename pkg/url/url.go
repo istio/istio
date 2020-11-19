@@ -55,6 +55,10 @@ var (
 	// https://istio.io/v1.7/docs/setup/additional-setup/sidecar-injection/#deploying-an-app
 	SidecarDeployingApp = fmt.Sprintf("%s%s", SetupURL, "additional-setup/sidecar-injection/#deploying-an-app")
 
+	// CanaryUpgrades should generate
+	// https://istio.io/v1.8/docs/setup/upgrade/canary
+	CanaryUpgrades = fmt.Sprintf("%s%s", SetupURL, "upgrade/canary")
+
 	// #####################################
 	// Tasks related URLs for istio.io
 	// #####################################

@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgversion "istio.io/istio/operator/pkg/version"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 )
 
@@ -183,7 +184,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 		revision := pod.ObjectMeta.GetLabels()[label.IstioRev]
 		// If --revision is not passed, istio.io/rev: default
 		if revision != "" && revision != "default" {
-			err = fmt.Errorf("can not upgrade because the previous version of Istio is installed with revision")
+			err = fmt.Errorf("can not upgrade because the previous version of Istio is installed with revision." +
+				"\nUse canary upgrades instead: " + url.CanaryUpgrades)
 		}
 	}
 	if err != nil {
