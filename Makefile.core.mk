@@ -451,9 +451,6 @@ benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
 report-benchtest:
 	prow/benchtest.sh report
 
-cni.install-test: docker.install-cni
-	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} -tags=integ ./cni/test/...
-
 #-----------------------------------------------------------------------------
 # Target: clean
 #-----------------------------------------------------------------------------

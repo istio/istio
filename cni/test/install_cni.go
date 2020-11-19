@@ -12,28 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package install
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
+	"istio.io/istio/cni/pkg/install-cni/cmd"
+	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
-	cniConfSubDir    = "/data/pre/"
-	k8sSvcAcctSubDir = "/data/k8s_svcacct/"
+	cniConfSubDir    = "/testdata/pre/"
+	k8sSvcAcctSubDir = "/testdata/k8s_svcacct/"
 
 	defaultFileMode = 0644
 
@@ -164,117 +169,52 @@ func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, te
 }
 
 // startDocker starts a test Docker container and runs the install-cni script.
-func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
-	tempK8sSvcAcctDir, cniConfFileName string, chainedCNIPlugin bool, t *testing.T) string {
-	t.Helper()
-
-	dockerImage := getEnv("HUB", "") + "/install-cni:" + getEnv("TAG", "")
-	errFileName := path.Dir(tempCNIConfDir) + "/docker_run_stderr"
-
-	// Build arguments list by picking whatever is necessary from the environment.
-	args := []string{"run", "-d",
-		"--name", "test-istio-cni-install",
-		"-v", getEnv("PWD", "") + ":/usr/src/project-config",
-		"-v", tempCNIConfDir + ":/host/etc/cni/net.d",
-		"-v", tempCNIBinDir + ":/host/opt/cni/bin",
-		"-v", tempK8sSvcAcctDir + ":/var/run/secrets/kubernetes.io/serviceaccount",
-		"--env-file", wd + "/data/env_vars.sh",
-		"-e", cniNetworkConfigName,
-	}
+func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
+	tempK8sSvcAcctDir, cniConfFileName string, chainedCNIPlugin bool) {
+	root := cmd.GetCommand()
+	constants.ServiceAccountPath = tempK8sSvcAcctDir
+	constants.HostCNIBinDir = tempCNIBinDir
+	constants.CNIBinDir = filepath.Join(env.IstioSrc, "cni/test/testdata/bindir")
+	root.SetArgs([]string{
+		"--mounted-cni-net-dir", tempCNIConfDir,
+	})
+	os.Setenv("KUBERNETES_SERVICE_PORT", "443")
+	os.Setenv("KUBERNETES_SERVICE_HOST", "10.110.0.1")
 	if cniConfFileName != "" {
-		args = append(args, "-e", cniConfName+"="+cniConfFileName)
+		os.Setenv(cniConfName, cniConfFileName)
+	} else {
+		os.Unsetenv(cniConfName)
 	}
 	if !chainedCNIPlugin {
-		args = append(args, "-e", chainedCNIPluginName+"=false")
+		os.Setenv(chainedCNIPluginName, "false")
+	} else {
+		os.Unsetenv(chainedCNIPluginName)
 	}
-	args = append(args, dockerImage, "/usr/local/bin/install-cni")
-
-	// Create a temporary log file to write docker command error log.
-	errFile, err := os.Create(errFileName)
-	if err != nil {
-		t.Fatalf("Couldn't create docker stderr file, err: %v", err)
-	}
-	defer func() {
-		errClose := errFile.Close()
-		if errClose != nil {
-			t.Fatalf("Couldn't create docker stderr file, err: %v", errClose)
-		}
-	}()
-
-	// Run the docker command and write errors to a temporary file.
-	cmd := exec.Command("docker", args...)
-	cmd.Stderr = errFile
-
-	containerID, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("Test %v ERROR: failed to start docker container '%v', see %v",
-			testNum, dockerImage, errFileName)
-	}
-	t.Logf("Test %v: Container ID: %s", testNum, containerID)
-	return strings.Trim(string(containerID), "\n")
-}
-
-// docker runs the given docker command on the given container ID.
-func docker(cmd, containerID string, t *testing.T) {
-	t.Helper()
-	out, err := exec.Command("docker", cmd, containerID).CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to execute 'docker %s %s', err: %v", cmd, containerID, err)
-	}
-	t.Logf("docker %s %s - out:\n%s", cmd, containerID, out)
+	root.ExecuteContext(ctx)
 }
 
 // checkResult checks if resultFile is equal to expectedFile at each tick until timeout
-func checkResult(result, expected string, timeout, tick <-chan time.Time, t *testing.T) bool {
-	t.Helper()
-	for {
-		select {
-		case <-timeout:
-			return false
-		case <-tick:
-			resultFile, err := ioutil.ReadFile(result)
-			if err != nil {
-				break
-			}
-			expectedFile, err := ioutil.ReadFile(expected)
-			if err != nil {
-				break
-			}
-			if bytes.Equal(resultFile, expectedFile) {
-				return true
-			}
-		}
+func checkResult(result, expected string) error {
+	resultFile, err := ioutil.ReadFile(result)
+	if err != nil {
+		return fmt.Errorf("couldn't read result: %v", err)
 	}
+	expectedFile, err := ioutil.ReadFile(expected)
+	if err != nil {
+		return fmt.Errorf("couldn't read expected: %v", err)
+	}
+	if !bytes.Equal(resultFile, expectedFile) {
+		return fmt.Errorf("expected != result. Diff: %v", cmp.Diff(string(expectedFile), string(resultFile)))
+	}
+	return nil
 }
 
 // compareConfResult does a string compare of 2 test files.
-func compareConfResult(testWorkRootDir, result, expected string, t *testing.T) {
+func compareConfResult(result, expected string, t *testing.T) {
 	t.Helper()
-	timeout := time.After(5 * time.Second)
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-	if checkResult(result, expected, timeout, ticker.C, t) {
-		t.Logf("PASS: result matches expected: %v v. %v", result, expected)
-	} else {
-		// Log errors
-		_, err := ioutil.ReadFile(result)
-		if err != nil {
-			t.Fatalf("Failed to read file %v, err: %v", result, err)
-		}
-		_, err = ioutil.ReadFile(expected)
-		if err != nil {
-			t.Fatalf("Failed to read file %v, err: %v", expected, err)
-		}
-		tempFail := mktemp(testWorkRootDir, filepath.Base(result)+"-fail-", t)
-		t.Errorf("FAIL: result doesn't match expected: %v v. %v", result, expected)
-		cp(result, tempFail+"/"+"failResult", t)
-		cmd := exec.Command("diff", result, expected)
-		diffOutput, derr := cmd.Output()
-		if derr != nil {
-			t.Logf("Diff output:\n %s", diffOutput)
-		}
-		t.Fatalf("Check %v for diff contents", tempFail)
-	}
+	retry.UntilSuccessOrFail(t, func() error {
+		return checkResult(result, expected)
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second))
 }
 
 // checkBinDir verifies the presence/absence of test files.
@@ -314,11 +254,10 @@ func checkTempFilesCleaned(tempCNIConfDir string, t *testing.T) {
 
 // doTest sets up necessary environment variables, runs the Docker installation
 // container and verifies output file correctness.
-func doTest(testNum int, chainedCNIPlugin bool, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
-	expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
-	testWorkRootDir string, t *testing.T) {
+func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
+	expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir string) {
 
-	t.Logf("Test %v: prior cni-conf='%v', expected result='%v'", testNum, preConfFile, resultFileName)
+	t.Logf("prior cni-conf='%v', expected result='%v'", preConfFile, resultFileName)
 
 	// Don't set the CNI conf file env var if preConfFile is not set
 	var envPreconf string
@@ -329,21 +268,27 @@ func doTest(testNum int, chainedCNIPlugin bool, wd, preConfFile, resultFileName,
 	}
 	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
-	containerID := startDocker(testNum, wd, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, chainedCNIPlugin, t)
+	ctx, cancel := context.WithCancel(context.Background())
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	defer func() {
-		docker("stop", containerID, t)
-		docker("logs", containerID, t)
-		docker("rm", containerID, t)
+		cancel()
+		wg.Wait()
+	}()
+	go func() {
+		runInstall(ctx, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, chainedCNIPlugin)
+		wg.Done()
 	}()
 
 	resultFile := tempCNIConfDir + "/" + resultFileName
 	if chainedCNIPlugin && delayedConfFile != "" {
-		timeout := time.After(5 * time.Second)
-		ticker := time.NewTicker(500 * time.Millisecond)
-		defer ticker.Stop()
-		if checkResult(resultFile, expectedOutputFile, timeout, ticker.C, t) {
-			t.Fatalf("FAIL: Istio CNI did not wait for valid config file")
-		}
+		retry.UntilSuccessOrFail(t, func() error {
+			if err := checkResult(resultFile, expectedOutputFile); err == nil {
+				// We should have waited for the delayed conf
+				return fmt.Errorf("did not wait for valid config file")
+			}
+			return nil
+		}, retry.Delay(time.Millisecond), retry.Timeout(time.Millisecond*250))
 		var destFilenm string
 		if preConfFile != "" {
 			destFilenm = preConfFile
@@ -353,7 +298,7 @@ func doTest(testNum int, chainedCNIPlugin bool, wd, preConfFile, resultFileName,
 		cp(delayedConfFile, tempCNIConfDir+"/"+destFilenm, t)
 	}
 
-	compareConfResult(testWorkRootDir, resultFile, expectedOutputFile, t)
+	compareConfResult(resultFile, expectedOutputFile, t)
 	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
 
 	// Test script restart by removing configuration
@@ -363,17 +308,19 @@ func doTest(testNum int, chainedCNIPlugin bool, wd, preConfFile, resultFileName,
 		t.Fatalf("error removing CNI config file: %s", resultFile)
 	}
 	// Verify configuration is still valid after removal
-	compareConfResult(testWorkRootDir, resultFile, expectedOutputFile, t)
+	compareConfResult(resultFile, expectedOutputFile, t)
 	t.Log("PASS: Istio CNI configuration still valid after removal")
 
-	docker("stop", containerID, t)
+	// Shutdown the install-cni
+	cancel()
+	wg.Wait()
 
-	t.Logf("Test %v: Check the cleanup worked", testNum)
+	t.Logf("Check the cleanup worked")
 	if chainedCNIPlugin {
 		if len(expectedPostCleanFile) == 0 {
-			compareConfResult(testWorkRootDir, resultFile, wd+cniConfSubDir+preConfFile, t)
+			compareConfResult(resultFile, wd+cniConfSubDir+preConfFile, t)
 		} else {
-			compareConfResult(testWorkRootDir, resultFile, expectedPostCleanFile, t)
+			compareConfResult(resultFile, expectedPostCleanFile, t)
 		}
 	} else {
 		if file.Exists(resultFile) {
@@ -390,10 +337,10 @@ func doTest(testNum int, chainedCNIPlugin bool, wd, preConfFile, resultFileName,
 // file doesn't have a _test.go suffix, and this func doesn't start with a Test
 // prefix. This func is only meant to be invoked programmatically. A separate
 // install_cni_test.go file exists for executing this test.
-func RunInstallCNITest(testNum int, chainedCNIPlugin bool, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
-	expectedPostCleanFile string, cniConfDirOrderedFiles []string, t *testing.T) {
+func RunInstallCNITest(t *testing.T, chainedCNIPlugin bool, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
+	expectedPostCleanFile string, cniConfDirOrderedFiles []string) {
 
-	wd := env.IstioSrc + "/cni/deployments/kubernetes/install/test"
+	wd := env.IstioSrc + "/cni/test"
 	testWorkRootDir := getEnv("TEST_WORK_ROOTDIR", "/tmp")
 
 	tempCNIConfDir := mktemp(testWorkRootDir, "cni-conf-", t)
@@ -403,11 +350,7 @@ func RunInstallCNITest(testNum int, chainedCNIPlugin bool, preConfFile, resultFi
 	tempK8sSvcAcctDir := mktemp(testWorkRootDir, "kube-svcacct-", t)
 	defer rmDir(tempK8sSvcAcctDir, t)
 
-	t.Logf("conf-dir=%v; bin-dir=%v; k8s-serviceaccount=%v", tempCNIConfDir,
-		tempCNIBinDir, tempK8sSvcAcctDir)
-
 	populateTempDirs(wd, cniConfDirOrderedFiles, tempCNIConfDir, tempK8sSvcAcctDir, t)
-	doTest(testNum, chainedCNIPlugin, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
-		expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
-		testWorkRootDir, t)
+	doTest(t, chainedCNIPlugin, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
+		expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir)
 }
