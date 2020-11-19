@@ -103,6 +103,10 @@ func TestDashboard(t *testing.T) {
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
 		},
+		{ // case 15
+			args:           strings.Split("-n test dashboard", " "),
+			expectedRegexp: regexp.MustCompile("Access to Istio web UIs"),
+		},
 	}
 
 	for i, c := range cases {
