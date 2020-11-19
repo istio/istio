@@ -31,6 +31,9 @@ set -x
 #################   COMMON SECTION   ###############################
 ####################################################################
 
+# DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
+DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
+
 # load_cluster_topology function reads cluster configuration topology file and
 # sets up environment variables used by other functions. So this should be called
 # before anything else.
@@ -116,7 +119,7 @@ function check_default_cluster_yaml() {
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
   NAME="${1:-istio-testing}"
-  IMAGE="${2:-gcr.io/istio-testing/kindest/node:v1.19.1}"
+  IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
   CONFIG="${3:-}"
   NOMETALBINSTALL="${4:-}"
 
@@ -185,7 +188,7 @@ function cleanup_kind_clusters() {
 # NOTE: Please call load_cluster_topology before calling this method as it expects
 # cluster topology information to be loaded in advance
 function setup_kind_clusters() {
-  IMAGE="${1:-gcr.io/istio-testing/kindest/node:v1.19.1}"
+  IMAGE="${1:-"${DEFAULT_KIND_IMAGE}"}"
   KUBECONFIG_DIR="$(mktemp -d)"
   IP_FAMILY="${2:-ipv4}"
 
