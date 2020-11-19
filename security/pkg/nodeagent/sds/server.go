@@ -26,6 +26,7 @@ import (
 
 	ca2 "istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/pkg/version"
@@ -50,9 +51,11 @@ type Server struct {
 
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Server, error) {
-	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, options, options.FileMountedCerts),
-	}
+	s := &Server{}
+	return FillServer(s, options, workloadSecretCache)
+}
+func FillServer(s *Server, options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Server, error) {
+	s.workloadSds = newSDSService(workloadSecretCache, options, options.FileMountedCerts)
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(options); err != nil {
 			sdsServiceLog.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
@@ -67,6 +70,12 @@ func NewServer(options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Se
 		s.initDebugServer(options.DebugPort)
 	}
 	return s, nil
+}
+
+func (s *Server) UpdateCallback() func(cache.ConnKey, *security.SecretItem) error {
+	return func(key cache.ConnKey, item *security.SecretItem) error {
+		return s.workloadSds.Gcp.Set(key.ResourceName, item)
+	}
 }
 
 // Stop closes the gRPC server and debug server.

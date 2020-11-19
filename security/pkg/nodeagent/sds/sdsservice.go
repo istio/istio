@@ -32,6 +32,7 @@ import (
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	xdscache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	serverv3 "github.com/envoyproxy/go-control-plane/pkg/server/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -141,17 +142,60 @@ type sdsservice struct {
 }
 
 type XdsServer struct {
-	Server serverv3.Server
-	Cache  xdscache.SnapshotCache
+	Server   serverv3.Server
+	Cache    *xdscache.LinearCache
+	Generate func(resourceName string) (proto.Message, error)
 }
 
-func NewXdsServer() *XdsServer {
-	cache := xdscache.NewSnapshotCache(false, xdscache.IDHash{}, nil)
-	srv := serverv3.NewServer(context.Background(), cache, nil)
-	return &XdsServer{
-		Server: srv,
-		Cache:  cache,
+func (x XdsServer) OnFetchRequest(ctx context.Context, request *discovery.DiscoveryRequest) error {
+	return nil
+}
+
+func (x XdsServer) OnFetchResponse(request *discovery.DiscoveryRequest, response *discovery.DiscoveryResponse) {
+}
+
+func (x XdsServer) OnStreamOpen(ctx context.Context, i int64, s string) error {
+	log.Errorf("howardjohn: stream open %v", s)
+	return nil
+}
+
+func (x XdsServer) OnStreamClosed(i int64) {
+	log.Errorf("howardjohn: stream closed")
+}
+
+func (x *XdsServer) GenerateResources(rn []string) error {
+	for _, rn := range rn {
+		secret, err := x.Generate(rn)
+		if err != nil {
+			return err
+		}
+		if err := x.Cache.UpdateResource(rn, secret); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (x *XdsServer) Set(rn string, item *security.SecretItem) error {
+	return x.Cache.UpdateResource(rn, toEnvoySecret(item))
+}
+
+func (x *XdsServer) OnStreamRequest(i int64, request *discovery.DiscoveryRequest) error {
+	log.Errorf("howardjohn: request %v/%v", request.TypeUrl, request.ResourceNames)
+
+	return nil
+}
+
+func (x XdsServer) OnStreamResponse(i int64, request *discovery.DiscoveryRequest, response *discovery.DiscoveryResponse) {
+	log.Errorf("howardjohn: response %+v for %v", len(response.Resources), response.Resources)
+}
+
+func NewXdsServer(generate func(resourceName string) (proto.Message, error)) *XdsServer {
+	out := &XdsServer{Generate: generate}
+
+	out.Cache = xdscache.NewLinearCache(v3.SecretType)
+	out.Server = serverv3.NewServer(context.Background(), out.Cache, out)
+	return out
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -212,9 +256,12 @@ func newSDSService(st security.SecretManager,
 		return xdsserver.PushXds(con, pushRequest.Push, "foo", con.Watched(v3.SecretType), pushRequest)
 	}
 	ret.Xds = xdsserver
-	ret.Gcp = NewXdsServer()
-
+	ret.Gcp = NewXdsServer(ret.generateSingle)
 	go ret.clearStaledClientsJob()
+
+	if err := ret.Gcp.GenerateResources([]string{"default", "ROOTCA"}); err != nil {
+		panic(err.Error())
+	}
 
 	return ret
 }
@@ -231,7 +278,23 @@ func (s *sdsservice) fetchToken() (string, error) {
 	return "", nil
 }
 
-func (s *sdsservice) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) model.Resources {
+func (s *sdsservice) generateSingle(resourceName string) (proto.Message, error) {
+	ctx := context.Background()
+	token, err := s.fetchToken()
+	if err != nil {
+		sdsServiceLog.Errorf("failed to fetch token: %v", err)
+		return nil, err
+	}
+	secret, err := s.st.GenerateSecret(ctx, "fake", resourceName, token)
+	if err != nil {
+		sdsServiceLog.Errorf("failed to generate secret for %v: %v", resourceName, err)
+		return nil, err
+	}
+	log.Errorf("howardjohn: generated %v: %v", resourceName, secret.CreatedTime)
+	return toEnvoySecret(secret), nil
+}
+
+func (s *sdsservice) generate(resourceNames []string) model.Resources {
 	ctx := context.Background()
 	token, err := s.fetchToken()
 	if err != nil {
@@ -239,7 +302,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 		return nil
 	}
 	resources := model.Resources{}
-	for _, resourceName := range w.ResourceNames {
+	for _, resourceName := range resourceNames {
 		secret, err := s.st.GenerateSecret(ctx, "fake", resourceName, token)
 		if err != nil {
 			sdsServiceLog.Errorf("failed to generate secret for %v: %v", resourceName, err)
@@ -248,6 +311,10 @@ func (s *sdsservice) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 		resources = append(resources, util.MessageToAny(toEnvoySecret(secret)))
 	}
 	return resources
+}
+
+func (s *sdsservice) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) model.Resources {
+	return s.generate(w.ResourceNames)
 }
 
 // register adds the SDS handle to the grpc server
@@ -297,7 +364,7 @@ func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecrets
 
 // StreamSecrets serves SDS discovery requests and SDS push requests
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	return s.Xds.Stream(stream)
+	//return s.Xds.Stream(stream)
 	return s.Gcp.Server.StreamSecrets(stream)
 	token := ""
 	ctx := context.Background()
