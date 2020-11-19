@@ -209,5 +209,5 @@ func sendTrafficAndCheckIfRatelimited(t *testing.T) {
 			}
 		}
 		return nil
-	}, retry.Delay(10*time.Second), retry.Timeout(70*time.Second))
+	}, retry.Delay(10*time.Second), retry.Timeout(2*time.Minute))
 }
