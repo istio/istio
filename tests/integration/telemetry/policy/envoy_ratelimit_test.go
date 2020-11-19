@@ -16,11 +16,11 @@
 package policy
 
 import (
+	"errors"
 	"io/ioutil"
 	"testing"
 	"time"
 
-	"errors"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
