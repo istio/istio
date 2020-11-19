@@ -155,7 +155,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if service == nil {
 			continue
 		}
-		if r.Provider() == serviceregistry.External {
+		if r.Provider() != serviceregistry.Kubernetes {
 			return service, nil
 		}
 		service.Mutex.RLock()
@@ -214,7 +214,7 @@ func nodeClusterID(node *model.Proxy) string {
 // Skip the service registry when there won't be a match
 // because the proxy is in a different cluster.
 func skipSearchingRegistryForProxy(nodeClusterID string, r serviceregistry.Instance) bool {
-	// Always search External (serviceentry) registry.
+	// Always search non-kube (usually serviceentry) registry.
 	// Check every registry if cluster ID isn't specified.
 	if r.Provider() == serviceregistry.External || nodeClusterID == "" {
 		return false
