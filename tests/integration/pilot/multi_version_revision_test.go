@@ -51,7 +51,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			testdataDir := filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade")
 
 			// keep these at the latest patch version of each minor version
-			// TODO(samnaser) add 1.7 once we flag-protection for reading service-api CRDs (https://github.com/istio/istio/issues/29054)
+			// TODO(samnaser) add 1.7.4 once we flag-protection for reading service-api CRDs (https://github.com/istio/istio/issues/29054)
 			installConfigs := []installConfig{
 				{
 					revision: "1-6-11",
@@ -79,7 +79,6 @@ func TestMultiVersionRevision(t *testing.T) {
 			}
 
 			for _, c := range installConfigs {
-				time.Sleep(time.Second * 10)
 				configBytes, err := ioutil.ReadFile(c.path)
 				if err != nil {
 					t.Errorf("failed to read config golden from path %s: %v", c.path, err)
@@ -97,7 +96,6 @@ func TestMultiVersionRevision(t *testing.T) {
 					revision:  c.revision,
 					namespace: ns,
 				})
-				fmt.Printf("applying configuration for %s\n", c.revision)
 			}
 
 			// create an echo instance in each revisioned namespace, all these echo
@@ -121,7 +119,7 @@ func TestMultiVersionRevision(t *testing.T) {
 		})
 }
 
-// generateEchoCalls takes list of revisioned namespaces and generates list of echo calls covering
+// testAllEchoCalls takes list of revisioned namespaces and generates list of echo calls covering
 // communication between every pair of namespaces
 func testAllEchoCalls(t *testing.T, echoInstances []echo.Instance) {
 	for _, source := range echoInstances {
