@@ -147,8 +147,11 @@ func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceNa
 }
 
 func (i *operatorComponent) Close() (err error) {
+	t0 := time.Now()
 	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
-	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
+	defer func() {
+		scopes.Framework.Infof("=== DONE: Cleanup Istio in %v [Suite=%s] ===", time.Since(t0), i.ctx.Settings().TestID)
+	}()
 	if i.settings.DeployIstio {
 		for _, cluster := range i.ctx.Clusters() {
 			for _, manifest := range i.installManifest[cluster.Name()] {
