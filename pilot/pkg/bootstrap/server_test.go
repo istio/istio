@@ -285,8 +285,8 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 				}
 
 				p.RegistryOptions = RegistryOptions{
-					Registries:  []string{c.registry},
-					FileDir:     configDir,
+					Registries: []string{c.registry},
+					FileDir:    configDir,
 				}
 
 				// Include all of the default plugins
