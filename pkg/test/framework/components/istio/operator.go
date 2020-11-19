@@ -142,36 +142,42 @@ func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceNa
 	return i.ingress[cluster.Index()][istioLabel]
 }
 
-func (i *operatorComponent) Close() (err error) {
+func (i *operatorComponent) Close() error {
 	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	if i.settings.DeployIstio {
+		errG := multierror.Group{}
 		for _, cluster := range i.ctx.Clusters() {
-			for _, manifest := range i.installManifest[cluster.Name()] {
-				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
-					err = multierror.Append(err, e)
+			cluster := cluster
+			errG.Go(func() (err error) {
+				for _, manifest := range i.installManifest[cluster.Name()] {
+					if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
+						err = multierror.Append(err, e)
+					}
 				}
-			}
-
-			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
-			for _, cm := range leaderElectionConfigMaps {
-				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
-					kubeApiMeta.DeleteOptions{}); e != nil {
-					err = multierror.Append(err, e)
+				// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
+				for _, cm := range leaderElectionConfigMaps {
+					if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
+						kubeApiMeta.DeleteOptions{}); e != nil {
+						err = multierror.Append(err, e)
+					}
 				}
-			}
-			if i.environment.IsMulticluster() {
-				if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
-					kube2.DeleteOptionsForeground()); e != nil {
-					err = multierror.Append(err, e)
+				if i.environment.IsMulticluster() {
+					// in multicluster mode we simply delete the namespace
+					if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
+						kube2.DeleteOptionsForeground()); e != nil {
+						err = multierror.Append(err, e)
+					}
+					if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
+						err = multierror.Append(err, e)
+					}
 				}
-				if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
-					err = multierror.Append(err, e)
-				}
-			}
+				return
+			})
 		}
+		return errG.Wait()
 	}
-	return
+	return nil
 }
 
 func (i *operatorComponent) Dump(ctx resource.Context) {
