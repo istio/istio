@@ -92,7 +92,7 @@ func TestBinarySizes(t *testing.T) {
 		// TODO: shrink the ranges here once the active work to reduce binary size is complete
 		// For now, having two small a range will result in lots of "merge conflicts"
 		"istioctl":        {60, 100},
-		"pilot-agent":     {30, 80},
+		"pilot-agent":     {30, 45},
 		"pilot-discovery": {60, 80},
 		"bug-report":      {60, 100},
 	}
@@ -108,6 +108,7 @@ func TestBinarySizes(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := fi.Size() / (1000 * 1000)
+		t.Logf("Actual size: %dmb. Range: [%dmb, %dmb]", got, tt.minMb, tt.maxMb)
 		if got > tt.maxMb {
 			t.Fatalf("Binary size of %dmb was greater than max allowed size %dmb", got, tt.maxMb)
 		}
