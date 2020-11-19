@@ -60,7 +60,7 @@ type revisionedNamespace struct {
 func TestMultiVersionRevision(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
-		Features("upgrade").
+		Features("installation.upgrade").
 		Run(func(ctx framework.TestContext) {
 			goldenDir := filepath.Join(env.IstioSrc, "tests/integration/pilot/upgrade/goldens")
 
@@ -114,6 +114,9 @@ func TestMultiVersionRevision(t *testing.T) {
 					revision:  g.revision,
 					namespace: ns,
 				})
+
+				// need to sleep a few seconds or else both installs won't succeed?
+				time.Sleep(time.Second * 2)
 			}
 
 			// create an echo instance in each revisioned namespace, all these echo
