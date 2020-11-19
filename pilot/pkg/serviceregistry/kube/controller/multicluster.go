@@ -160,6 +160,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	go kubeRegistry.Run(stopCh)
 	if m.fetchCaRoot() != nil && (features.ExternalIstioD || features.CentralIstioD || localCluster) {
 		// TODO remove initNamespaceController (and probably need leader election here? how will that work with multi-primary?)
+		log.Infof("joining leader-election for %s in %s", leaderelection.NamespaceController, options.SystemNamespace)
 		go leaderelection.
 			NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
 			AddRunFunction(func(leaderStop <-chan struct{}) {
