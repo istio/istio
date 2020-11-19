@@ -20,14 +20,24 @@ function log() {
 }
 
 # Trace runs the provided command and records additional timing information
+# NOTE: to avoid spamming the logs, we disable xtrace and re-enable it before executing the function
+# and after completion. If xtrace was never set, this will result in xtrace being enabled.
+# Ideally we would restore the old xtrace setting, but I don't think its possible to do that without also log-spamming
+# If we need to call it from a context without xtrace we can just make a new function.
 function trace() {
+  { set +x; } 2>/dev/null
   log "Running '${1}'"
   start="$(date -u +%s.%N)"
+  { set -x; } 2>/dev/null
+
   "${@:2}"
+
+  { set +x; } 2>/dev/null
   elapsed=$( date +%s.%N --date="$start seconds ago" )
   log "Command '${1}' complete in ${elapsed}s"
   # Write to YAML file as well for easy reading by tooling
   echo "'${1}': $elapsed" >> "${ARTIFACTS}/trace.yaml"
+  { set -x; } 2>/dev/null
 }
 
 function setup_gcloud_credentials() {
