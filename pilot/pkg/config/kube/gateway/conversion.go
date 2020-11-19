@@ -398,8 +398,16 @@ func buildTLSMatch(match []k8s.TLSRouteMatch) []*istio.TLSMatchAttributes {
 	res := make([]*istio.TLSMatchAttributes, 0, len(match))
 	for _, m := range match {
 		res = append(res, &istio.TLSMatchAttributes{
-			SniHosts: m.SNIs,
+			SniHosts: hostnamesToStringlist(m.SNIs),
 		})
+	}
+	return res
+}
+
+func hostnamesToStringlist(h []k8s.Hostname) []string {
+	res := make([]string, 0, len(h))
+	for _, i := range h {
+		res = append(res, string(i))
 	}
 	return res
 }
