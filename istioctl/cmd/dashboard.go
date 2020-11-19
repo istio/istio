@@ -451,7 +451,7 @@ func dashboard() *cobra.Command {
 		"Address to listen on. Only accepts IP address or localhost as a value. "+
 			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+
 			"and will fail if neither of these address are available to bind.")
-	dashboardCmd.PersistentFlags().StringVar(&addonNamespace, "namespace", istioNamespace,
+	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 
 	dashboardCmd.AddCommand(kialiDashCmd())
