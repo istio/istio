@@ -11,7 +11,7 @@ upgradeNotes:
 - title: "`AUTO_PASSTHROUGH` Gateway mode"
   content: |
     Previously, gateways were configured with multiple Envoy `cluster` configurations for each Service in the cluster, even those
-    not referenced by any Gateway or VirtualService. This was added to support the `AUTO_PASSTHROUGH` mode on Gateway, generally used for exposing Services accross networks.
+    not referenced by any Gateway or VirtualService. This was added to support the `AUTO_PASSTHROUGH` mode on Gateway, generally used for exposing Services across networks.
 
     However, this came at an increased CPU and memory cost in the gateway and Istiod. As a result, we have disabled these by default
     on the `istio-ingressgateway` and `istio-egressgateway`.

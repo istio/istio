@@ -31,7 +31,7 @@ metadata:
     istio.io/rev: canary
   name: canary-test
 ---
-# Namespace is explicitly enabled in the new style, but refers to a non-existant control plane
+# Namespace is explicitly enabled in the new style, but refers to a non-existent control plane
 apiVersion: v1
 kind: Namespace
 metadata:
