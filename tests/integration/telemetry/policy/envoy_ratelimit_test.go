@@ -16,11 +16,11 @@
 package policy
 
 import (
-	"errors"
 	"io/ioutil"
 	"testing"
 	"time"
 
+	"errors"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
@@ -201,13 +201,18 @@ func sendTrafficAndCheckIfRatelimited(t *testing.T) {
 			PortName: "http",
 			Count:    5,
 		}
+		received409 := false
 		if parsedResponse, err := clt.Call(httpOpts); err == nil {
 			for _, resp := range parsedResponse {
 				if response.StatusCodeTooManyRequests == resp.Code {
-					return errors.New("no request received StatusTooManyRequest error")
+					received409 = true
+					break
 				}
 			}
 		}
+		if !received409 {
+			return errors.New("no request received StatusTooManyRequest error")
+		}
 		return nil
-	}, retry.Delay(10*time.Second), retry.Timeout(2*time.Minute))
+	}, retry.Delay(10*time.Second), retry.Timeout(60*time.Second))
 }
