@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package upgrade
+package pilot
 
 import (
 	"fmt"
@@ -27,25 +27,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var i istio.Instance
-
-// TestMain defines the entrypoint for pilot tests using a standard Istio installation.
-// If a test requires a custom install it should go into its own package, otherwise it should go
-// here to reuse a single install across tests.
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite(m).
-		RequireSingleCluster().
-		Setup(istio.Setup(&i, nil)).
-		Run()
-}
-
-type installGolden struct {
+type installConfig struct {
 	revision string
 	path     string
 }
@@ -62,18 +48,14 @@ func TestMultiVersionRevision(t *testing.T) {
 		RequiresSingleCluster().
 		Features("installation.upgrade").
 		Run(func(ctx framework.TestContext) {
-			goldenDir := filepath.Join(env.IstioSrc, "tests/integration/pilot/upgrade/goldens")
+			testdataDir := filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade")
 
 			// keep these at the latest patch version of each minor version
-			// TODO(samnaser) script the creation of these golden files
-			installGoldens := []installGolden{
-				{
-					revision: "1-7-4",
-					path:     filepath.Join(goldenDir, "golden-minimal-1.7.4.yaml"),
-				},
+			// TODO(samnaser) add 1.7 once we flag-protection for reading service-api CRDs (https://github.com/istio/istio/issues/29054)
+			installConfigs := []installConfig{
 				{
 					revision: "1-6-11",
-					path:     filepath.Join(goldenDir, "golden-minimal-1.6.11.yaml"),
+					path:     filepath.Join(testdataDir, "1.6.11-install.yaml"),
 				},
 			}
 
@@ -96,27 +78,26 @@ func TestMultiVersionRevision(t *testing.T) {
 				},
 			}
 
-			for _, g := range installGoldens {
-				configBytes, err := ioutil.ReadFile(g.path)
+			for _, c := range installConfigs {
+				time.Sleep(time.Second * 10)
+				configBytes, err := ioutil.ReadFile(c.path)
 				if err != nil {
-					t.Errorf("failed to read config golden from path %s: %v", g.path, err)
+					t.Errorf("failed to read config golden from path %s: %v", c.path, err)
 				}
-				configs[g.revision] = string(configBytes)
+				configs[c.revision] = string(configBytes)
 				ctx.Config().ApplyYAMLOrFail(t, "istio-system", string(configBytes))
 
 				// create a namespace pointing to each revisioned install
 				ns := namespace.NewOrFail(t, ctx, namespace.Config{
-					Prefix:   fmt.Sprintf("revision-%s", g.revision),
+					Prefix:   fmt.Sprintf("revision-%s", c.revision),
 					Inject:   true,
-					Revision: g.revision,
+					Revision: c.revision,
 				})
 				echoNamespaces = append(echoNamespaces, revisionedNamespace{
-					revision:  g.revision,
+					revision:  c.revision,
 					namespace: ns,
 				})
-
-				// need to sleep a few seconds or else both installs won't succeed?
-				time.Sleep(time.Second * 2)
+				fmt.Printf("applying configuration for %s\n", c.revision)
 			}
 
 			// create an echo instance in each revisioned namespace, all these echo
@@ -143,13 +124,11 @@ func TestMultiVersionRevision(t *testing.T) {
 // generateEchoCalls takes list of revisioned namespaces and generates list of echo calls covering
 // communication between every pair of namespaces
 func testAllEchoCalls(t *testing.T, echoInstances []echo.Instance) {
-	for i := 0; i < len(echoInstances); i++ {
-		for j := 0; j < len(echoInstances); j++ {
-			if i == j {
+	for _, source := range echoInstances {
+		for _, dest := range echoInstances {
+			if source == dest {
 				continue
 			}
-			source := echoInstances[i]
-			dest := echoInstances[j]
 			t.Run(fmt.Sprintf("%s->%s", source.Config().Service, dest.Config().Service), func(t *testing.T) {
 				retry.UntilSuccessOrFail(t, func() error {
 					resp, err := source.Call(echo.CallOptions{
