@@ -136,7 +136,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    trace "setup kind cluster" setup_kind_cluster"istio-testing" "${NODE_IMAGE}"
+    trace "setup kind cluster" setup_kind_cluster "istio-testing" "${NODE_IMAGE}"
   else
     trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
