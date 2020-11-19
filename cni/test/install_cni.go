@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -190,7 +191,9 @@ func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
 	} else {
 		os.Unsetenv(chainedCNIPluginName)
 	}
-	root.ExecuteContext(ctx)
+	if err := root.ExecuteContext(ctx); err != nil {
+		log.Errorf("error during install-cni execution")
+	}
 }
 
 // checkResult checks if resultFile is equal to expectedFile at each tick until timeout
