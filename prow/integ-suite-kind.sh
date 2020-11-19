@@ -128,7 +128,7 @@ fi
 export T="${T:-"-v -count=1"}"
 export CI="true"
 
-make init
+trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
   export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
@@ -136,10 +136,10 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    time setup_kind_cluster "istio-testing" "${NODE_IMAGE}"
+    trace "setup kind cluster" setup_kind_cluster"istio-testing" "${NODE_IMAGE}"
   else
-    time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
-    time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
+    trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
+    trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
 
     export INTEGRATION_TEST_KUBECONFIG
     INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
@@ -170,8 +170,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  time setup_kind_registry
-  time build_images "${PARAMS[*]}"
+  trace "setup kind registry" setup_kind_registry
+  trace "build images" build_images "${PARAMS[*]}"
 fi
 
 # If a variant is defined, update the tag accordingly
@@ -181,7 +181,7 @@ fi
 
 # Run the test target if provided.
 if [[ -n "${PARAMS:-}" ]]; then
-  make "${PARAMS[*]}"
+  trace "test" make "${PARAMS[*]}"
 fi
 
 # Check if the user is running the clusters in manual mode.
