@@ -25,16 +25,6 @@
 # Example: ./integ-suite-kubetest2.sh --deployer gke \
 #             --deployer-flags "--project=test-project --cluster-name=test --region=us-central1"
 
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-
-# Exit immediately for non zero status
-set -e
-# Check unset variables
-set -u
-# Print commands
-set -x
-
 # Setup junit report and verbose logging
 export T="${T:-"-v"}"
 export CI="true"
@@ -62,7 +52,8 @@ gke_deployer_flags=(
 DEPLOYER=""
 EXTRA_DEPLOYER_FLAGS=""
 TEST_FLAGS=""
-CLUSTER_TOPOLOGY=SINGLE_CLUSTER
+CLUSTER_TOPOLOGY="SINGLE_CLUSTER"
+FEATURE_TO_TEST=""
 
 while (( "$#" )); do
   case "$1" in
@@ -94,15 +85,25 @@ while (( "$#" )); do
       esac
       shift 2
     ;;
+    --feature)
+      case $2 in
+        VPC_SC )
+          FEATURE_TO_TEST=$2
+          echo "Testing the feature ${FEATURE_TO_TEST}"
+          ;;
+        *)
+          echo "Error: Unsupported feature for testing ${FEATURE_TO_TEST}" >&2
+          exit 1
+          ;;
+      esac
+      shift 2
+    ;;
     *)
       echo "Error: unknown option $1"
       exit 1
       ;;
   esac
 done
-
-# Activate the service account with the key file.
-# gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}"
 
 readonly DEPLOYER
 readonly EXTRA_DEPLOYER_FLAGS
@@ -121,6 +122,13 @@ if [[ "${DEPLOYER}" == "gke" ]]; then
   if [[ "${CLUSTER_TOPOLOGY}" == "MULTICLUSTER"  ]]; then
     deployer_flags+=("--cluster-name=test1,test2" "--machine-type=e2-standard-4" "--num-nodes=3" "--region=us-central1")
     deployer_flags+=("--network=default" "--enable-workload-identity")
+    if [[ "${FEATURE_TO_TEST}" == "VPC_SC" ]]; then
+      gcp_project=$(vpc_sc_project_setup)
+      deployer_flags+=("--project=${gcp_project}")
+      deployer_flags+=("--private-cluster-access-level=limited")
+      deployer_flags+=("--private-cluster-master-ip-range=173.16.0.32/28,172.16.0.32/28")
+      deployer_flags+=("--create-command=beta container clusters create --quiet --master-authorized-networks=203.0.113.0/29")
+    fi
   elif [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
     # A slightly hacky step to setup the environment, see the comments on the
     # function signature.
