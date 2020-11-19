@@ -466,30 +466,35 @@ func TestGetDeleteRegistry(t *testing.T) {
 }
 
 func TestSkipSearchingRegistryForProxy(t *testing.T) {
-	cases := []struct {
-		node     string
-		registry string
-		self     string
-		want     bool
-	}{
-		{"main", "remote", "main", true},
-		{"remote", "main", "main", true},
-		{"remote", "Kubernetes", "main", true},
+	cluster1 := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.Kubernetes}
+	cluster2 := serviceregistry.Simple{ClusterID: "cluster-2", ProviderID: serviceregistry.Kubernetes}
+	// external registries may eventually be associated with a cluster
+	external := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.External}
 
-		{"main", "Kubernetes", "main", false},
-		{"main", "main", "main", false},
-		{"remote", "remote", "main", false},
-		{"", "main", "main", false},
-		{"main", "", "main", false},
-		{"main", "Kubernetes", "", false},
-		{"", "", "", false},
+	cases := []struct {
+		nodeClusterID string
+		registry      serviceregistry.Instance
+		want          bool
+	}{
+		// matching kube registry
+		{"cluster-1", cluster1, false},
+		// unmatching kube registry
+		{"cluster-1", cluster2, true},
+		// always search external
+		{"cluster-1", external, false},
+		{"cluster-2", external, false},
+		{"", external, false},
+		// always search for empty node cluster id
+		{"", cluster1, false},
+		{"", cluster2, false},
+		{"", external, false},
 	}
 
 	for i, c := range cases {
-		got := skipSearchingRegistryForProxy(c.node, c.registry, c.self)
+		got := skipSearchingRegistryForProxy(c.nodeClusterID, c.registry)
 		if got != c.want {
 			t.Errorf("%s: got %v want %v",
-				fmt.Sprintf("[%v] registry=%v node=%v", i, c.registry, c.node),
+				fmt.Sprintf("[%v] registry=%v node=%v", i, c.registry, c.nodeClusterID),
 				got, c.want)
 		}
 	}
