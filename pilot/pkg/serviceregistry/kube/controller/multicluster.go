@@ -123,19 +123,18 @@ func NewMulticluster(
 func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string) error {
 	// stopCh to stop controller created here when cluster removed.
 	stopCh := make(chan struct{})
-	var remoteKubeController kubeController
-	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
 	options := m.opts
 	options.ClusterID = clusterID
+
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
-
-	remoteKubeController.Controller = kubeRegistry
 	m.serviceController.AddRegistry(kubeRegistry)
-
-	m.remoteKubeControllers[clusterID] = &remoteKubeController
-	firstCluster := len(m.remoteKubeControllers) == 1
+	m.remoteKubeControllers[clusterID] = &kubeController{
+		Controller: kubeRegistry,
+		stopCh:     stopCh,
+	}
+	localCluster := m.opts.ClusterID == clusterID
 
 	m.m.Unlock()
 
@@ -149,7 +148,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler)
 	}
 
-	if firstCluster {
+	if localCluster {
 		// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
 		if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
 			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
@@ -159,7 +158,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	go kubeRegistry.Run(stopCh)
-	if m.fetchCaRoot() != nil && (features.ExternalIstioD || features.CentralIstioD || firstCluster) {
+	if m.fetchCaRoot() != nil && (features.ExternalIstioD || features.CentralIstioD || localCluster) {
 		// TODO remove initNamespaceController (and probably need leader election here? how will that work with multi-primary?)
 		go leaderelection.
 			NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
@@ -176,8 +175,11 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 			}).Run(stopCh)
 	}
 
+	// Patch cert if a webhook config name is provided.
+	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+	// operator or CI/CD
 	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
-	if m.caBundlePath != "" {
+	if features.InjectionWebhookConfigName.Get() != "" && m.caBundlePath != "" {
 		// TODO remove the patch loop init from initSidecarInjector (does this need leader elect? how well does it work with multi-primary?)
 		log.Infof("initializing webhook cert patch for cluster %s", clusterID)
 		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, client.Kube(), stopCh)

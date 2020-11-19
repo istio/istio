@@ -76,13 +76,18 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 
+	caBundlePath := s.caBundlePath
+	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+		caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
+	}
+
 	mc := kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
 		s.ServiceController(),
 		s.serviceEntryStore,
-		s.caBundlePath,
+		caBundlePath,
 		s.fetchCARoot,
 		s.environment)
 
