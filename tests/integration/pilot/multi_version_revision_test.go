@@ -67,17 +67,7 @@ func TestMultiVersionRevision(t *testing.T) {
 				}
 			}()
 
-			nsNoRevision := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "no-revision",
-				Inject: true,
-			})
-			echoNamespaces := []revisionedNamespace{
-				{
-					revision:  "none",
-					namespace: nsNoRevision,
-				},
-			}
-
+			revisionedNamespaces := []revisionedNamespace{}
 			for _, c := range installConfigs {
 				configBytes, err := ioutil.ReadFile(c.path)
 				if err != nil {
@@ -92,7 +82,7 @@ func TestMultiVersionRevision(t *testing.T) {
 					Inject:   true,
 					Revision: c.revision,
 				})
-				echoNamespaces = append(echoNamespaces, revisionedNamespace{
+				revisionedNamespaces = append(revisionedNamespaces, revisionedNamespace{
 					revision:  c.revision,
 					namespace: ns,
 				})
@@ -101,8 +91,13 @@ func TestMultiVersionRevision(t *testing.T) {
 			// create an echo instance in each revisioned namespace, all these echo
 			// instances will be injected with proxies from their respective versions
 			builder := echoboot.NewBuilder(ctx)
-			instances := make([]echo.Instance, len(echoNamespaces))
-			for i, ns := range echoNamespaces {
+			instanceCount := len(revisionedNamespaces) + 1
+			instances := make([]echo.Instance, instanceCount)
+
+			// add an existing pod from apps to the rotation to avoid an extra deployment
+			instances[instanceCount-1] = apps.PodA[0]
+
+			for i, ns := range revisionedNamespaces {
 				builder = builder.With(&instances[i], echo.Config{
 					Service:   fmt.Sprintf("revision-%s", ns.revision),
 					Namespace: ns.namespace,
