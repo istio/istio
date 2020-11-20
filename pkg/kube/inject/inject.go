@@ -17,8 +17,6 @@ package inject
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -573,7 +571,6 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		deployMeta:          deploymentMetadata,
 		typeMeta:            typeMeta,
 		template:            sidecarTemplate,
-		version:             sidecarTemplateVersionHash(sidecarTemplate),
 		meshConfig:          meshconfig,
 		valuesConfig:        valuesConfig,
 		revision:            revision,
@@ -620,18 +617,10 @@ func applyJSONPatchToPod(input *corev1.Pod, patch []byte) ([]byte, error) {
 // injected sidecar. This includes the names of added containers and
 // volumes.
 type SidecarInjectionStatus struct {
-	Version          string   `json:"version"`
 	InitContainers   []string `json:"initContainers"`
 	Containers       []string `json:"containers"`
 	Volumes          []string `json:"volumes"`
 	ImagePullSecrets []string `json:"imagePullSecrets"`
-}
-
-// helper function to generate a template version identifier from a
-// hash of the un-executed template contents.
-func sidecarTemplateVersionHash(in string) string {
-	hash := sha256.Sum256([]byte(in))
-	return hex.EncodeToString(hash[:])
 }
 
 func potentialPodName(metadata metav1.ObjectMeta) string {

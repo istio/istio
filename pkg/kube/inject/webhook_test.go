@@ -700,10 +700,9 @@ func createTestWebhookFromFile(templateFile string, t *testing.T) *Webhook {
 	}
 	m := mesh.DefaultMeshConfig()
 	return &Webhook{
-		Config:                 injectConfig,
-		sidecarTemplateVersion: "unit-test-fake-version",
-		meshConfig:             &m,
-		valuesConfig:           "{}",
+		Config:       injectConfig,
+		meshConfig:   &m,
+		valuesConfig: "{}",
 	}
 }
 
@@ -1058,7 +1057,7 @@ func TestRunAndServe(t *testing.T) {
         "prometheus.io/path": "/stats/prometheus",
         "prometheus.io/port": "15020",
         "prometheus.io/scrape": "true",
-        "sidecar.istio.io/status": "{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+        "sidecar.istio.io/status": "{\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
     }
 },
 {
