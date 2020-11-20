@@ -93,14 +93,14 @@ func buildMockControllerForMultiCluster() *Controller {
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.ProviderID("mockAdapter1"),
+		ProviderID:       serviceregistry.Kubernetes,
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
 		Controller:       &mock.Controller{},
 	}
 
 	registry2 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.ProviderID("mockAdapter2"),
+		ProviderID:       serviceregistry.Kubernetes,
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
 		Controller:       &mock.Controller{},
