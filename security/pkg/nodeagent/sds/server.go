@@ -72,8 +72,8 @@ func FillServer(s *Server, options *ca2.Options, workloadSecretCache ca2.SecretM
 	return s, nil
 }
 
-func (s *Server) UpdateCallback() func(cache.ConnKey, *security.SecretItem) error {
-	return func(key cache.ConnKey, item *security.SecretItem) error {
+func (s *Server) UpdateCallback() func(cache.ConnKey, *ca2.SecretItem) error {
+	return func(key cache.ConnKey, item *ca2.SecretItem) error {
 		return s.workloadSds.Gcp.Set(key.ResourceName, item)
 	}
 }
