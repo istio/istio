@@ -168,7 +168,7 @@ func (i *operatorComponent) Close() error {
 	// Write time spent for cleanup and deploy to ARTIFACTS/trace.yaml and logs to allow analyzing test times
 	defer func() {
 		delta := time.Since(t0)
-		y := fmt.Sprintf(`'suite/%s'':
+		y := fmt.Sprintf(`'suite/%s':
   istio-deploy: %f
   istio-cleanup: %f
 `, i.ctx.Settings().TestID, i.deployTime.Seconds(), delta.Seconds())
