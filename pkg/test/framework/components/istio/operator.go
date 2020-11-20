@@ -75,6 +75,7 @@ type operatorComponent struct {
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string][]string
+	closers         []func() error
 	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
 	workDir         string
 }
@@ -175,20 +176,16 @@ func (i *operatorComponent) Close() error {
 						err = multierror.Append(err, e)
 					}
 				}
-				if i.environment.IsMulticluster() {
-					// in multicluster mode we simply delete the namespace
-					if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
-						kube2.DeleteOptionsForeground()); e != nil {
-						err = multierror.Append(err, e)
-					}
-					if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
-						err = multierror.Append(err, e)
-					}
-				}
 				return
 			})
 		}
-		return errG.Wait()
+		err := multierror.Append(nil, errG.Wait())
+		for _, c := range i.closers {
+			if e := c(); e != nil {
+				err = multierror.Append(err, e)
+			}
+		}
+		return err.ErrorOrNil()
 	}
 	return nil
 }
@@ -245,7 +242,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
 	if env.IsMulticluster() {
-		if err := deployCACerts(workDir, env, cfg); err != nil {
+		if err := i.deployCACerts(workDir, env, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -486,7 +483,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 		if err := patchIstiodCustomHost(istiodAddress, cfg, cluster); err != nil {
 			return err
 		}
-		if err := configureDiscoveryForConfigAndRemoteCluster(istiodAddress.IP.String(), cfg, configCluster); err != nil {
+		if err := i.configureDiscoveryForConfigAndRemoteCluster(istiodAddress.IP.String(), cfg, configCluster); err != nil {
 			return err
 		}
 	}
@@ -672,7 +669,7 @@ func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Conf
 	return out, nil
 }
 
-func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
+func (i *operatorComponent) deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 	certsDir := filepath.Join(workDir, "cacerts")
 	if err := os.Mkdir(certsDir, 0700); err != nil {
 		return err
@@ -730,11 +727,14 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 			scopes.Framework.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
 				"multiple control planes. Error: %v", cluster.Name(), err)
 		}
+		i.closers = append(i.closers, func() error {
+			return cluster.CoreV1().Secrets(cfg.SystemNamespace).Delete(context.TODO(), secret.Name, kubeApiMeta.DeleteOptions{})
+		})
 	}
 	return nil
 }
 
-func configureDiscoveryForConfigAndRemoteCluster(discoveryAddress string, cfg Config, cluster resource.Cluster) error {
+func (i *operatorComponent) configureDiscoveryForConfigAndRemoteCluster(discoveryAddress string, cfg Config, cluster resource.Cluster) error {
 	scopes.Framework.Infof("creating endpoints and service in %s to get discovery from %s", cluster.Name(), discoveryAddress)
 	svc := &kubeApiCore.Service{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
@@ -766,6 +766,9 @@ func configureDiscoveryForConfigAndRemoteCluster(discoveryAddress string, cfg Co
 	if err != nil {
 		return err
 	}
+	i.closers = append(i.closers, func() error {
+		return cluster.CoreV1().Services(cfg.SystemNamespace).Delete(context.TODO(), svc.Name, kubeApiMeta.DeleteOptions{})
+	})
 	eps := &kubeApiCore.Endpoints{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:      istiodSvcName,
@@ -798,6 +801,9 @@ func configureDiscoveryForConfigAndRemoteCluster(discoveryAddress string, cfg Co
 	if err != nil {
 		return err
 	}
+	i.closers = append(i.closers, func() error {
+		return cluster.CoreV1().Endpoints(cfg.SystemNamespace).Delete(context.TODO(), eps.Name, kubeApiMeta.DeleteOptions{})
+	})
 	err = retry.UntilSuccess(func() error {
 		_, err := cluster.CoreV1().Services(cfg.SystemNamespace).Get(context.TODO(), istiodSvcName, kubeApiMeta.GetOptions{})
 		if err != nil {
@@ -850,6 +856,9 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resourc
 		scopes.Framework.Infof("has error in creating istio-kubeconfig secrets %v", err)
 		return err
 	}
+	i.closers = append(i.closers, func() error {
+		return cluster.CoreV1().Secrets(cfg.SystemNamespace).Delete(context.TODO(), "istio-kubeconfig", kubeApiMeta.DeleteOptions{})
+	})
 	// create service account for reading the secrets
 	_, err = cluster.CoreV1().ServiceAccounts(cfg.SystemNamespace).
 		Create(context.TODO(), &kubeApiCore.ServiceAccount{
@@ -862,6 +871,9 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resourc
 		scopes.Framework.Infof("has error in creating istiod service account %v", err)
 		return err
 	}
+	i.closers = append(i.closers, func() error {
+		return cluster.CoreV1().ServiceAccounts(cfg.SystemNamespace).Delete(context.TODO(), "istiod-service-account", kubeApiMeta.DeleteOptions{})
+	})
 
 	return nil
 }
