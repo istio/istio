@@ -346,10 +346,9 @@ func TestInjection(t *testing.T) {
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
 			t.Run("webhook", func(t *testing.T) {
 				webhook := &Webhook{
-					Config:                 sidecarTemplate,
-					sidecarTemplateVersion: "unit-test-fake-version",
-					meshConfig:             mc,
-					valuesConfig:           valuesConfig,
+					Config:       sidecarTemplate,
+					meshConfig:   mc,
+					valuesConfig: valuesConfig,
 				}
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
