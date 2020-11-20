@@ -92,6 +92,14 @@ func (i *operatorComponent) Settings() Config {
 	return i.settings
 }
 
+func removeCRDsSlice(raw []string) string {
+	res := []string{}
+	for _, r := range raw {
+		res = append(res, removeCRDs(r))
+	}
+	return yml.JoinString(res...)
+}
+
 // When we cleanup, we should not delete CRDs. This will filter out all the crds
 func removeCRDs(istioYaml string) string {
 	allParts := yml.SplitString(istioYaml)
@@ -157,10 +165,8 @@ func (i *operatorComponent) Close() error {
 		for _, cluster := range i.ctx.Clusters() {
 			cluster := cluster
 			errG.Go(func() (err error) {
-				for _, manifest := range i.installManifest[cluster.Name()] {
-					if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
-						err = multierror.Append(err, e)
-					}
+				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDsSlice(i.installManifest[cluster.Name()])); e != nil {
+					err = multierror.Append(err, e)
 				}
 				// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
 				for _, cm := range leaderElectionConfigMaps {
