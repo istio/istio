@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 28916
+releaseNotes:
+  - |
+    **Fixed** HPA settings for telemetry is overridden by the inline replicas.
