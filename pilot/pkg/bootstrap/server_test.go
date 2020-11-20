@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/testcerts"
@@ -238,6 +239,73 @@ func TestNewServer(t *testing.T) {
 			}()
 
 			g.Expect(s.environment.GetDomainSuffix()).To(Equal(c.expectedDomain))
+		})
+	}
+}
+
+func TestNewServerWithMockRegistry(t *testing.T) {
+	cases := []struct {
+		name             string
+		registry         string
+		expectedRegistry serviceregistry.ProviderID
+		secureGRPCport   string
+	}{
+		{
+			name:             "Mock Registry",
+			registry:         "Mock",
+			expectedRegistry: serviceregistry.Mock,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir, err := ioutil.TempDir("", "TestNewServer")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer func() {
+				_ = os.RemoveAll(configDir)
+			}()
+
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+
+				// As the same with args in main go of pilot-discovery
+				p.InjectionOptions = InjectionOptions{
+					InjectionDirectory: "./var/lib/istio/inject",
+				}
+
+				p.ServerOptions = DiscoveryServerOptions{
+					// Dynamically assign all ports.
+					HTTPAddr:       ":0",
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+					SecureGRPCAddr: c.secureGRPCport,
+				}
+
+				p.RegistryOptions = RegistryOptions{
+					Registries: []string{c.registry},
+					FileDir:    configDir,
+				}
+
+				// Include all of the default plugins
+				p.Plugins = DefaultPlugins
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+
+			g := NewWithT(t)
+			s, err := NewServer(args)
+			g.Expect(err).To(Succeed())
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			g.Expect(s.ServiceController().GetRegistries()[0].Provider()).To(Equal(c.expectedRegistry))
 		})
 	}
 }
