@@ -47,7 +47,8 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string) *
 		func(c kube.Client, k string) error { m.updateMemberCluster(c, k); return nil },
 		func(k string) error { m.deleteMemberCluster(k); return nil },
 		secretNamespace,
-		time.Millisecond*100)
+		time.Millisecond*100,
+		make(chan struct{}))
 	m.secretController = sc
 	return m
 }
