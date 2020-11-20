@@ -84,7 +84,7 @@ func TestMultiVersionRevision(t *testing.T) {
 					t.Errorf("failed to read config golden from path %s: %v", c.path, err)
 				}
 				configs[c.revision] = string(configBytes)
-				ctx.Config().ApplyYAMLOrFail(t, "istio-system", string(configBytes))
+				ctx.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, string(configBytes))
 
 				// create a namespace pointing to each revisioned install
 				ns := namespace.NewOrFail(t, ctx, namespace.Config{
