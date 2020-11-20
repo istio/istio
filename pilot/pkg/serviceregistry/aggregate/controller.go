@@ -119,7 +119,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		// Race condition: multiple threads may call Services, and multiple services
 		// may modify one of the service's cluster ID
 		clusterAddressesMutex.Lock()
-		if r.Provider() == serviceregistry.External {
+		if r.Provider() != serviceregistry.Kubernetes {
 			services = append(services, svcs...)
 		} else {
 			// This is K8S typically
@@ -216,7 +216,7 @@ func nodeClusterID(node *model.Proxy) string {
 func skipSearchingRegistryForProxy(nodeClusterID string, r serviceregistry.Instance) bool {
 	// Always search non-kube (usually serviceentry) registry.
 	// Check every registry if cluster ID isn't specified.
-	if r.Provider() == serviceregistry.External || nodeClusterID == "" {
+	if r.Provider() != serviceregistry.Kubernetes || nodeClusterID == "" {
 		return false
 	}
 
