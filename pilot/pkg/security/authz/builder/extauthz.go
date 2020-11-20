@@ -199,22 +199,35 @@ func parseService(in *plugin.InputParams, service string, port int) (hostname st
 		err = fmt.Errorf("service must not be empty")
 		return
 	}
-	parts := strings.Split(service, "/")
-	// TODO(yangminzhu): Currently require the user to always specify namespace, may relax this later.
-	if len(parts) != 2 {
-		err = fmt.Errorf("service not in format <namespace>/<hostname>, found: %s", service)
-		return
+
+	// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
+	if parts := strings.Split(service, "/"); len(parts) == 2 {
+		namespace, name := parts[0], parts[1]
+		if svc := in.Push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
+			hostname = string(svc.Hostname)
+			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
+			return
+		}
+	} else {
+		namespaceToServices := in.Push.ServiceIndex.HostnameAndNamespace[host.Name(service)]
+		var namespaces []string
+		for k := range namespaceToServices {
+			namespaces = append(namespaces, k)
+		}
+		// If namespace is omitted, return successfully if there is only one such host name in the service index.
+		if len(namespaces) == 1 {
+			svc := namespaceToServices[namespaces[0]]
+			hostname = string(svc.Hostname)
+			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
+			return
+		} else if len(namespaces) > 1 {
+			err = fmt.Errorf("found %s in multiple namespaces %v, specify the namespace explicitly in "+
+				"the format of <Namespace>/<Hostname>", service, namespaces)
+			return
+		}
 	}
 
-	namespace, name := parts[0], parts[1]
-	if svc := in.Push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
-		// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
-		hostname = string(svc.Hostname)
-		cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
-		return
-	}
-
-	err = fmt.Errorf("could not find service for %s/%s", namespace, name)
+	err = fmt.Errorf("could not find service %s in Istio service registry", service)
 	return
 }
 

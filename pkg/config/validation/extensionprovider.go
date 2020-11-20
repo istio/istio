@@ -30,10 +30,6 @@ func validateExtensionProviderService(service string) error {
 	if service == "" {
 		return fmt.Errorf("service must not be empty")
 	}
-	parts := strings.Split(service, "/")
-	if len(parts) != 2 {
-		return fmt.Errorf("service value %q not in format <namespace>/<service>", service)
-	}
 	return nil
 }
 
