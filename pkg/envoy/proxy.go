@@ -229,8 +229,13 @@ func configFile(config string, epoch int) string {
 }
 
 // isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
-// for all other cases it returns false
+// for all other cases it returns false. In K8s returns true is the default family is IPv6.
 func isIPv6Proxy(ipAddrs []string) bool {
+	if k8sServiceHost := os.Getenv("KUBERNETES_SERVICE_HOST"); k8sServiceHost != "" {
+		if k8sServiceHostIP := net.ParseIP(k8sServiceHost); k8sServiceHostIP != nil {
+			return k8sServiceHostIP.To4() == nil
+		}
+	}
 	for i := 0; i < len(ipAddrs); i++ {
 		addr := net.ParseIP(ipAddrs[i])
 		if addr == nil {

@@ -121,6 +121,15 @@ func constructConfig() *config.Config {
 	}
 	cfg.EnableInboundIPv6 = podIP.To4() == nil
 
+	// In a K8s dual-stack setup both families are used so check the
+	// kubernetes service address instead.
+	if k8sServiceHost := os.Getenv("KUBERNETES_SERVICE_HOST"); k8sServiceHost != "" {
+		if k8sServiceHostIP := net.ParseIP(k8sServiceHost); k8sServiceHostIP != nil {
+			cfg.EnableInboundIPv6 = k8sServiceHostIP.To4() == nil
+		}
+	}
+
+
 	return cfg
 }
 

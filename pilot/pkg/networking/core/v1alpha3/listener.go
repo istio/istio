@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"net"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -2165,10 +2166,23 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 }
 
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
-// depending on value of proxy's IPAddresses. This function checks each element
+// depending on value of proxy's IPAddresses or the K8s default family. This function checks each element
 // and if there is at least one ipv4 address other than 127.0.0.1, it will use ipv4 address,
 // if all addresses are ipv6  addresses then ipv6 address will be used to get wildcard and local host address.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
+	if k8sServiceHost := os.Getenv("KUBERNETES_SERVICE_HOST"); k8sServiceHost != "" {
+		if k8sServiceHostIP := net.ParseIP(k8sServiceHost); k8sServiceHostIP != nil {
+			if k8sServiceHostIP.To4() != nil {
+				if node.SupportsIPv6() {
+					return WildcardIPv6Address, LocalhostAddress
+				} else {
+					return WildcardAddress, LocalhostAddress
+				}
+			} else {
+				return WildcardIPv6Address, LocalhostIPv6Address
+			}
+		}
+	}
 	if node.SupportsIPv4() {
 		return WildcardAddress, LocalhostAddress
 	}

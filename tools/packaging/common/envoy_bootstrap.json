@@ -494,7 +494,8 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "{{ .wildcard }}",
-            "port_value": 15090
+            "port_value": 15090,
+            "ipv4_compat": true
           }
         },
         "filter_chains": [
@@ -543,7 +544,8 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "{{ .wildcard }}",
-            "port_value": 15021
+            "port_value": 15021,
+            "ipv4_compat": true
           }
         },
         "filter_chains": [

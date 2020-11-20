@@ -187,6 +187,19 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildAddress(bind string, port uint32) *core.Address {
 	if port != 0 {
+		if bind == "::" {
+			return &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: bind,
+						Ipv4Compat: true,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: port,
+						},
+					},
+				},
+			}
+		}
 		return &core.Address{
 			Address: &core.Address_SocketAddress{
 				SocketAddress: &core.SocketAddress{

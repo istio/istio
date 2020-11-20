@@ -121,7 +121,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	} else {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv4),
-			option.Wildcard(option.WildcardIPv4),
+			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
 	}
 
