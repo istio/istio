@@ -77,6 +77,7 @@ type operatorComponent struct {
 	installManifest map[string][]string
 	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
 	workDir         string
+	deployTime      time.Duration
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -146,12 +147,35 @@ func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceNa
 	return i.ingress[cluster.Index()][istioLabel]
 }
 
+func appendToFile(contents string, file string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	if _, err = f.WriteString(contents); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (i *operatorComponent) Close() error {
 	t0 := time.Now()
 	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
+
+	// Write time spent for cleanup and deploy to ARTIFACTS/trace.yaml and logs to allow analyzing test times
 	defer func() {
-		scopes.Framework.Infof("=== DONE: Cleanup Istio in %v [Suite=%s] ===", time.Since(t0), i.ctx.Settings().TestID)
+		delta := time.Since(t0)
+		y := fmt.Sprintf(`"suite/%s":
+  istio-deploy: %s
+  istio-cleanup: %s
+`, i.ctx.Settings().TestID, i.deployTime, delta)
+		_ = appendToFile(y, filepath.Join(i.ctx.Settings().BaseDir, "trace.yaml"))
+		scopes.Framework.Infof("=== SUCCEEDED: Cleanup Istio in %v [Suite=%s] ===", delta, i.ctx.Settings().TestID)
 	}()
+
 	if i.settings.DeployIstio {
 		errG := multierror.Group{}
 		for _, cluster := range i.ctx.Clusters() {
@@ -182,7 +206,7 @@ func (i *operatorComponent) Close() error {
 				return
 			})
 		}
-		return errG.Wait()
+		return errG.Wait().ErrorOrNil()
 	}
 	return nil
 }
@@ -217,6 +241,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		installManifest: map[string][]string{},
 		ingress:         map[resource.ClusterIndex]map[string]ingress.Instance{},
 	}
+	t0 := time.Now()
+	defer func() {
+		i.deployTime = time.Since(t0)
+	}()
 	i.id = ctx.TrackResource(i)
 
 	if !cfg.DeployIstio {
