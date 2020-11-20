@@ -58,6 +58,8 @@ const (
 
 	// ExtCAGrpc : Integration with external CA using Istio CA gRPC API
 	ExtCAGrpc CaExternalType = "ISTIOD_RA_ISTIO_API"
+	// ExtCACas : Integration with Private CA using Private CA gRPC API
+	ExtCACas CaExternalType = "ISTIOD_RA_CAS_API"
 
 	// DefaultExtCACertDir : Location of external CA certificate
 	DefaultExtCACertDir string = "./etc/external-ca-cert"
@@ -96,6 +98,12 @@ func NewIstioRA(opts *IstioRAOptions) (RegistrationAuthority, error) {
 		istioRA, err := NewKubernetesRA(opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an K8s CA: %v", err)
+		}
+		return istioRA, err
+	} else if opts.ExternalCAType == ExtCACas {
+		istioRA, err := NewGoogleCasRA(opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a Private CA: %v", err)
 		}
 		return istioRA, err
 	}

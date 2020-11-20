@@ -249,6 +249,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if caOpts.ExternalCAType == ra.ExtCAK8s {
 		// Older environment variable preserved for backward compatibility
 		caOpts.ExternalCASigner = k8sSigner
+	} else {
+		caOpts.ExternalCASigner = externalCAName
 	}
 
 	// CA signing certificate must be created first if needed.

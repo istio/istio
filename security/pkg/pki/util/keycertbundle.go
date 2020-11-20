@@ -53,6 +53,31 @@ func NewKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBy
 	return bundle
 }
 
+// InitEmptyCertBundleWithRootCertFromFile returns a new KeyCertBundle with the root cert without verification.
+func InitEmptyCertBundle() (*KeyCertBundle, error) {
+	return &KeyCertBundle{
+		certBytes:      []byte{},
+		cert:           nil,
+		privKeyBytes:   []byte{},
+		privKey:        nil,
+		certChainBytes: []byte{},
+		rootCertBytes:  []byte{},
+	}, nil
+}
+
+// NewUnverifiedKeyCertBundle returns a new KeyCertBundle without performing any verification
+func NewUnverifiedKeyCertBundle(certBytes, privKeyBytes,
+	certChainBytes, rootCertBytes []byte) (*KeyCertBundle, error) {
+	return &KeyCertBundle{
+		certBytes:      certBytes,
+		cert:           nil,
+		privKeyBytes:   privKeyBytes,
+		privKey:        nil,
+		certChainBytes: certChainBytes,
+		rootCertBytes:  rootCertBytes,
+	}, nil
+}
+
 // NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) (
