@@ -1,0 +1,25 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** For multicluster installations, istioctl has historically required
+    that a cluster name be a valid `DNS_LABEL` as defined by
+    [RFC 1123](https://tools.ietf.org/html/rfc1123).
+    This was due to the fact that cluster names are embedded in the name
+    of the generated remote secret and the most strict
+    [names in Kubernetes](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/architecture/identifiers.md)
+    have this requirement. Kubernetes object names, however, conform to
+    RFC 1123 `DNS_SUBDOMAIN`, which is more flexible both in length
+    (up to 253 characters) as well allowing the `.` character within the
+    string. Since the name of a remote secret falls under this category,
+    we have chosen to relax the requirements accordingly.
+    Cluster names can now be up to 233 characters, which is the max
+    length given by `DNS_SUBDOMAIN` (253), minus the length of the remote
+    secret prefix `istio-remote-secret-`. They must start and end with an
+    alphanumeric character (lowercase), and may contain `.`, `-`, or
+    `_` within the string. The `_` character was added for flexibility
+    in naming clusters, but will be converted to `-` when generating the
+    remote secret name. Since Istio has no requirement on the name of
+    the remote secret (other than it be unique within a cluster), this
+    conversion will have no impact on the system.

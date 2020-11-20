@@ -15,6 +15,8 @@
 package labels_test
 
 import (
+	"math/rand"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/config/labels"
@@ -108,5 +110,63 @@ func TestInstanceValidate(t *testing.T) {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
 			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
 		}
+	}
+}
+
+func TestIsClusterName(t *testing.T) {
+	var validClusterChars = []rune("abcdefghijklmnopqrstuvwxyz")
+
+	clusterNameOfLength := func(n int) string {
+		b := strings.Builder{}
+		for i := 0; i < n; i++ {
+			b.WriteRune(validClusterChars[rand.Intn(len(validClusterChars))])
+		}
+		return b.String()
+	}
+
+	cases := []struct {
+		testName string
+		in       string
+		expected bool
+	}{
+		{
+			testName: "valid",
+			in:       "he.llo-wor_ld",
+			expected: true,
+		},
+		{
+			testName: "invalid first char",
+			in:       "-a",
+			expected: false,
+		},
+		{
+			testName: "invalid last char",
+			in:       "a-",
+			expected: false,
+		},
+		{
+			testName: "invalid middle char",
+			in:       "a/b",
+			expected: false,
+		},
+		{
+			testName: "long",
+			in:       clusterNameOfLength(labels.MaxClusterNameLength),
+			expected: true,
+		},
+		{
+			testName: "too long",
+			in:       clusterNameOfLength(labels.MaxClusterNameLength + 1),
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testName, func(t *testing.T) {
+			actual := labels.IsClusterName(c.in)
+			if actual != c.expected {
+				t.Fatalf("cluster name %s: got %t but want %t", c.in, actual, c.expected)
+			}
+		})
 	}
 }

@@ -205,11 +205,16 @@ func createTestClusterAndEnvOrDie(t *testing.T,
 }
 
 var (
+	cluster0           = "cluster-0"
+	cluster1           = "cluster-1"
 	testSecretLabeled0 = &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "testSecretLabeled0",
 			Namespace: defaultIstioNamespace,
 			Labels:    map[string]string{secretcontroller.MultiClusterSecretLabel: "true"},
+		},
+		Data: map[string][]byte{
+			cluster0: {},
 		},
 	}
 	testSecretLabeled1 = &v1.Secret{
@@ -217,6 +222,9 @@ var (
 			Name:      "testSecretLabeled1",
 			Namespace: defaultIstioNamespace,
 			Labels:    map[string]string{secretcontroller.MultiClusterSecretLabel: "true"},
+		},
+		Data: map[string][]byte{
+			cluster1: {},
 		},
 	}
 	testSecretNotLabeled0 = &v1.Secret{
@@ -273,8 +281,8 @@ func TestReadRemoteSecrets(t *testing.T) {
 			context: testContext,
 			desc:    clusterDescWithDefaults,
 			want: remoteSecrets{
-				testSecretLabeled0.Name: testSecretLabeled0,
-				testSecretLabeled1.Name: testSecretLabeled1,
+				cluster0: testSecretLabeled0,
+				cluster1: testSecretLabeled1,
 			},
 		},
 	}

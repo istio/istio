@@ -61,8 +61,6 @@ type SecretsController struct {
 	secrets informersv1.SecretInformer
 	sar     authorizationv1client.SubjectAccessReviewInterface
 
-	clusterID string
-
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
 }
@@ -78,7 +76,7 @@ var _ secrets.Controller = &SecretsController{}
 
 type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
-func NewSecretsController(client kube.Client, clusterID string) *SecretsController {
+func NewSecretsController(client kube.Client) *SecretsController {
 	// Informer is lazy loaded, load it now
 	_ = client.KubeInformer().Core().V1().Secrets().Informer()
 
@@ -86,7 +84,6 @@ func NewSecretsController(client kube.Client, clusterID string) *SecretsControll
 		secrets: client.KubeInformer().Core().V1().Secrets(),
 
 		sar:                client.AuthorizationV1().SubjectAccessReviews(),
-		clusterID:          clusterID,
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
 }

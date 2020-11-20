@@ -55,7 +55,7 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string) *
 func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
 	stopCh := make(chan struct{})
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
-	sc := NewSecretsController(clients, key)
+	sc := NewSecretsController(clients)
 	m.m.Lock()
 	m.remoteKubeControllers[key] = sc
 	m.m.Unlock()

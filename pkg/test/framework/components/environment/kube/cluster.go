@@ -27,6 +27,7 @@ var _ resource.Cluster = Cluster{}
 // Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {
 	kube.ExtendedClient
+	name        string
 	filename    string
 	networkName string
 	index       resource.ClusterIndex
@@ -56,7 +57,7 @@ func (c Cluster) NetworkName() string {
 
 // Name provides the name this cluster used by Istio.
 func (c Cluster) Name() string {
-	return fmt.Sprintf("cluster-%d", c.index)
+	return c.name
 }
 
 // Index of this cluster within the Environment.

@@ -137,7 +137,14 @@ func (c *Cluster) readRemoteSecrets(env Environment) remoteSecrets {
 	}
 	for i := range secrets.Items {
 		secret := &secrets.Items[i]
-		secretMap[clusterNameFromRemoteSecretName(secret.Name)] = secret
+		for clusterName := range secret.Data {
+			if _, ok := secretMap[clusterName]; ok {
+				env.Errorf("error: duplicate cluster name found in remote secrets: %s. Skipping duplicates",
+					clusterName)
+			} else {
+				secretMap[clusterName] = secret
+			}
+		}
 	}
 	return secretMap
 }

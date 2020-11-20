@@ -81,9 +81,10 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName string) er
 		return err
 	}
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
-		"EchoNamespace": getEchoNamespaceInstance().Name(),
-		"ClusterName":   clName,
-		"OnGCE":         metadata.OnGCE(),
+		"EchoNamespace":     getEchoNamespaceInstance().Name(),
+		"ClusterName":       clName,
+		"ClusterObjectName": strings.Replace(clName, "_", "-", -1),
+		"OnGCE":             metadata.OnGCE(),
 	})
 	if err != nil {
 		return err

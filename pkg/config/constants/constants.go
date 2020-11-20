@@ -101,4 +101,7 @@ const (
 	DefaultConfigServiceAccountName = "istiod-service-account"
 
 	TestVMLabel = "istio.io/test-vm"
+
+	// RemoteSecretPrefix identifies the prefix used to create remote secret resource names.
+	RemoteSecretPrefix = "istio-remote-secret-"
 )

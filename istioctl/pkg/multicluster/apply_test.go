@@ -99,7 +99,7 @@ func makeCluster(id int) *Cluster {
 			DisableRegistryJoin:  false,
 		},
 		Context:     fmt.Sprintf("context%v", id),
-		clusterName: fmt.Sprintf("clusterName%v", id),
+		clusterName: fmt.Sprintf("clustername%v", id),
 		installed:   true,
 	}
 }

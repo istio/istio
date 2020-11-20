@@ -21,6 +21,8 @@ import (
 	"sort"
 
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -37,6 +39,10 @@ const (
 	// In Kubernetes, label names can start with a DNS name followed by a '/':
 	dnsNamePrefixFmt       = dns1123LabelFmt + `(?:\.` + dns1123LabelFmt + `)*/`
 	dnsNamePrefixMaxLength = 253
+
+	// Format for cluster names is similar to DNS 1123, but also allows "_" in place of "-".
+	clusterNameFmt       = "[a-zA-Z0-9](?:[-_.a-zA-Z0-9]*[a-zA-Z0-9])?"
+	MaxClusterNameLength = dnsNamePrefixMaxLength - len(constants.RemoteSecretPrefix)
 )
 
 var (
@@ -44,6 +50,7 @@ var (
 	labelValueRegexp     = regexp.MustCompile("^" + "(" + qualifiedNameFmt + ")?" + "$")
 	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
+	clusterNameRegexp    = regexp.MustCompile("^" + clusterNameFmt + "$")
 )
 
 // Instance is a non empty map of arbitrary strings. Each version of a service can
@@ -96,6 +103,11 @@ func (i Instance) Validate() error {
 // DNS (RFC 1123).
 func IsDNS1123Label(value string) bool {
 	return len(value) <= DNS1123LabelMaxLength && dns1123LabelRegexp.MatchString(value)
+}
+
+// IsClusterName tests for a string that conforms to the requirements for Istio cluster names.
+func IsClusterName(value string) bool {
+	return len(value) <= MaxClusterNameLength && clusterNameRegexp.MatchString(value)
 }
 
 // IsWildcardDNS1123Label tests for a string that conforms to the definition of a label in DNS (RFC 1123), but allows

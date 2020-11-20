@@ -15,6 +15,8 @@
 package kube
 
 import (
+	"fmt"
+
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -49,6 +51,7 @@ func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	for i, client := range clients {
 		clusterIndex := resource.ClusterIndex(i)
 		e.clusters[i] = &Cluster{
+			name:           fmt.Sprintf("cluster_%d", i),
 			networkName:    s.networkTopology[clusterIndex],
 			filename:       s.KubeConfig[i],
 			index:          clusterIndex,

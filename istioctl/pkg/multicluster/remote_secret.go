@@ -68,17 +68,14 @@ func init() {
 }
 
 const (
-	remoteSecretPrefix = "istio-remote-secret-"
-	configSecretName   = "istio-kubeconfig"
-	configSecretKey    = "config"
+	configSecretName = "istio-kubeconfig"
+	configSecretKey  = "config"
 )
 
 func remoteSecretNameFromClusterName(clusterName string) string {
-	return remoteSecretPrefix + clusterName
-}
-
-func clusterNameFromRemoteSecretName(name string) string {
-	return strings.TrimPrefix(name, remoteSecretPrefix)
+	// Replace any "_" with "-" in the cluster name, to conform to k8s resource naming.
+	clusterName = strings.Replace(clusterName, "_", "-", -1)
+	return constants.RemoteSecretPrefix + clusterName
 }
 
 // NewCreateRemoteSecretCommand creates a new command for joining two contexts
@@ -430,8 +427,7 @@ const (
 type RemoteSecretOptions struct {
 	KubeOptions
 
-	// Name of the local cluster whose credentials are stored in the secret. Must be
-	// DNS1123 label as it will be used for the k8s secret name.
+	// Name of the local cluster whose credentials are stored in the secret.
 	ClusterName string
 
 	// Create a secret with this service account's credentials.
@@ -495,8 +491,9 @@ func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
 	o.KubeOptions.prepare(flags)
 
 	if o.ClusterName != "" {
-		if !labels.IsDNS1123Label(o.ClusterName) {
-			return fmt.Errorf("%v is not a valid DNS 1123 label", o.ClusterName)
+		if !labels.IsClusterName(o.ClusterName) {
+			return fmt.Errorf("cluster name %v is invalid. Cluster names have similar"+
+				"restrictions to DNS 1123 labels, but also allow '_'", o.ClusterName)
 		}
 	}
 	return nil

@@ -17,6 +17,7 @@ package tracing
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -69,10 +70,9 @@ func TestSetup(ctx resource.Context) (err error) {
 	}
 	builder := echoboot.NewBuilder(ctx)
 	for _, c := range ctx.Clusters() {
-		clName := c.Name()
 		builder.
 			With(nil, echo.Config{
-				Service:   fmt.Sprintf("client-%s", clName),
+				Service:   clientNameForCluster(c.Name()),
 				Namespace: appNsInst,
 				Cluster:   c,
 				Ports:     nil,
@@ -161,7 +161,7 @@ func WantTraceRoot(namespace, clName string) (root zipkin.Span) {
 
 	root = zipkin.Span{
 		Name:        fmt.Sprintf("server.%s.svc.cluster.local:80/*", namespace),
-		ServiceName: fmt.Sprintf("client-%s.%s", clName, namespace),
+		ServiceName: fmt.Sprintf("%s.%s", clientNameForCluster(clName), namespace),
 		ChildSpans:  []*zipkin.Span{&serverSpan},
 	}
 	return
@@ -186,4 +186,9 @@ func SendTraffic(t *testing.T, headers map[string][]string, cl resource.Cluster)
 		}
 	}
 	return nil
+}
+
+func clientNameForCluster(clusterName string) string {
+	// Convert the cluster name into a valid k8s object name.
+	return "client-" + strings.Replace(clusterName, "_", "-", -1)
 }
