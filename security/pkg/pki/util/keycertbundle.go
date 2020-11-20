@@ -77,6 +77,31 @@ type KeyCertBundleImpl struct {
 	mutex sync.RWMutex
 }
 
+// InitEmptyCertBundleWithRootCertFromFile returns a new KeyCertBundle with the root cert without verification.
+func InitEmptyCertBundle() (*KeyCertBundleImpl, error) {
+	return &KeyCertBundleImpl{
+		certBytes:      []byte{},
+		cert:           nil,
+		privKeyBytes:   []byte{},
+		privKey:        nil,
+		certChainBytes: []byte{},
+		rootCertBytes:  []byte{},
+	}, nil
+}
+
+// NewUnverifiedKeyCertBundle returns a new KeyCertBundle without performing any verification
+func NewUnverifiedKeyCertBundle(certBytes, privKeyBytes,
+	certChainBytes, rootCertBytes []byte) (*KeyCertBundleImpl, error) {
+	return &KeyCertBundleImpl{
+		certBytes:      certBytes,
+		cert:           nil,
+		privKeyBytes:   privKeyBytes,
+		privKey:        nil,
+		certChainBytes: certChainBytes,
+		rootCertBytes:  rootCertBytes,
+	}, nil
+}
+
 // NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if the provided certs failed the
 // verification.
 func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) (
