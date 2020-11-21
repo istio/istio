@@ -13,4 +13,4 @@ spec:
           value: "" # {"$ref":"#/definitions/io.k8s.cli.setters.anthos.servicemesh.token-audiences"}
   meshConfig:
     trustDomainAliases: # {"$ref":"#/definitions/io.k8s.cli.setters.anthos.servicemesh.trustDomainAliases"}
-    - ""
+      - "cluster.local"

@@ -25,6 +25,16 @@
 # Example: ./integ-suite-kubetest2.sh --deployer gke \
 #             --deployer-flags "--project=test-project --cluster-name=test --region=us-central1"
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
+# Exit immediately for non zero status
+set -e
+# Check unset variables
+set -u
+# Print commands
+set -x
+
 # Setup junit report and verbose logging
 export T="${T:-"-v"}"
 export CI="true"
