@@ -18,6 +18,16 @@
 # The env vars used here are set by the integ-suite-kubetest2.sh script, which
 # is the entrypoint for the test jobs run by Prow.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
+# Exit immediately for non zero status
+set -e
+# Check unset variables
+set -u
+# Print commands
+set -x
+
 # shellcheck source=prow/asm/lib.sh
 source "${WD}/lib.sh"
 

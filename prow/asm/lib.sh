@@ -14,16 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-
-# Exit immediately for non zero status
-set -e
-# Check unset variables
-set -u
-# Print commands
-set -x
-
 readonly SHARED_VPC_HOST_BOSKOS_RESOURCE="shared-vpc-host-gke-project"
 readonly SHARED_VPC_SVC_BOSKOS_RESOURCE="shared-vpc-svc-gke-project"
 readonly VPC_SC_BOSKOS_RESOURCE="vpc-sc-gke-project"
@@ -299,13 +289,15 @@ function install_asm() {
           fi
         done
 
-        kpt cfg set "${PKG}" anthos.servicemesh.trustDomainAliases "$TRUSTDOMAINALIASES"
+        if [[ $TRUSTDOMAINALIASES != "" ]]; then
+          kpt cfg set "${PKG}" anthos.servicemesh.trustDomainAliases "$TRUSTDOMAINALIASES"
+        fi
       fi
 
       kpt cfg set "${PKG}" \
         anthos.servicemesh.spiffe-bundle-endpoints "${PROJECT_ID}.svc.id.goog|https://storage.googleapis.com/mesh-ca-resources/spiffe_bundle.json"
       kpt cfg set "${PKG}" \
-        anthos.servicemesh.token-audiences ""
+        anthos.servicemesh.token-audiences "${PROJECT_ID}.svc.id.goog"
 
       yes | istioctl install -f "${PKG}/istio-operator.yaml" --context="${CONTEXTS[$i]}" \
         --set profile="${ASM_PROFILE}" \
@@ -315,7 +307,6 @@ function install_asm() {
         --set meshConfig.defaultConfig.proxyMetadata.TRUST_DOMAIN="${PROJECT_ID}.svc.id.goog" \
         --set meshConfig.defaultConfig.proxyMetadata.GKE_CLUSTER_URL="https://container.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/clusters/${CLUSTER}" \
         --set values.global.meshID="${MESH_ID}" \
-        --set values.global.trustDomain="${PROJECT_ID}.svc.id.goog" \
         --set values.global.sds.token.aud="${PROJECT_ID}.svc.id.goog" \
         --set values.global.multiCluster.clusterName="${PROJECT_ID}/${LOCATION}/${CLUSTER}" \
         --set values.telemetry.v2.prometheus.enabled="true"
@@ -348,7 +339,6 @@ function install_asm() {
         --set values.global.meshID="${MESH_ID}" \
         --set values.global.caAddress="" \
         --set values.global.pilotCertProvider="istiod" \
-        --set values.global.trustDomain="cluster.local" \
         --set values.global.sds.token.aud="${PROJECT_ID}.svc.id.goog" \
         --set values.global.multiCluster.clusterName="${PROJECT_ID}/${LOCATION}/${CLUSTER}" \
         --set values.telemetry.v2.prometheus.enabled="true"
