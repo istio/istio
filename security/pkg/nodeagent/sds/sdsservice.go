@@ -30,7 +30,6 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
-	xdscache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	serverv3 "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -43,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	xdscache "istio.io/istio/pkg/config/xds/cache"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
@@ -169,7 +169,7 @@ func (x *XdsServer) GenerateResources(rn []string) error {
 		if err != nil {
 			return err
 		}
-		if err := x.Cache.UpdateResource(rn, secret); err != nil {
+		if err := x.Cache.UpdateResource(rn, secret, false); err != nil {
 			return err
 		}
 	}
@@ -177,17 +177,25 @@ func (x *XdsServer) GenerateResources(rn []string) error {
 }
 
 func (x *XdsServer) Set(rn string, item *security.SecretItem) error {
-	return x.Cache.UpdateResource(rn, toEnvoySecret(item))
+	log.Errorf("howardjohn: set %v", rn)
+	return x.Cache.UpdateResource(rn, toEnvoySecret(item), true)
 }
 
 func (x *XdsServer) OnStreamRequest(i int64, request *discovery.DiscoveryRequest) error {
 	log.Errorf("howardjohn: request %v/%v", request.TypeUrl, request.ResourceNames)
+	for _, rn := range request.ResourceNames {
+		if !x.Cache.Contains(rn) {
+			if err := x.GenerateResources([]string{rn}); err != nil {
+				log.Errorf("howardjohn: err generating %v", err)
+			}
+		}
+	}
 
 	return nil
 }
 
 func (x XdsServer) OnStreamResponse(i int64, request *discovery.DiscoveryRequest, response *discovery.DiscoveryResponse) {
-	log.Errorf("howardjohn: response %+v for %v", len(response.Resources), response.Resources)
+	log.Errorf("howardjohn: response %+v for %v", len(response.Resources), request.ResourceNames)
 }
 
 func NewXdsServer(generate func(resourceName string) (proto.Message, error)) *XdsServer {
