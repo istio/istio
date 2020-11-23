@@ -15,9 +15,7 @@
 package sds
 
 import (
-	"context"
 	"net"
-	"net/http"
 	"time"
 
 	"google.golang.org/grpc"
@@ -25,6 +23,7 @@ import (
 
 	ca2 "istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/pkg/version"
@@ -43,14 +42,16 @@ type Server struct {
 	grpcWorkloadListener net.Listener
 
 	grpcWorkloadServer *grpc.Server
-	debugServer        *http.Server
 }
 
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Server, error) {
-	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, options, options.FileMountedCerts),
-	}
+	s := &Server{}
+	return FillServer(s, options, workloadSecretCache)
+}
+
+func FillServer(s *Server, options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Server, error) {
+	s.workloadSds = newSDSService(workloadSecretCache, options, options.FileMountedCerts)
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(options); err != nil {
 			sdsServiceLog.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
@@ -64,6 +65,12 @@ func NewServer(options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Se
 	return s, nil
 }
 
+func (s *Server) UpdateCallback() func(cache.ConnKey, *ca2.SecretItem) error {
+	return func(key cache.ConnKey, item *ca2.SecretItem) error {
+		return s.workloadSds.XdsServer.Set(key.ResourceName, item)
+	}
+}
+
 // Stop closes the gRPC server and debug server.
 func (s *Server) Stop() {
 	if s == nil {
@@ -74,14 +81,7 @@ func (s *Server) Stop() {
 		s.grpcWorkloadListener.Close()
 	}
 	if s.grpcWorkloadServer != nil {
-		s.workloadSds.Stop()
 		s.grpcWorkloadServer.Stop()
-	}
-
-	if s.debugServer != nil {
-		if err := s.debugServer.Shutdown(context.TODO()); err != nil {
-			sdsServiceLog.Error("failed to shut down debug server")
-		}
 	}
 }
 

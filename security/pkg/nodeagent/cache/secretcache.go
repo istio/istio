@@ -667,6 +667,9 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*security.SecretItem, error) {
+	if sc.fetcher.CaClient == nil {
+		return nil, fmt.Errorf("attempted to fetch secret, but ca client is nil")
+	}
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()

@@ -226,12 +226,13 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 // 4. TODO: File watching, for backward compat/migration from mounted secrets.
 func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error) {
 
+	s := &sds.Server{}
 	// TODO: remove the caching, workload has a single cert
 	if sa.WorkloadSecrets == nil {
-		sa.WorkloadSecrets, _ = sa.newWorkloadSecretCache()
+		sa.WorkloadSecrets, _ = sa.newWorkloadSecretCache(s.UpdateCallback())
 	}
 
-	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets)
+	server, err := sds.FillServer(s, sa.secOpts, sa.WorkloadSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +349,7 @@ func (sa *Agent) FindRootCAForCA() string {
 }
 
 // newWorkloadSecretCache creates the cache for workload secrets and/or gateway secrets.
-func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCache, caClient security.Client) {
+func (sa *Agent) newWorkloadSecretCache(cb func(cache.ConnKey, *security.SecretItem) error) (workloadSecretCache *cache.SecretCache, caClient security.Client) {
 	fetcher := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.
@@ -357,7 +358,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 
 	var err error
 
-	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, sa.secOpts)
+	workloadSecretCache = cache.NewSecretCache(fetcher, cb, sa.secOpts)
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
 	// FILE_MOUNTED_CERTS=true

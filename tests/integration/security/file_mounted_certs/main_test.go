@@ -164,11 +164,6 @@ meshConfig:
 values:
   global:
     pilotCertProvider: "mycopki"
-    logging:
-      level: "default:debug"
-    proxy:
-      logLevel: debug
-      componentLogLevel: "misc:debug"
   pilot:
     env:
       # We need to turn off the XDS Auth because test certificates only have a fixed/hardcoded identity, but the identity of the actual 
