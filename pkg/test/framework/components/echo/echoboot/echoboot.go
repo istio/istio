@@ -241,3 +241,9 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 	}
 	return out
 }
+
+// NewBuilder for Echo Instances.
+func NewBuilderOrFail(t test.Failer, ctx resource.Context) echo.Builder {
+	t.Helper()
+	return NewBuilder(ctx)
+}
