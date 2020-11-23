@@ -29,7 +29,7 @@ import (
 
 func TestGetFederatedToken(t *testing.T) {
 	GKEClusterURL = mock.FakeGKEClusterURL
-	r := NewPlugin(nil)
+	r := NewSecureTokenServiceExchanger(nil)
 	r.backoff = time.Millisecond
 
 	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})

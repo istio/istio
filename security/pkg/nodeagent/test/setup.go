@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	"istio.io/istio/security/pkg/nodeagent/sds"
-	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	caserver "istio.io/istio/security/pkg/nodeagent/test/mock"
 )
 
@@ -117,7 +116,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 	// Set up test environment for Proxy
 	proxySetup := istioEnv.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
-	proxySetup.EnvoyParams = []string{"--boostrap-version", "3"}
+	proxySetup.EnvoyParams = []string{"--bootstrap-version", "3"}
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
 	env.InboundListenerPort = int(proxySetup.Ports().ServerProxyPort)
@@ -161,41 +160,39 @@ func (e *Env) StartProxy(t *testing.T) {
 
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
-	serverOptions := &security.Options{
+	serverOptions := security.Options{
 		WorkloadUDSPath: e.ProxySetup.SDSPath(),
-		UseLocalJWT:     true,
 		JWTPath:         proxyTokenPath,
 		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
-		RecycleInterval: 5 * time.Minute,
 	}
 
-	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "")
+	caClient, err := citadel.NewCitadelClient(serverOptions, false, nil)
 	if err != nil {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}
-	secretFetcher := &secretfetcher.SecretFetcher{
-		CaClient: caClient,
-	}
 	opt := e.cacheOptions(t)
-	workloadSecretCache := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, opt)
-	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache)
+	workloadSecretCache, err := cache.NewSecretManagerClient(caClient, opt)
 	if err != nil {
+		t.Fatal(err)
+	}
+	s := &sds.Server{}
+	if err = sds.FillServer(s, serverOptions, workloadSecretCache); err != nil {
 		t.Fatalf("failed to start SDS server: %+v", err)
 	}
-	e.SDSServer = sdsServer
+	workloadSecretCache.SetUpdateCallback(s.UpdateCallback)
+
+	e.SDSServer = s
 }
 
-func (e *Env) cacheOptions(t *testing.T) *security.Options {
+func (e *Env) cacheOptions(t *testing.T) security.Options {
 	// Default options does not rotate cert until cert expires after 1 hour.
-	opt := &security.Options{
+	opt := security.Options{
 		SecretTTL:                      1 * time.Hour,
 		TrustDomain:                    spiffe.GetTrustDomain(),
-		RotationInterval:               5 * time.Minute,
 		SecretRotationGracePeriodRatio: 0,
 	}
 	if rotateCertInterval > 0 {
 		// Force cert rotation job to rotate cert.
-		opt.RotationInterval = rotateCertInterval
 		opt.SecretRotationGracePeriodRatio = 1.0
 	}
 	t.Logf("cache options: %+v", opt)

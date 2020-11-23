@@ -12,14 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package secretfetcher
+package caclient
 
 import (
-	"istio.io/istio/pkg/security"
+	"time"
+
+	retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"google.golang.org/grpc/codes"
 )
 
-// SecretFetcher fetches secret via sending CSR to CA.
-type SecretFetcher struct {
-	// If CaClient is set, use caClient to send CSR to CA.
-	CaClient security.Client
+// RetryOptions returns the default retry options recommended for CA calls
+// This includes 5 retries, with backoff from 100ms -> 1.6s with jitter.
+var RetryOptions = []retry.CallOption{
+	retry.WithMax(5),
+	retry.WithBackoff(retry.BackoffExponentialWithJitter(100*time.Millisecond, 0.1)),
+	retry.WithCodes(codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable),
 }

@@ -97,7 +97,7 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 	}
 	errString := strings.Builder{}
 	for _, g := range leaked {
-		errString.WriteString(fmt.Sprintf("Leaked goroutine: %v\n", g.stack))
+		errString.WriteString(fmt.Sprintf("Leaked goroutine:\n%v\n", g.stack))
 	}
 	return errors.New(errString.String())
 }

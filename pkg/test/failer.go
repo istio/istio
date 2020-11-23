@@ -14,7 +14,13 @@
 
 package test
 
-import "testing"
+import (
+	"errors"
+	"fmt"
+	"runtime"
+	"sync"
+	"testing"
+)
 
 var _ Failer = &testing.T{}
 
@@ -29,3 +35,78 @@ type Failer interface {
 	Helper()
 	Cleanup(func())
 }
+
+// errorWrapper is a Failer that can be used to just extract an `error`. This allows mixing
+// functions that take in a Failer and those that take an error.
+// The function must be called within a goroutine, or calls to Fatal will try to terminate the outer
+// test context, which will cause the test to panic. The Wrap function handles this automatically
+type errorWrapper struct {
+	mu      sync.RWMutex
+	failed  error
+	cleanup func()
+}
+
+// Wrap executes a function with a fake Failer, and returns an error if the test failed. This allows
+// calling functions that take a Failer and using them with functions that expect an error, or
+// allowing calling functions that would cause a test to immediately fail to instead return an error.
+// Wrap handles Cleanup() and short-circuiting of Fatal() just like the real testing.T.
+func Wrap(f func(t Failer)) error {
+	done := make(chan struct{})
+	w := &errorWrapper{}
+	go func() {
+		defer close(done)
+		f(w)
+	}()
+	<-done
+	return w.ToErrorCleanup()
+}
+
+// ToErrorCleanup returns any errors encountered and executes any cleanup actions
+func (e *errorWrapper) ToErrorCleanup() error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	if e.cleanup != nil {
+		e.cleanup()
+	}
+	return e.failed
+}
+
+func (e *errorWrapper) Fail() {
+	e.Fatal("fail called")
+}
+
+func (e *errorWrapper) FailNow() {
+	e.Fatal("fail now called")
+}
+
+func (e *errorWrapper) Fatal(args ...interface{}) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.failed == nil {
+		e.failed = errors.New(fmt.Sprint(args...))
+	}
+	runtime.Goexit()
+}
+
+func (e *errorWrapper) Fatalf(format string, args ...interface{}) {
+	e.Fatal(fmt.Sprintf(format, args...))
+}
+
+func (e *errorWrapper) Helper() {
+}
+
+func (e *errorWrapper) Cleanup(f func()) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	oldCleanup := e.cleanup
+	e.cleanup = func() {
+		if oldCleanup != nil {
+			defer func() {
+				oldCleanup()
+			}()
+		}
+		f()
+	}
+}
+
+var _ Failer = &errorWrapper{}

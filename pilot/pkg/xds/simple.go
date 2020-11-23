@@ -73,7 +73,7 @@ type SimpleServer struct {
 // Can be used in tests, or as a minimal XDS discovery server with no dependency on K8S or
 // the complex bootstrap used by Istiod. A memory registry and memory config store are used to
 // generate the configs - they can be programmatically updated.
-func NewXDS() *SimpleServer {
+func NewXDS(stop chan struct{}) *SimpleServer {
 	// Prepare a working XDS server, with aggregate config and registry stores and a memory store for each.
 	// TODO: refactor bootstrap code to use this server, and add more registries.
 
@@ -84,7 +84,7 @@ func NewXDS() *SimpleServer {
 	env.Watcher = mesh.NewFixedWatcher(&mc)
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
-	ds := NewDiscoveryServer(env, nil, "pilot-123")
+	ds := NewDiscoveryServer(env, nil, "istiod")
 	ds.CachesSynced()
 
 	// Config will have a fixed format:
@@ -125,7 +125,7 @@ func NewXDS() *SimpleServer {
 	})
 	env.ServiceDiscovery = serviceControllers
 
-	go configController.Run(make(chan struct{}))
+	go configController.Run(stop)
 
 	// configStoreCache - with HasSync interface
 	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
