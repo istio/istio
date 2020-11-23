@@ -186,7 +186,14 @@ func (c *Controller) HasSynced() bool {
 }
 
 // StartSecretController creates the secret controller.
-func StartSecretController(k8s kubernetes.Interface, addCallback addSecretCallback, updateCallback updateSecretCallback, removeCallback removeSecretCallback, namespace string, syncInterval time.Duration, stop <-chan struct{}) *Controller {
+func StartSecretController(
+	k8s kubernetes.Interface,
+	addCallback addSecretCallback, updateCallback updateSecretCallback,
+	removeCallback removeSecretCallback,
+	namespace string,
+	syncInterval time.Duration,
+	stop <-chan struct{},
+) *Controller {
 	clusterStore := newClustersStore()
 	controller := NewController(k8s, namespace, clusterStore, addCallback, updateCallback, removeCallback)
 	controller.syncInterval = syncInterval
