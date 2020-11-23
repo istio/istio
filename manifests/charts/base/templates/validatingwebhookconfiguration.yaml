@@ -24,9 +24,7 @@ webhooks:
         - CREATE
         - UPDATE
         apiGroups:
-        - config.istio.io
         - security.istio.io
-        - authentication.istio.io
         - networking.istio.io
         apiVersions:
         - "*"
