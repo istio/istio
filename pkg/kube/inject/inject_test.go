@@ -374,12 +374,71 @@ func TestInjection(t *testing.T) {
 	}
 }
 
+func testInjectionTemplate(t *testing.T, template, input, expected string) {
+	t.Helper()
+	webhook := &Webhook{
+		Config: &Config{
+			Templates: map[string]string{SidecarTemplateName: template},
+			Policy:    InjectionPolicyEnabled,
+		},
+	}
+	runWebhook(t, webhook, []byte(input), []byte(expected), false)
+}
+
+// TestPodTemplate ensures we can use a full pod resource as the template schema (rather than PodSpec)
+func TestPodSpecTemplate(t *testing.T) {
+	testInjectionTemplate(t,
+		`
+metadata:
+  labels:
+    istio.io/injected: "true"
+spec:
+  containers:
+  - name: hello
+    image: "fake.docker.io/google-samples/hello-go-gke:1.1"`,
+		`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello
+spec:
+  containers:
+  - name: hello
+    image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+`,
+
+		// We expect resources to only have limits, since we had the "replace" directive.
+		// nolint: lll
+		`
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    prometheus.io/path: /stats/prometheus
+    prometheus.io/port: "0"
+    prometheus.io/scrape: "true"
+    sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+  name: hello
+  labels:
+    istio.io/injected: "true"
+    istio.io/rev: ""
+    security.istio.io/tlsMode: istio
+    service.istio.io/canonical-name: hello
+    service.istio.io/canonical-revision: latest
+spec:
+  containers:
+    - name: hello
+      image: "fake.docker.io/google-samples/hello-go-gke:1.1"
+  securityContext:
+    fsGroup: 1337
+`)
+}
+
 // TestStrategicMerge ensures we can use https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md
 // directives in the injection template
 func TestStrategicMerge(t *testing.T) {
-	webhook := &Webhook{
-		Config: &Config{
-			Templates: map[string]string{SidecarTemplateName: `
+	testInjectionTemplate(t,
+		`
 containers:
 - name: hello
   image: "fake.docker.io/google-samples/hello-go-gke:1.1"
@@ -388,11 +447,8 @@ containers:
     limits:
       cpu: 100m
       memory: 50m
-`},
-			Policy: InjectionPolicyEnabled,
-		},
-	}
-	pod := `
+`,
+		`
 apiVersion: v1
 kind: Pod
 metadata:
@@ -405,9 +461,11 @@ spec:
       requests:
         cpu: 100m
         memory: 50m
-`
-	// nolint: lll
-	expectedPod := `
+`,
+
+		// We expect resources to only have limits, since we had the "replace" directive.
+		// nolint: lll
+		`
 apiVersion: v1
 kind: Pod
 metadata:
@@ -432,9 +490,7 @@ spec:
        memory: 50m
   securityContext:
     fsGroup: 1337
-`
-	// We expect resources to only have limits, since we had the "replace" directive.
-	runWebhook(t, webhook, []byte(pod), []byte(expectedPod), false)
+`)
 }
 
 func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte, ignoreIstioMetaJSONAnnotationsEnv bool) {

@@ -268,7 +268,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 
 // RunTemplate renders the sidecar template
 // Returns the raw string template, as well as the parse pod form
-func RunTemplate(params InjectionParameters) ([]byte, *corev1.Pod, error) {
+func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
 	metadata := &params.pod.ObjectMeta
 	meshConfig := params.meshConfig
 
@@ -349,21 +349,66 @@ func RunTemplate(params InjectionParameters) ([]byte, *corev1.Pod, error) {
 		return nil, nil, err
 	}
 
-	injectionData := struct {
-		corev1.PodSpec   `json:",inline"`
-		PodRedirectAnnot map[string]string `yaml:"podRedirectAnnot"`
-	}{}
-	if err := yaml.Unmarshal(bbuf.Bytes(), &injectionData); err != nil {
+	merged, templated, err := unmarshalTemplate(params.pod, bbuf.Bytes())
+	if err != nil {
 		return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
 	}
 
-	pod := corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: injectionData.PodRedirectAnnot,
-		},
-		Spec: injectionData.PodSpec,
+	return merged, templated, nil
+}
+
+type legacyTemplate struct {
+	corev1.PodSpec   `json:",inline"`
+	PodRedirectAnnot map[string]string `yaml:"podRedirectAnnot"`
+}
+
+type templateIndicator struct {
+	Containers interface{}
+}
+
+// unmarshalTemplate returns the Pod for the passed in template
+// The template can be either the legacy form, with the pod spec inlined with some custom options,
+// or the new form with just a full Pod yaml (allowing overriding metadata).
+// See https://eagain.net/articles/go-dynamic-json/ for more information on dynamically parsing JSON.
+func unmarshalTemplate(originalPod *corev1.Pod, raw []byte) (*corev1.Pod, *corev1.Pod, error) {
+	indicator := &templateIndicator{}
+	if err := yaml.Unmarshal(raw, indicator); err != nil {
+		return nil, nil, fmt.Errorf("failed to read template indicator: %v", err)
 	}
-	return bbuf.Bytes(), &pod, nil
+	if indicator.Containers != nil {
+		// This is a legacy format
+		injectionData := &legacyTemplate{}
+		if err := yaml.Unmarshal(raw, injectionData); err != nil {
+			return nil, nil, fmt.Errorf("failed to read template: %v", err)
+		}
+		pod := corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: injectionData.PodRedirectAnnot,
+			},
+			Spec: injectionData.PodSpec,
+		}
+
+		// Merge the original pod spec with the injected overlay
+		mergedPod, err := mergeInjectedConfigLegacy(originalPod, raw)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to merge pod spec: %v", err)
+		}
+
+		return mergedPod, &pod, nil
+	}
+
+	// This is a Pod format
+	pod := &corev1.Pod{}
+	if err := yaml.Unmarshal(raw, pod); err != nil {
+		return nil, nil, fmt.Errorf("failed to read template: %v", err)
+	}
+
+	mergedPod, err := mergeInjectedConfig(originalPod, raw)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to merge pod spec: %v", err)
+	}
+
+	return mergedPod, pod, nil
 }
 
 func selectTemplate(params InjectionParameters) string {

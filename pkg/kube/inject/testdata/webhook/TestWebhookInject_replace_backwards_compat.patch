@@ -27,7 +27,31 @@
   {
     "op": "replace",
     "path": "/metadata/annotations/sidecar.istio.io~1status",
-    "value": "{\"initContainers\":null,\"containers\":null,\"volumes\":null,\"imagePullSecrets\":null}"
+    "value": "{\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+  },
+  {
+    "op": "add",
+    "path": "/spec/volumes/0/emptyDir",
+    "value": {
+      "medium": "Memory"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/volumes/1/secret",
+    "value": {
+      "secretName": "istio.default"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/initContainers/0/image",
+    "value": "example.com/init:latest"
+  },
+  {
+    "op": "add",
+    "path": "/spec/containers/0/image",
+    "value": "example.com/proxy:latest"
   },
   {
     "op": "add",
@@ -35,5 +59,14 @@
     "value": {
       "fsGroup": 1337
     }
+  },
+  {
+    "op": "add",
+    "path": "/spec/imagePullSecrets",
+    "value": [
+      {
+        "name": "istio-image-pull-secrets"
+      }
+    ]
   }
 ]
