@@ -186,6 +186,13 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 
 	/* #nosec */
 	cmd := exec.Command(e.Config.BinaryPath, args...)
+
+	if e.Config.ProxyMetadata != nil {
+		for k, v := range e.Config.ProxyMetadata {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%q", k, v))
+		}
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
