@@ -78,8 +78,8 @@
     "path": "/spec/containers/0/livenessProbe",
     "value": {
       "httpGet": {
-        "path": "/live",
-        "port": "http"
+        "path": "/app-health/hello/livez",
+        "port": 15020
       },
       "timeoutSeconds": 5
     }
@@ -89,8 +89,8 @@
     "path": "/spec/containers/0/readinessProbe",
     "value": {
       "httpGet": {
-        "path": "/ready",
-        "port": 3333
+        "path": "/app-health/hello/readyz",
+        "port": 15020
       },
       "timeoutSeconds": 5
     }
@@ -106,12 +106,13 @@
   },
   {
     "op": "replace",
-    "path": "/spec/containers/1/livenessProbe/httpGet/port",
-    "value": 9000
+    "path": "/spec/containers/1/livenessProbe/httpGet/path",
+    "value": "/app-health/second/livez"
   },
   {
-    "op": "remove",
-    "path": "/spec/containers/1/livenessProbe/httpGet/path"
+    "op": "replace",
+    "path": "/spec/containers/1/livenessProbe/httpGet/port",
+    "value": 15020
   },
   {
     "op": "remove",
@@ -137,6 +138,16 @@
     "value": [
       "--statusPort",
       "15020"
+    ]
+  },
+  {
+    "op": "add",
+    "path": "/spec/containers/2/env",
+    "value": [
+      {
+        "name": "ISTIO_KUBE_APP_PROBERS",
+        "value": "{\"/app-health/hello/livez\":{\"httpGet\":{\"path\":\"/live\",\"port\":80},\"timeoutSeconds\":5},\"/app-health/hello/readyz\":{\"httpGet\":{\"path\":\"/ready\",\"port\":3333},\"timeoutSeconds\":5},\"/app-health/second/livez\":{\"httpGet\":{\"port\":9000},\"timeoutSeconds\":5}}"
+      }
     ]
   },
   {
