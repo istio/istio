@@ -58,7 +58,7 @@ const yamlSeparator = "\n---"
 
 var minimalSidecarTemplate = &Config{
 	Policy: InjectionPolicyEnabled,
-	Template: `
+	Templates: map[string]string{SidecarTemplateName: `
 initContainers:
 - name: istio-init
 containers:
@@ -67,7 +67,7 @@ volumes:
 - name: istio-envoy
 imagePullSecrets:
 - name: istio-image-pull-secrets
-`,
+`},
 }
 
 func parseToLabelSelector(t *testing.T, selector string) *metav1.LabelSelector {
@@ -694,8 +694,8 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 
 func createTestWebhookFromFile(templateFile string, t *testing.T) *Webhook {
 	t.Helper()
-	injectConfig := &Config{}
-	if err := yaml.Unmarshal(util.ReadFile(templateFile, t), injectConfig); err != nil {
+	injectConfig, err := UnmarshalConfig(util.ReadFile(templateFile, t))
+	if err != nil {
 		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
 	}
 	valuesConfig := &struct {
@@ -709,7 +709,7 @@ func createTestWebhookFromFile(templateFile string, t *testing.T) *Webhook {
 	}
 	m := mesh.DefaultMeshConfig()
 	return &Webhook{
-		Config:       injectConfig,
+		Config:       &injectConfig,
 		meshConfig:   &m,
 		valuesConfig: valuesConfig.Values,
 	}
@@ -755,12 +755,12 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				template = &Config{}
-				if err := yaml.Unmarshal([]byte(config), template); err != nil {
+				template, err := UnmarshalConfig([]byte(config))
+				if err != nil {
 					t.Fatalf("failed to unmarshal injectionConfig: %v", err)
 				}
 				if meshConfig != nil {
-					return template, values, meshConfig
+					return &template, values, meshConfig
 				}
 			} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
 				data, ok := out.Object["data"].(map[string]interface{})
