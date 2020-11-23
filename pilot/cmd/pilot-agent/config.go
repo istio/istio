@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/annotation"
@@ -99,6 +100,13 @@ func getMeshConfig(fileOverride, annotationOverride string) (meshconfig.MeshConf
 		envMesh, err := mesh.ApplyProxyConfig(proxyConfigEnv, mc)
 		if err != nil || envMesh == nil {
 			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from environment [%v]: %v", proxyConfigEnv, err)
+		}
+		mp := map[string]interface{}{}
+		if err := yaml.Unmarshal([]byte(proxyConfigEnv), &mp); err != nil {
+			return meshconfig.MeshConfig{}, fmt.Errorf("failed to unmarshal mesh config from environment [%v]: %v", proxyConfigEnv, err)
+		}
+		if mp["controlPlaneAuthPolicy"] == nil {
+			envMesh.DefaultConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 		}
 		mc = *envMesh
 	}

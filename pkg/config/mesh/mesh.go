@@ -109,18 +109,10 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 
 // ApplyProxyConfig applies the give proxy config yaml to a mesh config object. The passed in mesh config
 // will not be modified.
-func ApplyProxyConfig(yamlText string, meshConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
 	mc := proto.Clone(&meshConfig).(*meshconfig.MeshConfig)
-	if err := gogoprotomarshal.ApplyYAML(yamlText, mc.DefaultConfig); err != nil {
+	if err := gogoprotomarshal.ApplyYAML(yaml, mc.DefaultConfig); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
-	}
-
-	mp := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(yamlText), &mp); err != nil {
-		return nil, err
-	}
-	if mp["controlPlaneAuthPolicy"] == nil {
-		mc.DefaultConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 	}
 	return mc, nil
 }
