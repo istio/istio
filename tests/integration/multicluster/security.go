@@ -108,6 +108,12 @@ func checkGCPPrincipal(t *testing.T, responses client.ParsedResponses, ns namesp
 		fmt.Sprintf("svc.id.goog/ns/%s/sa/a", ns.Name()),
 		fmt.Sprintf("svc.id.goog/ns/%s/sa/b", ns.Name()),
 	}
+	if os.Getenv("WIP") == "HUB" {
+		wantPrincipals = []string{
+			fmt.Sprintf("hub.id.goog/ns/%s/sa/a", ns.Name()),
+			fmt.Sprintf("hub.id.goog/ns/%s/sa/b", ns.Name()),
+		}
+	}
 	// Check the principal in the response to verify that mTLS is enabled and working as expected.
 	for _, principal := range wantPrincipals {
 		count := responses.Count(principal)
