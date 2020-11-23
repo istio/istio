@@ -109,9 +109,6 @@ type Options struct {
 	// Recycle job running interval (to clean up staled sds client connections).
 	RecycleInterval time.Duration
 
-	// Debug server port from which node_agent serves SDS configuration dumps
-	DebugPort int
-
 	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
 	EnableWorkloadSDS bool
 

@@ -14,11 +14,8 @@
 package sds
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -1101,77 +1098,6 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 
 func (ms *mockSecretStore) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
 	return false
-}
-
-func TestDebugEndpoints(t *testing.T) {
-	tests := []struct {
-		proxies []string
-	}{
-		{proxies: []string{}},
-		{proxies: []string{"sidecar~127.0.0.1~DebugEndpointProxy1~local", "sidecar~127.0.0.1~DebugEndpointProxy2~local"}},
-		{proxies: []string{"sidecar~127.0.0.1~DebugEndpointProxy3~local"}},
-	}
-
-	for _, tc := range tests {
-		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
-		arg := ca2.Options{
-			EnableWorkloadSDS: true,
-			RecycleInterval:   30 * time.Second,
-			WorkloadUDSPath:   socket,
-		}
-		st := &mockSecretStore{
-			checkToken:    true,
-			expectedToken: fakeToken1,
-		}
-		sdsClientsMutex.Lock()
-		sdsClients = map[cache.ConnKey]*sdsConnection{}
-		sdsClientsMutex.Unlock()
-
-		server, err := NewServer(&arg, st)
-		if err != nil {
-			t.Fatalf("failed to start grpc server for sds: %v", err)
-		}
-
-		for _, proxy := range tc.proxies {
-			sendRequestAndVerifyResponse(t, sdsRequestStream, arg.WorkloadUDSPath, proxy, false)
-		}
-
-		workloadRequest, _ := http.NewRequest(http.MethodGet, "/debug/sds/workload", nil)
-		response := httptest.NewRecorder()
-
-		server.workloadSds.debugHTTPHandler(response, workloadRequest)
-		workloadDebugResponse := &Debug{}
-		if err := json.Unmarshal(response.Body.Bytes(), workloadDebugResponse); err != nil {
-			t.Fatalf("debug JSON unmarshalling failed: %v", err)
-		}
-
-		clientCount := len(workloadDebugResponse.Clients)
-		if clientCount != len(tc.proxies) {
-			t.Errorf("response should contain %d client, found %d", len(tc.proxies), clientCount)
-		}
-
-		// check whether debug endpoint returned the registered proxies
-		for _, p := range tc.proxies {
-			found := false
-			for _, c := range workloadDebugResponse.Clients {
-				if p == c.ProxyID {
-					// retrieved cert chain from debug endpoint should match the mock cert chain
-					if c.CertificateChain != string(fakeCertificateChain) {
-						t.Errorf("expected cert chain: %s, but got %s",
-							string(fakeCertificateChain), c.CertificateChain)
-					}
-					found = true
-					break
-				}
-			}
-
-			if !found {
-				t.Errorf("expected to debug endpoint to contain %s, but did not", p)
-			}
-		}
-
-		server.Stop()
-	}
 }
 
 func checkStaledConnCount(t *testing.T) {
