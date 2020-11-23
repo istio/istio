@@ -390,11 +390,17 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_META_AUTO_REGISTER_GROUP"] = wg.Name
 	}
 
-	proxyYAML, err := gogoprotomarshal.ToYAML(meshConfig.DefaultConfig)
+	proxyConfig, err := gogoprotomarshal.ToJSONMap(meshConfig.DefaultConfig)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), []byte(proxyYAML), filePerms)
+
+	proxyYAML, err := yaml.Marshal(map[string]interface{}{"defaultConfig": proxyConfig})
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
