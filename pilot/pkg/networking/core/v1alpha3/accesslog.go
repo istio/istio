@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"encoding/json"
 	"sync"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -30,6 +29,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -174,28 +174,18 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig) *accesslog.AccessLog 
 			},
 		}
 	case meshconfig.MeshConfig_JSON:
-		var jsonLog *structpb.Struct
-		if mesh.AccessLogFormat != "" {
-			jsonFields := map[string]string{}
-			err := json.Unmarshal([]byte(mesh.AccessLogFormat), &jsonFields)
-			if err == nil {
-				jsonLog = &structpb.Struct{
-					Fields: make(map[string]*structpb.Value, len(jsonFields)),
-				}
-				for key, value := range jsonFields {
-					jsonLog.Fields[key] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: value}}
-				}
-			} else {
-				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
-			}
-		}
-		if jsonLog == nil {
-			jsonLog = EnvoyJSONLogFormat
+		parsedJSONLogStruct := structpb.Struct{}
+		var jsonLogStruct *structpb.Struct
+		if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &parsedJSONLogStruct); err != nil {
+			log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
+			jsonLogStruct = EnvoyJSONLogFormat
+		} else {
+			jsonLogStruct = &parsedJSONLogStruct
 		}
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_JsonFormat{
-					JsonFormat: jsonLog,
+					JsonFormat: jsonLogStruct,
 				},
 			},
 		}
