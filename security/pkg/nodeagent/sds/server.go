@@ -16,7 +16,6 @@ package sds
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -33,7 +32,6 @@ import (
 
 const (
 	// base HTTP route for debug endpoints
-	debugBase     = "/debug"
 	maxStreams    = 100000
 	maxRetryTimes = 5
 )
@@ -58,14 +56,11 @@ func NewServer(options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Se
 			sdsServiceLog.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
 			return nil, err
 		}
-		sdsServiceLog.Infof("SDS gRPC server for workload UDS starts, listening on %q \n", options.WorkloadUDSPath)
+		sdsServiceLog.Infof("SDS gRPC server for workload UDS starts, listening on %q", options.WorkloadUDSPath)
 	}
 
 	version.Info.RecordComponentBuildTag("citadel_agent")
 
-	if options.DebugPort > 0 {
-		s.initDebugServer(options.DebugPort)
-	}
 	return s, nil
 }
 
@@ -102,37 +97,6 @@ func NewPlugins(in []string) []ca2.TokenExchanger {
 		}
 	}
 	return plugins
-}
-
-func (s *Server) initDebugServer(port int) {
-	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("%s/sds/workload", debugBase), s.workloadSds.debugHTTPHandler)
-	s.debugServer = &http.Server{
-		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
-		Handler: mux,
-	}
-
-	go func() {
-		err := s.debugServer.ListenAndServe()
-		sdsServiceLog.Errorf("debug server failure: %s", err)
-	}()
-}
-
-func (s *sdsservice) debugHTTPHandler(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-
-	workloadJSON, err := s.DebugInfo()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		failureMessage := fmt.Sprintf("debug endpoint failure: %s", err)
-		if _, err := w.Write([]byte(failureMessage)); err != nil {
-			sdsServiceLog.Errorf("debug endpoint failed to write error response: %s", err)
-		}
-		return
-	}
-	if _, err := w.Write([]byte(workloadJSON)); err != nil {
-		sdsServiceLog.Errorf("debug endpoint failed to write response: %s", err)
-	}
 }
 
 func (s *Server) initWorkloadSdsService(options *ca2.Options) error { //nolint: unparam
