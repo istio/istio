@@ -440,7 +440,7 @@ func (a *AdsTest) ExpectResponse() *discovery.DiscoveryResponse {
 func (a *AdsTest) ExpectNoResponse() {
 	a.t.Helper()
 	select {
-	case <-time.After(time.Millisecond * 100):
+	case <-time.After(time.Millisecond * 50):
 		return
 	case resp := <-a.responses:
 		a.t.Fatalf("got unexpected response: %v", resp)
