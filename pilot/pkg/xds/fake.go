@@ -264,23 +264,7 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 	if err != nil {
 		f.t.Fatalf("stream resources failed: %s", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-
-	resp := &AdsTest{
-		client:        client,
-		conn:          conn,
-		context:       ctx,
-		cancelContext: cancel,
-		t:             f.t,
-		ID:            "sidecar~1.1.1.1~test.default~default.svc.cluster.local",
-		Type:          v3.ClusterType,
-		responses:     make(chan *discovery.DiscoveryResponse),
-	}
-	f.t.Cleanup(resp.Cleanup)
-
-	go resp.adsReceiveChannel()
-
-	return resp
+	return NewAdsTest(f.t, conn, client)
 }
 
 // Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
@@ -380,8 +364,28 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.
 	return objects
 }
 
+func NewAdsTest(t test.Failer, conn *grpc.ClientConn, client DiscoveryClient) *AdsTest {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	resp := &AdsTest{
+		client:        client,
+		conn:          conn,
+		context:       ctx,
+		cancelContext: cancel,
+		t:             t,
+		ID:            "sidecar~1.1.1.1~test.default~default.svc.cluster.local",
+		Type:          v3.ClusterType,
+		responses:     make(chan *discovery.DiscoveryResponse),
+	}
+	t.Cleanup(resp.Cleanup)
+
+	go resp.adsReceiveChannel()
+
+	return resp
+}
+
 type AdsTest struct {
-	client    discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	client    DiscoveryClient
 	responses chan *discovery.DiscoveryResponse
 	t         test.Failer
 	conn      *grpc.ClientConn
@@ -436,7 +440,7 @@ func (a *AdsTest) ExpectResponse() *discovery.DiscoveryResponse {
 func (a *AdsTest) ExpectNoResponse() {
 	a.t.Helper()
 	select {
-	case <-time.After(time.Millisecond * 100):
+	case <-time.After(time.Millisecond * 50):
 		return
 	case resp := <-a.responses:
 		a.t.Fatalf("got unexpected response: %v", resp)
@@ -472,6 +476,7 @@ func (a *AdsTest) RequestResponseAck(req *discovery.DiscoveryRequest) *discovery
 	a.Request(req)
 	resp := a.ExpectResponse()
 	req.ResponseNonce = resp.Nonce
+	req.VersionInfo = resp.VersionInfo
 	a.Request(req)
 	return resp
 }

@@ -48,11 +48,18 @@ var (
 	connectionNumber = int64(0)
 )
 
-// DiscoveryStream is an interface for ADS.
+// DiscoveryStream is a server interface for XDS.
 type DiscoveryStream interface {
 	Send(*discovery.DiscoveryResponse) error
 	Recv() (*discovery.DiscoveryRequest, error)
 	grpc.ServerStream
+}
+
+// DiscoveryClient is a client interface for XDS.
+type DiscoveryClient interface {
+	Send(*discovery.DiscoveryRequest) error
+	Recv() (*discovery.DiscoveryResponse, error)
+	grpc.ClientStream
 }
 
 // Connection holds information about connected client.

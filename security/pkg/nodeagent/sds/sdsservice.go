@@ -17,7 +17,6 @@ package sds
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -133,24 +132,6 @@ type sdsservice struct {
 	credFetcher security.CredFetcher
 }
 
-// ClientDebug represents a single SDS connection to the ndoe agent
-type ClientDebug struct {
-	ConnectionID string `json:"connection_id"`
-	ProxyID      string `json:"proxy"`
-	ResourceName string `json:"resource_name"`
-
-	// fields from secret item
-	CertificateChain string `json:"certificate_chain"`
-	RootCert         string `json:"root_cert"`
-	CreatedTime      string `json:"created_time"`
-	ExpireTime       string `json:"expire_time"`
-}
-
-// Debug represents all clients connected to this node agent endpoint and their supplied secrets
-type Debug struct {
-	Clients []ClientDebug `json:"clients"`
-}
-
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
 func newSDSService(st security.SecretManager,
 	secOpt *security.Options,
@@ -179,42 +160,6 @@ func newSDSService(st security.SecretManager,
 // register adds the SDS handle to the grpc server
 func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
-}
-
-// DebugInfo serializes the current sds client data into JSON for the debug endpoint
-func (s *sdsservice) DebugInfo() (string, error) {
-	sdsClientsMutex.RLock()
-	defer sdsClientsMutex.RUnlock()
-	clientDebug := make([]ClientDebug, 0)
-	for connKey, conn := range sdsClients {
-		// it's possible for the connection to be established without an instantiated secret
-		if conn.secret == nil {
-			continue
-		}
-
-		conn.mutex.RLock()
-		c := ClientDebug{
-			ConnectionID:     connKey.ConnectionID,
-			ProxyID:          conn.proxyID,
-			ResourceName:     conn.ResourceName,
-			CertificateChain: string(conn.secret.CertificateChain),
-			RootCert:         string(conn.secret.RootCert),
-			CreatedTime:      conn.secret.CreatedTime.Format(time.RFC3339),
-			ExpireTime:       conn.secret.ExpireTime.Format(time.RFC3339),
-		}
-		clientDebug = append(clientDebug, c)
-		conn.mutex.RUnlock()
-	}
-
-	debug := Debug{
-		Clients: clientDebug,
-	}
-	debugJSON, err := json.MarshalIndent(debug, " ", "	")
-	if err != nil {
-		return "", err
-	}
-
-	return string(debugJSON), nil
 }
 
 func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
@@ -318,13 +263,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					"error details %s", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
 				continue
 			}
 
 			sdsServiceLog.Debugf("%s received SDS request from proxy %q, first request: %v, version info %q, "+
-				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
+				"error details %s", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
 				discReq.ErrorDetail)
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
