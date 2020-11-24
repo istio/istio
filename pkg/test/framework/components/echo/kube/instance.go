@@ -63,8 +63,6 @@ type instance struct {
 	ctx       resource.Context
 	tls       *echoCommon.TLSSettings
 	cluster   resource.Cluster
-
-	serviceAccount string
 }
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {
@@ -147,7 +145,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	serviceAccount := cfg.Service
 	if !cfg.ServiceAccount {
-		c.serviceAccount = "default"
+		serviceAccount = "default"
 	}
 	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cfg.Cluster})
 	if err != nil {
@@ -158,7 +156,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		"--name", cfg.Service,
 		"--namespace", cfg.Namespace.Name(),
 		"--serviceAccount", serviceAccount,
-		"--labels", "app=" + cfg.Service, // TODO put in template as a temp hack
+		"--labels", "app=" + cfg.Service,
 	}
 	wg, _, err := istioCtl.Invoke(cmd)
 	if err != nil {
@@ -172,10 +170,12 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		}
 	}
 
-	// create service account, the next workload command will use it to generate a token
-	err = createServiceAccountToken(c.cluster, cfg.Namespace.Name(), serviceAccount)
-	if err != nil {
-		return err
+	if cfg.ServiceAccount {
+		// create service account, the next workload command will use it to generate a token
+		err = createServiceAccount(c.cluster, cfg.Namespace.Name(), serviceAccount)
+		if err != nil {
+			return err
+		}
 	}
 
 	// generate config files for VM bootstrap
@@ -259,7 +259,7 @@ func registerVMs(ctx resource.Context, c *instance, cfg echo.Config) error {
 
 	serviceAccount := cfg.Service
 	if !cfg.ServiceAccount {
-		c.serviceAccount = "default"
+		serviceAccount = "default"
 	}
 
 	var pods *kubeCore.PodList
@@ -307,7 +307,7 @@ spec:
 	return nil
 }
 
-func createServiceAccountToken(client kubernetes.Interface, ns string, serviceAccount string) error {
+func createServiceAccount(client kubernetes.Interface, ns string, serviceAccount string) error {
 	scopes.Framework.Debugf("Creating service account for: %s/%s", ns, serviceAccount)
 	_, err := client.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &kubeCore.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{Name: serviceAccount},
