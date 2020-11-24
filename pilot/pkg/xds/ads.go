@@ -482,8 +482,9 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	s.InternalGen.RegisterWorkload(proxy, con)
-
+	if err := s.InternalGen.RegisterWorkload(proxy, con); err != nil {
+		return nil, err
+	}
 	s.setProxyState(proxy, s.globalPushContext())
 
 	// Get the locality from the proxy's service instances.

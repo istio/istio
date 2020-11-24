@@ -16,7 +16,7 @@ package xds
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 	"strings"
 	"time"
 
@@ -42,16 +42,18 @@ const (
 	ConnectedAtAnnotation = "istio.io/connectedAt"
 	// DisconnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload disconnected from a Pilot instance.
 	DisconnectedAtAnnotation = "istio.io/disconnectedAt"
+
+	timeFormat = time.RFC3339Nano
 )
 
-func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
+func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) error {
 	if !features.WorkloadEntryAutoRegistration {
-		return
+		return nil
 	}
 	// check if the WE already exists, update the status
 	entryName := autoregisteredWorkloadEntryName(proxy)
 	if entryName == "" {
-		return
+		return nil
 	}
 
 	// Try to patch, if it fails then try to create
@@ -61,24 +63,28 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) {
 	})
 	// TODO return err from Patch through Get
 	if err == nil {
-		return
+		return nil
 	} else if !errors.IsNotFound(err) && err.Error() != "item not found" {
-		adsLog.Warnf("updating auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+		adsLog.Errorf("updating auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+		return fmt.Errorf("updating auto-registered WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
 	}
 
 	// No WorkloadEntry, create one using fields from the associated WorkloadGroup
 	groupCfg := sg.Store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if groupCfg == nil {
-		adsLog.Warnf("auto-registration of %v failed: cannot find WorkloadGroup %s/%s", proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
-		return
+		adsLog.Errorf("auto-registration of %v failed: cannot find WorkloadGroup %s/%s",
+			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
+		return fmt.Errorf("auto-registration of %v failed: cannot find WorkloadGroup %s/%s",
+			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
 	setConnectMeta(entry, sg.Server.instanceID, con)
 	_, err = sg.Store.Create(*entry)
 	if err != nil {
-		// TODO retry to handle transient failures
 		adsLog.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
+		return fmt.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
+	return nil
 }
 
 func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
@@ -94,15 +100,21 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	// unset controller, set disconnect time
 	cfg := sg.Store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
-		// we failed to create the workload entry in the first place
+		// we failed to create the workload entry in the first place or it is not propagated
+		return
+	}
+
+	// The wle has reconnected to another istiod and controlled by it.
+	if cfg.Annotations[WorkloadControllerAnnotation] != sg.Server.instanceID {
 		return
 	}
 	wle := cfg.DeepCopy()
 	delete(wle.Annotations, WorkloadControllerAnnotation)
-	wle.Annotations[DisconnectedAtAnnotation] = strconv.FormatInt(time.Now().UnixNano(), 10)
+	wle.Annotations[DisconnectedAtAnnotation] = time.Now().Format(timeFormat)
+	// use update instead of patch to prevent race condition
 	_, err := sg.Store.Update(wle)
-	if err != nil {
-		adsLog.Warnf("disconnect: failed patching WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+	if err != nil && !errors.IsConflict(err) {
+		adsLog.Warnf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 		return
 	}
 
@@ -113,10 +125,9 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 		if wle == nil {
 			return nil
 		}
-		if !shouldCleanupEntry(*wle) {
-			return nil
+		if shouldCleanupEntry(*wle) {
+			sg.cleanupEntry(*wle)
 		}
-		sg.cleanupEntry(*wle)
 		return nil
 	}, features.WorkloadEntryCleanupGracePeriod)
 }
@@ -138,13 +149,12 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 			}
 			for _, wle := range wles {
 				wle := wle
-				if !shouldCleanupEntry(wle) {
-					continue
+				if shouldCleanupEntry(wle) {
+					sg.cleanupQueue.Push(func() error {
+						sg.cleanupEntry(wle)
+						return nil
+					})
 				}
-				sg.cleanupQueue.Push(func() error {
-					sg.cleanupEntry(wle)
-					return nil
-				})
 			}
 		case <-stopCh:
 			return
@@ -163,17 +173,17 @@ func (sg *InternalGen) cleanupEntry(wle config.Config) {
 
 func shouldCleanupEntry(wle config.Config) bool {
 	// don't clean-up if connected or non-autoregistered WorkloadEntries
-	_, ok := wle.Annotations[WorkloadControllerAnnotation]
-	if wle.Annotations[AutoRegistrationGroupAnnotation] == "" || ok {
+	if wle.Annotations[AutoRegistrationGroupAnnotation] == "" ||
+		wle.Annotations[WorkloadControllerAnnotation] != "" {
 		return false
 	}
 
-	disconnUnixTime, err := strconv.Atoi(wle.Annotations[DisconnectedAtAnnotation])
-	if err != nil {
-		// remove workload entries with invalid disconnect times - they need to be re-registered and fixed.
-		adsLog.Warnf("invalid disconnect time for WorkloadEntry %s/%s: %s", wle.Annotations[DisconnectedAtAnnotation])
+	disconnTime := wle.Annotations[DisconnectedAtAnnotation]
+	if disconnTime == "" {
+		return false
 	}
-	disconnAt := time.Unix(0, int64(disconnUnixTime))
+
+	disconnAt, err := time.Parse(timeFormat, disconnTime)
 	// if we haven't passed the grace period, don't cleanup
 	if err == nil && time.Since(disconnAt) < features.WorkloadEntryCleanupGracePeriod {
 		return false
@@ -184,7 +194,7 @@ func shouldCleanupEntry(wle config.Config) bool {
 
 func setConnectMeta(c *config.Config, controller string, con *Connection) {
 	c.Annotations[WorkloadControllerAnnotation] = controller
-	c.Annotations[ConnectedAtAnnotation] = strconv.FormatInt(con.Connect.UnixNano(), 10)
+	c.Annotations[ConnectedAtAnnotation] = con.Connect.Format(timeFormat)
 }
 
 func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Config) *config.Config {
