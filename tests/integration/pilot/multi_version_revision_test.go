@@ -57,6 +57,10 @@ func TestMultiVersionRevision(t *testing.T) {
 					revision: "1-6-11",
 					path:     filepath.Join(testdataDir, "1.6.11-install.yaml"),
 				},
+				{
+					revision: "1-8-0",
+					path:     filepath.Join(testdataDir, "1.8.0-install.yaml"),
+				},
 			}
 
 			// keep track of applied configurations and clean up after the test
