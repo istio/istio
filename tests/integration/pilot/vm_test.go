@@ -97,8 +97,11 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}).BuildOrFail(ctx)
 			ctx.NewSubTest("initial registration").Run(func(ctx framework.TestContext) {
 				retry.UntilSuccessOrFail(ctx, func() error {
-					_, err := client.Call(echo.CallOptions{Target: autoVM, Port: &autoVM.Config().Ports[0]})
-					return err
+					res, err := client.Call(echo.CallOptions{Target: autoVM, Port: &autoVM.Config().Ports[0]})
+					if err != nil {
+						return err
+					}
+					return res.CheckOK()
 				}, retry.Timeout(5*time.Second))
 			})
 			ctx.NewSubTest("reconnect reuses WorkloadEntry").Run(func(ctx framework.TestContext) {
