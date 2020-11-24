@@ -63,8 +63,12 @@ webhooks:
 {{- end }}
 {{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
     objectSelector:
-{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
       matchExpressions:
+      - key: app
+        operator: NotIn
+        values:
+        - "istiod"
+{{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
       - key: "sidecar.istio.io/inject"
         operator: NotIn
         values:
