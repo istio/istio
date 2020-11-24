@@ -258,7 +258,12 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	entry.Address = proxy.IPAddresses[0]
 	// TODO move labels out of entry
 	// node metadata > WorkloadGroup.Metadata > WorkloadGroup.Template
-	entry.Labels = mergeLabels(entry.Labels, group.Metadata.Labels, proxy.Metadata.Labels)
+	if group.Metadata != nil && group.Metadata.Labels != nil {
+		entry.Labels = mergeLabels(entry.Labels, group.Metadata.Labels)
+	}
+	if proxy.Metadata != nil && proxy.Metadata.Labels != nil {
+		entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
+	}
 
 	if proxy.Metadata.Network != "" {
 		entry.Network = proxy.Metadata.Network
