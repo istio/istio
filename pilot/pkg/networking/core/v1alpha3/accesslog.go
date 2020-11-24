@@ -43,10 +43,10 @@ const (
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
 		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
 		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME%\n"
-	// EnvoyTextLogFormatIstio18 format for envoy text based access logs for Istio 1.8 onwards
-	// This includes the additional new operator RESPONSE_CODE_DETAILS and CONNECTION_TERMINATION_DETAILS that includes
-	// the reason for Envoy to reject a request.
-	EnvoyTextLogFormatIstio18 = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
+	// EnvoyTextLogFormatIstio19 format for envoy text based access logs for Istio 1.9 onwards.
+	// This includes the additional new operator RESPONSE_CODE_DETAILS and CONNECTION_TERMINATION_DETAILS that tells
+	// the reason why Envoy rejects a request.
+	EnvoyTextLogFormatIstio19 = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
 		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
 		"%RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% " +
 		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
@@ -98,10 +98,11 @@ var (
 			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
-	// EnvoyJSONLogFormatIstio18 map of values for envoy json based access logs for Istio 1.8 onwards
-	// This includes the additional new operator RESPONSE_CODE_DETAILS and CONNECTION_TERMINATION_DETAILS that includes
-	// the reason for Envoy to reject a request.
-	EnvoyJSONLogFormatIstio18 = &structpb.Struct{
+
+	// EnvoyJSONLogFormatIstio19 map of values for envoy json based access logs for Istio 1.9 onwards.
+	// This includes the additional log operator RESPONSE_CODE_DETAILS and CONNECTION_TERMINATION_DETAILS that tells
+	// the reason why Envoy rejects a request.
+	EnvoyJSONLogFormatIstio19 = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
 			"route_name":                        {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
@@ -151,9 +152,9 @@ type AccessLogBuilder struct {
 	// file accessLog which is cached and reset on MeshConfig change.
 	mutex                     sync.RWMutex
 	fileAccessLog             *accesslog.AccessLog
-	fileAccesslogGE18         *accesslog.AccessLog
+	fileAccesslogGE19         *accesslog.AccessLog
 	listenerFileAccessLog     *accesslog.AccessLog
-	listenerFileAccessLogGE18 *accesslog.AccessLog
+	listenerFileAccessLogGE19 *accesslog.AccessLog
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
@@ -198,8 +199,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(mesh *meshconfig.MeshConfig, lis
 	}
 }
 
-func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE18 bool) *accesslog.AccessLog {
-
+func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE19 bool) *accesslog.AccessLog {
 	// We need to build access log. This is needed either on first access or when mesh config changes.
 	fl := &fileaccesslog.FileAccessLog{
 		Path: mesh.AccessLogFile,
@@ -208,8 +208,8 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE18 bool) *
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
 		formatString := EnvoyTextLogFormat
-		if isVersionGE18 {
-			formatString = EnvoyTextLogFormatIstio18
+		if isVersionGE19 {
+			formatString = EnvoyTextLogFormatIstio19
 		}
 		if mesh.AccessLogFormat != "" {
 			formatString = mesh.AccessLogFormat
@@ -227,8 +227,8 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE18 bool) *
 		if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &parsedJSONLogStruct); err != nil {
 			log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
 			jsonLogStruct = EnvoyJSONLogFormat
-			if isVersionGE18 {
-				jsonLogStruct = EnvoyJSONLogFormatIstio18
+			if isVersionGE19 {
+				jsonLogStruct = EnvoyJSONLogFormatIstio19
 			}
 		} else {
 			jsonLogStruct = &parsedJSONLogStruct
@@ -254,18 +254,18 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE18 bool) *
 
 func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig, node *model.Proxy) *accesslog.AccessLog {
 	// Check if cached config is available, and return immediately.
-	isVersionGE18 := util.IsIstioVersionGE18(node)
-	if cal := b.cachedFileAccessLog(isVersionGE18); cal != nil {
+	isVersionGE19 := util.IsIstioVersionGE19(node)
+	if cal := b.cachedFileAccessLog(isVersionGE19); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	al := buildFileAccessLogHelper(mesh, isVersionGE18)
+	al := buildFileAccessLogHelper(mesh, isVersionGE19)
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if isVersionGE18 {
-		b.fileAccesslogGE18 = al
+	if isVersionGE19 {
+		b.fileAccesslogGE19 = al
 	} else {
 		b.fileAccessLog = al
 	}
@@ -283,21 +283,21 @@ func addAccessLogFilter() *accesslog.AccessLogFilter {
 
 func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig, node *model.Proxy) *accesslog.AccessLog {
 	// Check if cached config is available, and return immediately.
-	isVersionGE18 := util.IsIstioVersionGE18(node)
-	if cal := b.cachedListenerFileAccessLog(isVersionGE18); cal != nil {
+	isVersionGE19 := util.IsIstioVersionGE19(node)
+	if cal := b.cachedListenerFileAccessLog(isVersionGE19); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := buildFileAccessLogHelper(mesh, isVersionGE18)
+	lal := buildFileAccessLogHelper(mesh, isVersionGE19)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
 	lal.Filter = addAccessLogFilter()
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if isVersionGE18 {
-		b.listenerFileAccessLogGE18 = lal
+	if isVersionGE19 {
+		b.listenerFileAccessLogGE19 = lal
 	} else {
 		b.listenerFileAccessLog = lal
 	}
@@ -305,20 +305,20 @@ func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfi
 	return lal
 }
 
-func (b *AccessLogBuilder) cachedFileAccessLog(isVersionGE18 bool) *accesslog.AccessLog {
+func (b *AccessLogBuilder) cachedFileAccessLog(isVersionGE19 bool) *accesslog.AccessLog {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
-	if isVersionGE18 {
-		return b.fileAccesslogGE18
+	if isVersionGE19 {
+		return b.fileAccesslogGE19
 	}
 	return b.fileAccessLog
 }
 
-func (b *AccessLogBuilder) cachedListenerFileAccessLog(isVersionGE18 bool) *accesslog.AccessLog {
+func (b *AccessLogBuilder) cachedListenerFileAccessLog(isVersionGE19 bool) *accesslog.AccessLog {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
-	if isVersionGE18 {
-		return b.listenerFileAccessLogGE18
+	if isVersionGE19 {
+		return b.listenerFileAccessLogGE19
 	}
 	return b.listenerFileAccessLog
 }
@@ -377,8 +377,8 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 func (b *AccessLogBuilder) reset() {
 	b.mutex.Lock()
 	b.fileAccessLog = nil
-	b.fileAccesslogGE18 = nil
+	b.fileAccesslogGE19 = nil
 	b.listenerFileAccessLog = nil
-	b.listenerFileAccessLogGE18 = nil
+	b.listenerFileAccessLogGE19 = nil
 	b.mutex.Unlock()
 }
