@@ -132,6 +132,9 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 }
 
 func (s *Server) initK8SConfigStore(args *PilotArgs) error {
+	if s.kubeClient == nil {
+		return nil
+	}
 	configController, err := s.makeKubeConfigController(args)
 	if err != nil {
 		return err
