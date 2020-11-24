@@ -239,7 +239,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 			}},
 		},
 		Spec: &v1alpha3.WorkloadEntry{
-			Address: "1.2.3.4",
+			Address: "10.0.0.1",
 			Ports: map[string]uint32{
 				"http": 80,
 			},

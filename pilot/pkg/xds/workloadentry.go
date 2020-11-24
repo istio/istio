@@ -265,6 +265,11 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
 	}
 
+	annotations := map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name}
+	if group.Metadata != nil && group.Metadata.Annotations != nil {
+		annotations = mergeLabels(annotations, group.Metadata.Annotations)
+	}
+
 	if proxy.Metadata.Network != "" {
 		entry.Network = proxy.Metadata.Network
 	}
@@ -277,10 +282,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 			Name:             name,
 			Namespace:        proxy.Metadata.Namespace,
 			Labels:           entry.Labels,
-			Annotations: mergeLabels(
-				map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name},
-				group.Metadata.Annotations,
-			),
+			Annotations:      annotations,
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: groupCfg.GroupVersionKind.GroupVersion(),
 				Kind:       groupCfg.GroupVersionKind.Kind,
