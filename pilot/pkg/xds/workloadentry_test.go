@@ -20,7 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -184,6 +187,73 @@ func TestUpdateHealthCondition(t *testing.T) {
 		})
 		checkHealthOrFail(t, store, p, false)
 	})
+}
+
+func TestWorkloadEntryFromGroup(t *testing.T) {
+	group := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadGroup,
+			Namespace:        "a",
+			Name:             "wg-a",
+			Labels: map[string]string{
+				"grouplabel": "notonentry",
+			},
+		},
+		Spec: &v1alpha3.WorkloadGroup{
+			Metadata: &v1alpha3.WorkloadGroup_ObjectMeta{
+				Labels:      map[string]string{"foo": "bar"},
+				Annotations: map[string]string{"foo": "bar"},
+			},
+			Template: &v1alpha3.WorkloadEntry{
+				Ports:          map[string]uint32{"http": 80},
+				Labels:         map[string]string{"app": "a"},
+				Weight:         1,
+				ServiceAccount: "sa-a",
+			},
+		},
+	}
+	proxy := fakeProxy("10.0.0.1", group, "nw1")
+
+	wantLabels := map[string]string{
+		"app":   "a",   // from WorkloadEntry template
+		"foo":   "bar", // from WorkloadGroup.Metadata
+		"merge": "me",  // from Node metadata
+	}
+
+	want := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadEntry,
+			Name:             "test-we",
+			Namespace:        proxy.Metadata.Namespace,
+			Labels:           wantLabels,
+			Annotations: map[string]string{
+				AutoRegistrationGroupAnnotation: group.Name,
+				"foo":                           "bar",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: group.GroupVersionKind.GroupVersion(),
+				Kind:       group.GroupVersionKind.Kind,
+				Name:       group.Name,
+				UID:        kubetypes.UID(group.UID),
+				Controller: &workloadGroupIsController,
+			}},
+		},
+		Spec: &v1alpha3.WorkloadEntry{
+			Address: "10.0.0.1",
+			Ports: map[string]uint32{
+				"http": 80,
+			},
+			Labels:         wantLabels,
+			Network:        "nw1",
+			Weight:         1,
+			ServiceAccount: "sa-a",
+		},
+	}
+
+	got := workloadEntryFromGroup("test-we", proxy, &group)
+	if diff := cmp.Diff(got, &want); diff != "" {
+		t.Errorf(diff)
+	}
 }
 
 func setup(t *testing.T) (*InternalGen, *InternalGen, model.ConfigStoreCache) {
