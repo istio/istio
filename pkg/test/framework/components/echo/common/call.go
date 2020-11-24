@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/client"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -103,8 +105,10 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		return responses, formatError(err)
 	}
 
+	t0 := time.Now()
 	// Retry not enabled for this call.
 	err := sendAndValidate()
+	scopes.Framework.Debugf("echo call complete with duration %v", time.Since(t0))
 	return responses, formatError(err)
 }
 

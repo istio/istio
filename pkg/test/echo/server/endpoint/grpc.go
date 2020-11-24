@@ -22,6 +22,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -171,6 +172,7 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 
 func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
 	epLog.Infof("ForwardEcho[%s] request", req.Url)
+	t0 := time.Now()
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
 		Dialer:  h.Dialer,
@@ -182,6 +184,6 @@ func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoReq
 	defer instance.Close()
 
 	ret, err := instance.Run(ctx)
-	epLog.Infof("ForwardEcho[%s] response: %v and error %v", req.Url, ret.GetOutput(), err)
+	epLog.Infof("ForwardEcho[%s] response in %v: %v and error %v", req.Url, time.Since(t0), ret.GetOutput(), err)
 	return ret, err
 }

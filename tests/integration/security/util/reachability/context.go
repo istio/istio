@@ -96,7 +96,10 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
-			util.WaitForConfigWithSleep(ctx, testName, policyYAML, c.Namespace)
+			ctx.NewSubTest("wait for config").Run(func(ctx framework.TestContext) {
+				util.WaitForConfigWithSleep(ctx, policyYAML, c.Namespace)
+			})
+
 			ctx.Cleanup(func() {
 				if err := retry.UntilSuccess(func() error {
 					return ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
@@ -147,6 +150,10 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 								// TODO(landow) fix DNS issues with multicluster/VMs/headless
 								continue
 							}
+							if isNakedToVM(apps, client, destination) {
+								// No need to waste time on these tests which will time out on connection instead of fail-fast
+								continue
+							}
 							callCount := 1
 							if len(destClusters) > 1 {
 								// so we can validate all clusters are hit
@@ -172,11 +179,16 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 								if c.Include(src, opts) {
 									expectSuccess := c.ExpectSuccess(src, opts)
 
-									subTestName := fmt.Sprintf("with scheme %s to %s:%s%s",
+									tpe := "positive"
+									if !expectSuccess {
+										tpe = "negative"
+									}
+									subTestName := fmt.Sprintf("%s to %s:%s%s %s",
 										opts.Scheme,
 										dest.Config().Service,
 										opts.PortName,
-										opts.Path)
+										opts.Path,
+										tpe)
 
 									ctx.NewSubTest(subTestName).
 										RunParallel(func(ctx framework.TestContext) {
@@ -200,4 +212,10 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			}
 		})
 	}
+}
+
+// Exclude calls from naked->VM since naked has no Envoy
+// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail, regardless of mTLS
+func isNakedToVM(apps *util.EchoDeployments, src, dst echo.Instance) bool {
+	return apps.IsNaked(src) && apps.IsVM(dst)
 }
