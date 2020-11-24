@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      initContainers:
+      - name: istio-init
+        args:
+        - my
+        - custom
+        - args
+        image: fake/custom-image
+      containers:
+        - name: hello
+          image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+        - name: istio-proxy
+          image: auto
+          resources:
+            requests:
+              cpu: 123m
+          livenessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15021
+            initialDelaySeconds: 10
+            periodSeconds: 2
+            timeoutSeconds: 3
+          # Check various types merge find
+          tty: true
+          terminationMessagePath: "/foo/bar"
+          volumeMounts:
+            - mountPath: /etc/certs
+              name: certs
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
+          securityContext:
+            allowPrivilegeEscalation: true
+            readOnlyRootFilesystem: false
+      volumes:
+        - name: certs
+          secret:
+            secretName: istio-certs

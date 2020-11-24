@@ -345,8 +345,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		return bbuf.String()
 	}
 
-	template := selectTemplate(params)
-	bbuf, err := parseTemplate(template, funcMap, data)
+	bbuf, err := parseTemplate(selectTemplate(params), funcMap, data)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -639,8 +638,9 @@ func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string,
 
 	// skip injection for injected pods
 	if len(podSpec.Containers) > 1 {
+		_, hasStatus := metadata.Annotations[annotation.SidecarStatus.Name]
 		for _, c := range podSpec.Containers {
-			if c.Name == ProxyContainerName {
+			if c.Name == ProxyContainerName && hasStatus {
 				warningHandler(fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
 					name, ProxyContainerName))
 				return out, nil

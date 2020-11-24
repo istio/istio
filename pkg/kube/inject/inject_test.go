@@ -38,10 +38,6 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var (
-	nullWarningHandler = func(_ string) {}
-)
-
 // TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
 // test files and running through the two different code paths.
 func TestInjection(t *testing.T) {
@@ -254,6 +250,22 @@ func TestInjection(t *testing.T) {
 				os.Setenv("ENABLE_LEGACY_FSGROUP_INJECTION", "true")
 			},
 		},
+		{
+			in:   "proxy-override.yaml",
+			want: "proxy-override.yaml.injected",
+		},
+		{
+			in:   "explicit-security-context.yaml",
+			want: "explicit-security-context.yaml.injected",
+		},
+		{
+			in:   "only-proxy-container.yaml",
+			want: "only-proxy-container.yaml.injected",
+		},
+		{
+			in:   "proxy-override-args.yaml",
+			want: "proxy-override-args.yaml.injected",
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -337,7 +349,10 @@ func TestInjection(t *testing.T) {
 			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
 			t.Run("kube-inject", func(t *testing.T) {
 				var got bytes.Buffer
-				if err = IntoResourceFile(sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, nullWarningHandler); err != nil {
+				warn := func(s string) {
+					t.Log(s)
+				}
+				if err = IntoResourceFile(sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
 					if c.expectedError != "" {
 						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
 							t.Fatalf("expected error %q got %q", c.expectedError, err)
@@ -409,17 +424,13 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 	runWebhook(t, webhook, []byte(input), []byte(expected), false)
 }
 
-// TestPodTemplate ensures we can use a full pod resource as the template schema (rather than PodSpec)
+// TestPodTemplate ensures we can use a legacy pod spec resource as the template schema (rather than Pod)
 func TestPodSpecTemplate(t *testing.T) {
 	testInjectionTemplate(t,
 		`
-metadata:
-  labels:
-    istio.io/injected: "true"
-spec:
-  containers:
-  - name: hello
-    image: "fake.docker.io/google-samples/hello-go-gke:1.1"`,
+containers:
+- name: istio-proxy
+  image: proxy`,
 		`
 apiVersion: v1
 kind: Pod
@@ -443,12 +454,12 @@ metadata:
     prometheus.io/scrape: "true"
     sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
   name: hello
-  labels:
-    istio.io/injected: "true"
 spec:
   containers:
     - name: hello
-      image: "fake.docker.io/google-samples/hello-go-gke:1.1"
+      image: fake.docker.io/google-samples/hello-go-gke:1.0
+    - name: istio-proxy
+      image: proxy
 `)
 }
 
@@ -457,28 +468,26 @@ spec:
 func TestStrategicMerge(t *testing.T) {
 	testInjectionTemplate(t,
 		`
-containers:
-- name: hello
-  image: "fake.docker.io/google-samples/hello-go-gke:1.1"
-  resources:
+metadata:
+  labels:
     $patch: replace
-    limits:
-      cpu: 100m
-      memory: 50m
+    foo: bar
+spec:
+  containers:
+  - name: injected
+    image: "fake.docker.io/google-samples/hello-go-gke:1.1"
 `,
 		`
 apiVersion: v1
 kind: Pod
 metadata:
   name: hello
+  labels:
+    key: value
 spec:
   containers:
   - name: hello
     image: "fake.docker.io/google-samples/hello-go-gke:1.0"
-    resources:
-      requests:
-        cpu: 100m
-        memory: 50m
 `,
 
 		// We expect resources to only have limits, since we had the "replace" directive.
@@ -491,16 +500,15 @@ metadata:
     prometheus.io/path: /stats/prometheus
     prometheus.io/port: "0"
     prometheus.io/scrape: "true"
-    sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+  labels:
+    foo: bar
   name: hello
 spec:
   containers:
-  - name: hello
+  - name: injected
     image: "fake.docker.io/google-samples/hello-go-gke:1.1"
-    resources:
-     limits:
-       cpu: 100m
-       memory: 50m
+  - name: hello
+    image: "fake.docker.io/google-samples/hello-go-gke:1.0"
 `)
 }
 
