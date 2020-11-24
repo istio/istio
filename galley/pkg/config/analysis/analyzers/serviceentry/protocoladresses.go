@@ -42,13 +42,12 @@ func (serviceEntry *ProtocolAdressesAnalyzer) Metadata() analysis.Metadata {
 
 func (serviceEntry *ProtocolAdressesAnalyzer) Analyze(context analysis.Context) {
 	context.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(resource *resource.Instance) bool {
-		serviceEntry.analyzeProtocolAddressesMissing(resource, context)
-		serviceEntry.analyzeProtocolTCPAddressesMissing(resource, context)
+		serviceEntry.analyzeProtocolAddresses(resource, context)
 		return true
 	})
 }
 
-func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddressesMissing(resource *resource.Instance, context analysis.Context) {
+func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddresses(resource *resource.Instance, context analysis.Context) {
 	se := resource.Message.(*v1alpha3.ServiceEntry)
 
 	if se.Addresses == nil {
@@ -62,15 +61,7 @@ func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddressesMissing(re
 
 				context.Report(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), message)
 			}
-		}
-	}
-}
 
-func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolTCPAddressesMissing(resource *resource.Instance, context analysis.Context) {
-	se := resource.Message.(*v1alpha3.ServiceEntry)
-
-	if se.Addresses == nil {
-		for index, port := range se.Ports {
 			if port.Protocol == "TCP" {
 				message := msg.NewServiceEntryMissingAddressesAndProtocolTCP(resource)
 
