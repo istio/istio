@@ -109,9 +109,12 @@ func (x *XdsServer) OnStreamRequest(i int64, request *discovery.DiscoveryRequest
 	log.Errorf("howardjohn: request %v/%v", request.TypeUrl, request.ResourceNames)
 	for _, rn := range request.ResourceNames {
 		if !x.Cache.Contains(rn) {
+			log.Errorf("howardjohn: generate %v", rn)
 			if err := x.GenerateResources([]string{rn}); err != nil {
 				return err
 			}
+		} else {
+			log.Errorf("howardjohn: cache contains %v", rn)
 		}
 	}
 
