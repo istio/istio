@@ -286,7 +286,7 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 	}
 	// TODO: find a better way to validate all the invalid values in IOP YAML
 	// before it is unmarshal into IstioOperator
-	if err := validateRevisionFromIOPYAML(iopYAML); err != nil {
+	if err := IsRevisionString(iopYAML); err != nil {
 		return nil, err
 	}
 	iop := &v1alpha1.IstioOperator{}

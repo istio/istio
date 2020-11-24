@@ -201,7 +201,8 @@ func validateRevision(_ util.Path, val interface{}) util.Errors {
 	return nil
 }
 
-func validateRevisionFromIOPYAML(iopYAML string) error {
+// IsRevisionString returns error if non-string revision is passed
+func IsRevisionString(iopYAML string) error {
 	var specTree = make(map[string]interface{})
 	spec, err := tpath.GetConfigSubtree(iopYAML, "spec")
 	if err != nil {
@@ -216,14 +217,11 @@ func validateRevisionFromIOPYAML(iopYAML string) error {
 	if util.IsEmptyString(rev) {
 		return nil
 	}
-	revision, ok := rev.(string)
+	_, ok := rev.(string)
 	// fail early if revision is not a string eg: revision: 18, revision: 1.8, revision: 1.8.0
 	if !ok {
-		return fmt.Errorf("invalid revision specified: %v", rev.(float64))
-	}
-	// revision can be invalid string eg: "1.8", "1.8.0", which will be validated in next step
-	if !labels.IsDNS1123Label(revision) {
-		return fmt.Errorf("invalid revision specified: %s", rev)
+		rev = fmt.Sprintf("%v", rev)
+		return fmt.Errorf("invalid revision specified: %v. revision must be a string eg: %q", rev, "1-9-0")
 	}
 	return nil
 }

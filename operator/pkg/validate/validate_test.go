@@ -181,7 +181,7 @@ meshConfig:
 	}
 }
 
-func TestValidateRevisionFromIOPYAML(t *testing.T) {
+func TestIsRevisionString(t *testing.T) {
 	tests := []struct {
 		desc    string
 		yamlStr string
@@ -266,11 +266,19 @@ spec:
 `,
 			isValid: false,
 		},
+		{
+			desc: "invalid revision with boolean value",
+			yamlStr: `
+spec:
+  revision: false
+`,
+			isValid: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			errs := validateRevisionFromIOPYAML(tt.yamlStr)
+			errs := IsRevisionString(tt.yamlStr)
 			if tt.isValid && errs != nil {
 				t.Errorf("(%v)(%v)", tt.yamlStr, errs)
 			}
