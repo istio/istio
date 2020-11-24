@@ -140,9 +140,8 @@ func setupSDS(t *testing.T) *TestServer {
 		expectedToken: fakeToken1,
 	}
 	opts := &ca2.Options{
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
-		EnableWorkloadSDS: true,
-		RecycleInterval:   time.Second * 30,
+		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		RecycleInterval: time.Second * 30,
 	}
 	server, err := NewServer(opts, st)
 	if err != nil {
@@ -289,10 +288,8 @@ func (s *TestServer) GeneratePushSecret(conID, token string) *ca2.SecretItem {
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    "",
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		RecycleInterval: 30 * time.Second,
+		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
@@ -302,12 +299,10 @@ func TestStreamSecretsForCredentialFetcherGetTokenWorkloadSds(t *testing.T) {
 	cf := plugin.CreateMockPlugin(FirstPartyJwt)
 
 	arg := ca2.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    "",
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-		UseLocalJWT:       true,
-		CredFetcher:       cf,
+		RecycleInterval: 30 * time.Second,
+		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		UseLocalJWT:     true,
+		CredFetcher:     cf,
 	}
 	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt, FirstPartyJwt)
 }
@@ -317,12 +312,10 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 	cf := plugin.CreateMockPlugin(emptyToken)
 
 	arg := ca2.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    "",
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-		UseLocalJWT:       true,
-		CredFetcher:       cf,
+		RecycleInterval: 30 * time.Second,
+		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		UseLocalJWT:     true,
+		CredFetcher:     cf,
 	}
 	testCredentialFetcherHelper(t, arg, sdsRequestStream, FirstPartyJwt, emptyToken)
 }
@@ -330,12 +323,10 @@ func TestStreamSecretsForCredentialFetcherGetEmptyTokenWorkloadSds(t *testing.T)
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    "",
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-		FileMountedCerts:  true,
-		UseLocalJWT:       false,
+		RecycleInterval:  30 * time.Second,
+		WorkloadUDSPath:  fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		FileMountedCerts: true,
+		UseLocalJWT:      false,
 	}
 	wst := &mockSecretStore{
 		checkToken: false,
@@ -358,20 +349,16 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    "",
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		RecycleInterval: 30 * time.Second,
+		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestStreamSecretsInvalidResourceName(t *testing.T) {
 	arg := ca2.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    "",
-		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		RecycleInterval: 30 * time.Second,
+		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, true)
 }
@@ -380,14 +367,9 @@ type secretCallback func(string, *discovery.DiscoveryRequest) (*discovery.Discov
 
 func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidResourceNames bool) {
 	resetEnvironments()
-	var wst ca2.SecretManager
-	if arg.EnableWorkloadSDS {
-		wst = &mockSecretStore{
-			checkToken:    true,
-			expectedToken: fakeToken1,
-		}
-	} else {
-		wst = nil
+	wst := &mockSecretStore{
+		checkToken:    true,
+		expectedToken: fakeToken1,
 	}
 	server, err := NewServer(&arg, wst)
 	defer server.Stop()
@@ -396,33 +378,26 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
-	if testInvalidResourceNames && arg.EnableWorkloadSDS {
+	if testInvalidResourceNames {
 		sendRequestAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID, testInvalidResourceNames)
 		return
 	}
 
-	if arg.EnableWorkloadSDS {
-		sendRequestAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID, testInvalidResourceNames)
-		// Request for root certificate.
-		sendRequestForRootCertAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID)
+	sendRequestAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID, testInvalidResourceNames)
+	// Request for root certificate.
+	sendRequestForRootCertAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID)
 
-		recycleConnection(getClientConID(proxyID), testResourceName)
-		recycleConnection(getClientConID(proxyID), "ROOTCA")
-	}
+	recycleConnection(getClientConID(proxyID), testResourceName)
+	recycleConnection(getClientConID(proxyID), "ROOTCA")
 	// Check to make sure number of staled connections is 0.
 	checkStaledConnCount(t)
 }
 
 func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallback, expectedToken, token string) {
 	resetEnvironments()
-	var wst ca2.SecretManager
-	if arg.EnableWorkloadSDS {
-		wst = &mockSecretStore{
-			checkToken:    true,
-			expectedToken: expectedToken,
-		}
-	} else {
-		wst = nil
+	wst := &mockSecretStore{
+		checkToken:    true,
+		expectedToken: expectedToken,
 	}
 
 	server, err := NewServer(&arg, wst)
@@ -432,19 +407,17 @@ func testCredentialFetcherHelper(t *testing.T, arg ca2.Options, cb secretCallbac
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
-	if token == emptyToken && arg.EnableWorkloadSDS {
+	if token == emptyToken {
 		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, token)
 		return
 	}
 
-	if arg.EnableWorkloadSDS {
-		sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, token)
-		// Request for root certificate.
-		sendRequestForRootCertAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID)
+	sendRequestAndVerifyResponseWithCredentialFetcher(t, cb, arg.WorkloadUDSPath, proxyID, token)
+	// Request for root certificate.
+	sendRequestForRootCertAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID)
 
-		recycleConnection(getClientConID(proxyID), testResourceName)
-		recycleConnection(getClientConID(proxyID), "ROOTCA")
-	}
+	recycleConnection(getClientConID(proxyID), testResourceName)
+	recycleConnection(getClientConID(proxyID), "ROOTCA")
 	// Check to make sure number of staled connections is 0.
 	checkStaledConnCount(t)
 }
@@ -573,9 +546,8 @@ func verifyResponseForEmptyToken(err error) bool {
 
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	arg := ca2.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   100 * time.Second,
-		WorkloadUDSPath:   socket,
+		RecycleInterval: 100 * time.Second,
+		WorkloadUDSPath: socket,
 	}
 	st := &mockSecretStore{
 		checkToken: false,
@@ -1307,10 +1279,6 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 		ResourceName: resourceName,
 	}
 	ms.secrets.Delete(key)
-}
-
-func (ms *mockSecretStore) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
-	return false
 }
 
 func checkStaledConnCount(t *testing.T) {

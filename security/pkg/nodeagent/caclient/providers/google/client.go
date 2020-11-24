@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -79,10 +80,9 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 }
 
 // CSR Sign calls Google CA to sign a CSR.
-func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error) {
 	req := &gcapb.MeshCertificateRequest{
-		RequestId: reqID,
+		RequestId: uuid.New().String(),
 		Csr:       string(csrPEM),
 		Validity:  &duration.Duration{Seconds: certValidTTLInSec},
 	}

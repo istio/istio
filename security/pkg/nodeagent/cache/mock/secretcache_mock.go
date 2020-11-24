@@ -70,8 +70,7 @@ func NewMockCAClient(errors uint64, certLifetime time.Duration) (*CAClient, erro
 }
 
 // CSRSign returns the certificate or errors depending on the settings.
-func (c *CAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, exchangedToken string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error) {
 	c.errorCountMutex.Lock()
 	if c.errorCount < c.errors {
 		c.errorCount++

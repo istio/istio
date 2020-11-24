@@ -198,12 +198,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	if sa.secOpts.WorkloadUDSPath == "" {
 		sa.secOpts.WorkloadUDSPath = LocalSDS
 	}
-	// Set TLSEnabled if the ControlPlaneAuthPolicy is set to MUTUAL_TLS
-	if sa.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
-		sa.secOpts.TLSEnabled = true
-	} else {
-		sa.secOpts.TLSEnabled = false
-	}
 	// If proxy is using file mounted certs, JWT token is not needed.
 	sa.secOpts.UseLocalJWT = !sa.secOpts.FileMountedCerts
 
@@ -228,7 +222,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 
 	// TODO: remove the caching, workload has a single cert
 	if sa.WorkloadSecrets == nil {
-		sa.WorkloadSecrets, _ = sa.newWorkloadSecretCache()
+		sa.WorkloadSecrets = sa.newWorkloadSecretCache()
 	}
 
 	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets)
@@ -348,7 +342,7 @@ func (sa *Agent) FindRootCAForCA() string {
 }
 
 // newWorkloadSecretCache creates the cache for workload secrets and/or gateway secrets.
-func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCache, caClient security.Client) {
+func (sa *Agent) newWorkloadSecretCache() *cache.SecretCache {
 	fetcher := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.
@@ -356,14 +350,15 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 	// Single caTLSRootCert inside.
 
 	var err error
+	var caClient security.Client
 
-	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, sa.secOpts)
+	workloadSecretCache := cache.NewSecretCache(fetcher, sds.NotifyProxy, sa.secOpts)
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
 	// FILE_MOUNTED_CERTS=true
 	if sa.secOpts.FileMountedCerts {
 		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
-		return
+		return workloadSecretCache
 	}
 
 	var pluginNames []string
@@ -416,5 +411,5 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 	}
 	fetcher.CaClient = caClient
 
-	return
+	return workloadSecretCache
 }

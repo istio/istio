@@ -59,11 +59,6 @@ func (sc *clientSecrets) GenerateSecret(ctx context.Context, connectionID, resou
 	return &sc.SecretItem, nil
 }
 
-// ShouldWaitForGatewaySecret indicates whether a valid gateway secret is expected.
-func (sc *clientSecrets) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
-	return false
-}
-
 // TODO: must fix SDS, it uses existence to detect it's an ACK !!
 func (sc *clientSecrets) SecretExist(connectionID, resourceName, token, version string) bool {
 	return false
