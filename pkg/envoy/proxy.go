@@ -57,7 +57,7 @@ type ProxyConfig struct {
 	Sidecar             bool
 	ProxyViaAgent       bool
 	CallCredentials     bool
-	LogAsJson           bool
+	LogAsJSON           bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -118,7 +118,7 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--local-address-ip-version", proxyLocalAddressType,
 		"--bootstrap-version", "3",
 	}
-	if e.ProxyConfig.LogAsJson {
+	if e.ProxyConfig.LogAsJSON {
 		startupArgs = append(startupArgs,
 			"--log-format",
 			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"%n","msg":"%_"}`,

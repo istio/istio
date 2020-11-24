@@ -349,7 +349,7 @@ var (
 				Node:                role.ServiceNode(),
 				LogLevel:            proxyLogLevel,
 				ComponentLogLevel:   proxyComponentLogLevel,
-				LogAsJson:           loggingOptions.JSONEncoding,
+				LogAsJSON:           loggingOptions.JSONEncoding,
 				PilotSubjectAltName: pilotSAN,
 				NodeIPs:             role.IPAddresses,
 				STSPort:             stsPort,
