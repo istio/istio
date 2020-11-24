@@ -476,7 +476,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 					hasK8SConfigStore = true
 				}
 			}
-		}  else if args.RegistryOptions.KubeConfig != "" {
+		} else if args.RegistryOptions.KubeConfig != "" {
 			hasK8SConfigStore = true
 		}
 	}
