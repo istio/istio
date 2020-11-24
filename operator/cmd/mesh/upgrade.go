@@ -441,7 +441,8 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 	var errs util.Errors
 	var res []ComponentVersion
 	for _, pod := range pods.Items {
-		component := pod.Labels["istio"]
+		// label for components app: istiod, istio-ingressgateway, istio-egressgateway
+		component := pod.Labels["app"]
 
 		switch component {
 		case "statsd-prom-bridge":
