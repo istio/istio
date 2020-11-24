@@ -38,6 +38,7 @@ about: Report a bug to help us improve Istio
 
 **Environment where bug was observed (cloud vendor, OS, etc)**
 
-Additionally, run `istioctl bug-report` and attache the dump file to this issue.
+Additionally, please consider running `istioctl bug-report` and attach the generated
+cluster-state tarball to this issue.
 Refer [cluster state archive](http://istio.io/help/bugs/#generating-a-cluster-state-archive)
 for more details.
