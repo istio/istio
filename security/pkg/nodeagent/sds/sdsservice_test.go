@@ -37,10 +37,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdstest"
 	ca2 "istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -71,8 +74,220 @@ var (
 	fakeToken2        = "faketoken2"
 	emptyToken        = ""
 	testResourceName  = "default"
+	rootResourceName  = "ROOTCA"
 	extraResourceName = "extra-resource-name"
 )
+
+type TestServer struct {
+	t       *testing.T
+	server  *Server
+	udsPath string
+	store   *mockSecretStore
+}
+
+func (s *TestServer) Connect(token string) *xds.AdsTest {
+	conn, err := setupConnection(s.udsPath)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
+	header := metadata.Pairs(credentialTokenHeaderKey, token)
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
+	stream, err := sdsClient.StreamSecrets(ctx)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return xds.NewAdsTest(s.t, conn, stream).WithType(SecretTypeV3)
+}
+
+type Expectation struct {
+	ResourceName string
+	CertChain    []byte
+	Key          []byte
+	RootCert     []byte
+}
+
+func (s *TestServer) Verify(resp *discovery.DiscoveryResponse, expectations ...Expectation) {
+	s.t.Helper()
+	if len(resp.Resources) != len(expectations) {
+		s.t.Fatalf("expected %d resources, got %d", len(expectations), len(resp.Resources))
+	}
+	got := xdstest.ExtractTLSSecrets(s.t, resp.Resources)
+	for _, e := range expectations {
+		scrt := got[e.ResourceName]
+		r := Expectation{
+			ResourceName: e.ResourceName,
+			Key:          scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes(),
+			CertChain:    scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes(),
+			RootCert:     scrt.GetValidationContext().GetTrustedCa().GetInlineBytes(),
+		}
+		if diff := cmp.Diff(e, r); diff != "" {
+			s.t.Fatalf("got diff: %v", diff)
+		}
+	}
+}
+
+func setupSDS(t *testing.T) *TestServer {
+	// Clear out global state. TODO stop using global variables
+	sdsClientsMutex.Lock()
+	for k := range sdsClients {
+		delete(sdsClients, k)
+	}
+	sdsClientsMutex.Unlock()
+
+	st := &mockSecretStore{
+		checkToken:    true,
+		expectedToken: fakeToken1,
+	}
+	opts := &ca2.Options{
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		EnableWorkloadSDS: true,
+		RecycleInterval:   time.Second * 30,
+	}
+	server, err := NewServer(opts, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		server.Stop()
+	})
+	return &TestServer{
+		t:       t,
+		server:  server,
+		store:   st,
+		udsPath: opts.WorkloadUDSPath,
+	}
+}
+
+func init() {
+	sdsServiceLog.SetOutputLevel(log.DebugLevel)
+}
+
+func TestSDS(t *testing.T) {
+	t.Run("simple", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect(fakeToken1)
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), Expectation{
+			ResourceName: testResourceName,
+			CertChain:    fakeCertificateChain,
+			Key:          fakePrivateKey,
+		})
+		c.ExpectNoResponse()
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), Expectation{
+			ResourceName: rootResourceName,
+			RootCert:     fakeRootCert,
+		})
+		c.ExpectNoResponse()
+	})
+	t.Run("root first", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect(fakeToken1)
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), Expectation{
+			ResourceName: rootResourceName,
+			RootCert:     fakeRootCert,
+		})
+		c.ExpectNoResponse()
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), Expectation{
+			ResourceName: testResourceName,
+			CertChain:    fakeCertificateChain,
+			Key:          fakePrivateKey,
+		})
+		c.ExpectNoResponse()
+	})
+	t.Run("multiple request", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect(fakeToken1)
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), Expectation{
+			ResourceName: rootResourceName,
+			RootCert:     fakeRootCert,
+		})
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), Expectation{
+			ResourceName: rootResourceName,
+			RootCert:     fakeRootCert,
+		})
+		c.ExpectNoResponse()
+	})
+	t.Run("push", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect(fakeToken1)
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), Expectation{
+			ResourceName: testResourceName,
+			CertChain:    fakeCertificateChain,
+			Key:          fakePrivateKey,
+		})
+		conID := getClientConID(c.ID)
+		// Test push new secret to proxy. This SecretItem is for StreamOne.
+		if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
+			s.GeneratePushSecret(conID, fakeToken1)); err != nil {
+			t.Fatalf("failed to send push notification to proxy %q: %v", conID, err)
+		}
+	})
+	t.Run("reconnect", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect(fakeToken1)
+		res := c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
+		s.Verify(res, Expectation{
+			ResourceName: testResourceName,
+			CertChain:    fakeCertificateChain,
+			Key:          fakePrivateKey,
+		})
+		// Close out the connection
+		c.Cleanup()
+
+		// Reconnect with the same resources
+		c = s.Connect(fakeToken1)
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{
+			ResourceNames: []string{testResourceName},
+			ResponseNonce: res.Nonce,
+			VersionInfo:   res.VersionInfo,
+		}), Expectation{
+			ResourceName: testResourceName,
+			CertChain:    fakeCertificateChain,
+			Key:          fakePrivateKey,
+		})
+	})
+	t.Run("unsubscribe", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect(fakeToken1)
+		res := c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
+		s.Verify(res, Expectation{
+			ResourceName: testResourceName,
+			CertChain:    fakeCertificateChain,
+			Key:          fakePrivateKey,
+		})
+		c.Request(&discovery.DiscoveryRequest{
+			ResourceNames: nil,
+			ResponseNonce: res.Nonce,
+			VersionInfo:   res.VersionInfo,
+		})
+		c.ExpectNoResponse()
+	})
+	t.Run("unknown resource", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect(fakeToken1)
+		c.Request(&discovery.DiscoveryRequest{ResourceNames: []string{extraResourceName}})
+		c.ExpectNoResponse()
+	})
+	t.Run("nack", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect(fakeToken1)
+		c.RequestResponseNack(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
+		c.ExpectNoResponse()
+	})
+}
+
+func (s *TestServer) GeneratePushSecret(conID, token string) *ca2.SecretItem {
+	pushSecret := &ca2.SecretItem{
+		CertificateChain: fakePushCertificateChain,
+		PrivateKey:       fakePushPrivateKey,
+		ResourceName:     testResourceName,
+		Version:          time.Now().Format("01-02 15:04:05.000"),
+		Token:            token,
+	}
+	s.store.secrets.Store(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, pushSecret)
+	return pushSecret
+}
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	arg := ca2.Options{
@@ -1033,7 +1248,7 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceNa
 			Version:          time.Now().Format("01-02 15:04:05.000"),
 			Token:            token,
 		}
-		fmt.Println("Store secret for key: ", key, ". token: ", token)
+		log.Info("Store secret for key: ", key, ". token: ", token)
 		ms.secrets.Store(key, s)
 		return s, nil
 	}
@@ -1045,7 +1260,7 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceNa
 			Version:      time.Now().Format("01-02 15:04:05.000"),
 			Token:        token,
 		}
-		fmt.Println("Store root cert for key: ", key, ". token: ", token)
+		log.Info("Store root cert for key: ", key, ". token: ", token)
 		ms.secrets.Store(key, s)
 		return s, nil
 	}
@@ -1062,28 +1277,28 @@ func (ms *mockSecretStore) SecretExist(conID, spiffeID, token, version string) b
 	}
 	val, found := ms.secrets.Load(key)
 	if !found {
-		fmt.Printf("cannot find secret %v in cache\n", key)
+		log.Infof("cannot find secret %v in cache", key)
 		ms.secretCacheMiss++
 		return false
 	}
 	cs := val.(*ca2.SecretItem)
-	fmt.Println("key is: ", key, ". Token: ", cs.Token)
+	log.Infof("key is: %v. Token: %v", key, cs.Token)
 	if spiffeID != cs.ResourceName {
-		fmt.Printf("resource name not match: %s vs %s\n", spiffeID, cs.ResourceName)
+		log.Infof("resource name not match: %s vs %s", spiffeID, cs.ResourceName)
 		ms.secretCacheMiss++
 		return false
 	}
 	if token != cs.Token {
-		fmt.Printf("token does not match %+v vs %+v\n", token, cs.Token)
+		log.Infof("token does not match %+v vs %+v", token, cs.Token)
 		ms.secretCacheMiss++
 		return false
 	}
 	if version != cs.Version {
-		fmt.Printf("version does not match %s vs %s\n", version, cs.Version)
+		log.Infof("version does not match %s vs %s", version, cs.Version)
 		ms.secretCacheMiss++
 		return false
 	}
-	fmt.Printf("requested secret matches cache\n")
+	log.Infof("requested secret matches cache")
 	ms.secretCacheHit++
 	return true
 }

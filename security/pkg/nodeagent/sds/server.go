@@ -56,7 +56,7 @@ func NewServer(options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Se
 			sdsServiceLog.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
 			return nil, err
 		}
-		sdsServiceLog.Infof("SDS gRPC server for workload UDS starts, listening on %q \n", options.WorkloadUDSPath)
+		sdsServiceLog.Infof("SDS gRPC server for workload UDS starts, listening on %q", options.WorkloadUDSPath)
 	}
 
 	version.Info.RecordComponentBuildTag("citadel_agent")

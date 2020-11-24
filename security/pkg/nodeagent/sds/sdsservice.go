@@ -263,13 +263,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					"error details %s", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
 				continue
 			}
 
 			sdsServiceLog.Debugf("%s received SDS request from proxy %q, first request: %v, version info %q, "+
-				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
+				"error details %s", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
 				discReq.ErrorDetail)
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
