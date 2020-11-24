@@ -257,7 +257,8 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	entry := group.Template.DeepCopy()
 	entry.Address = proxy.IPAddresses[0]
 	// TODO move labels out of entry
-	entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
+	// node metadata > WorkloadGroup.Metadata > WorkloadGroup.Template
+	entry.Labels = mergeLabels(entry.Labels, group.Metadata.Labels, proxy.Metadata.Labels)
 
 	if proxy.Metadata.Network != "" {
 		entry.Network = proxy.Metadata.Network
@@ -271,7 +272,10 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 			Name:             name,
 			Namespace:        proxy.Metadata.Namespace,
 			Labels:           entry.Labels,
-			Annotations:      map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name},
+			Annotations: mergeLabels(
+				map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name},
+				group.Metadata.Annotations,
+			),
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: groupCfg.GroupVersionKind.GroupVersion(),
 				Kind:       groupCfg.GroupVersionKind.Kind,
@@ -290,7 +294,7 @@ func mergeLabels(labels ...map[string]string) map[string]string {
 	if len(labels) == 0 {
 		return map[string]string{}
 	}
-	out := make(map[string]string, len(labels)*len(labels[1]))
+	out := make(map[string]string, len(labels)*len(labels[0]))
 	for _, lm := range labels {
 		for k, v := range lm {
 			out[k] = v
