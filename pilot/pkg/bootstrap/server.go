@@ -469,7 +469,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 				return fmt.Errorf("failed reading mesh config: %v", err)
 			}
 			for _, cs := range meshConfig.ConfigSources {
-				if cs.Address == "k8s://" {
+				if cs.Address == string(Kubernetes)+"://" {
 					hasK8SConfigStore = true
 				}
 			}
