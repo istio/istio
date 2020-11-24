@@ -210,7 +210,7 @@ func IsRevisionString(iopYAML string) error {
 	}
 	err = yaml.Unmarshal([]byte(spec), &specTree)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling spec overlay yaml into untype tree %v", err)
+		return fmt.Errorf("invalid IstioOperator: %v", err)
 	}
 	rev := specTree["revision"]
 	// Skip if revision is not specified in any of the profile
@@ -221,7 +221,7 @@ func IsRevisionString(iopYAML string) error {
 	// fail early if revision is not a string eg: revision: 18, revision: 1.8, revision: 1.8.0
 	if !ok {
 		rev = fmt.Sprintf("%v", rev)
-		return fmt.Errorf("invalid revision specified: %v. revision must be a string eg: %q", rev, "1-9-0")
+		return fmt.Errorf("invalid revision specified: %v. Revision must be a string eg: %q", rev, "1-9-0")
 	}
 	return nil
 }
