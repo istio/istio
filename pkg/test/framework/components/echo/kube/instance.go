@@ -19,10 +19,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"path"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +36,8 @@ import (
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -60,6 +63,8 @@ type instance struct {
 	ctx       resource.Context
 	tls       *echoCommon.TLSSettings
 	cluster   resource.Cluster
+
+	serviceAccount string
 }
 
 func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, err error) {
@@ -87,6 +92,12 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 		c.tls = cfg.TLSSettings
 	}
 
+	if cfg.DeployAsVM {
+		if err := createVMConfig(ctx, c, cfg); err != nil {
+			return nil, err
+		}
+	}
+
 	// Generate the service and deployment YAML.
 	serviceYAML, deploymentYAML, err := generateYAML(ctx, cfg, c.cluster)
 	if err != nil {
@@ -106,36 +117,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	}
 
 	if cfg.DeployAsVM {
-		serviceAccount := cfg.Service
-		if !cfg.ServiceAccount {
-			serviceAccount = "default"
-		}
-		token, err := createServiceAccountToken(c.cluster, cfg.Namespace.Name(), serviceAccount)
-		if err != nil {
-			return nil, err
-		}
-		secret := &kubeCore.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfg.Service + "-istio-token",
-				Namespace: cfg.Namespace.Name(),
-			},
-			Data: map[string][]byte{
-				"istio-token": []byte(token),
-			},
-		}
-		if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
-			if kerrors.IsAlreadyExists(err) {
-				if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, err
-			}
-		}
-	}
-
-	if cfg.DeployAsVM {
-		if err := setupVM(ctx, c, cfg); err != nil {
+		if err := registerVMs(ctx, c, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -161,23 +143,123 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	return c, nil
 }
 
-func setupVM(ctx resource.Context, c *instance, cfg echo.Config) error {
+// createVMConfig sets up a Service account,
+func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	serviceAccount := cfg.Service
 	if !cfg.ServiceAccount {
-		serviceAccount = "default"
+		c.serviceAccount = "default"
+	}
+	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cfg.Cluster})
+	if err != nil {
+		return err
+	}
+	cmd := []string{
+		"x", "workload", "group", "create",
+		"--name", cfg.Service,
+		"--namespace", cfg.Namespace.Name(),
+		"--serviceAccount", serviceAccount,
+		"--labels", "app=" + cfg.Service, // TODO put in template as a temp hack
+	}
+	wg, _, err := istioCtl.Invoke(cmd)
+	if err != nil {
+		return err
+	}
+
+	// Push the WorkloadGroup for auto-registration
+	if cfg.AutoRegisterVM {
+		if err := ctx.Config(cfg.Cluster.Primary()).ApplyYAML(cfg.Namespace.Name(), wg); err != nil {
+			return err
+		}
+	}
+
+	// create service account, the next workload command will use it to generate a token
+	err = createServiceAccountToken(c.cluster, cfg.Namespace.Name(), serviceAccount)
+	if err != nil {
+		return err
+	}
+
+	// generate config files for VM bootstrap
+	dir, err := ctx.CreateDirectory(fmt.Sprintf("%s-vm-config", cfg.Service))
+	if err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0600); err != nil {
+		return err
+	}
+
+	ist, err := istio.Get(ctx)
+	if err != nil {
+		return err
+	}
+	// this will wait until the eastwest gateway has an IP
+	_ = ist.CustomIngressFor(c.cluster, istio.EastWestIngressServiceName, istio.EastWestIngressIstioLabel).DiscoveryAddress()
+
+	cmd = []string{
+		"x", "workload", "entry", "configure",
+		"-f", path.Join(dir, "workloadgroup.yaml"),
+		"-o", dir,
 	}
 	if cfg.AutoRegisterVM {
-		return ctx.Config().ApplyYAML(cfg.Namespace.Name(), fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
-kind: WorkloadGroup
-metadata:
-  name: %s
-spec:
-  template:
-    serviceAccount: %s
-    network: %q
-    labels:
-      app: %s`, cfg.Service, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service))
+		cmd = append(cmd, "--autoregister")
+	}
+	_, _, err = istioCtl.Invoke(cmd)
+	if err != nil {
+		return err
+	}
+
+	// TODO move customizations from container command here
+	// TODO create separate bootstrap bundles for each subset
+
+	// push the generated token as a Secret
+	token, err := ioutil.ReadFile(path.Join(dir, "istio-token"))
+	if err != nil {
+		return err
+	}
+	secret := &kubeCore.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfg.Service + "-istio-token",
+			Namespace: cfg.Namespace.Name(),
+		},
+		Data: map[string][]byte{
+			"istio-token": token,
+		},
+	}
+	if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+		if kerrors.IsAlreadyExists(err) {
+			if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	// push the other config as a ConfigMap so we can mount it on our "vm" pods
+	cmData := map[string][]byte{}
+	for _, file := range []string{"cluster.env", "mesh.yaml", "root-cert.pem", "hosts"} {
+		cmData[file], err = ioutil.ReadFile(path.Join(dir, file))
+		if err != nil {
+			return err
+		}
+	}
+	cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cfg.Service + "-vm-bootstrap"}, BinaryData: cmData}
+	_, err = c.cluster.CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// registerVMs creates a WorkloadEntry for each "vm" pod similar to manual VM registration
+func registerVMs(ctx resource.Context, c *instance, cfg echo.Config) error {
+	if cfg.AutoRegisterVM {
+		return nil
+	}
+
+	serviceAccount := cfg.Service
+	if !cfg.ServiceAccount {
+		c.serviceAccount = "default"
 	}
 
 	var pods *kubeCore.PodList
@@ -225,20 +307,12 @@ spec:
 	return nil
 }
 
-func createServiceAccountToken(client kubernetes.Interface, ns string, serviceAccount string) (string, error) {
-	scopes.Framework.Debugf("Creating service account token for: %s/%s", ns, serviceAccount)
-
-	token, err := client.CoreV1().ServiceAccounts(ns).CreateToken(context.TODO(), serviceAccount,
-		&authenticationv1.TokenRequest{
-			Spec: authenticationv1.TokenRequestSpec{
-				Audiences: []string{"istio-ca"},
-			},
-		}, metav1.CreateOptions{})
-
-	if err != nil {
-		return "", err
-	}
-	return token.Status.Token, nil
+func createServiceAccountToken(client kubernetes.Interface, ns string, serviceAccount string) error {
+	scopes.Framework.Debugf("Creating service account for: %s/%s", ns, serviceAccount)
+	_, err := client.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &kubeCore.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: serviceAccount},
+	}, metav1.CreateOptions{})
+	return err
 }
 
 // getContainerPorts converts the ports to a port list of container ports.

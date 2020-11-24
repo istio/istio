@@ -263,11 +263,7 @@ spec:
         - bash
         - -c
         - |-
-          # Capture all inbound and outbound traffic
-          sudo sh -c 'echo ISTIO_SERVICE_CIDR=* >> /var/lib/istio/envoy/cluster.env'
-          sudo sh -c 'echo ISTIO_INBOUND_PORTS=* >> /var/lib/istio/envoy/cluster.env'
-          
-          # Read root cert from and place signed certs here
+          # Read root cert from and place signed certs here (can't mount directly or the dir would be unwritable)
           sudo mkdir -p /var/run/secrets/istio
  
           # hack: remove certs that are bundled in the image
@@ -275,37 +271,31 @@ spec:
           sudo rm /var/run/secrets/istio/key.pem  
           sudo chown -R istio-proxy /var/run/secrets
 
-          # replace root-cert with what was mounted
-          sudo cp /var/run/secrets/istio/rootmount/* /var/run/secrets/istio
+          # place mounted bootstrap files (token is mounted directly to the correct location)
+          sudo cp /var/run/secrets/istio/bootstrap/root-cert.pem /var/run/secrets/istio/root-cert.pem
+          sudo cp /var/run/secrets/istio/bootstrap/cluster.env /var/lib/istio/envoy/cluster.env
+          sudo cp /var/run/secrets/istio/bootstrap/mesh.yaml /etc/istio/config/mesh
+          sudo sh -c 'cat /var/run/secrets/istio/bootstrap/hosts >> /etc/hosts'
+
+          # TODO move these customizations to go code
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
-          # Proxy XDS via agent first
-          sudo sh -c 'echo PROXY_XDS_VIA_AGENT=true >> /var/lib/istio/envoy/cluster.env'
-          {{- if $.VM.AutoRegister }}
-          sudo sh -c 'echo ISTIO_META_AUTO_REGISTER_GROUP={{$.Service}} >> /var/lib/istio/envoy/cluster.env'
-          {{- end }}
-          # Capture all DNS traffic in the VM and forward to Envoy
-          sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=true >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
 
-          # Setup the namespace
-          sudo sh -c 'echo ISTIO_NAMESPACE={{ $.Namespace }} >> /var/lib/istio/envoy/sidecar.env'
-
-          sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
-
-          # Provide a proxyconfig override
-          
-          {{- range $name, $value := $subset.Annotations }}
-          {{- if eq $name.Name "proxy.istio.io/config" }}
-          sudo sh -c 'chmod a+w /etc/istio/config/mesh'
-          sudo sh -c 'echo "defaultConfig:" >> /etc/istio/config/mesh'
-          {{- range $idx, $line := (Lines $value.Value) }}
-          sudo sh -c 'echo "  {{ $line }}" >> /etc/istio/config/mesh'
-          {{- end }}
-          {{- end }}
-          {{- end }}
+          # TODO reenable this by editing proxy-config before pushing ConfigMap
+          # # Provide a proxyconfig override
+          # 
+          # {{- range $name, $value := $subset.Annotations }}
+          # {{- if eq $name.Name "proxy.istio.io/config" }}
+          # sudo sh -c 'chmod a+w /etc/istio/config/mesh'
+          # sudo sh -c 'echo "defaultConfig:" >> /etc/istio/config/mesh'
+          # {{- range $idx, $line := (Lines $value.Value) }}
+          # sudo sh -c 'echo "  {{ $line }}" >> /etc/istio/config/mesh'
+          # {{- end }}
+          # {{- end }}
+          # {{- end }}
 
           # TODO: run with systemctl?
           export ISTIO_AGENT_FLAGS="--concurrency 2"
@@ -346,8 +336,8 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/tokens
           name: {{ $.Service }}-istio-token
-        - mountPath: /var/run/secrets/istio/rootmount
-          name: istio-ca-root-cert
+        - mountPath: /var/run/secrets/istio/bootstrap
+          name: istio-vm-bootstrap
         {{- range $name, $value := $subset.Annotations }}
         {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
         - mountPath: /etc/istio/custom-bootstrap
@@ -359,8 +349,8 @@ spec:
           secretName: {{ $.Service }}-istio-token
         name: {{ $.Service }}-istio-token
       - configMap:
-          name: istio-ca-root-cert
-        name: istio-ca-root-cert
+          name: {{ $.Service }}-vm-bootstrap
+        name: istio-vm-bootstrap
       {{- range $name, $value := $subset.Annotations }}
       {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
       - name: custom-bootstrap-volume
@@ -485,7 +475,6 @@ func generateYAMLWithSettings(
 		"Environment":  cfg.VMEnvironment,
 		"StartupProbe": supportStartupProbe,
 	}
-
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
 	if err != nil {
 		return
