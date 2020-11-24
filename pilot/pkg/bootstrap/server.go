@@ -468,11 +468,16 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			if err != nil {
 				return fmt.Errorf("failed reading mesh config: %v", err)
 			}
+			if len(meshConfig.ConfigSources) == 0 && args.RegistryOptions.KubeConfig != "" {
+				hasK8SConfigStore = true
+			}
 			for _, cs := range meshConfig.ConfigSources {
 				if cs.Address == string(Kubernetes)+"://" {
 					hasK8SConfigStore = true
 				}
 			}
+		} else if args.RegistryOptions.KubeConfig != "" {
+			hasK8SConfigStore = true
 		}
 	}
 
