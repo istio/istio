@@ -57,6 +57,7 @@ type ProxyConfig struct {
 	Sidecar             bool
 	ProxyViaAgent       bool
 	CallCredentials     bool
+	LogAsJson           bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -116,9 +117,16 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-node", e.Node,
 		"--local-address-ip-version", proxyLocalAddressType,
 		"--bootstrap-version", "3",
+	}
+	if e.ProxyConfig.LogAsJson {
+		startupArgs = append(startupArgs,
+			"--log-format",
+			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"%n","msg":"%_"}`,
+		)
+	} else {
 		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
 		// this matches Istio log format
-		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
+		startupArgs = append(startupArgs, "--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v")
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
