@@ -449,6 +449,12 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
+	if pc.ProxyMetadata != nil {
+		for k, v := range pc.ProxyMetadata {
+			untypedMeta[k] = v
+		}
+	}
+
 	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
 		m[key] = val
 	}, untypedMeta)
