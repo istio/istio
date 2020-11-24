@@ -213,7 +213,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 			},
 		},
 	}
-	proxy := fakeProxy("1.2.3.4", group, "nw1")
+	proxy := fakeProxy("10.0.0.1", group, "nw1")
 
 	wantLabels := map[string]string{
 		"app":   "a",   // from WorkloadEntry template
