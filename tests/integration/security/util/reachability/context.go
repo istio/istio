@@ -179,7 +179,6 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 								if c.Include(src, opts) {
 									expectSuccess := c.ExpectSuccess(src, opts)
 
-									// TODO failure from naked -> VM is 1s due to the fact service is empty
 									tpe := "positive"
 									if !expectSuccess {
 										tpe = "negative"
