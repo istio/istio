@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,11 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-type installConfig struct {
-	revision string
-	path     string
-}
 
 type revisionedNamespace struct {
 	revision  string
@@ -48,20 +44,9 @@ func TestMultiVersionRevision(t *testing.T) {
 		RequiresSingleCluster().
 		Features("installation.upgrade").
 		Run(func(ctx framework.TestContext) {
-			testdataDir := filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade")
-
 			// keep these at the latest patch version of each minor version
 			// TODO(samnaser) add 1.7.4 once we flag-protection for reading service-api CRDs (https://github.com/istio/istio/issues/29054)
-			installConfigs := []installConfig{
-				{
-					revision: "1-6-11",
-					path:     filepath.Join(testdataDir, "1.6.11-install.yaml"),
-				},
-				{
-					revision: "1-8-0",
-					path:     filepath.Join(testdataDir, "1.8.0-install.yaml"),
-				},
-			}
+			installVersions := []string{"1.6.11", "1.8.0"}
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
@@ -72,22 +57,21 @@ func TestMultiVersionRevision(t *testing.T) {
 			}()
 
 			revisionedNamespaces := []revisionedNamespace{}
-			for _, c := range installConfigs {
-				configBytes, err := ioutil.ReadFile(c.path)
-				if err != nil {
-					t.Errorf("failed to read config golden from path %s: %v", c.path, err)
-				}
-				configs[c.revision] = string(configBytes)
-				ctx.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, string(configBytes))
+			for _, v := range installVersions {
+				installRevisionOrFail(ctx, t, v, configs)
 
-				// create a namespace pointing to each revisioned install
-				ns := namespace.NewOrFail(t, ctx, namespace.Config{
-					Prefix:   fmt.Sprintf("revision-%s", c.revision),
+				// create a namespace pointed to the revisioned control plane we just installed
+				rev := strings.ReplaceAll(v, ".", "-")
+				ns, err := namespace.New(ctx, namespace.Config{
+					Prefix:   fmt.Sprintf("revision-%s", rev),
 					Inject:   true,
-					Revision: c.revision,
+					Revision: rev,
 				})
+				if err != nil {
+					t.Fatalf("failed to created revisioned namespace: %v", err)
+				}
 				revisionedNamespaces = append(revisionedNamespaces, revisionedNamespace{
-					revision:  c.revision,
+					revision:  rev,
 					namespace: ns,
 				})
 			}
@@ -110,7 +94,13 @@ func TestMultiVersionRevision(t *testing.T) {
 							Name:         "http",
 							Protocol:     protocol.HTTP,
 							InstancePort: 8080,
-						}},
+						},
+						{
+							Name:         "tcp",
+							Protocol:     protocol.TCP,
+							InstancePort: 9000,
+						},
+					},
 				})
 			}
 			builder.BuildOrFail(t)
@@ -126,7 +116,7 @@ func testAllEchoCalls(t *testing.T, echoInstances []echo.Instance) {
 			if source == dest {
 				continue
 			}
-			t.Run(fmt.Sprintf("%s->%s", source.Config().Service, dest.Config().Service), func(t *testing.T) {
+			t.Run(fmt.Sprintf("http-%s->%s", source.Config().Service, dest.Config().Service), func(t *testing.T) {
 				retry.UntilSuccessOrFail(t, func() error {
 					resp, err := source.Call(echo.CallOptions{
 						Target:   dest,
@@ -138,6 +128,32 @@ func testAllEchoCalls(t *testing.T, echoInstances []echo.Instance) {
 					return resp.CheckOK()
 				}, retry.Delay(time.Millisecond*150))
 			})
+			t.Run(fmt.Sprintf("tcp-%s->%s", source.Config().Service, dest.Config().Service), func(t *testing.T) {
+				retry.UntilSuccessOrFail(t, func() error {
+					resp, err := source.Call(echo.CallOptions{
+						Target:   dest,
+						PortName: "tcp",
+					})
+					if err != nil {
+						return err
+					}
+					return resp.CheckOK()
+				}, retry.Delay(time.Millisecond*150))
+			})
 		}
 	}
+}
+
+// installRevisionOrFail takes an Istio version and installs a revisioned control plane running that version
+// provided istio version must be present in tests/integration/pilot/testdata/upgrade for the installation to succeed
+func installRevisionOrFail(ctx framework.TestContext, t *testing.T, version string, configs map[string]string) {
+	installationTestdataDir := filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade")
+	installationConfigPath := filepath.Join(installationTestdataDir, fmt.Sprintf("%s-install.yaml", version))
+	configBytes, err := ioutil.ReadFile(installationConfigPath)
+	if err != nil {
+		t.Fatalf("could not read installation config at path %s: %v", installationConfigPath, err)
+	}
+
+	configs[version] = string(configBytes)
+	ctx.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, string(configBytes))
 }
