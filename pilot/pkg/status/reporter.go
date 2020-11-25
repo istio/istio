@@ -66,6 +66,7 @@ type Reporter struct {
 	clock                  clock.Clock
 	ledger                 ledger.Ledger
 	distributionEventQueue chan distributionEvent
+	controller             *DistributionController
 }
 
 var _ xds.DistributionStatusCache = &Reporter{}
@@ -221,6 +222,9 @@ func (r *Reporter) AddInProgressResource(res config.Config) {
 
 func (r *Reporter) DeleteInProgressResource(res config.Config) {
 	tryLedgerDelete(r.ledger, res)
+	if r.controller != nil {
+		r.controller.configDeleted(res)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.inProgressResources, res.Key())
@@ -342,4 +346,8 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}
+}
+
+func (r *Reporter) SetController(controller *DistributionController) {
+	r.controller = controller
 }

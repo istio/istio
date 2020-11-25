@@ -253,6 +253,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
+					s.statusReporter.SetController(controller)
 					controller.Start(stop)
 				}).Run(stop)
 			return nil
