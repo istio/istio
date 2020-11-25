@@ -32,6 +32,13 @@ import (
 
 const (
 	serviceYAML = `
+{{- if .ServiceAccount }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Service }}
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
