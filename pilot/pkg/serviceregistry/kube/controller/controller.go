@@ -112,9 +112,6 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
-	// FetchCaRoot defines the function to get caRoot
-	FetchCaRoot func() map[string]string
-
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
 
@@ -130,9 +127,6 @@ type Options struct {
 
 	// EndpointMode decides what source to use to get endpoint information
 	EndpointMode EndpointMode
-
-	// CABundlePath defines the caBundle path for istiod Server
-	CABundlePath string
 
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32

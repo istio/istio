@@ -305,7 +305,7 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 				s.WaitUntilCompletion()
 			}()
 
-			g.Expect(s.ServiceController().GetRegistries()[0].Provider()).To(Equal(c.expectedRegistry))
+			g.Expect(s.ServiceController().GetRegistries()[1].Provider()).To(Equal(c.expectedRegistry))
 		})
 	}
 }
