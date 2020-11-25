@@ -57,7 +57,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -1450,7 +1449,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
+	listeners := buildAllListeners(p, env, nil)
 	found := false
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
@@ -1476,7 +1475,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env)
+	listeners = buildAllListeners(p, env, nil)
 	for _, l := range listeners {
 		if l.Name == VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
@@ -1489,7 +1488,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
+	listeners := buildAllListeners(p, env, nil)
 	for _, l := range listeners {
 
 		if l.AccessLog == nil {
@@ -1506,7 +1505,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env)
+	listeners = buildAllListeners(p, env, nil)
 	for _, l := range listeners {
 		if l.AccessLog[0].Filter == nil {
 			t.Fatal("expected filter config in listener access log configuration")
@@ -1516,78 +1515,6 @@ func TestListenerAccessLogs(t *testing.T) {
 		if textFormat != env.Mesh().AccessLogFormat {
 			t.Fatalf("expected format to be %s, but got %s", env.Mesh().AccessLogFormat, textFormat)
 		}
-	}
-}
-
-func TestListenerAccessLogsJSON(t *testing.T) {
-	t.Helper()
-	p := &fakePlugin{}
-	env := buildListenerEnv(nil)
-	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
-
-	defaultFormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormat)
-
-	for _, tc := range []struct {
-		name       string
-		format     string
-		wantFormat string
-	}{
-		{
-			name:       "valid json object",
-			format:     `{"foo": "bar"}`,
-			wantFormat: `{"foo":"bar"}`,
-		},
-		{
-			name:       "valid nested json object",
-			format:     `{"foo": {"bar": "ha"}}`,
-			wantFormat: `{"foo":{"bar":"ha"}}`,
-		},
-		{
-			name:       "invalid json object",
-			format:     `foo`,
-			wantFormat: defaultFormatJSON,
-		},
-		{
-			name:       "incorrect json type",
-			format:     `[]`,
-			wantFormat: defaultFormatJSON,
-		},
-		{
-			name:       "incorrect json type",
-			format:     `"{}"`,
-			wantFormat: defaultFormatJSON,
-		},
-		{
-			name:       "empty string",
-			format:     ``,
-			wantFormat: defaultFormatJSON,
-		},
-	} {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			// Update MeshConfig
-			env.Mesh().AccessLogEncoding = meshconfig.MeshConfig_JSON
-			env.Mesh().AccessLogFormat = tc.format
-
-			// Trigger MeshConfig change and validate that access log is recomputed.
-			accessLogBuilder.reset()
-
-			// Validate that access log filter uses the new format.
-			listeners = buildAllListeners(p, env)
-			for _, l := range listeners {
-				if l.AccessLog[0].Filter == nil {
-					t.Fatal("expected filter config in listener access log configuration")
-				}
-				cfg, _ := conversion.MessageToStruct(l.AccessLog[0].GetTypedConfig())
-				jsonFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["json_format"]
-				jsonFormatString, _ := protomarshal.ToJSON(jsonFormat)
-
-				if jsonFormatString != tc.wantFormat {
-					t.Fatalf("expected format to be %s, but got %s", tc.format, jsonFormatString)
-				}
-			}
-		})
 	}
 }
 
@@ -2279,7 +2206,7 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, env model.Environment) []*listener.Listener {
+func buildAllListeners(p plugin.Plugin, env model.Environment, proxyVersion *model.IstioVersion) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
@@ -2289,6 +2216,7 @@ func buildAllListeners(p plugin.Plugin, env model.Environment) []*listener.Liste
 	proxy := getProxy()
 	proxy.ServiceInstances = nil
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+	proxy.IstioVersion = proxyVersion
 	builder := NewListenerBuilder(proxy, env.PushContext)
 	return configgen.buildSidecarListeners(builder).getListeners()
 }
