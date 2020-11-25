@@ -18,4 +18,4 @@ set -e
 
 echo "Use istioctl bug-report instead.";
 echo "https://istio.io/latest/about/bugs/#generating-a-cluster-state-archive";
-exit 0;
+exit 1;
