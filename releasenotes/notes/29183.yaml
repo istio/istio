@@ -8,4 +8,4 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** downgrade to lower version of Istio.
+    **Fixed** an issue showing unnecessary warnings when downgrading to a lower version of Istio.
