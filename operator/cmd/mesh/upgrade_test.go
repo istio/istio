@@ -71,6 +71,12 @@ func TestVerifySupportedVersions(t *testing.T) {
 			err:        fmt.Errorf("upgrade is not supported before version: %v", upgradeSupportStart),
 			isValid:    false,
 		},
+		{
+			currentVer: "1.8.0",
+			targetVer:  "1.8.0",
+			err:        nil,
+			isValid:    true,
+		},
 	}
 
 	for i, c := range cases {
