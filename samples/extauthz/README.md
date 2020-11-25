@@ -8,13 +8,15 @@ will allow the request if it includes the header `x-ext-authz: allow`.
 
 ## Usage
 
-1. Deploy the Ext Authz service:
+1. Deploy the Ext Authz service in a dedicated pod:
 
     ```console
     $ kubectl apply -f ext-authz.yaml
     service/ext-authz created
     deployment.extensions/ext-authz created
     ```
+
+    Note, you can also deploy the Ext Authz service locally with the application container in the same pod, see the example in `local-ext-authz.yaml`.
 
 1. Verify the Ext Authz server is up and running:
 

@@ -76,5 +76,15 @@ meshConfig:
     envoyExtAuthzGrpc:
       service: %q
       port: 9000
+  - name: "ext-authz-http-local"
+    envoyExtAuthzHttp:
+      service: ext-authz-http.local
+      port: 8000
+      pathPrefix: "/check"
+      includeHeadersInCheck: ["x-ext-authz"]
+  - name: "ext-authz-grpc-local"
+    envoyExtAuthzGrpc:
+      service: ext-authz-grpc.local
+      port: 9000
 `, service, serviceWithNamespace)
 }
