@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
@@ -120,8 +119,6 @@ type Server struct {
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
 
-	// kubeRegistry is the service registry handling the primary cluster.
-	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
@@ -235,18 +232,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 
-	// Parse and validate Istiod Address.
-	istiodHost, _, err := e.GetDiscoveryAddress()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.initControllers(args); err != nil {
-		return nil, err
-	}
-
-	s.initJwtPolicy()
-
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
 		TrustDomain:      s.environment.Mesh().TrustDomain,
@@ -257,6 +242,18 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// CA signing certificate must be created first if needed.
 	if err := s.maybeCreateCA(caOpts); err != nil {
+		return nil, err
+	}
+
+	if err := s.initControllers(args); err != nil {
+		return nil, err
+	}
+
+	s.initJwtPolicy()
+
+	// Parse and validate Istiod Address.
+	istiodHost, _, err := e.GetDiscoveryAddress()
+	if err != nil {
 		return nil, err
 	}
 
@@ -294,16 +291,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initDiscoveryService(args)
 
-	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
-	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
-	if (features.ExternalIstioD || features.CentralIstioD) && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
-		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
-	}
-
-	if err := s.initClusterRegistries(args); err != nil {
-		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
-	}
-
 	s.initSDSServer(args)
 
 	// Notice that the order of authenticators matters, since at runtime
@@ -322,8 +309,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Start CA or RA server. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
-
-	s.initNamespaceController(args)
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
@@ -1040,29 +1025,6 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	return nil
 }
 
-// initNamespaceController initializes namespace controller to sync config map.
-func (s *Server) initNamespaceController(args *PilotArgs) {
-	if s.CA != nil && s.kubeClient != nil {
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient.Kube()).
-				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("Starting namespace controller")
-					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, s.kubeClient)
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after acquiring the leader lock
-					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-					// basically lazy loading the informer, if we stop it when we lose the lock we will never
-					// recreate it again.
-					s.kubeClient.RunAndWait(stop)
-					nc.Run(leaderStop)
-				}).
-				Run(stop)
-			return nil
-		})
-	}
-}
-
 // initJwtPolicy initializes JwtPolicy.
 func (s *Server) initJwtPolicy() {
 	if features.JwtPolicy.Get() != jwt.PolicyThirdParty {
@@ -1135,6 +1097,9 @@ func (s *Server) startCA(caOpts *caOptions) {
 }
 
 func (s *Server) fetchCARoot() map[string]string {
+	if s.CA == nil {
+		return nil
+	}
 	return map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(s.CA.GetCAKeyCertBundle().GetRootCertPem()),
 	}

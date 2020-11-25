@@ -44,6 +44,7 @@ type Controller struct {
 	registries []serviceregistry.Instance
 	storeLock  sync.RWMutex
 	meshHolder mesh.Holder
+	running    bool
 }
 
 type Options struct {
@@ -272,13 +273,18 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collectio
 
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
-
 	for _, r := range c.GetRegistries() {
 		go r.Run(stop)
 	}
-
+	c.running = true
 	<-stop
 	log.Info("Registry Aggregator terminated")
+}
+
+// Running returns true after Run has been called. If already running, registries passed to AddRegistry
+// should be started outside of this aggregate controller.
+func (c *Controller) Running() bool {
+	return c.running
 }
 
 // HasSynced returns true when all registries have synced
