@@ -14,39 +14,109 @@
 
 package status
 
-import "sync"
+import (
+	"context"
+	"sync"
+	"sync/atomic"
+)
+import "k8s.io/apimachinery/pkg/runtime/schema"
 
-type ResourceLock struct {
+type ResourceMutex struct {
 	masterLock sync.RWMutex
-	listing    map[interface{}]*sync.Mutex
+	cache map[lockResource]*cacheEntry
 }
 
-func (r *ResourceLock) Lock(i interface{}) {
-	r.retrieveMutex(i).Lock()
+type cacheEntry struct {
+	// the runlock ensures only one routine is writing status for a given resource at a time
+	runLock sync.Mutex
+	// the cachelock protects writes and reads to the two cache values
+	cacheLock sync.Mutex
+	// the cacheVale represents the latest version of the resource, including ResourceVersion
+	cacheVal *Resource
+	// the cacheProgress represents the latest version of the Progress
+	cacheProgress *Progress
+	countLock     sync.Mutex
+	// track how many routines are running for this resource.  always <= 2
+	routineCount  int32
+	// track if this resource has been deleted, and if so, stop writing updates for it
+	deleted       bool
 }
 
-func (r *ResourceLock) Unlock(i interface{}) {
-	r.retrieveMutex(i).Unlock()
+func (rl *ResourceMutex) Delete(r Resource) {
+	f := rl.retrieveEntry(convert(r))
+	f.cacheLock.Lock()
+	defer f.cacheLock.Unlock()
+	f.deleted = true
+}
+
+// OncePerResource will run the target function at most once per resource, with up to one waiting routine per resource
+// we only want one update per resource running concurrently to prevent overwhelming the API server, but we also
+// don't want to stack up goroutines when the API server is overwhelmed.  This limits us to 2*resourceCount goroutines
+// while ensuring that when a goroutine begins, it gets the latest status values for the resource.
+func (rl *ResourceMutex) OncePerResource(ctx context.Context, r Resource, p Progress, target func(ctx context.Context, config Resource, state Progress)) {
+	lr := convert(r)
+	f := rl.retrieveEntry(lr)
+	// every call updates the cache, so whenever the standby routine fires, it runs with the latest values
+	f.cacheLock.Lock()
+	f.cacheVal = &r
+	f.cacheProgress = &p
+	f.cacheLock.Unlock()
+	// we only fire off goroutine if routincount < 2, so we can have a currently running routine and a standby routine
+	if atomic.LoadInt32(&f.routineCount) < 2 {
+		f.countLock.Lock()
+		if atomic.LoadInt32(&f.routineCount) < 2 {
+			// double check routinecount before incrementing to avoid race
+			atomic.AddInt32(&f.routineCount, 1)
+			f.countLock.Unlock()
+			go func() {
+				f.runLock.Lock()
+				f.cacheLock.Lock()
+				if f.deleted {
+					atomic.AddInt32(&f.routineCount, -1)
+					delete(rl.cache, lr)
+					f.cacheLock.Unlock()
+					f.runLock.Unlock()
+					return
+				}
+				finalResource := f.cacheVal
+				finalProgress := f.cacheProgress
+				f.cacheLock.Unlock()
+				target(ctx, *finalResource, *finalProgress)
+				atomic.AddInt32(&f.routineCount, -1)
+				f.runLock.Unlock()
+			}()
+		} else {
+			f.countLock.Unlock()
+		}
+	}
+}
+
+func convert(i Resource) lockResource {
+	return lockResource{
+		GroupVersionResource: i.GroupVersionResource,
+		Namespace:            i.Namespace,
+		Name:                 i.Name,
+	}
 }
 
 // returns value indicating if init was necessary
-func (r *ResourceLock) init() bool {
-	if r.listing == nil {
+func (r *ResourceMutex) init() bool {
+	if r.cache == nil {
 		r.masterLock.Lock()
 		defer r.masterLock.Unlock()
 		// double check, per pattern
-		if r.listing == nil {
-			r.listing = make(map[interface{}]*sync.Mutex)
+		if r.cache == nil {
+			r.cache = make(map[lockResource]*cacheEntry)
 		}
 		return true
 	}
 	return false
 }
 
-func (r *ResourceLock) retrieveMutex(i interface{}) *sync.Mutex {
+func (r *ResourceMutex) retrieveEntry(i lockResource) *cacheEntry {
 	if !r.init() {
 		r.masterLock.RLock()
-		if result, ok := r.listing[i]; ok {
+		if result, ok := r.cache[i]; ok {
 			r.masterLock.RUnlock()
 			return result
 		}
@@ -55,6 +125,13 @@ func (r *ResourceLock) retrieveMutex(i interface{}) *sync.Mutex {
 	}
 	r.masterLock.Lock()
 	defer r.masterLock.Unlock()
-	r.listing[i] = &sync.Mutex{}
-	return r.listing[i]
+	r.cache[i] = &cacheEntry{}
+	return r.cache[i]
 }
+
+type lockResource struct {
+	schema.GroupVersionResource
+	Namespace       string
+	Name            string
+}
+
