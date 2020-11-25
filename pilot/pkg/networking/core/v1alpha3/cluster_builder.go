@@ -241,9 +241,13 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return c
 }
 
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, instance *model.ServiceInstance, bind string) *cluster.Cluster {
+// buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to `inbound|clusterPort||`, and send traffic to <bind>:<instance.Endpoint.EndpointPort>
+// A workload will have a single inbound cluster per port. In general this works properly, with the exception of the Service-oriented DestinationRule, and upstream
+// protocol selection. Our documentation currently requires a single protocol per port, and the DestinationRule issue is slated to move to Sidecar.
+// Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however, Sidecar.Ingress allows these to be different.
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, clusterPort int, instance *model.ServiceInstance, bind string) *cluster.Cluster {
 	clusterName := util.BuildInboundSubsetKey(proxy, instance.ServicePort.Name,
-		instance.Service.Hostname, instance.ServicePort.Port)
+		instance.Service.Hostname, instance.ServicePort.Port, clusterPort)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.ServicePort, instance.Service)

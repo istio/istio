@@ -16,15 +16,297 @@ package v1alpha3_test
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
+
+func flattenInstances(il ...[]*model.ServiceInstance) []*model.ServiceInstance {
+	ret := []*model.ServiceInstance{}
+	for _, i := range il {
+		ret = append(ret, i...)
+	}
+	return ret
+}
+
+func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targetPort int) []*model.ServiceInstance {
+	ret := []*model.ServiceInstance{}
+	for _, p := range svc.Ports {
+		if p.Port != servicePort {
+			continue
+		}
+		ret = append(ret, &model.ServiceInstance{
+			Service:     svc,
+			ServicePort: p,
+			Endpoint: &model.IstioEndpoint{
+				Address:         proxy.IPAddresses[0],
+				ServicePortName: p.Name,
+				EndpointPort:    uint32(targetPort),
+			},
+		})
+	}
+	return ret
+}
+
+func TestInboundClusters(t *testing.T) {
+	proxy := &model.Proxy{
+		IPAddresses: []string{"1.2.3.4"},
+	}
+	service := &model.Service{
+		Hostname:    host.Name("backend.default.svc.cluster.local"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports: model.PortList{&model.Port{
+			Name:     "default",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}, &model.Port{
+			Name:     "other",
+			Port:     81,
+			Protocol: protocol.HTTP,
+		}},
+		Resolution: model.ClientSideLB,
+	}
+	serviceAlt := &model.Service{
+		Hostname:    host.Name("backend-alt.default.svc.cluster.local"),
+		Address:     "1.1.1.2",
+		ClusterVIPs: make(map[string]string),
+		Ports: model.PortList{&model.Port{
+			Name:     "default",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}, &model.Port{
+			Name:     "other",
+			Port:     81,
+			Protocol: protocol.HTTP,
+		}},
+		Resolution: model.ClientSideLB,
+	}
+
+	cases := []struct {
+		name      string
+		configs   []config.Config
+		services  []*model.Service
+		instances []*model.ServiceInstance
+		expected  map[string][]string
+	}{
+		{name: "empty"},
+		{name: "empty service", services: []*model.Service{service}},
+		{
+			name:      "single service, partial instance",
+			services:  []*model.Service{service},
+			instances: makeInstances(proxy, service, 80, 8080),
+			expected: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+			},
+		},
+		{
+			name:     "single service, multiple instance",
+			services: []*model.Service{service},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081)),
+			expected: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+			},
+		},
+		{
+			name:     "multiple services with same service port, different target",
+			services: []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081),
+				makeInstances(proxy, serviceAlt, 80, 8082),
+				makeInstances(proxy, serviceAlt, 81, 8083)),
+			expected: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+				"inbound|8082||": {"127.0.0.1:8082"},
+				"inbound|8083||": {"127.0.0.1:8083"},
+			},
+		},
+		{
+			name:     "multiple services with same service port and target",
+			services: []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081),
+				makeInstances(proxy, serviceAlt, 80, 8080),
+				makeInstances(proxy, serviceAlt, 81, 8081)),
+			expected: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+			},
+		},
+		{
+			name: "ingress to same port",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "127.0.0.1:80",
+					}}},
+				},
+			},
+			expected: map[string][]string{
+				"inbound|80||": {"127.0.0.1:80"},
+			},
+		},
+		{
+			name: "ingress to different port",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "127.0.0.1:8080",
+					}}},
+				},
+			},
+			expected: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+			},
+		},
+		{
+			name: "ingress to instance IP",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "0.0.0.0:8080",
+					}}},
+				},
+			},
+			expected: map[string][]string{
+				"inbound|80||": {"1.2.3.4:8080"},
+			},
+		},
+		{
+			name: "ingress to socket",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "unix:///socket",
+					}}},
+				},
+			},
+			expected: map[string][]string{
+				"inbound|80||": {"/socket"},
+			},
+		},
+		{
+			name: "multiple ingress",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{
+								Number:   80,
+								Protocol: "HTTP",
+								Name:     "http",
+							},
+							DefaultEndpoint: "127.0.0.1:8080",
+						},
+						{
+							Port: &networking.Port{
+								Number:   81,
+								Protocol: "HTTP",
+								Name:     "http",
+							},
+							DefaultEndpoint: "127.0.0.1:8080",
+						},
+					}},
+				},
+			},
+			expected: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+				"inbound|81||": {"127.0.0.1:8080"},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+				Services:  tt.services,
+				Instances: tt.instances,
+				Configs:   tt.configs,
+			})
+			sim := simulation.NewSimulationFromConfigGen(t, s, s.SetupProxy(proxy))
+
+			clusters := xdstest.FilterClusters(sim.Clusters, func(c *cluster.Cluster) bool {
+				return strings.HasPrefix(c.Name, "inbound")
+			})
+			if len(s.PushContext().ProxyStatus) != 0 {
+				// TODO make this fatal, once inbound conflict is silenced
+				t.Logf("got unexpected error: %+v", s.PushContext().ProxyStatus)
+			}
+			cmap := xdstest.ExtractClusters(clusters)
+			got := xdstest.MapKeys(cmap)
+
+			// Check we have all expected clusters
+			if !reflect.DeepEqual(xdstest.MapKeys(tt.expected), got) {
+				t.Errorf("expected clusters: %v, got: %v", xdstest.MapKeys(tt.expected), got)
+			}
+
+			for name, c := range cmap {
+				// Check the upstream endpoints match
+				got := xdstest.ExtractLoadAssignments([]*endpoint.ClusterLoadAssignment{c.GetLoadAssignment()})[name]
+				if !reflect.DeepEqual(tt.expected[name], got) {
+					t.Errorf("%v: expected endpoints %v, got %v", name, tt.expected[name], got)
+				}
+				// simulate an actual call, this ensures we are aligned with the inbound listener configuration
+				_, _, _, port := model.ParseSubsetKey(name)
+				sim.Run(simulation.Call{
+					Port:     port,
+					Address:  "1.2.3.4",
+					CallMode: simulation.CallModeInbound,
+				}).Matches(t, simulation.Result{
+					ClusterMatched: fmt.Sprintf("inbound|%d||", port),
+				})
+			}
+		})
+	}
+}
 
 func TestInbound(t *testing.T) {
 	mtlsMode := func(m string) string {

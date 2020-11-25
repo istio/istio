@@ -190,6 +190,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	return clusters
 }
 
+var NilClusterPatcher = clusterPatcher{}
+
 type clusterPatcher struct {
 	efw  *model.EnvoyFilterWrapper
 	pctx networking.EnvoyFilter_PatchContext
@@ -260,6 +262,11 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
+type ClusterInstances struct {
+	PrimaryInstance *model.ServiceInstance
+	AllInstances    []*model.ServiceInstance
+}
+
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
 
 	clusters := make([]*cluster.Cluster, 0)
@@ -284,14 +291,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			return nil
 		}
 
-		have := make(map[*model.Port]bool)
+		have := make(map[uint32]bool)
 		for _, instance := range instances {
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
-			if !have[instance.ServicePort] {
-				localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, instance, actualLocalHost)
+			if !have[instance.Endpoint.EndpointPort] {
+				localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), instance, actualLocalHost)
 				clusters = cp.conditionallyAppend(clusters, localCluster)
-				have[instance.ServicePort] = true
+				have[instance.Endpoint.EndpointPort] = true
 			}
 		}
 	} else {
@@ -339,7 +346,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			instance.Endpoint.ServicePortName = listenPort.Name
 			instance.Endpoint.EndpointPort = uint32(port)
 
-			localCluster := cb.buildInboundClusterForPortOrUDS(nil, instance, endpointAddress)
+			localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), instance, endpointAddress)
 			if instanceIPCluster {
 				// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
 				// config which will be skipped. This mirrors the "passthrough" clusters.

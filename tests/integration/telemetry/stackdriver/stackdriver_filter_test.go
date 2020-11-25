@@ -125,8 +125,8 @@ func TestStackdriverMonitoring(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
-		Setup(istio.Setup(getIstioInstance(), setupConfig)).
 		Setup(testSetup).
+		Setup(istio.Setup(getIstioInstance(), setupConfig)).
 		Run()
 }
 
