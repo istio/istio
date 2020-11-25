@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -37,6 +38,99 @@ const (
 	appName    = "zipkin"
 	tracesAPI  = "/api/v2/traces?limit=%d&spanName=%s&annotationQuery=%s"
 	zipkinPort = 9411
+
+	remoteZipkinEntry = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: tracing-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http-tracing
+      protocol: HTTP
+    hosts:
+    - "tracing.{INGRESS_DOMAIN}"
+  - port:
+      number: 9411
+      name: http-tracing-span
+      protocol: HTTP
+    hosts:
+    - "tracing.{INGRESS_DOMAIN}"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tracing-vs
+  namespace: istio-system
+spec:
+  hosts:
+  - "tracing.{INGRESS_DOMAIN}"
+  gateways:
+  - tracing-gateway
+  http:
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: tracing
+        port:
+          number: 80
+  - match:
+    - port: 9411
+    route:
+    - destination:
+        host: tracing
+        port:
+          number: 9411
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: tracing
+  namespace: istio-system
+spec:
+  host: tracing
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---`
+
+	extServiceEntry = `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: zipkin
+spec:
+  hosts:
+  # must be of form name.namespace.global
+  - zipkin.istio-system.global
+  # Treat remote cluster services as part of the service mesh
+  # as all clusters in the service mesh share the same root of trust.
+  location: MESH_INTERNAL
+  ports:
+  - name: http-tracing-span
+    number: 9411
+    protocol: http
+  resolution: DNS
+  addresses:
+  # the IP address to which zipkin.istio-system.global will resolve to
+  # must be unique for each remote service, within a given cluster.
+  # This address need not be routable. Traffic for this IP will be captured
+  # by the sidecar and routed appropriately.
+  - 240.0.0.2
+  endpoints:
+  # This is the routable address of the ingress gateway in cluster1 that
+  # sits in front of zipkin service. Traffic from the sidecar will be
+  # routed to this address.
+  - address: {INGRESS_DOMAIN}
+    ports:
+      http-tracing-span: 15443 # Do not change this port value
+`
 )
 
 var (
@@ -61,12 +155,27 @@ func getZipkinYaml() (string, error) {
 	return yaml, nil
 }
 
-func installZipkin(ctx resource.Context, ns string) error {
+func installZipkin(cluster resource.Cluster, ctx resource.Context, ns string) error {
 	yaml, err := getZipkinYaml()
 	if err != nil {
 		return err
 	}
-	return ctx.Config().ApplyYAML(ns, yaml)
+	return ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
+}
+
+func installServiceEntry(cluster resource.Cluster, ctx resource.Context, ns, ingressAddr string) error {
+	// Setup remote access to zipkin in cluster
+	yaml := strings.ReplaceAll(remoteZipkinEntry, "{INGRESS_DOMAIN}", ingressAddr)
+	err := ctx.Config().ApplyYAMLInCluster(cluster, ns, yaml)
+	if err != nil {
+		return err
+	}
+	yaml = strings.ReplaceAll(extServiceEntry, "{INGRESS_DOMAIN}", ingressAddr)
+	err = ctx.Config().ApplyYAML(ns, yaml)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func removeZipkin(ctx resource.Context, ns string) error {
@@ -89,7 +198,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		return nil, err
 	}
 
-	if err := installZipkin(ctx, cfg.TelemetryNamespace); err != nil {
+	if err := installZipkin(c.cluster, ctx, cfg.TelemetryNamespace); err != nil {
 		return nil, err
 	}
 
@@ -115,7 +224,13 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c.forwarder = forwarder
 	scopes.Framework.Debugf("initialized zipkin port forwarder: %v", forwarder.Address())
 
-	c.address = fmt.Sprintf("http://%s", forwarder.Address())
+	ingressDomain := fmt.Sprintf("%s.nip.io", cfgIn.IngressAddr.IP.String())
+	c.address = fmt.Sprintf("http://tracing.%s", ingressDomain)
+	scopes.Framework.Debugf("Zipkin address: %s ", c.address)
+	err = installServiceEntry(c.cluster, ctx, cfg.TelemetryNamespace, ingressDomain)
+	if err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 
