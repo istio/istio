@@ -678,7 +678,7 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 	return nil
 }
 
-// VirtualServices lists all virtual services bound to the specified gateways
+// VirtualServicesForGateway lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
 func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) []config.Config {
@@ -688,7 +688,7 @@ func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) [
 	return res
 }
 
-// VirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
+// DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
 func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
 	var out []ConfigKey
 	for _, vs := range vses {
