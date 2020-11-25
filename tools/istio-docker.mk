@@ -211,6 +211,9 @@ docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
 
 .PHONY: dockerx dockerx.save
 
+# Can also be linux/arm64, or both with linux/amd64,linux/arm64
+DOCKER_ARCHITECTURES ?= linux/amd64
+
 # Docker has an experimental new build engine, https://github.com/docker/buildx
 # This brings substantial (10x) performance improvements when building Istio
 # However, its only built into docker since v19.03. Because its so new that devs are likely to not have
@@ -232,6 +235,7 @@ dockerx:
 		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
 		BASE_VERSION=$(BASE_VERSION) \
 		DOCKERX_PUSH=$(DOCKERX_PUSH) \
+		DOCKER_ARCHITECTURES=$(DOCKER_ARCHITECTURES) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
 		{ docker logs buildx_buildkit_container-builder0; exit 1; }
