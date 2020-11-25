@@ -279,7 +279,7 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.9")
+var upgradeSupportStart, _ = goversion.NewVersion("1.6.0")
 
 func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion string, l clog.Logger) error {
 	curGoVersion, err := goversion.NewVersion(currentVersion)
@@ -290,8 +290,8 @@ func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion st
 	if err != nil {
 		return fmt.Errorf("failed to parse the target version %q: %v", targetVersion, err)
 	}
-	if !SupportedIstioVersions.Check(curGoVersion) {
-		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
+	if upgradeSupportStart.Segments()[1] > curGoVersion.Segments()[1] {
+		return fmt.Errorf("upgrade is not supported before version: %v", upgradeSupportStart)
 	}
 	// Warn if user is trying skip one minor verion eg: 1.6.x to 1.8.x
 	if (targetGoVersion.Segments()[1] - curGoVersion.Segments()[1]) > 1 {
