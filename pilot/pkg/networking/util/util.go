@@ -270,10 +270,10 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE15 checks whether the given Istio version is greater than or equals 1.5.
-func IsIstioVersionGE15(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
+// IsIstioVersionGE19 checks whether the given Istio version is greater than or equals 1.9.
+func IsIstioVersionGE19(node *model.Proxy) bool {
+	return node == nil || node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 9, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE18 checks whether the given Istio version is greater than or equals 1.8.
