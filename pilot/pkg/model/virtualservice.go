@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -88,7 +89,8 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 	}
 }
 
-func mergeVirtualServicesIfNeeded(vServices []config.Config, defaultExportTo map[visibility.Instance]bool) (out []config.Config) {
+// Return merged virtual services and the root->delegate vs map
+func mergeVirtualServicesIfNeeded(vServices []config.Config, defaultExportTo map[visibility.Instance]bool) (out []config.Config, delegatesByRoot map[ConfigKey][]ConfigKey) {
 	out = make([]config.Config, 0, len(vServices))
 	delegatesMap := map[string]config.Config{}
 	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
@@ -134,13 +136,18 @@ func mergeVirtualServicesIfNeeded(vServices []config.Config, defaultExportTo map
 		return
 	}
 
+	delegatesByRoot = make(map[ConfigKey][]ConfigKey, len(rootVses))
+
 	// 2. merge delegates and root
 	for _, root := range rootVses {
+		rootConfigKey := ConfigKey{Name: root.Name, Namespace: root.Namespace}
 		rootVs := root.Spec.(*networking.VirtualService)
 		mergedRoutes := []*networking.HTTPRoute{}
 		for _, route := range rootVs.Http {
 			// it is root vs with delegate
 			if route.Delegate != nil {
+				delegateConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: route.Delegate.Name, Namespace: route.Delegate.Namespace}
+				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
 				delegate, ok := delegatesMap[key(route.Delegate.Name, route.Delegate.Namespace)]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
