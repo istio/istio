@@ -282,6 +282,13 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 var upgradeSupportStart, _ = goversion.NewVersion("1.6.0")
 
 func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion string, l clog.Logger) error {
+	if err := verifySupportedVersion(currentVersion, targetVersion, l); err != nil {
+		return err
+	}
+	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
+}
+
+func verifySupportedVersion(currentVersion, targetVersion string, l clog.Logger) error {
 	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
 		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
@@ -299,8 +306,7 @@ func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion st
 		l.LogAndPrintf("Upgrading across more than one minor version (e.g., %v to %v)"+
 			" in one step is not officially tested or recommended.\n", curGoVersion, targetGoVersion)
 	}
-
-	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
+	return nil
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
