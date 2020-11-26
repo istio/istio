@@ -25,6 +25,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"golang.org/x/time/rate"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -54,13 +55,13 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
-	// Store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
-	// do not support writing.
-	Store model.ConfigStoreCache
-
-	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
+	// TODO move WorkloadEntry related tasks into their own object and give InternalGen a reference.
+	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
+	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
+	store model.ConfigStoreCache
+	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
 	cleanupLimit *rate.Limiter
-
+	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
@@ -70,9 +71,6 @@ type InternalGen struct {
 func NewInternalGen(s *DiscoveryServer) *InternalGen {
 	return &InternalGen{
 		Server: s,
-		// TODO make this configurable
-		cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
-		cleanupQueue: queue.NewDelayed(),
 	}
 }
 
@@ -108,8 +106,16 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
 }
 
+func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCache) {
+	if features.WorkloadEntryAutoRegistration {
+		sg.store = store
+		sg.cleanupLimit = rate.NewLimiter(rate.Limit(20), 1)
+		sg.cleanupQueue = queue.NewDelayed()
+	}
+}
+
 func (sg *InternalGen) Run(stop <-chan struct{}) {
-	if sg.Store != nil && sg.cleanupQueue != nil {
+	if sg.store != nil && sg.cleanupQueue != nil {
 		go sg.periodicWorkloadEntryCleanup(stop)
 		go sg.cleanupQueue.Run(stop)
 	}

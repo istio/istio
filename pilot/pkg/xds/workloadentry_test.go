@@ -20,7 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -35,6 +38,7 @@ import (
 
 func init() {
 	features.WorkloadEntryAutoRegistration = true
+	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
 }
 
 var (
@@ -63,8 +67,11 @@ var (
 func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig.Store = store
+	ig.EnableWorkloadEntryController(store)
 	createOrFail(t, store, wgA)
+	stop := make(chan struct{})
+	go ig.Run(stop)
+	defer close(stop)
 
 	cases := map[string]*model.Proxy{
 		"missing group":      {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: wgA.Namespace}},
@@ -76,7 +83,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ig.RegisterWorkload(tc, &Connection{proxy: tc, Connect: time.Now()})
+			_ = ig.RegisterWorkload(tc, &Connection{proxy: tc, Connect: time.Now()})
 			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if err != nil {
 				t.Fatalf("failed listing WorkloadEntry: %v", err)
@@ -90,9 +97,6 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 }
 
 func TestAutoregistrationLifecycle(t *testing.T) {
-	if features.WorkloadEntryCleanupGracePeriod != 200*time.Millisecond {
-		features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
-	}
 	ig1, ig2, store := setup(t)
 	stopped1 := false
 	stop1, stop2 := make(chan struct{}), make(chan struct{})
@@ -111,12 +115,12 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
-		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+		_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 	})
 	t.Run("multinetwork same ip", func(t *testing.T) {
 		// make sure we don't overrwrite a similar entry for a different network
-		ig2.RegisterWorkload(p2, &Connection{proxy: p2, Connect: time.Now()})
+		_ = ig2.RegisterWorkload(p2, &Connection{proxy: p2, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 		checkEntryOrFail(t, store, wgA, p2, ig2.Server.instanceID)
 	})
@@ -127,7 +131,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the same instance id
-			ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+			_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 			checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 		})
 		t.Run("different instance", func(t *testing.T) {
@@ -136,7 +140,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the new instance id
-			ig2.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+			_ = ig2.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 			checkEntryOrFail(t, store, wgA, p, ig2.Server.instanceID)
 		})
 	})
@@ -147,7 +151,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			return checkNoEntry(store, wgA, p)
 		})
 		// reconnect
-		ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+		_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
 		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
@@ -164,12 +168,79 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
+func TestWorkloadEntryFromGroup(t *testing.T) {
+	group := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadGroup,
+			Namespace:        "a",
+			Name:             "wg-a",
+			Labels: map[string]string{
+				"grouplabel": "notonentry",
+			},
+		},
+		Spec: &v1alpha3.WorkloadGroup{
+			Metadata: &v1alpha3.WorkloadGroup_ObjectMeta{
+				Labels:      map[string]string{"foo": "bar"},
+				Annotations: map[string]string{"foo": "bar"},
+			},
+			Template: &v1alpha3.WorkloadEntry{
+				Ports:          map[string]uint32{"http": 80},
+				Labels:         map[string]string{"app": "a"},
+				Weight:         1,
+				ServiceAccount: "sa-a",
+			},
+		},
+	}
+	proxy := fakeProxy("10.0.0.1", group, "nw1")
+
+	wantLabels := map[string]string{
+		"app":   "a",   // from WorkloadEntry template
+		"foo":   "bar", // from WorkloadGroup.Metadata
+		"merge": "me",  // from Node metadata
+	}
+
+	want := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadEntry,
+			Name:             "test-we",
+			Namespace:        proxy.Metadata.Namespace,
+			Labels:           wantLabels,
+			Annotations: map[string]string{
+				AutoRegistrationGroupAnnotation: group.Name,
+				"foo":                           "bar",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: group.GroupVersionKind.GroupVersion(),
+				Kind:       group.GroupVersionKind.Kind,
+				Name:       group.Name,
+				UID:        kubetypes.UID(group.UID),
+				Controller: &workloadGroupIsController,
+			}},
+		},
+		Spec: &v1alpha3.WorkloadEntry{
+			Address: "10.0.0.1",
+			Ports: map[string]uint32{
+				"http": 80,
+			},
+			Labels:         wantLabels,
+			Network:        "nw1",
+			Weight:         1,
+			ServiceAccount: "sa-a",
+		},
+	}
+
+	got := workloadEntryFromGroup("test-we", proxy, &group)
+	if diff := cmp.Diff(got, &want); diff != "" {
+		t.Errorf(diff)
+	}
+}
+
 func setup(t *testing.T) (*InternalGen, *InternalGen, model.ConfigStoreCache) {
 	store := memory.NewController(memory.Make(collections.All))
 	ig1 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig1.Store = store
+	ig1.EnableWorkloadEntryController(store)
 	ig2 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-2"})
-	ig2.Store = store
+	ig2.EnableWorkloadEntryController(store)
 	createOrFail(t, store, wgA)
 	return ig1, ig2, store
 }
@@ -212,6 +283,16 @@ func checkEntry(
 	}
 	if we.Address != proxy.IPAddresses[0] {
 		err = multierror.Append(fmt.Errorf("entry has address %s; expected %s", we.Address, proxy.IPAddresses[0]))
+	}
+
+	if proxy.Metadata.Network != "" {
+		if we.Network != proxy.Metadata.Network {
+			err = multierror.Append(fmt.Errorf("entry has network %s; expected to match meta network %s", we.Network, proxy.Metadata.Network))
+		}
+	} else {
+		if we.Network != tmpl.Template.Network {
+			err = multierror.Append(fmt.Errorf("entry has network %s; expected to match group template network %s", we.Network, tmpl.Template.Network))
+		}
 	}
 
 	// check controller annotations
