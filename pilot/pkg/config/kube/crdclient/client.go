@@ -130,10 +130,14 @@ func (cl *Client) HasSynced() bool {
 }
 
 func New(client kube.Client, configLedger ledger.Ledger, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
+	schemas := collections.Pilot
+	if features.EnableServiceApis {
+		schemas = collections.PilotServiceApi
+	}
 	out := &Client{
 		domainSuffix:      options.DomainSuffix,
 		configLedger:      configLedger,
-		schemas:           collections.PilotServiceApi,
+		schemas:           schemas,
 		revision:          revision,
 		queue:             queue.NewQueue(1 * time.Second),
 		kinds:             map[resource.GroupVersionKind]*cacheHandler{},
