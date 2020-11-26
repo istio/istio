@@ -5,4 +5,4 @@ issue:
   - 27238
 releaseNotes:
   - |
-    **Fixed** supports cacert's algorithms other than RSA.
+    **Fixed** the CA's certificate signature algorithm to be the default algorithm corresponding to the CA's signing key type.
