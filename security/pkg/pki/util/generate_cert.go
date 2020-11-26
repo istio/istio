@@ -295,7 +295,8 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 	if err != nil {
 		return nil, err
 	}
-
+    // SignatureAlgorithm will use the default algorithm.
+    // See https://golang.org/src/crypto/x509/x509.go?s=5131:5158#L1965 .
 	return &x509.Certificate{
 		SerialNumber:          serialNum,
 		Subject:               subject,
