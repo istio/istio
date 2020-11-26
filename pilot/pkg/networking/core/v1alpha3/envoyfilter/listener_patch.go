@@ -17,6 +17,7 @@ package envoyfilter
 import (
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -172,7 +173,52 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 			// nothing more to do in other patches as we removed this filter chain
 			return
 		} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
-			proto.Merge(fc, cp.Value)
+
+			// Test if the patch is for TransportSocket
+			cpValueCast, errCpCast := (cp.Value).(*xdslistener.FilterChain)
+			if !errCpCast {
+				log.Errorf("ERROR Cast of cp.Value: %v", errCpCast)
+				continue
+			}
+			isTransportSocketPatch := cpValueCast.TransportSocket != nil
+
+			if isTransportSocketPatch {
+
+				// Test if the listener contains a config for TransportSocket
+				fcTransportSocketName := ""
+				if fc.TransportSocket != nil {
+					fcTransportSocketName = fc.TransportSocket.Name
+				}
+				isTLSConfig := tlsName == fcTransportSocketName
+
+				if isTLSConfig {
+
+					// Extract tlsContext from patch
+					cpCastTSocket := cpValueCast.TransportSocket
+					tlsContextPatch := &tls.DownstreamTlsContext{}
+					errPatch := ptypes.UnmarshalAny(cpCastTSocket.GetTypedConfig(), tlsContextPatch)
+					if errPatch != nil {
+						log.Errorf("ERROR UnmarshalAny patch: %v", errPatch)
+						continue
+					}
+
+					// Extract tlsContext from Listener
+					tlsContextListener := &tls.DownstreamTlsContext{}
+					cTransportSocket := fc.TransportSocket
+					errListener := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), tlsContextListener)
+					if errListener != nil {
+						log.Errorf("ERROR UnmarshalAny Listener: %v", errListener)
+						continue
+					}
+
+					// Merge the patch and the listener at a lower level
+					proto.Merge(tlsContextListener, tlsContextPatch)
+					// Merge the above result with the whole listener
+					proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(tlsContextListener))
+				}
+			} else {
+				proto.Merge(fc, cp.Value)
+			}
 		}
 	}
 	doNetworkFilterListOperation(patchContext, patches, listener, fc)

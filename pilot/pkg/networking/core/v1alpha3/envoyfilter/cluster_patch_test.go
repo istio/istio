@@ -15,6 +15,8 @@
 package envoyfilter
 
 import (
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -201,10 +203,52 @@ func TestClusterPatching(t *testing.T) {
 				Value:     buildPatchStruct(`{"lb_policy":"RING_HASH"}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value:     buildPatchStruct(`
+				{"transport_socket":{
+					"name":"envoy.transport_sockets.tls",
+					"typed_config":{
+						"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
+						"common_tls_context":{
+							"tls_params":{
+								"tls_minimum_protocol_version":"TLSv1_3"}}}}}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*cluster.Cluster{
-		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
+		{Name: "cluster1",
+			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+			LbPolicy: cluster.Cluster_ROUND_ROBIN,
+			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name:            "tlsMode-istio",
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_1,
+									},
+									TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+										InstanceName:    "instance",
+										CertificateName: "certificate",
+									},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
 		{Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
@@ -214,12 +258,51 @@ func TestClusterPatching(t *testing.T) {
 	}
 
 	sidecarOutboundOut := []*cluster.Cluster{
-		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
+		{Name: "cluster1",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy: cluster.Cluster_RING_HASH,
+			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name:            "tlsMode-istio",
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+									},
+									TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+										InstanceName:    "instance",
+										CertificateName: "certificate",
+									},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
 		{Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
-			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			},
+			LbPolicy: cluster.Cluster_RING_HASH,
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext {
+							TlsParams: &tls.TlsParameters {
+								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							},
+						},
+					}),
+				},
+			},
 		},
 		{Name: "new-cluster1"},
 		{Name: "new-cluster2"},
