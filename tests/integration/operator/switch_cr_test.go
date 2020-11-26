@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
@@ -45,21 +44,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util/sanitycheck"
 	"istio.io/pkg/log"
-)
-
-const (
-	IstioNamespace    = "istio-system"
-	OperatorNamespace = "istio-operator"
-	retryDelay        = time.Second
-	retryTimeOut      = 20 * time.Minute
-)
-
-var (
-	// ManifestPath is path of local manifests which istioctl operator init refers to.
-	ManifestPath = filepath.Join(env.IstioSrc, "manifests")
-	// ManifestPathContainer is path of manifests in the operator container for controller to work with.
-	ManifestPathContainer = "/var/lib/istio/manifests"
-	iopCRFile             = ""
 )
 
 func TestController(t *testing.T) {
@@ -230,19 +214,6 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 		return fmt.Errorf("istioOperator status is not healthy: %v", err)
 	}
 	return nil
-}
-
-func cleanupInClusterCRs(t *testing.T, cs resource.Cluster) {
-	// clean up hanging installed-state CR from previous tests
-	gvr := schema.GroupVersionResource{
-		Group:    "install.istio.io",
-		Version:  "v1alpha1",
-		Resource: "istiooperators",
-	}
-	if err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Delete(context.TODO(),
-		"installed-state", kubeApiMeta.DeleteOptions{}); err != nil {
-		t.Logf(err.Error())
-	}
 }
 
 func installWithCRFile(t *testing.T, ctx resource.Context, cs resource.Cluster, s *image.Settings,

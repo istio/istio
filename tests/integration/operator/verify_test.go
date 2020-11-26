@@ -16,6 +16,7 @@
 package operator
 
 import (
+	"context"
 	"io/ioutil"
 	"testing"
 
@@ -25,6 +26,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -39,7 +42,7 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cleanupInClusterCRs(t, cs)
+			cleanupCluster(t, cs, istioCtl)
 			installCmd := []string{
 				"install",
 				"--set", "hub=" + s.Hub,
@@ -47,8 +50,12 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 				"--manifests=" + ManifestPath,
 				"-y",
 			}
-			istioCtl.InvokeOrFail(t, installCmd)
+			if _, _, err := istioCtl.Invoke(installCmd); err != nil {
+				logClusterState(cs)
+				t.Fatalf("Failed to install Istio: %v", err)
+			}
 
+			scopes.Framework.Infof("verify control-plane health")
 			tfLogger := clog.NewConsoleLogger(ioutil.Discard, ioutil.Discard, scopes.Framework)
 			statusVerifier := verifier.NewStatusVerifier(IstioNamespace, ManifestPath, "",
 				"", []string{}, clioptions.ControlPlaneOptions{}, tfLogger, nil)
@@ -57,12 +64,49 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 			}
 
 			t.Cleanup(func() {
-				uninstallCmd := []string{
-					"experimental",
-					"uninstall",
-					"--purge", "-y",
+				if err = purgeIstioResources(istioCtl); err != nil {
+					logClusterState(cs)
+					t.Fatalf("error during cleanup: %v", err)
 				}
-				istioCtl.InvokeOrFail(t, uninstallCmd)
 			})
 		})
+}
+
+func cleanupCluster(t *testing.T, cs resource.Cluster, istioCtl istioctl.Instance) {
+	cleanupInClusterCRs(t, cs)
+	if err := purgeIstioResources(istioCtl); err != nil {
+		scopes.Framework.Warnf("Failed to purge istio resources: %v", err)
+	}
+	nsList := []string{IstioNamespace, OperatorNamespace}
+	for _, ns := range nsList {
+		if err := cs.CoreV1().Namespaces().Delete(context.TODO(), ns, kube2.DeleteOptionsForeground()); err != nil {
+			scopes.Framework.Warnf("Cannot delete %s: %v", ns, err)
+		}
+	}
+}
+
+func purgeIstioResources(istioCtl istioctl.Instance) error {
+	scopes.Framework.Infof("Cleaned up all Istio resources")
+	uninstallCmd := []string{
+		"experimental",
+		"uninstall",
+		"--purge", "-y",
+	}
+	_, _, err := istioCtl.Invoke(uninstallCmd)
+	return err
+}
+
+func logClusterState(cs resource.Cluster) {
+	scopes.Framework.Infof("Getting Istio pods")
+	pods, err := cs.GetIstioPods(context.TODO(), IstioNamespace, map[string]string{})
+	if err != nil {
+		scopes.Framework.Infof("Failed to get istio pods: %v", err)
+	}
+	for _, pod := range pods {
+		name, ns, phase := pod.Name, pod.Namespace, pod.Status.Phase
+		scopes.Framework.Infof("pod: %s/%s (%v)", name, ns, phase)
+		for _, cst := range pod.Status.ContainerStatuses {
+			scopes.Framework.Infof("  %s: ready=%v, state=%v", cst.Name, cst.Ready, cst.State)
+		}
+	}
 }
