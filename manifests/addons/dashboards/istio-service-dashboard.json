@@ -2853,7 +2853,7 @@
         "definition": "",
         "hide": 0,
         "includeAll": false,
-        "label": "Query Reporter",
+        "label": "General and Client Panels Query Reporter",
         "multi": true,
         "name": "qrep",
         "options": [],
