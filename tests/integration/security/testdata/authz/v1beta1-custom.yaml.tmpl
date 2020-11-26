@@ -1,0 +1,39 @@
+# The following policy applies the CUSTOM action with the ext-authz-http provider on workload b for path /custom.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-b
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "b"
+  action: CUSTOM
+  provider:
+    name: ext-authz-http
+  rules:
+  - to:
+    - operation:
+        paths: ["/custom"]
+---
+
+# The following policy applies the CUSTOM action with the ext-authz-grpc provider on workload c for path /custom.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-c
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "c"
+  action: CUSTOM
+  provider:
+    name: ext-authz-grpc
+  rules:
+  - to:
+    - operation:
+        paths: ["/custom"]
+---

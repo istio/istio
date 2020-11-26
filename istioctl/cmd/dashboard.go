@@ -227,14 +227,19 @@ func zipkinDashCmd() *cobra.Command {
 // port-forward to sidecar Envoy admin port; open browser
 func envoyDashCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "envoy <pod-name[.namespace]>",
+		Use:   "envoy [<type>/]<name>[.<namespace>]",
 		Short: "Open Envoy admin web UI",
 		Long:  `Open the Envoy admin dashboard for a sidecar`,
-		Example: `  istioctl dashboard envoy productpage-123-456.default
+		Example: `  # Open Envoy dashboard for the productpage-123-456.default pod
+  istioctl dashboard envoy productpage-123-456.default
+
+  # Open Envoy dashboard for one pod under a deployment
+  istioctl dashboard envoy deployment/productpage-v1
 
   # with short syntax
   istioctl dash envoy productpage-123-456.default
-  istioctl d envoy productpage-123-456.default`,
+  istioctl d envoy productpage-123-456.default
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if labelSelector == "" && len(args) < 1 {
 				c.Println(c.UsageString())
@@ -270,7 +275,12 @@ func envoyDashCmd() *cobra.Command {
 				podName = pl.Items[0].Name
 				ns = pl.Items[0].Namespace
 			} else {
-				podName, ns = handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("Envoy sidecar %s", podName),
@@ -285,14 +295,19 @@ func envoyDashCmd() *cobra.Command {
 func controlZDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "controlz <pod-name[.namespace]>",
+		Use:   "controlz [<type>/]<name>[.<namespace>]",
 		Short: "Open ControlZ web UI",
 		Long:  `Open the ControlZ web UI for a pod in the Istio control plane`,
-		Example: `  istioctl dashboard controlz pilot-123-456.istio-system
+		Example: `  # Open ControlZ web UI for the istiod-123-456.istio-system pod
+  istioctl dashboard controlz istiod-123-456.istio-system
+
+  # Open ControlZ web UI for any Istiod pod
+  istioctl dashboard controlz deployment/istiod.istio-system
 
   # with short syntax
   istioctl dash controlz pilot-123-456.istio-system
-  istioctl d controlz pilot-123-456.istio-system`,
+  istioctl d controlz pilot-123-456.istio-system
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if labelSelector == "" && len(args) < 1 {
 				c.Println(c.UsageString())
@@ -328,7 +343,12 @@ func controlZDashCmd() *cobra.Command {
 				podName = pl.Items[0].Name
 				ns = pl.Items[0].Namespace
 			} else {
-				podName, ns = handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(namespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("ControlZ %s", podName),
@@ -431,7 +451,7 @@ func dashboard() *cobra.Command {
 		"Address to listen on. Only accepts IP address or localhost as a value. "+
 			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+
 			"and will fail if neither of these address are available to bind.")
-	dashboardCmd.PersistentFlags().StringVar(&addonNamespace, "namespace", istioNamespace,
+	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 
 	dashboardCmd.AddCommand(kialiDashCmd())

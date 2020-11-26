@@ -140,6 +140,20 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedOutput:    "Error: expecting deployment name\n",
 		},
 		{
+			description:       "Invalid namespace - system namespace not allowed",
+			args:              strings.Split("experimental remove-from-mesh deployment local-path-storage", " "),
+			expectedException: true,
+			namespace:         "local-path-storage",
+			expectedOutput:    "Error: namespace local-path-storage is a system namespace and has no Istio sidecar injected\n",
+		},
+		{
+			description:       "Invalid namespace - system namespace not allowed",
+			args:              strings.Split("experimental remove-from-mesh service istio-ingressgateway", " "),
+			expectedException: true,
+			namespace:         "istio-system",
+			expectedOutput:    "Error: namespace istio-system is a system namespace and has no Istio sidecar injected\n",
+		},
+		{
 			description:       "valid case - remove service from mesh",
 			args:              strings.Split("experimental remove-from-mesh service details", " "),
 			expectedException: false,

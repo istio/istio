@@ -8,8 +8,8 @@ FROM ubuntu:bionic
 # Root and istio are not intercepted
 RUN adduser istio-test --system
 
-# The recommandation to pin package version is a security risk, prevents getting security updates
-# (or require impossible maintainance - knowing when any package had a fix and updating in countless places)
+# The recommendation to pin package version is a security risk, prevents getting security updates
+# (or require impossible maintenance - knowing when any package had a fix and updating in countless places)
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends iproute2 openssl iptables curl less net-tools \
     && apt-get clean \

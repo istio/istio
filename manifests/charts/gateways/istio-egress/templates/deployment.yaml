@@ -7,6 +7,9 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "EgressGateways"
 spec:
 {{- if not $gateway.autoscaleEnabled }}
 {{- if $gateway.replicaCount }}
@@ -35,6 +38,9 @@ spec:
 {{- else}}
         service.istio.io/canonical-revision: latest
 {{- end }}
+        istio.io/rev: {{ .Values.revision | default "default" }}
+        install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+        operator.istio.io/component: "EgressGateways"
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
@@ -92,6 +98,7 @@ spec:
           ports:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}
+              protocol: {{ $val.protocol | default "TCP" }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -117,9 +124,6 @@ spec:
           - {{ $gateway.name | default "istio-egressgateway" }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
         {{- if not $gateway.runAsRoot }}
           securityContext:
@@ -201,16 +205,24 @@ spec:
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
-          {{- else if $.Values.global.trustDomain }}
+          {{- else if $.Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}
           - name: ISTIO_META_MESH_ID
-            value: "{{ $.Values.global.trustDomain }}"
+            value: "{{ $.Values.global.trustDomain  | default (index .Values.meshConfig "trustDomain") }}"
           {{- end }}
-          {{- if $gateway.env }}
+          {{- if .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}
+          - name: TRUST_DOMAIN
+            value: "{{ .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}"
+          {{- end }}
+          {{- if not $gateway.runAsRoot }}
+          - name: ISTIO_META_UNPRIVILEGED_POD
+            value: "true"
+          {{- end }}
+            {{- if $gateway.env }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
-          {{ end }}
+          {{- end }}
           {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
           - name: {{ $key }}
             value: "{{ $value }}"
@@ -219,7 +231,7 @@ spec:
           - name: "ISTIO_METAJSON_ANNOTATIONS"
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
-{{ end }}
+{{- end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
@@ -236,8 +248,6 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
           {{- end }}
-          - name: gatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
@@ -280,8 +290,6 @@ spec:
                 fieldPath: metadata.annotations
       - name: istio-envoy
         emptyDir: {}
-      - name: gatewaysdsudspath
-        emptyDir: {}
       - name: istio-data
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -317,7 +325,7 @@ spec:
           optional: true
       {{- end }}
       affinity:
-      {{- include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | indent 6 }}
+{{ include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | trim | indent 8 }}
       {{- include "podAntiAffinity" $gateway | indent 6 }}
 {{- if $gateway.tolerations }}
       tolerations:

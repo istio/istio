@@ -45,8 +45,8 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 3
 			args:           strings.Split("dashboard controlz pod-123456-7890", " "),
-			expectedRegexp: regexp.MustCompile(".*MockClient doesn't implement port forwarding"),
-			wantException:  true,
+			expectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
+			wantException:  false,
 		},
 		{ // case 4
 			args:           strings.Split("dashboard envoy", " "),
@@ -55,8 +55,8 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 5
 			args:           strings.Split("dashboard envoy pod-123456-7890", " "),
-			expectedRegexp: regexp.MustCompile(".*MockClient doesn't implement port forwarding"),
-			wantException:  true,
+			expectedRegexp: regexp.MustCompile("http://localhost:3456"),
+			wantException:  false,
 		},
 		{ // case 6
 			args:           strings.Split("dashboard grafana", " "),
@@ -102,6 +102,10 @@ func TestDashboard(t *testing.T) {
 			args:           strings.Split("dashboard controlz --selector app=example pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
+		},
+		{ // case 15
+			args:           strings.Split("-n test dashboard", " "),
+			expectedRegexp: regexp.MustCompile("Access to Istio web UIs"),
 		},
 	}
 

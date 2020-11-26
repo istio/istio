@@ -264,6 +264,10 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
+
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService cross-test.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService httpbin-bogus"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService httpbin"},
 		},
 	},
 	{
@@ -412,6 +416,19 @@ var testGrid = []testCase{
 			{msg.VirtualServiceUnreachableRule, "VirtualService tls-routing.none"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing-almostmatch.none"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing.none"},
+		},
+	},
+	{
+		name: "host defined in virtualservice not found in the gateway",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_found_gateway.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-01.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-02.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-03.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-03-test-04.default"},
 		},
 	},
 }

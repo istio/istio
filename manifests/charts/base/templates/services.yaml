@@ -10,6 +10,7 @@ spec:
   ports:
   - port: 15012
     name: tcp-istiod
+    protocol: TCP
   clusterIP: None
   {{- else }}
 # when istiod isn't enabled in remote cluster, we can use istiod service name
@@ -22,6 +23,7 @@ spec:
   ports:
   - port: 15012
     name: tcp-istiod
+    protocol: TCP
   # if the remotePilotAddress is IP addr, we use clusterIP: None.
   # else, we use externalName
   {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}

@@ -65,9 +65,6 @@ var (
 // TODO: ProxyConfig should have most of those, and be passed to all components
 // (as source of truth)
 type Options struct {
-	// PluginNames is plugins' name for certain authentication provider.
-	PluginNames []string
-
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
@@ -112,14 +109,8 @@ type Options struct {
 	// Recycle job running interval (to clean up staled sds client connections).
 	RecycleInterval time.Duration
 
-	// Debug server port from which node_agent serves SDS configuration dumps
-	DebugPort int
-
 	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
 	EnableWorkloadSDS bool
-
-	// EnableGatewaySDS indicates whether node agent works as ingress gateway agent.
-	EnableGatewaySDS bool
 
 	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
 	// from the UDS caller. Used when it runs in the same container with Envoy.
@@ -194,9 +185,14 @@ type Options struct {
 	// credential fetcher.
 	CredFetcher CredFetcher
 
-	// whether need to skip parsing token to inspect information like expiration time
-	// Default is false.
-	SkipParseToken bool
+	// credential identity provider
+	CredIdentityProvider string
+
+	// Namespace corresponding to workload
+	WorkloadNamespace string
+
+	// Name of the Service Account
+	ServiceAccount string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -215,9 +211,6 @@ type SecretManager interface {
 	// claim, expected to be in the K8S format. No other JWTs are currently supported
 	// due to client logic. If JWT is missing/invalid, the resourceName is used.
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*SecretItem, error)
-
-	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
-	ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
 
 	// SecretExist checks if secret already existed.
 	// This API is used for sds server to check if coming request is ack request.

@@ -22,8 +22,6 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
-
-	"istio.io/pkg/env"
 )
 
 const (
@@ -38,7 +36,7 @@ const (
 )
 
 var (
-	readinessTimeout = env.RegisterDurationVar("ENVOY_READINESS_CHECK_TIMEOUT", time.Second*5, "").Get()
+	readinessTimeout = time.Second * 3 // Default Readiness timeout. It is set the same in helm charts.
 )
 
 type stat struct {

@@ -29,7 +29,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -42,11 +41,10 @@ import (
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
-		name      string
-		server    *networking.Server
-		sdsPath   string
-		result    *auth.DownstreamTlsContext
-		istiodSds bool
+		name    string
+		server  *networking.Server
+		sdsPath string
+		result  *auth.DownstreamTlsContext
 	}{
 		{
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
@@ -154,27 +152,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							Name: "ingress-sds-resource-name",
-							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.CredentialNameSDSUdsPath,
-														StatPrefix: model.SDSStatPrefix,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
+							Name:      "kubernetes://ingress-sds-resource-name",
+							SdsConfig: model.SDSAdsConfig,
 						},
 					},
 				},
@@ -197,27 +176,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							Name: "ingress-sds-resource-name",
-							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.CredentialNameSDSUdsPath,
-														StatPrefix: model.SDSStatPrefix,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
+							Name:      "kubernetes://ingress-sds-resource-name",
+							SdsConfig: model.SDSAdsConfig,
 						},
 					},
 					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
@@ -291,10 +251,10 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and subject names are specified, SDS configs are generated for fetching
+		{
+			// Credential name and subject names are specified, SDS configs are generated for fetching
 			// key/cert and root cert.
-			name:      "credential name subject alternative name key and cert tls MUTUAL istiod sds",
-			istiodSds: true,
+			name: "credential name subject alternative name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.ServerTLSSettings{
@@ -330,82 +290,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
-			// Credential name and subject names are specified, SDS configs are generated for fetching
-			// key/cert and root cert.
-			name: "credential name subject alternative name key and cert tls MUTUAL",
-			server: &networking.Server{
-				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
-				Tls: &networking.ServerTLSSettings{
-					Mode:              networking.ServerTLSSettings_MUTUAL,
-					CredentialName:    "ingress-sds-resource-name",
-					ServerCertificate: "server-cert.crt",
-					PrivateKey:        "private-key.key",
-					SubjectAltNames:   []string{"subject.name.a.com", "subject.name.b.com"},
-				},
-			},
-			result: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
-					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
-						{
-							Name: "ingress-sds-resource-name",
-							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.CredentialNameSDSUdsPath,
-														StatPrefix: model.SDSStatPrefix,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
-						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-							DefaultValidationContext: &auth.CertificateValidationContext{
-								MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
-							},
-							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "ingress-sds-resource-name-cacert",
-								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: features.InitialFetchTimeout,
-									ResourceApiVersion:  core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.CredentialNameSDSUdsPath,
-															StatPrefix: model.SDSStatPrefix,
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				RequireClientCertificate: proto.BoolTrue,
-			},
-		},
-		{
 			// Credential name and VerifyCertificateSpki options are specified, SDS configs are generated for fetching
 			// key/cert and root cert
 			name: "credential name verify spki key and cert tls MUTUAL",
@@ -422,27 +306,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							Name: "ingress-sds-resource-name",
-							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.CredentialNameSDSUdsPath,
-														StatPrefix: model.SDSStatPrefix,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
+							Name:      "kubernetes://ingress-sds-resource-name",
+							SdsConfig: model.SDSAdsConfig,
 						},
 					},
 					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
@@ -451,27 +316,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								VerifyCertificateSpki: []string{"abcdef"},
 							},
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "ingress-sds-resource-name-cacert",
-								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: features.InitialFetchTimeout,
-									ResourceApiVersion:  core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.CredentialNameSDSUdsPath,
-															StatPrefix: model.SDSStatPrefix,
-														},
-													},
-												},
-											},
-										},
-									},
-								},
+								Name:      "kubernetes://ingress-sds-resource-name-cacert",
+								SdsConfig: model.SDSAdsConfig,
 							},
 						},
 					},
@@ -496,27 +342,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							Name: "ingress-sds-resource-name",
-							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:             core.ApiConfigSource_GRPC,
-										TransportApiVersion: core.ApiVersion_V3,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.CredentialNameSDSUdsPath,
-														StatPrefix: model.SDSStatPrefix,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
+							Name:      "kubernetes://ingress-sds-resource-name",
+							SdsConfig: model.SDSAdsConfig,
 						},
 					},
 					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
@@ -525,27 +352,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								VerifyCertificateHash: []string{"fedcba"},
 							},
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-								Name: "ingress-sds-resource-name-cacert",
-								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: features.InitialFetchTimeout,
-									ResourceApiVersion:  core.ApiVersion_V3,
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.CredentialNameSDSUdsPath,
-															StatPrefix: model.SDSStatPrefix,
-														},
-													},
-												},
-											},
-										},
-									},
-								},
+								Name:      "kubernetes://ingress-sds-resource-name-cacert",
+								SdsConfig: model.SDSAdsConfig,
 							},
 						},
 					},
@@ -569,9 +377,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			old := features.EnableSDSServer
-			features.EnableSDSServer = tc.istiodSds
-			defer func() { features.EnableSDSServer = old }()
 			ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{})
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
@@ -1159,6 +964,22 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	httpGatewayWildcard := config.Config{
+		Meta: config.Meta{
+			Name:             "gateway",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"*"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
 	virtualServiceSpec := &networking.VirtualService{
 		Hosts:    []string{"example.org"},
 		Gateways: []string{"gateway", "gateway-redirect"},
@@ -1236,7 +1057,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"*",
 				},
 			},
-			map[string]int{"blackhole:80": 1},
+			map[string]int{"blackhole:80": 0},
 		},
 		{
 			"virtual services do not matter when tls redirect is set",
@@ -1297,6 +1118,18 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				},
 			},
 			map[string]int{"example.org:80": 2},
+		},
+		{
+			"wildcard virtual service",
+			[]config.Config{virtualServiceWildcard},
+			[]config.Config{httpGatewayWildcard},
+			"http.80",
+			map[string][]string{
+				"*.org:80": {
+					"*.org", "*.org:80",
+				},
+			},
+			map[string]int{"*.org:80": 1},
 		},
 	}
 	for _, tt := range cases {
@@ -1378,6 +1211,40 @@ func TestBuildGatewayListeners(t *testing.T) {
 			},
 			[]string{"0.0.0.0_80", "0.0.0.0_801"},
 		},
+		{
+			"privileged port on unprivileged pod",
+			&pilot_model.Proxy{
+				Metadata: &pilot_model.NodeMetadata{
+					UnprivilegedPod: "true",
+				},
+			},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+					{
+						Port: &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_8080"},
+		},
+		{
+			"privileged port on privileged pod",
+			&pilot_model.Proxy{},
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					},
+					{
+						Port: &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+					},
+				},
+			},
+			[]string{"0.0.0.0_80", "0.0.0.0_8080"},
+		},
 	}
 
 	for _, tt := range cases {
@@ -1386,6 +1253,12 @@ func TestBuildGatewayListeners(t *testing.T) {
 		})
 		proxy := cg.SetupProxy(&proxyGateway)
 		proxy.ServiceInstances = tt.node.ServiceInstances
+		if tt.node.Metadata != nil {
+			proxy.Metadata = tt.node.Metadata
+		} else {
+			proxy.Metadata = &proxyGatewayMetadata
+		}
+
 		builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
 		listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
 		sort.Strings(listeners)

@@ -2,7 +2,7 @@
 {{- define "mesh" }}
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-    trustDomain: {{ .Values.global.trustDomain | quote }}
+    trustDomain: {{ .Values.global.trustDomain | default "cluster.local" | quote }}
 
     defaultConfig:
       {{- if .Values.global.meshID }}
@@ -43,10 +43,16 @@
           # The global default max number of message events per span.
           maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents | default "200" }}
         {{- end }}
+      {{- else if eq .Values.global.proxy.tracer "openCensusAgent" }}
+      {{- /* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */ -}}
+        {{ toYaml $.Values.meshConfig.defaultConfig.tracing }}
       {{- end }}
-
       {{- if .Values.global.remotePilotAddress }}
-      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
+         {{- if .Values.pilot.enabled }}
+          discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
+         {{- else }}
+          discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
+         {{- end }}
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
@@ -65,6 +71,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
 data:
 

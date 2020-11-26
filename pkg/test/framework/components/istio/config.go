@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -38,6 +39,10 @@ const (
 	// IntegrationTestDefaultsIOP is the path of the default IstioOperator spec to use
 	// for integration tests
 	IntegrationTestDefaultsIOP = "tests/integration/iop-integration-test-defaults.yaml"
+
+	// IntegrationTestRemoteDefaultsIOP is the path of the default IstioOperator spec to use
+	// on remote clusters for integration tests
+	IntegrationTestRemoteDefaultsIOP = "tests/integration/iop-remote-integration-test-defaults.yaml"
 
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
@@ -56,18 +61,19 @@ var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		SystemNamespace:                DefaultSystemNamespace,
-		IstioNamespace:                 DefaultSystemNamespace,
-		ConfigNamespace:                DefaultSystemNamespace,
-		TelemetryNamespace:             DefaultSystemNamespace,
-		PolicyNamespace:                DefaultSystemNamespace,
-		IngressNamespace:               DefaultSystemNamespace,
-		EgressNamespace:                DefaultSystemNamespace,
-		DeployIstio:                    true,
-		DeployTimeout:                  0,
-		UndeployTimeout:                0,
-		IOPFile:                        IntegrationTestDefaultsIOP,
-		CustomSidecarInjectorNamespace: "",
+		SystemNamespace:       DefaultSystemNamespace,
+		IstioNamespace:        DefaultSystemNamespace,
+		ConfigNamespace:       DefaultSystemNamespace,
+		TelemetryNamespace:    DefaultSystemNamespace,
+		PolicyNamespace:       DefaultSystemNamespace,
+		IngressNamespace:      DefaultSystemNamespace,
+		EgressNamespace:       DefaultSystemNamespace,
+		DeployIstio:           true,
+		DeployTimeout:         0,
+		UndeployTimeout:       0,
+		PrimaryClusterIOPFile: IntegrationTestDefaultsIOP,
+		ConfigClusterIOPFile:  IntegrationTestDefaultsIOP,
+		RemoteClusterIOPFile:  IntegrationTestRemoteDefaultsIOP,
 	}
 )
 
@@ -100,8 +106,14 @@ type Config struct {
 	// UndeployTimeout the timeout for undeploying Istio.
 	UndeployTimeout time.Duration
 
-	// The IstioOperator spec file to be used for defaults
-	IOPFile string
+	// The IstioOperator spec file to be used for Control plane cluster by default
+	PrimaryClusterIOPFile string
+
+	// The IstioOperator spec file to be used for Config cluster by default
+	ConfigClusterIOPFile string
+
+	// The IstioOperator spec file to be used for Remote cluster by default
+	RemoteClusterIOPFile string
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
@@ -129,10 +141,6 @@ type Config struct {
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
 	SkipWaitForValidationWebhook bool
-
-	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
-	// if the value is "", use the default sidecar injection instead.
-	CustomSidecarInjectorNamespace string
 }
 
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
@@ -177,9 +185,9 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	// Make a local copy.
 	s := *settingsFromCommandline
 
-	iopFile := s.IOPFile
-	if iopFile != "" && !path.IsAbs(s.IOPFile) {
-		iopFile = filepath.Join(env.IstioSrc, s.IOPFile)
+	iopFile := s.PrimaryClusterIOPFile
+	if iopFile != "" && !path.IsAbs(s.PrimaryClusterIOPFile) {
+		iopFile = filepath.Join(env.IstioSrc, s.PrimaryClusterIOPFile)
 	}
 
 	if err := checkFileExists(iopFile); err != nil {
@@ -287,8 +295,32 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("DeployTimeout:                  %s\n", c.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)
-	result += fmt.Sprintf("IOPFile:                        %s\n", c.IOPFile)
+	result += fmt.Sprintf("PrimaryClusterIOPFile:          %s\n", c.PrimaryClusterIOPFile)
+	result += fmt.Sprintf("ConfigClusterIOPFile:           %s\n", c.ConfigClusterIOPFile)
+	result += fmt.Sprintf("RemoteClusterIOPFile:           %s\n", c.RemoteClusterIOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
-	result += fmt.Sprintf("CustomSidecarInjectorNamespace: %s\n", c.CustomSidecarInjectorNamespace)
 	return result
+}
+
+// ClaimSystemNamespace retrieves the namespace for the Istio system components from the environment.
+func ClaimSystemNamespace(ctx resource.Context) (namespace.Instance, error) {
+	istioCfg, err := DefaultConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	nsCfg := namespace.Config{
+		Prefix: istioCfg.SystemNamespace,
+		Inject: false,
+	}
+	return namespace.Claim(ctx, nsCfg)
+}
+
+// ClaimSystemNamespaceOrFail calls ClaimSystemNamespace, failing the test if an error occurs.
+func ClaimSystemNamespaceOrFail(t test.Failer, ctx resource.Context) namespace.Instance {
+	t.Helper()
+	i, err := ClaimSystemNamespace(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return i
 }

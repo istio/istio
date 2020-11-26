@@ -109,6 +109,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			ServiceRegistry: string(serviceregistry.Kubernetes),
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
+			Labels:          svc.Labels,
 			UID:             formatUID(svc.Namespace, svc.Name),
 			ExportTo:        exportTo,
 			LabelSelectors:  labelSelectors,
@@ -147,6 +148,13 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				istioService.Attributes.ClusterExternalAddresses = map[string][]string{clusterID: lbAddrs}
 			}
 		}
+	}
+
+	for _, extIP := range svc.Spec.ExternalIPs {
+		if istioService.Attributes.ClusterExternalAddresses == nil {
+			istioService.Attributes.ClusterExternalAddresses = map[string][]string{}
+		}
+		istioService.Attributes.ClusterExternalAddresses[clusterID] = append(istioService.Attributes.ClusterExternalAddresses[clusterID], extIP)
 	}
 
 	return istioService

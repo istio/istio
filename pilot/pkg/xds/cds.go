@@ -30,7 +30,6 @@ var _ model.XdsResourceGenerator = &CdsGenerator{}
 // Map of all configs that do not impact CDS
 var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.Gateway:               {},
-	gvk.VirtualService:        {},
 	gvk.WorkloadEntry:         {},
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},

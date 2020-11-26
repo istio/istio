@@ -3,8 +3,10 @@ kind: Deployment
 metadata:
   labels:
     app: istiod
+    install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
+    operator.istio.io/component: Pilot
     release: istio
   name: istiod
   namespace: istio-control
@@ -24,8 +26,10 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
+        install.operator.istio.io/owning-resource: unknown
         istio: pilot
         istio.io/rev: default
+        operator.istio.io/component: Pilot
     spec:
       containers:
       - args:
@@ -34,7 +38,6 @@ spec:
         - --log_output_level=default:info
         - --domain
         - cluster.local
-        - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
         env:
@@ -79,15 +82,21 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: EXTERNAL_ISTIOD
+          value: "false"
         - name: CENTRAL_ISTIOD
           value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 15010
+          protocol: TCP
         - containerPort: 15017
+          protocol: TCP
         - containerPort: 15053
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: /ready
@@ -161,7 +170,9 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
+    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
+    operator.istio.io/component: Pilot
     release: istio
   name: istiod
   namespace: istio-control

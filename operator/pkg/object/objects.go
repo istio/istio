@@ -382,6 +382,11 @@ func (o *K8sObject) Valid() bool {
 	return true
 }
 
+// FullName returns namespace/name of K8s object
+func (o *K8sObject) FullName() string {
+	return fmt.Sprintf("%s/%s", o.Namespace, o.Name)
+}
+
 // Equal returns true if o and other are both valid and equal to each other.
 func (o *K8sObject) Equal(other *K8sObject) bool {
 	if o == nil {

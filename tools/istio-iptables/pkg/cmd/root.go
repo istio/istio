@@ -36,14 +36,14 @@ import (
 var (
 	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
 	// Enable interception of DNS.
-	dnsCaptureByAgent = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
-		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
+	dnsCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
+		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "istio-iptables",
 	Short: "Set up iptables rules for Istio Sidecar",
-	Long:  "Script responsible for setting up port forwarding for Istio sidecar.",
+	Long:  "istio-iptables is responsible for setting up port forwarding for Istio Sidecar.",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
 		var ext dep.Dependencies
@@ -144,7 +144,7 @@ func handleError(err error) {
 }
 
 func handleErrorWithCode(err error, code int) {
-	log.Errora(err)
+	log.Error(err)
 	os.Exit(code)
 }
 

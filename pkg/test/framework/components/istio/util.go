@@ -77,24 +77,23 @@ func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cf
 
 func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
 	var addr net.TCPAddr
-	cp, err := i.environment.GetControlPlaneCluster(cluster)
-	if err != nil {
-		return net.TCPAddr{}, err
-	}
-	if !i.environment.IsConfigCluster(cp) {
+	primary := cluster.Primary()
+	if !primary.IsConfig() {
+		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
+		//a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
 		address, err := retry.Do(func() (interface{}, bool, error) {
-			return getRemoteServiceAddress(i.environment.Settings(), cluster, i.settings.SystemNamespace, istiodLabel,
+			return getRemoteServiceAddress(i.environment.Settings(), primary, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
-		}, retryTimeout, retryDelay)
+		}, getAddressTimeout, getAddressDelay)
 		if err != nil {
 			return net.TCPAddr{}, err
 		}
 		addr = address.(net.TCPAddr)
 	} else {
-		addr = i.IngressFor(cp).DiscoveryAddress()
+		addr = i.CustomIngressFor(primary, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
 	}
 	if addr.IP.String() == "<nil>" {
-		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())
+		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
 	}
 	return addr, nil
 }
@@ -161,8 +160,8 @@ func getRemoteServiceAddress(s *kube.Settings, cluster resource.Cluster, ns, lab
 }
 
 func (i *operatorComponent) isExternalControlPlane() bool {
-	for _, cluster := range i.environment.KubeClusters {
-		if i.environment.IsControlPlaneCluster(cluster) && !i.environment.IsConfigCluster(cluster) {
+	for _, cluster := range i.ctx.Clusters() {
+		if cluster.IsPrimary() && !cluster.IsConfig() {
 			return true
 		}
 	}

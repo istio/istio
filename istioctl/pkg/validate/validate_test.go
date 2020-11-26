@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -216,6 +217,16 @@ metadata:
 spec:
   http:
 `
+	warnDestinationRule = `apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: reviews-cb-policy
+spec:
+  host: reviews.prod.svc.cluster.local
+  trafficPolicy:
+    outlierDetection:
+      consecutiveErrors: 7
+`
 	invalidYAML = `
 (...!)`
 	validKubernetesYAML = `
@@ -279,6 +290,38 @@ trafficPolicy:
   tls:
     mode: ISTIO_MUTUAL
 `
+	validDeployment = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+  labels:
+    app: helloworld
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+      version: v1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/bootstrapOverride: "istio-custom-bootstrap-config"
+      labels:
+        app: helloworld
+        version: v1
+    spec:
+      containers:
+        - name: helloworld
+          image: docker.io/istio/examples-helloworld-v1
+          resources:
+            requests:
+              cpu: "100m"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -294,6 +337,7 @@ func TestValidateResource(t *testing.T) {
 		name  string
 		in    string
 		valid bool
+		warn  bool
 	}{
 		{
 			name:  "valid pilot configuration",
@@ -370,14 +414,25 @@ func TestValidateResource(t *testing.T) {
 			in:    validIstioConfig,
 			valid: true,
 		},
+		{
+			name:  "warning",
+			in:    warnDestinationRule,
+			valid: true,
+			warn:  true,
+		},
 	}
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
+			defer func() { recover() }()
 			v := &validator{}
-			err := v.validateResource("istio-system", fromYAML(c.in))
+			var writer io.Writer
+			warn, err := v.validateResource("istio-system", fromYAML(c.in), writer)
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%v", err == nil, c.valid, err)
+			}
+			if (warn != nil) != c.warn {
+				tt.Fatalf("unexpected validation warning result: got %v want %v: warn=%v", warn != nil, c.warn, warn)
 			}
 		})
 	}
@@ -409,12 +464,16 @@ func createTestFile(t *testing.T, data string) (string, io.Closer) {
 func TestValidateCommand(t *testing.T) {
 	valid := buildMultiDocYAML([]string{validVirtualService, validVirtualService1})
 	invalid := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1})
+	warnings := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1, warnDestinationRule})
 
 	validFilename, closeValidFile := createTestFile(t, valid)
 	defer closeValidFile.Close()
 
 	invalidFilename, closeInvalidFile := createTestFile(t, invalid)
 	defer closeInvalidFile.Close()
+
+	warningFilename, closeWarningFile := createTestFile(t, warnings)
+	defer closeWarningFile.Close()
 
 	invalidYAMLFile, closeInvalidYAMLFile := createTestFile(t, invalidYAML)
 	defer closeInvalidYAMLFile.Close()
@@ -521,11 +580,22 @@ $`),
 			expectedRegexp: regexp.MustCompile(`.*key ".*" already set`),
 			wantError:      true,
 		},
+		{
+			name: "warning",
+			args: []string{"--filename", warningFilename},
+			expectedRegexp: regexp.MustCompile(`(?m)".*" has warnings: 
+	\* DestinationRule//reviews-cb-policy: outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead
+
+Error: 1 error occurred:
+	\* VirtualService//invalid-virtual-service: total destination weight 90 != 100`),
+			wantError: true,
+		},
 	}
 	istioNamespace := "istio-system"
 	for i, c := range cases {
-		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
+		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
 			validateCmd := NewValidateCommand(&istioNamespace)
+			validateCmd.SilenceUsage = true
 			validateCmd.SetArgs(c.args)
 
 			// capture output to keep test logs clean
@@ -535,7 +605,7 @@ $`),
 
 			err := validateCmd.Execute()
 			if (err != nil) != c.wantError {
-				tt.Errorf("unexpected validate return status: got %v want %v: \nerr=%v",
+				t.Errorf("unexpected validate return status: got %v want %v: \nerr=%v",
 					err != nil, c.wantError, err)
 			}
 			output := out.String()
@@ -545,4 +615,17 @@ $`),
 			}
 		})
 	}
+}
+
+func TestGetTemplateLabels(t *testing.T) {
+	assert := assert.New(t)
+	un := fromYAML(validDeployment)
+
+	labels, err := GetTemplateLabels(un)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotEmpty(t, labels)
+	assert.Contains(labels, "app")
+	assert.Contains(labels, "version")
 }

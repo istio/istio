@@ -55,7 +55,7 @@ func TestValidateChainingVirtualService(t *testing.T) {
 					},
 				}},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name: "root with delegate and destination in one route",
@@ -141,7 +141,7 @@ func TestValidateChainingVirtualService(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
+			if _, err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -322,8 +322,8 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateRootHTTPRoute(tc.route); (err == nil) != tc.valid {
-				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			if err := validateHTTPRoute(tc.route, false); (err.Err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
 			}
 		})
 	}
@@ -552,8 +552,8 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateDelegateHTTPRoute(tc.route); (err == nil) != tc.valid {
-				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			if err := validateHTTPRoute(tc.route, true); (err.Err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
 			}
 		})
 	}

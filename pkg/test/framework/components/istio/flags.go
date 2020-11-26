@@ -40,10 +40,8 @@ func init() {
 		"Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.")
 	flag.DurationVar(&settingsFromCommandline.UndeployTimeout, "istio.test.kube.undeployTimeout", 0,
 		"Timeout applied to undeploying Istio from the target Kubernetes environment. Only applies if DeployIstio=true.")
-	flag.StringVar(&settingsFromCommandline.IOPFile, "istio.test.kube.helm.iopFile", settingsFromCommandline.IOPFile,
+	flag.StringVar(&settingsFromCommandline.PrimaryClusterIOPFile, "istio.test.kube.helm.iopFile", settingsFromCommandline.PrimaryClusterIOPFile,
 		"IstioOperator spec file. This can be an absolute path or relative to repository root.")
 	flag.StringVar(&helmValues, "istio.test.kube.helm.values", helmValues,
 		"Manual overrides for Helm values file. Only valid when deploying Istio.")
-	flag.StringVar(&settingsFromCommandline.CustomSidecarInjectorNamespace, "istio.test.kube.customSidecarInjectorNamespace",
-		settingsFromCommandline.CustomSidecarInjectorNamespace, "Inject the sidecar from the specified namespace")
 }

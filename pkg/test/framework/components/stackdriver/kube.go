@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	jsonpb "github.com/golang/protobuf/jsonpb"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
@@ -108,8 +109,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	c.address = fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
-	scopes.Framework.Infof("Stackdriver in-cluster address: %s", c.address)
+	c.address = fmt.Sprintf("%s:%d", pod.Status.HostIP, svc.Spec.Ports[0].NodePort)
+	scopes.Framework.Infof("Stackdriver address: %s NodeName %s", c.address, pod.Spec.NodeName)
 
 	return c, nil
 }
@@ -134,12 +135,17 @@ func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 	}
 	var ret []*monitoringpb.TimeSeries
 	for _, t := range r.TimeSeries {
-		// Remove fields that do not need verification
 		t.Points = nil
-		delete(t.Resource.Labels, "cluster_name")
-		delete(t.Resource.Labels, "location")
-		delete(t.Resource.Labels, "project_id")
-		delete(t.Resource.Labels, "pod_name")
+		if metadata.OnGCE() {
+			// If the test runs on GCE, only remove MR fields that do not need verification
+			delete(t.Resource.Labels, "cluster_name")
+			delete(t.Resource.Labels, "location")
+			delete(t.Resource.Labels, "project_id")
+			delete(t.Resource.Labels, "pod_name")
+		} else {
+			// Otherwise remove the whole MR since it is not correctly filled on other platform yet.
+			t.Resource = nil
+		}
 		ret = append(ret, t)
 		t.Metadata = nil
 	}
@@ -174,6 +180,7 @@ func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
 			l.HttpRequest.RequestSize = 0
 			l.HttpRequest.ServerIp = ""
 			l.HttpRequest.RemoteIp = ""
+			l.HttpRequest.UserAgent = ""
 			l.HttpRequest.Latency = nil
 		}
 		delete(l.Labels, "request_id")

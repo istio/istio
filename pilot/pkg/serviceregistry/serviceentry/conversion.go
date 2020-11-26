@@ -236,7 +236,7 @@ func convertServices(cfg config.Config) []*model.Service {
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
-	endpoint *networking.WorkloadEntry) *model.ServiceInstance {
+	endpoint *networking.WorkloadEntry, wleck *configKey) *model.ServiceInstance {
 	var instancePort uint32
 	addr := endpoint.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -272,6 +272,10 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Labels:         endpoint.Labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
+			// Workload entry config name is used as workload name, which will appear in metric label.
+			// After VM auto registry is introduced, workload group annotation should be used for workload name.
+			WorkloadName: wleck.name,
+			Namespace:    wleck.namespace,
 		},
 		Service:     service,
 		ServicePort: convertPort(servicePort),
@@ -280,11 +284,12 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
-func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
+func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
+	se *networking.ServiceEntry, wleck *configKey) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
-			out = append(out, convertEndpoint(service, port, wle))
+			out = append(out, convertEndpoint(service, port, wle, wleck))
 		}
 	}
 	return out
@@ -305,10 +310,14 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 				// we create endpoints from service's host
 				// Do not use serviceentry.hosts as a service entry is converted into
 				// multiple services (one for each host)
+				endpointPort := serviceEntryPort.Number
+				if serviceEntryPort.TargetPort > 0 {
+					endpointPort = serviceEntryPort.TargetPort
+				}
 				out = append(out, &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
 						Address:         string(service.Hostname),
-						EndpointPort:    serviceEntryPort.Number,
+						EndpointPort:    endpointPort,
 						ServicePortName: serviceEntryPort.Name,
 						Labels:          nil,
 						TLSMode:         model.DisabledTLSModeLabel,
@@ -318,7 +327,7 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint))
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}))
 				}
 			}
 		}
@@ -368,7 +377,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstance(namespace string, cfg config.Config) *model.WorkloadInstance {
+func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadInstance {
 	we := cfg.Spec.(*networking.WorkloadEntry)
 	// we will merge labels from metadata with spec, with precedence to the metadata
 	labels := map[string]string{}
@@ -390,7 +399,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string, cfg config.Config)
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(namespace, we.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
@@ -406,6 +415,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string, cfg config.Config)
 			ServiceAccount: sa,
 		},
 		PortMap:   we.Ports,
-		Namespace: namespace,
+		Namespace: cfg.Namespace,
+		Name:      cfg.Name,
 	}
 }

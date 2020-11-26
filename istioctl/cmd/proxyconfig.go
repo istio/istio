@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -270,8 +271,10 @@ func setupClustersEnvoyConfigWriter(debug []byte, out io.Writer) (*clusters.Conf
 }
 
 func clusterConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	clusterConfigCmd := &cobra.Command{
-		Use:   "cluster [<pod-name[.namespace]>]",
+		Use:   "cluster [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves cluster configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about cluster configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about cluster configuration for a given pod from Envoy.
@@ -299,8 +302,10 @@ func clusterConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -336,8 +341,10 @@ func clusterConfigCmd() *cobra.Command {
 }
 
 func listenerConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	listenerConfigCmd := &cobra.Command{
-		Use:   "listener [<pod-name[.namespace]>]",
+		Use:   "listener [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves listener configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about listener configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about listener configuration for a given pod from Envoy.
@@ -365,8 +372,10 @@ func listenerConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -403,8 +412,11 @@ func listenerConfigCmd() *cobra.Command {
 }
 
 func logCmd() *cobra.Command {
+	var podName, podNamespace string
+	var podNames []string
+
 	logCmd := &cobra.Command{
-		Use:   "log <pod-name[.namespace]>",
+		Use:   "log [<type>/]<name>[.<namespace>]",
 		Short: "(experimental) Retrieves logging levels of the Envoy in the specified pod",
 		Long:  "(experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
 		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
@@ -421,9 +433,9 @@ func logCmd() *cobra.Command {
 `,
 		Aliases: []string{"o"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
+			if labelSelector == "" && len(args) < 1 {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("log requires pod name")
+				return fmt.Errorf("log requires pod name or --selector")
 			}
 			if reset && loggerLevelString != "" {
 				cmd.Println(cmd.UsageString())
@@ -432,10 +444,28 @@ func logCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-			loggerNames, err := setupEnvoyLogConfig("", podName, ns)
-			if err != nil {
-				return err
+			var err error
+			var loggerNames []string
+			if labelSelector != "" {
+				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
+					return err
+				}
+				for _, pod := range podNames {
+					name, err = setupEnvoyLogConfig("", pod, podNamespace)
+					loggerNames = append(loggerNames, name)
+				}
+				if err != nil {
+					return err
+				}
+			} else {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				name, err := setupEnvoyLogConfig("", podName, podNamespace)
+				loggerNames = append(loggerNames, name)
+				if err != nil {
+					return err
+				}
 			}
 
 			destLoggerLevels := map[string]Level{}
@@ -464,8 +494,10 @@ func logCmd() *cobra.Command {
 						}
 					} else {
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
-						if !strings.Contains(loggerNames, loggerLevel[0]) {
-							return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+						for _, logName := range loggerNames {
+							if !strings.Contains(logName, loggerLevel[0]) {
+								return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+							}
 						}
 						level, ok := stringToLevel[loggerLevel[1]]
 						if !ok {
@@ -478,15 +510,15 @@ func logCmd() *cobra.Command {
 
 			var resp string
 			if len(destLoggerLevels) == 0 {
-				resp, err = setupEnvoyLogConfig("", podName, ns)
+				resp, err = setupEnvoyLogConfig("", podName, podNamespace)
 			} else {
 				if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
 					// update levels of all loggers first
-					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, ns)
+					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
 					delete(destLoggerLevels, defaultLoggerName)
 				}
 				for lg, ll := range destLoggerLevels {
-					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, ns)
+					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
 				}
 			}
 			if err != nil {
@@ -506,7 +538,9 @@ func logCmd() *cobra.Command {
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
 	s := strings.Join(activeLoggers, ", ")
+
 	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
+	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" [<logger>:]<level>,[<logger>:]<level>,... where logger can be one of %s and level can be one of %s",
@@ -516,8 +550,10 @@ func logCmd() *cobra.Command {
 }
 
 func routeConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	routeConfigCmd := &cobra.Command{
-		Use:   "route [<pod-name[.namespace]>]",
+		Use:   "route [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves route configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about route configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about route configuration for a given pod from Envoy.
@@ -545,8 +581,10 @@ func routeConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -578,8 +616,10 @@ func routeConfigCmd() *cobra.Command {
 }
 
 func endpointConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	endpointConfigCmd := &cobra.Command{
-		Use:   "endpoint [<pod-name[.namespace]>]",
+		Use:   "endpoint [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves endpoint configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
@@ -612,8 +652,10 @@ func endpointConfigCmd() *cobra.Command {
 			var configWriter *clusters.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				configWriter, err = setupPodClustersWriter(podName, ns, c.OutOrStdout())
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter, err = setupPodClustersWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -651,8 +693,10 @@ func endpointConfigCmd() *cobra.Command {
 }
 
 func bootstrapConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	bootstrapConfigCmd := &cobra.Command{
-		Use:   "bootstrap [<pod-name[.namespace]>]",
+		Use:   "bootstrap [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about bootstrap configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full bootstrap configuration for a given pod from Envoy.
@@ -674,8 +718,10 @@ func bootstrapConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -693,8 +739,10 @@ func bootstrapConfigCmd() *cobra.Command {
 }
 
 func secretConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
 	secretConfigCmd := &cobra.Command{
-		Use:   "secret [<pod-name[.namespace]>]",
+		Use:   "secret [<type>/]<name>[.<namespace>]",
 		Short: "(experimental) Retrieves secret configuration for the Envoy in the specified pod",
 		Long:  `(experimental) Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full secret configuration for a given pod from Envoy.
@@ -702,11 +750,8 @@ func secretConfigCmd() *cobra.Command {
 
   # Retrieve full bootstrap without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
-  istioctl proxy-config secret --file envoy-config.json
-
-  THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
-		Aliases: []string{"s"},
+  istioctl proxy-config secret --file envoy-config.json`,
+		Aliases: []string{"secrets", "s"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
@@ -718,8 +763,10 @@ func secretConfigCmd() *cobra.Command {
 			var configWriter *configdump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				configWriter, err = setupPodConfigdumpWriter(podName, ns, c.OutOrStdout())
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -740,7 +787,7 @@ func secretConfigCmd() *cobra.Command {
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-
+	secretConfigCmd.Long += "\n\n" + ExperimentalMsg
 	return secretConfigCmd
 }
 
@@ -750,7 +797,7 @@ func proxyConfig() *cobra.Command {
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
 		Long:  `A group of commands used to retrieve information about proxy configuration from the Envoy config dump`,
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
-  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap> <pod-name[.namespace]>`,
+  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap|log|secret> <pod-name[.namespace]>`,
 		Aliases: []string{"pc"},
 	}
 
@@ -765,4 +812,42 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(secretConfigCmd())
 
 	return configCmd
+}
+
+func getPodName(podflag string) (string, string, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
+	}
+	var podName, ns string
+	podName, ns, err = handlers.InferPodInfoFromTypedResource(podflag,
+		handlers.HandleNamespace(namespace, defaultNamespace),
+		kubeClient.UtilFactory())
+	if err != nil {
+		return "", "", err
+	}
+	return podName, ns, nil
+}
+
+func getPodNameBySelector(labelSelector string) ([]string, string, error) {
+	var (
+		podNames []string
+		ns       string
+	)
+	client, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create k8s client: %w", err)
+	}
+	pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+	if err != nil {
+		return nil, "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+	}
+	if len(pl.Items) < 1 {
+		return nil, "", errors.New("no pods found")
+	}
+	for _, pod := range pl.Items {
+		podNames = append(podNames, pod.Name)
+	}
+	ns = pl.Items[0].Namespace
+	return podNames, ns, nil
 }

@@ -17,7 +17,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -68,7 +68,6 @@ spec:
         - hello.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
         - --concurrency
         - "2"
         env:
@@ -127,6 +126,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         - name: DNS_AGENT
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333,"scheme":"HTTPS"}},"/app-health/world/livez":{"httpGet":{"port":90}}}'
@@ -144,6 +145,7 @@ spec:
             port: 15021
           initialDelaySeconds: 1
           periodSeconds: 2
+          timeoutSeconds: 3
         resources:
           limits:
             cpu: "2"

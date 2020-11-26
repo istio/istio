@@ -32,9 +32,9 @@ messages:
 
   - name: "NamespaceNotInjected"
     code: IST0102
-    level: Warning
+    level: Info
     description: "A namespace is not enabled for Istio injection."
-    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection"
+    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection."
     args:
       - name: namespace
         type: string
@@ -162,27 +162,8 @@ messages:
       - name: policyMTLSMode
         type: string
 
-  - name: "PolicySpecifiesPortNameThatDoesntExist"
-    code: IST0114
-    level: Warning
-    description: "A Policy targets a port name that cannot be found."
-    template: "Port name %s could not be found for host %s, which means the Policy won't be enforced."
-    args:
-      - name: portName
-        type: string
-      - name: host
-        type: string
-
-  - name: "DestinationRuleUsesMTLSForWorkloadWithoutSidecar"
-    code: IST0115
-    level: Error
-    description: "A DestinationRule uses mTLS for a workload that has no sidecar."
-    template: "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from workloads with sidecars will fail."
-    args:
-      - name: destinationRuleName
-        type: string
-      - name: host
-        type: string
+  # IST0114 RETIRED
+  # IST0115 RETIRED
 
   - name: "DeploymentAssociatedToMultipleServices"
     code: IST0116
@@ -231,17 +212,8 @@ messages:
       - name: targetPort
         type: string
 
-  - name: "PolicyResourceIsDeprecated"
-    code: IST0120
-    level: Info
-    description: "The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
-    template: "The Policy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
-
-  - name: "MeshPolicyResourceIsDeprecated"
-    code: IST0121
-    level: Info
-    description: "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
-    template: "The MeshPolicy resource is deprecated and will be removed in a future Istio release. Migrate to the PeerAuthentication resource."
+  # IST0120 RETIRED
+  # IST0121 RETIRED
 
   - name: "InvalidRegexp"
     code: IST0122
@@ -315,7 +287,7 @@ messages:
 
   - name: "NoServerCertificateVerificationPortLevel"
     code: IST0129
-    level: Error
+    level: Warning
     description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port."
     template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s"
     args:
@@ -353,3 +325,26 @@ messages:
         type: string
       - name: dupno
         type: string
+
+  - name: "VirtualServiceHostNotFoundInGateway"
+    code: IST0132
+    level: Warning
+    description: "Host defined in VirtualService not found in Gateway."
+    template: "one or more host %v defined in VirtualService %s not found in Gateway %s."
+    args:
+      - name: host
+        type: "[]string"
+      - name: virtualservice
+        type: string
+      - name: gateway
+        type: string
+
+  - name: "SchemaWarning"
+    code: IST0133
+    level: Warning
+    description: "The resource has a schema validation warning."
+    template: "Schema validation warning: %v"
+    args:
+      - name: err
+        type: error
+

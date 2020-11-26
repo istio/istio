@@ -261,10 +261,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
@@ -275,10 +272,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
@@ -294,10 +288,7 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	// This ensures callers can distinguish between no labels, and labels not found.
 	aggregateCtl := buildMockController()
 
-	instances, err := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if instances != nil {
 		t.Fatalf("expected nil workload labels, got: %v", instances)
 	}
@@ -309,20 +300,13 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	discovery1.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err == nil {
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no instances are found")
-	}
+	instances := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if len(instances) != 0 {
 		t.Fatal("GetProxyServiceInstances() should return no instances is client experiences error")
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
-	if err != nil {
-		t.Fatal("Aggregate controller should not return error if instances are found")
-	}
+	instances = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
@@ -443,7 +427,7 @@ func TestAddRegistry(t *testing.T) {
 	}
 }
 
-func TestDeleteRegistry(t *testing.T) {
+func TestGetDeleteRegistry(t *testing.T) {
 	registries := []serviceregistry.Simple{
 		{
 			ProviderID: "registry1",
@@ -453,41 +437,31 @@ func TestDeleteRegistry(t *testing.T) {
 			ProviderID: "registry2",
 			ClusterID:  "cluster2",
 		},
+		{
+			ProviderID: "registry3",
+			ClusterID:  "cluster3",
+		},
 	}
 	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
-	ctrl.DeleteRegistry(registries[0].ClusterID)
-	if l := len(ctrl.registries); l != 1 {
-		t.Fatalf("Expected length of the registries slice should be 1, got %d", l)
-	}
-}
 
-func TestGetRegistries(t *testing.T) {
-	registries := []serviceregistry.Simple{
-		{
-			ProviderID: "registry1",
-			ClusterID:  "cluster1",
-		},
-		{
-			ProviderID: "registry2",
-			ClusterID:  "cluster2",
-		},
-	}
-	ctrl := NewController(Options{})
-	for _, r := range registries {
-		ctrl.AddRegistry(r)
-	}
+	// Test Get
 	result := ctrl.GetRegistries()
-	if len(ctrl.registries) != len(result) {
-		t.Fatal("Length of the original registries slice does not match to returned by GetRegistries.")
+	if l := len(result); l != 3 {
+		t.Fatalf("Expected length of the registries slice should be 3, got %d", l)
 	}
 
-	for i := range result {
-		if !reflect.DeepEqual(result[i], ctrl.registries[i]) {
-			t.Fatal("The original registries slice and resulting slice supposed to be identical.")
-		}
+	// Test Delete cluster2
+	ctrl.DeleteRegistry(registries[1].ClusterID)
+	result = ctrl.GetRegistries()
+	if l := len(result); l != 2 {
+		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
+	}
+	// check left registries are orders as before
+	if !reflect.DeepEqual(result[0], registries[0]) || !reflect.DeepEqual(result[1], registries[2]) {
+		t.Fatalf("Expected registries order has been changed")
 	}
 }
 

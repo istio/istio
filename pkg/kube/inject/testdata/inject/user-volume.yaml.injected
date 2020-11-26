@@ -17,7 +17,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","user-volume-1","user-volume-2"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","user-volume-1","user-volume-2"],"imagePullSecrets":null}'
         sidecar.istio.io/userVolume: '{"user-volume-1":{"persistentVolumeClaim":{"claimName":"pvc-claim"}},"user-volume-2":{"configMap":{"name":"configmap-volume","items":[{"key":"some-key","path":"/some-path"}]}}}'
         sidecar.istio.io/userVolumeMount: '{"user-volume-1":{"mountPath":"/mnt/volume-1","readOnly":true},"user-volume-2":{"mountPath":"/mnt/volume-2"}}'
       creationTimestamp: null
@@ -46,7 +46,6 @@ spec:
         - user-volume.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
         - --concurrency
         - "2"
         env:
@@ -107,6 +106,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/user-volume
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         - name: DNS_AGENT
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
@@ -122,6 +123,7 @@ spec:
             port: 15021
           initialDelaySeconds: 1
           periodSeconds: 2
+          timeoutSeconds: 3
         resources:
           limits:
             cpu: "2"

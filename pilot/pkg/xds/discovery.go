@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
@@ -123,6 +122,8 @@ type DiscoveryServer struct {
 
 	debounceOptions debounceOptions
 
+	instanceID string
+
 	// Cache for XDS resources
 	Cache model.XdsCache
 }
@@ -148,7 +149,7 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
@@ -164,7 +165,8 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
-		Cache: model.DisabledCache{},
+		Cache:      model.DisabledCache{},
+		instanceID: instanceID,
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -189,8 +191,13 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
+var (
+	processStartTime = time.Now()
+)
+
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
+	adsLog.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
 	s.updateMutex.Lock()
 	s.serverReady = true
 	s.updateMutex.Unlock()
@@ -203,6 +210,9 @@ func (s *DiscoveryServer) IsServerReady() bool {
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
+	if s.InternalGen != nil {
+		s.InternalGen.Run(stopCh)
+	}
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
@@ -238,8 +248,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			push := s.globalPushContext()
-			push.Mutex.Lock()
-
 			model.LastPushMutex.Lock()
 			if model.LastPushStatus != push {
 				model.LastPushStatus = push
@@ -248,8 +256,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 				adsLog.Infof("Push Status: %s", string(out))
 			}
 			model.LastPushMutex.Unlock()
-
-			push.Mutex.Unlock()
 		case <-stopCh:
 			return
 		}
@@ -470,6 +476,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 // initGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) initGenerators() {
 	edsGen := &EdsGenerator{Server: s}
+	s.InternalGen = NewInternalGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
@@ -477,18 +484,32 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &EdsV2Generator{edsGen}
-	s.Generators["grpc/"+v2.EndpointType] = epGen
+	s.Generators["grpc/"+v3.EndpointType] = edsGen
+	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]
+	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
+	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
+
 	s.Generators["api"] = &apigen.APIGenerator{}
-	s.Generators["api/"+v2.EndpointType] = epGen
-	s.InternalGen = &InternalGen{
-		Server: s,
-	}
+	s.Generators["api/"+v3.EndpointType] = edsGen
+
 	s.Generators["api/"+TypeURLConnections] = s.InternalGen
+
 	s.Generators["event"] = s.InternalGen
 }
 
 // shutdown shutsdown DiscoveryServer components.
 func (s *DiscoveryServer) Shutdown() {
 	s.pushQueue.ShutDown()
+}
+
+// Clients returns all currently connected clients. This method can be safely called concurrently, but care
+// should be taken with the underlying objects (ie model.Proxy) to ensure proper locking.
+func (s *DiscoveryServer) Clients() []*Connection {
+	s.adsClientsMutex.RLock()
+	defer s.adsClientsMutex.RUnlock()
+	clients := make([]*Connection, 0, len(s.adsClients))
+	for _, con := range s.adsClients {
+		clients = append(clients, con)
+	}
+	return clients
 }

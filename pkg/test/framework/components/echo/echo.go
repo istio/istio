@@ -71,6 +71,11 @@ type Instance interface {
 	// Call makes a call from this Instance to a target Instance.
 	Call(options CallOptions) (client.ParsedResponses, error)
 	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
+
+	// CallWithRetry is the same as call, except that it will attempt to retry based on the provided
+	// options. If no options are provided, uses defaults.
+	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
+	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) client.ParsedResponses
 }
 
 // Workload port exposed by an Echo instance
@@ -110,10 +115,15 @@ type Port struct {
 
 	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
 	ServerFirst bool
+
+	// InstanceIP determines if echo will listen on the instance IP, or wildcard
+	InstanceIP bool
 }
 
 // Workload provides an interface for a single deployed echo server.
 type Workload interface {
+	// PodName gets the original pod name for the workload.
+	PodName() string
 	// Address returns the network address of the endpoint.
 	Address() string
 

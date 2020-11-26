@@ -105,7 +105,22 @@ func (srcIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, err
 	if err != nil {
 		return nil, err
 	}
-	return principalSourceIP(cidr), nil
+	return principalDirectRemoteIP(cidr), nil
+}
+
+type remoteIPGenerator struct {
+}
+
+func (remoteIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (remoteIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, error) {
+	cidr, err := matcher.CidrRange(value)
+	if err != nil {
+		return nil, err
+	}
+	return principalRemoteIP(cidr), nil
 }
 
 type srcNamespaceGenerator struct {
@@ -152,7 +167,7 @@ func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permis
 
 func (requestPrincipalGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	m := matcher.MetadataStringMatcher(sm.AuthnFilterName, key, matcher.StringMatcher(value))
@@ -190,7 +205,7 @@ func (requestHeaderGenerator) permission(_, _ string, _ bool) (*rbacpb.Permissio
 
 func (requestHeaderGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
@@ -210,16 +225,16 @@ func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 
 func (requestClaimGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	claim, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestClaims))
+	claims, err := extractNameInNestedBrackets(strings.TrimPrefix(key, attrRequestClaims))
 	if err != nil {
 		return nil, err
 	}
 	// Generate a metadata list matcher for the given path keys and value.
 	// On proxy side, the value should be of list type.
-	m := matcher.MetadataListMatcher(sm.AuthnFilterName, []string{attrRequestClaims, claim}, value)
+	m := matcher.MetadataListMatcher(sm.AuthnFilterName, append([]string{attrRequestClaims}, claims...), value)
 	return principalMetadata(m), nil
 }
 
@@ -228,7 +243,7 @@ type hostGenerator struct {
 
 func (hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	m := matcher.HeaderMatcher(hostHeader, value)
@@ -241,17 +256,11 @@ func (hostGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principa
 }
 
 type pathGenerator struct {
-	isIstioVersionGE15 bool
 }
 
 func (g pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
-	}
-
-	if !g.isIstioVersionGE15 {
-		m := matcher.HeaderMatcher(":path", value)
-		return permissionHeader(m), nil
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	m := matcher.PathMatcher(value)
@@ -267,7 +276,7 @@ type methodGenerator struct {
 
 func (methodGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
-		return nil, fmt.Errorf("%s must not be used in TCP", key)
+		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
 	m := matcher.HeaderMatcher(methodHeader, value)

@@ -21,7 +21,7 @@ spec:
           proxyMetadata:
             FOO: bar
         sidecar.istio.io/proxyCPU: 4000m
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/excludeOutboundPorts: 7,8,9
@@ -51,7 +51,6 @@ spec:
         - traffic.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
         - --concurrency
         - "4"
         env:
@@ -112,6 +111,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/traffic
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         - name: FOO
           value: bar
         image: gcr.io/istio-testing/proxyv2:latest
@@ -128,6 +129,7 @@ spec:
             port: 15021
           initialDelaySeconds: 1
           periodSeconds: 2
+          timeoutSeconds: 3
         resources:
           requests:
             cpu: "4"

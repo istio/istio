@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/util"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -53,6 +54,8 @@ var (
 	// within this period, refresh access token.
 	defaultGracePeriod = 300
 	GCEProvider        = "GoogleComputeEngine"
+	// GKEClusterURL is the URL to send requests to the token exchange service.
+	GKEClusterURL = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
 // Plugin supports token exchange with Google OAuth 2.0 authorization server.
@@ -165,7 +168,12 @@ func (p *Plugin) constructAudience(subjectToken string) string {
 	// For GKE, we do not register IdentityProvider explicitly. The provider name
 	// is GKEClusterURL by default.
 	if provider == "" {
-		provider = p.gkeClusterURL
+		if GKEClusterURL != "" {
+			provider = GKEClusterURL
+		} else {
+			pluginLog.Warn("GKE_CLUSTER_URL is not set, fallback to call metadata server to get identity provider")
+			provider = p.gkeClusterURL
+		}
 	}
 
 	var identityNS string
@@ -281,7 +289,7 @@ func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters)
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		pluginLog.Errora("federated token response does not have access token", string(body))
+		pluginLog.Error("federated token response does not have access token", string(body))
 		return respData, errors.New("federated token response does not have access token. " + string(body))
 	}
 	pluginLog.Infof("Federated token will expire in %d seconds", respData.ExpiresIn)
@@ -414,7 +422,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		return respData, fmt.Errorf("failed to unmarshal access token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		pluginLog.Errora("access token response does not have access token", string(body))
+		pluginLog.Error("access token response does not have access token", string(body))
 		return respData, errors.New("access token response does not have access token. " + string(body))
 	}
 	pluginLog.Debug("successfully exchanged an access token")

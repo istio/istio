@@ -71,3 +71,43 @@ spec:
   mtls:
     mode: PERMISSIVE
 ---
+
+# The following policy enables strict mTLS on port 8086 and 8088 for workload e.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "e"
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      app: e
+  mtls:
+    mode: DISABLE
+  portLevelMtls:
+    8086:
+      mode: STRICT
+    8088:
+      mode: STRICT
+---
+
+# The following policy enables permissive mTLS on port 8086 and 8088 for workload f.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: "PeerAuthentication"
+metadata:
+  name: "f"
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      app: f
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    8086:
+      mode: DISABLE
+    8088:
+      mode: DISABLE
+---

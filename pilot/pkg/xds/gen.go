@@ -22,6 +22,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/env"
 	istioversion "istio.io/pkg/version"
@@ -66,11 +67,34 @@ var SkipLogTypes = map[string]struct{}{
 	v3.EndpointType: {},
 }
 
+func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
+	if g, f := s.Generators[con.proxy.Metadata.Generator+"/"+typeURL]; f {
+		return g
+	}
+
+	if g, f := s.Generators[typeURL]; f {
+		return g
+	}
+
+	// XdsResourceGenerator is the default generator for this connection. We want to allow
+	// some types to use custom generators - for example EDS.
+	g := con.proxy.XdsResourceGenerator
+	if g == nil {
+		// TODO move this to just directly using the resource TypeUrl
+		g = s.Generators["api"] // default to "MCP" generators - any type supported by store
+	}
+	return g
+}
+
 // Push an XDS resource for the given connection. Configuration will be generated
 // based on the passed in generator. Based on the updates field, generators may
 // choose to send partial or even no response if there are no changes.
 func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
-	gen model.XdsResourceGenerator, currentVersion string, w *model.WatchedResource, req *model.PushRequest) error {
+	currentVersion string, w *model.WatchedResource, req *model.PushRequest) error {
+	if w == nil {
+		return nil
+	}
+	gen := s.findGenerator(w.TypeUrl, con)
 	if gen == nil {
 		return nil
 	}
@@ -94,6 +118,13 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		Resources:   cl,
 	}
 
+	// Approximate size by looking at the Any marshaled size. This avoids high cost
+	// proto.Size, at the expense of slightly under counting.
+	size := 0
+	for _, r := range cl {
+		size += len(r.Value)
+	}
+
 	err := con.send(resp)
 	if err != nil {
 		recordSendError(w.TypeUrl, con.ConID, err)
@@ -102,7 +133,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	// Some types handle logs inside Generate, skip them here
 	if _, f := SkipLogTypes[w.TypeUrl]; !f {
-		adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(w.TypeUrl), con.proxy.ID, len(cl))
+		adsLog.Infof("%s: PUSH for node:%s resources:%d size:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID, len(cl), util.ByteCount(size))
 	}
 	return nil
 }

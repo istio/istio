@@ -85,6 +85,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+    "reflect"
 	githubcomgogoprotobuftypes "github.com/gogo/protobuf/types"
 )
 
@@ -161,7 +162,9 @@ var (
 		t.Run("", func(t *testing.T) {
 			g := NewWithT(t)
 
-			s, err := StaticCollections(c.packageName, c.m)
+			s, err := StaticCollections(c.packageName, c.m, func(name string) bool {
+				return true
+			}, "")
 			if c.err != "" {
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(err.Error()).To(Equal(s))

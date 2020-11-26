@@ -7,6 +7,9 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "IngressGateways"
 spec:
 {{- if not $gateway.autoscaleEnabled }}
 {{- if $gateway.replicaCount }}
@@ -35,6 +38,9 @@ spec:
         {{- else}}
         service.istio.io/canonical-revision: latest
         {{- end }}
+        istio.io/rev: {{ .Values.revision | default "default" }}
+        install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+        operator.istio.io/component: "IngressGateways"
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
@@ -92,10 +98,12 @@ spec:
           ports:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}
+              protocol: {{ $val.protocol | default "TCP" }}
             {{- end }}
             {{- if $.Values.global.meshExpansion.enabled }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
             - containerPort: {{ $val.targetPort | default $val.port }}
+              protocol: {{ $val.protocol | default "TCP" }}
             {{- end }}
             {{- end }}
             - containerPort: 15090
@@ -122,9 +130,6 @@ spec:
           - {{ $gateway.name | default "istio-ingressgateway" }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
-        {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
         {{- if not $gateway.runAsRoot }}
           securityContext:
@@ -206,9 +211,17 @@ spec:
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
-          {{- else if $.Values.global.trustDomain }}
+          {{- else if $.Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}
           - name: ISTIO_META_MESH_ID
-            value: "{{ $.Values.global.trustDomain }}"
+            value: "{{ $.Values.global.trustDomain  | default (index .Values.meshConfig "trustDomain") }}"
+          {{- end }}
+          {{- if .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}
+          - name: TRUST_DOMAIN
+            value: "{{ .Values.global.trustDomain | default (index .Values.meshConfig "trustDomain") }}"
+          {{- end }}
+          {{- if not $gateway.runAsRoot }}
+          - name: ISTIO_META_UNPRIVILEGED_POD
+            value: "true"
           {{- end }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
@@ -218,7 +231,7 @@ spec:
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
-          {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
+          {{- $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
             value: {{ .Values.global.network }}
@@ -244,8 +257,6 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
 {{- end }}
-          - name: gatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
@@ -288,8 +299,6 @@ spec:
                 fieldPath: metadata.annotations
       - name: istio-envoy
         emptyDir: {}
-      - name: gatewaysdsudspath
-        emptyDir: {}
       - name: istio-data
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
@@ -325,7 +334,7 @@ spec:
           optional: true
       {{- end }}
       affinity:
-      {{- include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | indent 6 }}
+{{ include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | trim | indent 8 }}
       {{- include "podAntiAffinity" $gateway | indent 6 }}
 {{- if $gateway.tolerations }}
       tolerations:

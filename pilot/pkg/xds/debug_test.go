@@ -20,96 +20,49 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
+
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		adscon := s.ConnectADS()
+		ads := s.ConnectADS()
 
-		// Need to send two of each so that the second sends an Ack that is picked up
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), "", "", adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), "", "", adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSReq(sidecarID(app3Ip, "syncApp"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSReq(sidecarID(app3Ip, "syncApp"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		for i := 0; i < 3; i++ {
-			_, err := adsReceive(adscon, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv failed", err)
-			}
-		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, "", "", adscon); err != nil {
-			t.Fatal(err)
-		}
-		rdsResponse, err := adsReceive(adscon, 5*time.Second)
-		if err != nil {
-			t.Fatal("Recv failed", err)
-		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, rdsResponse.VersionInfo, rdsResponse.Nonce, adscon); err != nil {
-			t.Fatal(err)
-		}
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.EndpointType,
+			ResourceNames: []string{"outbound|9080||app2.default.svc.cluster.local"},
+		})
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.RouteType,
+			ResourceNames: []string{"80", "8080"},
+		})
 
-		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp"), &model.NodeMetadata{})
+		node, _ := model.ParseServiceNodeWithMetadata(ads.ID, &model.NodeMetadata{})
 		verifySyncStatus(t, s.Discovery, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		adscon := s.ConnectADS()
+		ads := s.ConnectADS()
 
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), "", "", adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendEDSNack([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp2"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendCDSNack(sidecarID(app3Ip, "syncApp2"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSReq(sidecarID(app3Ip, "syncApp2"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSNack(sidecarID(app3Ip, "syncApp2"), adscon); err != nil {
-			t.Fatal(err)
-		}
-		for i := 0; i < 3; i++ {
-			_, err := adsReceive(adscon, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv failed", err)
-			}
-		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, "", "", adscon); err != nil {
-			t.Fatal(err)
-		}
-		rdsResponse, err := adsReceive(adscon, 5*time.Second)
-		if err != nil {
-			t.Fatal("Recv failed", err)
-		}
-		if err := sendRDSNack(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, rdsResponse.Nonce, adscon); err != nil {
-			t.Fatal(err)
-		}
-		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp2"), &model.NodeMetadata{})
+		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+		ads.RequestResponseNack(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.EndpointType,
+			ResourceNames: []string{"outbound|9080||app2.default.svc.cluster.local"},
+		})
+		ads.RequestResponseNack(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.RouteType,
+			ResourceNames: []string{"80", "8080"},
+		})
+		node, _ := model.ParseServiceNodeWithMetadata(ads.ID, &model.NodeMetadata{})
 		verifySyncStatus(t, s.Discovery, node.ID, true, false)
 	})
 }
@@ -185,7 +138,7 @@ func TestConfigDump(t *testing.T) {
 	}{
 		{
 			name:     "dumps most recent proxy with 200",
-			proxyID:  "dumpApp-644fc65469-96dza.testns",
+			proxyID:  "test.default",
 			wantCode: 200,
 		},
 		{
@@ -202,30 +155,13 @@ func TestConfigDump(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-			adscon := s.ConnectADS()
-			if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), adscon); err != nil {
-				t.Fatal(err)
-			}
-			if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), adscon); err != nil {
-				t.Fatal(err)
-			}
-			// Only most recent proxy will have routes
-			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", "", adscon); err != nil {
-				t.Fatal(err)
-			}
-			// Expect CDS, LDS, then RDS
-			_, err := adsReceive(adscon, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv cds failed", err)
-			}
-			_, err = adsReceive(adscon, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv lds failed", err)
-			}
-			_, err = adsReceive(adscon, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv rds failed", err)
-			}
+			ads := s.ConnectADS()
+			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+			ads.RequestResponseAck(&discovery.DiscoveryRequest{
+				TypeUrl:       v3.RouteType,
+				ResourceNames: []string{"80", "8080"},
+			})
 
 			wrapper := getConfigDump(t, s.Discovery, tt.proxyID, tt.wantCode)
 			if wrapper != nil {

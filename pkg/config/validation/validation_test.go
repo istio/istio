@@ -121,6 +121,35 @@ func TestValidateWildcardDomain(t *testing.T) {
 	}
 }
 
+func TestValidateTrustDomain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		err  string
+	}{
+		{"empty", "", "empty"},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"multi-segment", "foo.bar.com", ""},
+		{"middle dash", "f-oo.bar.com", ""},
+		{"trailing dot", "foo.bar.com.", ""},
+		{"prefix dash", "-foo.bar.com", "invalid"},
+		{"forward slash separated", "foo/bar/com", "invalid"},
+		{"colon separated", "foo:bar:com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTrustDomain(tt.in)
+			if err == nil && tt.err != "" {
+				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.err)
+			} else if err != nil && tt.err == "" {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.err) {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.err)
+			}
+		})
+	}
+}
+
 func TestValidatePort(t *testing.T) {
 	ports := map[int]bool{
 		0:     false,
@@ -285,6 +314,35 @@ func TestValidateConnectTimeout(t *testing.T) {
 	}
 }
 
+func TestValidateMaxServerConnectionAge(t *testing.T) {
+	type durationCheck struct {
+		duration time.Duration
+		isValid  bool
+	}
+	durMin, _ := time.ParseDuration("-30m")
+	durHr, _ := time.ParseDuration("-1.5h")
+	checks := []durationCheck{
+		{
+			duration: 30 * time.Minute,
+			isValid:  true,
+		},
+		{
+			duration: durMin,
+			isValid:  false,
+		},
+		{
+			duration: durHr,
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateMaxServerConnectionAge(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
+		}
+	}
+}
+
 func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	type durationCheck struct {
 		duration *types.Duration
@@ -319,20 +377,55 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		ProxyListenPort: 0,
-		ConnectTimeout:  types.DurationProto(-1 * time.Second),
-		DefaultConfig:   &meshconfig.ProxyConfig{},
+		ProxyListenPort:    0,
+		ConnectTimeout:     types.DurationProto(-1 * time.Second),
+		DefaultConfig:      &meshconfig.ProxyConfig{},
+		TrustDomain:        "",
+		TrustDomainAliases: []string{"a.$b", "a/b", ""},
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{{
+			Name: "default",
+			Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+				EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+					Service: "foo/ext-authz",
+					Port:    999999,
+				},
+			},
+		},
+		},
 	}
 
 	err := ValidateMeshConfig(&invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
+		wantErrors := []string{
+			"invalid proxy listen port",
+			"invalid connect timeout",
+			"invalid protocol detection timeout: duration: nil Duration",
+			"config path must be set",
+			"binary path must be set",
+			"service cluster must be set",
+			"invalid parent and drain time combination invalid drain duration",
+			"invalid parent and drain time combination invalid parent shutdown duration",
+			"discovery address must be set to the proxy discovery service",
+			"invalid proxy admin port",
+			"trustDomain: empty domain name not allowed",
+			"trustDomainAliases[0]",
+			"trustDomainAliases[1]",
+			"trustDomainAliases[2]",
+			"invalid extension provider default: port number 999999",
+		}
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) < 6 {
-				t.Errorf("expected an error for each field %v", err)
+			if len(err.Errors) != len(wantErrors) {
+				t.Errorf("expected %d errors but found %v", len(wantErrors), err)
+			} else {
+				for i := 0; i < len(wantErrors); i++ {
+					if !strings.HasPrefix(err.Errors[i].Error(), wantErrors[i]) {
+						t.Errorf("expected error %q at index %d but found %q", wantErrors[i], i, err.Errors[i])
+					}
+				}
 			}
 		default:
 			t.Errorf("expected a multi error as output")
@@ -719,7 +812,7 @@ func TestValidateGateway(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGateway(config.Config{
+			_, err := ValidateGateway(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
@@ -1985,8 +2078,8 @@ func TestValidateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route, false); (err == nil) != tc.valid {
-				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			if err := validateHTTPRoute(tc.route, false); (err.Err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
 			}
 		})
 	}
@@ -2079,9 +2172,10 @@ func TestValidateRouteDestination(t *testing.T) {
 // TODO: add TCP test cases once it is implemented
 func TestValidateVirtualService(t *testing.T) {
 	testCases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
 	}{
 		{name: "simple", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
@@ -2149,7 +2243,7 @@ func TestValidateVirtualService(t *testing.T) {
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
-		}, valid: true},
+		}, valid: true, warning: true},
 		{name: "namespace/name for gateway", in: &networking.VirtualService{
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"ns1/gateway"},
@@ -2213,14 +2307,57 @@ func TestValidateVirtualService(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "deprecated mirror", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/gateway"},
+			Http: []*networking.HTTPRoute{{
+				MirrorPercent: &types.UInt32Value{Value: 5},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true, warning: true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
-				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
-			}
+			warn, err := ValidateVirtualService(config.Config{Spec: tc.in})
+			checkValidation(t, warn, err, tc.valid, tc.warning)
 		})
+	}
+}
+
+func checkValidation(t *testing.T, gotWarning Warning, gotError error, valid bool, warning bool) {
+	t.Helper()
+	if (gotError == nil) != valid {
+		t.Fatalf("got valid=%v but wanted valid=%v: %v", gotError == nil, valid, gotError)
+	}
+	if (gotWarning == nil) == warning {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, warning)
+	}
+}
+
+func stringOrEmpty(v error) string {
+	if v == nil {
+		return ""
+	}
+	return v.Error()
+}
+
+func checkValidationMessage(t *testing.T, gotWarning Warning, gotError error, wantWarning string, wantError string) {
+	t.Helper()
+	if (gotError == nil) != (wantError == "") {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+	if !strings.Contains(stringOrEmpty(gotError), wantError) {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+
+	if (gotWarning == nil) != (wantWarning == "") {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
+	}
+	if !strings.Contains(stringOrEmpty(gotWarning), wantWarning) {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
 	}
 }
 
@@ -2376,7 +2513,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 	}
 	for _, c := range cases {
-		if got := ValidateDestinationRule(config.Config{
+		if _, got := ValidateDestinationRule(config.Config{
 			Meta: config.Meta{
 				Name:      someName,
 				Namespace: someNamespace,
@@ -2459,9 +2596,18 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "invalid traffic policy, both upgrade and use client protocol set", in: networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy:   networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+					UseClientProtocol: true,
+				},
+			},
+		},
+			valid: false},
 	}
 	for _, c := range cases {
-		if got := validateTrafficPolicy(&c.in); (got == nil) != c.valid {
+		if got := validateTrafficPolicy(&c.in).Err; (got == nil) != c.valid {
 			t.Errorf("ValidateTrafficPolicy failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -2629,6 +2775,7 @@ func TestValidateOutlierDetection(t *testing.T) {
 		name  string
 		in    networking.OutlierDetection
 		valid bool
+		warn  bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
 			Interval:           &types.Duration{Seconds: 2},
@@ -2655,21 +2802,32 @@ func TestValidateOutlierDetection(t *testing.T) {
 			MinHealthPercent: 101,
 		},
 			valid: false},
+		{name: "deprecated outlier detection, ConsecutiveErrors", in: networking.OutlierDetection{
+			ConsecutiveErrors: 101,
+		},
+			valid: true,
+			warn:  true},
 	}
 
 	for _, c := range cases {
-		if got := validateOutlierDetection(&c.in); (got == nil) != c.valid {
+		got := validateOutlierDetection(&c.in)
+		if (got.Err == nil) != c.valid {
 			t.Errorf("ValidateOutlierDetection failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
+				c.name, got.Err == nil, c.valid, got.Err)
+		}
+		if (got.Warning == nil) == c.warn {
+			t.Errorf("ValidateOutlierDetection failed on %v: got warn=%v but wanted warn=%v: %v",
+				c.name, got.Warning == nil, c.warn, got.Warning)
 		}
 	}
 }
 
 func TestValidateEnvoyFilter(t *testing.T) {
 	tests := []struct {
-		name  string
-		in    proto.Message
-		error string
+		name    string
+		in      proto.Message
+		error   string
+		warning string
 	}{
 		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
 
@@ -2929,7 +3087,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 										Fields: map[string]*types.Value{
 											"@type": {
 												Kind: &types.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
+													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
 												},
 											},
 										},
@@ -2939,6 +3097,40 @@ func TestValidateEnvoyFilter(t *testing.T) {
 						},
 					},
 				},
+				{
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Name: "envoy.tcp_proxy",
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"typed_config": {
+									Kind: &types.Value_StructValue{StructValue: &types.Struct{
+										Fields: map[string]*types.Value{
+											"@type": {
+												Kind: &types.Value_StringValue{
+													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+												},
+											},
+										},
+									}},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: ""},
+		{name: "deprecated config", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
 					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
@@ -2970,24 +3162,40 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: ""},
+		}, error: "", warning: "using deprecated type_url"},
+		{name: "deprecated type", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name: "envoy.http_connection_manager",
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+						Value:     &types.Struct{},
+					},
+				},
+			},
+		}, error: "", warning: "using deprecated filter name"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateEnvoyFilter(config.Config{
+			warn, err := ValidateEnvoyFilter(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
 				Spec: tt.in,
 			})
-			if err == nil && tt.error != "" {
-				t.Fatalf("ValidateEnvoyFilter(%v) = nil, wanted %q", tt.in, tt.error)
-			} else if err != nil && tt.error == "" {
-				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.error) {
-				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted %q", tt.in, err, tt.error)
-			}
+			checkValidationMessage(t, warn, err, tt.warning, tt.error)
 		})
 	}
 }
@@ -3360,7 +3568,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateServiceEntry(config.Config{
+			if _, got := ValidateServiceEntry(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
@@ -3429,6 +3637,98 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+		{
+			name: "custom-good",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "my-custom-authz",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name: "custom-empty-provider",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name: "custom-nil-provider",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				Rules:  []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name: "custom-invalid-rule",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_CUSTOM,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "my-custom-authz",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Namespaces:           []string{"ns"},
+									NotNamespaces:        []string{"ns"},
+									Principals:           []string{"id"},
+									NotPrincipals:        []string{"id"},
+									RequestPrincipals:    []string{"req"},
+									NotRequestPrincipals: []string{"req"},
+								},
+							},
+						},
+						When: []*security_beta.Condition{
+							{
+								Key:       "source.namespace",
+								Values:    []string{"source.namespace1"},
+								NotValues: []string{"source.namespace2"},
+							},
+							{
+								Key:       "source.principal",
+								Values:    []string{"source.principal1"},
+								NotValues: []string{"source.principal2"},
+							},
+							{
+								Key:       "request.auth.claims[a]",
+								Values:    []string{"claims1"},
+								NotValues: []string{"claims2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "provider-wrong-action",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+				ActionDetail: &security_beta.AuthorizationPolicy_Provider{
+					Provider: &security_beta.AuthorizationPolicy_ExtensionProvider{
+						Name: "",
+					},
+				},
+				Rules: []*security_beta.Rule{{}},
+			},
+			valid: false,
 		},
 		{
 			name: "allow-rules-nil",
@@ -3705,6 +4005,40 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "RemoteIpBlocks-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									RemoteIpBlocks: []string{"1.2.3.4", ""},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "NotRemoteIpBlocks-empty",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									NotRemoteIpBlocks: []string{"1.2.3.4", ""},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "Hosts-empty",
 			in: &security_beta.AuthorizationPolicy{
 				Rules: []*security_beta.Rule{
@@ -3857,7 +4191,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "invalid ip and port",
+			name: "invalid ip and port in ipBlocks",
 			in: &security_beta.AuthorizationPolicy{
 				Rules: []*security_beta.Rule{
 					{
@@ -3866,6 +4200,32 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 								Source: &security_beta.Source{
 									IpBlocks:    []string{"1.2.3.4", "ip1"},
 									NotIpBlocks: []string{"5.6.7.8", "ip2"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:    []string{"80", "port1"},
+									NotPorts: []string{"90", "port2"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid ip and port in remoteIpBlocks",
+			in: &security_beta.AuthorizationPolicy{
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									RemoteIpBlocks:    []string{"1.2.3.4", "ip1"},
+									NotRemoteIpBlocks: []string{"5.6.7.8", "ip2"},
 								},
 							},
 						},
@@ -3999,11 +4359,15 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
-				t.Errorf("got: %v\nwant: %v", got, c.valid)
-			}
-		})
+		if _, got := ValidateAuthorizationPolicy(config.Config{
+			Meta: config.Meta{
+				Name:      "name",
+				Namespace: "namespace",
+			},
+			Spec: c.in,
+		}); (got == nil) != c.valid {
+			t.Errorf("got: %v\nwant: %v", got, c.valid)
+		}
 	}
 }
 
@@ -4469,7 +4833,7 @@ func TestValidateSidecar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSidecar(config.Config{
+			_, err := ValidateSidecar(config.Config{
 				Meta: config.Meta{
 					Name:      "foo",
 					Namespace: "bar",
@@ -4914,7 +5278,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateRequestAuthentication(config.Config{
+			if _, got := ValidateRequestAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,
@@ -5034,7 +5398,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidatePeerAuthentication(config.Config{
+			if _, got := ValidatePeerAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,

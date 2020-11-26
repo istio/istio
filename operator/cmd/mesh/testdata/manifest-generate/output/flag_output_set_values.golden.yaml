@@ -3,7 +3,10 @@ kind: Deployment
 metadata:
   labels:
     app: istio-ingressgateway
+    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
+    istio.io/rev: default
+    operator.istio.io/component: IngressGateways
     release: istio
   name: istio-ingressgateway
   namespace: istio-system
@@ -20,14 +23,17 @@ spec:
     metadata:
       annotations:
         prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15090"
+        prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-ingressgateway
         chart: gateways
         heritage: Tiller
+        install.operator.istio.io/owning-resource: unknown
         istio: ingressgateway
+        istio.io/rev: default
+        operator.istio.io/component: IngressGateways
         release: istio
         service.istio.io/canonical-name: istio-ingressgateway
         service.istio.io/canonical-revision: latest
@@ -76,7 +82,6 @@ spec:
         - --log_output_level=default:info
         - --serviceCluster
         - istio-ingressgateway
-        - --trust-domain=cluster.local
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -125,20 +130,25 @@ spec:
           value: istio-ingressgateway
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
-        - name: ISTIO_META_MESH_ID
-          value: cluster.local
+        - name: ISTIO_META_UNPRIVILEGED_POD
+          value: "true"
         - name: ISTIO_META_ROUTER_MODE
-          value: sni-dnat
+          value: standard
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         image: gcr.io/istio-testing/mynewproxy:latest
         name: istio-proxy
         ports:
         - containerPort: 15021
+          protocol: TCP
         - containerPort: 8080
+          protocol: TCP
         - containerPort: 8443
+          protocol: TCP
         - containerPort: 15012
+          protocol: TCP
         - containerPort: 15443
+          protocol: TCP
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -178,6 +188,8 @@ spec:
           readOnly: true
         - mountPath: /var/run/ingress_gateway
           name: gatewaysdsudspath
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/ingressgateway-certs
@@ -209,6 +221,8 @@ spec:
         name: istio-envoy
       - emptyDir: {}
         name: gatewaysdsudspath
+      - emptyDir: {}
+        name: istio-data
       - name: istio-token
         projected:
           sources:

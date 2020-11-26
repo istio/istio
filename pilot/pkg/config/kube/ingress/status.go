@@ -23,6 +23,7 @@ import (
 
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -30,8 +31,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	listerv1beta1 "k8s.io/client-go/listers/networking/v1beta1"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
@@ -43,19 +43,19 @@ const (
 
 // StatusSyncer keeps the status IP in each Ingress resource updated
 type StatusSyncer struct {
-	client kubernetes.Interface
+	meshHolder mesh.Holder
+	client     kubernetes.Interface
 
-	ingressClass        string
-	defaultIngressClass string
+	// Name of service (istio-ingressgateway default) to find the IP
+	ingressService  string
+	ingressSelector string
 
-	// Name of service (ingressgateway default) to find the IP
-	ingressService string
-
-	queue         queue.Instance
-	ingressLister listerv1beta1.IngressLister
-	podLister     listerv1.PodLister
-	serviceLister listerv1.ServiceLister
-	nodeLister    listerv1.NodeLister
+	queue              queue.Instance
+	ingressLister      listerv1beta1.IngressLister
+	podLister          listerv1.PodLister
+	serviceLister      listerv1.ServiceLister
+	nodeLister         listerv1.NodeLister
+	ingressClassLister listerv1beta1.IngressClassLister
 }
 
 // Run the syncer until stopCh is closed
@@ -65,28 +65,29 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 }
 
 // NewStatusSyncer creates a new instance
-func NewStatusSyncer(mesh *meshconfig.MeshConfig, client kubelib.Client) (*StatusSyncer, error) {
+func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSyncer {
 
-	// we need to use the defined ingress class to allow multiple leaders
-	// in order to update information about ingress status
-	ingressClass, defaultIngressClass := convertIngressControllerMode(mesh.IngressControllerMode, mesh.IngressClass)
+	// as in controller, ingressClassListener can be nil since not supported in k8s version <1.18
+	var ingressClassLister listerv1beta1.IngressClassLister
+	if NetworkingIngressAvailable(client) {
+		ingressClassLister = client.KubeInformer().Networking().V1beta1().IngressClasses().Lister()
+	}
 
 	// queue requires a time duration for a retry delay after a handler error
 	q := queue.NewQueue(1 * time.Second)
 
-	st := StatusSyncer{
-		client:              client,
-		ingressLister:       client.KubeInformer().Networking().V1beta1().Ingresses().Lister(),
-		podLister:           client.KubeInformer().Core().V1().Pods().Lister(),
-		serviceLister:       client.KubeInformer().Core().V1().Services().Lister(),
-		nodeLister:          client.KubeInformer().Core().V1().Nodes().Lister(),
-		queue:               q,
-		ingressClass:        ingressClass,
-		defaultIngressClass: defaultIngressClass,
-		ingressService:      mesh.IngressService,
+	return &StatusSyncer{
+		meshHolder:         meshHolder,
+		client:             client,
+		ingressLister:      client.KubeInformer().Networking().V1beta1().Ingresses().Lister(),
+		podLister:          client.KubeInformer().Core().V1().Pods().Lister(),
+		serviceLister:      client.KubeInformer().Core().V1().Services().Lister(),
+		nodeLister:         client.KubeInformer().Core().V1().Nodes().Lister(),
+		ingressClassLister: ingressClassLister,
+		queue:              q,
+		ingressService:     meshHolder.Mesh().IngressService,
+		ingressSelector:    meshHolder.Mesh().IngressSelector,
 	}
-
-	return &st, nil
 }
 
 func (s *StatusSyncer) onEvent() error {
@@ -100,7 +101,7 @@ func (s *StatusSyncer) onEvent() error {
 
 func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 	if _, err := s.runningAddresses(ingressNamespace); err != nil {
-		log.Warna("Missing ingress, skip status updates")
+		log.Warn("Missing ingress, skip status updates")
 		err = wait.PollUntil(10*time.Second, func() (bool, error) {
 			if sa, err := s.runningAddresses(ingressNamespace); err != nil || len(sa) == 0 {
 				return false, nil
@@ -108,7 +109,7 @@ func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 			return true, nil
 		}, stop)
 		if err != nil {
-			log.Warna("Error waiting for ingress")
+			log.Warn("Error waiting for ingress")
 			return
 		}
 	}
@@ -129,7 +130,12 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 		return err
 	}
 	for _, currIng := range l {
-		if !classIsValid(currIng, s.ingressClass, s.defaultIngressClass) {
+		shouldTarget, err := s.shouldTargetIngress(currIng)
+		if err != nil {
+			log.Warnf("error determining whether should target ingress for status update: %v", err)
+			return err
+		}
+		if !shouldTarget {
 			continue
 		}
 
@@ -139,12 +145,12 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 
 		if ingressSliceEqual(status, curIPs) {
 			log.Debugf("skipping update of Ingress %v/%v (no change)", currIng.Namespace, currIng.Name)
-			return nil
+			continue
 		}
 
 		currIng.Status.LoadBalancer.Ingress = status
 
-		_, err := s.client.NetworkingV1beta1().Ingresses(currIng.Namespace).UpdateStatus(context.TODO(), currIng, metaV1.UpdateOptions{})
+		_, err = s.client.NetworkingV1beta1().Ingresses(currIng.Namespace).UpdateStatus(context.TODO(), currIng, metaV1.UpdateOptions{})
 		if err != nil {
 			log.Warnf("error updating ingress status: %v", err)
 		}
@@ -153,8 +159,8 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 	return nil
 }
 
-// runningAddresses returns a list of IP addresses and/or FQDN where the
-// ingress controller is currently running
+// runningAddresses returns a list of IP addresses and/or FQDN in the namespace
+// where the ingress controller is currently running
 func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	addrs := make([]string, 0)
 
@@ -181,13 +187,14 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 		return addrs, nil
 	}
 
-	// get information about all the pods running the ingress controller (gateway)
-	pods, err := s.podLister.Pods(ingressNamespace).List(labels.SelectorFromSet(map[string]string{"app": "ingressgateway"}))
+	// get all pods acting as ingress gateways
+	igSelector := getIngressGatewaySelector(s.ingressSelector, s.ingressService)
+	igPods, err := s.podLister.Pods(ingressNamespace).List(labels.SelectorFromSet(igSelector))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, pod := range pods {
+	for _, pod := range igPods {
 		// only Running pods are valid
 		if pod.Status.Phase != coreV1.PodRunning {
 			continue
@@ -223,7 +230,7 @@ func addressInSlice(addr string, list []string) bool {
 
 // sliceToStatus converts a slice of IP and/or hostnames to LoadBalancerIngress
 func sliceToStatus(endpoints []string) []coreV1.LoadBalancerIngress {
-	lbi := make([]coreV1.LoadBalancerIngress, 0)
+	lbi := make([]coreV1.LoadBalancerIngress, 0, len(endpoints))
 	for _, ep := range endpoints {
 		if net.ParseIP(ep) == nil {
 			lbi = append(lbi, coreV1.LoadBalancerIngress{Hostname: ep})
@@ -263,42 +270,15 @@ func ingressSliceEqual(lhs, rhs []coreV1.LoadBalancerIngress) bool {
 	return true
 }
 
-// convertIngressControllerMode converts Ingress controller mode into k8s ingress status syncer ingress class and
-// default ingress class. Ingress class and default ingress class are used by the syncer to determine whether or not to
-// update the IP of a ingress resource.
-func convertIngressControllerMode(mode meshconfig.MeshConfig_IngressControllerMode,
-	class string) (string, string) {
-	var ingressClass, defaultIngressClass string
-	switch mode {
-	case meshconfig.MeshConfig_DEFAULT:
-		defaultIngressClass = class
-		ingressClass = class
-	case meshconfig.MeshConfig_STRICT:
-		ingressClass = class
+// shouldTargetIngress determines whether the status watcher should target a given ingress resource
+func (s *StatusSyncer) shouldTargetIngress(ingress *v1beta1.Ingress) (bool, error) {
+	var ingressClass *v1beta1.IngressClass
+	if s.ingressClassLister != nil && ingress.Spec.IngressClassName != nil {
+		c, err := s.ingressClassLister.Get(*ingress.Spec.IngressClassName)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return false, err
+		}
+		ingressClass = c
 	}
-	return ingressClass, defaultIngressClass
-}
-
-// classIsValid returns true if the given Ingress either doesn't specify
-// the ingress.class annotation, or it's set to the configured in the
-// ingress controller.
-func classIsValid(ing *v1beta1.Ingress, controller, defClass string) bool {
-	// ingress fetched through annotation.
-	var ingress string
-	if ing != nil && len(ing.GetAnnotations()) != 0 {
-		ingress = ing.GetAnnotations()[kube.IngressClassAnnotation]
-	}
-
-	// we have 2 valid combinations
-	// 1 - ingress with default class | blank annotation on ingress
-	// 2 - ingress with specific class | same annotation on ingress
-	//
-	// and 2 invalid combinations
-	// 3 - ingress with default class | fixed annotation on ingress
-	// 4 - ingress with specific class | different annotation on ingress
-	if ingress == "" && controller == defClass {
-		return true
-	}
-
-	return ingress == controller
+	return shouldProcessIngressWithClass(s.meshHolder.Mesh(), ingress, ingressClass), nil
 }

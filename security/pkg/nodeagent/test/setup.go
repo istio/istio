@@ -117,6 +117,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 	// Set up test environment for Proxy
 	proxySetup := istioEnv.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
+	proxySetup.EnvoyParams = []string{"--boostrap-version", "3"}
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
 	env.InboundListenerPort = int(proxySetup.Ports().ServerProxyPort)
@@ -178,7 +179,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 	}
 	opt := e.cacheOptions(t)
 	workloadSecretCache := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, opt)
-	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache, nil)
+	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache)
 	if err != nil {
 		t.Fatalf("failed to start SDS server: %+v", err)
 	}

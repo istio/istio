@@ -1,7 +1,14 @@
+# Istio
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/istio)](https://goreportcard.com/report/github.com/istio/istio)
 [![GoDoc](https://godoc.org/istio.io/istio?status.svg)](https://godoc.org/istio.io/istio)
 
-# Istio
+<a href="https://istio.io/">
+    <img src="https://github.com/istio/istio/raw/master/logo/istio-bluelogo-whitebackground-unframed.svg"
+         alt="Istio logo" title="Istio" height="100" width="100" />
+</a>
+
+---
 
 An open platform to connect, manage, and secure microservices.
 
@@ -71,8 +78,8 @@ core components, install artifacts, and sample programs. It includes:
     - [istioctl](istioctl/). This directory contains code for the
 [_istioctl_](https://istio.io/latest/docs/reference/commands/istioctl/) command line utility.
 
-    - [operator](operator/). This directory contains code for the standalone
-[Istio Operator](https://istio.io/latest/docs/setup/install/standalone-operator/).
+    - [operator](operator/). This directory contains code for the
+[Istio Operator](https://istio.io/latest/docs/setup/install/operator/).
 
     - [pilot](pilot/). This directory
 contains platform-specific code to populate the
@@ -89,7 +96,7 @@ Envoy filters) that support authentication, authorization, and telemetry collect
 
 ## Issue management
 
-We use GitHub combined with ZenHub to track all of our bugs and feature requests. Each issue we track has a variety of metadata:
+We use GitHub to track all of our bugs and feature requests. Each issue we track has a variety of metadata:
 
 - **Epic**. An epic represents a feature area for Istio as a whole. Epics are fairly broad in scope and are basically product-level things.
 Each issue is ultimately part of an epic.
@@ -97,12 +104,6 @@ Each issue is ultimately part of an epic.
 - **Milestone**. Each issue is assigned a milestone. This is 0.1, 0.2, ..., or 'Nebulous Future'. The milestone indicates when we
 think the issue should get addressed.
 
-- **Priority/Pipeline**. Each issue has a priority which is represented by the Pipeline field within GitHub. Priority can be one of
+- **Priority**. Each issue has a priority which is represented by the column in the [Prioritization](https://github.com/orgs/istio/projects/6) project. Priority can be one of
 P0, P1, P2, or >P2. The priority indicates how important it is to address the issue within the milestone. P0 says that the
 milestone cannot be considered achieved if the issue isn't resolved.
-
-To view the project board on ZenHub, we recommend downloading the ZenHub [browser extension](https://www.zenhub.com/extension).
-Please note that this is only supported in Firefox and Chrome at the moment.
-
-We don't annotate issues with Releases; Milestones are used instead. We don't use GitHub projects at all, that
-support is disabled for our organization.

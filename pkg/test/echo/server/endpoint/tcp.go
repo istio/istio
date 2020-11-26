@@ -54,12 +54,12 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		}
 		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
-		listener, port, err = listenOnPortTLS(s.Port.Port, config)
+		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
 	} else {
 		// Listen on the given port and update the port if it changed from what was passed in.
-		listener, port, err = listenOnPort(s.Port.Port)
+		listener, port, err = listenOnAddress(s.ListenerIP, s.Port.Port)
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
 	}

@@ -16,6 +16,7 @@ package model
 
 import (
 	"hash/crc32"
+	"net"
 	"sort"
 	"strings"
 
@@ -27,7 +28,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/ledger"
 )
 
 var (
@@ -131,16 +131,14 @@ type ConfigStore interface {
 	// revision if the operation succeeds.
 	Update(config config.Config) (newRevision string, err error)
 
+	UpdateStatus(config config.Config) (newRevision string, err error)
+
+	// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
+	// read-modify-write conflicts when there are many concurrent-writers to the same resource.
+	Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error)
+
 	// Delete removes an object from the store by key
 	Delete(typ config.GroupVersionKind, name, namespace string) error
-
-	Version() string
-
-	GetResourceAtVersion(version string, key string) (resourceVersion string, err error)
-
-	GetLedger() ledger.Ledger
-
-	SetLedger(ledger.Ledger) error
 }
 
 // ConfigStoreCache is a local fully-replicated cache of the config store.  The
@@ -200,6 +198,12 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 	if hostname == "*" {
 		return host.Name(out)
 	}
+
+	// if the hostname is a valid ipv4 or ipv6 address, do not append domain or namespace
+	if net.ParseIP(hostname) != nil {
+		return host.Name(out)
+	}
+
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(hostname, ".") {
 		if meta.Namespace != "" {
@@ -251,17 +255,47 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
 // matching the needle, or false if no element in the stack matches the needle.
-func MostSpecificHostMatch(needle host.Name, stack []host.Name) (host.Name, bool) {
+func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []host.Name) (host.Name, bool) {
 	matches := []host.Name{}
-	for _, h := range stack {
-		if needle == h {
-			// exact match, return immediately
+
+	// exact match first
+	if m != nil {
+		if _, ok := m[needle]; ok {
 			return needle, true
 		}
-		if needle.SubsetOf(h) {
-			matches = append(matches, h)
+	} else {
+		for _, h := range stack {
+			if h == needle {
+				return needle, true
+			}
 		}
 	}
+
+	if needle.IsWildCarded() {
+		// slice has better loop performance than map, so use stack to range
+		// and stack is ordered before
+		for _, h := range stack {
+			// both needle and h are wildcards
+			if h.IsWildCarded() {
+				if len(needle) < len(h) {
+					continue
+				}
+				if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
+					matches = append(matches, h)
+				}
+			}
+		}
+	} else {
+		for _, h := range stack {
+			// only n is wildcard
+			if h.IsWildCarded() {
+				if strings.HasSuffix(string(needle), string(h[1:])) {
+					matches = append(matches, h)
+				}
+			}
+		}
+	}
+
 	if len(matches) > 0 {
 		// TODO: return closest match out of all non-exact matching hosts
 		return matches[0], true

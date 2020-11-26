@@ -22,6 +22,11 @@ import (
 )
 
 var (
+	version1_16 = &version.Info{
+		Major:      "1",
+		Minor:      "16",
+		GitVersion: "1.16",
+	}
 	version1_17 = &version.Info{
 		Major:      "1",
 		Minor:      "17",
@@ -31,6 +36,16 @@ var (
 		Major:      "1",
 		Minor:      "8",
 		GitVersion: "1.8",
+	}
+	version1_19 = &version.Info{
+		Major:      "1",
+		Minor:      "19",
+		GitVersion: "v1.19.4",
+	}
+	version1_19RC = &version.Info{
+		Major:      "1",
+		Minor:      "19",
+		GitVersion: "v1.19.5-rc.0",
 	}
 	version1_17GKE = &version.Info{
 		Major:      "1",
@@ -56,93 +71,72 @@ var (
 
 func TestExtractKubernetesVersion(t *testing.T) {
 	cases := []struct {
-		version *version.Info
-		errMsg  error
-		isValid bool
+		version  *version.Info
+		expected int
+		errMsg   error
+		isValid  bool
 	}{
 		{
-			version: version1_17,
-			errMsg:  nil,
-			isValid: true,
+			version:  version1_16,
+			expected: 16,
+			errMsg:   nil,
+			isValid:  true,
 		},
 		{
-			version: version1_8,
-			errMsg:  nil,
-			isValid: true,
+			version:  version1_17,
+			expected: 17,
+			errMsg:   nil,
+			isValid:  true,
 		},
 		{
-			version: version1_17GKE,
-			errMsg:  nil,
-			isValid: true,
+			version:  version1_8,
+			expected: 8,
+			errMsg:   nil,
+			isValid:  true,
 		},
 		{
-			version: version1_8GKE,
-			errMsg:  nil,
-			isValid: true,
+			version:  version1_19,
+			expected: 19,
+			errMsg:   nil,
+			isValid:  true,
+		},
+		{
+			version:  version1_19RC,
+			expected: 19,
+			errMsg:   nil,
+			isValid:  true,
+		},
+		{
+			version:  version1_17GKE,
+			expected: 17,
+			errMsg:   nil,
+			isValid:  true,
+		},
+		{
+			version:  version1_8GKE,
+			expected: 8,
+			errMsg:   nil,
+			isValid:  true,
 		},
 		{
 			version: versionInvalid1,
-			errMsg:  fmt.Errorf("the version %q is invalid", versionInvalid1.GitVersion),
+			errMsg:  fmt.Errorf("could not parse Malformed version: %v", versionInvalid1.GitVersion),
 			isValid: false,
 		},
 		{
 			version: versionInvalid2,
-			errMsg:  fmt.Errorf("could not parse %q as version", versionInvalid2.GitVersion),
+			errMsg:  fmt.Errorf("could not parse Malformed version: %v", versionInvalid2.GitVersion),
 			isValid: false,
 		},
 	}
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.version), func(t *testing.T) {
-			_, err := extractKubernetesVersion(c.version)
+			got, err := extractKubernetesVersion(c.version)
 			if c.errMsg != err && c.isValid {
 				t.Fatalf("\nwanted: %v \nbut found: %v", c.errMsg, err)
 			}
-		})
-	}
-}
-
-func TestParseVersion(t *testing.T) {
-	cases := []struct {
-		version *version.Info
-		value   int64
-		isValid bool
-	}{
-		{
-			version: version1_17,
-			value:   10017,
-			isValid: true,
-		},
-		{
-			version: version1_8,
-			value:   10008,
-			isValid: true,
-		},
-		{
-			version: version1_17GKE,
-			value:   0,
-			isValid: false,
-		},
-		{
-			version: version1_8GKE,
-			value:   0,
-			isValid: false,
-		},
-		{
-			version: versionInvalid1,
-			value:   0,
-			isValid: false,
-		},
-		{
-			version: versionInvalid2,
-			value:   0,
-			isValid: false,
-		},
-	}
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, c.version), func(t *testing.T) {
-			val := parseVersion(c.version.GitVersion, 4)
-			if c.value != val && c.isValid {
-				t.Fatalf("\nwanted: %v \nbut found: %v", c.value, val)
+			if got != c.expected {
+				t.Fatalf("wanted %v got %v", c.expected, got)
 			}
 		})
 	}

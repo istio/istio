@@ -1,46 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "7.1.0"
-    },
-    {
-      "type": "panel",
-      "id": "graph",
-      "name": "Graph",
-      "version": ""
-    },
-    {
-      "type": "datasource",
-      "id": "prometheus",
-      "name": "Prometheus",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "singlestat",
-      "name": "Singlestat",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
-      "version": "7.1.0"
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -105,7 +63,7 @@
             "rgba(237, 129, 40, 0.89)",
             "rgba(50, 172, 45, 0.97)"
           ],
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -129,6 +87,20 @@
           "id": 12,
           "interval": null,
           "links": [],
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
           "mappingType": 1,
           "mappingTypes": [
             {
@@ -192,7 +164,7 @@
             "rgba(237, 129, 40, 0.89)",
             "rgba(245, 54, 54, 0.9)"
           ],
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "decimals": null,
           "fieldConfig": {
             "defaults": {
@@ -217,6 +189,20 @@
           "id": 14,
           "interval": null,
           "links": [],
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
           "mappingType": 1,
           "mappingTypes": [
             {
@@ -254,7 +240,7 @@
               "expr": "sum(irate(istio_requests_total{reporter=\"destination\",destination_workload_namespace=~\"$namespace\",destination_workload=~\"$workload\",response_code!~\"5.*\"}[5m])) / sum(irate(istio_requests_total{reporter=\"destination\",destination_workload_namespace=~\"$namespace\",destination_workload=~\"$workload\"}[5m]))",
               "format": "time_series",
               "intervalFactor": 1,
-              "refId": "B"
+              "refId": "A"
             }
           ],
           "thresholds": "95, 99, 99.5",
@@ -275,7 +261,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -328,7 +314,7 @@
               "refId": "A"
             },
             {
-              "expr": "(histogram_quantile(0.50, sum(irate(istio_request_duration_milliseconds_bucket{reporter=\"destination\",destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[1m])) by (le)) / 1000) or histogram_quantile(0.90, sum(irate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[1m])) by (le))",
+              "expr": "(histogram_quantile(0.90, sum(irate(istio_request_duration_milliseconds_bucket{reporter=\"destination\",destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[1m])) by (le)) / 1000) or histogram_quantile(0.90, sum(irate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[1m])) by (le))",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
@@ -336,7 +322,7 @@
               "refId": "B"
             },
             {
-              "expr": "(histogram_quantile(0.50, sum(irate(istio_request_duration_milliseconds_bucket{reporter=\"destination\",destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[1m])) by (le)) / 1000) or histogram_quantile(0.99, sum(irate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[1m])) by (le))",
+              "expr": "(histogram_quantile(0.99, sum(irate(istio_request_duration_milliseconds_bucket{reporter=\"destination\",destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[1m])) by (le)) / 1000) or histogram_quantile(0.99, sum(irate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=~\"$workload\", destination_workload_namespace=~\"$namespace\"}[1m])) by (le))",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
@@ -394,7 +380,7 @@
             "rgba(237, 129, 40, 0.89)",
             "#d44a3a"
           ],
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -418,6 +404,20 @@
           "id": 84,
           "interval": null,
           "links": [],
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
           "mappingType": 1,
           "mappingTypes": [
             {
@@ -482,7 +482,7 @@
             "rgba(237, 129, 40, 0.89)",
             "#d44a3a"
           ],
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -506,6 +506,20 @@
           "id": 85,
           "interval": null,
           "links": [],
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
           "mappingType": 1,
           "mappingTypes": [
             {
@@ -606,7 +620,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -652,7 +666,7 @@
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ source_workload }}.{{ source_workload_namespace }} : {{ response_code }} (🔐mTLS)",
-              "refId": "B",
+              "refId": "A",
               "step": 2
             },
             {
@@ -661,7 +675,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ source_workload }}.{{ source_workload_namespace }} : {{ response_code }}",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             }
           ],
@@ -669,7 +683,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Incoming Requests by Source And Response Code",
+          "title": "Incoming Requests By Source And Response Code",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -713,7 +727,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -820,7 +834,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "description": "",
           "fieldConfig": {
             "defaults": {
@@ -871,7 +885,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -880,7 +894,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -889,7 +903,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -898,7 +912,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -942,7 +956,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Incoming Request Duration by Source",
+          "title": "Incoming Request Duration By Source",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -984,7 +998,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -1033,7 +1047,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1042,7 +1056,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}}  P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -1051,7 +1065,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -1060,7 +1074,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}}  P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -1146,7 +1160,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -1195,7 +1209,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1204,7 +1218,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}}  P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -1213,7 +1227,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -1222,7 +1236,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{source_workload}}.{{source_workload_namespace}}  P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -1308,7 +1322,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -1412,7 +1426,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -1511,7 +1525,7 @@
           }
         }
       ],
-      "title": "Inbound workloads",
+      "title": "Inbound Workloads",
       "type": "row"
     },
     {
@@ -1555,7 +1569,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -1601,7 +1615,7 @@
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} : {{ response_code }} (🔐mTLS)",
-              "refId": "B",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1610,7 +1624,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} : {{ response_code }}",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             }
           ],
@@ -1618,7 +1632,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Outgoing Requests by Destination And Response Code",
+          "title": "Outgoing Requests By Destination And Response Code",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -1662,7 +1676,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -1718,7 +1732,7 @@
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
-              "legendFormat": "{{destination_service }}",
+              "legendFormat": "{{ destination_service }}",
               "refId": "B",
               "step": 2
             }
@@ -1769,7 +1783,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "description": "",
           "fieldConfig": {
             "defaults": {
@@ -1820,7 +1834,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1829,7 +1843,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -1838,7 +1852,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -1847,7 +1861,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -1891,7 +1905,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Outgoing Request Duration by Destination",
+          "title": "Outgoing Request Duration By Destination",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1933,7 +1947,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -1982,7 +1996,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -1991,7 +2005,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -2000,7 +2014,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -2009,7 +2023,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -2095,7 +2109,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -2144,7 +2158,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P50 (🔐mTLS)",
-              "refId": "D",
+              "refId": "A",
               "step": 2
             },
             {
@@ -2153,7 +2167,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P90 (🔐mTLS)",
-              "refId": "A",
+              "refId": "B",
               "step": 2
             },
             {
@@ -2162,7 +2176,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} P95 (🔐mTLS)",
-              "refId": "B",
+              "refId": "C",
               "step": 2
             },
             {
@@ -2171,7 +2185,7 @@
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }}  P99 (🔐mTLS)",
-              "refId": "C",
+              "refId": "D",
               "step": 2
             },
             {
@@ -2257,7 +2271,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -2360,7 +2374,7 @@
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": "${DS_PROMETHEUS}",
+          "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -2459,7 +2473,7 @@
           }
         }
       ],
-      "title": "Outbound Workloads",
+      "title": "Outbound Services",
       "type": "row"
     }
   ],
@@ -2491,7 +2505,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": "${DS_PROMETHEUS}",
+        "datasource": "Prometheus",
         "definition": "",
         "hide": 0,
         "includeAll": false,
@@ -2513,7 +2527,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": "${DS_PROMETHEUS}",
+        "datasource": "Prometheus",
         "definition": "",
         "hide": 0,
         "includeAll": false,
@@ -2535,7 +2549,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": "${DS_PROMETHEUS}",
+        "datasource": "Prometheus",
         "definition": "",
         "hide": 0,
         "includeAll": true,
@@ -2543,7 +2557,7 @@
         "multi": true,
         "name": "srcns",
         "options": [],
-        "query": "query_result( sum(istio_requests_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\"}) by (source_workload_namespace) or sum(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\"}) by (source_workload_namespace))",
+        "query": "query_result(sum(istio_requests_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\"}) by (source_workload_namespace) or sum(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\"}) by (source_workload_namespace))",
         "refresh": 1,
         "regex": "/.*namespace=\"([^\"]*).*/",
         "skipUrlSync": false,
@@ -2557,7 +2571,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": "${DS_PROMETHEUS}",
+        "datasource": "Prometheus",
         "definition": "",
         "hide": 0,
         "includeAll": true,
@@ -2565,7 +2579,7 @@
         "multi": true,
         "name": "srcwl",
         "options": [],
-        "query": "query_result( sum(istio_requests_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\", source_workload_namespace=~\"$srcns\"}) by (source_workload) or sum(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\", source_workload_namespace=~\"$srcns\"}) by (source_workload))",
+        "query": "query_result(sum(istio_requests_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\", source_workload_namespace=~\"$srcns\"}) by (source_workload) or sum(istio_tcp_sent_bytes_total{reporter=\"destination\", destination_workload=\"$workload\", destination_workload_namespace=~\"$namespace\", source_workload_namespace=~\"$srcns\"}) by (source_workload))",
         "refresh": 1,
         "regex": "/.*workload=\"([^\"]*).*/",
         "skipUrlSync": false,
@@ -2579,7 +2593,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": "${DS_PROMETHEUS}",
+        "datasource": "Prometheus",
         "definition": "",
         "hide": 0,
         "includeAll": true,
@@ -2587,7 +2601,7 @@
         "multi": true,
         "name": "dstsvc",
         "options": [],
-        "query": "query_result( sum(istio_requests_total{reporter=\"source\", source_workload=~\"$workload\", source_workload_namespace=~\"$namespace\"}) by (destination_service) or sum(istio_tcp_sent_bytes_total{reporter=\"source\", source_workload=~\"$workload\", source_workload_namespace=~\"$namespace\"}) by (destination_service))",
+        "query": "query_result(sum(istio_requests_total{reporter=\"source\", source_workload=~\"$workload\", source_workload_namespace=~\"$namespace\"}) by (destination_service) or sum(istio_tcp_sent_bytes_total{reporter=\"source\", source_workload=~\"$workload\", source_workload_namespace=~\"$namespace\"}) by (destination_service))",
         "refresh": 1,
         "regex": "/.*destination_service=\"([^\"]*).*/",
         "skipUrlSync": false,

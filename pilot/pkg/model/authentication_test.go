@@ -770,7 +770,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *AuthenticationPolicies {
 	configStore := NewFakeStore()
 	for _, cfg := range configs {
-		log.Infof("add config %s\n", cfg.Name)
+		log.Infof("add config %s", cfg.Name)
 		if _, err := configStore.Create(*cfg); err != nil {
 			t.Fatalf("getTestAuthenticationPolicies %v", err)
 		}

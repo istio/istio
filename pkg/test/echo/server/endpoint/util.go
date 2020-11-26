@@ -27,8 +27,8 @@ import (
 
 var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
 
-func listenOnPort(port int) (net.Listener, int, error) {
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+func listenOnAddress(ip string, port int) (net.Listener, int, error) {
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -37,8 +37,8 @@ func listenOnPort(port int) (net.Listener, int, error) {
 	return ln, port, nil
 }
 
-func listenOnPortTLS(port int, cfg *tls.Config) (net.Listener, int, error) {
-	ln, err := tls.Listen("tcp", fmt.Sprintf(":%d", port), cfg)
+func listenOnAddressTLS(ip string, port int, cfg *tls.Config) (net.Listener, int, error) {
+	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", ip, port), cfg)
 	if err != nil {
 		return nil, 0, err
 	}

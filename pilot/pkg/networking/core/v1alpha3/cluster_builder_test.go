@@ -181,6 +181,26 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "destination rule with use client protocol traffic policy",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[string]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
 	}
 
 	for _, tt := range cases {
@@ -225,6 +245,15 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 			if len(tt.expectedSubsetClusters) > 0 {
 				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
+			}
+			// Validate that use client protocol configures cluster correctly.
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
+				if tt.cluster.ProtocolSelection != cluster.Cluster_USE_DOWNSTREAM_PROTOCOL {
+					t.Errorf("Expected cluster to have USE_DOWNSTREAM_PROTOCOL but has %v", tt.cluster.ProtocolSelection)
+				}
+				if tt.cluster.Http2ProtocolOptions == nil {
+					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				}
 			}
 		})
 	}
@@ -585,6 +614,37 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
 				},
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"host": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "host",
+											},
+										},
+										"name": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "svc",
+											},
+										},
+										"namespace": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "default",
+											},
+										},
+									}}}},
+								}}}},
+								"default_original_port": {
+									Kind: &structpb.Value_NumberValue{
+										NumberValue: float64(8080),
+									},
+								},
+							}},
+					},
+				},
 			},
 		},
 		{
@@ -649,6 +709,36 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
 				},
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {Fields: map[string]*structpb.Value{
+							"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+								{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+									"host": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "host",
+										},
+									},
+									"name": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "svc",
+										},
+									},
+									"namespace": {
+										Kind: &structpb.Value_StringValue{
+											StringValue: "default",
+										},
+									},
+								}}}},
+							}}}},
+							"default_original_port": {
+								Kind: &structpb.Value_NumberValue{
+									NumberValue: float64(8080),
+								},
+							},
+						}},
+					},
+				},
 			},
 		},
 	}
@@ -659,7 +749,11 @@ func TestBuildDefaultCluster(t *testing.T) {
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery,
-				tt.endpoints, tt.direction, servicePort, tt.external)
+				tt.endpoints, tt.direction, servicePort,
+				&model.Service{Ports: model.PortList{
+					servicePort,
+				},
+					Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"}})
 
 			if diff := cmp.Diff(defaultCluster, tt.expectedCluster, protocmp.Transform()); diff != "" {
 				t.Errorf("Unexpected default cluster, diff: %v", diff)
@@ -942,10 +1036,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				MeshConfig: &tt.mesh,
 				Services:   []*model.Service{service},
+				Instances:  tt.instances,
 			})
-			for _, i := range tt.instances {
-				cg.MemRegistry.AddInstance(i.Service.Hostname, i)
-			}
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
 			nv := map[string]bool{

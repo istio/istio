@@ -97,7 +97,10 @@ sidecarInjectorWebhook:
     autoInject: true
 
   rewriteAppHTTPProbe: true
-
+istiodRemote:
+  # Sidecar injector mutating webhook configuration url
+  # For example: https://$remotePilotAddress:15017/inject
+  injectionURL: ""
 telemetry:
   enabled: true
   v2:
@@ -112,7 +115,7 @@ telemetry:
       enabled: true
       # Indicates whether to enable WebAssembly runtime for stats filter.
       wasmEnabled: false
-      # overrides stats EnvoyFilter configuration. 
+      # overrides stats EnvoyFilter configuration.
       configOverride:
         gateway: {}
         inboundSidecar: {}
@@ -141,10 +144,13 @@ telemetry:
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
 
+# For Helm compatibility.
+ownerName: ""
+
 # meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
 # See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
 meshConfig:
-
+  enablePrometheusMerge: true
   # Config for the default ProxyConfig.
   # Initially using directly the proxy metadata - can also be activated using annotations
   # on the pod. This is an unsupported low-level API, pending review and decisions on
@@ -174,6 +180,8 @@ meshConfig:
   # No hurry to do this in 1.6, we're trying to prove the code.
 
 global:
+  # Used to locate istiod.
+  istioNamespace: istio-system
   # enable pod disruption budget for the control plane, which is used to
   # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
@@ -192,6 +200,9 @@ global:
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
+
+  # Used to locate istiod.
+  istioNamespace: istio-system
 
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
@@ -346,7 +357,9 @@ global:
   # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
   caAddress: ""
 
-  # One central istiod controls all remote clusters: disabled by default
+  # External istiod controls all remote clusters: disabled by default
+  externalIstiod: false
+  # Central istiod controls all remote clusters: disabled by default
   centralIstiod: false
 
   # Configure the policy for validating JWT.
@@ -467,13 +480,11 @@ global:
       # zipkin service (port 9411) in the same namespace as the other istio components.
       address: ""
 
-  # The trust domain corresponds to the trust root of a system
-  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-  # Indicate the domain used in SPIFFE identity URL
-  # The default depends on the environment.
-  #   kubernetes: cluster.local
-  #   else:  default dns domain
-  trustDomain: "cluster.local"
-
   # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
+
+  # Deprecated, use meshConfig.trustDomain
+  trustDomain: ""
+base:
+  # For istioctl usage to disable istio config crds in base
+  enableIstioConfigCRDs: true

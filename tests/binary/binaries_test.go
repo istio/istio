@@ -39,46 +39,85 @@ func TestMain(m *testing.M) {
 }
 
 func TestVersion(t *testing.T) {
-	if *releasedir == "" {
-		t.Skip("release dir not set")
+	runBinariesTest(t, func(t *testing.T, name string) {
+		cmd := path.Join(*releasedir, name)
+		args := []string{"version", "-ojson"}
+		if name == "istioctl" {
+			args = append(args, "--remote=false")
+		}
+
+		out, err := exec.Command(cmd, args...).Output()
+		if err != nil {
+			t.Fatalf("--version failed with error: %v. Output: %v", err, string(out))
+		}
+
+		var resp version.Version
+		if err := json.Unmarshal(out, &resp); err != nil {
+			t.Fatalf("Failed to marshal to json: %v. Output: %v", err, string(out))
+		}
+
+		verInfo := resp.ClientVersion
+
+		validateField(t, "Version", verInfo.Version)
+		validateField(t, "GitRevision", verInfo.GitRevision)
+		validateField(t, "GolangVersion", verInfo.GolangVersion)
+		validateField(t, "BuildStatus", verInfo.BuildStatus)
+		validateField(t, "GitTag", verInfo.GitTag)
+	})
+}
+
+// Test that flags do not get polluted with unexpected flags
+func TestFlags(t *testing.T) {
+	runBinariesTest(t, func(t *testing.T, name string) {
+		cmd := path.Join(*releasedir, name)
+		out, err := exec.Command(cmd, "--help").Output()
+		if err != nil {
+			t.Fatalf("--help failed with error: %v. Output: %v", err, string(out))
+		}
+
+		for _, denylist := range denylistedFlags {
+			if strings.Contains(string(out), denylist) {
+				t.Fatalf("binary contains unexpected flags: %v", string(out))
+			}
+		}
+	})
+}
+
+// Test that binary sizes do not bloat
+func TestBinarySizes(t *testing.T) {
+	cases := map[string]struct {
+		minMb int64
+		maxMb int64
+	}{
+		// TODO: shrink the ranges here once the active work to reduce binary size is complete
+		// For now, having two small a range will result in lots of "merge conflicts"
+		"istioctl":        {60, 100},
+		"pilot-agent":     {30, 45},
+		"pilot-discovery": {60, 80},
+		"bug-report":      {60, 100},
 	}
-	binariesToTest := strings.Split(*binaries, " ")
-	if len(binariesToTest) == 0 {
-		t.Fatal("No binaries to test. Pass the --binaries flag.")
-	}
-	for _, b := range binariesToTest {
-		cmd := path.Join(*releasedir, b)
-		t.Run(b, func(t *testing.T) {
-			if b == "istiod" {
-				// Currently istiod is not using CLI flags - version/etc will be included in a
-				// detached file.
-				return
-			}
 
-			args := []string{"version", "-ojson"}
-			if b == "istioctl" {
-				args = append(args, "--remote=false")
-			}
-
-			out, err := exec.Command(cmd, args...).Output()
-			if err != nil {
-				t.Fatalf("--version failed with error: %v. Output: %v", err, string(out))
-			}
-
-			var resp version.Version
-			if err := json.Unmarshal(out, &resp); err != nil {
-				t.Fatalf("Failed to marshal to json: %v. Output: %v", err, string(out))
-			}
-
-			verInfo := resp.ClientVersion
-
-			validateField(t, "Version", verInfo.Version)
-			validateField(t, "GitRevision", verInfo.GitRevision)
-			validateField(t, "GolangVersion", verInfo.GolangVersion)
-			validateField(t, "BuildStatus", verInfo.BuildStatus)
-			validateField(t, "GitTag", verInfo.GitTag)
-		})
-	}
+	runBinariesTest(t, func(t *testing.T, name string) {
+		tt, f := cases[name]
+		if !f {
+			t.Fatalf("min/max binary size not specified for %v", name)
+		}
+		cmd := path.Join(*releasedir, name)
+		fi, err := os.Stat(cmd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := fi.Size() / (1000 * 1000)
+		t.Logf("Actual size: %dmb. Range: [%dmb, %dmb]", got, tt.minMb, tt.maxMb)
+		if got > tt.maxMb {
+			t.Fatalf("Binary size of %dmb was greater than max allowed size %dmb", got, tt.maxMb)
+		}
+		if got < tt.minMb {
+			t.Fatalf("Binary size of %dmb was smaller than min allowed size %dmb. This is very likely a good thing, "+
+				"indicating the binary size has decreased. The test will fail to ensure you update the test thresholds to ensure "+
+				"the improvements are 'locked in'.", got, tt.maxMb)
+		}
+	})
 }
 
 var (
@@ -88,8 +127,8 @@ var (
 	}
 )
 
-// Test that flags do not get polluted with unexpected flags
-func TestFlags(t *testing.T) {
+func runBinariesTest(t *testing.T, f func(t *testing.T, name string)) {
+	t.Helper()
 	if *releasedir == "" {
 		t.Skip("release dir not set")
 	}
@@ -98,23 +137,8 @@ func TestFlags(t *testing.T) {
 		t.Fatal("No binaries to test. Pass the --binaries flag.")
 	}
 	for _, b := range binariesToTest {
-		cmd := path.Join(*releasedir, b)
 		t.Run(b, func(t *testing.T) {
-			if b == "istiod" {
-				// Currently istiod is not using CLI flags - version/etc will be included in a
-				// detached file.
-				return
-			}
-			out, err := exec.Command(cmd, "--help").Output()
-			if err != nil {
-				t.Fatalf("--help failed with error: %v. Output: %v", err, string(out))
-			}
-
-			for _, denylist := range denylistedFlags {
-				if strings.Contains(string(out), denylist) {
-					t.Fatalf("binary contains unexpected flags: %v", string(out))
-				}
-			}
+			f(t, b)
 		})
 	}
 }

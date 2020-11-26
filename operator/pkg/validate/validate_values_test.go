@@ -201,7 +201,7 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 	valuesYAML := ""
 	var allFiles []string
 	manifestDir := filepath.Join(repoRootDir, "manifests/charts")
-	for _, sd := range []string{"base", "gateways", "istio-cni", "istiocoredns", "istio-control"} {
+	for _, sd := range []string{"base", "gateways", "istio-cni", "istio-control"} {
 		dir := filepath.Join(manifestDir, sd)
 		files, err := util.FindFiles(dir, yamlFileFilter)
 		if err != nil {
@@ -209,7 +209,6 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 		}
 		allFiles = append(allFiles, files...)
 	}
-	allFiles = append(allFiles, filepath.Join(manifestDir, "global.yaml"))
 	for _, f := range allFiles {
 		b, err := ioutil.ReadFile(f)
 		if err != nil {

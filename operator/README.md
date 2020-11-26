@@ -1,12 +1,11 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/operator)](https://goreportcard.com/report/github.com/istio/operator)
-[![GolangCI](https://golangci.com/badges/github.com/istio/operator.svg)](https://golangci.com/r/github.com/istio/operator)
 
 # Istio Operator
 
 The istio/operator repo is part of istio/istio from 1.5 onwards.
-You can [contribute](CONTRIBUTING.md) by picking an
+You can [contribute](../CONTRIBUTING.md) by picking an
 [unassigned open issue](https://github.com/istio/istio/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fenvironments%2Foperator+no%3Aassignee),
-creating a [bug or feature request](BUGS-AND-FEATURE-REQUESTS.md),
+creating a [bug or feature request](../BUGS-AND-FEATURE-REQUESTS.md),
 or just coming to the weekly [Environments Working Group](https://github.com/istio/community/blob/master/WORKING-GROUPS.md)
 meeting to share your ideas.
 
@@ -20,12 +19,12 @@ three main components:
 
 - [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto) for runtime config consumed directly by Istio
 control plane components.
-- [Component configuration API](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto), for managing
+- [Component configuration API](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto#L42-L93), for managing
 K8s settings like resources, auto scaling, pod disruption budgets and others defined in the
-[KubernetesResourceSpec](https://github.com/istio/api/blob/master/operator/v1alpha1/component.proto)
+[KubernetesResourceSpec](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto#L217-L271)
 for Istio core and addon components.
 - The legacy
-[Helm installation API](https://istio.io/docs/reference/config/installation-options/) for backwards
+[Helm installation API](https://github.com/istio/istio/blob/master/operator/pkg/apis/istio/v1alpha1/values_types.proto) for backwards
 compatibility.
 
 Some parameters will temporarily exist both the component configuration and legacy Helm APIs - for example, K8s
@@ -83,26 +82,14 @@ HUB=docker.io/<your-account> TAG=latest make docker.operator
 ```
 
 This builds the controller binary and docker file, and pushes the image to the specified hub with the `latest` tag.
-Once the images are pushed, configure kubectl to point to your cluster and install the controller. You should edit
-the file deploy/operator.yaml to point to your docker hub:
+Once the images are pushed, configure kubectl to point to your cluster and install the controller.
 
-```yaml
-          image: docker.io/<your-account>/operator
-```
-
-Install the controller manifest and example IstioOperator CR:
+Install the controller manifest:
 
 ```bash
 istioctl operator init --hub docker.io/<your-account> --tag latest
 kubectl create ns istio-system
-kubectl apply -f operator/deploy/crds/istio_v1alpha1_istiooperator_cr.yaml
-```
-
-or
-
-```bash
-kubectl apply -k operator/deploy/
-kubectl apply -f operator/deploy/crds/istio_v1alpha1_istiooperator_cr.yaml
+kubectl apply -f operator/samples/default-install.yaml
 ```
 
 This installs the controller into the cluster in the istio-operator namespace. The controller in turns installs
@@ -368,13 +355,14 @@ way as galley settings. Supported K8s settings currently include:
 - [pod annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
 - [container environment variables](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)
 - [ImagePullPolicy](https://kubernetes.io/docs/concepts/containers/images/)
-- [priority calss name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
+- [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
 - [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
 - [toleration](https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/)
 - [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
 - [deployment strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
 - [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
 - [service spec](https://kubernetes.io/docs/concepts/services-networking/service/)
+- [pod securityContext](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
 
 All of these K8s settings use the K8s API definitions, so [K8s documentation](https://kubernetes.io/docs/concepts/) can
 be used for reference. All K8s overlay values are also validated in the operator.

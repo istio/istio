@@ -127,8 +127,6 @@ global:
   tag: 1.2.3
 pilot:
   enabled: true
-istiocoredns:
-  enabled: true
 gateways:
   enabled: true
   istio-ingressgateway:
@@ -158,9 +156,6 @@ components:
         rollingUpdate:
           maxSurge: 4
           maxUnavailable: 1
-addonComponents:
-   istiocoredns:
-      enabled: true
 values:
   global:
     istioNamespace: istio-system
@@ -193,7 +188,7 @@ values:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			valueStruct := v1alpha1.Values{}
-			err := util.UnmarshalValuesWithJSONPB(tt.valueYAML, &valueStruct, false)
+			err := util.UnmarshalWithJSONPB(tt.valueYAML, &valueStruct, false)
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}

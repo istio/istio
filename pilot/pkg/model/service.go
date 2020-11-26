@@ -33,6 +33,7 @@ import (
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -244,6 +245,7 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 }
 
 type WorkloadInstance struct {
+	Name      string            `json:"name,omitempty"`
 	Namespace string            `json:"namespace,omitempty"`
 	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
 	PortMap   map[string]uint32 `json:"portMap,omitempty"`
@@ -256,6 +258,7 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 		pmap[k] = v
 	}
 	return &WorkloadInstance{
+		Name:      instance.Name,
 		Namespace: instance.Namespace,
 		PortMap:   pmap,
 		Endpoint:  instance.Endpoint.DeepCopy(),
@@ -289,10 +292,10 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint.LbWeight != second.Endpoint.LbWeight {
 		return false
 	}
-	if first.Endpoint.UID != second.Endpoint.UID {
+	if first.Namespace != second.Namespace {
 		return false
 	}
-	if first.Namespace != second.Namespace {
+	if first.Name != second.Name {
 		return false
 	}
 	if !portMapEquals(first.PortMap, second.PortMap) {
@@ -326,6 +329,19 @@ func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 		return strings.Replace(label, k8sSeparator, "/", -1)
 	}
 	return defaultLabel
+}
+
+// SplitLocalityLabel splits a locality label into region, zone and subzone strings.
+func SplitLocalityLabel(locality string) (region, zone, subzone string) {
+	items := strings.Split(locality, "/")
+	switch len(items) {
+	case 1:
+		return items[0], "", ""
+	case 2:
+		return items[0], items[1], ""
+	default:
+		return items[0], items[1], items[2]
+	}
 }
 
 // Locality information for an IstioEndpoint
@@ -366,9 +382,6 @@ type IstioEndpoint struct {
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
-	// UID identifies the workload, for telemetry purpose.
-	UID string
-
 	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
 	EnvoyEndpoint *endpoint.LbEndpoint
@@ -391,6 +404,17 @@ type IstioEndpoint struct {
 
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
 	TLSMode string
+
+	// Namespace that this endpont belongs to. This is for telemetry purpose.
+	Namespace string
+
+	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
+	WorkloadName string
+
+	// The ingress tunnel supportability of this endpoint.
+	// If this endpoint sidecar proxy does not support h2 tunnel, this endpoint will not show up in the EDS clusters
+	// which are generated for h2 tunnel.
+	TunnelAbility networking.TunnelAbility
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -403,6 +427,8 @@ type ServiceAttributes struct {
 	Name string
 	// Namespace is "destination.service.namespace" attribute
 	Namespace string
+	// Labels applied to the service
+	Labels map[string]string
 	// UID is "destination.service.uid" attribute
 	UID string
 	// ExportTo defines the visibility of Service in
@@ -479,14 +505,17 @@ type ServiceDiscovery interface {
 	// though with a different ServicePort and IstioEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
-	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
+	GetProxyServiceInstances(*Proxy) []*ServiceInstance
 
-	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
+	GetProxyWorkloadLabels(*Proxy) labels.Collection
 
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
+
+	// NetworkGateways returns a map of network name to Gateways that can be used to access that network.
+	NetworkGateways() map[string][]*Gateway
 }
 
 // GetNames returns port names
@@ -575,8 +604,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) string {
-	if node.Metadata != nil && node.Metadata.ClusterID != "" && push.ClusterVIPs[s][node.Metadata.ClusterID] != "" {
-		return push.ClusterVIPs[s][node.Metadata.ClusterID]
+	if node.Metadata != nil && node.Metadata.ClusterID != "" && push.ServiceIndex.ClusterVIPs[s][node.Metadata.ClusterID] != "" {
+		return push.ServiceIndex.ClusterVIPs[s][node.Metadata.ClusterID]
 	}
 	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
 		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {

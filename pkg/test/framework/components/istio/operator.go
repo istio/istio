@@ -24,22 +24,22 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/api/label"
+	opAPI "istio.io/api/operator/v1alpha1"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
-	"istio.io/istio/pkg/test/env"
+	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -59,6 +59,12 @@ const (
 	istiodSvcName = "istiod"
 )
 
+var (
+	// the retry options for waiting for an individual component to be ready
+	componentDeployTimeout = retry.Timeout(1 * time.Minute)
+	componentDeployDelay   = retry.Delay(1 * time.Second)
+)
+
 type operatorComponent struct {
 	id          resource.ID
 	settings    Config
@@ -68,8 +74,10 @@ type operatorComponent struct {
 	mu sync.Mutex
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
-	installManifest map[string]string
-	ingress         map[resource.ClusterIndex]ingress.Instance
+	installManifest map[string][]string
+	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
+	workDir         string
+	deployTime      time.Duration
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -83,6 +91,14 @@ func (i *operatorComponent) ID() resource.ID {
 
 func (i *operatorComponent) Settings() Config {
 	return i.settings
+}
+
+func removeCRDsSlice(raw []string) string {
+	res := []string{}
+	for _, r := range raw {
+		res = append(res, removeCRDs(r))
+	}
+	return yml.JoinString(res...)
 }
 
 // When we cleanup, we should not delete CRDs. This will filter out all the crds
@@ -110,76 +126,113 @@ var leaderElectionConfigMaps = []string{
 }
 
 type istioctlConfigFiles struct {
-	iopFile       string
-	configIopFile string
-	remoteIopFile string
+	iopFile            string
+	operatorSpec       *opAPI.IstioOperatorSpec
+	configIopFile      string
+	configOperatorSpec *opAPI.IstioOperatorSpec
+	remoteIopFile      string
+	remoteOperatorSpec *opAPI.IstioOperatorSpec
 }
 
 func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instance {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	if _, ok := i.ingress[cluster.Index()]; !ok {
-		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
-			Namespace: i.settings.IngressNamespace,
-			Cluster:   cluster,
-		})
-	}
-	return i.ingress[cluster.Index()]
+	return i.CustomIngressFor(cluster, defaultIngressServiceName, defaultIngressIstioLabel)
 }
 
-func (i *operatorComponent) Close() (err error) {
-	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
-	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
-	if i.settings.DeployIstio {
-		for _, cluster := range i.environment.KubeClusters {
-			if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(i.installManifest[cluster.Name()])); e != nil {
-				err = multierror.Append(err, e)
-			}
-			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
-			for _, cm := range leaderElectionConfigMaps {
-				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
-					kubeApiMeta.DeleteOptions{}); e != nil {
-					err = multierror.Append(err, e)
-				}
-			}
-			if i.environment.IsMulticluster() {
-				if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
-					kube2.DeleteOptionsForeground()); e != nil {
-					err = multierror.Append(err, e)
-				}
-				if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
-					err = multierror.Append(err, e)
-				}
-			}
-		}
-	}
+func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceName, istioLabel string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if i.ingress != nil {
-		for _, ing := range i.ingress {
-			ing.CloseClients()
-		}
+	if i.ingress[cluster.Index()] == nil {
+		i.ingress[cluster.Index()] = map[string]ingress.Instance{}
 	}
-	return
+	if _, ok := i.ingress[cluster.Index()][istioLabel]; !ok {
+		i.ingress[cluster.Index()][istioLabel] = newIngress(i.ctx, ingressConfig{
+			Namespace:   i.settings.IngressNamespace,
+			Cluster:     cluster,
+			ServiceName: serviceName,
+			IstioLabel:  istioLabel,
+		})
+	}
+	return i.ingress[cluster.Index()][istioLabel]
+}
+
+func appendToFile(contents string, file string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	if _, err = f.WriteString(contents); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (i *operatorComponent) Close() error {
+	t0 := time.Now()
+	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
+
+	// Write time spent for cleanup and deploy to ARTIFACTS/trace.yaml and logs to allow analyzing test times
+	defer func() {
+		delta := time.Since(t0)
+		y := fmt.Sprintf(`'suite/%s':
+  istio-deploy: %f
+  istio-cleanup: %f
+`, i.ctx.Settings().TestID, i.deployTime.Seconds(), delta.Seconds())
+		_ = appendToFile(y, filepath.Join(i.ctx.Settings().BaseDir, "trace.yaml"))
+		scopes.Framework.Infof("=== SUCCEEDED: Cleanup Istio in %v [Suite=%s] ===", delta, i.ctx.Settings().TestID)
+	}()
+
+	if i.settings.DeployIstio {
+		errG := multierror.Group{}
+		for _, cluster := range i.ctx.Clusters() {
+			cluster := cluster
+			errG.Go(func() (err error) {
+				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDsSlice(i.installManifest[cluster.Name()])); e != nil {
+					err = multierror.Append(err, e)
+				}
+				// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
+				for _, cm := range leaderElectionConfigMaps {
+					if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
+						kubeApiMeta.DeleteOptions{}); e != nil {
+						err = multierror.Append(err, e)
+					}
+				}
+				if i.environment.IsMulticluster() {
+					// in multicluster mode we simply delete the namespace
+					if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
+						kube2.DeleteOptionsForeground()); e != nil {
+						err = multierror.Append(err, e)
+					}
+					if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
+						err = multierror.Append(err, e)
+					}
+				}
+				return
+			})
+		}
+		return errG.Wait().ErrorOrNil()
+	}
+	return nil
 }
 
 func (i *operatorComponent) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
-
-	for _, cluster := range i.environment.KubeClusters {
-		d, err := ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
-		if err != nil {
-			scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
-			return
-		}
-		kube2.DumpPods(cluster, d, i.settings.SystemNamespace)
+	ns := i.settings.SystemNamespace
+	d, err := ctx.CreateTmpDirectory("istio-state")
+	if err != nil {
+		scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
+		return
 	}
+	kube2.DumpPods(ctx, d, ns)
 }
 
-func (i *operatorComponent) saveInstallManifest(name string, out string) {
+// saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
+func (i *operatorComponent) saveManifestForCleanup(clusterName string, yaml string) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	i.installManifest[name] = out
+	i.installManifest[clusterName] = append(i.installManifest[clusterName], yaml)
 }
 
 func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, error) {
@@ -191,9 +244,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		environment:     env,
 		settings:        cfg,
 		ctx:             ctx,
-		installManifest: map[string]string{},
-		ingress:         map[resource.ClusterIndex]ingress.Instance{},
+		installManifest: map[string][]string{},
+		ingress:         map[resource.ClusterIndex]map[string]ingress.Instance{},
 	}
+	t0 := time.Now()
+	defer func() {
+		i.deployTime = time.Since(t0)
+	}()
 	i.id = ctx.TrackResource(i)
 
 	if !cfg.DeployIstio {
@@ -206,9 +263,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if err != nil {
 		return nil, err
 	}
+	i.workDir = workDir
 
 	//generate istioctl config files for config, control plane(primary) and remote clusters
-	istioctlConfigFiles, err := createIstioctlConfigFile(workDir, cfg, env)
+	istioctlConfigFiles, err := createIstioctlConfigFile(workDir, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -221,30 +279,33 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// install config cluster
-	for _, cluster := range env.KubeClusters {
-		if env.IsConfigCluster(cluster) && !env.IsControlPlaneCluster(cluster) {
-			if err = installConfigClusters(i, cfg, cluster, istioctlConfigFiles.configIopFile); err != nil {
+	for _, cluster := range ctx.Clusters() {
+		if cluster.IsConfig() && cluster.IsRemote() {
+			if err = installRemoteConfigCluster(i, cfg, cluster, istioctlConfigFiles.configIopFile); err != nil {
 				return i, err
 			}
 		}
 	}
 
-	//install control plane(primary) cluster
+	// install control plane clusters (can be external or primary)
 	errG := multierror.Group{}
-	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) {
+	for _, cluster := range ctx.Clusters() {
+		if cluster.IsPrimary() {
 			cluster := cluster
-			if err = installPrimaryClusters(i, cfg, cluster, istioctlConfigFiles.iopFile); err != nil {
-				return i, err
-			}
+			errG.Go(func() error {
+				return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
+			})
 		}
 	}
+	if err := errG.Wait(); err != nil {
+		scopes.Framework.Errorf("one or more errors occurred instlaling control-plane clusters: %v", err)
+		return i, err
+	}
 
-	// Remote secrets must be present for remote install to succeed
-	if env.IsMulticluster() && !i.isExternalControlPlane() {
+	if ctx.Clusters().IsMulticluster() {
 		// For multicluster, configure direct access so each control plane can get endpoints from all
 		// API servers.
-		if err := i.configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
+		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -252,13 +313,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Deploy Istio to remote clusters
 	// Under external control plane mode, we only use config and external control plane(primary)clusters for now
 	if !i.isExternalControlPlane() {
+		// TODO allow doing this with external control planes (not implemented yet)
 		errG = multierror.Group{}
-		for _, cluster := range env.KubeClusters {
-			if !(env.IsControlPlaneCluster(cluster) || env.IsConfigCluster(cluster)) {
+		for _, cluster := range ctx.Clusters() {
+			if cluster.IsRemote() && !cluster.IsConfig() {
 				cluster := cluster
 				errG.Go(func() error {
-					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile); err != nil {
-						return fmt.Errorf("failed deploying control plane to remote cluster %s: %v", cluster.Name(), err)
+					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile, istioctlConfigFiles.remoteOperatorSpec); err != nil {
+						return fmt.Errorf("failed installing remote cluster %s: %v", cluster.Name(), err)
 					}
 					return nil
 				})
@@ -267,13 +329,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if errs := errG.Wait(); errs != nil {
 			return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 		}
-	}
 
-	if env.IsMultinetwork() {
-		// enable cross network traffic
-		for _, cluster := range env.KubeClusters {
-			if err := createCrossNetworkGateway(ctx, cluster, cfg); err != nil {
-				return nil, err
+		if env.IsMultinetwork() {
+			// enable cross network traffic
+			for _, cluster := range ctx.Clusters() {
+				if err := i.exposeUserServices(cluster); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -282,6 +344,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 }
 
 func patchIstiodCustomHost(istiodAddress net.TCPAddr, cfg Config, cluster resource.Cluster) error {
+	scopes.Framework.Infof("patching custom host for cluster %s as %s", cluster.Name(), istiodAddress.IP.String())
 	patchOptions := kubeApiMeta.PatchOptions{
 		FieldManager: "istio-ci",
 		TypeMeta: kubeApiMeta.TypeMeta{
@@ -307,7 +370,7 @@ spec:
 	}
 
 	if err := retry.UntilSuccess(func() error {
-		pods, err := cluster.CoreV1().Pods(cfg.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: "istio=pilot"})
+		pods, err := cluster.CoreV1().Pods(cfg.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: "app=istiod"})
 		if err != nil {
 			return err
 		}
@@ -332,59 +395,41 @@ spec:
 			}
 		}
 		return nil
-	}, retry.Timeout(90*time.Second)); err != nil {
+	}, componentDeployTimeout, componentDeployDelay); err != nil {
 		return fmt.Errorf("failed waiting for patched istiod pod to come up in %s: %v", cluster.Name(), err)
 	}
 
 	return nil
 }
 
-func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml string) error {
+func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOperatorSpec, error) {
 	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &pkgAPI.IstioOperator{}
 	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
-		return fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
+		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
 	var values = &pkgAPI.Values{}
 	if operatorCfg.Spec.Values != nil {
 		valuesYml, err := yaml.Marshal(operatorCfg.Spec.Values)
 		if err != nil {
-			return fmt.Errorf("failed to marshal base values: %v", err)
+			return nil, fmt.Errorf("failed to marshal base values: %v", err)
 		}
 		if err := gogoprotomarshal.ApplyYAML(string(valuesYml), values); err != nil {
-			return fmt.Errorf("failed to unmarshal base values: %v", err)
-		}
-	}
-	externalControlPlane := false
-	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) && !env.IsConfigCluster(cluster) {
-			externalControlPlane = true
-		}
-	}
-	if env.IsMultinetwork() && !externalControlPlane {
-		if values.Global == nil {
-			values.Global = &pkgAPI.GlobalConfig{}
-		}
-		if values.Global.MeshNetworks == nil {
-			meshNetworks, err := gogoprotomarshal.ToJSONMap(meshNetworkSettings(cfg, env))
-			if err != nil {
-				return fmt.Errorf("failed to convert meshNetworks: %v", err)
-			}
-			values.Global.MeshNetworks = meshNetworks["networks"].(map[string]interface{})
+			return nil, fmt.Errorf("failed to unmarshal base values: %v", err)
 		}
 	}
 
 	valuesMap, err := gogoprotomarshal.ToJSONMap(values)
 	if err != nil {
-		return fmt.Errorf("failed to convert values to json map: %v", err)
+		return nil, fmt.Errorf("failed to convert values to json map: %v", err)
 	}
 	operatorCfg.Spec.Values = valuesMap
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
 	out, err := gogoprotomarshal.ToYAML(operatorCfg.Spec)
 	if err != nil {
-		return fmt.Errorf("failed marshaling iop spec: %v", err)
+		return nil, fmt.Errorf("failed marshaling iop spec: %v", err)
 	}
 
 	out = fmt.Sprintf(`
@@ -394,39 +439,19 @@ spec:
 %s`, Indent(out, "  "))
 
 	if err := ioutil.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
-		return fmt.Errorf("failed to write iop: %v", err)
+		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
 
-	return nil
+	return operatorCfg.Spec, nil
 }
 
-func createCrossNetworkGateway(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
-	scopes.Framework.Infof("Setting up cross-network-gateway in cluster: %s namespace: %s", cluster.Name(), cfg.SystemNamespace)
-
-	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: cross-network-gateway
-  namespace: %s
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 443
-      name: tls
-      protocol: TLS
-    tls:
-      mode: AUTO_PASSTHROUGH
-    hosts:
-    - "*.local"
-`, cfg.SystemNamespace))
-}
-
-func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, configIopFile string) error {
+// installRemoteConfigCluster installs istio to a cluster that runs workloads and provides Istio configuration.
+// The installed components include gateway deployments, CRDs, Roles, etc. but not istiod.
+func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, configIopFile string) error {
 	scopes.Framework.Infof("setting up %s as config cluster", cluster.Name())
-	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, configIopFile)
+	// TODO move values out of external istiod test main into the ConfigClusterValues defaults
+	// TODO(cont) this method should just deploy the "base" resources needed to allow istio to read from k8s
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, cfg.ConfigClusterIOPFile, configIopFile)
 	if err != nil {
 		return err
 	}
@@ -438,38 +463,30 @@ func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 		return err
 	}
 
-	err = applyManifest(i, installSettings, istioCtl, cluster.Name())
+	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func multiNetworkFlags(meshID, networkName string) []string {
-	return []string{
-		"--set", "values.global.meshID=" + meshID,
-		"--set", "values.global.network=" + networkName,
-		// TODO(landow) remove these in favor of a dedicated cross-network gateway deployment
-		// ingress must be enabled for multi-network
-		"--set", "values.gateways.istio-ingressgateway.enabled=true",
-		// prevents gateways from calling gateways and throwing off cross-network traffic
-		"--set", "values.gateways.istio-ingressgateway.env.ISTIO_META_REQUESTED_NETWORK_VIEW=" + networkName,
-	}
-}
+// installControlPlaneCluster installs the istiod control plane to the given cluster.
+// The cluster is considered a "primary" cluster if it is also a "config cluster", in which case components
+// like ingress will be installed.
+func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string, spec *opAPI.IstioOperatorSpec) error {
+	scopes.Framework.Infof("setting up %s as control-plane cluster", cluster.Name())
 
-func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) error {
-	scopes.Framework.Infof("setting up %s as primary cluster", cluster.Name())
-
-	if !i.environment.IsConfigCluster(cluster) {
-		if err := configExternalControlPlaneCluster(cluster, i.environment, cfg); err != nil {
+	if !cluster.IsConfig() {
+		if err := i.configureRemoteConfigForControlPlane(cluster); err != nil {
 			return err
 		}
 	}
-	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, iopFile)
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, cfg.PrimaryClusterIOPFile, iopFile)
 	if err != nil {
 		return err
 	}
 
+	// TODO the external control plane clusterName should actually use its config cluster's name
 	if i.environment.IsMulticluster() && !i.isExternalControlPlane() {
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
@@ -483,38 +500,43 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 		return err
 	}
 
-	err = applyManifest(i, installSettings, istioCtl, cluster.Name())
+	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
 		return err
 	}
 	var istiodAddress net.TCPAddr
-	if !i.environment.IsConfigCluster(cluster) {
-		err = retry.UntilSuccess(func() error {
-			istiodAddress, err = i.RemoteDiscoveryAddressFor(cluster)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, retry.Timeout(90*time.Second), retry.Delay(2*time.Second))
+	if !cluster.IsConfig() {
+		configCluster := cluster.Config()
+		istiodAddress, err = i.RemoteDiscoveryAddressFor(configCluster)
 		if err != nil {
 			return err
 		}
 		if err := patchIstiodCustomHost(istiodAddress, cfg, cluster); err != nil {
 			return err
 		}
-		configCluster, err := i.environment.GetConfigCluster(cluster)
-		if err != nil {
-			return err
-		}
-		if err := configureDiscoveryForConfigCluster(istiodAddress.IP.String(), cfg, configCluster); err != nil {
+		if err := configureDiscoveryForConfigAndRemoteCluster(istiodAddress.IP.String(), cfg, configCluster); err != nil {
 			return err
 		}
 	}
-	if i.environment.IsConfigCluster(cluster) {
-		if err := applyIstiodGateway(i.ctx, cfg, cluster); err != nil {
+
+	if cluster.IsConfig() {
+		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
+			return err
+		}
+		// Other clusters should only use this for discovery if its a config cluster.
+		if err := i.applyIstiodGateway(cluster); err != nil {
 			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
 		}
-		if err := waitForIstioReady(i.ctx, i, cluster, cfg); err != nil {
+		if err := waitForIstioReady(i.ctx, cluster, cfg); err != nil {
+			return err
+		}
+	}
+	if cluster.IsConfig() && i.environment.IsMulticluster() {
+		istiodAddress, err = i.RemoteDiscoveryAddressFor(cluster)
+		if err != nil {
+			return err
+		}
+		if err := patchIstiodCustomHost(istiodAddress, cfg, cluster); err != nil {
 			return err
 		}
 	}
@@ -522,9 +544,11 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 }
 
 // Deploy Istio to remote clusters
-func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
+func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string, spec *opAPI.IstioOperatorSpec) error {
+	// TODO this method should handle setting up discovery from remote config clusters to their control-plane
+	// TODO(cont) and eventually we should always use istiod-less remotes
 	scopes.Framework.Infof("setting up %s as remote cluster", cluster.Name())
-	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, remoteIopFile)
+	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, cfg.RemoteClusterIOPFile, remoteIopFile)
 	if err != nil {
 		return err
 	}
@@ -546,39 +570,47 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 			return err
 		}
 		installSettings = append(installSettings,
-			"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
-
-		if isCentralIstio(i.environment, cfg) {
-			installSettings = append(installSettings,
-				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
-				"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
-		}
-
+			"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
+			"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject/net/%s/cluster/%s",
+				remoteIstiodAddress.IP.String(), 15017, cluster.NetworkName(), cluster.Name()),
+			"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
 	}
-	return applyManifest(i, installSettings, istioCtl, cluster.Name())
 
+	if err := install(i, installSettings, istioCtl, cluster.Name()); err != nil {
+		return err
+	}
+
+	// remote clusters only need this gateway for multi-network purposes
+	if i.ctx.Environment().IsMultinetwork() {
+		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster resource.Cluster, iopFile string) ([]string, error) {
+func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster resource.Cluster, defaultsIOPFile, iopFile string) ([]string, error) {
 
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return nil, err
 	}
-	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
-		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
+		defaultsIOPFile = filepath.Join(testenv.IstioSrc, defaultsIOPFile)
 	}
 
 	installSettings := []string{
 		"-f", defaultsIOPFile,
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
-		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
+		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
 
-	if !i.isExternalControlPlane() && i.environment.IsMulticluster() && cluster.NetworkName() != "" {
-		installSettings = append(installSettings, multiNetworkFlags(meshID, cluster.NetworkName())...)
+	if i.environment.IsMultinetwork() && cluster.NetworkName() != "" {
+		installSettings = append(installSettings,
+			"--set", "values.global.meshID="+meshID,
+			"--set", "values.global.network="+cluster.NetworkName())
 	}
 
 	// Include all user-specified values.
@@ -588,24 +620,8 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster re
 	return installSettings, nil
 }
 
-func applyIstiodGateway(ctx resource.Context, cfg Config, cluster resource.Cluster) error {
-	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/istiod-gateway/istiod-gateway.yaml"))
-	if err != nil {
-		return err
-	}
-	yaml := string(yamlBytes)
-	yaml = strings.ReplaceAll(yaml, "istio-system", cfg.SystemNamespace)
-	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, yaml)
-}
-
-func isCentralIstio(env *kube.Environment, cfg Config) bool {
-	if env.IsMulticluster() && cfg.Values["global.centralIstiod"] == "true" {
-		return true
-	}
-	return false
-}
-
-func applyManifest(c *operatorComponent, installSettings []string, istioCtl istioctl.Instance, clusterName string) error {
+// install will replace and reconcile the installation based on the given install settings
+func install(c *operatorComponent, installSettings []string, istioCtl istioctl.Instance, clusterName string) error {
 	// Save the manifest generate output so we can later cleanup
 	genCmd := []string{"manifest", "generate"}
 	genCmd = append(genCmd, installSettings...)
@@ -613,7 +629,7 @@ func applyManifest(c *operatorComponent, installSettings []string, istioCtl isti
 	if err != nil {
 		return err
 	}
-	c.saveInstallManifest(clusterName, out)
+	c.saveManifestForCleanup(clusterName, out)
 
 	// Actually run the install command
 	cmd := []string{
@@ -628,96 +644,38 @@ func applyManifest(c *operatorComponent, installSettings []string, istioCtl isti
 	return nil
 }
 
-// meshNetworkSettings builds the values for meshNetworks with an endpoint in each network per-cluster.
-// Assumes that the registry service is always istio-ingressgateway.
-func meshNetworkSettings(cfg Config, environment *kube.Environment) *meshAPI.MeshNetworks {
-	meshNetworks := meshAPI.MeshNetworks{Networks: make(map[string]*meshAPI.Network)}
-	defaultGateways := []*meshAPI.Network_IstioNetworkGateway{{
-		Gw: &meshAPI.Network_IstioNetworkGateway_RegistryServiceName{
-			RegistryServiceName: "istio-ingressgateway." + cfg.IngressNamespace + ".svc.cluster.local",
-		},
-		Port: 443,
-	}}
-
-	for networkName, clusters := range environment.ClustersByNetwork() {
-		network := &meshAPI.Network{
-			Endpoints: make([]*meshAPI.Network_NetworkEndpoints, len(clusters)),
-			Gateways:  defaultGateways,
-		}
-		for i, cluster := range clusters {
-			network.Endpoints[i] = &meshAPI.Network_NetworkEndpoints{
-				Ne: &meshAPI.Network_NetworkEndpoints_FromRegistry{
-					FromRegistry: cluster.Name(),
-				},
-			}
-		}
-		meshNetworks.Networks[networkName] = network
-	}
-
-	return &meshNetworks
-}
-
-func waitForIstioReady(ctx resource.Context, dumper resource.Dumper, cluster resource.Cluster, cfg Config) error {
+func waitForIstioReady(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
 	if !cfg.SkipWaitForValidationWebhook {
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		if err := waitForValidationWebhook(ctx, cluster, cfg); err != nil {
-			dumper.Dump(ctx)
 			return err
 		}
 	}
 	return nil
 }
 
-func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment, cfg Config) error {
+func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, cfg Config) error {
 	// Configure direct access for each control plane to each APIServer. This allows each control plane to
 	// automatically discover endpoints in remote clusters.
-	for _, cluster := range env.KubeClusters {
-		if err := i.configureDirectAPIServiceAccessForCluster(ctx, env, cfg, cluster); err != nil {
+	for _, cluster := range ctx.Clusters() {
+		if err := i.configureDirectAPIServiceAccessForCluster(ctx, cfg, cluster); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
+func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, cfg Config,
 	cluster resource.Cluster) error {
-	// Ensure the istio-reader-service-account exists
-	if err := i.createServiceAccount(ctx, cluster); err != nil {
-		return err
-	}
 	// Create a secret.
 	secret, err := createRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
-	if err := ctx.Config(env.ControlPlaneClusters(cluster)...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
+	if err := ctx.Config(ctx.Clusters().Primaries(cluster)...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
-}
-
-func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster resource.Cluster) error {
-	// TODO(landow) we should not have users do this. instead this could be a part of create-remote-secret
-	sa, err := cluster.CoreV1().ServiceAccounts("istio-system").
-		Get(context.TODO(), multicluster.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
-	if err == nil && sa != nil {
-		scopes.Framework.Infof("service account exists in %s", cluster.Name())
-		return nil
-	}
-	scopes.Framework.Infof("creating service account in %s", cluster.Name())
-
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{
-		Cluster: cluster,
-	})
-	if err != nil {
-		return err
-	}
-	return applyManifest(i, []string{
-		"--set", "profile=empty",
-		"--set", "components.base.enabled=true",
-		"--set", "values.global.configValidation=false",
-		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
-	}, istioCtl, cluster.Name())
 }
 
 func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Config) (string, error) {
@@ -731,6 +689,7 @@ func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Conf
 		"x", "create-remote-secret",
 		"--name", cluster.Name(),
 		"--namespace", cfg.SystemNamespace,
+		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
 
 	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
@@ -752,7 +711,7 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		return fmt.Errorf("failed creating the root CA: %v", err)
 	}
 
-	for _, cluster := range env.KubeClusters {
+	for _, cluster := range env.Clusters() {
 		// Create a subdir for the cluster certs.
 		clusterDir := filepath.Join(certsDir, cluster.Name())
 		if err := os.Mkdir(clusterDir, 0700); err != nil {
@@ -779,9 +738,14 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		}
 
 		// Create the system namespace.
+		var nsLabels map[string]string
+		if env.IsMultinetwork() {
+			nsLabels = map[string]string{label.IstioNetwork: cluster.NetworkName()}
+		}
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
-				Name: cfg.SystemNamespace,
+				Labels: nsLabels,
+				Name:   cfg.SystemNamespace,
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
 			scopes.Framework.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
@@ -798,8 +762,8 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 	return nil
 }
 
-func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, cluster resource.Cluster) error {
-	scopes.Framework.Infof("creating endpoints and service in cluster %s", cluster.Name())
+func configureDiscoveryForConfigAndRemoteCluster(discoveryAddress string, cfg Config, cluster resource.Cluster) error {
+	scopes.Framework.Infof("creating endpoints and service in %s to get discovery from %s", cluster.Name(), discoveryAddress)
 	svc := &kubeApiCore.Service{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:      istiodSvcName,
@@ -809,13 +773,18 @@ func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, clu
 			Ports: []kubeApiCore.ServicePort{
 				{
 					Port:     15012,
-					Name:     "tcp-istiod",
+					Name:     "tls-istiod",
 					Protocol: kubeApiCore.ProtocolTCP,
 				},
 				{
-					Name:     "tcp-webhook",
+					Name:     "tls-webhook",
 					Protocol: kubeApiCore.ProtocolTCP,
 					Port:     15017,
+				},
+				{
+					Name:     "tls",
+					Protocol: kubeApiCore.ProtocolTCP,
+					Port:     15443,
 				},
 			},
 			ClusterIP: "None",
@@ -839,12 +808,12 @@ func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, clu
 				},
 				Ports: []kubeApiCore.EndpointPort{
 					{
-						Name:     "tcp-istiod",
+						Name:     "tls-istiod",
 						Protocol: kubeApiCore.ProtocolTCP,
 						Port:     15012,
 					},
 					{
-						Name:     "tcp-webhook",
+						Name:     "tls-webhook",
 						Protocol: kubeApiCore.ProtocolTCP,
 						Port:     15017,
 					},
@@ -867,67 +836,66 @@ func configureDiscoveryForConfigCluster(discoveryAddress string, cfg Config, clu
 			return err
 		}
 		return nil
-	}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second))
+	}, componentDeployTimeout, componentDeployDelay)
 	return err
 }
 
-func configExternalControlPlaneCluster(externalControlPlaneCluster resource.Cluster, env *kube.Environment,
-	cfg Config) error {
-	configCluster, err := env.GetConfigCluster(externalControlPlaneCluster)
-	if err != nil {
-		return err
-	}
+// configureRemoteConfigForControlPlane allows istiod in the given external control plane to read resources
+// in its remote config cluster by creating the kubeconfig secret pointing to the remote kubeconfig, and the
+// service account required to read the secret.
+func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resource.Cluster) error {
+	env, cfg := i.environment, i.settings
+	configCluster := cluster.Config()
 	istioKubeConfig, err := file.AsString(env.Settings().KubeConfig[configCluster.Index()])
 	if err != nil {
-		scopes.Framework.Infof("has error in parsing kubeconfig ")
+		scopes.Framework.Infof("error in parsing kubeconfig for %s", configCluster.Name())
 		return err
 	}
-	istiodNS := &kubeApiCore.Namespace{
-		ObjectMeta: kubeApiMeta.ObjectMeta{
-			Name: cfg.SystemNamespace,
-		},
+
+	scopes.Framework.Infof("configuring external control plane %s to use config cluster in %s", cluster.Name())
+	// ensure system namespace exists
+	_, err = cluster.CoreV1().Namespaces().
+		Create(context.TODO(), &kubeApiCore.Namespace{
+			ObjectMeta: kubeApiMeta.ObjectMeta{
+				Name: cfg.SystemNamespace,
+			},
+		}, kubeApiMeta.CreateOptions{})
+	if !errors.IsAlreadyExists(err) {
+		return err
+	}
+	// create kubeconfig secret
+	_, err = cluster.CoreV1().Secrets(cfg.SystemNamespace).
+		Create(context.TODO(), &kubeApiCore.Secret{
+			ObjectMeta: kubeApiMeta.ObjectMeta{
+				Name:      "istio-kubeconfig",
+				Namespace: cfg.SystemNamespace,
+			},
+			Data: map[string][]byte{
+				"config": []byte(istioKubeConfig),
+			},
+		}, kubeApiMeta.CreateOptions{})
+	if err != nil {
+		scopes.Framework.Infof("has error in creating istio-kubeconfig secrets %v", err)
+		return err
+	}
+	// create service account for reading the secrets
+	_, err = cluster.CoreV1().ServiceAccounts(cfg.SystemNamespace).
+		Create(context.TODO(), &kubeApiCore.ServiceAccount{
+			ObjectMeta: kubeApiMeta.ObjectMeta{
+				Namespace: cfg.SystemNamespace,
+				Name:      "istiod-service-account",
+			},
+		}, kubeApiMeta.CreateOptions{})
+	if err != nil {
+		scopes.Framework.Infof("has error in creating istiod service account %v", err)
+		return err
 	}
 
-	istiokubeconfigSecret := &kubeApiCore.Secret{
-		ObjectMeta: kubeApiMeta.ObjectMeta{
-			Name:      "istio-kubeconfig",
-			Namespace: cfg.SystemNamespace,
-		},
-		Data: map[string][]byte{
-			"config": []byte(istioKubeConfig),
-		},
-	}
-
-	istiodSA := &kubeApiCore.ServiceAccount{
-		ObjectMeta: kubeApiMeta.ObjectMeta{
-			Namespace: cfg.SystemNamespace,
-			Name:      "istiod-service-account",
-		},
-	}
-
-	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) {
-			scopes.Framework.Infof("creating resources in cluster %s", cluster.Name())
-			cluster.CoreV1().Namespaces().Create(context.TODO(), // nolint: errcheck
-				istiodNS, kubeApiMeta.CreateOptions{})
-			_, err = cluster.CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(),
-				istiokubeconfigSecret, kubeApiMeta.CreateOptions{})
-			if err != nil {
-				scopes.Framework.Infof("has error in creating istio-kubeconfig secrets %v", err)
-				return err
-			}
-			_, err = cluster.CoreV1().ServiceAccounts(cfg.SystemNamespace).Create(context.TODO(),
-				istiodSA, kubeApiMeta.CreateOptions{})
-			if err != nil {
-				scopes.Framework.Infof("has error in creating istiod service account %v", err)
-				return err
-			}
-		}
-	}
 	return nil
 }
 
-func createIstioctlConfigFile(workDir string, cfg Config, env *kube.Environment) (istioctlConfigFiles, error) {
+func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, error) {
+	var err error
 	configFiles := istioctlConfigFiles{
 		iopFile:       "",
 		configIopFile: "",
@@ -935,24 +903,22 @@ func createIstioctlConfigFile(workDir string, cfg Config, env *kube.Environment)
 	}
 	// Generate the istioctl config file for control plane(primary) cluster
 	configFiles.iopFile = filepath.Join(workDir, "iop.yaml")
-	if err := initIOPFile(cfg, env, configFiles.iopFile, cfg.ControlPlaneValues); err != nil {
+	if configFiles.operatorSpec, err = initIOPFile(cfg, configFiles.iopFile, cfg.ControlPlaneValues); err != nil {
 		return configFiles, err
 	}
 
 	// Generate the istioctl config file for remote cluster
-	configFiles.remoteIopFile = configFiles.iopFile
-	if cfg.RemoteClusterValues != "" {
-		configFiles.remoteIopFile = filepath.Join(workDir, "remote.yaml")
-		if err := initIOPFile(cfg, env, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
-			return configFiles, err
-		}
+	configFiles.remoteIopFile = filepath.Join(workDir, "remote.yaml")
+	if configFiles.remoteOperatorSpec, err = initIOPFile(cfg, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
+		return configFiles, err
 	}
 
 	// Generate the istioctl config file for config cluster
 	configFiles.configIopFile = configFiles.iopFile
+	configFiles.configOperatorSpec = configFiles.operatorSpec
 	if cfg.ConfigClusterValues != "" {
 		configFiles.configIopFile = filepath.Join(workDir, "config.yaml")
-		if err := initIOPFile(cfg, env, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
+		if configFiles.configOperatorSpec, err = initIOPFile(cfg, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
 			return configFiles, err
 		}
 	}

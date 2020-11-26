@@ -36,6 +36,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
@@ -149,6 +151,15 @@ func getMaxCidrPrefix(addr string) uint32 {
 	}
 	// ipv4 address
 	return 32
+}
+
+func ListContains(haystack []string, needle string) bool {
+	for _, n := range haystack {
+		if needle == n {
+			return true
+		}
+	}
+	return false
 }
 
 // ConvertAddressToCidr converts from string to CIDR proto
@@ -259,10 +270,24 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE15 checks whether the given Istio version is greater than or equals 1.5.
-func IsIstioVersionGE15(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
+// IsIstioVersionGE19 checks whether the given Istio version is greater than or equals 1.9.
+func IsIstioVersionGE19(node *model.Proxy) bool {
+	return node == nil || node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 9, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE18 checks whether the given Istio version is greater than or equals 1.8.
+func IsIstioVersionGE18(node *model.Proxy) bool {
+	return node == nil || node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 8, Patch: -1}) >= 0
+}
+
+func BuildInboundSubsetKey(node *model.Proxy, subsetName string, hostname host.Name, port int) string {
+	if IsIstioVersionGE18(node) {
+		// On 1.8+ Proxies, we use format inbound|port||. Telemetry no longer requires the hostname
+		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", "", port)
+	}
+	return model.BuildSubsetKey(model.TrafficDirectionInbound, subsetName, hostname, port)
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -283,7 +308,7 @@ func ConvertLocality(locality string) *core.Locality {
 		return &core.Locality{}
 	}
 
-	region, zone, subzone := SplitLocality(locality)
+	region, zone, subzone := model.SplitLocalityLabel(locality)
 	return &core.Locality{
 		Region:  region,
 		Zone:    zone,
@@ -317,7 +342,7 @@ func IsLocalityEmpty(locality *core.Locality) bool {
 }
 
 func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
-	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
+	ruleRegion, ruleZone, ruleSubzone := model.SplitLocalityLabel(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
 	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
 	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
@@ -326,18 +351,6 @@ func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
 		return true
 	}
 	return false
-}
-
-func SplitLocality(locality string) (region, zone, subzone string) {
-	items := strings.Split(locality, "/")
-	switch len(items) {
-	case 1:
-		return items[0], "", ""
-	case 2:
-		return items[0], items[1], ""
-	default:
-		return items[0], items[1], items[2]
-	}
 }
 
 func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
@@ -389,21 +402,30 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
 // name.namespace of the config, the type, etc.
 func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
+	return AddConfigInfoMetadata(nil, config)
+}
+
+// AddConfigInfoMetadata adds name.namespace of the config, the type, etc
+// to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
+func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Metadata {
+	if metadata == nil {
+		metadata = &core.Metadata{
+			FilterMetadata: map[string]*pstruct.Struct{},
+		}
+	}
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
 		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
-	return &core.Metadata{
-		FilterMetadata: map[string]*pstruct.Struct{
-			IstioMetadataKey: {
-				Fields: map[string]*pstruct.Value{
-					"config": {
-						Kind: &pstruct.Value_StringValue{
-							StringValue: s,
-						},
-					},
-				},
-			},
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{},
+		}
+	}
+	metadata.FilterMetadata[IstioMetadataKey].Fields["config"] = &pstruct.Value{
+		Kind: &pstruct.Value_StringValue{
+			StringValue: s,
 		},
 	}
+	return metadata
 }
 
 // AddSubsetToMetadata will build a new core.Metadata struct containing the
@@ -495,8 +517,8 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network string, tlsMode string) *core.Metadata {
-	if network == "" && tlsMode == model.DisabledTLSModeLabel {
+func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace string, labels labels.Instance) *core.Metadata {
+	if network == "" && tlsMode == model.DisabledTLSModeLabel && !shouldAddTelemetryLabel(workloadname) {
 		return nil
 	}
 
@@ -505,13 +527,7 @@ func BuildLbEndpointMetadata(network string, tlsMode string) *core.Metadata {
 	}
 
 	if network != "" {
-		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
-			Fields: map[string]*pstruct.Value{},
-		}
-
-		if network != "" {
-			metadata.FilterMetadata[IstioMetadataKey].Fields["network"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}}
-		}
+		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}})
 	}
 
 	if tlsMode != "" {
@@ -522,7 +538,42 @@ func BuildLbEndpointMetadata(network string, tlsMode string) *core.Metadata {
 		}
 	}
 
+	// Add compressed telemetry metadata. Note this is a short term solution to make server workload metadata
+	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
+	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
+	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
+	// workload-name;namespace;canonical-service-name;canonical-service-revision.
+	if shouldAddTelemetryLabel(workloadname) {
+		var sb strings.Builder
+		sb.WriteString(workloadname)
+		sb.WriteString(";")
+		sb.WriteString(namespace)
+		sb.WriteString(";")
+		if csn, ok := labels[model.IstioCanonicalServiceLabelName]; ok {
+			sb.WriteString(csn)
+		}
+		sb.WriteString(";")
+		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
+			sb.WriteString(csr)
+		}
+		addIstioEndpointLabel(metadata, "workload", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
+	}
+
 	return metadata
+}
+
+func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Value) {
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{},
+		}
+	}
+
+	metadata.FilterMetadata[IstioMetadataKey].Fields[key] = val
+}
+
+func shouldAddTelemetryLabel(workloadName string) bool {
+	return features.EndpointTelemetryLabel && (workloadName != "")
 }
 
 // IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
@@ -623,4 +674,39 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
 func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
 	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
+}
+
+// MultiErrorFormat provides a format for multierrors. This matches the default format, but if there
+// is only one error we will not expand to multiple lines.
+func MultiErrorFormat() multierror.ErrorFormatFunc {
+	return func(es []error) string {
+		if len(es) == 1 {
+			return es[0].Error()
+		}
+
+		points := make([]string, len(es))
+		for i, err := range es {
+			points[i] = fmt.Sprintf("* %s", err)
+		}
+
+		return fmt.Sprintf(
+			"%d errors occurred:\n\t%s\n\n",
+			len(es), strings.Join(points, "\n\t"))
+	}
+}
+
+// ByteCount returns a human readable byte format
+// Inspired by https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
+func ByteCount(b int) string {
+	const unit = 1000
+	if b < unit {
+		return fmt.Sprintf("%dB", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%cB",
+		float64(b)/float64(div), "kMGTPE"[exp])
 }

@@ -51,8 +51,11 @@ const (
 	// Location to read istioctl defaults from
 	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
 
-	//deprection messages to be suffixed to the deprecated commands
+	// deprecation messages to be suffixed to the deprecated commands
 	deprecatedMsg = "[Deprecated, it will be removed in Istio 1.9]"
+
+	// ExperimentalMsg indicate active development and not for production use warning.
+	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
 )
 
 var (
@@ -90,6 +93,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("translator", log.WarnLevel)
 	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
+	o.SetOutputLevel("klog", log.WarnLevel)
 
 	return o
 }
@@ -137,7 +141,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
-		PersistentPreRunE: istioPersistentPreRunE,
+		PersistentPreRunE: configureLogging,
 	}
 
 	rootCmd.SetArgs(args)
@@ -168,7 +172,10 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(registerCmd)
 	deprecate(deregisterCmd)
 	rootCmd.AddCommand(deregisterCmd)
-	rootCmd.AddCommand(injectCommand())
+
+	kubeInjectCmd := injectCommand()
+	hideInheritedFlags(kubeInjectCmd, "namespace")
+	rootCmd.AddCommand(kubeInjectCmd)
 
 	postInstallCmd := &cobra.Command{
 		Use:   "post-install",
@@ -212,6 +219,8 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
+	experimentalCmd.AddCommand(istiodConfig())
+	experimentalCmd.AddCommand(injectorCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(install.NewPrecheckCommand())
@@ -248,20 +257,23 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(dashboardCmd)
 
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
-	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(manifestCmd)
+
 	operatorCmd := mesh.OperatorCmd()
+	hideInheritedFlags(operatorCmd, "charts")
 	rootCmd.AddCommand(operatorCmd)
+
 	installCmd := mesh.InstallCmd(loggingOptions)
-	hideInheritedFlags(installCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(installCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd()
-	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(profileCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(profileCmd)
 
 	upgradeCmd := mesh.UpgradeCmd()
-	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(upgradeCmd)
 
 	bugReportCmd := bugreport.Cmd(loggingOptions)
@@ -320,7 +332,7 @@ func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 	})
 }
 
-func istioPersistentPreRunE(_ *cobra.Command, _ []string) error {
+func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}

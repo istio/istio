@@ -56,22 +56,6 @@ const (
 	v2Suffix   = ",component"
 )
 
-var (
-	// These must match the json field names in model.nodeMetadata
-	metadataExchangeKeys = []string{
-		"NAME",
-		"NAMESPACE",
-		"INSTANCE_IPS",
-		"LABELS",
-		"OWNER",
-		"PLATFORM_METADATA",
-		"WORKLOAD_NAME",
-		"MESH_ID",
-		"SERVICE_ACCOUNT",
-		"CLUSTER_ID",
-	}
-)
-
 // Config for creating a bootstrap file.
 type Config struct {
 	Node                string
@@ -208,10 +192,14 @@ var (
 )
 
 func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
-	parseOption := func(metaOption string, required string) []string {
+	parseOption := func(metaOption string, required string, proxyConfigOption []string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
 			inclusionOption = strings.Split(metaOption, ",")
+		} else if proxyConfigOption != nil {
+			// In case user relies on mixed usage of annotation and proxy config,
+			// only consider proxy config if annotation is not set instead of merging.
+			inclusionOption = proxyConfigOption
 		}
 
 		if len(required) > 0 {
@@ -239,10 +227,18 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 		}
 	}
 
+	var proxyConfigPrefixes, proxyConfigSuffixes, proxyConfigRegexps []string
+	if config.ProxyStatsMatcher != nil {
+		proxyConfigPrefixes = config.ProxyStatsMatcher.InclusionPrefixes
+		proxyConfigSuffixes = config.ProxyStatsMatcher.InclusionSuffixes
+		proxyConfigRegexps = config.ProxyStatsMatcher.InclusionRegexps
+	}
+
 	return []option.Instance{
-		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes, requiredEnvoyStatsMatcherInclusionPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "")),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
+		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes,
+			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "", proxyConfigSuffixes)),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }
@@ -321,7 +317,12 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.Bootstra
 				option.StackDriverMaxAnnotations(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAnnotations, 200)),
 				option.StackDriverMaxAttributes(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAttributes, 200)),
 				option.StackDriverMaxEvents(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfMessageEvents, 200)))
+		case *meshAPI.Tracing_OpenCensusAgent_:
+			c := tracer.OpenCensusAgent.Context
+			opts = append(opts, option.OpenCensusAgentAddress(tracer.OpenCensusAgent.Address),
+				option.OpenCensusAgentContexts(c))
 		}
+
 		opts = append(opts, option.TracingTLS(config.Tracing.TlsSettings, metadata, isH2))
 	}
 
@@ -414,7 +415,6 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 }
 
 func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.BootstrapNodeMetadata) {
-	var additionalMetaExchangeKeys []string
 	for _, varStr := range envVars {
 		name, val := parseEnvVar(varStr)
 		switch name {
@@ -433,18 +433,11 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			meta.WorkloadName = val
 		case "SERVICE_ACCOUNT":
 			meta.ServiceAccount = val
-		case "ISTIO_ADDITIONAL_METADATA_EXCHANGE_KEYS":
-			// comma separated list of keys
-			additionalMetaExchangeKeys = strings.Split(val, ",")
 		}
 	}
 	if plat != nil && len(plat.Metadata()) > 0 {
 		meta.PlatformMetadata = plat.Metadata()
 	}
-	meta.ExchangeKeys = []string{}
-	meta.ExchangeKeys = append(meta.ExchangeKeys, metadataExchangeKeys...)
-	meta.ExchangeKeys = append(meta.ExchangeKeys, additionalMetaExchangeKeys...)
-
 }
 
 // getNodeMetaData function uses an environment variable contract

@@ -27,6 +27,6 @@ func TestTraffic(t *testing.T) {
 		NewTest(t).
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(ctx framework.TestContext) {
-			common.RunTrafficTest(ctx, apps)
+			common.RunAllTrafficTests(ctx, apps)
 		})
 }

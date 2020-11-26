@@ -41,11 +41,12 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 		}
 	}
 
+	// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+	for i := range dal {
+		dal[i].ActiveState.Listener.TypeUrl = v3.ListenerType
+	}
 	sort.Slice(dal, func(i, j int) bool {
 		l := &listener.Listener{}
-		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
-		dal[i].ActiveState.Listener.TypeUrl = v3.ListenerType
-		dal[j].ActiveState.Listener.TypeUrl = v3.ListenerType
 		err = ptypes.UnmarshalAny(dal[i].ActiveState.Listener, l)
 		if err != nil {
 			return false

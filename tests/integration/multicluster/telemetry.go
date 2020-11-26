@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,9 +50,9 @@ func TelemetryTest(t *testing.T, apps AppContext, features ...features.Feature) 
 									src := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(src))
 									dest := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(dest))
 
-									_ = callOrFail(ctx, src, dest)
-									validateClusterLabelsInStats(src, t)
-									validateClusterLabelsInStats(dest, t)
+									callOrFail(ctx, src, dest, nil)
+									validateClusterLabelsInStats(src, ctx)
+									validateClusterLabelsInStats(dest, ctx)
 								})
 						}
 					}
@@ -73,12 +74,12 @@ func validateClusterLabelsInStats(svc echo.Instance, t test.Failer) {
 		for _, metric := range instances.Metric {
 			hasSourceCluster := false
 			hasDestinationCluster := false
-			for _, label := range metric.Label {
-				if label.GetName() == "source_cluster" {
+			for _, l := range metric.Label {
+				if l.GetName() == "source_cluster" {
 					hasSourceCluster = true
 					continue
 				}
-				if label.GetName() == "destination_cluster" {
+				if l.GetName() == "destination_cluster" {
 					hasDestinationCluster = true
 					continue
 				}

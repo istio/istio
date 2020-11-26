@@ -17,7 +17,6 @@ package sds
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -45,7 +44,6 @@ import (
 
 const (
 	// SecretType is used for secret discovery service to construct response.
-	SecretTypeV2 = "type.googleapis.com/envoy.api.v2.auth.Secret"
 	SecretTypeV3 = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret"
 
 	// credentialTokenHeaderKey is the header key in gPRC header which is used to
@@ -134,25 +132,7 @@ type sdsservice struct {
 	credFetcher security.CredFetcher
 }
 
-// ClientDebug represents a single SDS connection to the ndoe agent
-type ClientDebug struct {
-	ConnectionID string `json:"connection_id"`
-	ProxyID      string `json:"proxy"`
-	ResourceName string `json:"resource_name"`
-
-	// fields from secret item
-	CertificateChain string `json:"certificate_chain"`
-	RootCert         string `json:"root_cert"`
-	CreatedTime      string `json:"created_time"`
-	ExpireTime       string `json:"expire_time"`
-}
-
-// Debug represents all clients connected to this node agent endpoint and their supplied secrets
-type Debug struct {
-	Clients []ClientDebug `json:"clients"`
-}
-
-// newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
+// newSDSService creates Secret Discovery Service which implements envoy SDS API.
 func newSDSService(st security.SecretManager,
 	secOpt *security.Options,
 	skipTokenVerification bool) *sdsservice {
@@ -182,42 +162,6 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
 }
 
-// DebugInfo serializes the current sds client data into JSON for the debug endpoint
-func (s *sdsservice) DebugInfo() (string, error) {
-	sdsClientsMutex.RLock()
-	defer sdsClientsMutex.RUnlock()
-	clientDebug := make([]ClientDebug, 0)
-	for connKey, conn := range sdsClients {
-		// it's possible for the connection to be established without an instantiated secret
-		if conn.secret == nil {
-			continue
-		}
-
-		conn.mutex.RLock()
-		c := ClientDebug{
-			ConnectionID:     connKey.ConnectionID,
-			ProxyID:          conn.proxyID,
-			ResourceName:     conn.ResourceName,
-			CertificateChain: string(conn.secret.CertificateChain),
-			RootCert:         string(conn.secret.RootCert),
-			CreatedTime:      conn.secret.CreatedTime.Format(time.RFC3339),
-			ExpireTime:       conn.secret.ExpireTime.Format(time.RFC3339),
-		}
-		clientDebug = append(clientDebug, c)
-		conn.mutex.RUnlock()
-	}
-
-	debug := Debug{
-		Clients: clientDebug,
-	}
-	debugJSON, err := json.MarshalIndent(debug, " ", "	")
-	if err != nil {
-		return "", err
-	}
-
-	return string(debugJSON), nil
-}
-
 func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
 	return status.Error(codes.Unimplemented, "DeltaSecrets not implemented")
 }
@@ -232,6 +176,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 	con := newSDSConnection(stream)
 
 	go receiveThread(con, reqChannel, &receiveError)
+	totalActiveConnCounts.Increment()
+	defer totalActiveConnCounts.Decrement()
 
 	for {
 		// Block until a request is received.
@@ -306,7 +252,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			// Update metrics.
-			totalActiveConnCounts.Increment()
 			if discReq.ErrorDetail != nil {
 				totalSecretUpdateFailureCounts.Increment()
 				sdsServiceLog.Errorf("%s received error: %v. Will not respond until next secret update",
@@ -318,29 +263,14 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+					"error details %s", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
 				continue
 			}
 
 			sdsServiceLog.Debugf("%s received SDS request from proxy %q, first request: %v, version info %q, "+
-				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
+				"error details %s", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
 				discReq.ErrorDetail)
-
-			// In gateway agent mode, if the first SDS request is received but gateway secret which is
-			// provisioned as kubernetes secret is not ready, wait for secret before sending SDS response.
-			// If a kubernetes secret was deleted by operator, wait for a new kubernetes secret before sending SDS response.
-			// If workload uses file mounted certs i.e. "FILE_MOUNTED_CERTS" is set to true, workdload loads certificates from
-			// mounted certificate paths and it does not depend on the presence of gateway secret so
-			// we should skip waiting for it in that mode.
-			// File mounted certs for gateways is used in scenarios where an existing PKI infrastuctures delivers certificates
-			// to pods/VMs via files.
-			if s.st.ShouldWaitForGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
-				sdsServiceLog.Warnf("%s waiting for gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
-				continue
-			} else {
-				sdsServiceLog.Infof("Skipping waiting for gateway secret")
-			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
 			if err != nil {
@@ -391,7 +321,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					conIDresourceNamePrefix, proxyID, err)
 				return err
 			}
-			sdsServiceLog.Infoa("Dynamic push for secret ", resourceName)
+			sdsServiceLog.Info("Dynamic push for secret ", resourceName)
 		}
 	}
 }
@@ -543,7 +473,6 @@ func recycleConnection(conID, resourceName string) {
 	staledClientKeys[key] = true
 
 	totalStaleConnCounts.Increment()
-	totalActiveConnCounts.Decrement()
 }
 
 func getResourceName(discReq *discovery.DiscoveryRequest) (string /*resourceName*/, error) {

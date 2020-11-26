@@ -150,6 +150,12 @@ type AdmissionResponse struct {
 	// admission webhook name (e.g. imagepolicy.example.com/error=image-blacklisted). AuditAnnotations will be provided by
 	// the admission webhook to add additional context to the audit log for this request.
 	AuditAnnotations map[string]string `json:"auditAnnotations,omitempty"`
+
+	// warnings is a list of warning messages to return to the requesting API client.
+	// Warning messages describe a problem the client making the API request should correct or be aware of.
+	// Limit warnings to 120 characters if possible.
+	// Warnings over 256 characters and large numbers of warnings may be truncated.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 func AdmissionReviewKubeToAdapter(object runtime.Object) (*AdmissionReview, error) {
@@ -163,10 +169,11 @@ func AdmissionReviewKubeToAdapter(object runtime.Object) (*AdmissionReview, erro
 		arv1beta1Request := obj.Request
 		if arv1beta1Response != nil {
 			resp = &AdmissionResponse{
-				UID:     arv1beta1Response.UID,
-				Allowed: arv1beta1Response.Allowed,
-				Result:  arv1beta1Response.Result,
-				Patch:   arv1beta1Response.Patch,
+				UID:      arv1beta1Response.UID,
+				Allowed:  arv1beta1Response.Allowed,
+				Result:   arv1beta1Response.Result,
+				Patch:    arv1beta1Response.Patch,
+				Warnings: arv1beta1Response.Warnings,
 			}
 			if arv1beta1Response.PatchType != nil {
 				patchType := string(*arv1beta1Response.PatchType)
@@ -193,10 +200,11 @@ func AdmissionReviewKubeToAdapter(object runtime.Object) (*AdmissionReview, erro
 		arv1Request := obj.Request
 		if arv1Response != nil {
 			resp = &AdmissionResponse{
-				UID:     arv1Response.UID,
-				Allowed: arv1Response.Allowed,
-				Result:  arv1Response.Result,
-				Patch:   arv1Response.Patch,
+				UID:      arv1Response.UID,
+				Allowed:  arv1Response.Allowed,
+				Result:   arv1Response.Result,
+				Patch:    arv1Response.Patch,
+				Warnings: arv1Response.Warnings,
 			}
 			if arv1Response.PatchType != nil {
 				patchType := string(*arv1Response.PatchType)
@@ -270,6 +278,7 @@ func AdmissionReviewAdapterToKube(ar *AdmissionReview, apiVersion string) runtim
 				Patch:            arResponse.Patch,
 				PatchType:        patchType,
 				AuditAnnotations: arResponse.AuditAnnotations,
+				Warnings:         arResponse.Warnings,
 			}
 		}
 		arv1beta1.TypeMeta = ar.TypeMeta
@@ -307,6 +316,7 @@ func AdmissionReviewAdapterToKube(ar *AdmissionReview, apiVersion string) runtim
 				Patch:            arResponse.Patch,
 				PatchType:        patchType,
 				AuditAnnotations: arResponse.AuditAnnotations,
+				Warnings:         arResponse.Warnings,
 			}
 		}
 		arv1.TypeMeta = ar.TypeMeta

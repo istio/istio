@@ -22,17 +22,24 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/content"
 	"istio.io/istio/tools/bug-report/pkg/filter"
@@ -44,14 +51,14 @@ import (
 )
 
 const (
-	bugReportDefaultMaxSizeMb = 500
-	bugReportDefaultTimeout   = 30 * time.Minute
+	bugReportDefaultTimeout = 30 * time.Minute
+	istioRevisionLabel      = "istio.io/rev"
 )
 
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{"kube-system,kube-public"}
+	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ", ")}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -60,8 +67,19 @@ func Cmd(logOpts *log.Options) *cobra.Command {
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
 		SilenceUsage: true,
-		Long: "This command selectively captures cluster information and logs into an archive to help " +
-			"diagnose problems. It optionally uploads the archive to a GCS bucket.",
+		Long: `bug-report selectively captures cluster information and logs into an archive to help diagnose problems.
+Proxy logs can be filtered using:
+  --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../cntr1,cntr.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2...
+where ns=namespace, dep=deployment, cntr=container, lbl=label, ann=annotation
+
+The filter spec is interpreted as 'must be in (ns1 OR ns2) AND (dep1 OR dep2) AND (cntr1 OR cntr2)...'
+The log will be included only if the container matches at least one include filter and does not match any exclude filters.
+All parts of the filter are optional and can be omitted e.g. ns1//pod1 filters only for namespace ns1 and pod1.
+All names except label and annotation keys support '*' glob matching pattern.
+
+e.g.
+--include ns1,ns2 (only namespaces ns1 and ns2)
+--include n*//p*/l=v* (pods with name beginning with 'p' in namespaces beginning with 'n' and having label 'l' with value beginning with 'v'.)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBugReportCommand(cmd, logOpts)
 		},
@@ -92,6 +110,14 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
+	clusterCtxStr, err := content.GetClusterContext()
+	if err != nil {
+		return err
+	}
+
+	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
+	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
+
 	clientConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
@@ -105,17 +131,19 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
+	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace)
+
 	log.Infof("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := filter.GetMatchingPaths(config, resources)
 	if err != nil {
 		return err
 	}
 
-	logAndPrintf("Fetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(client, config, resources, paths)
 	if len(gErrors) != 0 {
-		log.Errora(gErrors.ToError())
+		log.Error(gErrors.ToError())
 	}
 
 	// TODO: sort by importance and discard any over the size limit.
@@ -125,7 +153,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 			log.Errorf(err.Error())
 			continue
 		}
-		writeFile(archive.ProxyLogPath(tempDir, namespace, pod), text)
+		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text)
 	}
 
 	outDir, err := os.Getwd()
@@ -134,18 +162,92 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		outDir = "."
 	}
 	outPath := filepath.Join(outDir, "bug-report.tgz")
-	logAndPrintf("Creating archive at %s.\n", outPath)
+	common.LogAndPrintf("Creating an archive at %s.\n", outPath)
 
-	tempRoot := archive.OutputRootDir(tempDir)
-	if err := archive.Create(tempRoot, outPath); err != nil {
+	archiveDir := archive.DirToArchive(tempDir)
+	if err := archive.Create(archiveDir, outPath); err != nil {
 		return err
 	}
-	logAndPrintf("Cleaning up temporary files in %s.\n", tempRoot)
-	if err := os.RemoveAll(tempRoot); err != nil {
+	common.LogAndPrintf("Cleaning up temporary files in %s.\n", archiveDir)
+	if err := os.RemoveAll(archiveDir); err != nil {
 		return err
 	}
-	logAndPrintf("Done.\n")
+	common.LogAndPrintf("Done.\n")
 	return nil
+}
+
+func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
+	text := ""
+	revisions := getIstioRevisions(resources)
+	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
+	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
+	for rev, ver := range istioVersions {
+		text += fmt.Sprintf("Revision %s:\n%s\n\n", rev, ver)
+	}
+	text += "The following proxy revisions/versions were found in the cluster:\n"
+	for rev, ver := range proxyVersions {
+		text += fmt.Sprintf("Revision %s: Versions {%s}\n", rev, strings.Join(ver, ", "))
+	}
+	common.LogAndPrintf(text)
+	writeFile(filepath.Join(archive.OutputRootDir(tempDir), "versions"), text)
+}
+
+// getIstioRevisions returns a slice with all Istio revisions detected in the cluster.
+func getIstioRevisions(resources *cluster2.Resources) []string {
+	revMap := make(map[string]struct{})
+	for _, podLabels := range resources.Labels {
+		for label, value := range podLabels {
+			if label == istioRevisionLabel {
+				revMap[value] = struct{}{}
+			}
+		}
+	}
+	var out []string
+	for k := range revMap {
+		out = append(out, k)
+	}
+	return out
+}
+
+// getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
+// slice of versions for proxies. Any errors are embedded in the revision strings.
+func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
+	istioVersions := make(map[string]string)
+	proxyVersionsMap := make(map[string]map[string]struct{})
+	proxyVersions := make(map[string][]string)
+	for _, revision := range revisions {
+		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
+		proxyInfo, err := proxy.GetProxyInfo(kubeconfig, configContext, revision, istioNamespace)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		for _, pi := range *proxyInfo {
+			if proxyVersionsMap[revision] == nil {
+				proxyVersionsMap[revision] = make(map[string]struct{})
+			}
+			proxyVersionsMap[revision][pi.IstioVersion] = struct{}{}
+		}
+	}
+	for revision, vmap := range proxyVersionsMap {
+		for version := range vmap {
+			proxyVersions[revision] = append(proxyVersions[revision], version)
+		}
+	}
+	return istioVersions, proxyVersions
+}
+
+func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string) string {
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	if err != nil {
+		return err.Error()
+	}
+
+	versions, err := kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
+	if err != nil {
+		return err.Error()
+	}
+	return pretty.Sprint(versions)
 }
 
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.
@@ -162,13 +264,13 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		Client: client,
 		DryRun: config.DryRun,
 	}
-	logAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
+	common.LogAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
 	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
-	getFromCluster(content.GetDescribePods, params.SetNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
+	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
 	// optionalWg is subject to timer.
 	var optionalWg sync.WaitGroup
@@ -180,12 +282,15 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		}
 
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
+		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case container == "istio-proxy":
-			getFromCluster(content.GetCoredumps, cp, archive.ProxyCoredumpPath(tempDir, namespace, pod), &mandatoryWg)
+		case common.IsProxyContainer(params.ClusterVersion, container):
+			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
+			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(client, config, resources, p, namespace, pod, container, &optionalWg)
 
-		case strings.HasPrefix(pod, "istiod-") && container == "discovery":
+		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(client, config, resources, namespace, pod, &mandatoryWg)
 
@@ -198,17 +303,21 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	// If log fetches have completed, cancel the timeout.
 	go func() {
 		optionalWg.Wait()
-		cmdTimer.Stop()
+		cmdTimer.Reset(0)
 	}()
 
 	// Wait for log fetches, up to the timeout.
 	<-cmdTimer.C
+
+	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
+	runAnalyze(config, resources, params)
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
 // Runs if a goroutine, with errors reported through gErrors.
 func getFromCluster(f func(params *content.Params) (map[string]string, error), params *content.Params, dir string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	go func() {
 		defer wg.Done()
 		out, err := f(params)
@@ -216,6 +325,7 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 		if err == nil {
 			writeFiles(dir, out)
 		}
+		log.Infof("Done with %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	}()
 }
 
@@ -225,6 +335,7 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	path, namespace, pod, container string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
 		clog, cstat, imp, err := getLog(client, resources, config, namespace, pod, container)
@@ -234,6 +345,7 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 			logs[path], stats[path], importance[path] = clog, cstat, imp
 		}
 		lock.Unlock()
+		log.Infof("Done with logs %s", pod)
 	}()
 }
 
@@ -242,11 +354,13 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup) {
 	wg.Add(1)
+	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
-		clog, _, _, err := getLog(client, resources, config, namespace, pod, "discovery")
+		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
-		writeFile(archive.IstiodPath(tempDir, namespace, pod+".log"), clog)
+		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog)
+		log.Infof("Done with logs %s", pod)
 	}()
 }
 
@@ -269,6 +383,22 @@ func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *c
 	var cstat *processlog.Stats
 	clog, cstat = processlog.Process(config, clog)
 	return clog, cstat, cstat.Importance(), nil
+}
+
+func runAnalyze(config *config.BugReportConfig, resources *cluster2.Resources, params *content.Params) {
+	for ns := range resources.Root {
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) {
+			continue
+		}
+		common.LogAndPrintf("Running istio analyze on namespace %s.\n", ns)
+		out, err := content.GetAnalyze(params.SetIstioNamespace(config.IstioNamespace))
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		writeFiles(archive.AnalyzePath(tempDir, ns), out)
+	}
+	common.LogAndPrintf("\n")
 }
 
 func writeFiles(dir string, files map[string]string) {
@@ -324,11 +454,6 @@ func BuildClientsFromConfig(kubeConfig []byte) (kube.Client, error) {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
 	return clients, nil
-}
-
-func logAndPrintf(format string, a ...interface{}) {
-	fmt.Printf(format, a...)
-	log.Infof(format, a...)
 }
 
 func configLogs(opt *log.Options) error {

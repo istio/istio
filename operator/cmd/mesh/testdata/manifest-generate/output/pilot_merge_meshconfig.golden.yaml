@@ -5,6 +5,8 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istio
 data:
 
@@ -13,6 +15,10 @@ data:
     networks: {}
 
   mesh: |-
+    accessLogFormat: |
+      {
+        "key": "val"
+      }
     defaultConfig:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123

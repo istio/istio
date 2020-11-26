@@ -21,6 +21,7 @@ metadata:
   name: tcp-echo
   labels:
     app: tcp-echo
+    service: tcp-echo
 spec:
   ports:
   - name: tcp

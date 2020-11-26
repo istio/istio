@@ -2,8 +2,8 @@ policy: enabled
 alwaysInjectSelector: []
 neverInjectSelector: []
 injectedAnnotations: {}
+values: '{"sidecarInjectorWebhook":{"rewriteAppHTTPProbe": true}}'
 template: |-
-  rewriteAppHTTPProbe: true
   initContainers:
   - name: istio-init
     image: example.com/init:latest
@@ -12,7 +12,7 @@ template: |-
     image: example.com/proxy:latest
     args:
       - --statusPort
-      - 15020
+      - "15020"
   imagePullSecrets:
   - name: istio-image-pull-secrets
   volumes:

@@ -18,11 +18,11 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"sync"
 	"time"
@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
@@ -54,6 +53,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/jwt"
@@ -63,7 +63,9 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/ra"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -74,6 +76,7 @@ var (
 	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
 	// is specified through the command line
 	DefaultPlugins = []string{
+		plugin.AuthzCustom,
 		plugin.Authn,
 		plugin.Authz,
 		plugin.Health,
@@ -116,8 +119,6 @@ type Server struct {
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
 
-	// kubeRegistry is the service registry handling the primary cluster.
-	kubeRegistry *kubecontroller.Controller
 	multicluster *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
@@ -154,6 +155,7 @@ type Server struct {
 
 	certController *chiron.WebhookController
 	CA             *ca.IstioCA
+	RA             ra.RegistrationAuthority
 	// path to the caBundle that signs the DNS certs. This should be agnostic to provider.
 	caBundlePath string
 	certMu       sync.Mutex
@@ -182,6 +184,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		PushContext:  model.NewPushContext(),
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
+	e.SetLedger(buildLedger(args.RegistryOptions))
 	ac := aggregate.NewController(aggregate.Options{
 		MeshHolder: e,
 	})
@@ -190,7 +193,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins),
+		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins, args.PodName),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
 		monitoringMux:   http.NewServeMux(),
@@ -209,24 +212,36 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		)
 	}
 
-	prometheus.EnableHandlingTimeHistogram()
+	// used for both initKubeRegistry and initClusterRegistreis
+	if features.EnableEndpointSliceController {
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
+	} else {
+		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
+	}
 
-	// TODO: revert to watching k8s (and merge with the file)
-	s.initMeshConfiguration(args, s.fileWatcher)
+	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
 
-	s.initSDSServer()
+	s.initMeshConfiguration(args, s.fileWatcher)
+	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 
-	// Parse and validate Istiod Address.
-	istiodHost, _, err := e.GetDiscoveryAddress()
-	if err != nil {
+	// Options based on the current 'defaults' in istio.
+	caOpts := &caOptions{
+		TrustDomain:      s.environment.Mesh().TrustDomain,
+		Namespace:        args.Namespace,
+		ExternalCAType:   ra.CaExternalType(externalCaType),
+		ExternalCASigner: k8sSigner,
+	}
+
+	// CA signing certificate must be created first if needed.
+	if err := s.maybeCreateCA(caOpts); err != nil {
 		return nil, err
 	}
 
@@ -236,14 +251,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initJwtPolicy()
 
-	// Options based on the current 'defaults' in istio.
-	caOpts := &CAOptions{
-		TrustDomain: s.environment.Mesh().TrustDomain,
-		Namespace:   args.Namespace,
-	}
-
-	// CA signing certificate must be created first if needed.
-	if err := s.maybeCreateCA(caOpts); err != nil {
+	// Parse and validate Istiod Address.
+	istiodHost, _, err := e.GetDiscoveryAddress()
+	if err != nil {
 		return nil, err
 	}
 
@@ -277,22 +287,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
 	// This should be called only after controllers are initialized.
-	if err := s.initRegistryEventHandlers(); err != nil {
-		return nil, fmt.Errorf("error initializing handlers: %v", err)
-	}
+	s.initRegistryEventHandlers()
 
 	s.initDiscoveryService(args)
 
-	// TODO(irisdingbj):add integration test after centralIstiod finished
-	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
-	args.RegistryOptions.KubeOptions.CABundlePath = s.caBundlePath
-	if features.CentralIstioD && s.CA != nil && s.CA.GetCAKeyCertBundle() != nil {
-		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
-	}
-
-	if err := s.initClusterRegistries(args); err != nil {
-		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
-	}
+	s.initSDSServer(args)
 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
@@ -300,7 +299,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// The JWT authenticator requires the multicluster registry to be initialized, so we build this later
 	authenticators := []authenticate.Authenticator{
 		&authenticate.ClientCertAuthenticator{},
-		authenticate.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
+		kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
 	}
 
 	caOpts.Authenticators = authenticators
@@ -308,10 +307,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		s.XDSServer.Authenticators = authenticators
 	}
 
-	// Start CA. This should be called after CA and Istiod certs have been created.
+	// Start CA or RA server. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
-
-	s.initNamespaceController(args)
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
@@ -379,7 +376,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 	}()
 
@@ -388,14 +385,13 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	}
 
 	// Inform Discovery Server so that it can start accepting connections.
-	log.Infof("All caches have been synced up, marking server ready")
 	s.XDSServer.CachesSynced()
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
 		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 	}()
 
@@ -403,7 +399,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		go func() {
 			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
 			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-				log.Warna(err)
+				log.Warn(err)
 			}
 		}()
 	}
@@ -420,15 +416,13 @@ func (s *Server) WaitUntilCompletion() {
 }
 
 // initSDSServer starts the SDS server
-func (s *Server) initSDSServer() {
-	if features.EnableSDSServer && s.kubeClient != nil {
+func (s *Server) initSDSServer(args *PilotArgs) {
+	if s.kubeClient != nil {
 		if !features.EnableXDSIdentityCheck {
 			// Make sure we have security
-			log.Warnf("skipping Kubernetes credential reader, which was enabled by ISTIOD_ENABLE_SDS_SERVER. " +
-				"PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
+			log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
-			log.Infof("initializing Kubernetes credential reader")
-			sc := kubesecrets.NewSecretsController(s.kubeClient.KubeInformer().Core().V1().Secrets())
+			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace)
 			sc.AddEventHandler(func(name, namespace string) {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full: false,
@@ -454,13 +448,21 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	hasK8SConfigStore := false
 	if args.RegistryOptions.FileDir == "" {
 		// If file dir is set - config controller will just use file.
-		meshConfig := s.environment.Mesh()
-		if meshConfig != nil && len(meshConfig.ConfigSources) > 0 {
+		if _, err := os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
+			meshConfig, err := mesh.ReadMeshConfig(args.MeshConfigFile)
+			if err != nil {
+				return fmt.Errorf("failed reading mesh config: %v", err)
+			}
+			if len(meshConfig.ConfigSources) == 0 && args.RegistryOptions.KubeConfig != "" {
+				hasK8SConfigStore = true
+			}
 			for _, cs := range meshConfig.ConfigSources {
-				if cs.Address == "k8s://" {
+				if cs.Address == string(Kubernetes)+"://" {
 					hasK8SConfigStore = true
 				}
 			}
+		} else if args.RegistryOptions.KubeConfig != "" {
+			hasK8SConfigStore = true
 		}
 	}
 
@@ -517,18 +519,22 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 
 	if shouldMultiplex {
 		s.monitoringMux = s.httpMux
-		log.Infoa("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
+		log.Info("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
 
+	whc := func() string {
+		return wh.Config.Template
+	}
+
 	// Debug Server.
-	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
 	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
 	if !shouldMultiplex {
-		s.XDSServer.AddDebugHandlers(s.httpMux, args.ServerOptions.EnableProfiling, wh)
+		s.XDSServer.AddDebugHandlers(s.httpMux, args.ServerOptions.EnableProfiling, whc)
 	}
 
 	// Monitoring Server.
@@ -564,7 +570,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	} else if s.GRPCListener == nil {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Infoa("multplexing gRPC on http port ", s.HTTPListener.Addr())
+		log.Info("multplexing gRPC on http port ", s.HTTPListener.Addr())
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 		s.HTTPListener = m.Match(cmux.Any())
@@ -611,11 +617,11 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		ctx, cancel := context.WithTimeout(context.Background(), s.shutdownDuration)
 		defer cancel()
 		if err := s.httpServer.Shutdown(ctx); err != nil {
-			log.Warna(err)
+			log.Warn(err)
 		}
 		if s.httpsServer != nil {
 			if err := s.httpsServer.Shutdown(ctx); err != nil {
-				log.Warna(err)
+				log.Warn(err)
 			}
 		}
 
@@ -634,7 +640,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	if args.ServerOptions.SecureGRPCAddr == "" {
-		log.Infoa("The secure discovery port is disabled, multiplexing on httpAddr ")
+		log.Info("The secure discovery port is disabled, multiplexing on httpAddr ")
 		return nil
 	}
 
@@ -699,10 +705,16 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	maxStreams := features.MaxConcurrentStreams
 	maxRecvMsgSize := features.MaxRecvMsgSize
 
+	log.Infof("using max conn age of %v", options.MaxServerConnectionAge)
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
+		// Ensure we allow clients sufficient ability to send keep alives. If this is higher than client
+		// keep alive setting, it will prematurely get a GOAWAY sent.
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: options.Time / 2,
+		}),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:                  options.Time,
 			Timeout:               options.Timeout,
@@ -769,7 +781,7 @@ func (s *Server) cachesSynced() bool {
 }
 
 // initRegistryEventHandlers sets up event handlers for config and service updates
-func (s *Server) initRegistryEventHandlers() error {
+func (s *Server) initRegistryEventHandlers() {
 	log.Info("initializing registry event handlers")
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
@@ -784,9 +796,7 @@ func (s *Server) initRegistryEventHandlers() error {
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	}
-	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
-		return fmt.Errorf("append service handler failed: %v", err)
-	}
+	s.ServiceController().AppendServiceHandler(serviceHandler)
 
 	if s.configController != nil {
 		configHandler := func(_, curr config.Config, event model.Event) {
@@ -800,12 +810,10 @@ func (s *Server) initRegistryEventHandlers() error {
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
-			if features.EnableStatus {
-				if event != model.EventDelete {
-					s.statusReporter.AddInProgressResource(curr)
-				} else {
-					s.statusReporter.DeleteInProgressResource(curr)
-				}
+			if event != model.EventDelete {
+				s.statusReporter.AddInProgressResource(curr)
+			} else {
+				s.statusReporter.DeleteInProgressResource(curr)
 			}
 		}
 		schemas := collections.Pilot.All()
@@ -826,8 +834,6 @@ func (s *Server) initRegistryEventHandlers() error {
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
 		}
 	}
-
-	return nil
 }
 
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
@@ -961,20 +967,21 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
 			return err
 		}
-	} else if s.CA != nil {
-		rootCertBytes = s.CA.GetCAKeyCertBundle().GetRootCertPem()
+	} else {
+		if s.RA != nil {
+			rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
+		}
+		if s.CA != nil {
+			rootCertBytes = append(rootCertBytes, s.CA.GetCAKeyCertBundle().GetRootCertPem()...)
+		}
 	}
 
 	if len(rootCertBytes) != 0 {
-		block, _ := pem.Decode(rootCertBytes)
-		if block == nil {
-			return fmt.Errorf("failed to decode root cert PEM")
-		}
-		rootCert, err := x509.ParseCertificate(block.Bytes)
+		err := s.peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
 		if err != nil {
-			return fmt.Errorf("failed to parse certificate: %v", err)
+			log.Errorf("Add Root CAs into peerCertVerifier failed: %v", err)
+			return fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
-		s.peerCertVerifier.AddMapping(spiffe.GetTrustDomain(), []*x509.Certificate{rootCert})
 	}
 
 	if features.SpiffeBundleEndpoints != "" {
@@ -1018,26 +1025,10 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	return nil
 }
 
-// initNamespaceController initializes namespace controller to sync config map.
-func (s *Server) initNamespaceController(args *PilotArgs) {
-	if s.CA != nil && s.kubeClient != nil {
-		// create namespace controller
-		nsController := kubecontroller.NewNamespaceController(s.fetchCARoot, s.kubeClient)
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient.Kube())
-			le.AddRunFunction(func(leaderStop <-chan struct{}) {
-				nsController.Run(leaderStop)
-			})
-			le.Run(stop)
-			return nil
-		})
-	}
-}
-
 // initJwtPolicy initializes JwtPolicy.
 func (s *Server) initJwtPolicy() {
 	if features.JwtPolicy.Get() != jwt.PolicyThirdParty {
-		log.Infoa("JWT policy is ", features.JwtPolicy.Get())
+		log.Info("JWT policy is ", features.JwtPolicy.Get())
 	}
 
 	switch features.JwtPolicy.Get() {
@@ -1051,7 +1042,7 @@ func (s *Server) initJwtPolicy() {
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
-func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
+func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	// CA signing certificate must be created only if CA is enabled.
 	if s.EnableCA() {
 		log.Info("creating CA and initializing public key")
@@ -1060,9 +1051,21 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 		if s.kubeClient != nil {
 			corev1 = s.kubeClient.CoreV1()
 		}
+		if useRemoteCerts.Get() {
+			if err = s.loadRemoteCACerts(caOpts, LocalCertDir.Get()); err != nil {
+				return fmt.Errorf("failed to load remote CA certs: %v", err)
+			}
+		}
 		// May return nil, if the CA is missing required configs - This is not an error.
+
+		// TODO: Issue #27606 If External CA is configured, use that to sign DNS Certs as well. IstioCA need not be initialized
 		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
 			return fmt.Errorf("failed to create CA: %v", err)
+		}
+		if caOpts.ExternalCAType != "" {
+			if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
+				return fmt.Errorf("failed to create RA: %v", err)
+			}
 		}
 		if err = s.initPublicKey(); err != nil {
 			return fmt.Errorf("error initializing public key: %v", err)
@@ -1071,22 +1074,32 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 	return nil
 }
 
-// startCA starts the CA server if configured.
-func (s *Server) startCA(caOpts *CAOptions) {
-	if s.CA != nil {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			log.Infof("staring CA")
-			grpcServer := s.secureGrpcServer
-			if s.secureGrpcServer == nil {
-				grpcServer = s.grpcServer
-			}
-			s.RunCA(grpcServer, s.CA, caOpts)
-			return nil
-		})
+// StartCA starts the CA or RA server if configured.
+func (s *Server) startCA(caOpts *caOptions) {
+	if s.CA == nil && s.RA == nil {
+		return
 	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		grpcServer := s.secureGrpcServer
+		if s.secureGrpcServer == nil {
+			grpcServer = s.grpcServer
+		}
+		// Start the RA server if configured, else start the CA server
+		if s.RA != nil {
+			log.Infof("Starting RA")
+			s.RunCA(grpcServer, s.RA, caOpts)
+		} else if s.CA != nil {
+			log.Infof("Starting IstioD CA")
+			s.RunCA(grpcServer, s.CA, caOpts)
+		}
+		return nil
+	})
 }
 
 func (s *Server) fetchCARoot() map[string]string {
+	if s.CA == nil {
+		return nil
+	}
 	return map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(s.CA.GetCAKeyCertBundle().GetRootCertPem()),
 	}
@@ -1097,7 +1110,7 @@ func (s *Server) initMeshHandlers() {
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
-		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
+		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,

@@ -20,6 +20,7 @@ about: Report a bug to help us improve Istio
 [ ] Test and Release
 [ ] User Experience
 [ ] Developer Infrastructure
+[ ] Upgrade
 
 **Affected features (please put an X in all that apply)**
 
@@ -37,6 +38,7 @@ about: Report a bug to help us improve Istio
 
 **Environment where bug was observed (cloud vendor, OS, etc)**
 
-Additionally, please consider attaching a [cluster state archive](http://istio.io/help/bugs/#generating-a-cluster-state-archive) by attaching
-the dump file to this issue.
-
+Additionally, please consider running `istioctl bug-report` and attach the generated
+cluster-state tarball to this issue.
+Refer [cluster state archive](http://istio.io/help/bugs/#generating-a-cluster-state-archive)
+for more details.

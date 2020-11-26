@@ -33,7 +33,7 @@ import (
 
 func TestNewWatcherWithBadInputShouldFail(t *testing.T) {
 	g := NewWithT(t)
-	_, err := mesh.NewWatcher(filewatcher.NewWatcher(), "")
+	_, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), "")
 	g.Expect(err).ToNot(BeNil())
 }
 
@@ -73,7 +73,7 @@ func TestWatcherShouldNotifyHandlers(t *testing.T) {
 
 func newWatcher(t testing.TB, filename string) mesh.Watcher {
 	t.Helper()
-	w, err := mesh.NewWatcher(filewatcher.NewWatcher(), filename)
+	w, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), filename)
 	if err != nil {
 		t.Fatal(err)
 	}

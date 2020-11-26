@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/shell"
@@ -70,7 +71,7 @@ func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, con
 // CreateCASecret creates a k8s secret "cacerts" to store the CA key and cert.
 func CreateCASecret(ctx resource.Context) error {
 	name := "cacerts"
-	systemNs, err := namespace.ClaimSystemNamespace(ctx)
+	systemNs, err := istio.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return err
 	}
@@ -89,44 +90,45 @@ func CreateCASecret(ctx resource.Context) error {
 		return err
 	}
 
-	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
-	secret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: systemNs.Name(),
-		},
-		Data: map[string][]byte{
-			"ca-cert.pem":    caCert,
-			"ca-key.pem":     caKey,
-			"cert-chain.pem": certChain,
-			"root-cert.pem":  rootCert,
-		},
-	}
+	for _, cluster := range ctx.Clusters() {
+		secret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: systemNs.Name(),
+			},
+			Data: map[string][]byte{
+				"ca-cert.pem":    caCert,
+				"ca-key.pem":     caKey,
+				"cert-chain.pem": certChain,
+				"root-cert.pem":  rootCert,
+			},
+		}
 
-	if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
-		if errors.IsAlreadyExists(err) {
-			if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+		if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+			if errors.IsAlreadyExists(err) {
+				if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+					return err
+				}
+			} else {
 				return err
 			}
+		}
+
+		// If there is a configmap storing the CA cert from a previous
+		// integration test, remove it. Ideally, CI should delete all
+		// resources from a previous integration test, but sometimes
+		// the resources from a previous integration test are not deleted.
+		configMapName := "istio-ca-root-cert"
+		err = cluster.CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
+			metav1.DeleteOptions{})
+		if err == nil {
+			log.Infof("configmap %v is deleted", configMapName)
 		} else {
-			return err
+			log.Infof("configmap %v may not exist and the deletion returns err (%v)",
+				configMapName, err)
 		}
 	}
 
-	// If there is a configmap storing the CA cert from a previous
-	// integration test, remove it. Ideally, CI should delete all
-	// resources from a previous integration test, but sometimes
-	// the resources from a previous integration test are not deleted.
-	configMapName := "istio-ca-root-cert"
-	kEnv := ctx.Environment().(*kube.Environment)
-	err = kEnv.KubeClusters[0].CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
-		metav1.DeleteOptions{})
-	if err == nil {
-		log.Infof("configmap %v is deleted", configMapName)
-	} else {
-		log.Infof("configmap %v may not exist and the deletion returns err (%v)",
-			configMapName, err)
-	}
 	return nil
 }
 
@@ -141,7 +143,7 @@ func ReadSampleCertFromFile(f string) ([]byte, error) {
 // CreateCustomEgressSecret creates a k8s secret "cacerts" to store egress gateways CA key and cert.
 func CreateCustomEgressSecret(ctx resource.Context) error {
 	name := "egress-gw-cacerts"
-	systemNs, err := namespace.ClaimSystemNamespace(ctx)
+	systemNs, err := istio.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return err
 	}
@@ -160,7 +162,7 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		return err
 	}
 
-	kubeAccessor := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	kubeAccessor := ctx.Clusters().Default()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

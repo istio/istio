@@ -30,9 +30,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
 
@@ -43,9 +45,7 @@ func removeFromMeshCmd() *cobra.Command {
 		Short:   "Remove workloads from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh' restarts pods without an Istio sidecar or removes external service access configuration.
 Use 'remove-from-mesh' to quickly test uninjected behavior as part of compatibility troubleshooting.
-The 'add-to-mesh' command can be used to add or restore the sidecar.
-
-THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
+The 'add-to-mesh' command can be used to add or restore the sidecar.`,
 		Example: `  # Restart all productpage pods without an Istio sidecar
   istioctl experimental remove-from-mesh service productpage
 
@@ -65,6 +65,7 @@ THESE COMMANDS ARE UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`,
 	removeFromMeshCmd.AddCommand(svcUnMeshifyCmd())
 	removeFromMeshCmd.AddCommand(deploymentUnMeshifyCmd())
 	removeFromMeshCmd.AddCommand(externalSvcUnMeshifyCmd())
+	removeFromMeshCmd.Long += "\n\n" + ExperimentalMsg
 	return removeFromMeshCmd
 }
 
@@ -74,10 +75,7 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 		Aliases: []string{"deploy", "dep"},
 		Short:   "Remove deployment from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh deployment' restarts pods with the Istio sidecar un-injected.
-'remove-from-mesh' is a compatibility troubleshooting tool.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+'remove-from-mesh' is a compatibility troubleshooting tool.`,
 		Example: `  # Restart all productpage-v1 pods without an Istio sidecar
   istioctl experimental remove-from-mesh deployment productpage-v1
 
@@ -90,21 +88,25 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if len(args) != 1 {
 				return fmt.Errorf("expecting deployment name")
 			}
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
+			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
+				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
+			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
 				return err
 			}
-			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			writer := cmd.OutOrStdout()
 			dep, err := client.AppsV1().Deployments(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
+			writer := cmd.OutOrStdout()
 			deps := []appsv1.Deployment{}
 			deps = append(deps, *dep)
 			return unInjectSideCarFromDeployment(client, deps, args[0], ns, writer)
 		},
 	}
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
@@ -114,10 +116,7 @@ func svcUnMeshifyCmd() *cobra.Command {
 		Aliases: []string{"svc"},
 		Short:   "Remove Service from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh service' restarts pods with the Istio sidecar un-injected.
-'remove-from-mesh' is a compatibility troubleshooting tool.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+'remove-from-mesh' is a compatibility troubleshooting tool.`,
 		Example: `  # Restart all productpage pods without an Istio sidecar
   istioctl experimental remove-from-mesh service productpage
 
@@ -130,12 +129,14 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if len(args) != 1 {
 				return fmt.Errorf("expecting service name")
 			}
+			ns := handlers.HandleNamespace(namespace, defaultNamespace)
+			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
+				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
+			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
 				return err
 			}
-			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			writer := cmd.OutOrStdout()
 			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("service %q does not exist, skip", args[0])
@@ -144,6 +145,7 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
+			writer := cmd.OutOrStdout()
 			if len(matchingDeployments) == 0 {
 				fmt.Fprintf(writer, "No deployments found for service %s.%s\n", args[0], ns)
 				return nil
@@ -151,6 +153,7 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			return unInjectSideCarFromDeployment(client, matchingDeployments, args[0], ns, writer)
 		},
 	}
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
@@ -161,10 +164,7 @@ func externalSvcUnMeshifyCmd() *cobra.Command {
 		Short:   "Remove Service Entry and Kubernetes Service for the external service from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh external-service' removes the ServiceEntry and
 the Kubernetes Service for the specified external service (e.g. services running on a VM) from Istio service mesh.
-The typical usage scenario is Mesh Expansion on VMs.
-
-THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
+The typical usage scenario is Mesh Expansion on VMs.`,
 		Example: `  # Remove "vmhttp" service entry rules
   istioctl experimental remove-from-mesh external-service vmhttp
 
@@ -194,6 +194,7 @@ THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			return fmt.Errorf("service %q does not exist, skip", args[0])
 		},
 	}
+	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
 }
 
@@ -222,7 +223,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			}
 		}
 
-		var appProbe istioStatus.KubeAppProbers
+		var appProbe inject.KubeAppProbers
 		appProbeStr := retrieveAppProbe(podSpec.Containers)
 		if appProbeStr != "" {
 			err := json.Unmarshal([]byte(appProbeStr), &appProbe)

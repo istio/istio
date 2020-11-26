@@ -1,56 +1,12 @@
 [
   {
     "op": "add",
-    "path": "/spec/initContainers/-",
+    "path": "/metadata/labels",
     "value": {
-      "name": "istio-init",
-      "image": "example.com/init:latest",
-      "resources": {}
-    }
-  },
-  {
-    "op": "add",
-    "path": "/spec/containers/-",
-    "value": {
-      "name": "istio-proxy",
-      "image": "example.com/proxy:latest",
-      "resources": {}
-    }
-  },
-  {
-    "op": "add",
-    "path": "/spec/volumes/-",
-    "value": {
-      "name": "istio-envoy",
-      "emptyDir": {
-        "medium": "Memory"
-      }
-    }
-  },
-  {
-    "op": "add",
-    "path": "/spec/volumes/-",
-    "value": {
-      "name": "istio-certs",
-      "secret": {
-        "secretName": "istio.default"
-      }
-    }
-  },
-  {
-    "op": "add",
-    "path": "/spec/imagePullSecrets",
-    "value": [
-      {
-        "name": "istio-image-pull-secrets"
-      }
-    ]
-  },
-  {
-    "op": "add",
-    "path": "/spec/securityContext",
-    "value": {
-      "fsGroup": 1337
+      "istio.io/rev": "",
+      "security.istio.io/tlsMode": "istio",
+      "service.istio.io/canonical-name": "",
+      "service.istio.io/canonical-revision": "latest"
     }
   },
   {
@@ -71,28 +27,69 @@
   {
     "op": "add",
     "path": "/metadata/annotations/sidecar.istio.io~1status",
-    "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+    "value": "{\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
   },
   {
     "op": "add",
-    "path": "/metadata/labels",
+    "path": "/spec/volumes/1",
     "value": {
-      "istio.io/rev": ""
+      "name": "istio-certs",
+      "secret": {
+        "secretName": "istio.default"
+      }
     }
   },
   {
     "op": "add",
-    "path": "/metadata/labels/security.istio.io~1tlsMode",
-    "value": "istio"
+    "path": "/spec/volumes/2",
+    "value": {
+      "name": "v0"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/spec/volumes/0/name",
+    "value": "istio-envoy"
   },
   {
     "op": "add",
-    "path": "/metadata/labels/service.istio.io~1canonical-name",
-    "value": ""
+    "path": "/spec/volumes/0/emptyDir",
+    "value": {
+      "medium": "Memory"
+    }
   },
   {
     "op": "add",
-    "path": "/metadata/labels/service.istio.io~1canonical-revision",
-    "value": "latest"
+    "path": "/spec/initContainers/1",
+    "value": {
+      "name": "istio-init",
+      "image": "example.com/init:latest",
+      "resources": {}
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/containers/1",
+    "value": {
+      "name": "istio-proxy",
+      "image": "example.com/proxy:latest",
+      "resources": {}
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/securityContext",
+    "value": {
+      "fsGroup": 1337
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/imagePullSecrets",
+    "value": [
+      {
+        "name": "istio-image-pull-secrets"
+      }
+    ]
   }
 ]

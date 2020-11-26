@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	kubetest "istio.io/istio/pkg/test/kube"
 )
 
 var (
@@ -139,7 +140,9 @@ func TestDeploymentYAML(t *testing.T) {
 			tc.config.Cluster = resource.FakeCluster{
 				NameValue: "cluster-0",
 			}
-			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(nil, tc.config, settings, kube.Cluster{})
+			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(nil, tc.config, settings, kube.Cluster{
+				ExtendedClient: kubetest.MockClient{},
+			})
 			if err != nil {
 				t.Errorf("failed to generate yaml %v", err)
 			}
@@ -149,9 +152,7 @@ func TestDeploymentYAML(t *testing.T) {
 			wantBytes := testutil.StripVersion(wantedBytes)
 			gotBytes = testutil.StripVersion(gotBytes)
 
-			if testutil.Refresh() {
-				testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
-			}
+			testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
 
 			testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
 		})

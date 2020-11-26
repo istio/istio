@@ -169,7 +169,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service.MeshExternal)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
 			if defaultCluster == nil {
 				continue
 			}
@@ -231,7 +231,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			discoveryType := convertResolution(proxy, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, nil, service.MeshExternal)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
 			if defaultCluster == nil {
 				continue
 			}
@@ -289,7 +289,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
 			if !have[instance.ServicePort] {
-				localCluster := cb.buildInboundClusterForPortOrUDS(instance, actualLocalHost)
+				localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, instance, actualLocalHost)
 				clusters = cp.conditionallyAppend(clusters, localCluster)
 				have[instance.ServicePort] = true
 			}
@@ -311,6 +311,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			endpointAddress := actualLocalHost
 			port := 0
 			var err error
+			instanceIPCluster := false
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
 				// this is a UDS endpoint. assign it as is
 				endpointAddress = ingressListener.DefaultEndpoint
@@ -323,6 +324,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				if port, err = strconv.Atoi(parts[1]); err != nil {
 					continue
 				}
+				if parts[0] == model.PodIPAddressPrefix {
+					endpointAddress = cb.proxy.IPAddresses[0]
+					instanceIPCluster = true
+				}
 			}
 
 			// Find the service instance that corresponds to this ingress listener by looking
@@ -334,7 +339,20 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			instance.Endpoint.ServicePortName = listenPort.Name
 			instance.Endpoint.EndpointPort = uint32(port)
 
-			localCluster := cb.buildInboundClusterForPortOrUDS(instance, endpointAddress)
+			localCluster := cb.buildInboundClusterForPortOrUDS(nil, instance, endpointAddress)
+			if instanceIPCluster {
+				// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
+				// config which will be skipped. This mirrors the "passthrough" clusters.
+				// TODO: consider moving all clusters to use this for consistency.
+				localCluster.UpstreamBindConfig = &core.BindConfig{
+					SourceAddress: &core.SocketAddress{
+						Address: util.InboundPassthroughBindIpv4,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: uint32(0),
+						},
+					},
+				}
+			}
 			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
 	}
@@ -362,7 +380,9 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 			Hostname:   host.Name(sidecar + "." + sidecarns),
 			Attributes: attrs,
 		},
-		Endpoint: &model.IstioEndpoint{},
+		Endpoint: &model.IstioEndpoint{
+			EndpointPort: ingressListener.Port.Number,
+		},
 	}
 }
 
@@ -404,8 +424,7 @@ func buildAutoMtlsSettings(
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode,
-	clusterDiscoveryType cluster.Cluster_DiscoveryType) (*networking.ClientTLSSettings, mtlsContextType) {
+	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
 		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
 			return tls, userSupplied
@@ -428,11 +447,7 @@ func buildAutoMtlsSettings(
 	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
 		return nil, userSupplied
 	}
-	// Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`
-	// We don't know whether headless service instance has sidecar injected or not.
-	if clusterDiscoveryType == cluster.Cluster_ORIGINAL_DST {
-		return nil, userSupplied
-	}
+
 	// Build settings for auto MTLS.
 	return buildIstioMutualTLS(serviceAccounts, sni, proxy), autoDetected
 }
@@ -573,16 +588,26 @@ func setH2Options(cluster *cluster.Cluster) {
 
 func applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
-	applyH2Upgrade(opts, connectionPool)
+	if opts.direction == model.TrafficDirectionOutbound && connectionPool != nil && connectionPool.Http != nil && connectionPool.Http.UseClientProtocol {
+		setH2Options(opts.cluster)
+		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+		// the upstream cluster will use HTTP2.
+		opts.cluster.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
+	}
+	// Connection pool settings are applicable for both inbound and outbound clusters.
 	applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
-	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+	if opts.direction != model.TrafficDirectionInbound {
+		applyH2Upgrade(opts, connectionPool)
+		applyOutlierDetection(opts.cluster, outlierDetection)
+		applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+	}
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 	}
 }
@@ -1058,4 +1083,124 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 		// the upstream cluster will use HTTP2.
 		c.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
+}
+
+func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
+	if opts.cluster == nil {
+		return
+	}
+	if direction == model.TrafficDirectionInbound && (opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
+		len(opts.proxy.ServiceInstances) == 0 || opts.port == nil) {
+		// At inbound, port and local service instance has to be provided
+		return
+	}
+	if direction == model.TrafficDirectionOutbound && service == nil {
+		// At outbound, the service corresponding to the cluster has to be provided.
+		return
+	}
+
+	im := getOrCreateIstioMetadata(opts.cluster)
+
+	// Add services field into istio metadata
+	im.Fields["services"] = &structpb.Value{
+		Kind: &structpb.Value_ListValue{
+			ListValue: &structpb.ListValue{
+				Values: []*structpb.Value{},
+			},
+		},
+	}
+
+	svcMetaList := im.Fields["services"].GetListValue()
+
+	// Add service related metadata. This will be consumed by telemetry v2 filter for metric labels.
+	if direction == model.TrafficDirectionInbound {
+		// For inbound cluster, add all services on the cluster port
+		have := make(map[host.Name]bool)
+		for _, svc := range opts.proxy.ServiceInstances {
+			if svc.ServicePort.Port != opts.port.Port {
+				// If the service port is different from the the port of the cluster that is being built,
+				// skip adding telemetry metadata for the service to the cluster.
+				continue
+			}
+			if _, ok := have[svc.Service.Hostname]; ok {
+				// Skip adding metadata for instance with the same host name.
+				// This could happen when a service has multiple IPs.
+				continue
+			}
+			svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc.Service))
+			have[svc.Service.Hostname] = true
+		}
+	} else if direction == model.TrafficDirectionOutbound {
+		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
+		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(service))
+	}
+}
+
+// Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
+// Server side car uses this port after de-multiplexed from tunnel.
+func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
+	if opts.cluster == nil || direction == model.TrafficDirectionInbound {
+		return
+	}
+	if service == nil {
+		// At outbound, the service corresponding to the cluster has to be provided.
+		return
+	}
+
+	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
+		im := getOrCreateIstioMetadata(opts.cluster)
+
+		// Add original_port field into istio metadata
+		// Endpoint could override this port but the chance should be small.
+		im.Fields["default_original_port"] = &structpb.Value{
+			Kind: &structpb.Value_NumberValue{
+				NumberValue: float64(port.Port),
+			},
+		}
+	}
+}
+
+// Build a struct which contains service metadata and will be added into cluster label.
+func buildServiceMetadata(svc *model.Service) *structpb.Value {
+	return &structpb.Value{
+		Kind: &structpb.Value_StructValue{
+			StructValue: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					// service fqdn
+					"host": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: string(svc.Hostname),
+						},
+					},
+					// short name of the service
+					"name": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: svc.Attributes.Name,
+						},
+					},
+					// namespace of the service
+					"namespace": {
+						Kind: &structpb.Value_StringValue{
+							StringValue: svc.Attributes.Namespace,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
+	if cluster.Metadata == nil {
+		cluster.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+	// Create Istio metadata if does not exist yet
+	if _, ok := cluster.Metadata.FilterMetadata[util.IstioMetadataKey]; !ok {
+		cluster.Metadata.FilterMetadata[util.IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
 }

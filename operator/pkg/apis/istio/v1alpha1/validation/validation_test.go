@@ -55,8 +55,9 @@ func TestValidateConfig(t *testing.T) {
 					},
 				},
 			},
-			warnings: `! values.grafana.enabled is deprecated; use the samples/addons/ deployments instead
-! addonComponents.grafana.enabled is deprecated; use the samples/addons/ deployments instead`,
+			errors: `! values.grafana.enabled is deprecated; use the samples/addons/ deployments instead
+, ! addonComponents.grafana.enabled is deprecated; use the samples/addons/ deployments instead
+`,
 		},
 		{
 			name: "global",
@@ -226,11 +227,11 @@ func TestValidateProfiles(t *testing.T) {
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
 	for _, tt := range profiles {
 		t.Run(tt, func(t *testing.T) {
-			_, s, err := manifest.GenIOPSFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, l)
+			_, s, err := manifest.GenIOPFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, l)
 			if err != nil {
 				t.Fatal(err)
 			}
-			verr, warnings := validation.ValidateConfig(false, s)
+			verr, warnings := validation.ValidateConfig(false, s.Spec)
 			if verr != nil {
 				t.Fatalf("got error validating: %v", verr)
 			}

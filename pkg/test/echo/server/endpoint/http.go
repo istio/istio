@@ -89,12 +89,12 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		}
 		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
-		listener, port, err = listenOnPortTLS(s.Port.Port, config)
+		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
 	} else {
 		// Listen on the given port and update the port if it changed from what was passed in.
-		listener, port, err = listenOnPort(s.Port.Port)
+		listener, port, err = listenOnAddress(s.ListenerIP, s.Port.Port)
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
 	}
@@ -221,6 +221,12 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request) {
 		writeError(&body, "ParseForm() error: "+err.Error())
 	}
 
+	// If the request has form ?delay=[:duration] wait for duration
+	// For example, ?delay=10s will cause the response to wait 10s before responding
+	if err := delayResponse(r); err != nil {
+		writeError(&body, "error delaying response error: "+err.Error())
+	}
+
 	// If the request has form ?headers=name:value[,name:value]* return those headers in response
 	if err := setHeaderResponseFromHeaders(r, w); err != nil {
 		writeError(&body, "response headers error: "+err.Error())
@@ -237,7 +243,7 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/text")
 	if _, err := w.Write(body.Bytes()); err != nil {
-		epLog.Warna(err)
+		epLog.Warn(err)
 	}
 	epLog.Infof("Response Headers: %+v", w.Header())
 }
@@ -306,6 +312,19 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	if hostname, err := os.Hostname(); err == nil {
 		writeField(body, response.HostnameField, hostname)
 	}
+}
+func delayResponse(request *http.Request) error {
+	d := request.FormValue("delay")
+	if len(d) == 0 {
+		return nil
+	}
+
+	t, err := time.ParseDuration(d)
+	if err != nil {
+		return err
+	}
+	time.Sleep(t)
+	return nil
 }
 
 func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseWriter) error {

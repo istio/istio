@@ -106,7 +106,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 
 		b, err := configToResource(&c)
 		if err != nil {
-			log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
+			log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 			continue
 		}
 		bany, err := gogotypes.MarshalAny(b)
@@ -116,7 +116,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 				Value:   bany.Value,
 			})
 		} else {
-			log.Warna("Any ", err)
+			log.Warn("Any ", err)
 		}
 	}
 
@@ -134,7 +134,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			c := serviceentry.ServiceToServiceEntry(s)
 			b, err := configToResource(c)
 			if err != nil {
-				log.Warna("Resource error ", err, " ", c.Namespace, "/", c.Name)
+				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 				continue
 			}
 			bany, err := gogotypes.MarshalAny(b)
@@ -144,7 +144,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 					Value:   bany.Value,
 				})
 			} else {
-				log.Warna("Any ", err)
+				log.Warn("Any ", err)
 			}
 		}
 	}

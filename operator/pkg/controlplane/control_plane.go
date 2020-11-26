@@ -62,18 +62,6 @@ func NewIstioControlPlane(installSpec *v1alpha1.IstioOperatorSpec, translator *t
 			out.components = append(out.components, component.NewEgressComponent(c.Name, idx, c, &o))
 		}
 	}
-	for _, cn := range orderedKeys(installSpec.AddonComponents) {
-		c := installSpec.AddonComponents[cn]
-		rn := ""
-		// For well-known addon components like Prometheus, the resource names are included
-		// in the translations.
-		if cm := translator.ComponentMap(cn); cm != nil {
-			rn = cm.ResourceName
-		}
-		o := *opts
-		o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-		out.components = append(out.components, component.NewAddonComponent(cn, rn, c, &o))
-	}
 	return out, nil
 }
 

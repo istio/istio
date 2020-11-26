@@ -40,32 +40,32 @@ type Watcher interface {
 	AddMeshHandler(func())
 }
 
-var _ Watcher = &watcher{}
+var _ Watcher = &InternalWatcher{}
 
-type watcher struct {
-	mutex    sync.Mutex
-	handlers []func()
-	mesh     *meshconfig.MeshConfig
+type InternalWatcher struct {
+	mutex      sync.Mutex
+	handlers   []func()
+	MeshConfig *meshconfig.MeshConfig
 }
 
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
 // fire any events, since the config never changes.
 func NewFixedWatcher(mesh *meshconfig.MeshConfig) Watcher {
-	return &watcher{
-		mesh: mesh,
+	return &InternalWatcher{
+		MeshConfig: mesh,
 	}
 }
 
-// NewWatcher creates a new Watcher for changes to the given mesh config file. Returns an error
+// NewFileWatcher creates a new Watcher for changes to the given mesh config file. Returns an error
 // if the given file does not exist or failed during parsing.
-func NewWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, error) {
+func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, error) {
 	meshConfig, err := ReadMeshConfig(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	w := &watcher{
-		mesh: meshConfig,
+	w := &InternalWatcher{
+		MeshConfig: meshConfig,
 	}
 
 	// Watch the config file for changes and reload if it got modified
@@ -76,39 +76,40 @@ func NewWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, 
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 			return
 		}
-
-		var handlers []func()
-
-		w.mutex.Lock()
-		if !reflect.DeepEqual(meshConfig, w.mesh) {
-			log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
-			if !reflect.DeepEqual(meshConfig.ConfigSources, w.mesh.ConfigSources) {
-				log.Infof("mesh configuration sources have changed")
-				//TODO Need to re-create or reload initConfigController()
-			}
-
-			// Store the new mesh.
-			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.mesh)), unsafe.Pointer(meshConfig))
-			handlers = append([]func(){}, w.handlers...)
-		}
-		w.mutex.Unlock()
-
-		// Notify the handlers of the change.
-		for _, h := range handlers {
-			h()
-		}
+		w.HandleMeshConfig(meshConfig)
 	})
 	return w, nil
 }
 
 // Mesh returns the latest mesh config.
-func (w *watcher) Mesh() *meshconfig.MeshConfig {
-	return (*meshconfig.MeshConfig)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.mesh))))
+func (w *InternalWatcher) Mesh() *meshconfig.MeshConfig {
+	return (*meshconfig.MeshConfig)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.MeshConfig))))
 }
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
-func (w *watcher) AddMeshHandler(h func()) {
+func (w *InternalWatcher) AddMeshHandler(h func()) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.handlers = append(w.handlers, h)
+}
+
+func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
+	var handlers []func()
+
+	w.mutex.Lock()
+	if !reflect.DeepEqual(meshConfig, w.MeshConfig) {
+		log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
+		if !reflect.DeepEqual(meshConfig.ConfigSources, w.MeshConfig.ConfigSources) {
+			log.Info("mesh configuration sources have changed")
+			// TODO Need to recreate or reload initConfigController()
+		}
+
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.MeshConfig)), unsafe.Pointer(meshConfig))
+		handlers = append(handlers, w.handlers...)
+	}
+	w.mutex.Unlock()
+
+	for _, h := range handlers {
+		h()
+	}
 }

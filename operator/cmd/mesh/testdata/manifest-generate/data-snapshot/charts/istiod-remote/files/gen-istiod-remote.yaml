@@ -4,9 +4,11 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: default
+  namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istiod-remote
 data:
 
@@ -16,7 +18,7 @@ data:
 
   mesh: |-
     defaultConfig:
-      discoveryAddress: istiod.default.svc:15012
+      discoveryAddress: istiod.istio-system.svc:15012
       proxyMetadata:
         DNS_AGENT: ""
       tracing:
@@ -31,9 +33,11 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
-  namespace: default
+  namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istiod-remote
 data:
 
@@ -59,6 +63,7 @@ data:
           }
         },
         "defaultTolerations": [],
+        "externalIstiod": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -80,7 +85,9 @@ data:
         "mountMtlsCerts": false,
         "multiCluster": {
           "clusterName": "",
-          "enabled": false
+          "enabled": false,
+          "globalDomainSuffix": "global",
+          "includeEnvoyFilter": true
         },
         "network": "",
         "omitSidecarInjectorConfigMap": false,
@@ -157,7 +164,7 @@ data:
             "address": ""
           }
         },
-        "trustDomain": "cluster.local",
+        "trustDomain": "",
         "useMCP": false
       },
       "revision": "",
@@ -165,7 +172,6 @@ data:
         "alwaysInjectSelector": [],
         "caBundle": "",
         "enableNamespacesByDefault": false,
-        "injectLabel": "istio-injection",
         "injectedAnnotations": {},
         "neverInjectSelector": [],
         "objectSelector": {
@@ -248,11 +254,30 @@ data:
           value: "{{ $value }}"
         {{- end }}
       {{- end }}
-      {{- if .Values.global.proxy_init.resources }}
         resources:
-          {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
+      {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+        {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
+          requests:
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
+            {{ end }}
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
+            {{ end }}
+        {{- end }}
+        {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+          limits:
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
+            {{ end }}
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
+            {{ end }}
+        {{- end }}
       {{- else }}
-        resources: {}
+        {{- if .Values.global.proxy.resources }}
+          {{ toYaml .Values.global.proxy.resources | indent 4 }}
+        {{- end }}
       {{- end }}
         securityContext:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
@@ -331,9 +356,6 @@ data:
         - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel}}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
-      {{- end }}
-      {{- if .Values.global.trustDomain }}
-        - --trust-domain={{ .Values.global.trustDomain }}
       {{- end }}
       {{- if .Values.global.logAsJson }}
         - --log_as_json
@@ -425,7 +447,7 @@ data:
         {{ end }}
         {{- if .DeploymentMeta.Name }}
         - name: ISTIO_META_WORKLOAD_NAME
-          value: {{ .DeploymentMeta.Name }}
+          value: "{{ .DeploymentMeta.Name }}"
         {{ end }}
         {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
         - name: ISTIO_META_OWNER
@@ -438,9 +460,13 @@ data:
         {{- if .Values.global.meshID }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.meshID }}"
-        {{- else if .Values.global.trustDomain }}
+        {{- else if (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}
         - name: ISTIO_META_MESH_ID
-          value: "{{ .Values.global.trustDomain }}"
+          value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
+        {{- end }}
+        {{- with (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain)  }}
+        - name: TRUST_DOMAIN
+          value: "{{ . }}"
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
         {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
@@ -460,6 +486,7 @@ data:
             port: 15021
           initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
           periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
+          timeoutSeconds: 3
           failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
         {{ end -}}
         securityContext:
@@ -607,29 +634,24 @@ data:
           optional: true
           secretName: lightstep.cacert
       {{- end }}
-      {{- if .Values.global.podDNSSearchNamespaces }}
-      dnsConfig:
-        searches:
-          {{- range .Values.global.podDNSSearchNamespaces }}
-          - {{ render . }}
-          {{- end }}
-      {{- end }}
+      {{- if .Values.istio_cni.enabled }}
       podRedirectAnnot:
-      {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
+        {{- if not .Values.istio_cni.chained }}
         k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `istio-cni` }}'
-      {{- end }}
+        {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
         traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundIPRanges` .Values.global.proxy.excludeIPRanges }}"
-        traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) }}"
+        traffic.sidecar.istio.io/includeInboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         traffic.sidecar.istio.io/excludeInboundPorts: "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
-      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") }}
+        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") }}
         traffic.sidecar.istio.io/includeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
-      {{- end }}
-      {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
+        {{- end }}
+        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") }}
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
-      {{- end }}
+        {{- end }}
         traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
+      {{- end }}
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- range .Values.global.imagePullSecrets }}
@@ -642,9 +664,12 @@ data:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-sidecar-injector-default
+  name: istio-sidecar-injector
+
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: istiod-remote
 webhooks:
@@ -654,7 +679,8 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/inject"
-      caBundle:
+      caBundle: ""
+    sideEffects: None
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
@@ -662,7 +688,6 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     admissionReviewVersions: ["v1beta1", "v1"]
-    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

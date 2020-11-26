@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,14 +16,17 @@
 package common
 
 import (
-	"fmt"
 	"strconv"
+	"strings"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 type EchoDeployments struct {
@@ -30,6 +34,9 @@ type EchoDeployments struct {
 	Namespace namespace.Instance
 	// Namespace where external echo app will be deployed
 	ExternalNamespace namespace.Instance
+
+	// Ingressgateway instance
+	Ingress ingress.Instance
 
 	// Standard echo app to be used by tests
 	PodA echo.Instances
@@ -46,8 +53,6 @@ type EchoDeployments struct {
 
 	// Echo app to be used by tests, with no sidecar injected
 	External echo.Instances
-	// Fake hostname of external service
-	ExternalHost string
 
 	All echo.Instances
 }
@@ -60,20 +65,36 @@ const (
 	HeadlessSvc = "headless"
 	NakedSvc    = "naked"
 	ExternalSvc = "external"
+
+	externalHostname = "fake.external.com"
 )
 
 var EchoPorts = []echo.Port{
-	{Name: "http", Protocol: protocol.HTTP, InstancePort: 18080},
-	{Name: "grpc", Protocol: protocol.GRPC, InstancePort: 17070},
-	{Name: "tcp", Protocol: protocol.TCP, InstancePort: 19090},
-	{Name: "tcp-server", Protocol: protocol.TCP, InstancePort: 16060, ServerFirst: true},
-	{Name: "auto-tcp", Protocol: protocol.TCP, InstancePort: 19091},
-	{Name: "auto-tcp-server", Protocol: protocol.TCP, InstancePort: 16061, ServerFirst: true},
-	{Name: "auto-http", Protocol: protocol.HTTP, InstancePort: 18081},
-	{Name: "auto-grpc", Protocol: protocol.GRPC, InstancePort: 17071},
+	{Name: "http", Protocol: protocol.HTTP, ServicePort: 80, InstancePort: 18080},
+	{Name: "grpc", Protocol: protocol.GRPC, ServicePort: 7070, InstancePort: 17070},
+	{Name: "tcp", Protocol: protocol.TCP, ServicePort: 9090, InstancePort: 19090},
+	{Name: "tcp-server", Protocol: protocol.TCP, ServicePort: 9091, InstancePort: 16060, ServerFirst: true},
+	{Name: "auto-tcp", Protocol: protocol.TCP, ServicePort: 9092, InstancePort: 19091},
+	{Name: "auto-tcp-server", Protocol: protocol.TCP, ServicePort: 9093, InstancePort: 16061, ServerFirst: true},
+	{Name: "auto-http", Protocol: protocol.HTTP, ServicePort: 81, InstancePort: 18081},
+	{Name: "auto-grpc", Protocol: protocol.GRPC, ServicePort: 7071, InstancePort: 17071},
+	{Name: "http-instance", Protocol: protocol.HTTP, ServicePort: 82, InstancePort: 18082, InstanceIP: true},
 }
 
-func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
+func serviceEntryPorts() []echo.Port {
+	res := []echo.Port{}
+	for _, p := range EchoPorts {
+		if strings.HasPrefix(p.Name, "auto") {
+			// The protocol needs to be set in EchoPorts to configure the echo deployment
+			// But for service entry, we want to ensure we set it to "" which will use sniffing
+			p.Protocol = ""
+		}
+		res = append(res, p)
+	}
+	return res
+}
+
+func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
 	apps.Namespace, err = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
@@ -89,6 +110,9 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
+
+	apps.Ingress = i.IngressFor(ctx.Clusters().Default())
+
 	// Headless services don't work with targetPort, set to same port
 	headlessPorts := make([]echo.Port, len(EchoPorts))
 	for i, p := range EchoPorts {
@@ -143,9 +167,10 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 				Cluster: c,
 			}).
 			With(nil, echo.Config{
-				Service:   ExternalSvc,
-				Namespace: apps.ExternalNamespace,
-				Ports:     EchoPorts,
+				Service:           ExternalSvc,
+				Namespace:         apps.ExternalNamespace,
+				DefaultHostHeader: externalHostname,
+				Ports:             EchoPorts,
 				Subsets: []echo.SubsetConfig{
 					{
 						Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -157,16 +182,18 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 				Cluster: c,
 			})
 	}
-
-	for _, c := range ctx.Clusters().ByNetwork() {
-		builder.With(nil, echo.Config{
-			Service:    VMSvc,
-			Namespace:  apps.Namespace,
-			Ports:      EchoPorts,
-			DeployAsVM: true,
-			Subsets:    []echo.SubsetConfig{{}},
-			Cluster:    c[0],
-		})
+	if !ctx.Settings().SkipVM {
+		for _, c := range ctx.Clusters().ByNetwork() {
+			builder.With(nil, echo.Config{
+				Service:        VMSvc,
+				Namespace:      apps.Namespace,
+				Ports:          EchoPorts,
+				DeployAsVM:     true,
+				AutoRegisterVM: false, // TODO support auto-registration with multi-primary
+				Subsets:        []echo.SubsetConfig{{}},
+				Cluster:        c[0],
+			})
+		}
 	}
 
 	echos, err := builder.Build()
@@ -180,10 +207,11 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
-	apps.VM = echos.Match(echo.Service(VMSvc))
+	if !ctx.Settings().SkipVM {
+		apps.VM = echos.Match(echo.Service(VMSvc))
+	}
 
-	apps.ExternalHost = "fake.example.com"
-	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), fmt.Sprintf(`
+	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -193,27 +221,37 @@ spec:
   - hosts:
     - "./*"
     - "istio-system/*"
----
-apiVersion: networking.istio.io/v1alpha3
+`); err != nil {
+		return err
+	}
+
+	se, err := tmpl.Evaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
 spec:
   hosts:
-  - %s
+  - {{.Hostname}}
   location: MESH_EXTERNAL
-  ports:
-  - name: http
-    number: 80
-    protocol: HTTP
-  - name: grpc
-    number: 7070
-    protocol: GRPC
   resolution: DNS
   endpoints:
-  - address: external.%s
-`, apps.ExternalHost, apps.ExternalNamespace.Name())); err != nil {
+  - address: external.{{.Namespace}}.svc.cluster.local
+  ports:
+{{- range $i, $p := .Ports }}
+  - name: {{$p.Name}}
+    number: {{$p.ServicePort}}
+    protocol: "{{$p.Protocol}}"
+{{- end }}
+`, map[string]interface{}{"Namespace": apps.ExternalNamespace.Name(), "Hostname": externalHostname, "Ports": serviceEntryPorts()})
+	if err != nil {
+		return err
+	}
+	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), se); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (d EchoDeployments) IsMulticluster() bool {
+	return d.All.Clusters().IsMulticluster()
 }

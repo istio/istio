@@ -151,6 +151,7 @@ priorityClassName | [priority class name](https://kubernetes.io/docs/concepts/co
 nodeSelector| [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
 affinity | [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
 serviceAnnotations | [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+securityContext | [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
 
 These K8s setting are available for each component under the `k8s` field, for example:
 
@@ -237,8 +238,6 @@ subdirectory as a Cobra command with the following subcommands:
     - [install](cmd/mesh/install.go): the install subcommand is used to generate an Istio install manifest and apply it to a cluster.
     - [diff](cmd/mesh/manifest-diff.go): the diff subcommand is used to compare manifest from two files or directories.
     - [generate](cmd/mesh/manifest-generate.go): the generate subcommand is used to generate an Istio install manifest.
-    - [migrate](cmd/mesh/manifest-migrate.go): the migrate subcommand is used to migrate a configuration in Helm values format to IstioOperator format.
-    - [versions](cmd/mesh/manifest-versions.go): the versions subcommand is used to list the version of Istio recommended for and supported by this version of the operator binary.
 - [profile](cmd/mesh/profile.go): dumps the default values for a selected profile, it has the following subcommands:
     - [diff](cmd/mesh/profile-diff.go): the diff subcommand is used to display the difference between two Istio configuration profiles.
     - [dump](cmd/mesh/profile-dump.go): the dump subcommand is used to dump the values in an Istio configuration profile.

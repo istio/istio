@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+
+kind:
+  bug-fix
+
+area:
+  istioctl
+
+issue:
+  - 26940
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    **Fixed** Prevent explicitly empty revision flag on install.

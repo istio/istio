@@ -18,6 +18,7 @@ metadata:
   name: mongodb
   labels:
     app: mongodb
+    service: mongodb
 spec:
   ports:
   - port: 27017

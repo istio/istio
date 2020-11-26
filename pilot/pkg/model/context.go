@@ -38,6 +38,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )
 
@@ -72,6 +74,8 @@ type Environment struct {
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
+
+	ledger ledger.Ledger
 }
 
 func (e *Environment) GetDomainSuffix() string {
@@ -127,6 +131,21 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, m
 	if e != nil && e.PushContext != nil {
 		e.PushContext.AddMetric(metric, key, proxyID, msg)
 	}
+}
+
+func (e *Environment) Version() string {
+	if x := e.GetLedger(); x != nil {
+		return x.RootHash()
+	}
+	return ""
+}
+
+func (e *Environment) GetLedger() ledger.Ledger {
+	return e.ledger
+}
+
+func (e *Environment) SetLedger(l ledger.Ledger) {
+	e.ledger = l
 }
 
 // Request is an alias for array of marshaled resources.
@@ -197,6 +216,13 @@ type Proxy struct {
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
 
+	// VerifiedIdentity determines whether a proxy had its identity verified. This
+	// generally occurs by JWT or mTLS authentication. This can be false when
+	// connecting over plaintext. If this is set to true, we can verify the proxy has
+	// access to ConfigNamespace namespace. However, other options such as node type
+	// are not part of an Istio identity and thus are not verified.
+	VerifiedIdentity *spiffe.Identity
+
 	// Indicates whether proxy supports IPv6 addresses
 	ipv6Support bool
 
@@ -243,6 +269,9 @@ type WatchedResource struct {
 
 	// NonceAcked is the last acked message.
 	NonceAcked string
+
+	// NonceNacked is the last nacked message. This is reset following a successful ACK
+	NonceNacked string
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
@@ -375,9 +404,6 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 type BootstrapNodeMetadata struct {
 	NodeMetadata
 
-	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
-	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
-
 	// InstanceName is the short name for the workload instance (ex: pod name)
 	// replaces POD_NAME
 	InstanceName string `json:"NAME,omitempty"`
@@ -470,7 +496,7 @@ type NodeMetadata struct {
 	CertBaseDir string `json:"BASE,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
-	// If not set, no timeout is set.
+	// If not set, default timeout is 1 hour.
 	IdleTimeout string `json:"IDLE_TIMEOUT,omitempty"`
 
 	// HTTP10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
@@ -484,8 +510,11 @@ type NodeMetadata struct {
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
 
-	// ProxyXDSViaAgent indicates that xds data is being proxied via the agent
-	ProxyXDSViaAgent string `json:"PROXY_XDS_VIA_AGENT,omitempty"`
+	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
+	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
+
+	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
+	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
@@ -669,12 +698,8 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.MergedGateway = ps.mergeGateways(node)
 }
 
-func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error {
-	instances, err := serviceDiscovery.GetProxyServiceInstances(node)
-	if err != nil {
-		log.Errorf("failed to get service proxy service instances: %v", err)
-		return err
-	}
+func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
+	instances := serviceDiscovery.GetProxyServiceInstances(node)
 
 	// Keep service instances in order of creation/hostname.
 	sort.SliceStable(instances, func(i, j int) bool {
@@ -689,26 +714,20 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error 
 	})
 
 	node.ServiceInstances = instances
-	return nil
 }
 
 // SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
-func (node *Proxy) SetWorkloadLabels(env *Environment) error {
+func (node *Proxy) SetWorkloadLabels(env *Environment) {
 	// First get the workload labels from node meta
 	if len(node.Metadata.Labels) > 0 {
-		return nil
+		return
 	}
 
 	// Fallback to calling GetProxyWorkloadLabels
-	l, err := env.GetProxyWorkloadLabels(node)
-	if err != nil {
-		log.Errorf("failed to get service proxy labels: %v", err)
-		return err
-	}
+	l := env.GetProxyWorkloadLabels(node)
 	if len(l) > 0 {
 		node.Metadata.Labels = l[0]
 	}
-	return nil
 }
 
 // DiscoverIPVersions discovers the IP Versions supported by Proxy based on its IP addresses.
@@ -720,7 +739,7 @@ func (node *Proxy) DiscoverIPVersions() {
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.IsGlobalUnicast() {
+		if node.GlobalUnicastIP == "" && addr.IsGlobalUnicast() {
 			node.GlobalUnicastIP = addr.String()
 		}
 		if addr.To4() != nil {
@@ -880,7 +899,7 @@ const (
 func ParsePort(addr string) int {
 	port, err := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
 	if err != nil {
-		log.Warna(err)
+		log.Warn(err)
 	}
 
 	return port
@@ -941,6 +960,7 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	return InterceptionRedirect
 }
 
-// SidecarDNSListenerPort specifes the port at which the sidecar hosts a DNS resolver listener.
-// TODO: customize me. tools/istio-iptables package also has this hardcoded.
-const SidecarDNSListenerPort = 15013
+func (node *Proxy) IsVM() bool {
+	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
+	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
+}

@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -45,7 +46,7 @@ import (
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.node.MergedGateway == nil {
-		log.Debuga("buildGatewayListeners: no gateways for router ", builder.node.ID)
+		log.Debug("buildGatewayListeners: no gateways for router ", builder.node.ID)
 		return builder
 	}
 
@@ -53,7 +54,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
-	errs := &multierror.Error{}
+	errs := &multierror.Error{
+		ErrorFormat: util.MultiErrorFormat(),
+	}
 	listeners := make([]*listener.Listener, 0, len(mergedGateway.Servers))
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
 	for portNumber, servers := range mergedGateway.Servers {
@@ -75,6 +78,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		if si != nil && si.Endpoint != nil {
 			portNumber = si.Endpoint.EndpointPort
 		}
+		if builder.node.Metadata.UnprivilegedPod != "" && portNumber < 1024 {
+			log.Warnf("buildGatewayListeners: skipping privileged gateway port %d for node %s as it is an unprivileged pod",
+				portNumber, builder.node.ID)
+			continue
+		}
+
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
@@ -145,7 +154,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		}
 		for _, p := range configgen.Plugins {
 			if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
-				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
+				log.Warn("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
@@ -169,7 +178,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	}
 
 	if len(listeners) == 0 {
-		log.Error("buildGatewayListeners: Have zero listeners")
+		log.Warnf("gateway has zero listeners for node %v", builder.node.ID)
 		return builder
 	}
 
@@ -181,7 +190,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	routeName string) *route.RouteConfiguration {
 
 	if node.MergedGateway == nil {
-		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
+		log.Debug("buildGatewayRoutes: no gateways for router ", node.ID)
 		return nil
 	}
 
@@ -215,7 +224,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			for _, hostname := range server.Hosts {
 				newVHost := &route.VirtualHost{
 					Name:                       domainName(hostname, port),
-					Domains:                    buildGatewayVirtualHostDomains(hostname),
+					Domains:                    buildGatewayVirtualHostDomains(hostname, port),
 					IncludeRequestAttemptCount: true,
 				}
 				newVHost.RequireTls = route.VirtualHost_ALL
@@ -271,7 +280,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				} else {
 					newVHost := &route.VirtualHost{
 						Name:                       domainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
+						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
 					}
@@ -287,21 +296,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		virtualHosts = []*route.VirtualHost{{
 			Name:    domainName("blackhole", port),
 			Domains: []string{"*"},
-			Routes: []*route.Route{
-				{
-					Match: &route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-					},
-					Action: &route.Route_DirectResponse{
-						DirectResponse: &route.DirectResponseAction{
-							Status: 404,
-						},
-					},
-				},
-			},
+			// Empty route list will cause Envoy to 404 NR any requests
+			Routes: []*route.Route{},
 		}}
-		// add a name to the route
-		virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
@@ -726,12 +723,22 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 	return false
 }
 
-func buildGatewayVirtualHostDomains(hostname string) []string {
+func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 	domains := []string{hostname}
 	if hostname == "*" {
 		return domains
 	}
-	// To support gateway behind a LB with unknown port.
-	domains = append(domains, hostname+":*")
+
+	// Per https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/route/route_components.proto#route-virtualhost
+	// we can only have one wildcard. Ideally, we want to match any port, as the host
+	// header may have a different port (behind a LB, nodeport, etc). However, if we
+	// have a wildcard domain we cannot do that since we would need two wildcards.
+	// Therefore, we we will preserve the original port if there is a wildcard host.
+	// TODO(https://github.com/envoyproxy/envoy/issues/12647) support wildcard host with wildcard port.
+	if len(hostname) > 0 && hostname[0] == '*' {
+		domains = append(domains, hostname+":"+strconv.Itoa(port))
+	} else {
+		domains = append(domains, hostname+":*")
+	}
 	return domains
 }

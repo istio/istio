@@ -31,6 +31,7 @@ import (
 
 	authentication "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -79,7 +80,7 @@ func TestValidationFuzzing(t *testing.T) {
 				}
 				obj := istiofuzz.Fuzz(t, kgvk, scheme, fz)
 				iobj = crdclient.TranslateObject(obj, gvk, "cluster.local")
-				_ = r.Resource().ValidateConfig(*iobj)
+				_, _ = r.Resource().ValidateConfig(*iobj)
 			}
 		})
 	}
@@ -158,6 +159,12 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		},
 		func(t *types.Value, c fuzz.Continue) {
 			*t = types.Value{Kind: &types.Value_StringValue{StringValue: ""}}
+		},
+		func(t *networking.ReadinessProbe, c fuzz.Continue) {
+			*t = networking.ReadinessProbe{}
+		},
+		func(t *security.AuthorizationPolicy, c fuzz.Continue) {
+			*t = security.AuthorizationPolicy{}
 		},
 	}
 }

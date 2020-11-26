@@ -34,7 +34,12 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
+# shellcheck source=common/scripts/kind_provisioner.sh
+source "${ROOT}/common/scripts/kind_provisioner.sh"
+
 TOPOLOGY=SINGLE_CLUSTER
+NODE_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
+CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
 PARAMS=()
 
@@ -76,6 +81,10 @@ while (( "$#" )); do
       esac
       shift 2
     ;;
+    --topology-config)
+      CLUSTER_TOPOLOGY_CONFIG_FILE=$2
+      shift 2
+    ;;
     -*)
       echo "Error: Unsupported flag $1" >&2
       exit 1
@@ -87,8 +96,15 @@ while (( "$#" )); do
   esac
 done
 
+# Default IP family of the cluster is IPv4
+export IP_FAMILY="${IP_FAMILY:-ipv4}"
+
 # KinD will not have a LoadBalancer, so we need to disable it
 export TEST_ENV=kind
+# LoadBalancer in Kind is supported using metallb if not ipv6.
+if [ "${IP_FAMILY}" != "ipv6" ]; then
+  export TEST_ENV=kind-metallb
+fi
 
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
@@ -104,42 +120,58 @@ export TAG="${TAG:-"istio-testing"}"
 
 # If we're not intending to pull from an actual remote registry, use the local kind registry
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  HUB="${KIND_REGISTRY}/$(echo "${HUB}" | sed 's/[^\/]*\/\([^\/]*\/\)/\1/')"
+  HUB="${KIND_REGISTRY}"
   export HUB
 fi
-
-# Default IP family of the cluster is IPv4
-export IP_FAMILY="${IP_FAMILY:-ipv4}"
 
 # Setup junit report and verbose logging
 export T="${T:-"-v -count=1"}"
 export CI="true"
 
-make init
+trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
-  else
-    # TODO: Support IPv6 multicluster
-    time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
+  export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
+  export DEFAULT_CLUSTER_YAML="./prow/config/trustworthy-jwt.yaml"
+  export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
-    # KinD will have a LoadBalancer for multicluster
-    export TEST_ENV=kind-metallb
-    # Set the kube configs to point to the clusters.
-    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG},${CLUSTER4_KUBECONFIG},${CLUSTER5_KUBECONFIG}"
-    # 3 clusters on one network, 2 on the other
-    export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-0,3:test-network-1,4:test-network-1"
-    # Cluster 0, 1 and 4 share cluster 0's control plane
-    # Clusters 2 and 3 control themselves
-    export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
-    export INTEGRATION_TEST_CONFIG_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
+  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
+    trace "setup kind cluster" setup_kind_cluster "istio-testing" "${NODE_IMAGE}"
+  else
+    trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
+    trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
+
+    export INTEGRATION_TEST_KUBECONFIG
+    INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
+
+    ITER_END=$((NUM_CLUSTERS-1))
+    declare -a CONTROLPLANE_TOPOLOGIES
+    declare -a CONFIG_TOPOLOGIES
+    declare -a NETWORK_TOPOLOGIES
+
+    for i in $(seq 0 $ITER_END); do
+      CLUSTER_ITEM=$(jq -r ".[$i]" "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+      CONTROLPLANE_INDEX=$(echo "$CLUSTER_ITEM" | jq -r '.control_plane_index')
+      CONFIG_INDEX=$(echo "$CLUSTER_ITEM" | jq -r '.config_index')
+      
+      CONTROLPLANE_TOPOLOGIES+=("$i:$CONTROLPLANE_INDEX")
+      CONFIG_TOPOLOGIES+=("$i:$CONFIG_INDEX")
+      NETWORK_TOPOLOGIES+=("$i:test-network-${CLUSTER_NETWORK_ID[$i]}")
+    done
+
+    export INTEGRATION_TEST_NETWORKS
+    export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY
+    export INTEGRATION_TEST_CONFIG_TOPOLOGY
+
+    INTEGRATION_TEST_NETWORKS=$(IFS=','; echo "${NETWORK_TOPOLOGIES[*]}")
+    INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY=$(IFS=','; echo "${CONTROLPLANE_TOPOLOGIES[*]}")
+    INTEGRATION_TEST_CONFIG_TOPOLOGY=$(IFS=','; echo "${CONFIG_TOPOLOGIES[*]}")
   fi
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  time setup_kind_registry
-  time build_images "${PARAMS[*]}"
+  trace "setup kind registry" setup_kind_registry
+  trace "build images" build_images "${PARAMS[*]}"
 fi
 
 # If a variant is defined, update the tag accordingly
@@ -149,7 +181,7 @@ fi
 
 # Run the test target if provided.
 if [[ -n "${PARAMS:-}" ]]; then
-  make "${PARAMS[*]}"
+  trace "test" make "${PARAMS[*]}"
 fi
 
 # Check if the user is running the clusters in manual mode.

@@ -59,7 +59,6 @@ type PilotArgs struct {
 	RegistryOptions    RegistryOptions
 	CtrlZOptions       *ctrlz.Options
 	Plugins            []string
-	MCPOptions         MCPOptions
 	KeepaliveOptions   *keepalive.Options
 	ShutdownDuration   time.Duration
 }
@@ -98,12 +97,6 @@ type DiscoveryServerOptions struct {
 type InjectionOptions struct {
 	// Directory of injection related config files.
 	InjectionDirectory string
-}
-
-type MCPOptions struct {
-	MaxMessageSize        int
-	InitialWindowSize     int
-	InitialConnWindowSize int
 }
 
 // Optional TLS parameters for Istiod server.

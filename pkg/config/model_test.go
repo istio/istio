@@ -223,8 +223,7 @@ func TestToJSON(t *testing.T) {
 		//service-apis type
 		{
 			input: &v1alpha1.GatewayClassSpec{Controller: "foobar"},
-			// Gateway class has some structs without omitempty. TODO: add omitempty to these in the api?
-			json: `{"controller":"foobar","allowedGatewayNamespaceSelector":{},"allowedRouteNamespaces":{"namespaceSelector":{}}}`,
+			json:  `{"controller":"foobar"}`,
 		},
 		// mock type
 		{
@@ -279,11 +278,7 @@ func TestToMap(t *testing.T) {
 		{
 			input: &v1alpha1.GatewayClassSpec{Controller: "foobar"},
 			mp: map[string]interface{}{
-				"controller":                      "foobar",
-				"allowedGatewayNamespaceSelector": map[string]interface{}{},
-				"allowedRouteNamespaces": map[string]interface{}{
-					"namespaceSelector": map[string]interface{}{},
-				},
+				"controller": "foobar",
 			},
 		},
 		// mock type

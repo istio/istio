@@ -26,15 +26,18 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
+	"k8s.io/client-go/kubernetes/fake"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -208,11 +211,12 @@ func BenchmarkSecretGeneration(b *testing.B) {
 			s := NewFakeDiscoveryServer(b, FakeOptions{
 				KubernetesObjectString: buf.String(),
 			})
+			kubesecrets.DisableAuthorizationForTest(s.KubeClient().Kube().(*fake.Clientset))
 			watchedResources := []string{}
 			for i := 0; i < tt.Services; i++ {
 				watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://istio-system/sds-credential-%d", i))
 			}
-			proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"})
+			proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "istio-system", VerifiedIdentity: &spiffe.Identity{}})
 			gen := s.Discovery.Generators[v3.SecretType]
 			res := &model.WatchedResource{ResourceNames: watchedResources}
 			b.ResetTimer()
@@ -288,7 +292,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.7.0",
+			IstioVersion: "1.9.0",
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},

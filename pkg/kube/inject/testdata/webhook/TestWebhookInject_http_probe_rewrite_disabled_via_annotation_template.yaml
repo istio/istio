@@ -2,8 +2,8 @@ policy: enabled
 alwaysInjectSelector: []
 neverInjectSelector: []
 injectedAnnotations: {}
+values: '{"sidecarInjectorWebhook":{"rewriteAppHTTPProbe": true}}'
 template: |-
-  rewriteAppHTTPProbe: true
   initContainers:
   - name: istio-init
     image: example.com/init:latest

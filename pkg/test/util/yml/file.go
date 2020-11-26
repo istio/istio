@@ -52,21 +52,20 @@ func NewFileWriter(workDir string) FileWriter {
 // WriteYAML writes the given YAML content to one or more YAML files.
 func (w *writerImpl) WriteYAML(filenamePrefix string, contents ...string) ([]string, error) {
 	out := make([]string, 0, len(contents))
-	for _, content := range contents {
-		files, err := splitContentsToFiles(w.workDir, content, filenamePrefix)
+	content := JoinString(contents...)
+	files, err := splitContentsToFiles(w.workDir, content, filenamePrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(files) == 0 {
+		f, err := writeContentsToTempFile(w.workDir, content)
 		if err != nil {
 			return nil, err
 		}
-
-		if len(files) == 0 {
-			f, err := writeContentsToTempFile(w.workDir, content)
-			if err != nil {
-				return nil, err
-			}
-			files = append(files, f)
-		}
-		out = append(out, files...)
+		files = append(files, f)
 	}
+	out = append(out, files...)
 	return out, nil
 }
 

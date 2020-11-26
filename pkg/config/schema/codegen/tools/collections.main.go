@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/ast"
@@ -28,7 +29,7 @@ import (
 
 // Utility for generating collections.gen.go. Called from gen.go
 func main() {
-	if len(os.Args) != 4 {
+	if len(os.Args) != 4 && len(os.Args) != 7 {
 		fmt.Printf("Invalid args: %v", os.Args)
 		os.Exit(-1)
 	}
@@ -36,6 +37,12 @@ func main() {
 	pkg := os.Args[1]
 	input := os.Args[2]
 	output := os.Args[3]
+	var splitOn, splitOutput, splitPrefix string
+	if len(os.Args) > 4 {
+		splitOn = os.Args[4]
+		splitOutput = os.Args[5]
+		splitPrefix = os.Args[6]
+	}
 
 	// Read the input file
 	b, err := ioutil.ReadFile(input)
@@ -65,16 +72,49 @@ func main() {
 			fmt.Printf("Error applying static init template: %v", err)
 			os.Exit(-3)
 		}
-	} else {
-		contents, err = codegen.StaticCollections(pkg, m)
+		if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
+			fmt.Printf("Error writing output file: %v", err)
+			os.Exit(-4)
+		}
+		return
+	}
+	if splitOn == "" {
+		contents, err = codegen.StaticCollections(pkg, m, func(name string) bool {
+			return true
+		}, "")
 		if err != nil {
 			fmt.Printf("Error applying static init template: %v", err)
 			os.Exit(-3)
 		}
+		if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
+			fmt.Printf("Error writing output file: %v", err)
+			os.Exit(-4)
+		}
+		return
 	}
-
-	if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
+	fullPrefix := "// +build !" + splitPrefix
+	fullContents, err := codegen.StaticCollections(pkg, m, func(name string) bool {
+		return true
+	}, fullPrefix)
+	if err != nil {
+		fmt.Printf("Error applying static init template: %v", err)
+		os.Exit(-3)
+	}
+	if err = ioutil.WriteFile(output, []byte(fullContents), os.ModePerm); err != nil {
 		fmt.Printf("Error writing output file: %v", err)
 		os.Exit(-4)
 	}
+	matchPrefix := "// +build " + splitPrefix
+	matchContents, err := codegen.StaticCollections(pkg, m, func(name string) bool {
+		return !strings.Contains(name, splitOn)
+	}, matchPrefix)
+	if err != nil {
+		fmt.Printf("Error applying static init template: %v", err)
+		os.Exit(-3)
+	}
+	if err = ioutil.WriteFile(splitOutput, []byte(matchContents), os.ModePerm); err != nil {
+		fmt.Printf("Error writing output file: %v", err)
+		os.Exit(-4)
+	}
+	return
 }

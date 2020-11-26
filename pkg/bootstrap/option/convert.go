@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -29,6 +30,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -104,6 +106,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_MUTUAL:
 		res := model.SdsCertificateConfig{
 			CertificatePath:   model.GetOrDefault(metadata.TLSClientCertChain, tls.ClientCertificate),
@@ -122,6 +125,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
@@ -133,12 +137,14 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+		tlsContext.Sni = tls.Sni
+		// For ISTIO_MUTUAL if custom SNI is not provided, use the default SNI name.
+		if len(tls.Sni) == 0 {
+			tlsContext.Sni = sniName
+		}
 	default:
 		// No TLS.
 		return nil
-	}
-	if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-		tlsContext.Sni = sniName
 	}
 	return tlsContext
 }
@@ -169,6 +175,17 @@ func addressConverter(addr string) convertFunc {
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse %s address %q: %v", o.name, addr, err)
 		}
+		if host == "$(HOST_IP)" {
+			// Replace host with HOST_IP env var if it is "$(HOST_IP)".
+			// This is to support some tracer setting (Datadog, Zipkin), where "$(HOST_IP)"" is used for address.
+			// Tracer address used to be specified within proxy container params, and thus could be interpreted with pod HOST_IP env var.
+			// Now tracer config is passed in with mesh config volumn at gateway, k8s env var interpretation does not work.
+			// This is to achieve the same interpretation as k8s.
+			hostIPEnv := os.Getenv("HOST_IP")
+			if hostIPEnv != "" {
+				host = hostIPEnv
+			}
+		}
 
 		return fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port), nil
 	}
@@ -177,6 +194,33 @@ func addressConverter(addr string) convertFunc {
 func durationConverter(value *types.Duration) convertFunc {
 	return func(*instance) (interface{}, error) {
 		return value.String(), nil
+	}
+}
+
+// openCensusAgentContextConverter returns a converter that returns the list of
+// distributed trace contexts to propagate with envoy.
+func openCensusAgentContextConverter(contexts []meshAPI.Tracing_OpenCensusAgent_TraceContext) convertFunc {
+	allContexts := `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`
+	return func(*instance) (interface{}, error) {
+		if len(contexts) == 0 {
+			return allContexts, nil
+		}
+
+		var envoyContexts []string
+		for _, c := range contexts {
+			switch c {
+			// Ignore UNSPECIFIED
+			case meshAPI.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT:
+				envoyContexts = append(envoyContexts, "TRACE_CONTEXT")
+			case meshAPI.Tracing_OpenCensusAgent_GRPC_BIN:
+				envoyContexts = append(envoyContexts, "GRPC_TRACE_BIN")
+			case meshAPI.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT:
+				envoyContexts = append(envoyContexts, "CLOUD_TRACE_CONTEXT")
+			case meshAPI.Tracing_OpenCensusAgent_B3:
+				envoyContexts = append(envoyContexts, "B3")
+			}
+		}
+		return convertToJSON(envoyContexts), nil
 	}
 }
 

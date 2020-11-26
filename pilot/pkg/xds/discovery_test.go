@@ -437,6 +437,27 @@ func TestShouldRespond(t *testing.T) {
 			},
 			response: false,
 		},
+		{
+			name: "unsubscribe EDS",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.EndpointType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"cluster2", "cluster1"},
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.EndpointType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{},
+			},
+			response: false,
+		},
 	}
 
 	for _, tt := range tests {

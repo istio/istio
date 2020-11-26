@@ -25,6 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -35,6 +38,7 @@ import (
 )
 
 func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache {
+	features.EnableServiceApis = true
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
 		fake.Ext().ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), &v1beta1.CustomResourceDefinition{
@@ -44,7 +48,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache
 		}, metav1.CreateOptions{})
 	}
 	stop := make(chan struct{})
-	config, err := New(fake, &model.DisabledLedger{}, "", controller.Options{})
+	config, err := New(fake, "", controller.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,6 +132,11 @@ func TestClient(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			stat, err := r.Status()
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			if _, err := store.Create(config.Config{
 				Meta: configMeta,
 				Spec: pb,
@@ -160,6 +169,45 @@ func TestClient(t *testing.T) {
 				return nil
 			}, timeout)
 
+			// check we can update object metadata
+			annotations := map[string]string{
+				"foo": "bar",
+			}
+			configMeta.Annotations = annotations
+			if _, err := store.Update(config.Config{
+				Meta:   configMeta,
+				Spec:   pb,
+				Status: stat,
+			}); err != nil {
+				t.Errorf("Unexpected Error in Update -> %v", err)
+			}
+			// validate it is updated
+			retry.UntilSuccessOrFail(t, func() error {
+				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
+					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
+				}
+				return nil
+			})
+
+			// check we can patch items
+			var patchedCfg config.Config
+			if _, err := store.(*Client).Patch(r.GroupVersionKind(), configName, configNamespace, func(cfg config.Config) config.Config {
+				cfg.Annotations["fizz"] = "buzz"
+				patchedCfg = cfg
+				return cfg
+			}); err != nil {
+				t.Errorf("unexpected err in Patch: %v", err)
+			}
+			// validate it is updated
+			retry.UntilSuccessOrFail(t, func() error {
+				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+				if cfg == nil || !reflect.DeepEqual(cfg.Meta, patchedCfg.Meta) {
+					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
+				}
+				return nil
+			})
+
 			// Check we can remove items
 			if err := store.Delete(r.GroupVersionKind(), configName, configNamespace); err != nil {
 				t.Fatalf("failed to delete: %v", err)
@@ -173,4 +221,66 @@ func TestClient(t *testing.T) {
 			}, timeout)
 		})
 	}
+
+	t.Run("update status", func(t *testing.T) {
+		c := collections.IstioNetworkingV1Alpha3Workloadgroups
+		r := c.Resource()
+		name := "name1"
+		namespace := "bar"
+		cfgMeta := config.Meta{
+			GroupVersionKind: r.GroupVersionKind(),
+			Name:             name,
+		}
+		if !r.IsClusterScoped() {
+			cfgMeta.Namespace = namespace
+		}
+		pb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 6}}
+		if _, err := store.Create(config.Config{
+			Meta: cfgMeta,
+			Spec: config.Spec(pb),
+		}); err != nil {
+			t.Fatalf("Create bad: %v", err)
+		}
+
+		retry.UntilSuccessOrFail(t, func() error {
+			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
+			if cfg == nil {
+				return fmt.Errorf("cfg shouldnt be nil :(")
+			}
+			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
+				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
+			}
+			return nil
+		})
+
+		stat := &v1alpha1.IstioStatus{
+			Conditions: []*v1alpha1.IstioCondition{
+				{
+					Type:    "Health",
+					Message: "heath is badd",
+				},
+			},
+		}
+
+		if _, err := store.UpdateStatus(config.Config{
+			Meta:   cfgMeta,
+			Spec:   config.Spec(pb),
+			Status: config.Status(stat),
+		}); err != nil {
+			t.Errorf("bad: %v", err)
+		}
+
+		retry.UntilSuccessOrFail(t, func() error {
+			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
+			if cfg == nil {
+				return fmt.Errorf("cfg cant be nil")
+			}
+			if !reflect.DeepEqual(cfg.Status, stat) {
+				return fmt.Errorf("status %v does not match %v", cfg.Status, stat)
+			}
+			return nil
+		})
+
+	})
+
 }

@@ -27,14 +27,12 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/dns"
-	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
+	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"istio.io/pkg/log"
@@ -72,6 +70,12 @@ var (
 var (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "./etc/istio/proxy/SDS"
+)
+
+const (
+	MetadataClientCertKey   = "ISTIO_META_TLS_CLIENT_KEY"
+	MetadataClientCertChain = "ISTIO_META_TLS_CLIENT_CERT_CHAIN"
+	MetadataClientRootCert  = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
 )
 
 // Agent contains the configuration of the agent, based on the injected
@@ -141,6 +145,9 @@ type AgentConfig struct {
 	// CARootCerts of the location of the root CA for the CA connection. Used for setting platform certs or
 	// using custom roots.
 	CARootCerts string
+
+	// Extra headers to add to the XDS connection.
+	XDSHeaders map[string]string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -179,7 +186,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	}
 	// If the root-cert is in the old location, use it.
 	if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
-		log.Warna("Using existing certificate ", certDir)
+		log.Warn("Using existing certificate ", certDir)
 		CitadelCACertPath = certDir
 	}
 
@@ -224,21 +231,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 		sa.WorkloadSecrets, _ = sa.newWorkloadSecretCache()
 	}
 
-	var gatewaySecretCache *cache.SecretCache
-	if !isSidecar {
-		if gatewaySdsExists() {
-			log.Infof("Starting gateway SDS")
-			sa.secOpts.EnableGatewaySDS = true
-			// TODO: what is the setting for ingress ?
-			sa.secOpts.GatewayUDSPath = strings.TrimPrefix(model.CredentialNameSDSUdsPath, "unix:")
-			gatewaySecretCache = sa.newSecretCache(podNamespace)
-		} else {
-			log.Infof("Skipping gateway SDS")
-			sa.secOpts.EnableGatewaySDS = false
-		}
-	}
-
-	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets, gatewaySecretCache)
+	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -291,13 +284,6 @@ func (sa *Agent) GetLocalXDSGeneratorListener() net.Listener {
 	return nil
 }
 
-func gatewaySdsExists() bool {
-	p := strings.TrimPrefix(model.CredentialNameSDSUdsPath, "unix:")
-	dir := path.Dir(p)
-	_, err := os.Stat(dir)
-	return !os.IsNotExist(err)
-}
-
 // explicit code to determine the root CA to be configured in bootstrap file.
 // It may be different from the CA for the cert server - which is based on CA_ADDR
 // Replaces logic in the template:
@@ -329,6 +315,9 @@ func (sa *Agent) FindRootCAForXDS() string {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
 		return sa.secOpts.ProvCert + "/root-cert.pem"
+	} else if sa.secOpts.FileMountedCerts {
+		// FileMountedCerts - Load it from Proxy Metadata.
+		return sa.proxyConfig.ProxyMetadata[MetadataClientRootCert]
 	} else {
 		// PILOT_CERT_PROVIDER - default is istiod
 		// This is the default - a mounted config map on K8S
@@ -377,6 +366,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		return
 	}
 
+	var pluginNames []string
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
 	log.Infof("sa.serverOptions.CAEndpoint == %v %s", sa.secOpts.CAEndpoint, sa.secOpts.CAProviderName)
 	if sa.secOpts.CAProviderName == "GoogleCA" || strings.Contains(sa.secOpts.CAEndpoint, "googleapis.com") {
@@ -384,8 +374,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
 		caClient, err = gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true)
-		sa.secOpts.PluginNames = []string{"GoogleTokenExchange"}
-		sa.secOpts.TokenExchangers = []security.TokenExchanger{stsclient.NewPlugin()}
+		pluginNames = []string{plugin.GoogleTokenExchange}
 	} else {
 		var rootCert []byte
 		// Special case: if Istiod runs on a secure network, on the default port, don't use TLS
@@ -393,7 +382,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		tls := true
 		if strings.HasSuffix(sa.secOpts.CAEndpoint, ":15010") {
 			tls = false
-			log.Warna("Debug mode or IP-secure network")
+			log.Warn("Debug mode or IP-secure network")
 		}
 		if tls {
 			caCertFile := sa.FindRootCAForCA()
@@ -415,10 +404,10 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		}
 	}
 
-	// This has to be called after sa.secOpts.PluginNames is set. Otherwise,
+	// This has to be called after pluginNames is set. Otherwise,
 	// TokenExchanger will contain an empty plugin, causing cert provisioning to fail.
 	if sa.secOpts.TokenExchangers == nil {
-		sa.secOpts.TokenExchangers = sds.NewPlugins(sa.secOpts.PluginNames)
+		sa.secOpts.TokenExchangers = sds.NewPlugins(pluginNames)
 	}
 
 	if err != nil {
@@ -428,28 +417,4 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 	fetcher.CaClient = caClient
 
 	return
-}
-
-// TODO: use existing 'sidecar/router' config to enable loading Secrets
-func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
-	gSecretFetcher := &secretfetcher.SecretFetcher{}
-	// TODO: use the common init !
-	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
-	if !sa.secOpts.FileMountedCerts {
-		cs, err := kube.CreateClientset("", "")
-		if err != nil {
-			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-			os.Exit(1)
-		}
-
-		gSecretFetcher.FallbackSecretName = "gateway-fallback"
-
-		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
-
-		stopCh := make(chan struct{})
-		gSecretFetcher.Run(stopCh)
-	}
-
-	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
-	return gatewaySecretCache
 }

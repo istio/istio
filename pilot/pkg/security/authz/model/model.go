@@ -34,6 +34,7 @@ const (
 
 	attrRequestHeader    = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 	attrSrcIP            = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrRemoteIP         = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
 	attrSrcNamespace     = "source.namespace"            // e.g. "default".
 	attrSrcPrincipal     = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal = "request.auth.principal"      // authenticated principal of the request.
@@ -70,7 +71,7 @@ type Model struct {
 }
 
 // New returns a model representing a single authorization policy.
-func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
+func New(r *authzpb.Rule) (*Model, error) {
 	m := Model{}
 
 	basePermission := ruleList{}
@@ -90,6 +91,8 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 			basePermission.appendLast(envoyFilterGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcIP:
 			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues)
+		case k == attrRemoteIP:
+			basePrincipal.appendLast(remoteIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcNamespace:
 			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcPrincipal:
@@ -113,6 +116,7 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 		merged := basePrincipal.copy()
 		if s := from.Source; s != nil {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
+			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
 			merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
@@ -127,7 +131,7 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 		merged := basePermission.copy()
 		if o := to.Operation; o != nil {
 			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
-			merged.insertFront(pathGenerator{isIstioVersionGE15: isIstioVersionGE15}, pathMatcher, o.Paths, o.NotPaths)
+			merged.insertFront(pathGenerator{}, pathMatcher, o.Paths, o.NotPaths)
 			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
 			merged.insertFront(hostGenerator{}, hostHeader, o.Hosts, o.NotHosts)
 		}

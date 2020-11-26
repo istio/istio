@@ -36,6 +36,8 @@ elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
     export TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == armv* ]]; then
     export TARGET_ARCH=arm
+elif [[ ${LOCAL_ARCH} == s390x ]]; then
+￼    export TARGET_ARCH=s390x
 else
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
     exit 1
@@ -59,24 +61,24 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-09-04T21-07-25
+  export IMAGE_VERSION=master-2020-11-12T22-29-05
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
 fi
 
 export UID
-DOCKER_GID=$(grep '^docker:' /etc/group | cut -f3 -d:)
+DOCKER_GID="${DOCKER_GID:-$(grep '^docker:' /etc/group | cut -f3 -d:)}"
 export DOCKER_GID
 
 TIMEZONE=$(readlink "$readlink_flags" /etc/localtime | sed -e 's/^.*zoneinfo\///')
 export TIMEZONE
 
 export TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}_${TARGET_ARCH}}"
-export TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_amd64}"
+export TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_${TARGET_ARCH}}"
 
 export CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}_${TARGET_ARCH}}"
-export CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_amd64}"
+export CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_${TARGET_ARCH}}"
 
 export IMG="${IMG:-gcr.io/istio-testing/${IMAGE_NAME}:${IMAGE_VERSION}}"
 
@@ -103,6 +105,18 @@ fi
 if [[ -d "${HOME}/.config/gcloud" ]]; then
   CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.config/gcloud,destination=/config/.config/gcloud,readonly "
 fi
+
+# gitconfig conditional host mount (needed for git commands inside container)
+if [[ -f "${HOME}/.gitconfig" ]]; then
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.gitconfig,destination=/home/.gitconfig,readonly "
+fi
+
+# .netrc conditional host mount (needed for git commands inside container)
+if [[ -f "${HOME}/.netrc" ]]; then
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.netrc,destination=/home/.netrc,readonly "
+fi
+
+# echo ${CONDITIONAL_HOST_MOUNTS}
 
 # This function checks if the file exists. If it does, it creates a randomly named host location
 # for the file, adds it to the host KUBECONFIG, and creates a mount for it.

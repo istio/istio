@@ -29,6 +29,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -41,6 +42,9 @@ type Meta struct {
 	// GroupVersionKind is a short configuration name that matches the content message type
 	// (e.g. "route-rule")
 	GroupVersionKind GroupVersionKind `json:"type,omitempty"`
+
+	// UID
+	UID string `json:"uid,omitempty"`
 
 	// Name is a unique immutable identifier in a namespace
 	Name string `json:"name,omitempty"`
@@ -77,6 +81,9 @@ type Meta struct {
 
 	// CreationTimestamp records the creation time
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
+
+	// OwnerReferences allows specifying in-namespace owning objects.
+	OwnerReferences []metav1.OwnerReference `json:"ownerReferences,omitempty"`
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
@@ -223,7 +230,7 @@ func ApplyJSON(s Spec, js string) error {
 	return json.Unmarshal([]byte(js), &s)
 }
 
-func DeepCopy(s Spec) Spec {
+func DeepCopy(s interface{}) interface{} {
 	// If deep copy is defined, use that
 	if dc, ok := s.(deepCopier); ok {
 		return dc.DeepCopyInterface()
@@ -255,7 +262,6 @@ func DeepCopy(s Spec) Spec {
 	if err != nil {
 		return nil
 	}
-
 	return data
 }
 
@@ -288,6 +294,9 @@ func (c Config) DeepCopy() Config {
 		}
 	}
 	clone.Spec = DeepCopy(c.Spec)
+	if c.Status != nil {
+		clone.Status = DeepCopy(c.Status)
+	}
 	return clone
 }
 
@@ -300,8 +309,26 @@ type GroupVersionKind struct {
 }
 
 func (g GroupVersionKind) String() string {
-	if g.Group == "" {
-		return "core/" + g.Version + "/" + g.Kind
-	}
-	return g.Group + "/" + g.Version + "/" + g.Kind
+	return g.CanonicalGroup() + "/" + g.Version + "/" + g.Kind
 }
+
+// GroupVersion returns the group/version similar to what would be found in the apiVersion field of a Kubernetes resource.
+func (g GroupVersionKind) GroupVersion() string {
+	if g.Group == "" {
+		return g.Version
+	}
+	return g.Group + "/" + g.Version
+}
+
+// CanonicalGroup returns the group with defaulting applied. This means an empty group will
+// be treated as "core", following Kubernetes API standards
+func (g GroupVersionKind) CanonicalGroup() string {
+	if g.Group != "" {
+		return g.Group
+	}
+	return "core"
+}
+
+// PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
+// parameter and the returned Config will be applied.
+type PatchFunc func(cfg Config) Config

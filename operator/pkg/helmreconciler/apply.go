@@ -28,11 +28,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/progress"
 )
+
+const fieldOwnerOperator = "istio-operator"
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
@@ -70,6 +73,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		allObjectsMap[oh] = true
 		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
+			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
 			deployedObjects++
 			continue
 		}
@@ -97,12 +101,14 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 				return nil, 0, err
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
+			// server side apply is currently disabled because of https://github.com/kubernetes/kubernetes/issues/96351
+			if err := h.ApplyObject(obj.UnstructuredObject(), false); err != nil {
 				scope.Error(err.Error())
 				errs = util.AppendErr(errs, err)
 				continue
 			}
 			plog.ReportProgress()
+			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
 			processedObjects = append(processedObjects, obj)
 			// Update the cache with the latest object.
 			objectCache.Cache[obj.Hash()] = obj
@@ -142,7 +148,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
-func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
+func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideApply bool) error {
 	if obj.GetKind() == "List" {
 		var errs util.Errors
 		list, err := obj.ToList()
@@ -151,7 +157,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 			return err
 		}
 		for _, item := range list.Items {
-			err = h.ApplyObject(&item)
+			err = h.ApplyObject(&item, serverSideApply)
 			if err != nil {
 				errs = util.AppendErr(errs, err)
 			}
@@ -164,7 +170,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	}
 
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	receiver.SetGroupVersionKind(obj.GroupVersionKind())
 	objectKey, _ := client.ObjectKeyFromObject(obj)
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
@@ -174,27 +180,55 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 		return nil
 	}
 
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	if serverSideApply {
+		return h.serverSideApply(obj)
+	}
+
+	// for k8s version before 1.16
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
 		err := h.client.Get(context.TODO(), objectKey, receiver)
+
 		switch {
 		case errors2.IsNotFound(err):
-			scope.Infof("creating resource: %s", objectStr)
+			scope.Infof("Creating %s (%s/%s)", objectStr, h.iop.Name, h.iop.Spec.Revision)
 			err = h.client.Create(context.TODO(), obj)
 			if err != nil {
 				return fmt.Errorf("failed to create %q: %w", objectStr, err)
 			}
+			metrics.ResourceCreationTotal.
+				With(metrics.ResourceKindLabel.Value(util.GKString(gvk.GroupKind()))).
+				Increment()
 			return nil
 		case err == nil:
-			scope.Infof("updating resource: %s", objectStr)
+			scope.Infof("Updating %s (%s/%s)", objectStr, h.iop.Name, h.iop.Spec.Revision)
 			// The correct way to do this is with a server-side apply. However, this requires users to be running Kube 1.16.
 			// When we no longer support < 1.16 use the code described in the linked issue.
 			// https://github.com/kubernetes-sigs/controller-runtime/issues/347
 			if err := applyOverlay(receiver, obj); err != nil {
 				return err
 			}
-			return h.client.Update(context.TODO(), receiver)
+			if err := h.client.Update(context.TODO(), receiver); err != nil {
+				return err
+			}
+			metrics.ResourceUpdateTotal.
+				With(metrics.ResourceKindLabel.Value(util.GKString(gvk.GroupKind()))).
+				Increment()
+			return nil
 		}
 		return nil
 	})
+
+}
+
+// use server-side apply, require kubernetes 1.16+
+func (h *HelmReconciler) serverSideApply(obj *unstructured.Unstructured) error {
+	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
+	scope.Infof("using server side apply to update obj: %v", objectStr)
+	opts := []client.PatchOption{client.ForceOwnership, client.FieldOwner(fieldOwnerOperator)}
+	if err := h.client.Patch(context.TODO(), obj, client.Apply, opts...); err != nil {
+		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)
+	}
+	return nil
 }

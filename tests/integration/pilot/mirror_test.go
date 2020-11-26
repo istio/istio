@@ -20,7 +20,6 @@ import (
 	"math"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -104,8 +103,12 @@ func TestMirroring(t *testing.T) {
 // Thus when "a" tries to mirror to the external service, it is actually connecting to "external" (which is not part of the
 // mesh because of the Sidecar), then we can inspect "external" logs to verify the requests were properly mirrored.
 func TestMirroringExternalService(t *testing.T) {
+	header := ""
+	if len(apps.External) > 0 {
+		header = apps.External[0].Config().HostHeader()
+	}
 	runMirrorTest(t, mirrorTestOptions{
-		mirrorHost: apps.ExternalHost,
+		mirrorHost: header,
 		cases: []testCaseMirror{
 			{
 				name:                "mirror-external",
@@ -159,7 +162,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 										}
 
 										return verifyTrafficMirror(apps.PodB, expected, c, testID)
-									}, retry.Delay(time.Second))
+									}, echo.DefaultCallRetryOptions()...)
 								})
 							}
 						})
@@ -216,17 +219,6 @@ func verifyTrafficMirror(dest, mirror echo.Instances, tc testCaseMirror, testID 
 		log.Infof("Got expected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, , testID: %s)",
 			tc.percentage, actualPercent, tc.threshold, testID)
 	}
-
-	//if tc.percentage < 100 {
-	//	if len(countsB) < len(dest.Clusters()) {
-	//		merr = multierror.Append(merr, fmt.Errorf("expected original destination in all clusters to be reached, but got: %v", countsB))
-	//	}
-	//}
-	//if tc.percentage > 0 {
-	//	if len(countsC) < len(mirror.Clusters()) {
-	//		merr = multierror.Append(merr, fmt.Errorf("expected mirror destination in all clusters to be reached, but got: %v", countsC))
-	//	}
-	//}
 
 	return merr.ErrorOrNil()
 }

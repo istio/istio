@@ -16,19 +16,16 @@ package istio
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"net/http"
-	"strconv"
-	"strings"
-	"sync"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -37,9 +34,11 @@ import (
 )
 
 const (
-	ingressServiceName    = "istio-ingressgateway"
-	istioLabel            = "ingressgateway"
-	DefaultRequestTimeout = 10 * time.Second
+	defaultIngressIstioLabel  = "ingressgateway"
+	defaultIngressServiceName = "istio-" + defaultIngressIstioLabel
+
+	eastWestIngressIstioLabel  = "eastwestgateway"
+	eastWestIngressServiceName = "istio-" + eastWestIngressIstioLabel
 
 	proxyContainerName = "istio-proxy"
 	proxyAdminPort     = 15000
@@ -47,234 +46,164 @@ const (
 )
 
 var (
-	retryTimeout = retry.Timeout(3 * time.Minute)
-	retryDelay   = retry.Delay(5 * time.Second)
+	getAddressTimeout = retry.Timeout(3 * time.Minute)
+	getAddressDelay   = retry.Delay(5 * time.Second)
 
 	_ ingress.Instance = &ingressImpl{}
 )
 
 type ingressConfig struct {
+	// ServiceName is the kubernetes Service name for the cluster
+	ServiceName string
 	// Namespace the ingress can be found in
 	Namespace string
+	// IstioLabel is the value for the "istio" label on the ingress kubernetes objects
+	IstioLabel string
+
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
 }
 
 func newIngress(ctx resource.Context, cfg ingressConfig) (i ingress.Instance) {
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = defaultIngressServiceName
+	}
+	if cfg.IstioLabel == "" {
+		cfg.IstioLabel = defaultIngressIstioLabel
+	}
 	c := &ingressImpl{
-		clients:   map[clientKey]*http.Client{},
-		namespace: cfg.Namespace,
-		env:       ctx.Environment().(*kube.Environment),
-		cluster:   ctx.Clusters().GetOrDefault(cfg.Cluster),
+		serviceName: cfg.ServiceName,
+		istioLabel:  cfg.IstioLabel,
+		namespace:   cfg.Namespace,
+		env:         ctx.Environment().(*kube.Environment),
+		cluster:     ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
 	return c
 }
 
 type ingressImpl struct {
-	namespace string
-	env       *kube.Environment
-	cluster   resource.Cluster
+	serviceName string
+	istioLabel  string
+	namespace   string
 
-	mu      sync.Mutex
-	clients map[clientKey]*http.Client
+	env     *kube.Environment
+	cluster resource.Cluster
 }
 
-// getAddressInner returns the ingress gateway address for plain text http requests.
-func (c *ingressImpl) getAddressInner(cluster resource.Cluster, ns string, port int) (interface{}, bool, error) {
-	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
-	// port.
-	return getRemoteServiceAddress(c.env.Settings(), cluster, ns, istioLabel, ingressServiceName, port)
+// getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
+// the returned net.Addr will have the externally reachable NodePort address and port.
+func (c *ingressImpl) getAddressInner(port int) (net.TCPAddr, error) {
+	addr, err := retry.Do(func() (result interface{}, completed bool, err error) {
+		return getRemoteServiceAddress(c.env.Settings(), c.cluster, c.namespace, c.istioLabel, c.serviceName, port)
+	}, getAddressTimeout, getAddressDelay)
+	if addr != nil {
+		return addr.(net.TCPAddr), err
+	}
+	return net.TCPAddr{}, err
 }
 
-// HTTPAddress returns HTTP address of ingress gateway.
+// HTTPAddress returns the externally reachable HTTP address (80) of the component.
 func (c *ingressImpl) HTTPAddress() net.TCPAddr {
-	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.cluster, c.namespace, 80)
-	}, retryTimeout, retryDelay)
+	address, err := c.getAddressInner(80)
 	if err != nil {
 		return net.TCPAddr{}
 	}
-	return address.(net.TCPAddr)
+	return address
 }
 
-// TCPAddress returns TCP address of ingress gateway.
+// TCPAddress returns the externally reachable TCP address (31400) of the component.
 func (c *ingressImpl) TCPAddress() net.TCPAddr {
-	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.cluster, c.namespace, 31400)
-	}, retryTimeout, retryDelay)
+	address, err := c.getAddressInner(31400)
 	if err != nil {
 		return net.TCPAddr{}
 	}
-	return address.(net.TCPAddr)
+	return address
 }
 
-// HTTPSAddress returns HTTPS IP address and port number of ingress gateway.
+// HTTPSAddress returns the externally reachable TCP address (443) of the component.
 func (c *ingressImpl) HTTPSAddress() net.TCPAddr {
-	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.cluster, c.namespace, 443)
-	}, retryTimeout, retryDelay)
+	address, err := c.getAddressInner(443)
 	if err != nil {
 		return net.TCPAddr{}
 	}
-	return address.(net.TCPAddr)
+	return address
 }
 
+// DiscoveryAddress returns the externally reachable discovery address (15012) of the component.
 func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
-	address, err := retry.Do(func() (interface{}, bool, error) {
-		return c.getAddressInner(c.cluster, c.namespace, discoveryPort)
-	}, retryTimeout, retryDelay)
+	address, err := c.getAddressInner(discoveryPort)
 	if err != nil {
+		scopes.Framework.Errorf(err)
 		return net.TCPAddr{}
 	}
-	return address.(net.TCPAddr)
+	return address
 }
 
-type clientKey struct {
-	Address    string
-	Host       string
-	Timeout    time.Duration
-	CallType   ingress.CallType
-	PrivateKey string
-	CaCert     string
-	Cert       string
+func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses, error) {
+	return c.callEcho(options, false)
 }
 
-// createClient creates a client which sends HTTP requests or HTTPS requests, depending on
-// ingress type. If host is not empty, the client will resolve domain name and verify server
-// cert using the host name.
-func (c *ingressImpl) createClient(options ingress.CallOptions) (*http.Client, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	key := clientKeyFromOptions(options)
-	if client, ok := c.clients[key]; ok {
-		return client, nil
-	}
-	client := &http.Client{
-		Timeout: DefaultRequestTimeout,
-	}
-	if options.CallType != ingress.PlainText {
-		scopes.Framework.Debug("Prepare root cert for client")
-		roots := x509.NewCertPool()
-		ok := roots.AppendCertsFromPEM([]byte(options.CaCert))
-		if !ok {
-			return nil, fmt.Errorf("failed to parse root certificate")
-		}
-		tlsConfig := &tls.Config{
-			RootCAs:    roots,
-			ServerName: options.Host,
-		}
-		if options.CallType == ingress.Mtls {
-			cer, err := tls.X509KeyPair([]byte(options.Cert), []byte(options.PrivateKey))
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse private key and server cert")
-			}
-			tlsConfig.Certificates = []tls.Certificate{cer}
-		}
-		tr := &http.Transport{
-			TLSClientConfig: tlsConfig,
-			DialTLSContext: func(ctx context.Context, netw, addr string) (net.Conn, error) {
-				if s := strings.Split(addr, ":"); s[0] == options.Host {
-					addr = options.Address.String()
-				}
-				tc, err := tls.DialWithDialer(&net.Dialer{Timeout: DefaultRequestTimeout}, netw, addr, tlsConfig)
-				if err != nil {
-					scopes.Framework.Errorf("TLS dial fail: %v", err)
-					return nil, err
-				}
-				if err := tc.Handshake(); err != nil {
-					scopes.Framework.Errorf("SSL handshake fail: %v", err)
-					return nil, err
-				}
-				return tc, nil
-			}}
-		client.Transport = tr
-	}
-	c.clients[key] = client
-	return client, nil
-}
-
-// clientKeyFromOptions takes the parts of options unique to a client
-// to use as the key to prevent creating identical clients.
-func clientKeyFromOptions(options ingress.CallOptions) clientKey {
-	return clientKey{
-		CallType:   options.CallType,
-		PrivateKey: options.PrivateKey,
-		Cert:       options.Cert,
-		CaCert:     options.CaCert,
-		Host:       options.Host,
-		Address:    options.Address.String(),
-	}
-}
-
-// createRequest returns a request for client to send, or nil and error if request is failed to generate.
-func (c *ingressImpl) createRequest(options ingress.CallOptions) (*http.Request, error) {
-	url := "http://" + options.Address.String() + options.Path
-	if options.CallType != ingress.PlainText {
-		url = "https://" + options.Host + ":" + strconv.Itoa(options.Address.Port) + options.Path
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	if options.Host != "" {
-		req.Host = options.Host
-	}
-	if options.Headers != nil {
-		req.Header = options.Headers.Clone()
-	}
-
-	scopes.Framework.Debugf("Created a request to send %v", req)
-	return req, nil
-}
-
-func (c *ingressImpl) Call(options ingress.CallOptions) (ingress.CallResponse, error) {
-	if err := options.Sanitize(); err != nil {
-		scopes.Framework.Fatalf("CallOptions sanitization failure, error %v", err)
-	}
-	client, err := c.createClient(options)
-	if err != nil {
-		scopes.Framework.Errorf("failed to create test client, error %v", err)
-		return ingress.CallResponse{}, err
-	}
-	req, err := c.createRequest(options)
-	if err != nil {
-		scopes.Framework.Errorf("failed to create request, error %v", err)
-		return ingress.CallResponse{}, err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return ingress.CallResponse{}, err
-	}
-	scopes.Framework.Debugf("Received response from %q: %v", req.URL, resp.StatusCode)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	var ba []byte
-	ba, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", options.Address.String(), err)
-		return ingress.CallResponse{}, err
-	}
-	contents := string(ba)
-	status := resp.StatusCode
-
-	response := ingress.CallResponse{
-		Code: status,
-		Body: contents,
-	}
-
-	return response, nil
-}
-
-func (c *ingressImpl) CallOrFail(t test.Failer, options ingress.CallOptions) ingress.CallResponse {
+func (c *ingressImpl) CallEchoOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses {
 	t.Helper()
-	resp, err := c.Call(options)
+	resp, err := c.CallEcho(options)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return resp
+}
+
+func (c *ingressImpl) CallEchoWithRetry(options echo.CallOptions,
+	retryOptions ...retry.Option) (client.ParsedResponses, error) {
+	return c.callEcho(options, true, retryOptions...)
+}
+
+func (c *ingressImpl) CallEchoWithRetryOrFail(t test.Failer, options echo.CallOptions,
+	retryOptions ...retry.Option) client.ParsedResponses {
+	t.Helper()
+	resp, err := c.CallEchoWithRetry(options, retryOptions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+	if options.Port == nil || options.Port.Protocol == "" {
+		return nil, fmt.Errorf("must provide protocol")
+	}
+	if options.Port.ServicePort == 0 {
+		// Default port based on protocol
+		switch options.Port.Protocol {
+		case protocol.HTTP:
+			options.Port.ServicePort = c.HTTPAddress().Port
+		case protocol.HTTPS:
+			options.Port.ServicePort = c.HTTPSAddress().Port
+		case protocol.TCP:
+			options.Port.ServicePort = c.TCPAddress().Port
+		default:
+			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
+		}
+	}
+	if len(options.Address) == 0 {
+		// Default host based on protocol
+		switch options.Port.Protocol {
+		case protocol.HTTP:
+			options.Address = c.HTTPAddress().IP.String()
+		case protocol.HTTPS:
+			options.Address = c.HTTPSAddress().IP.String()
+		case protocol.TCP:
+			options.Address = c.TCPAddress().IP.String()
+		default:
+			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
+		}
+	}
+	if options.Headers == nil {
+		options.Headers = map[string][]string{}
+	}
+	if host := options.Headers["Host"]; len(host) == 0 {
+		options.Headers["Host"] = []string{options.Address}
+	}
+	return common.CallEcho(&options, retry, retryOptions...)
 }
 
 func (c *ingressImpl) ProxyStats() (map[string]int, error) {
@@ -286,17 +215,8 @@ func (c *ingressImpl) ProxyStats() (map[string]int, error) {
 	return c.unmarshalStats(statsJSON)
 }
 
-func (c *ingressImpl) CloseClients() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, cl := range c.clients {
-		cl.CloseIdleConnections()
-	}
-	c.clients = map[clientKey]*http.Client{}
-}
-
 func (c *ingressImpl) PodID(i int) (string, error) {
-	pods, err := c.env.KubeClusters[0].PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
+	pods, err := c.env.Clusters().Default().PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
 	if err != nil {
 		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %v", err)
 	}
@@ -308,14 +228,14 @@ func (c *ingressImpl) PodID(i int) (string, error) {
 
 // adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
 func (c *ingressImpl) adminRequest(path string) (string, error) {
-	pods, err := c.env.KubeClusters[0].PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
+	pods, err := c.env.Clusters().Default().PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
 	if err != nil {
 		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %v", err)
 	}
 	podNs, podName := pods.Items[0].Namespace, pods.Items[0].Name
 	// Exec onto the pod and make a curl request to the admin port
 	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
-	stdout, stderr, err := c.env.KubeClusters[0].PodExec(podName, podNs, proxyContainerName, command)
+	stdout, stderr, err := c.env.Clusters().Default().PodExec(podName, podNs, proxyContainerName, command)
 	return stdout + stderr, err
 }
 

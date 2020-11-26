@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,22 +17,14 @@ package multicluster
 
 import (
 	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
-)
-
-var (
-	retryTimeout = time.Second * 30
-	retryDelay   = time.Millisecond * 100
 )
 
 type AppContext struct {
@@ -94,7 +87,10 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 
 		builder := echoboot.NewBuilder(ctx)
 		for _, cluster := range ctx.Clusters() {
-			builder.With(nil, newEchoConfig("echolb", appCtx.Namespace, cluster))
+			echoLbCfg := newEchoConfig("echolb", appCtx.Namespace, cluster)
+			echoLbCfg.Subsets = append(echoLbCfg.Subsets, echo.SubsetConfig{Version: "v2"})
+
+			builder.With(nil, echoLbCfg)
 			builder.With(nil, newEchoConfig("local", appCtx.LocalNamespace, cluster))
 			for i := 0; i < uniqSvcPerCluster; i++ {
 				svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
@@ -146,36 +142,13 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 	}
 }
 
-type callChecker func(client.ParsedResponses) error
-
-func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...callChecker) client.ParsedResponses {
+func callOrFail(ctx framework.TestContext, src, dest echo.Instance, validator echo.Validator) {
 	ctx.Helper()
-	var results client.ParsedResponses
-	retry.UntilSuccessOrFail(ctx, func() (err error) {
-		results, err = src.Call(echo.CallOptions{
-			Target:   dest,
-			PortName: "http",
-			Scheme:   scheme.HTTP,
-			Count:    20 * len(ctx.Clusters()),
-		})
-
-		checkers = append([]callChecker{func(responses client.ParsedResponses) error {
-			return responses.CheckOK()
-		}}, checkers...)
-
-		if err == nil {
-			for _, c := range checkers {
-				err = c(results)
-				if err != nil {
-					break
-				}
-			}
-		}
-		if err != nil {
-			return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
-				src.Config().Service, dest.Config().Service, "http", scheme.HTTP, err)
-		}
-		return nil
-	}, retry.Timeout(retryTimeout), retry.Delay(retryDelay))
-	return results
+	_ = src.CallWithRetryOrFail(ctx, echo.CallOptions{
+		Target:    dest,
+		PortName:  "http",
+		Scheme:    scheme.HTTP,
+		Count:     20 * len(ctx.Clusters()),
+		Validator: echo.And(echo.ExpectOK(), validator),
+	})
 }

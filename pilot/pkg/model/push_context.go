@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -31,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/pkg/monitoring"
@@ -62,6 +63,15 @@ type serviceIndex struct {
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 	Hostname             map[host.Name]*Service            `json:"-"`
+
+	// ClusterVIPs contains a map of service and its cluster addresses. It is stored here
+	// to avoid locking each service for every proxy during push.
+	ClusterVIPs map[*Service]map[string]string
+
+	// instancesByPort contains a map of service and instances by port. It is stored here
+	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
+	// Call InstancesByPort directly when instances need to be filtered by actual labels.
+	instancesByPort map[*Service]map[int][]*ServiceInstance
 }
 
 func newServiceIndex() serviceIndex {
@@ -71,6 +81,8 @@ func newServiceIndex() serviceIndex {
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		Hostname:             map[host.Name]*Service{},
+		ClusterVIPs:          map[*Service]map[string]string{},
+		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -140,11 +152,6 @@ type PushContext struct {
 	// by the ID.
 	ProxyStatus map[string]map[string]ProxyPushStatus
 
-	// Mutex is used to protect the below store.
-	// All data is set when the PushContext object is populated in `InitContext`,
-	// data should not be changed by plugins.
-	Mutex sync.Mutex `json:"-"`
-
 	// Synthesized from env.Mesh
 	exportToDefaults exportToDefaults
 
@@ -153,10 +160,6 @@ type PushContext struct {
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
-
-	// ClusterVIPs contains a map service and its cluster addresses. It is stored here
-	// to avoid locking each service for every proxy during push.
-	ClusterVIPs map[*Service]map[string]string
 
 	// virtualServiceIndex is the index of virtual services by various fields.
 	virtualServiceIndex virtualServiceIndex
@@ -187,7 +190,7 @@ type PushContext struct {
 	Mesh *meshconfig.MeshConfig `json:"-"`
 
 	// Networks configuration.
-	Networks *meshconfig.MeshNetworks `json:"-"`
+	MeshNetworks *meshconfig.MeshNetworks `json:"-"`
 
 	// Discovery interface for listing services and instances.
 	ServiceDiscovery `json:"-"`
@@ -198,13 +201,14 @@ type PushContext struct {
 	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
 	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
-	initDone bool
-
 	Version string
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkGateways map[string][]*Gateway
+
+	initDone        atomic.Bool
+	initializeMutex sync.Mutex
 }
 
 // Gateway is the gateway of a network
@@ -218,6 +222,8 @@ type Gateway struct {
 type processedDestRules struct {
 	// List of dest rule hosts. We match with the most specific host first
 	hosts []host.Name
+	// Map of dest rule hosts.
+	hostsMap map[host.Name]struct{}
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
@@ -329,6 +335,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return first
 	}
 
+	reason := make([]TriggerReason, 0, len(first.Reason)+len(other.Reason))
+	reason = append(reason, first.Reason...)
+	reason = append(reason, other.Reason...)
 	merged := &PushRequest{
 		// Keep the first (older) start time
 		Start: first.Start,
@@ -340,7 +349,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Push: other.Push,
 
 		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
-		Reason: append(first.Reason, other.Reason...),
+		Reason: reason,
 	}
 
 	// Do not merge when any one is empty
@@ -517,7 +526,6 @@ func NewPushContext() *PushContext {
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
-		ClusterVIPs:             map[*Service]map[string]string{},
 	}
 }
 
@@ -701,7 +709,6 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
-		var defaultSidecar *SidecarScope
 		for _, wrapper := range sidecars {
 			if wrapper.Config != nil && wrapper.Config.Spec != nil {
 				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
@@ -709,22 +716,19 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
 					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
+					// exclude workload selector that not match
 					if !workloadLabels.IsSupersetOf(workloadSelector) {
 						continue
 					}
-					return wrapper
 				}
-				defaultSidecar = wrapper
-				continue
+
+				// it is guaranteed sidecars with selectors are put in front
+				// and the sidecars are sorted by creation timestamp,
+				// return exact/wildcard matching one directly
+				return wrapper
 			}
-			// Not sure when this can happen (Config = nil ?)
-			if defaultSidecar != nil {
-				return defaultSidecar // still return the valid one
-			}
+			// this happens at last, it is the default sidecar scope
 			return wrapper
-		}
-		if defaultSidecar != nil {
-			return defaultSidecar // still return the valid one
 		}
 	}
 
@@ -759,7 +763,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
-				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hosts); ok {
+				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hostsMap,
+				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hosts,
+			); ok {
 				return ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].destRule[hostname]
 			}
 		}
@@ -768,7 +774,9 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.destinationRuleIndex.rootNamespaceLocal.hosts); ok {
+			ps.destinationRuleIndex.rootNamespaceLocal.hostsMap,
+			ps.destinationRuleIndex.rootNamespaceLocal.hosts,
+		); ok {
 			return ps.destinationRuleIndex.rootNamespaceLocal.destRule[hostname]
 		}
 	}
@@ -807,7 +815,10 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *config.Config {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
-		if specificHostname, ok := MostSpecificHostMatch(hostname, ps.destinationRuleIndex.exportedByNamespace[owningNamespace].hosts); ok {
+		if specificHostname, ok := MostSpecificHostMatch(hostname,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].hostsMap,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].hosts,
+		); ok {
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
 			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
@@ -821,7 +832,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	_, ok := MostSpecificHostMatch(service.Hostname, ps.clusterLocalHosts)
+	_, ok := MostSpecificHostMatch(service.Hostname, nil, ps.clusterLocalHosts)
 	return ok
 }
 
@@ -854,14 +865,16 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
-	ps.Mutex.Lock()
-	defer ps.Mutex.Unlock()
-	if ps.initDone {
+	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
+	// If this does happen, one thread will block then exit early from initDone=true
+	ps.initializeMutex.Lock()
+	defer ps.initializeMutex.Unlock()
+	if ps.initDone.Load() {
 		return nil
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.Networks = env.Networks()
+	ps.MeshNetworks = env.Networks()
 	ps.ServiceDiscovery = env
 	ps.IstioConfigStore = env
 	ps.Version = env.Version()
@@ -872,7 +885,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone || len(pushReq.ConfigsUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
@@ -887,7 +900,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.initClusterLocalHosts(env)
 
-	ps.initDone = true
+	ps.initDone.Store(true)
 	return nil
 }
 
@@ -955,10 +968,7 @@ func (ps *PushContext) updateContext(
 		case gvk.RequestAuthentication,
 			gvk.PeerAuthentication:
 			authnChanged = true
-		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
 			virtualServicesChanged = true
 			gatewayChanged = true
 		}
@@ -970,6 +980,7 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
+		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
 	}
@@ -1046,6 +1057,29 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
+		s.Mutex.RLock()
+		ps.ServiceIndex.ClusterVIPs[s] = make(map[string]string)
+		for k, v := range s.ClusterVIPs {
+			ps.ServiceIndex.ClusterVIPs[s][k] = v
+		}
+		s.Mutex.RUnlock()
+
+		// Precache instances
+		for _, port := range s.Ports {
+			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
+				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
+			}
+			instances := make([]*ServiceInstance, 0)
+			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
+			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
+		}
+
+		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		}
+		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		ps.ServiceIndex.Hostname[s.Hostname] = s
+
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
 			if ps.exportToDefaults.service[visibility.Private] {
@@ -1075,17 +1109,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				}
 			}
 		}
-		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
-			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
-		}
-		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
-		ps.ServiceIndex.Hostname[s.Hostname] = s
-		s.Mutex.RLock()
-		ps.ClusterVIPs[s] = make(map[string]string)
-		for k, v := range s.ClusterVIPs {
-			ps.ClusterVIPs[s][k] = v
-		}
-		s.Mutex.RUnlock()
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -1521,16 +1544,16 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 			// no need populate workloadSelector, as it is not used later.
 			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
 		}
-	}
-	// merge EnvoyFilterWrapper
-	for _, efw := range matchedEnvoyFilters {
-		for applyTo, cps := range efw.Patches {
-			if out.Patches[applyTo] == nil {
-				out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
-			}
-			for _, cp := range cps {
-				if proxyMatch(proxy, cp) {
-					out.Patches[applyTo] = append(out.Patches[applyTo], cp)
+		// merge EnvoyFilterWrapper
+		for _, efw := range matchedEnvoyFilters {
+			for applyTo, cps := range efw.Patches {
+				if out.Patches[applyTo] == nil {
+					out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
+				}
+				for _, cp := range cps {
+					if proxyMatch(proxy, cp) {
+						out.Patches[applyTo] = append(out.Patches[applyTo], cp)
+					}
 				}
 			}
 		}
@@ -1599,30 +1622,28 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 // pre computes gateways for each network
 func (ps *PushContext) initMeshNetworks() {
-	if ps.Networks == nil || len(ps.Networks.Networks) == 0 {
-		return
-	}
-
 	ps.networkGateways = map[string][]*Gateway{}
-	for network, networkConf := range ps.Networks.Networks {
-		gws := networkConf.Gateways
-		if len(gws) == 0 {
-			// all endpoints in this network are reachable directly from others. nothing to do.
-			continue
+
+	// First, use addresses directly specified in meshNetworks
+	if ps.MeshNetworks != nil {
+		for network, networkConf := range ps.MeshNetworks.Networks {
+			gws := networkConf.Gateways
+			for _, gw := range gws {
+				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+					ps.networkGateways[network] = append(ps.networkGateways[network], &Gateway{gw.GetAddress(), gw.Port})
+				}
+			}
+
 		}
-
-		registryNames := getNetworkRegistries(networkConf)
-		gateways := make([]*Gateway, 0, len(gws))
-
-		for _, gw := range gws {
-			gateways = append(gateways, getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)...)
-		}
-
-		log.Debugf("Endpoints from registries %v on network %v reachable through %d gateways",
-			registryNames, network, len(gateways))
-
-		ps.networkGateways[network] = gateways
 	}
+
+	// Second, load registry specific gateways.
+	for network, gateways := range ps.ServiceDiscovery.NetworkGateways() {
+		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
+		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
+		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
+	}
+
 }
 
 func (ps *PushContext) initClusterLocalHosts(e *Environment) {
@@ -1673,57 +1694,6 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 	ps.clusterLocalHosts = clusterLocalHosts
 }
 
-func getNetworkRegistries(network *meshconfig.Network) []string {
-	registryNames := make([]string, 0, len(network.Endpoints))
-	for _, eps := range network.Endpoints {
-		if eps != nil && len(eps.GetFromRegistry()) > 0 {
-			registryNames = append(registryNames, eps.GetFromRegistry())
-		}
-	}
-	return registryNames
-}
-
-func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryNames []string, discovery ServiceDiscovery) []*Gateway {
-	// First, if a gateway address is provided in the configuration use it. If the gateway address
-	// in the config was a hostname it got already resolved and replaced with an IP address
-	// when loading the config
-	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-		return []*Gateway{{gw.GetAddress(), gw.Port}}
-	}
-
-	// Second, try to find the gateway addresses by the provided service name
-	if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
-		svc, _ := discovery.GetService(host.Name(gwSvcName))
-		if svc == nil {
-			return nil
-		}
-		// No need lock here as the service returned is a new one
-		if svc.Attributes.ClusterExternalAddresses != nil {
-			var gateways []*Gateway
-			for _, clusterName := range registryNames {
-				remotePort := gw.Port
-				// check if we have node port mappings
-				if svc.Attributes.ClusterExternalPorts != nil {
-					if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[clusterName]; exists {
-						// what we now have is a service port. If there is a mapping for cluster external ports,
-						// look it up and get the node port for the remote port
-						if nodePort, exists := nodePortMap[remotePort]; exists {
-							remotePort = nodePort
-						}
-					}
-				}
-				ips := svc.Attributes.ClusterExternalAddresses[clusterName]
-				for _, ip := range ips {
-					gateways = append(gateways, &Gateway{ip, remotePort})
-				}
-			}
-			return gateways
-		}
-	}
-
-	return nil
-}
-
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
 	return ps.networkGateways
 }
@@ -1738,7 +1708,7 @@ func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
 // policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
-// The resulst is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
+// The result is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
@@ -1748,12 +1718,40 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(service *Service, port *Po
 		return MTLSUnknown
 	}
 
-	// First , check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
+	// 1. Check service instances' tls mode, mainly used for headless service.
+	if service.Resolution == Passthrough {
+		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
+		if len(instances) == 0 {
+			return MTLSDisable
+		}
+		for _, i := range instances {
+			// Infer mTls disabled if any of the endpoint is with tls disabled
+			if i.Endpoint.TLSMode == DisabledTLSModeLabel {
+				return MTLSDisable
+			}
+		}
+	}
+
+	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
 	if serviceMTLSMode := ps.AuthnBetaPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
 	}
 
-	// When all are failed, default to permissive.
+	// Fallback to permissive.
 	return MTLSPermissive
+}
+
+// ServiceInstancesByPort returns the cached instances by port if it exists, otherwise queries the discovery and returns.
+func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
+	// Use cached version of instances by port when labels are empty. If there are labels,
+	// we will have to make actual call and filter instances by pod labels.
+	if len(labels) == 0 {
+		if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
+			return instances
+		}
+	}
+
+	// Fallback to discovery call.
+	return ps.InstancesByPort(svc, port, labels)
 }

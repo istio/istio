@@ -19,8 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/utils/clock"
-
 	"istio.io/api/meta/v1alpha1"
 )
 
@@ -79,6 +77,7 @@ func TestReconcileStatuses(t *testing.T) {
 					},
 				},
 				ValidationMessages: nil,
+				ObservedGeneration: int64(1234),
 			},
 		}, {
 			name: "Simple Reconcile to false",
@@ -101,6 +100,7 @@ func TestReconcileStatuses(t *testing.T) {
 					},
 				},
 				ValidationMessages: nil,
+				ObservedGeneration: int64(1234),
 			},
 		}, {
 			name: "Graceful handling of random status",
@@ -117,6 +117,7 @@ func TestReconcileStatuses(t *testing.T) {
 						Message: "2/2 proxies up to date.",
 					},
 				},
+				ObservedGeneration: int64(1234),
 			},
 		}, {
 			name: "Reconcile for message difference",
@@ -138,12 +139,13 @@ func TestReconcileStatuses(t *testing.T) {
 						Message: "2/3 proxies up to date.",
 					},
 				},
+				ObservedGeneration: int64(1234),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := ReconcileStatuses(tt.args.current, tt.args.desired, clock.RealClock{})
+			got, got1 := ReconcileStatuses(tt.args.current, tt.args.desired, int64(1234))
 			if got != tt.want {
 				t.Errorf("ReconcileStatuses() got = %v, want %v", got, tt.want)
 			}
