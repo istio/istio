@@ -145,12 +145,20 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 				// TODO: (abhide): Move this out of this method
 				iptConfigurator.ext.RunOrFail(constants.IP, "route", "show", "table", "all")
 			}
+
+			ifaceName := getNIC()
+			if ifaceName != "" {
+				// set route local net
+				iptConfigurator.ext.RunOrFail(
+					"sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.route_localnet=1", ifaceName))
+			}
+
 			// Create a new chain for redirecting inbound traffic to the common Envoy
 			// port.
 			// In the ISTIOINBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIOTPROXY' redirects to Envoy.
 			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-j", constants.TPROXY,
-				"--tproxy-mark", iptConfigurator.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", iptConfigurator.cfg.ProxyPort)
+				"--tproxy-mark", iptConfigurator.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", iptConfigurator.cfg.InboundCapturePort)
 			table = constants.MANGLE
 		} else {
 			table = constants.NAT
@@ -491,10 +499,15 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
-		// mark outgoing packets from 127.0.0.1/32 with 1337, match it to policy routing entry setup for TPROXY mode
+		// save packet mark set by envoy.listener.original_src as connection mark
+		iptConfigurator.iptables.AppendRuleV4(constants.PREROUTING, constants.MANGLE,
+			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
+		// mark outgoing packets from workload, match it to policy routing entry setup for TPROXY mode
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,
-			"-p", constants.TCP, "-s", "127.0.0.1/32", "!", "-d", "127.0.0.1/32",
-			"-j", constants.MARK, "--set-mark", iptConfigurator.cfg.InboundTProxyMark)
+			"-p", constants.TCP, "-m", "connmark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--restore-mark")
+		// prevent infinite redirect
+		iptConfigurator.iptables.InsertRuleV4(constants.ISTIOINBOUND, constants.MANGLE, 1,
+			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", constants.RETURN)
 	}
 	iptConfigurator.executeCommands()
 }
@@ -576,4 +589,18 @@ func (iptConfigurator *IptablesConfigurator) executeCommands() {
 		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV6())
 
 	}
+}
+
+func getNIC() string {
+	ifaces, _ := net.Interfaces()
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		return iface.Name
+	}
+	return ""
 }

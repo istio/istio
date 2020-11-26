@@ -38,6 +38,7 @@ var (
 	responseHeaderFieldRegex = regexp.MustCompile(string(response.ResponseHeader) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(response.URLField) + "=(.*)")
 	ClusterFieldRegex        = regexp.MustCompile(string(response.ClusterField) + "=(.*)")
+	IPFieldRegex             = regexp.MustCompile(string(response.IPField) + "=(.*)")
 )
 
 // ParsedResponse represents a response to a single echo request.
@@ -60,6 +61,8 @@ type ParsedResponse struct {
 	Hostname string
 	// The cluster where the server is deployed.
 	Cluster string
+	// IP is the requester's ip address
+	IP string
 	// RawResponse gives a map of all values returned in the response (headers, etc)
 	RawResponse map[string]string
 }
@@ -85,6 +88,7 @@ func (r *ParsedResponse) String() string {
 	out += fmt.Sprintf("Host:     %s\n", r.Host)
 	out += fmt.Sprintf("Hostname: %s\n", r.Hostname)
 	out += fmt.Sprintf("Cluster:  %s\n", r.Cluster)
+	out += fmt.Sprintf("IP:       %s\n", r.IP)
 
 	return out
 }
@@ -256,6 +260,23 @@ func (r ParsedResponses) CheckClusterOrFail(t test.Failer, expected string) Pars
 	return r
 }
 
+func (r ParsedResponses) CheckIP(expected string) error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if response.IP != expected {
+			return fmt.Errorf("response[%d] IP: expected %s, received %s", i, expected, response.IP)
+		}
+		return nil
+	})
+}
+
+func (r ParsedResponses) CheckIPOrFail(t test.Failer, expected string) ParsedResponses {
+	t.Helper()
+	if err := r.CheckIP(expected); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
 // Count occurrences of the given text within the bodies of all responses.
 func (r ParsedResponses) Count(text string) int {
 	count := 0
@@ -335,6 +356,11 @@ func parseResponse(output string) *ParsedResponse {
 	match = ClusterFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Cluster = match[1]
+	}
+
+	match = IPFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.IP = match[1]
 	}
 
 	out.RawResponse = map[string]string{}
