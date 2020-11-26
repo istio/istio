@@ -20,7 +20,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
@@ -121,11 +120,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		// Race condition: multiple threads may call Services, and multiple services
 		// may modify one of the service's cluster ID
 		clusterAddressesMutex.Lock()
-		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
-			// If the service does not have a cluster ID (ServiceEntries, CloudFoundry, etc.)
-			// Do not bother checking for the cluster ID.
-			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
-			// VIPs or CIDR ranges in the address field
+		if r.Provider() != serviceregistry.Kubernetes {
 			services = append(services, svcs...)
 		} else {
 			// This is K8S typically
@@ -161,7 +156,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if service == nil {
 			continue
 		}
-		if r.Cluster() == "" {
+		if r.Provider() != serviceregistry.Kubernetes {
 			return service, nil
 		}
 		service.Mutex.RLock()
@@ -219,21 +214,14 @@ func nodeClusterID(node *model.Proxy) string {
 
 // Skip the service registry when there won't be a match
 // because the proxy is in a different cluster.
-func skipSearchingRegistryForProxy(nodeClusterID, registryClusterID, selfClusterID string) bool {
-	// We can't trust the default service registry because its always
-	// named `Kubernetes`. Use the `CLUSTER_ID` envvar to find the
-	// local cluster name in these cases.
-	// TODO(https://github.com/istio/istio/issues/22093)
-	if registryClusterID == string(serviceregistry.Kubernetes) {
-		registryClusterID = selfClusterID
-	}
-
-	// Kube registries can have WorkloadEntry instances
-	if registryClusterID == "" || nodeClusterID == "" {
+func skipSearchingRegistryForProxy(nodeClusterID string, r serviceregistry.Instance) bool {
+	// Always search non-kube (usually serviceentry) registry.
+	// Check every registry if cluster ID isn't specified.
+	if r.Provider() != serviceregistry.Kubernetes || nodeClusterID == "" {
 		return false
 	}
 
-	return registryClusterID != nodeClusterID
+	return r.Cluster() != nodeClusterID
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
@@ -241,7 +229,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 	out := make([]*model.ServiceInstance, 0)
 	for _, r := range c.GetRegistries() {
 		nodeClusterID := nodeClusterID(node)
-		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName) {
+		if skipSearchingRegistryForProxy(nodeClusterID, r) {
 			log.Debugf("GetProxyServiceInstances(): not searching registry %v: proxy %v CLUSTER_ID is %v",
 				r.Cluster(), node.ID, nodeClusterID)
 			continue
