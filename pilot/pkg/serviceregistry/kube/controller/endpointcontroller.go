@@ -113,7 +113,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, endpoints)
 }
 
-// getPod fetches a pod by IP address.
+// getPod fetches a pod by name or IP address.
 // A pod may be missing (nil) for two reasons:
 // * It is an endpoint without an associated Pod. In this case, expectPod will be false.
 // * It is an endpoint with an associate Pod, but its not found. In this case, expectPod will be true.
@@ -123,8 +123,6 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (rpod *v1.Pod, expectPod bool) {
 	if targetRef != nil && targetRef.Kind == "Pod" {
 		key := kube.KeyFunc(targetRef.Name, targetRef.Namespace)
-		// There is a small chance getInformer may have the pod, but it hasn't
-		// made its way to the PodCache yet as it a shared queue.
 		pod := c.pods.getPodByKey(key)
 		if pod == nil {
 			// This means, the endpoint event has arrived before pod event.
@@ -141,6 +139,12 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 		return pod, true
 	}
 	// This means the endpoint is manually controlled
+	// TODO: this may be not correct because of the hostnetwork pods may have same ip address
 	pod := c.pods.getPodByIP(ip)
+	if pod != nil {
+		if pod.Namespace != ep.Namespace {
+			pod = nil
+		}
+	}
 	return pod, false
 }

@@ -70,8 +70,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	c.RUnlock()
 
 	if svc != nil {
-		podIP := proxy.IPAddresses[0]
-		pod := c.pods.getPodByIP(podIP)
+		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)
 
 		for _, ss := range endpoints.Subsets {
@@ -121,11 +120,12 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 		return nil
 	}
 	ep := item.(*v1.Endpoints)
+	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, e.c.domainSuffix)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			pod := c.pods.getPodByIP(ea.IP)
+			pod, _ := getPod(c, ea.IP, &ep.ObjectMeta, ea.TargetRef, hostname)
 			if pod != nil {
 				podLabels = pod.Labels
 			}

@@ -106,8 +106,7 @@ func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *mo
 		return out
 	}
 
-	podIP := proxy.IPAddresses[0]
-	pod := c.pods.getPodByIP(podIP)
+	pod := c.pods.getPodByProxy(proxy)
 	builder := NewEndpointBuilder(c, pod)
 
 	for _, port := range ep.Ports {
@@ -118,7 +117,6 @@ func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *mo
 		if !exists {
 			continue
 		}
-
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
 			for _, ep := range ep.Endpoints {
@@ -231,10 +229,11 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 	var out []*model.ServiceInstance
 	for _, slice := range slices {
+		hostname := kube.ServiceHostname(slice.Labels[discovery.LabelServiceName], slice.Namespace, c.domainSuffix)
 		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				pod := c.pods.getPodByIP(a)
+				pod, _ := getPod(c, a, &metav1.ObjectMeta{Name: slice.Labels[discovery.LabelServiceName], Namespace: slice.Namespace}, e.TargetRef, hostname)
 				if pod != nil {
 					podLabels = pod.Labels
 				}

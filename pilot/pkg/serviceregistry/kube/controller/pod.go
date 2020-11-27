@@ -233,3 +233,21 @@ func (pc *PodCache) getPodByKey(key string) *v1.Pod {
 	}
 	return nil
 }
+
+// getPodByKey returns the pod of the proxy
+func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
+	var pod *v1.Pod
+	key := proxyPodKey(proxy)
+	if key != "" {
+		pod = pc.getPodByKey(key)
+		if pod != nil {
+			return pod
+		}
+	}
+
+	// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
+	// because multiple ips belong to the same pod
+	proxyIP := proxy.IPAddresses[0]
+	// just in case the proxy ID is bad formatted
+	return pc.getPodByIP(proxyIP)
+}
