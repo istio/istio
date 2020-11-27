@@ -520,8 +520,10 @@ func (a *ADSC) handleRecv() {
 		a.mutex.Lock()
 		if len(gvk) == 3 {
 			gt := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
-			a.sync[gt.String()] = time.Now()
-			a.syncCh <- gt.String()
+			if _, exist := a.sync[gt.String()]; !exist {
+				a.sync[gt.String()] = time.Now()
+				a.syncCh <- gt.String()
+			}
 		}
 		a.Received[msg.TypeUrl] = msg
 		a.ack(msg)
