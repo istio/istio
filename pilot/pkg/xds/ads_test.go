@@ -538,7 +538,7 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 	}
 
-	updateDelegateVirtualService := func(i int, hosts []string, dest string) {
+	updateDelegateVirtualService := func(i int, dest string) {
 		if _, err := s.Store().Update(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
@@ -877,7 +877,7 @@ func TestAdsPushScoping(t *testing.T) {
 			case model.EventUpdate:
 				if len(c.delegatevsIndexes) > 0 {
 					for _, vsIndex := range c.delegatevsIndexes {
-						updateDelegateVirtualService(vsIndex.index, vsIndex.hosts, vsIndex.dest)
+						updateDelegateVirtualService(vsIndex.index, vsIndex.dest)
 					}
 				}
 			case model.EventDelete:
