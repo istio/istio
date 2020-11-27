@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -149,6 +150,21 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 
 var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
+// signalChanBuf determines whether the channel as signal should be a buffered channel
+// to get the best performance.
+var signalChanBuf = func() int {
+	// Use blocking channel if GOMAXPROCS=1.
+	// This switches context from sender to receiver immediately,
+	// which results in higher performance.
+	if runtime.GOMAXPROCS(0) == 1 {
+		return 0
+	}
+
+	// Use non-blocking workerChan if GOMAXPROCS>1,
+	// since otherwise the sender might be dragged down if the receiver is CPU-bound.
+	return 1
+}()
+
 func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	var fname string
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
@@ -184,18 +200,29 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	args := e.args(fname, epoch, istioBootstrapOverrideVar.Get())
 	log.Infof("Envoy command: %v", args)
 
-	/* #nosec */
-	cmd := exec.Command(e.Config.BinaryPath, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
+	var cmd *exec.Cmd
+	done := make(chan error, signalChanBuf)
+	startupEnvoy := func() error {
+		/* #nosec */
+		cmd = exec.Command(e.Config.BinaryPath, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		go func() {
+			done <- cmd.Wait()
+		}()
+		return nil
+	}
+
+	if err := startupEnvoy(); err != nil {
 		return err
 	}
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-	}()
 
+	const maxStartOverEnvoy = 3
+	var quitCount int
+pending:
 	select {
 	case err := <-abort:
 		log.Warnf("Aborting epoch %d", epoch)
@@ -204,7 +231,15 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		}
 		return err
 	case err := <-done:
-		return err
+		if quitCount++; err == nil || quitCount > maxStartOverEnvoy {
+			return err
+		}
+		log.Warnf("envoy quited due to a sporadic/unexpected error: %v, %dth start over before it reaches "+
+			"the maximum number (%d) of retries.", err, quitCount, maxStartOverEnvoy)
+		if err = startupEnvoy(); err != nil {
+			return err
+		}
+		goto pending
 	}
 }
 
