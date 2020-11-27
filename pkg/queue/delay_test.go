@@ -119,3 +119,30 @@ func TestDelayQueuePushNonblockingWithFullBuffer(t *testing.T) {
 		t.Fatal("timed out waiting for enqueues")
 	}
 }
+
+func TestPriorityQueueShrinking(t *testing.T) {
+	c := 48
+	pq := make(pq, 0, c)
+	pqp := &pq
+
+	t0 := time.Now()
+	for i := 0; i < c; i++ {
+		dt := &delayTask{runAt: t0.Add(time.Duration(i) * time.Hour)}
+		heap.Push(pqp, dt)
+	}
+
+	if len(pq) != c {
+		t.Fatalf("the length of pq should be %d, but end up %d", c, len(pq))
+	}
+
+	if cap(pq) != c {
+		t.Fatalf("the capacity of pq should be %d, but end up %d", c, cap(pq))
+	}
+
+	for i := 0; i < c; i++ {
+		_ = heap.Pop(pqp)
+		if i == 1+c/2 && cap(pq) != c/2 {
+			t.Fatalf("the capacity of pq should be reduced to half its length %d, but got %d", c/2, cap(pq))
+		}
+	}
+}
