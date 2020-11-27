@@ -140,8 +140,10 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 	}
 	// This means the endpoint is manually controlled
 	// TODO: this may be not correct because of the hostnetwork pods may have same ip address
+	// Do we have a way to get the pod from only endpoint?
 	pod := c.pods.getPodByIP(ip)
 	if pod != nil {
+		// This prevents selecting a pod in another different namespace
 		if pod.Namespace != ep.Namespace {
 			pod = nil
 		}
