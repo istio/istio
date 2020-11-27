@@ -696,7 +696,7 @@ func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) [
 func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
 	var out []ConfigKey
 	for _, vs := range vses {
-		out = append(out, ps.virtualServiceIndex.delegates[ConfigKey{Namespace: vs.Namespace, Name: vs.Name}]...)
+		out = append(out, ps.virtualServiceIndex.delegates[ConfigKey{Kind: gvk.VirtualService, Namespace: vs.Namespace, Name: vs.Name}]...)
 	}
 
 	return out
