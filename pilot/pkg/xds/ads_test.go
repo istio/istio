@@ -599,6 +599,68 @@ func TestAdsPushScoping(t *testing.T) {
 	removeVirtualService := func(i int) {
 		server.EnvoyXdsServer.MemConfigController.Delete(gvk.VirtualService, fmt.Sprintf("vs%d", i), model.IstioDefaultConfigNamespace)
 	}
+
+	addDelegateVirtualService := func(i int, hosts []string) {
+		if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             fmt.Sprintf("rootvs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+			Spec: &networking.VirtualService{
+				Hosts: hosts,
+
+				Http: []*networking.HTTPRoute{{
+					Name: "dest-foo",
+					Delegate: &networking.Delegate{
+						Name:      fmt.Sprintf("delegatevs%d", i),
+						Namespace: model.IstioDefaultConfigNamespace,
+					},
+				}},
+				ExportTo: nil,
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+			Spec: &networking.VirtualService{
+				Http: []*networking.HTTPRoute{{Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				}}},
+				ExportTo: nil,
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	updateDelegateVirtualService := func(i int) {
+		if _, err := server.EnvoyXdsServer.MemConfigController.Update(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace},
+			Spec: &networking.VirtualService{
+				Http: []*networking.HTTPRoute{{Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "new-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				}}},
+				ExportTo: nil,
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	removeDelegateVirtualService := func(i int) {
+		server.EnvoyXdsServer.MemConfigController.Delete(gvk.VirtualService, fmt.Sprintf("rootvs%d", i), model.IstioDefaultConfigNamespace)
+		server.EnvoyXdsServer.MemConfigController.Delete(gvk.VirtualService, fmt.Sprintf("delegatevs%d", i), model.IstioDefaultConfigNamespace)
+	}
+
 	addDestinationRule := func(i int, host string) {
 		if _, err := server.EnvoyXdsServer.MemConfigController.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
@@ -647,6 +709,10 @@ func TestAdsPushScoping(t *testing.T) {
 			indexes []int
 		}
 		vsIndexes []struct {
+			index int
+			hosts []string
+		}
+		delegatevsIndexes []struct {
 			index int
 			hosts []string
 		}
@@ -782,6 +848,33 @@ func TestAdsPushScoping(t *testing.T) {
 			timeout:         time.Second,
 		},
 		{
+			desc: "Add delegation virtual service for scoped service with transitively scoped dest svc",
+			ev:   model.EventAdd,
+			delegatevsIndexes: []struct {
+				index int
+				hosts []string
+			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}}},
+			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+		},
+		{
+			desc: "Update delegate virtual service should trigger full push",
+			ev:   model.EventUpdate,
+			delegatevsIndexes: []struct {
+				index int
+				hosts []string
+			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}}},
+			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
+		},
+		{
+			desc: "Delete delegate virtual service for scoped service with transitively scoped dest svc",
+			ev:   model.EventDelete,
+			delegatevsIndexes: []struct {
+				index int
+				hosts []string
+			}{{index: 4}},
+			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
+		},
+		{
 			desc:          "Remove a scoped service",
 			ev:            model.EventDelete,
 			svcIndexes:    []int{4},
@@ -808,11 +901,9 @@ func TestAdsPushScoping(t *testing.T) {
 
 	for i, c := range svcCases {
 		fmt.Printf("begin %d case(%s) %v\n", i, c.desc, c)
-
 		var wantUpdates []string
 		wantUpdates = append(wantUpdates, c.expectUpdates...)
 		wantUpdates = append(wantUpdates, c.unexpectUpdates...)
-
 		switch c.ev {
 		case model.EventAdd:
 			if len(c.svcIndexes) > 0 {
@@ -831,9 +922,20 @@ func TestAdsPushScoping(t *testing.T) {
 					addVirtualService(vsIndex.index, vsIndex.hosts...)
 				}
 			}
+			if len(c.delegatevsIndexes) > 0 {
+				for _, vsIndex := range c.delegatevsIndexes {
+					addDelegateVirtualService(vsIndex.index, vsIndex.hosts)
+				}
+			}
 			if len(c.drIndexes) > 0 {
 				for _, drIndex := range c.drIndexes {
 					addDestinationRule(drIndex.index, drIndex.host)
+				}
+			}
+		case model.EventUpdate:
+			if len(c.delegatevsIndexes) > 0 {
+				for _, vsIndex := range c.delegatevsIndexes {
+					updateDelegateVirtualService(vsIndex.index)
 				}
 			}
 		case model.EventDelete:
@@ -847,10 +949,15 @@ func TestAdsPushScoping(t *testing.T) {
 				for _, vsIndex := range c.vsIndexes {
 					removeVirtualService(vsIndex.index)
 				}
-			}
-			if len(c.drIndexes) > 0 {
-				for _, drIndex := range c.drIndexes {
-					removeDestinationRule(drIndex.index)
+				if len(c.delegatevsIndexes) > 0 {
+					for _, vsIndex := range c.delegatevsIndexes {
+						removeDelegateVirtualService(vsIndex.index)
+					}
+				}
+				if len(c.drIndexes) > 0 {
+					for _, drIndex := range c.drIndexes {
+						removeDestinationRule(drIndex.index)
+					}
 				}
 			}
 		default:
