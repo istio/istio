@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -88,8 +89,11 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 	}
 }
 
-func mergeVirtualServicesIfNeeded(vServices []config.Config, defaultExportTo map[visibility.Instance]bool) (out []config.Config) {
-	out = make([]config.Config, 0, len(vServices))
+// Return merged virtual services and the root->delegate vs map
+func mergeVirtualServicesIfNeeded(
+	vServices []config.Config,
+	defaultExportTo map[visibility.Instance]bool) ([]config.Config, map[ConfigKey][]ConfigKey) {
+	out := make([]config.Config, 0, len(vServices))
 	delegatesMap := map[string]config.Config{}
 	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
 	// root virtualservices with delegate
@@ -131,33 +135,38 @@ func mergeVirtualServicesIfNeeded(vServices []config.Config, defaultExportTo map
 	// If `PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE` feature disabled,
 	// filter out invalid vs(root or delegate), this can happen after enable -> disable
 	if !features.EnableVirtualServiceDelegate {
-		return
+		return out, nil
 	}
+
+	delegatesByRoot := make(map[ConfigKey][]ConfigKey, len(rootVses))
 
 	// 2. merge delegates and root
 	for _, root := range rootVses {
+		rootConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: root.Name, Namespace: root.Namespace}
 		rootVs := root.Spec.(*networking.VirtualService)
 		mergedRoutes := []*networking.HTTPRoute{}
 		for _, route := range rootVs.Http {
 			// it is root vs with delegate
-			if route.Delegate != nil {
-				delegate, ok := delegatesMap[key(route.Delegate.Name, route.Delegate.Namespace)]
+			if delegate := route.Delegate; delegate != nil {
+				delegateConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: delegate.Name, Namespace: delegate.Namespace}
+				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
+				delegateVS, ok := delegatesMap[key(delegate.Name, delegate.Namespace)]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
-						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name)
+						delegate.Namespace, delegate.Name, root.Namespace, root.Name)
 					// delegate not found, ignore only the current HTTP route
 					continue
 				}
 				// make sure that the delegate is visible to root virtual service's namespace
-				exportTo := delegatesExportToMap[key(route.Delegate.Name, route.Delegate.Namespace)]
+				exportTo := delegatesExportToMap[key(delegate.Name, delegate.Namespace)]
 				if !exportTo[visibility.Public] && !exportTo[visibility.Instance(root.Namespace)] {
 					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
-						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name, root.Namespace)
+						delegate.Namespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict
 				// when multiple routes delegate to one single VS.
-				copiedDelegate := delegate.DeepCopy()
+				copiedDelegate := delegateVS.DeepCopy()
 				vs := copiedDelegate.Spec.(*networking.VirtualService)
 				merged := mergeHTTPRoutes(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
@@ -174,7 +183,7 @@ func mergeVirtualServicesIfNeeded(vServices []config.Config, defaultExportTo map
 		out = append(out, root)
 	}
 
-	return
+	return out, delegatesByRoot
 }
 
 // merge root's route with delegate's and the merged route number equals the delegate's.
