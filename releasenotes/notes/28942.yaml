@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 28970
+releaseNotes:
+- |
+  **Fixed** a bug where locality weights are only applied when outlier detection is enabled.
