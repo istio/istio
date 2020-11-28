@@ -171,7 +171,7 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (*metav1.ObjectMeta, *metav1.Typ
 		var controllerRef metav1.OwnerReference
 		controllerFound := false
 		for _, ref := range pod.GetOwnerReferences() {
-			if *ref.Controller {
+			if ref.Controller != nil && *ref.Controller {
 				controllerRef = ref
 				controllerFound = true
 				break
