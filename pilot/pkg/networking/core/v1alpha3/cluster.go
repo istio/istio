@@ -757,8 +757,8 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 }
 
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
-	lbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if lbSetting != nil && lbSetting.Distribute != nil {
+	localiyLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	if localiyLbSetting != nil && localiyLbSetting.Distribute != nil {
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
@@ -768,7 +768,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	applyLocalityLBSetting(proxy.Locality, c, lbSetting)
+	applyLocalityLBSetting(proxy.Locality, c, localiyLbSetting)
 
 	// The following order is important. If cluster type has been identified as Original DST since Resolution is PassThrough,
 	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be

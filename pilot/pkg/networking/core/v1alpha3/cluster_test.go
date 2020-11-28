@@ -1758,11 +1758,12 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 
 func TestApplyLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name             string
-		lbSettings       *networking.LoadBalancerSettings
-		discoveryType    cluster.Cluster_DiscoveryType
-		port             *model.Port
-		expectedLbPolicy cluster.Cluster_LbPolicy
+		name                           string
+		lbSettings                     *networking.LoadBalancerSettings
+		discoveryType                  cluster.Cluster_DiscoveryType
+		port                           *model.Port
+		expectedLbPolicy               cluster.Cluster_LbPolicy
+		expectedLocalityWeightedConfig bool
 	}{
 		{
 			name:             "lb = nil ORIGINAL_DST discovery type",
@@ -1774,6 +1775,28 @@ func TestApplyLoadBalancer(t *testing.T) {
 			discoveryType:    cluster.Cluster_EDS,
 			port:             &model.Port{Protocol: protocol.Redis},
 			expectedLbPolicy: cluster.Cluster_MAGLEV,
+		},
+		{
+			name: "Loadbalancer has distribute",
+			lbSettings: &networking.LoadBalancerSettings{
+				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+					Enabled: &types.BoolValue{Value: true},
+					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+						{
+							From: "region1/zone1/subzone1",
+							To: map[string]uint32{
+								"region1/zone1/subzone1": 80,
+								"region1/zone1/subzone2": 15,
+								"region1/zone1/subzone3": 5,
+							},
+						},
+					},
+				},
+			},
+			discoveryType:                  cluster.Cluster_EDS,
+			port:                           &model.Port{Protocol: protocol.HTTP},
+			expectedLbPolicy:               cluster.Cluster_ROUND_ROBIN,
+			expectedLocalityWeightedConfig: true,
 		},
 		// TODO: add more to cover all cases
 	}
@@ -1799,6 +1822,10 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 			if cluster.LbPolicy != test.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", cluster.LbPolicy, test.expectedLbPolicy)
+			}
+
+			if test.expectedLocalityWeightedConfig && cluster.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
+				t.Errorf("cluster expected to have weighed config, but is nil")
 			}
 		})
 	}
