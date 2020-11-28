@@ -55,7 +55,9 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	s.initStatusController(args, features.EnableStatus)
+	if features.EnableStatus {
+		s.initStatusController(args)
+	}
 	meshConfig := s.environment.Mesh()
 	if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
@@ -233,30 +235,27 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
+func (s *Server) initStatusController(args *PilotArgs) {
 	s.statusReporter = &status.Reporter{
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
 		PodName:        args.PodName,
 	}
 	s.statusReporter.Init(s.environment.GetLedger())
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		if writeStatus {
-			s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, stop)
-		}
+		s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, stop)
 		return nil
 	})
 	s.XDSServer.StatusReporter = s.statusReporter
-	if writeStatus {
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			controller := status.NewController(*s.kubeRestConfig, args.Namespace)
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
-					controller.Start(stop)
-				}).Run(stop)
-			return nil
-		})
-	}
+
+	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		controller := status.NewController(*s.kubeRestConfig, args.Namespace)
+		leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+			AddRunFunction(func(stop <-chan struct{}) {
+				controller.Start(stop)
+			}).Run(stop)
+		return nil
+	})
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
