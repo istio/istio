@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"container/list"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -28,7 +29,7 @@ type PushQueue struct {
 	pending map[*Connection]*model.PushRequest
 
 	// queue maintains ordering of the queue
-	queue []*Connection
+	queue list.List
 
 	// processing stores all connections that have been Dequeue(), but not MarkDone().
 	// The value stored will be initially be nil, but may be populated if the connection is Enqueue().
@@ -68,7 +69,7 @@ func (p *PushQueue) Enqueue(con *Connection, pushRequest *model.PushRequest) {
 	}
 
 	p.pending[con] = pushRequest
-	p.queue = append(p.queue, con)
+	p.queue.PushBack(con)
 	// Signal waiters on Dequeue that a new item is available
 	p.cond.Signal()
 }
@@ -79,16 +80,17 @@ func (p *PushQueue) Dequeue() (con *Connection, request *model.PushRequest, shut
 	defer p.cond.L.Unlock()
 
 	// Block until there is one to remove. Enqueue will signal when one is added.
-	for len(p.queue) == 0 && !p.shuttingDown {
+	for p.queue.Len() == 0 && !p.shuttingDown {
 		p.cond.Wait()
 	}
 
-	if len(p.queue) == 0 {
+	if ele := p.queue.Front(); ele != nil {
+		con = ele.Value.(*Connection)
+		p.queue.Remove(ele)
+	} else {
 		// We must be shutting down.
 		return nil, nil, true
 	}
-
-	con, p.queue = p.queue[0], p.queue[1:]
 
 	request = p.pending[con]
 	delete(p.pending, con)
@@ -109,7 +111,7 @@ func (p *PushQueue) MarkDone(con *Connection) {
 	// This means we need to add it back to the queue.
 	if request != nil {
 		p.pending[con] = request
-		p.queue = append(p.queue, con)
+		p.queue.PushBack(con)
 		p.cond.Signal()
 	}
 }
@@ -118,7 +120,7 @@ func (p *PushQueue) MarkDone(con *Connection) {
 func (p *PushQueue) Pending() int {
 	p.cond.L.Lock()
 	defer p.cond.L.Unlock()
-	return len(p.queue)
+	return p.queue.Len()
 }
 
 // ShutDown will cause queue to ignore all new items added to it. As soon as the
