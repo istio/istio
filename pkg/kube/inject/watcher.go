@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/howeyc/fsnotify"
+	"github.com/fsnotify/fsnotify"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -72,7 +72,7 @@ func NewFileWatcher(configFile, valuesFile string) (Watcher, error) {
 	// watch the parent directory of the target files so we can catch
 	// symlink updates of k8s ConfigMaps volumes.
 	watchDir, _ := filepath.Split(configFile)
-	if err := watcher.Watch(watchDir); err != nil {
+	if err := watcher.Add(watchDir); err != nil {
 		return nil, fmt.Errorf("could not watch %v: %v", watchDir, err)
 	}
 	return &fileWatcher{
@@ -97,13 +97,19 @@ func (w *fileWatcher) Run(stop <-chan struct{}) {
 			if w.handler != nil {
 				w.handler(sidecarConfig, valuesConfig)
 			}
-		case event := <-w.watcher.Event:
+		case event, ok := <-w.watcher.Events:
+			if !ok {
+				return
+			}
 			log.Debugf("Injector watch update: %+v", event)
 			// use a timer to debounce configuration updates
-			if (event.IsModify() || event.IsCreate()) && timerC == nil {
+			if ((event.Op&fsnotify.Write == fsnotify.Write) || (event.Op&fsnotify.Create == fsnotify.Create)) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
-		case err := <-w.watcher.Error:
+		case err, ok := <-w.watcher.Errors:
+			if !ok {
+				return
+			}
 			log.Errorf("Watcher error: %v", err)
 		case <-stop:
 			return
