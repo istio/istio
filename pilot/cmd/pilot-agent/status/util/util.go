@@ -24,11 +24,10 @@ import (
 
 const requestTimeout = time.Second * 1 // Default timeout.
 
-func doHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
-	httpClient := &http.Client{
-		Timeout: t,
-	}
+var httpClient = http.Client{}
 
+func doHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
+	httpClient.Timeout = t
 	response, err := httpClient.Get(requestURL)
 	if err != nil {
 		return nil, err
