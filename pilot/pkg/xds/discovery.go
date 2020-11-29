@@ -159,7 +159,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		pushQueue:               NewPushQueue(),
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*Connection{},
-		serverReady:             false,
 		debounceOptions: debounceOptions{
 			debounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
