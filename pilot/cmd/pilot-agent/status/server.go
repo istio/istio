@@ -198,6 +198,14 @@ func FormatProberURL(container string) (string, string, string) {
 
 // Run opens a the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
+	defer func() {
+		// When the server is about to shut down, clean up all cached TCP connections
+		// in http.Client before the GC takes this job, helping garbage collector.
+		for _, v := range s.appProbeClient {
+			v.CloseIdleConnections()
+		}
+	}()
+
 	log.Infof("Opening status port %d\n", s.statusPort)
 
 	mux := http.NewServeMux()
@@ -477,8 +485,6 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
-	// get the http client must exist because
-	httpClient := s.appProbeClient[path]
 
 	proberPath := prober.HTTPGet.Path
 	if !strings.HasPrefix(proberPath, "/") {
@@ -513,6 +519,8 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	// Get the http client from pool.
+	httpClient := s.appProbeClient[path]
 	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {
