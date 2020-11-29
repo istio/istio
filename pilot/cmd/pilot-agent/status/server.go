@@ -485,10 +485,6 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	httpClient := s.appProbeClient
-	// Reset the timeout duration of HTTP client for each specific prober.
-	httpClient.Timeout = time.Duration(prober.TimeoutSeconds) * time.Second
-
 	proberPath := prober.HTTPGet.Path
 	if !strings.HasPrefix(proberPath, "/") {
 		proberPath = "/" + proberPath
@@ -522,8 +518,11 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	// Reset the timeout duration of HTTP client for each specific prober.
+	s.appProbeClient.Timeout = time.Duration(prober.TimeoutSeconds) * time.Second
+
 	// Send the request.
-	response, err := httpClient.Do(appReq)
+	response, err := s.appProbeClient.Do(appReq)
 	if err != nil {
 		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, proberPath)
 		w.WriteHeader(http.StatusInternalServerError)
