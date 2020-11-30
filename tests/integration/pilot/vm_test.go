@@ -151,7 +151,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 						return errors.New("expected 0 WorkloadEntries")
 					}
 					return nil
-				}, retry.Timeout(features.WorkloadEntryCleanupGracePeriod+(2*time.Second)))
+				}, retry.Timeout(2*features.WorkloadEntryCleanupGracePeriod+(2*time.Second)))
 			})
 		})
 }
