@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/pkg/log"
 	"path"
 	"strings"
 
@@ -192,7 +193,9 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		return err
 	}
 	// this will wait until the eastwest gateway has an IP
-	_ = ist.CustomIngressFor(c.cluster, istio.EastWestIngressServiceName, istio.EastWestIngressIstioLabel).DiscoveryAddress()
+	if addr := ist.CustomIngressFor(c.cluster, istio.EastWestIngressServiceName, istio.EastWestIngressIstioLabel).DiscoveryAddress(); addr.String() == "<nil>" {
+		log.Warnf("setup vm: discovery address not yet available for eastwest gateway")
+	}
 
 	cmd = []string{
 		"x", "workload", "entry", "configure",
