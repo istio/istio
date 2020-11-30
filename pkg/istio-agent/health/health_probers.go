@@ -60,20 +60,30 @@ func (p *ProbeResult) IsUnknown() bool {
 }
 
 type HTTPProber struct {
-	Config *v1alpha3.HTTPHealthCheckConfig
+	Config    *v1alpha3.HTTPHealthCheckConfig
+	Transport *http.Transport
+}
+
+func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig) *HTTPProber {
+	h := new(HTTPProber)
+	// Create a http.Transport with TLSClientConfig for HTTPProber if the scheme is https,
+	// otherwise set up an empty one.
+	if cfg.Scheme == string(scheme.HTTPS) {
+		h.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	} else {
+		h.Transport = &http.Transport{}
+	}
+	return h
 }
 
 // HttpProber_Probe will return whether or not the target is healthy (true -> healthy)
 // 	by making an HTTP Get response.
 func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	client := &http.Client{
-		Timeout: timeout,
-	}
-	// modify transport if scheme is https
-	if h.Config.Scheme == string(scheme.HTTPS) {
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
+		Timeout:   timeout,
+		Transport: h.Transport,
 	}
 	// transform crd into net http header
 	headers := make(http.Header)
