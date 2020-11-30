@@ -84,13 +84,13 @@ func newState() *state {
 
 // set the last observed state of a resource status, based on the watch events. This can trigger creation of new
 // work, if the state is not as expected.
-func (s *state) setObserved(col collection.Name, res resource.FullName, version resource.Version, status interface{}) {
+func (s *state) setObserved(col collection.Name, res resource.FullName, version resource.Version, stat interface{}) {
 	s.mu.Lock()
 	k := key{col: col, res: res}
 
 	st := s.states[k]
 
-	if status == nil && st == nil {
+	if stat == nil && st == nil {
 		// The incoming state is empty. We only need to take action if the desired state we have is non-empty.
 		// If the state doesn't exist, it implies that there is no desired state, so we can simply ignore this.
 		s.mu.Unlock()
@@ -99,12 +99,12 @@ func (s *state) setObserved(col collection.Name, res resource.FullName, version 
 
 	// There is no known state. get a status from pool and add it to the mapping.
 	if st == nil {
-		st = getStatusFromPool(k)
+		st = &status{key: k}
 		s.states[k] = st
 	}
 
 	// Set the last known status for this resource. If this causes a need for update, then enqueue work for thw workers.
-	if st.setObserved(version, status) {
+	if st.setObserved(version, stat) {
 		if s.reconcile {
 			s.enqueueWork(st)
 		}
@@ -112,7 +112,6 @@ func (s *state) setObserved(col collection.Name, res resource.FullName, version 
 		// The state is empty (and we want it to be empty), and we don't have this status enqueued in the work queue.
 		// We can simply remove it and stop tracking.
 		delete(s.states, k)
-		returnStatusToPool(st)
 	}
 
 	s.mu.Unlock()
@@ -151,7 +150,7 @@ func (s *state) applyMessages(messages Messages) {
 			continue
 		}
 
-		st := getStatusFromPool(k)
+		st := &status{key: k}
 		s.states[k] = st
 
 		_ = st.setDesired(e.origin.Version, toStatusValue(e.messages))
@@ -210,7 +209,6 @@ func (s *state) dequeueWork() (status, bool) {
 
 			if st.isEmpty() {
 				delete(s.states, st.key)
-				returnStatusToPool(st)
 			}
 			continue
 		}

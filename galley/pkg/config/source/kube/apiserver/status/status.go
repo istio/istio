@@ -16,7 +16,6 @@ package status
 
 import (
 	"reflect"
-	"sync"
 
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -43,27 +42,6 @@ type status struct {
 type key struct {
 	col collection.Name
 	res resource.FullName
-}
-
-var statusPool = sync.Pool{
-	New: func() interface{} {
-		return &status{}
-	},
-}
-
-func getStatusFromPool(k key) *status {
-	st := statusPool.Get().(*status)
-	st.key = k
-	return st
-}
-
-func returnStatusToPool(s *status) {
-	s.key = key{}
-	s.observedStatus = nil
-	s.observedVersion = ""
-	s.desiredStatus = nil
-	s.desiredStatusVersion = ""
-	statusPool.Put(s)
 }
 
 func (r *status) setObserved(v resource.Version, status interface{}) bool {
