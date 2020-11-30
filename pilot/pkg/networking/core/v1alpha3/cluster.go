@@ -169,7 +169,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -233,7 +233,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			discoveryType := convertResolution(proxy, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -291,15 +291,22 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			return nil
 		}
 
-		have := make(map[uint32]bool)
+		clustersToBuild := make(map[int][]*model.ServiceInstance)
 		for _, instance := range instances {
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
-			if !have[instance.Endpoint.EndpointPort] {
-				localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), instance, actualLocalHost)
-				clusters = cp.conditionallyAppend(clusters, localCluster)
-				have[instance.Endpoint.EndpointPort] = true
-			}
+			// However, we still need to capture all the instances on this port, as its required to populate telemetry metadata
+			// The first instance will be used as the "primary" instance; this means if we have an conflicts between
+			// Services the first one wins
+			ep := int(instance.Endpoint.EndpointPort)
+			clustersToBuild[ep] = append(clustersToBuild[ep], instance)
+		}
+
+		// For each workload port, we will construct a cluster
+		for _, instances := range clustersToBuild {
+			instance := instances[0]
+			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
+			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
@@ -346,7 +353,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			instance.Endpoint.ServicePortName = listenPort.Name
 			instance.Endpoint.EndpointPort = uint32(port)
 
-			localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), instance, endpointAddress)
+			localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), endpointAddress, instance, nil)
 			if instanceIPCluster {
 				// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
 				// config which will be skipped. This mirrors the "passthrough" clusters.
@@ -1092,7 +1099,7 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 	}
 }
 
-func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
+func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, instances []*model.ServiceInstance) {
 	if opts.cluster == nil {
 		return
 	}
@@ -1123,7 +1130,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	if direction == model.TrafficDirectionInbound {
 		// For inbound cluster, add all services on the cluster port
 		have := make(map[host.Name]bool)
-		for _, svc := range opts.proxy.ServiceInstances {
+		for _, svc := range instances {
 			if svc.ServicePort.Port != opts.port.Port {
 				// If the service port is different from the the port of the cluster that is being built,
 				// skip adding telemetry metadata for the service to the cluster.

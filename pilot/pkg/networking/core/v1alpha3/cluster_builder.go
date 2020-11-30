@@ -110,8 +110,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 			}
 		}
 
-		subsetCluster := cb.buildDefaultCluster(subsetClusterName, c.GetType(), lbEndpoints,
-			model.TrafficDirectionOutbound, port, service)
+		subsetCluster := cb.buildDefaultCluster(subsetClusterName, c.GetType(), lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 
 		if subsetCluster == nil {
 			continue
@@ -190,7 +189,10 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
 func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, service *model.Service) *cluster.Cluster {
+	port *model.Port, service *model.Service, allInstances []*model.ServiceInstance) *cluster.Cluster {
+	if allInstances == nil {
+		allInstances = cb.proxy.ServiceInstances
+	}
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
@@ -236,7 +238,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		opts.meshExternal = service.MeshExternal
 	}
 	applyTrafficPolicy(opts)
-	addTelemetryMetadata(opts, service, direction)
+	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
 	return c
 }
@@ -248,12 +250,12 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 // requires a single protocol per port, and the DestinationRule issue is slated to move to Sidecar.
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, clusterPort int, instance *model.ServiceInstance, bind string) *cluster.Cluster {
+func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(proxy *model.Proxy, clusterPort int, bind string, instance *model.ServiceInstance, allInstance []*model.ServiceInstance) *cluster.Cluster {
 	clusterName := util.BuildInboundSubsetKey(proxy, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port, clusterPort)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
-		model.TrafficDirectionInbound, instance.ServicePort, instance.Service)
+		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
 	// If stat name is configured, build the alt statname.
 	if len(cb.push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,

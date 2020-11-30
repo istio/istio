@@ -15,6 +15,7 @@
 package v1alpha3_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -23,6 +24,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/golang/protobuf/jsonpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -37,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 )
 
 func flattenInstances(il ...[]*model.ServiceInstance) []*model.ServiceInstance {
@@ -106,7 +109,9 @@ func TestInboundClusters(t *testing.T) {
 		configs   []config.Config
 		services  []*model.Service
 		instances []*model.ServiceInstance
-		expected  map[string][]string
+		// Assertions
+		clusters  map[string][]string
+		telemetry map[string][]string
 	}{
 		{name: "empty"},
 		{name: "empty service", services: []*model.Service{service}},
@@ -114,8 +119,11 @@ func TestInboundClusters(t *testing.T) {
 			name:      "single service, partial instance",
 			services:  []*model.Service{service},
 			instances: makeInstances(proxy, service, 80, 8080),
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|8080||": {"127.0.0.1:8080"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
 			},
 		},
 		{
@@ -124,9 +132,13 @@ func TestInboundClusters(t *testing.T) {
 			instances: flattenInstances(
 				makeInstances(proxy, service, 80, 8080),
 				makeInstances(proxy, service, 81, 8081)),
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|8080||": {"127.0.0.1:8080"},
 				"inbound|8081||": {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8081||": {string(service.Hostname)},
 			},
 		},
 		{
@@ -137,11 +149,17 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy, service, 81, 8081),
 				makeInstances(proxy, serviceAlt, 80, 8082),
 				makeInstances(proxy, serviceAlt, 81, 8083)),
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|8080||": {"127.0.0.1:8080"},
 				"inbound|8081||": {"127.0.0.1:8081"},
 				"inbound|8082||": {"127.0.0.1:8082"},
 				"inbound|8083||": {"127.0.0.1:8083"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8081||": {string(service.Hostname)},
+				"inbound|8082||": {string(serviceAlt.Hostname)},
+				"inbound|8083||": {string(serviceAlt.Hostname)},
 			},
 		},
 		{
@@ -152,9 +170,13 @@ func TestInboundClusters(t *testing.T) {
 				makeInstances(proxy, service, 81, 8081),
 				makeInstances(proxy, serviceAlt, 80, 8080),
 				makeInstances(proxy, serviceAlt, 81, 8081)),
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|8080||": {"127.0.0.1:8080"},
 				"inbound|8081||": {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8081||": {string(serviceAlt.Hostname), string(service.Hostname)},
 			},
 		},
 		{
@@ -172,7 +194,7 @@ func TestInboundClusters(t *testing.T) {
 					}}},
 				},
 			},
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|80||": {"127.0.0.1:80"},
 			},
 		},
@@ -191,7 +213,7 @@ func TestInboundClusters(t *testing.T) {
 					}}},
 				},
 			},
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|80||": {"127.0.0.1:8080"},
 			},
 		},
@@ -210,7 +232,7 @@ func TestInboundClusters(t *testing.T) {
 					}}},
 				},
 			},
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|80||": {"1.2.3.4:8080"},
 			},
 		},
@@ -229,7 +251,7 @@ func TestInboundClusters(t *testing.T) {
 					}}},
 				},
 			},
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|80||": {"/socket"},
 			},
 		},
@@ -258,7 +280,7 @@ func TestInboundClusters(t *testing.T) {
 					}},
 				},
 			},
-			expected: map[string][]string{
+			clusters: map[string][]string{
 				"inbound|80||": {"127.0.0.1:8080"},
 				"inbound|81||": {"127.0.0.1:8080"},
 			},
@@ -284,15 +306,19 @@ func TestInboundClusters(t *testing.T) {
 			got := xdstest.MapKeys(cmap)
 
 			// Check we have all expected clusters
-			if !reflect.DeepEqual(xdstest.MapKeys(tt.expected), got) {
-				t.Errorf("expected clusters: %v, got: %v", xdstest.MapKeys(tt.expected), got)
+			if !reflect.DeepEqual(xdstest.MapKeys(tt.clusters), got) {
+				t.Errorf("expected clusters: %v, got: %v", xdstest.MapKeys(tt.clusters), got)
 			}
 
 			for name, c := range cmap {
 				// Check the upstream endpoints match
 				got := xdstest.ExtractLoadAssignments([]*endpoint.ClusterLoadAssignment{c.GetLoadAssignment()})[name]
-				if !reflect.DeepEqual(tt.expected[name], got) {
-					t.Errorf("%v: expected endpoints %v, got %v", name, tt.expected[name], got)
+				if !reflect.DeepEqual(tt.clusters[name], got) {
+					t.Errorf("%v: expected endpoints %v, got %v", name, tt.clusters[name], got)
+				}
+				gotTelemetry := extractClusterMetadataServices(t, c)
+				if !reflect.DeepEqual(tt.telemetry[name], gotTelemetry) {
+					t.Errorf("%v: expected telemetry services %v, got %v", name, tt.telemetry[name], gotTelemetry)
 				}
 				// simulate an actual call, this ensures we are aligned with the inbound listener configuration
 				_, _, _, port := model.ParseSubsetKey(name)
@@ -306,6 +332,34 @@ func TestInboundClusters(t *testing.T) {
 			}
 		})
 	}
+}
+
+type clusterServicesMetadata struct {
+	Services []struct {
+		Host      string
+		Name      string
+		Namespace string
+	}
+}
+
+func extractClusterMetadataServices(t test.Failer, c *cluster.Cluster) []string {
+	got := c.GetMetadata().GetFilterMetadata()[util.IstioMetadataKey]
+	if got == nil {
+		return nil
+	}
+	s, err := (&jsonpb.Marshaler{}).MarshalToString(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta := clusterServicesMetadata{}
+	if err := json.Unmarshal([]byte(s), &meta); err != nil {
+		t.Fatal(err)
+	}
+	res := []string{}
+	for _, m := range meta.Services {
+		res = append(res, m.Host)
+	}
+	return res
 }
 
 func TestInbound(t *testing.T) {

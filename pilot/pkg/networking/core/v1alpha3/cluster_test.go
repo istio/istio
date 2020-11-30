@@ -3631,7 +3631,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					ServiceInstances: tt.svcInsts,
 				},
 			}
-			addTelemetryMetadata(opt, tt.service, tt.direction)
+			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
 			if opt.cluster != nil && !reflect.DeepEqual(opt.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.cluster.Metadata)
 			}
