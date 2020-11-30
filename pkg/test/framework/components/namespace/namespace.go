@@ -34,6 +34,7 @@ type Config struct {
 // Instance represents an allocated namespace that can be used to create config, or deploy components in.
 type Instance interface {
 	Name() string
+	SetLabel(key, value string) error
 }
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.
