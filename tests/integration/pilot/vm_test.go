@@ -102,7 +102,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 						return err
 					}
 					return res.CheckOK()
-				}, retry.Timeout(5*time.Second))
+				}, retry.Timeout(15*time.Second))
 			})
 			ctx.NewSubTest("reconnect reuses WorkloadEntry").Run(func(ctx framework.TestContext) {
 				// ensure we have two pilot instances, other tests can pass before the second one comes up
