@@ -66,7 +66,9 @@ type HTTPProber struct {
 
 func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig) *HTTPProber {
 	h := new(HTTPProber)
-	// Create a http.Transport with TLSClientConfig for HTTPProber if the scheme is https,
+	h.Config = cfg
+
+	// Create an http.Transport with TLSClientConfig for HTTPProber if the scheme is https,
 	// otherwise set up an empty one.
 	if cfg.Scheme == string(scheme.HTTPS) {
 		h.Transport = &http.Transport{
