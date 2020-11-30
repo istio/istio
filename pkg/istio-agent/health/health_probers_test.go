@@ -58,14 +58,13 @@ func TestHttpProber(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			server, port := createHTTPServer(tt.statusCode)
 			defer server.Close()
-			httpProber := HTTPProber{
-				Config: &v1alpha3.HTTPHealthCheckConfig{
+			httpProber := NewHTTPProber(
+				&v1alpha3.HTTPHealthCheckConfig{
 					Path:   "/test/health/check",
 					Port:   port,
 					Host:   "127.0.0.1",
 					Scheme: "http",
-				},
-			}
+				})
 
 			if tt.statusCode == -1 {
 				server.Close()
