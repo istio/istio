@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"os"
 	"path"
 	"strings"
 
@@ -98,7 +101,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	}
 
 	// Generate the service and deployment YAML.
-	serviceYAML, deploymentYAML, err := generateYAML(ctx, cfg, c.cluster)
+	serviceYAML, deploymentYAML, err := generateYAML(cfg, c.cluster)
 	if err != nil {
 		return nil, fmt.Errorf("generate yaml: %v", err)
 	}
@@ -180,7 +183,8 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	}
 
 	// generate config files for VM bootstrap
-	dir, err := ctx.CreateDirectory(fmt.Sprintf("%s-vm-config", cfg.Service))
+	dirname := fmt.Sprintf("%s-vm-config-", cfg.Service)
+	dir, err := ctx.CreateDirectory(dirname)
 	if err != nil {
 		return err
 	}
@@ -197,29 +201,72 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	if err != nil {
 		return err
 	}
-	cmd = []string{
-		"x", "workload", "entry", "configure",
-		"-f", path.Join(dir, "workloadgroup.yaml"),
-		"-o", dir,
-	}
-	if cfg.AutoRegisterVM {
-		cmd = append(cmd, "--autoregister")
-	}
-	if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-		// LoadBalancer may not be suppported and the command doesn't have NodePort fallback logic that the tests do
-		// TODO move the ISTIOD_PORT customization of cluster.env out of the deployment script
-		cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
-	}
-	_, _, err = istioCtl.Invoke(cmd)
-	if err != nil {
-		return err
+
+	var subsetDir string
+	for _, subset := range cfg.Subsets {
+		subsetDir, err = ioutil.TempDir(dir, subset.Version+"-")
+		if err != nil {
+			return err
+		}
+		cmd := []string{
+			"x", "workload", "entry", "configure",
+			"-f", path.Join(dir, "workloadgroup.yaml"),
+			"-o", subsetDir,
+		}
+		if cfg.AutoRegisterVM {
+			cmd = append(cmd, "--autoregister")
+		}
+		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
+			// LoadBalancer may not be suppported and the command doesn't have NodePort fallback logic that the tests do
+			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
+		}
+		_, _, err = istioCtl.Invoke(cmd)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range subset.Annotations {
+			if k.Name == "proxy.istio.io/config" {
+				if err := patchProxyConfigFile(path.Join(subsetDir, "mesh.yaml"), v.Value); err != nil {
+					return err
+				}
+			}
+		}
+
+		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
+			// apply node port mapping
+			// TODO allow this to easily be set with a --setenv flag to workload entry cmd
+			f, err := os.OpenFile(path.Join(subsetDir, "cluster.env"), os.O_APPEND, 0744)
+			if err != nil {
+				return err
+			}
+			_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d", istiodAddr.Port)))
+			if err != nil {
+				return err
+			}
+			if err = f.Close(); err != nil {
+				return err
+			}
+		}
+
+		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
+		cmData := map[string][]byte{}
+		for _, file := range []string{"cluster.env", "mesh.yaml", "root-cert.pem", "hosts"} {
+			cmData[file], err = ioutil.ReadFile(path.Join(subsetDir, file))
+			if err != nil {
+				return err
+			}
+		}
+		cmName := fmt.Sprintf("%s-%s-vm-bootstrap", cfg.Service, subset.Version)
+		cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
+		_, err = c.cluster.CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
-	// TODO move customizations from container command here
-	// TODO create separate bootstrap bundles for each subset
-
-	// push the generated token as a Secret
-	token, err := ioutil.ReadFile(path.Join(dir, "istio-token"))
+	// push the generated token as a Secret (only need one, they should be identical)
+	token, err := ioutil.ReadFile(path.Join(subsetDir, "istio-token"))
 	if err != nil {
 		return err
 	}
@@ -242,21 +289,28 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		}
 	}
 
-	// push the other config as a ConfigMap so we can mount it on our "vm" pods
-	cmData := map[string][]byte{}
-	for _, file := range []string{"cluster.env", "mesh.yaml", "root-cert.pem", "hosts"} {
-		cmData[file], err = ioutil.ReadFile(path.Join(dir, file))
-		if err != nil {
-			return err
-		}
-	}
-	cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cfg.Service + "-vm-bootstrap"}, BinaryData: cmData}
-	_, err = c.cluster.CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
+	return nil
+}
+
+func patchProxyConfigFile(file string, overrides string) error {
+	baseYAML, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
 	}
-
-	return nil
+	config := &v1alpha1.ProxyConfig{}
+	if err := gogoprotomarshal.ApplyYAML(string(baseYAML), config); err != nil {
+		return err
+	}
+	overrideYAML := "defaultConfig:\n"
+	overrideYAML += istio.Indent(overrides, "  ")
+	if err := gogoprotomarshal.ApplyYAML(overrideYAML, config); err != nil {
+		return err
+	}
+	outYAML, err := gogoprotomarshal.ToYAML(config)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(file, []byte(outYAML), 744)
 }
 
 // registerVMs creates a WorkloadEntry for each "vm" pod similar to manual VM registration

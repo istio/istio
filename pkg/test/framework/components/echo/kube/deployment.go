@@ -17,14 +17,12 @@ package kube
 import (
 	"bufio"
 	"fmt"
-	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -277,25 +275,11 @@ spec:
           sudo cp /var/run/secrets/istio/bootstrap/mesh.yaml /etc/istio/config/mesh
           sudo sh -c 'cat /var/run/secrets/istio/bootstrap/hosts >> /etc/hosts'
 
-          # TODO move these customizations to go code
+          # read certs from correct directory
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
-          sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
-
-          # TODO reenable this by editing proxy-config before pushing ConfigMap
-          # # Provide a proxyconfig override
-          # 
-          # {{- range $name, $value := $subset.Annotations }}
-          # {{- if eq $name.Name "proxy.istio.io/config" }}
-          # sudo sh -c 'chmod a+w /etc/istio/config/mesh'
-          # sudo sh -c 'echo "defaultConfig:" >> /etc/istio/config/mesh'
-          # {{- range $idx, $line := (Lines $value.Value) }}
-          # sudo sh -c 'echo "  {{ $line }}" >> /etc/istio/config/mesh'
-          # {{- end }}
-          # {{- end }}
-          # {{- end }}
 
           # TODO: run with systemctl?
           export ISTIO_AGENT_FLAGS="--concurrency 2"
@@ -349,7 +333,7 @@ spec:
           secretName: {{ $.Service }}-istio-token
         name: {{ $.Service }}-istio-token
       - configMap:
-          name: {{ $.Service }}-vm-bootstrap
+          name: {{ $.Service }}-{{ $subset.Version }}-vm-bootstrap
         name: istio-vm-bootstrap
       {{- range $name, $value := $subset.Annotations }}
       {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
@@ -385,19 +369,18 @@ func init() {
 	}
 }
 
-func generateYAML(ctx resource.Context, cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return "", "", err
 	}
-	return generateYAMLWithSettings(ctx, cfg, settings, cluster)
+	return generateYAMLWithSettings(cfg, settings, cluster)
 }
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func generateYAMLWithSettings(
-	ctx resource.Context, cfg echo.Config,
+func generateYAMLWithSettings(cfg echo.Config,
 	settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	ver, err := cluster.GetKubernetesVersion()
 	if err != nil {
@@ -408,40 +391,11 @@ func generateYAMLWithSettings(
 		// Added in Kubernetes 1.16
 		supportStartupProbe = false
 	}
-	// Convert legacy config to workload oritended.
-	if cfg.Subsets == nil {
-		cfg.Subsets = []echo.SubsetConfig{
-			{
-				Version: cfg.Version,
-			},
-		}
-	}
 
-	for i := range cfg.Subsets {
-		if cfg.Subsets[i].Version == "" {
-			cfg.Subsets[i].Version = "v1"
-		}
-	}
-
-	var vmImage, istiodPort string
-	if cfg.DeployAsVM {
-		ist, err := istio.Get(ctx)
-		if err != nil {
-			return "", "", err
-		}
-		addr, err := ist.RemoteDiscoveryAddressFor(cluster)
-		if err != nil {
-			return "", "", err
-		}
-
-		istiodPort = strconv.Itoa(addr.Port)
-
-		// if image is not provided, default to app_sidecar
-		if cfg.VMImage == "" {
-			vmImage = DefaultVMImage
-		} else {
-			vmImage = cfg.VMImage
-		}
+	// if image is not provided, default to app_sidecar
+	vmImage := DefaultVMImage
+	if cfg.VMImage != "" {
+		vmImage = cfg.VMImage
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
@@ -465,9 +419,7 @@ func generateYAMLWithSettings(
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"VM": map[string]interface{}{
-			"Image":        vmImage,
-			"IstiodPort":   istiodPort,
-			"AutoRegister": cfg.AutoRegisterVM,
+			"Image": vmImage,
 		},
 		"Environment":  cfg.VMEnvironment,
 		"StartupProbe": supportStartupProbe,
