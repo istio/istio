@@ -51,7 +51,7 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 	var prober Prober
 	switch healthCheckMethod := cfg.HealthCheckMethod.(type) {
 	case *v1alpha3.ReadinessProbe_HttpGet:
-		prober = &HTTPProber{Config: healthCheckMethod.HttpGet}
+		prober = NewHTTPProber(healthCheckMethod.HttpGet)
 	case *v1alpha3.ReadinessProbe_TcpSocket:
 		prober = &TCPProber{Config: healthCheckMethod.TcpSocket}
 	case *v1alpha3.ReadinessProbe_Exec:
