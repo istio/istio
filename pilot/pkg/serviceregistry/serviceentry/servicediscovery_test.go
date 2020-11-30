@@ -1303,7 +1303,7 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			},
 		},
 		{
-			name: "allocate IP for dns lb",
+			name: "no allocate IP for dns lb",
 			inServices: []*model.Service{
 				{
 					Hostname:   "foo.com",
@@ -1313,10 +1313,9 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			},
 			wantServices: []*model.Service{
 				{
-					Hostname:             "foo.com",
-					Resolution:           model.DNSLB,
-					Address:              "0.0.0.0",
-					AutoAllocatedAddress: "240.240.0.1",
+					Hostname:   "foo.com",
+					Resolution: model.DNSLB,
+					Address:    "0.0.0.0",
 				},
 			},
 		},
