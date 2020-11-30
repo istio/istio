@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"path"
 	"strings"
 
@@ -192,11 +192,11 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	if err != nil {
 		return err
 	}
-	// this will wait until the eastwest gateway has an IP
-	if addr := ist.CustomIngressFor(c.cluster, istio.EastWestIngressServiceName, istio.EastWestIngressIstioLabel).DiscoveryAddress(); addr.String() == "<nil>" {
-		log.Warnf("setup vm: discovery address not yet available for eastwest gateway")
+	// this will wait until the eastwest gateway has an IP before running the next command
+	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster)
+	if err != nil {
+		return err
 	}
-
 	cmd = []string{
 		"x", "workload", "entry", "configure",
 		"-f", path.Join(dir, "workloadgroup.yaml"),
@@ -204,6 +204,11 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	}
 	if cfg.AutoRegisterVM {
 		cmd = append(cmd, "--autoregister")
+	}
+	if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
+		// LoadBalancer may not be suppported and the command doesn't have NodePort fallback logic that the tests do
+		// TODO move the ISTIOD_PORT customization of cluster.env out of the deployment script
+		cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
 	}
 	_, _, err = istioCtl.Invoke(cmd)
 	if err != nil {

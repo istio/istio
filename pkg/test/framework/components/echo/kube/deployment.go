@@ -423,9 +423,8 @@ func generateYAMLWithSettings(
 		}
 	}
 
-	var vmImage, istiodIP, istiodPort string
+	var vmImage, istiodPort string
 	if cfg.DeployAsVM {
-		// TODO if possible, use istioctl x workload ... to configure the VM
 		ist, err := istio.Get(ctx)
 		if err != nil {
 			return "", "", err
@@ -435,7 +434,6 @@ func generateYAMLWithSettings(
 			return "", "", err
 		}
 
-		istiodIP = addr.IP.String()
 		istiodPort = strconv.Itoa(addr.Port)
 
 		// if image is not provided, default to app_sidecar
@@ -468,7 +466,6 @@ func generateYAMLWithSettings(
 		"Namespace":          namespace,
 		"VM": map[string]interface{}{
 			"Image":        vmImage,
-			"IstiodIP":     istiodIP,
 			"IstiodPort":   istiodPort,
 			"AutoRegister": cfg.AutoRegisterVM,
 		},
