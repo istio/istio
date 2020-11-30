@@ -372,6 +372,28 @@ func isIPv6Proxy(ipAddrs []string) bool {
 
 type setMetaFunc func(m map[string]interface{}, key string, val string)
 
+func setMeta(m map[string]interface{}, key string, val string) {
+	m[key] = val
+}
+
+func setMetaJSON(m map[string]interface{}, key string, val string) {
+	err := json.Unmarshal([]byte(val), &m)
+	if err != nil {
+		log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
+	}
+}
+
+func extractMapMetadata(in map[string]string, prefix string, set setMetaFunc, out map[string]interface{}) {
+	metaPrefixLen := len(prefix)
+	for k, v := range in {
+		if !shouldExtract(k, prefix) {
+			continue
+		}
+		shortKey := k[metaPrefixLen:]
+		set(out, shortKey, v)
+	}
+}
+
 func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
 	metaPrefixLen := len(prefix)
 	for _, e := range envs {
@@ -449,22 +471,13 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
-	if pc.ProxyMetadata != nil {
-		for k, v := range pc.ProxyMetadata {
-			untypedMeta[k] = v
-		}
+	if pc != nil && pc.ProxyMetadata != nil {
+		extractMapMetadata(pc.ProxyMetadata, IstioMetaPrefix, setMeta, untypedMeta)
+		extractMapMetadata(pc.ProxyMetadata, IstioMetaJSONPrefix, setMetaJSON, untypedMeta)
 	}
 
-	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
-		m[key] = val
-	}, untypedMeta)
-
-	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
-		err := json.Unmarshal([]byte(val), &m)
-		if err != nil {
-			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
-		}
-	}, untypedMeta)
+	extractMetadata(envs, IstioMetaPrefix, setMeta, untypedMeta)
+	extractMetadata(envs, IstioMetaJSONPrefix, setMetaJSON, untypedMeta)
 
 	j, err := json.Marshal(untypedMeta)
 	if err != nil {
