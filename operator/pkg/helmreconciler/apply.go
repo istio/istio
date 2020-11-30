@@ -27,7 +27,6 @@ import (
 	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
@@ -40,7 +39,7 @@ const fieldOwnerOperator = "istio-operator"
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
-func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObjects, int, error) {
+func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply bool) (object.K8sObjects, int, error) {
 	var processedObjects object.K8sObjects
 	var deployedObjects int
 	var errs util.Errors
@@ -88,20 +87,6 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 		scope.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
 	} else {
 		scope.Infof("Generated manifest objects are the same as cached for component %s.", cname)
-	}
-
-	// check minor version only
-	serverSideApply := false
-	if h.restConfig != nil {
-		k8sVer, err := k8sversion.GetKubernetesVersion(h.restConfig)
-		if err != nil {
-			scope.Errorf("failed to get k8s version: %s", err)
-		}
-		// There is a mutatingwebhook in gke that would corrupt the managedFields, which is fixed in k8s 1.18.
-		// See: https://github.com/kubernetes/kubernetes/issues/96351
-		if k8sVer >= 18 {
-			serverSideApply = true
-		}
 	}
 
 	// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
