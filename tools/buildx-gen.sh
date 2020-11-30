@@ -30,7 +30,8 @@ function to_platform_list() {
   # Eventually this should be everything but the testing images (app_sidecar_)
   if [[ "${image}" == base || "${image}" == distroless ]]; then
     # convert CSV to "foo","bar" list
-    echo "\"$(echo $platforms | sed 's/,/","/g')\""
+    # shellcheck disable=SC2001
+    echo "\"$(echo "${platforms}" | sed 's/,/","/g')\""
   else
     echo '"linux/amd64"'
   fi
