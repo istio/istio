@@ -24,7 +24,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -49,18 +48,7 @@ var (
 )
 
 // DiscoveryStream is a server interface for XDS.
-type DiscoveryStream interface {
-	Send(*discovery.DiscoveryResponse) error
-	Recv() (*discovery.DiscoveryRequest, error)
-	grpc.ServerStream
-}
-
-// DiscoveryClient is a client interface for XDS.
-type DiscoveryClient interface {
-	Send(*discovery.DiscoveryRequest) error
-	Recv() (*discovery.DiscoveryResponse, error)
-	grpc.ClientStream
-}
+type DiscoveryStream = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 
 // Connection holds information about connected client.
 type Connection struct {
@@ -185,14 +173,14 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-
-	if !s.preProcessRequest(con.proxy, req) {
+	if req.TypeUrl == v3.HealthInfoType {
+		s.processHealthCheck(con.proxy, req)
 		return nil
 	}
+
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
-
 	shouldRespond := s.shouldRespond(con, req)
 
 	// Check if we have a blocked push. If this was an ACK, we will send it. Either way we remove the blocked push
@@ -457,10 +445,8 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 		return err
 	}
 
-	// Based on node metadata and version, we can associate a different generator.
-	// TODO: use a map of generators, so it's easily customizable and to avoid deps
 	proxy.WatchedResources = map[string]*model.WatchedResource{}
-
+	// Based on node metadata and version, we can associate a different generator.
 	if proxy.Metadata.Generator != "" {
 		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
 	}
@@ -578,20 +564,19 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 	proxy.SetGatewaysForProxy(push)
 }
 
-// pre-process request. returns whether or not to continue.
-func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) bool {
-	if req.TypeUrl == v3.HealthInfoType {
-		event := HealthEvent{}
-		if req.ErrorDetail == nil {
-			event.Healthy = true
-		} else {
-			event.Healthy = false
-			event.Message = req.ErrorDetail.Message
-		}
-		s.InternalGen.UpdateWorkloadEntryHealth(proxy, event)
-		return false
+// processHealthCheck update health status of the workload.
+func (s *DiscoveryServer) processHealthCheck(proxy *model.Proxy, req *discovery.DiscoveryRequest) {
+	if !features.WorkloadEntryHealthChecks {
+		return
 	}
-	return true
+	event := HealthEvent{}
+	if req.ErrorDetail == nil {
+		event.Healthy = true
+	} else {
+		event.Healthy = false
+		event.Message = req.ErrorDetail.Message
+	}
+	s.InternalGen.UpdateWorkloadEntryHealth(proxy, event)
 }
 
 // DeltaAggregatedResources is not implemented.
@@ -629,7 +614,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range getPushResources(con.proxy.WatchedResources) {
+	for _, w := range getWatchedResources(con.proxy.WatchedResources) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
@@ -683,7 +668,7 @@ var KnownPushOrder = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+func getWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
 	wr := make([]*model.WatchedResource, 0, len(resources))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
