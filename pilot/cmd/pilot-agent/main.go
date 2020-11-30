@@ -212,6 +212,9 @@ var (
 			// operational parameters correctly.
 			proxyIPv6 := isIPv6Proxy(role.IPAddresses)
 
+			// proxyConfig.proxyMetadata values will NOT be used for feature flags, only as metadata sent to pilot.
+			// meta values that double as agent feature flags best be set in env (only current example is ISTIO_META_DNS_CAPTURE)
+			// metadata set as env variables must be
 			proxyConfig, err := constructProxyConfig()
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
@@ -238,12 +241,20 @@ var (
 				log.Info("Using existing certs")
 			}
 
+			// env vars take precedence over proxyConfig.proxyMetadata
+			clusterID := ""
+			if cid, ok := clusterIDVar.Lookup(); ok {
+				clusterID = cid
+			} else if cid, ok := proxyConfig.ProxyMetadata["CLUSTER_ID"]; ok {
+				clusterID = cid
+			}
+
 			secOpts := &security.Options{
 				PilotCertProvider:  pilotCertProvider,
 				OutputKeyCertToDir: outputKeyCertToDir,
 				ProvCert:           provCert,
 				JWTPath:            jwtPath,
-				ClusterID:          clusterIDVar.Get(),
+				ClusterID:          clusterID,
 				FileMountedCerts:   fileMountedCertsEnv,
 				CAEndpoint:         caEndpointEnv,
 				UseTokenForCSR:     useTokenForCSREnv,
