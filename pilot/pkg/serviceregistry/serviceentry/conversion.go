@@ -185,7 +185,7 @@ func convertServices(cfg config.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.External),
+							ServiceRegistry: serviceregistry.External,
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -202,7 +202,7 @@ func convertServices(cfg config.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.External),
+							ServiceRegistry: serviceregistry.External,
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -221,7 +221,7 @@ func convertServices(cfg config.Config) []*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					ServiceRegistry: string(serviceregistry.External),
+					ServiceRegistry: serviceregistry.External,
 					Name:            hostname,
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
