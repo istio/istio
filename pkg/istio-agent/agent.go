@@ -368,7 +368,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 
 	var pluginNames []string
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-	log.Infof("sa.serverOptions.CAEndpoint == %v %s", sa.secOpts.CAEndpoint, sa.secOpts.CAProviderName)
+	log.Infof("CAEndpoint %s, provider %s", sa.secOpts.CAEndpoint, sa.secOpts.CAProviderName)
 	if sa.secOpts.CAProviderName == "GoogleCA" || strings.Contains(sa.secOpts.CAEndpoint, "googleapis.com") {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
