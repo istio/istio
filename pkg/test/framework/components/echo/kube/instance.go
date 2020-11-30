@@ -172,8 +172,8 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 
 	if cfg.ServiceAccount {
 		// create service account, the next workload command will use it to generate a token
-		err = createServiceAccount(c.cluster, cfg.Namespace.Name(), serviceAccount)
-		if err != nil {
+		err = createServiceAccount(cfg.Cluster.Primary(), cfg.Namespace.Name(), serviceAccount)
+		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return err
 		}
 	}
