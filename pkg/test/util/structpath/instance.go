@@ -25,7 +25,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-	"gopkg.in/d4l3k/messagediff.v1"
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/client-go/util/jsonpath"
 
 	"istio.io/istio/pkg/test"
@@ -200,8 +200,8 @@ func (i *Instance) equalsStruct(proto proto.Message, path string) error {
 	if err != nil {
 		return err
 	}
-	diff, b := messagediff.PrettyDiff(reflect.ValueOf(v).Interface(), jsonStruct)
-	if !b {
+	diff := cmp.Diff(reflect.ValueOf(v).Interface(), jsonStruct)
+	if diff != "" {
 		return fmt.Errorf("structs did not match: %v", diff)
 	}
 	return nil
