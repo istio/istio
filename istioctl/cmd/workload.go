@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/model"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -376,7 +377,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	md["ISTIO_META_CLUSTER_ID"] = clusterID
 	md["ISTIO_META_MESH_ID"] = meshConfig.DefaultConfig.MeshId
 	md["ISTIO_META_NETWORK"] = we.Network
-	if portsJSON, err := json.Marshal(we.Ports); err == nil {
+	if portsJSON, err := json.Marshal(workloadEntryToPodPortsMeta(we.Ports)); err == nil {
 		md["ISTIO_META_POD_PORTS"] = string(portsJSON)
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
@@ -401,6 +402,14 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	}
 
 	return ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
+}
+
+func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
+	var out model.PodPortList
+	for name, port := range p {
+		out = append(out, model.PodPort{Name: name, ContainerPort: int(port)})
+	}
+	return out
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
