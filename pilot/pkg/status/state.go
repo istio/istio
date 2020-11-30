@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/pkg/config"
 	"sync"
 	"time"
 
@@ -37,6 +36,7 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
 )
 

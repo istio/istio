@@ -18,12 +18,13 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-import "k8s.io/apimachinery/pkg/runtime/schema"
 
 type ResourceMutex struct {
 	masterLock sync.RWMutex
-	cache map[lockResource]*cacheEntry
+	cache      map[lockResource]*cacheEntry
 }
 
 type cacheEntry struct {
@@ -37,9 +38,9 @@ type cacheEntry struct {
 	cacheProgress *Progress
 	countLock     sync.Mutex
 	// track how many routines are running for this resource.  always <= 2
-	routineCount  int32
+	routineCount int32
 	// track if this resource has been deleted, and if so, stop writing updates for it
-	deleted       bool
+	deleted bool
 }
 
 func (rl *ResourceMutex) Delete(r Resource) {
@@ -131,7 +132,6 @@ func (r *ResourceMutex) retrieveEntry(i lockResource) *cacheEntry {
 
 type lockResource struct {
 	schema.GroupVersionResource
-	Namespace       string
-	Name            string
+	Namespace string
+	Name      string
 }
-
