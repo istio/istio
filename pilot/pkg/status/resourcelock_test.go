@@ -17,6 +17,7 @@ package status
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,6 +46,7 @@ func TestResourceLock_Lock(t *testing.T) {
 		ResourceVersion: "r1.2",
 	}
 	rlock := ResourceMutex{}
+	m := sync.Mutex{}
 	callAssertions := map[string]bool{}
 	callActual := map[string]bool{}
 	printer := func(nth string, expect bool) func(_ context.Context, config Resource, _ Progress) {
@@ -55,7 +57,9 @@ func TestResourceLock_Lock(t *testing.T) {
 			if !expect {
 				t.Errorf("did not expect %s call to occur", nth)
 			}
+			m.Lock()
 			callActual[nth] = true
+			m.Unlock()
 			fmt.Printf("starting %s %s\n", nth, config.ResourceVersion)
 			time.Sleep(1 * time.Second)
 			fmt.Printf("finishing %s %s\n", nth, config.ResourceVersion)
@@ -79,5 +83,7 @@ func TestResourceLock_Lock(t *testing.T) {
 	rlock.OncePerResource(nil, r1a, Progress{}, printer("seventh", false))
 	rlock.Delete(r1a)
 	time.Sleep(2200 * time.Millisecond)
+	m.Lock()
 	g.Expect(callAssertions).To(Equal(callActual))
+	m.Unlock()
 }
