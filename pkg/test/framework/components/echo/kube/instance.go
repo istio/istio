@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"path"
 	"strings"
 
@@ -37,6 +36,7 @@ import (
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
