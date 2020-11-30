@@ -113,17 +113,17 @@ func DelayQueueWorkers(workers int) DelayQueueOption {
 
 // workerChanBuf determines whether the channel of a worker should be a buffered channel
 // to get the best performance.
-var workerChanBuf = func() int {
+var workerChanBuf = func() (n int) {
 	// Use blocking channel if GOMAXPROCS=1.
 	// This switches context from sender to receiver immediately,
 	// which results in higher performance.
-	if runtime.GOMAXPROCS(0) == 1 {
+	if n = runtime.GOMAXPROCS(0); n == 1 {
 		return 0
 	}
 
 	// Use non-blocking workerChan if GOMAXPROCS>1,
 	// since otherwise the sender might be dragged down if the receiver is CPU-bound.
-	return 1
+	return
 }()
 
 // NewDelayed gives a Delayed queue with maximum concurrency specified by workers.
