@@ -6,7 +6,6 @@ metadata:
 spec:
   hosts:
     - random-1.host.example
-  # expect address to be auto allocated
   ports:
     - number: 80
       name: http
