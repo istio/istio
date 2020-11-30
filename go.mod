@@ -22,7 +22,6 @@ replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20
 require (
 	cloud.google.com/go v0.65.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
-	fortio.org/fortio v1.10.0
 	github.com/Masterminds/sprig/v3 v3.1.0
 	github.com/aws/aws-sdk-go v1.35.11
 	github.com/cenkalti/backoff v2.2.1+incompatible
