@@ -1,6 +1,5 @@
 #.Values.pilot for discovery and mesh wide config
 
-<<<<<<< HEAD
 ## Discovery Settings
 pilot:
   autoscaleEnabled: true
@@ -45,9 +44,6 @@ pilot:
   # Additional labels to apply to the deployment.
   deploymentLabels: {}
   ## Mesh config settings
-=======
-  rootNamespace:
->>>>>>> apply comments.
 
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.

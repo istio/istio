@@ -163,13 +163,23 @@ meshConfig:
 			wantRootNamespace: "istio-foo",
 		},
 		{
-			desc: "iopSpec.Values[meshConfig].rootNamespace and iopSpec.Values[meshConfig].rootNamespace",
+			desc: "iopSpec.Values[global].istioNamespace and iopSpec.Values[meshConfig].rootNamespace",
 			yamlStr: `
 values:
   global:
     istioNamespace: istio-foo
   meshConfig:
     rootNamespace: istio-bar`,
+			wantRootNamespace: "istio-bar",
+		},
+		{
+			desc: "iopSpec.Values[global].istioNamespace and iopSpec.MeshConfig.rootNamespace",
+			yamlStr: `
+meshConfig:
+  rootNamespace: istio-bar
+values:
+  global:
+    istioNamespace: istio-foo`,
 			wantRootNamespace: "istio-bar",
 		},
 		{
@@ -178,12 +188,12 @@ values:
 meshConfig:
   rootNamespace: istio-bar
 values:
-  global:
-    istioNamespace: istio-foo`,
+  meshConfig:
+    rootNamespace: istio-foo`,
 			wantRootNamespace: "istio-bar",
 		},
 		{
-			desc: "iopSpec.Namespace, iopSpec.Values[meshConfig].rootNamespace and iopSpec.Values[meshConfig].rootNamespace",
+			desc: "iopSpec.Namespace, iopSpec.Values[global].istioNamespace and iopSpec.Values[meshConfig].rootNamespace",
 			yamlStr: `
 namespace: istio-foo
 values:
@@ -194,7 +204,7 @@ values:
 			wantRootNamespace: "istio-bar",
 		},
 		{
-			desc: "iopSpec.Namespace, iopSpec.Values[meshConfig].rootNamespace and iopSpec.MeshConfig.rootNamespace",
+			desc: "iopSpec.Namespace, iopSpec.Values[global].istioNamespace and iopSpec.MeshConfig.rootNamespace",
 			yamlStr: `
 namespace: istio-foo
 meshConfig:
@@ -205,7 +215,7 @@ values:
 			wantRootNamespace: "istio-bar",
 		},
 		{
-			desc: "iopSpec.MeshConfig.rootNamespace and iopSpec.Values[meshConfig].rootNamespace",
+			desc: "iopSpec.MeshConfig.rootNamespace, iopSpec.Values[global].istioNamespace and iopSpec.Values[meshConfig].rootNamespace",
 			yamlStr: `
 meshConfig:
   rootNamespace: istio-bar
@@ -213,7 +223,7 @@ values:
   global:
     istioNamespace: istio-foo
   meshConfig:
-    rootNamespace: istio-bar`,
+    rootNamespace: istio-foo`,
 			wantRootNamespace: "istio-bar",
 		},
 	}
