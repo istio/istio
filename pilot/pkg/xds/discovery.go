@@ -118,7 +118,7 @@ type DiscoveryServer struct {
 	InternalGen *InternalGen
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
-	serverReady bool
+	serverReady atomic.Bool
 
 	debounceOptions debounceOptions
 
@@ -159,7 +159,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		pushQueue:               NewPushQueue(),
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*Connection{},
-		serverReady:             false,
 		debounceOptions: debounceOptions{
 			debounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
@@ -198,15 +197,11 @@ var (
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
 	adsLog.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
-	s.updateMutex.Lock()
-	s.serverReady = true
-	s.updateMutex.Unlock()
+	s.serverReady.Store(true)
 }
 
 func (s *DiscoveryServer) IsServerReady() bool {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.serverReady
+	return s.serverReady.Load()
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
