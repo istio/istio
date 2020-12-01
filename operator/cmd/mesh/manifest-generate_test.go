@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,6 +25,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
@@ -35,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	tutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/version"
 )
@@ -702,4 +707,168 @@ func generateManifest(inFile, flags string, chartSource chartSourceType) (string
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
 func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
 	return runManifestCommand("generate", filenames, flags, chartSource)
+}
+
+func mustGetWebhook(t test.Failer, obj object.K8sObject) []v1.MutatingWebhook {
+	t.Helper()
+	path := mustGetPath(t, obj, "webhooks")
+	by, err := json.Marshal(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mwh []v1.MutatingWebhook
+	if err := json.Unmarshal(by, &mwh); err != nil {
+		t.Fatal(err)
+	}
+	return mwh
+}
+
+func getWebhooks(t *testing.T, setFlags string, webhookName string) []v1.MutatingWebhook {
+	t.Helper()
+	got, err := runManifestGenerate([]string{}, setFlags, liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return mustGetWebhook(t, mustFindObject(t, objs, webhookName, name.MutatingWebhookConfigurationStr))
+}
+
+// This test checks the mutating webhook selectors behavior, especially with interaction with revisions
+func TestWebhookSelector(t *testing.T) {
+	empty := klabels.Set{}
+	legacyLabel := klabels.Set{"istio-injection": "enabled"}
+	legacyLabelDisabled := klabels.Set{"istio-injection": "disabled"}
+	defaultRevLabel := klabels.Set{"istio.io/rev": "default"}
+	canaryRevLabel := klabels.Set{"istio.io/rev": "canary"}
+	legacyAndDefaultLabel := klabels.Set{"istio-injection": "enabled", "istio.io/rev": "default"}
+	legacyAndCanaryLabel := klabels.Set{"istio-injection": "enabled", "istio.io/rev": "canary"}
+
+	objEnabled := klabels.Set{"sidecar.istio.io/inject": "true"}
+	objDisable := klabels.Set{"sidecar.istio.io/inject": "false"}
+
+	defaultWebhook := getWebhooks(t, "", "istio-sidecar-injector")
+	revWebhook := getWebhooks(t, "--set revision=canary", "istio-sidecar-injector-canary")
+	bothWebhooks := append([]v1.MutatingWebhook{}, defaultWebhook...)
+	bothWebhooks = append(bothWebhooks, revWebhook...)
+
+	objectSelectorWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.objectSelector.enabled=true", "istio-sidecar-injector")
+	objectSelectorWebhookRevision := getWebhooks(t, "--set values.sidecarInjectorWebhook.objectSelector.enabled=true --set revision=canary", "istio-sidecar-injector-canary")
+
+	autoWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.enableNamespacesByDefault=true", "istio-sidecar-injector")
+
+	// TODO: we may want to extend to check objectSelector.autoInject, especially its interaction with enableNamespacesByDefault
+	cases := []struct {
+		name           string
+		webhooks       []v1.MutatingWebhook
+		namespaceLabel klabels.Set
+		objectLabel    klabels.Set
+		match          string
+	}{
+		// When we do not have a revision, everything with istio-injection is matched
+		{"default", defaultWebhook, empty, empty, ""},
+		{"default", defaultWebhook, defaultRevLabel, empty, ""},
+		{"default", defaultWebhook, canaryRevLabel, empty, ""},
+		{"default", defaultWebhook, legacyLabel, empty, "istiod"},
+		{"default", defaultWebhook, legacyAndDefaultLabel, empty, "istiod"},
+		{"default", defaultWebhook, legacyAndCanaryLabel, empty, "istiod"},
+
+		// We only have a revision label. We should match only on explicit revision label and send to that revision
+		{"revision only", revWebhook, empty, empty, ""},
+		{"revision only", revWebhook, defaultRevLabel, empty, ""},
+		{"revision only", revWebhook, canaryRevLabel, empty, "istiod-canary"},
+		{"revision only", revWebhook, legacyLabel, empty, ""},
+		{"revision only", revWebhook, legacyAndDefaultLabel, empty, ""},
+		{"revision only", revWebhook, legacyAndCanaryLabel, empty, ""},
+
+		// We have a revision and a default install
+		{"both", bothWebhooks, empty, empty, ""},
+		{"both", bothWebhooks, defaultRevLabel, empty, ""},
+		{"both", bothWebhooks, canaryRevLabel, empty, "istiod-canary"},
+		{"both", bothWebhooks, legacyLabel, empty, "istiod"},
+		{"both", bothWebhooks, legacyAndDefaultLabel, empty, "istiod"},
+		{"both", bothWebhooks, legacyAndCanaryLabel, empty, "istiod"},
+
+		// object selector enabled
+		// This should have the same behavior as before, but if the disable label is set its always disabled
+		{"object selector", objectSelectorWebhook, empty, empty, ""},
+		{"object selector", objectSelectorWebhook, defaultRevLabel, empty, ""},
+		{"object selector", objectSelectorWebhook, canaryRevLabel, empty, ""},
+		{"object selector", objectSelectorWebhook, legacyLabel, empty, "istiod"},
+		{"object selector", objectSelectorWebhook, legacyAndDefaultLabel, empty, "istiod"},
+		{"object selector", objectSelectorWebhook, legacyAndCanaryLabel, empty, "istiod"},
+
+		{"object selector disabled", objectSelectorWebhook, empty, objDisable, ""},
+		{"object selector disabled", objectSelectorWebhook, defaultRevLabel, objDisable, ""},
+		{"object selector disabled", objectSelectorWebhook, canaryRevLabel, objDisable, ""},
+		{"object selector disabled", objectSelectorWebhook, legacyLabel, objDisable, ""},
+		{"object selector disabled", objectSelectorWebhook, legacyAndDefaultLabel, objDisable, ""},
+		{"object selector enabled", objectSelectorWebhook, legacyAndCanaryLabel, objDisable, ""},
+
+		{"object selector enabled", objectSelectorWebhook, empty, objEnabled, ""},
+		{"object selector enabled", objectSelectorWebhook, defaultRevLabel, objEnabled, ""},
+		{"object selector enabled", objectSelectorWebhook, canaryRevLabel, objEnabled, ""},
+		{"object selector enabled", objectSelectorWebhook, legacyLabel, objEnabled, "istiod"},
+		{"object selector enabled", objectSelectorWebhook, legacyAndDefaultLabel, objEnabled, "istiod"},
+		{"object selector enabled", objectSelectorWebhook, legacyAndCanaryLabel, objEnabled, "istiod"},
+
+		// object selector enabled, with a revision
+		{"object selector disabled revision", objectSelectorWebhookRevision, empty, objDisable, ""},
+		{"object selector disabled revision", objectSelectorWebhookRevision, defaultRevLabel, objDisable, ""},
+		{"object selector disabled revision", objectSelectorWebhookRevision, canaryRevLabel, objDisable, ""},
+		{"object selector disabled revision", objectSelectorWebhookRevision, legacyLabel, objDisable, ""},
+		{"object selector disabled revision", objectSelectorWebhookRevision, legacyAndDefaultLabel, objDisable, ""},
+		{"object selector enabled revision", objectSelectorWebhookRevision, legacyAndCanaryLabel, objDisable, ""},
+
+		{"object selector enabled revision", objectSelectorWebhookRevision, empty, objEnabled, ""},
+		{"object selector enabled revision", objectSelectorWebhookRevision, defaultRevLabel, objEnabled, ""},
+		{"object selector enabled revision", objectSelectorWebhookRevision, canaryRevLabel, objEnabled, "istiod-canary"},
+		{"object selector enabled revision", objectSelectorWebhookRevision, legacyLabel, objEnabled, ""},
+		{"object selector enabled revision", objectSelectorWebhookRevision, legacyAndDefaultLabel, objEnabled, ""},
+		{"object selector enabled revision", objectSelectorWebhookRevision, legacyAndCanaryLabel, objEnabled, ""},
+
+		// Auto injection
+		{"auto", autoWebhook, empty, empty, "istiod"},
+		{"auto", autoWebhook, canaryRevLabel, empty, ""},
+		{"auto", autoWebhook, legacyLabel, empty, "istiod"},
+		{"auto", autoWebhook, legacyLabelDisabled, empty, ""},
+		// TODO: This is sort of a weird behavior. We should still be able to explicitly select the revision
+		{"auto", autoWebhook, defaultRevLabel, empty, ""},
+		// TODO: These two is oddly different behavior than without auto injection; istio-injection=enabled is ignored
+		{"auto", autoWebhook, legacyAndDefaultLabel, empty, ""},
+		{"auto", autoWebhook, legacyAndCanaryLabel, empty, ""},
+	}
+	for _, tt := range cases {
+		t.Run(fmt.Sprintf("%s: %v/%v", tt.name, tt.namespaceLabel, tt.objectLabel), func(t *testing.T) {
+			found := ""
+			for _, wh := range tt.webhooks {
+				sn := wh.ClientConfig.Service.Name
+				matches := selectorMatches(t, wh.NamespaceSelector, tt.namespaceLabel) && selectorMatches(t, wh.ObjectSelector, tt.objectLabel)
+				if matches && found != "" {
+					t.Fatalf("matched multiple webhooks. Had %v, matched %v", found, sn)
+				}
+				if matches {
+					found = sn
+				}
+			}
+			if found != tt.match {
+				t.Fatalf("expected webhook to go to service %q, found %q", tt.match, found)
+			}
+		})
+	}
+}
+
+func selectorMatches(t *testing.T, selector *metav1.LabelSelector, labels klabels.Set) bool {
+	t.Helper()
+	// From webhook spec: "Default to the empty LabelSelector, which matches everything."
+	if selector == nil {
+		return true
+	}
+	s, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s.Matches(labels)
 }
