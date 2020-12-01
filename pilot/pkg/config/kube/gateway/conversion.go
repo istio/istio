@@ -132,8 +132,6 @@ type IstioResources struct {
 	DestinationRule []config.Config
 }
 
-var _ = k8s.HTTPRoute{}
-
 func convertResources(r *KubernetesResources) IstioResources {
 	result := IstioResources{}
 	gw, routeMap := convertGateway(r)
