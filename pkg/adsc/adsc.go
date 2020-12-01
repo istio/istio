@@ -452,7 +452,7 @@ func (a *ADSC) handleRecv() {
 			m := &v1alpha1.MeshConfig{}
 			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
-				log.Warn("Failed to unmarshal mesh config", err)
+				adscLog.Warn("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
@@ -1114,7 +1114,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	groupVersionKind := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	existingConfigs, err := a.Store.List(groupVersionKind, "")
 	if err != nil {
-		log.Warnf("Error handling received MCP config %v", err)
+		adscLog.Warnf("Error handling received MCP config %v", err)
 		return
 	}
 
@@ -1126,7 +1126,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 			Value:   rsc.Value,
 		}, m)
 		if err != nil {
-			log.Warnf("Error handling received MCP config %v", err)
+			adscLog.Warnf("Error handling received MCP config %v", err)
 			continue
 		}
 		val, err := mcpToPilot(m)
@@ -1141,26 +1141,26 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 		if cfg == nil {
 			_, err = a.Store.Create(*val)
 			if err != nil {
-				log.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error handling received MCP config %v", err)
 				continue
 			}
 		} else {
 			_, err = a.Store.Update(*val)
 			if err != nil {
-				log.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error handling received MCP config %v", err)
 				continue
 			}
 		}
 		if a.LocalCacheDir != "" {
 			strResponse, err := json.MarshalIndent(val, "  ", "  ")
 			if err != nil {
-				log.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error handling received MCP config %v", err)
 				continue
 			}
 			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
 				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
 			if err != nil {
-				log.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error handling received MCP config %v", err)
 			}
 		}
 	}
@@ -1169,7 +1169,6 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	for _, config := range existingConfigs {
 		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
 			a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace)
-			log.Warnf("************* delete resource %v", config.Name)
 		}
 	}
 }
