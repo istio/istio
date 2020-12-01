@@ -151,7 +151,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	if !cfg.ServiceAccount {
 		serviceAccount = "default"
 	}
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cfg.Cluster})
+	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cfg.Cluster.Primary()})
 	if err != nil {
 		return err
 	}
