@@ -21,26 +21,24 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	istioagent "istio.io/istio/pkg/istio-agent"
-	"istio.io/istio/pkg/security"
-
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-
+	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/tests/util"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 )
 
 const (
@@ -500,6 +498,10 @@ func TestAdsClusterUpdate(t *testing.T) {
 func TestAdsPushScoping(t *testing.T) {
 	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
+	features.EnableVirtualServiceDelegate = true
+	defer func() {
+		features.EnableVirtualServiceDelegate = false
+	}()
 
 	const (
 		svcSuffix = ".testPushScoping.com"
@@ -607,7 +609,6 @@ func TestAdsPushScoping(t *testing.T) {
 				Name:             fmt.Sprintf("rootvs%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
-
 				Http: []*networking.HTTPRoute{{
 					Name: "dest-foo",
 					Delegate: &networking.Delegate{
@@ -777,7 +778,7 @@ func TestAdsPushScoping(t *testing.T) {
 			drIndexes: []struct {
 				index int
 				host  string
-			}{{index: 4}},
+			}{{4, fmt.Sprintf("svc%d%s", 4, svcSuffix)}},
 			expectUpdates: []string{"cds"},
 		},
 		{
@@ -854,7 +855,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				hosts []string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+			expectUpdates: []string{"lds", "rds"},
 		},
 		{
 			desc: "Update delegate virtual service should trigger full push",
@@ -863,7 +864,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				hosts []string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
+			expectUpdates: []string{"lds", "rds"},
 		},
 		{
 			desc: "Delete delegate virtual service for scoped service with transitively scoped dest svc",
@@ -872,7 +873,7 @@ func TestAdsPushScoping(t *testing.T) {
 				index int
 				hosts []string
 			}{{index: 4}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
+			expectUpdates: []string{"lds", "rds"},
 		},
 		{
 			desc:          "Remove a scoped service",
@@ -949,15 +950,16 @@ func TestAdsPushScoping(t *testing.T) {
 				for _, vsIndex := range c.vsIndexes {
 					removeVirtualService(vsIndex.index)
 				}
-				if len(c.delegatevsIndexes) > 0 {
-					for _, vsIndex := range c.delegatevsIndexes {
-						removeDelegateVirtualService(vsIndex.index)
-					}
+			}
+			if len(c.delegatevsIndexes) > 0 {
+				for _, vsIndex := range c.delegatevsIndexes {
+					removeDelegateVirtualService(vsIndex.index)
 				}
-				if len(c.drIndexes) > 0 {
-					for _, drIndex := range c.drIndexes {
-						removeDestinationRule(drIndex.index)
-					}
+			}
+
+			if len(c.drIndexes) > 0 {
+				for _, drIndex := range c.drIndexes {
+					removeDestinationRule(drIndex.index)
 				}
 			}
 		default:
@@ -970,14 +972,15 @@ func TestAdsPushScoping(t *testing.T) {
 			timeout = c.timeout
 		}
 		upd, _ := adscConn.Wait(timeout, wantUpdates...) // XXX slow for unexpect ...
+
 		for _, expect := range c.expectUpdates {
 			if !contains(upd, expect) {
-				t.Fatalf("expect %s but not contains (%v) for case %v", expect, upd, c)
+				t.Fatalf("expect %s but not contains (%v) for case %v", expect, upd, c.desc)
 			}
 		}
 		for _, unexpect := range c.unexpectUpdates {
 			if contains(upd, unexpect) {
-				t.Fatalf("unexpect %s but contains (%v) for case %v", unexpect, upd, c)
+				t.Fatalf("unexpect %s but contains (%v) for case %v", unexpect, upd, c.desc)
 			}
 		}
 	}
