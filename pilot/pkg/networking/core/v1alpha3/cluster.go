@@ -298,7 +298,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			// However, we still need to capture all the instances on this port, as its required to populate telemetry metadata
 			// The first instance will be used as the "primary" instance; this means if we have an conflicts between
 			// Services the first one wins
-			ep := int(instance.Endpoint.EndpointPort)
+			ep := instance.ServicePort.Port
+			if util.IsIstioVersionGE181(cb.proxy) {
+				// Istio 1.8.1+ switched to keying on EndpointPort. We need both logics in place to support smooth upgrade from 1.8.0 to 1.8.x
+				ep = int(instance.Endpoint.EndpointPort)
+			}
 			clustersToBuild[ep] = append(clustersToBuild[ep], instance)
 		}
 
