@@ -1,7 +1,0 @@
-spec:
-  containers:
-    - name: c1
-  volumes:
-    - name: v0
-  imagePullSecrets:
-    - name: p0
