@@ -310,7 +310,7 @@ func patchProxyConfigFile(file string, overrides string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(file, []byte(outYAML), 744)
+	return ioutil.WriteFile(file, []byte(outYAML), 0744)
 }
 
 // registerVMs creates a WorkloadEntry for each "vm" pod similar to manual VM registration
