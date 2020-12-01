@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 29125
+releaseNotes:
+  - |
+    **Improved** istio-agent will send proxy metadata specified in the mesh config file to istiod.
