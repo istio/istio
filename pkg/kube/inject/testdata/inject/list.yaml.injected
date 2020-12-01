@@ -17,6 +17,7 @@ items:
     template:
       metadata:
         annotations:
+          kubectl.kubernetes.io/default-logs-container: hello
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
           prometheus.io/scrape: "true"
@@ -240,6 +241,7 @@ items:
     template:
       metadata:
         annotations:
+          kubectl.kubernetes.io/default-logs-container: hello
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
           prometheus.io/scrape: "true"
