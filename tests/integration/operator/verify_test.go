@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
-	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -76,12 +75,6 @@ func cleanupCluster(t *testing.T, cs resource.Cluster, istioCtl istioctl.Instanc
 	cleanupInClusterCRs(t, cs)
 	if err := purgeIstioResources(istioCtl); err != nil {
 		scopes.Framework.Warnf("Failed to purge istio resources: %v", err)
-	}
-	nsList := []string{IstioNamespace, OperatorNamespace}
-	for _, ns := range nsList {
-		if err := cs.CoreV1().Namespaces().Delete(context.TODO(), ns, kube2.DeleteOptionsForeground()); err != nil {
-			scopes.Framework.Warnf("Cannot delete %s: %v", ns, err)
-		}
 	}
 }
 
