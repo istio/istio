@@ -764,7 +764,6 @@ func TestWebhookSelector(t *testing.T) {
 	// nolint: lll
 	autoWebhookObjectSelectorRevision := getWebhooks(t, "--set revision=canary --set values.sidecarInjectorWebhook.enableNamespacesByDefault=true --set values.sidecarInjectorWebhook.objectSelector.enabled=true --set values.sidecarInjectorWebhook.objectSelector.autoInject=false", "istio-sidecar-injector-canary")
 
-	// TODO: we may want to extend to check objectSelector.autoInject, especially its interaction with enableNamespacesByDefault
 	type test struct {
 		namespaceLabel klabels.Set
 		objectLabel    klabels.Set
@@ -951,7 +950,7 @@ func TestWebhookSelector(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			whs := tt.webhooks
 			for _, tt := range tt.checks {
 				t.Run(fmt.Sprintf("%v/%v", tt.namespaceLabel, tt.objectLabel), func(t *testing.T) {
