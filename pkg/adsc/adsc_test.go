@@ -80,6 +80,7 @@ func TestADSC_Run(t *testing.T) {
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg:        &Config{},
+				VersionInfo: map[string]string{},
 			},
 			port: uint32(49133),
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
