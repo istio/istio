@@ -160,7 +160,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(kubeClient, currentVersion)
+	err = checkSupportedVersions(kubeClient, currentVersion, targetVersion, l)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
@@ -261,19 +261,34 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.8")
+var upgradeSupportStart, _ = goversion.NewVersion("1.6.0")
 
-func checkSupportedVersions(kubeClient *Client, currentVersion string) error {
+func checkSupportedVersions(kubeClient *Client, currentVersion, targetVersion string, l clog.Logger) error {
+	if err := verifySupportedVersion(currentVersion, targetVersion, l); err != nil {
+		return err
+	}
+	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
+}
+
+func verifySupportedVersion(currentVersion, targetVersion string, l clog.Logger) error {
 	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
 		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
 	}
-
-	if !SupportedIstioVersions.Check(curGoVersion) {
-		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
+	targetGoVersion, err := goversion.NewVersion(targetVersion)
+	if err != nil {
+		return fmt.Errorf("failed to parse the target version %q: %v", targetVersion, err)
 	}
-
-	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
+	if upgradeSupportStart.Segments()[1] > curGoVersion.Segments()[1] {
+		return fmt.Errorf("upgrade is not supported before version: %v", upgradeSupportStart)
+	}
+	// Warn if user is trying skip one minor verion eg: 1.6.x to 1.8.x
+	if (targetGoVersion.Segments()[1] - curGoVersion.Segments()[1]) > 1 {
+		l.LogAndPrint("!!! WARNING !!!")
+		l.LogAndPrintf("Upgrading across more than one minor version (e.g., %v to %v)"+
+			" in one step is not officially tested or recommended.\n", curGoVersion, targetGoVersion)
+	}
+	return nil
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
