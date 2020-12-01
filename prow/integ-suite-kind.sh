@@ -39,6 +39,7 @@ source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
 NODE_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
+KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
 PARAMS=()
@@ -50,6 +51,11 @@ while (( "$#" )); do
     --node-image)
       NODE_IMAGE=$2
       shift 2
+    ;;
+    # Config for enabling different Kubernetes features in KinD (see prow/config{endpointslice.yaml,trustworthy-jwt.yaml}).
+    --kind-config)
+    KIND_CONFIG=$2
+    shift 2
     ;;
     --skip-setup)
       SKIP_SETUP=true
@@ -136,7 +142,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    trace "setup kind cluster" setup_kind_cluster "istio-testing" "${NODE_IMAGE}"
+    trace "setup kind cluster" setup_kind_cluster "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
   else
     trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
