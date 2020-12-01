@@ -236,11 +236,11 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 			// apply node port mapping
 			// TODO allow this to easily be set with a --setenv flag to workload entry cmd
-			f, err := os.OpenFile(path.Join(subsetDir, "cluster.env"), os.O_APPEND, 0744)
+			f, err := os.OpenFile(path.Join(subsetDir, "cluster.env"), os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 			if err != nil {
 				return err
 			}
-			_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d", istiodAddr.Port)))
+			_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port)))
 			if err != nil {
 				return err
 			}
