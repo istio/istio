@@ -176,7 +176,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-	if req.TypeUrl == v3.HealthInfoType {
+	if req.TypeUrl == v3.HealthInfoType && features.WorkloadEntryHealthChecks {
 		s.processHealthCheck(con.proxy, req)
 		return nil
 	}
@@ -569,9 +569,6 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 
 // processHealthCheck update health status of the workload.
 func (s *DiscoveryServer) processHealthCheck(proxy *model.Proxy, req *discovery.DiscoveryRequest) {
-	if !features.WorkloadEntryHealthChecks {
-		return
-	}
 	event := HealthEvent{}
 	if req.ErrorDetail == nil {
 		event.Healthy = true
