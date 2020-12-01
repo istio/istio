@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
@@ -220,8 +221,11 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			// LoadBalancer may not be suppported and the command doesn't have NodePort fallback logic that the tests do
 			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
 		}
-		_, _, err = istioCtl.Invoke(cmd)
-		if err != nil {
+		// make sure namespace controller has time to create root-cert ConfigMap
+		if err := retry.UntilSuccess(func() error {
+			_, _, err = istioCtl.Invoke(cmd)
+			return err
+		}, retry.Timeout(5*time.Second)); err != nil {
 			return err
 		}
 
