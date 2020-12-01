@@ -54,6 +54,7 @@ const (
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
+	// PATCH: not actually used, included to minimize diffs
 	ManagementClusterHostname = "mgmtCluster"
 )
 
@@ -286,11 +287,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			return nil
 		}
 
-		have := make(map[*model.Port]bool)
+		have := make(map[int]bool)
 		for _, instance := range instances {
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
-			if !have[instance.ServicePort] {
+			if !have[instance.ServicePort.Port] {
 				pluginParams := &plugin.InputParams{
 					Node:            cb.proxy,
 					ServiceInstance: instance,
@@ -300,7 +301,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				}
 				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
 				clusters = append(clusters, localCluster)
-				have[instance.ServicePort] = true
+				have[instance.ServicePort.Port] = true
 			}
 		}
 	} else {

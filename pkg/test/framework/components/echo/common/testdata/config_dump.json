@@ -343,7 +343,7 @@
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
             "@type": "type.googleapis.com/envoy.api.v2.Cluster",
-            "name": "inbound|15020|mgmt-15020|mgmtCluster",
+            "name": "inbound|15020||localhost",
             "type": "STATIC",
             "connect_timeout": "10s",
             "circuit_breakers": {
@@ -352,7 +352,7 @@
               ]
             },
             "load_assignment": {
-              "cluster_name": "inbound|15020|mgmt-15020|mgmtCluster",
+              "cluster_name": "inbound|15020||localhost",
               "endpoints": [
                 {
                   "lb_endpoints": [
@@ -377,7 +377,7 @@
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
             "@type": "type.googleapis.com/envoy.api.v2.Cluster",
-            "name": "inbound|3333|mgmt-3333|mgmtCluster",
+            "name": "inbound|3333||localhost",
             "type": "STATIC",
             "connect_timeout": "10s",
             "circuit_breakers": {
@@ -386,7 +386,7 @@
               ]
             },
             "load_assignment": {
-              "cluster_name": "inbound|3333|mgmt-3333|mgmtCluster",
+              "cluster_name": "inbound|3333||localhost",
               "endpoints": [
                 {
                   "lb_endpoints": [
@@ -519,7 +519,7 @@
           "version_info": "2019-04-14T15:36:44Z/18",
           "cluster": {
             "@type": "type.googleapis.com/envoy.api.v2.Cluster",
-            "name": "inbound|8080|mgmt-8080|mgmtCluster",
+            "name": "inbound|8080||localhost",
             "type": "STATIC",
             "connect_timeout": "10s",
             "circuit_breakers": {
@@ -528,7 +528,7 @@
               ]
             },
             "load_assignment": {
-              "cluster_name": "inbound|8080|mgmt-8080|mgmtCluster",
+              "cluster_name": "inbound|8080||localhost",
               "endpoints": [
                 {
                   "lb_endpoints": [
@@ -8435,8 +8435,8 @@
                           "name": "envoy.file_access_log"
                         }
                       ],
-                      "stat_prefix": "inbound|3333|mgmt-3333|mgmtCluster",
-                      "cluster": "inbound|3333|mgmt-3333|mgmtCluster"
+                      "stat_prefix": "inbound|3333||localhost",
+                      "cluster": "inbound|3333||localhost"
                     }
                   }
                 ]
@@ -8474,8 +8474,8 @@
                           }
                         }
                       ],
-                      "stat_prefix": "inbound|15020|mgmt-15020|mgmtCluster",
-                      "cluster": "inbound|15020|mgmt-15020|mgmtCluster"
+                      "stat_prefix": "inbound|15020||localhost",
+                      "cluster": "inbound|15020||localhost"
                     }
                   }
                 ]

@@ -228,7 +228,7 @@ func TestApplyClusterPatches(t *testing.T) {
 
 	sidecarInboundIn := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
-		{Name: "inbound|9999||mgmtCluster"},
+		{Name: "inbound|9999||localhost"},
 	}
 	sidecarInboundOut := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
