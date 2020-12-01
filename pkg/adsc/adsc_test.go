@@ -74,12 +74,12 @@ func TestADSC_Run(t *testing.T) {
 		{
 			desc: "stream-2-unnamed-resources",
 			inAdsc: &ADSC{
-				url:        "127.0.0.1:49133",
-				Received:   make(map[string]*xdsapi.DiscoveryResponse),
-				Updates:    make(chan string),
-				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
-				RecvWg:     sync.WaitGroup{},
-				cfg:        &Config{},
+				url:         "127.0.0.1:49133",
+				Received:    make(map[string]*xdsapi.DiscoveryResponse),
+				Updates:     make(chan string),
+				XDSUpdates:  make(chan *xdsapi.DiscoveryResponse),
+				RecvWg:      sync.WaitGroup{},
+				cfg:         &Config{},
 				VersionInfo: map[string]string{},
 			},
 			port: uint32(49133),
