@@ -51,9 +51,6 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-// DiscoveryClient is a client interface for XDS.
-type DiscoveryClient = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-
 type FakeOptions struct {
 	// If provided, a service registry with the name of each map key will be created with the given objects.
 	KubernetesObjectsByCluster map[string][]runtime.Object

@@ -50,6 +50,9 @@ var (
 // DiscoveryStream is a server interface for XDS.
 type DiscoveryStream = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 
+// DiscoveryClient is a client interface for XDS.
+type DiscoveryClient = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+
 // Connection holds information about connected client.
 type Connection struct {
 	// PeerAddr is the address of the client, from network layer.
