@@ -125,6 +125,8 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 		for config := range pushEv.configsUpdated {
 			switch config.Kind {
 			case gvk.VirtualService:
+				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			case gvk.Gateway:

@@ -250,11 +250,16 @@ func TestPushTypeFor(t *testing.T) {
 			expect: map[Type]bool{LDS: true, RDS: true},
 		},
 		{
-			name:  "virtualservice and destinationrule updated",
-			proxy: sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.DestinationRule,
-				gvk.VirtualService},
-			expect: map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			name:        "virtualservice updated for sidecar proxy",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{gvk.VirtualService},
+			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+		},
+		{
+			name:        "destinationrule updated for sidecar proxy",
+			proxy:       sidecar,
+			configTypes: []resource.GroupVersionKind{gvk.DestinationRule},
+			expect:      map[Type]bool{CDS: true, EDS: true, RDS: true},
 		},
 		{
 			name:        "requestauthentication updated",
