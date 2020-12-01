@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"os"
 	"path"
 	"strings"
@@ -32,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const (
