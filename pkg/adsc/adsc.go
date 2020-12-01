@@ -1104,7 +1104,7 @@ func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 
 func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	if len(gvk) != 3 {
-		return  // Not MCP
+		return // Not MCP
 	}
 	// Generic - fill up the store
 	if a.Store == nil {
@@ -1168,7 +1168,10 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	// remove deleted resources from cache
 	for _, config := range existingConfigs {
 		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
-			a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace)
+			err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace)
+			if err != nil {
+				adscLog.Warnf("Error handling received MCP config %v", err)
+			}
 		}
 	}
 }
