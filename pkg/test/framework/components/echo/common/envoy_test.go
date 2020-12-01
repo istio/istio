@@ -136,6 +136,10 @@ func (n *fakeNamespace) SetLabel(key, value string) error {
 	panic("not implemented")
 }
 
+func (n *fakeNamespace) RemoveLabel(key string) error {
+	panic("not implemented")
+}
+
 func (*testConfig) Logs() (string, error) {
 	panic("not implemented")
 }
