@@ -101,6 +101,14 @@ spec:
       serviceAccountName: {{ $.Service }}
 {{- end }}
       containers:
+{{- if $.IncludeExtAuthz }}
+      - name: ext-authz
+        image: docker.io/istio/ext-authz:0.5
+        imagePullPolicy: {{ $.PullPolicy }}
+        ports:
+        - containerPort: 8000
+        - containerPort: 9000
+{{- end }}
       - name: app
         image: {{ $.Hub }}/app:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
@@ -482,8 +490,9 @@ func generateYAMLWithSettings(
 			"IstiodPort":   istiodPort,
 			"AutoRegister": cfg.AutoRegisterVM,
 		},
-		"Environment":  cfg.VMEnvironment,
-		"StartupProbe": supportStartupProbe,
+		"Environment":     cfg.VMEnvironment,
+		"StartupProbe":    supportStartupProbe,
+		"IncludeExtAuthz": cfg.IncludeExtAuthz,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
