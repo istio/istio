@@ -469,17 +469,17 @@ func Test_parseIstioVersion(t *testing.T) {
 		{
 			name: "major.minor",
 			args: args{ver: "1.2"},
-			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
+			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 65535},
 		},
 		{
 			name: "dev",
 			args: args{ver: "1.5-alpha.f70faea2aa817eeec0b08f6cc3b5078e5dcf3beb"},
-			want: &model.IstioVersion{Major: 1, Minor: 5, Patch: 0},
+			want: &model.IstioVersion{Major: 1, Minor: 5, Patch: 65535},
 		},
 		{
 			name: "release-major.minor-date",
 			args: args{ver: "release-1.2-123214234"},
-			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
+			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 65535},
 		},
 		{
 			name: "master-date",
