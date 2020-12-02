@@ -522,11 +522,6 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 	}
 
-	rootNamespace := name.RootNamespaceForMeshConfig(iop)
-	if err := tpath.WriteNode(root, util.PathFromString(name.MeshConfigKey+"."+name.RootNamespaceKey), rootNamespace); err != nil {
-		return err
-	}
-
 	return nil
 }
 

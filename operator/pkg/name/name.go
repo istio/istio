@@ -89,11 +89,6 @@ const (
 	InstalledSpecCRPrefix = "installed-state"
 )
 
-const (
-	MeshConfigKey    = "meshConfig"
-	RootNamespaceKey = "rootNamespace"
-)
-
 // ComponentName is a component name string, typed to constrain allowed values.
 type ComponentName string
 
@@ -236,28 +231,6 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 		return defaultNamespace, nil
 	}
 	return componentNamespace, nil
-}
-
-// RootNamespaceForMeshConfig returns the namespace for the meshConfig. It follows these rules:
-// 1. If rootNamespace for MeshConfig is set, return iopSpec.MeshConfig.rootNamespace
-// 2. If Values.MeshConfig.rootNamespace is set, return Values.MeshConfig.rootNamespace
-// 3. If return the default namespace from the iop instance
-func RootNamespaceForMeshConfig(controlPlaneSpec *v1alpha1.IstioOperatorSpec) string {
-	defaultNamespace := iop.Namespace(controlPlaneSpec)
-	if controlPlaneSpec.MeshConfig != nil && controlPlaneSpec.MeshConfig[RootNamespaceKey] != nil {
-		nsv := controlPlaneSpec.MeshConfig[RootNamespaceKey]
-		if nsv != nil {
-			return nsv.(string)
-		}
-	}
-	if controlPlaneSpec.Values != nil && controlPlaneSpec.Values[MeshConfigKey] != nil {
-		meshConfigValues := controlPlaneSpec.Values[MeshConfigKey].(map[string]interface{})
-		nsv := meshConfigValues[RootNamespaceKey]
-		if nsv != nil {
-			return nsv.(string)
-		}
-	}
-	return defaultNamespace
 }
 
 // TitleCase returns a capitalized version of n.
