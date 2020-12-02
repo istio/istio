@@ -495,10 +495,6 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy, node)
-		tcpProxyFilter := &listener.Filter{
-			Name:       wellknown.TCPProxy,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
-		}
 
 		in := &plugin.InputParams{
 			Node:             node,
@@ -533,6 +529,10 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 		// Construct the actual filter chains for each of the filter chain from the plugin.
 		for _, chain := range allChains {
+			tcpProxyFilter := &listener.Filter{
+				Name:       wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+			}
 			filterChain := &listener.FilterChain{
 				FilterChainMatch: chain.FilterChainMatch,
 				Filters:          append(chain.TCP, tcpProxyFilter),
