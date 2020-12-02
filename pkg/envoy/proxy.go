@@ -186,7 +186,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 
 	/* #nosec */
 	cmd := exec.Command(e.Config.BinaryPath, args...)
-
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {

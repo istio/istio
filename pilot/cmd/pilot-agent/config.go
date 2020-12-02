@@ -94,7 +94,7 @@ func getMeshConfig(fileOverride, annotationOverride string) (meshconfig.MeshConf
 		mc = *fileMesh
 	}
 
-	if proxyConfigEnv != "" {
+	if proxyConfigEnv := proxyConfigEnv.Get(); proxyConfigEnv != "" {
 		log.Infof("Apply proxy config from env %v", proxyConfigEnv)
 		envMesh, err := mesh.ApplyProxyConfig(proxyConfigEnv, mc)
 		if err != nil || envMesh == nil {

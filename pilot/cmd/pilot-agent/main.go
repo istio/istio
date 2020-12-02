@@ -86,63 +86,62 @@ var (
 	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
-		"The provider of Pilot DNS certificate.").Get()
+		"The provider of Pilot DNS certificate.")
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
 	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
 	// with extra SAN (labels, etc) in data path.
 	provCert = env.RegisterStringVar("PROV_CERT", "",
-		"Set to a directory containing provisioned certs, for VMs").Get()
+		"Set to a directory containing provisioned certs, for VMs")
 
 	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed XDS servers.
 	xdsRootCA = env.RegisterStringVar("XDS_ROOT_CA", "",
-		"Explicitly set the root CA to expect for the XDS connection.").Get()
+		"Explicitly set the root CA to expect for the XDS connection.")
 
 	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed CA servers.
 	caRootCA = env.RegisterStringVar("CA_ROOT_CA", "",
-		"Explicitly set the root CA to expect for the CA connection.").Get()
+		"Explicitly set the root CA to expect for the CA connection.")
 
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
-			"Must be set for VMs using provisioning certificates.").Get()
+			"Must be set for VMs using provisioning certificates.")
 	proxyConfigEnv = env.RegisterStringVar(
 		"PROXY_CONFIG",
 		"",
 		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
-	).Get()
+	)
 
-	caProviderEnv = env.RegisterStringVar("CA_PROVIDER", "Citadel", "name of authentication provider").Get()
-	// TODO: default to same as discovery address
-	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffee certificate provider. Defaults to discoveryAddress").Get()
+	caProviderEnv = env.RegisterStringVar("CA_PROVIDER", "Citadel", "name of authentication provider")
+	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffee certificate provider. Defaults to discoveryAddress")
 
 	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "cluster.local",
-		"The trust domain for spiffe certificates").Get()
+		"The trust domain for spiffe certificates")
 
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
-		"The cert lifetime requested by istio agent").Get()
+		"The cert lifetime requested by istio agent")
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
-		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+		"The grace period ratio for the cert rotation, by default 0.5.")
 	secretRotationIntervalEnv = env.RegisterDurationVar("SECRET_ROTATION_CHECK_INTERVAL", 5*time.Minute,
-		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
+		"The ticker to detect and rotate the certificates, by default 5 minutes")
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar("STALED_CONNECTION_RECYCLE_RUN_INTERVAL", 5*time.Minute,
-		"The ticker to detect and close stale connections").Get()
-	initialBackoffInMilliSecEnv = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", 0, "").Get()
+		"The ticker to detect and close stale connections")
+	initialBackoffInMilliSecEnv = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", 0, "")
 	pkcs8KeysEnv                = env.RegisterBoolVar("PKCS8_KEY", false,
-		"Whether to generate PKCS#8 private keys").Get()
-	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
-	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
-	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
+		"Whether to generate PKCS#8 private keys")
+	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys")
+	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "")
+	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token")
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
-		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
+		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine")
 	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
-		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
+		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine")
 	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", true,
 		"If set to true, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
-			"will be removed once the feature is stabilized.").Get()
+			"will be removed once the feature is stabilized.")
 	// This is a copy of the env var in the init code.
 	dnsCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
-		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
+		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -165,6 +164,23 @@ var (
 		PersistentPreRunE: configureLogging,
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
+
+			// must read proxy config first, we set environment vars here that are used elsewhere
+			proxyConfig, err := constructProxyConfig()
+			if err != nil {
+				return fmt.Errorf("failed to get proxy config: %v", err)
+			}
+			for k, v := range proxyConfig.ProxyMetadata {
+				if err := os.Setenv(k, v); err != nil {
+					log.Errorf("failed setting env from proxyMetadata: %v", err)
+					return err
+				}
+			}
+			if out, err := gogoprotomarshal.ToYAML(&proxyConfig); err != nil {
+				log.Infof("Failed to serialize to YAML: %v", err)
+			} else {
+				log.Infof("Effective config: %s", out)
+			}
 
 			// Extract pod variables.
 			podName := podNameVar.Get()
@@ -212,19 +228,6 @@ var (
 			// operational parameters correctly.
 			proxyIPv6 := isIPv6Proxy(role.IPAddresses)
 
-			// proxyConfig.proxyMetadata values will NOT be used for feature flags, only as metadata sent to pilot.
-			// meta values that double as agent feature flags best be set in env (only current example is ISTIO_META_DNS_CAPTURE)
-			// metadata set as env variables must be
-			proxyConfig, err := constructProxyConfig()
-			if err != nil {
-				return fmt.Errorf("failed to get proxy config: %v", err)
-			}
-			if out, err := gogoprotomarshal.ToYAML(&proxyConfig); err != nil {
-				log.Infof("Failed to serialize to YAML: %v", err)
-			} else {
-				log.Infof("Effective config: %s", out)
-			}
-
 			// If not set, set a default based on platform - podNamespace.svc.cluster.local for
 			// K8S
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
@@ -241,67 +244,59 @@ var (
 				log.Info("Using existing certs")
 			}
 
-			// env vars take precedence over proxyConfig.proxyMetadata
-			clusterID := ""
-			if cid, ok := clusterIDVar.Lookup(); ok {
-				clusterID = cid
-			} else if cid, ok := proxyConfig.ProxyMetadata["CLUSTER_ID"]; ok {
-				clusterID = cid
-			}
-
 			secOpts := &security.Options{
-				PilotCertProvider:  pilotCertProvider,
-				OutputKeyCertToDir: outputKeyCertToDir,
-				ProvCert:           provCert,
+				PilotCertProvider:  pilotCertProvider.Get(),
+				OutputKeyCertToDir: outputKeyCertToDir.Get(),
+				ProvCert:           provCert.Get(),
 				JWTPath:            jwtPath,
-				ClusterID:          clusterID,
-				FileMountedCerts:   fileMountedCertsEnv,
-				CAEndpoint:         caEndpointEnv,
-				UseTokenForCSR:     useTokenForCSREnv,
+				ClusterID:          clusterIDVar.Get(),
+				FileMountedCerts:   fileMountedCertsEnv.Get(),
+				CAEndpoint:         caEndpointEnv.Get(),
+				UseTokenForCSR:     useTokenForCSREnv.Get(),
 				CredFetcher:        nil,
 				WorkloadNamespace:  podNamespace,
 				ServiceAccount:     serviceAccountVar.Get(),
 			}
 			// If not set explicitly, default to the discovery address.
-			if caEndpointEnv == "" {
+			if caEndpointEnv.Get() == "" {
 				secOpts.CAEndpoint = proxyConfig.DiscoveryAddress
 			}
 
 			secOpts.EnableWorkloadSDS = true
-			secOpts.CAProviderName = caProviderEnv
+			secOpts.CAProviderName = caProviderEnv.Get()
 
-			secOpts.TrustDomain = trustDomainEnv
-			secOpts.Pkcs8Keys = pkcs8KeysEnv
-			secOpts.ECCSigAlg = eccSigAlgEnv
-			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
-			secOpts.SecretTTL = secretTTLEnv
-			secOpts.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
-			secOpts.RotationInterval = secretRotationIntervalEnv
-			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
+			secOpts.TrustDomain = trustDomainEnv.Get()
+			secOpts.Pkcs8Keys = pkcs8KeysEnv.Get()
+			secOpts.ECCSigAlg = eccSigAlgEnv.Get()
+			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv.Get()
+			secOpts.SecretTTL = secretTTLEnv.Get()
+			secOpts.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv.Get()
+			secOpts.RotationInterval = secretRotationIntervalEnv.Get()
+			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv.Get())
 			// Disable the secret eviction for istio agent.
 			secOpts.EvictionDuration = 0
 
 			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
 			// GCE is the only supported plugin at the moment.
-			if credFetcherTypeEnv == security.GCE {
-				secOpts.CredIdentityProvider = credIdentityProvider
-				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath, secOpts.CredIdentityProvider)
+			if credFetcherTypeEnv.Get() == security.GCE {
+				secOpts.CredIdentityProvider = credIdentityProvider.Get()
+				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv.Get(), secOpts.TrustDomain, jwtPath, secOpts.CredIdentityProvider)
 				if err != nil {
 					return fmt.Errorf("failed to create credential fetcher: %v", err)
 				}
-				log.Infof("Start credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, secOpts.TrustDomain)
+				log.Infof("Start credential fetcher of %s type in %s trust domain", credFetcherTypeEnv.Get(), secOpts.TrustDomain)
 				secOpts.CredFetcher = credFetcher
 			}
 
 			agentConfig := &istio_agent.AgentConfig{
-				XDSRootCerts: xdsRootCA,
-				CARootCerts:  caRootCA,
+				XDSRootCerts: xdsRootCA.Get(),
+				CARootCerts:  caRootCA.Get(),
 				XDSHeaders:   map[string]string{},
 			}
 			extractXDSHeadersFromEnv(agentConfig)
-			if proxyXDSViaAgent {
+			if proxyXDSViaAgent.Get() {
 				agentConfig.ProxyXDSViaAgent = true
-				agentConfig.DNSCapture = dnsCaptureByAgent
+				agentConfig.DNSCapture = dnsCaptureByAgent.Get()
 				agentConfig.ProxyNamespace = podNamespace
 				agentConfig.ProxyDomain = role.DNSDomain
 			}
@@ -365,7 +360,7 @@ var (
 				NodeIPs:             role.IPAddresses,
 				STSPort:             stsPort,
 				OutlierLogPath:      outlierLogPath,
-				PilotCertProvider:   pilotCertProvider,
+				PilotCertProvider:   pilotCertProvider.Get(),
 				ProvCert:            sa.FindRootCAForXDS(),
 				Sidecar:             role.Type == model.SidecarProxy,
 				ProxyViaAgent:       agentConfig.ProxyXDSViaAgent,
