@@ -214,6 +214,9 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			"-f", path.Join(dir, "workloadgroup.yaml"),
 			"-o", subsetDir,
 		}
+		if ctx.Clusters().IsMulticluster() {
+			cmd = append(cmd, "--clusterID", c.cluster.Name())
+		}
 		if cfg.AutoRegisterVM {
 			cmd = append(cmd, "--autoregister")
 		}
