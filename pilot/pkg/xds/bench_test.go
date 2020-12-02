@@ -302,6 +302,8 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	configs := getConfigsWithCache(t, config)
 	s := NewFakeDiscoveryServer(t, FakeOptions{
 		Configs: configs,
+		// Allow debounce to avoid overwhelming with writes
+		DebounceTime: time.Millisecond * 10,
 	})
 
 	return s, proxy
