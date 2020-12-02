@@ -40,7 +40,14 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/tests/util/leak"
 )
+
+func TestMain(m *testing.M) {
+	// TODO(https://github.com/istio/istio/issues/29349) make this not global
+	GetJwtKeyResolver().Close()
+	leak.CheckMain(m)
+}
 
 func TestMergeUpdateRequest(t *testing.T) {
 	push0 := &PushContext{}

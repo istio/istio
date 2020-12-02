@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/tests/util"
+	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
 
@@ -75,6 +76,7 @@ func (sc *clientSecrets) DeleteSecret(connectionID, resourceName string) {
 // TestAgent will start istiod with TLS enabled, use the istio-agent to connect, and then
 // use the ADSC to connect to the agent proxy.
 func TestAgent(t *testing.T) {
+	// TODO: fix leak and add leak.Check(t)
 	// Start Istiod
 	bs, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
@@ -143,11 +145,9 @@ func TestAgent(t *testing.T) {
 			t.Fatalf("Got no resources")
 		}
 	})
-
 	t.Run("adscTLSDirect", func(t *testing.T) {
 		testAdscTLS(t, creds)
 	})
-
 }
 
 // testAdscTLS tests that ADSC helper can connect using TLS to Istiod
@@ -171,6 +171,7 @@ func testAdscTLS(t *testing.T, creds security.SecretManager) {
 }
 
 func TestInternalEvents(t *testing.T) {
+	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	ads := s.Connect(
@@ -241,6 +242,7 @@ func TestAdsUnsubscribe(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
+	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	ads.RequestResponseAck(nil)
@@ -288,6 +290,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 // nolint: lll
 func TestAdsPushScoping(t *testing.T) {
+	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	const (
