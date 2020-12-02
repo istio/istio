@@ -254,6 +254,9 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			return err
 		}
 		for k, v := range mc.DefaultConfig.ProxyMetadata {
+			if _, ok := c.cfg.VMEnvironment[k]; ok {
+				continue
+			}
 			_, err = f.Write([]byte(fmt.Sprintf("%s=%s\n", k, v)))
 			if err != nil {
 				return err
