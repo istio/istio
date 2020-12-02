@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 )
@@ -53,6 +54,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.RegexAnalyzer{},
 		&virtualservice.MatchesAnalyzer{},
 		&destinationrule.CaCertificateAnalyzer{},
+		&serviceentry.ProtocolAdressesAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

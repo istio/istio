@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -429,6 +430,18 @@ var testGrid = []testCase{
 			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-02.default"},
 			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-03.default"},
 			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-03-test-04.default"},
+		},
+	},
+	{
+		name: "missing Addresses and Protocol in Service Entry",
+		inputFiles: []string{
+			"testdata/serviceentry-missing-addresses-protocol.yaml",
+		},
+		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-03.default"},
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-04.default"},
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-07.default"},
 		},
 	},
 }
