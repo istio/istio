@@ -2557,7 +2557,7 @@
         "definition": "",
         "hide": 0,
         "includeAll": false,
-        "label": "General and Inbound Panels Query Reporter",
+        "label": "Reporter",
         "multi": true,
         "name": "qrep",
         "options": [],
