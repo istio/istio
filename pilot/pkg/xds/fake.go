@@ -98,6 +98,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz}, "pilot-123")
+	// Disable debounce to reduce test times
+	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.Start(stop)
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
@@ -161,8 +163,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
-	// Disable debounce to reduce test times
-	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry
 	s.MemRegistry.EDSUpdater = s
 	s.updateMutex.Unlock()
