@@ -1114,7 +1114,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	groupVersionKind := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	existingConfigs, err := a.Store.List(groupVersionKind, "")
 	if err != nil {
-		adscLog.Warnf("Error handling received MCP config %v", err)
+		adscLog.Warnf("Error listing existing configs %v", err)
 		return
 	}
 
@@ -1126,7 +1126,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 			Value:   rsc.Value,
 		}, m)
 		if err != nil {
-			adscLog.Warnf("Error handling received MCP config %v", err)
+			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue
 		}
 		val, err := mcpToPilot(m)
@@ -1141,26 +1141,26 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 		if cfg == nil {
 			_, err = a.Store.Create(*val)
 			if err != nil {
-				adscLog.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error adding a new resource to the store %v", err)
 				continue
 			}
 		} else {
 			_, err = a.Store.Update(*val)
 			if err != nil {
-				adscLog.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error updating an existing resource in the store %v", err)
 				continue
 			}
 		}
 		if a.LocalCacheDir != "" {
 			strResponse, err := json.MarshalIndent(val, "  ", "  ")
 			if err != nil {
-				adscLog.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error marshaling received MCP config %v", err)
 				continue
 			}
 			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
 				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
 			if err != nil {
-				adscLog.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error writing received MCP config to local file %v", err)
 			}
 		}
 	}
@@ -1170,7 +1170,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
 			err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace)
 			if err != nil {
-				adscLog.Warnf("Error handling received MCP config %v", err)
+				adscLog.Warnf("Error deleting an outdated resource from the store %v", err)
 			}
 		}
 	}
