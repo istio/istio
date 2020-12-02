@@ -344,8 +344,8 @@ func TestADSC_handleMCP(t *testing.T) {
 				constructResource("foo2", "foo2.bar.com", "192.1.1.2"),
 			},
 			expectedResources: [][]string{
-				[]string{"foo1", "foo1.bar.com", "192.1.1.1"},
-				[]string{"foo2", "foo2.bar.com", "192.1.1.2"},
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo2", "foo2.bar.com", "192.1.1.2"},
 			},
 		},
 		{
@@ -356,9 +356,9 @@ func TestADSC_handleMCP(t *testing.T) {
 				constructResource("foo3", "foo2.bar.com", "192.1.1.3"),
 			},
 			expectedResources: [][]string{
-				[]string{"foo1", "foo1.bar.com", "192.1.1.1"},
-				[]string{"foo2", "foo2.bar.com", "192.2.2.2"},
-				[]string{"foo3", "foo2.bar.com", "192.1.1.3"},
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo2", "foo2.bar.com", "192.2.2.2"},
+				{"foo3", "foo2.bar.com", "192.1.1.3"},
 			},
 		},
 		{
@@ -367,7 +367,7 @@ func TestADSC_handleMCP(t *testing.T) {
 				constructResource("foo4", "foo4.bar.com", "192.1.1.4"),
 			},
 			expectedResources: [][]string{
-				[]string{"foo4", "foo4.bar.com", "192.1.1.4"},
+				{"foo4", "foo4.bar.com", "192.1.1.4"},
 			},
 		},
 	}
