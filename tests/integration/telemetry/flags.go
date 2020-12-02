@@ -16,30 +16,18 @@
 package telemetry
 
 import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
+	"flag"
+	"time"
 )
 
 var (
-	i    istio.Instance
-	ingr []ingress.Instance
+	// Default retry delay used in tests.
+	RetryDelayInSeconds time.Duration
+	// Default retry timeout used in tests.
+	RetryTimeoutInSeconds time.Duration
 )
 
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(&i, nil)).
-		Setup(func(ctx resource.Context) (err error) {
-			for _, cl := range ctx.Clusters() {
-				ingr = append(ingr, i.IngressFor(cl))
-			}
-			return nil
-		}).
-		Run()
+func init() {
+	flag.DurationVar(&RetryDelayInSeconds, "istio.test.telemetry.retryDelay", time.Second*3, "Default retry delay used in tests")
+	flag.DurationVar(&RetryTimeoutInSeconds, "istio.test.telemetry.retryTimeout", time.Second*80, "Default retry timeout used in tests")
 }
