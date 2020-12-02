@@ -106,6 +106,9 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 			if uiArgs.revision == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision, --filename or --purge flags must be set")
 			}
+			if uiArgs.purge && (uiArgs.revision != "" || uiArgs.filename != "") {
+				return fmt.Errorf("cannot uninstall with the purge option while specifying a revision or operator file")
+			}
 			if len(args) > 0 {
 				return fmt.Errorf("istioctl uninstall does not take arguments")
 			}
