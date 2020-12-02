@@ -103,7 +103,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 	// wait for a ready pod
 	if err := retry.UntilSuccess(func() error {
 		pods, err := cluster.CoreV1().Pods(i.settings.SystemNamespace).List(context.TODO(), v1.ListOptions{
-			LabelSelector: "istio=" + EastWestIngressIstioLabel,
+			LabelSelector: "istio=" + eastWestIngressIstioLabel,
 		})
 		if err != nil {
 			return err
@@ -113,9 +113,9 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 				return nil
 			}
 		}
-		return fmt.Errorf("no ready pods for istio=" + EastWestIngressIstioLabel)
+		return fmt.Errorf("no ready pods for istio=" + eastWestIngressIstioLabel)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
-		return fmt.Errorf("failed waiting for %s to become ready: %v", EastWestIngressServiceName, err)
+		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
 	}
 
 	return nil
