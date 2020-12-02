@@ -1136,7 +1136,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 		}
 		received[val.Namespace+"/"+val.Name] = val
 
-		val.GroupVersionKind = config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+		val.GroupVersionKind = groupVersionKind
 		cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 		if cfg == nil {
 			_, err = a.Store.Create(*val)

@@ -16,6 +16,13 @@ package adsc
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net"
+	"os"
+	"sync"
+	"testing"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -26,17 +33,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
-	"io/ioutil"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
-	"log"
-	"net"
-	"os"
-	"sync"
-	"testing"
 )
 
 type testAdscRunServer struct{}
@@ -413,7 +414,7 @@ func constructResource(name string, host string, address string) *any.Any {
 	}
 	resAny, _ := types.MarshalAny(resource)
 	return &any.Any{
-		TypeUrl: "xxx/istio.mcp.v1alpha1.Resource",
+		TypeUrl: resAny.TypeUrl,
 		Value:   resAny.Value,
 	}
 }
