@@ -176,8 +176,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-	if req.TypeUrl == v3.HealthInfoType && features.WorkloadEntryHealthChecks {
-		s.processHealthCheck(con.proxy, req)
+	if !s.preProcessRequest(con.proxy, req) {
 		return nil
 	}
 
@@ -567,16 +566,22 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 	proxy.SetGatewaysForProxy(push)
 }
 
-// processHealthCheck update health status of the workload.
-func (s *DiscoveryServer) processHealthCheck(proxy *model.Proxy, req *discovery.DiscoveryRequest) {
-	event := HealthEvent{}
-	if req.ErrorDetail == nil {
-		event.Healthy = true
-	} else {
-		event.Healthy = false
-		event.Message = req.ErrorDetail.Message
+// pre-process request. returns whether or not to continue.
+func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) bool {
+	if req.TypeUrl == v3.HealthInfoType {
+		if features.WorkloadEntryHealthChecks {
+			event := HealthEvent{}
+			if req.ErrorDetail == nil {
+				event.Healthy = true
+			} else {
+				event.Healthy = false
+				event.Message = req.ErrorDetail.Message
+			}
+			s.InternalGen.UpdateWorkloadEntryHealth(proxy, event)
+		}
+		return false
 	}
-	s.InternalGen.UpdateWorkloadEntryHealth(proxy, event)
+	return true
 }
 
 // DeltaAggregatedResources is not implemented.
