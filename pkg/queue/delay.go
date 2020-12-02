@@ -122,11 +122,11 @@ var workerChanBuf = func() int {
 		return 0
 	}
 
-	// Make channel non-blocking and set up the its capacity with GOMAXPROCS if GOMAXPROCS>1,
+	// Make channel non-blocking and set up its capacity with GOMAXPROCS if GOMAXPROCS>1,
 	// otherwise the sender might be dragged down if the receiver is CPU-bound.
 	//
 	// GOMAXPROCS determines how many goroutines can run in parallel,
-	// which make it the best choice as the channel capacity,
+	// which makes it the best choice as the channel capacity,
 	return n
 }()
 
