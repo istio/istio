@@ -98,6 +98,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz}, "pilot-123")
+	s.Start(stop)
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -223,7 +224,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.ServiceEntryRegistry.XdsUpdater = s
 	// Start the discovery server
 	s.CachesSynced()
-	s.Start(stop)
 	cg.ServiceEntryRegistry.ResyncEDS()
 
 	// Now that handlers are added, get everything started
