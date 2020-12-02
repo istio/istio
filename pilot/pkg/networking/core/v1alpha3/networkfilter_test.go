@@ -62,7 +62,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 		{
 			"no pattern",
 			"",
-			"inbound|9999||",
+			"inbound|8888||",
 		},
 		{
 			"service only pattern",
@@ -96,7 +96,9 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 					Port: 9999,
 					Name: "http",
 				},
-				Endpoint: &model.IstioEndpoint{},
+				Endpoint: &model.IstioEndpoint{
+					EndpointPort: 8888,
+				},
 			}
 
 			listeners := buildInboundNetworkFilters(env.PushContext, instance, &model.Proxy{})
