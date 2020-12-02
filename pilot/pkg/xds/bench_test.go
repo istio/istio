@@ -29,6 +29,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -38,8 +41,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // ConfigInput defines inputs passed to the test config templates
@@ -302,6 +303,8 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	configs := getConfigsWithCache(t, config)
 	s := NewFakeDiscoveryServer(t, FakeOptions{
 		Configs: configs,
+		// Allow debounce to avoid overwhelming with writes
+		DebounceTime: time.Millisecond * 10,
 	})
 
 	return s, proxy
