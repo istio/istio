@@ -543,7 +543,7 @@ spec:
     targetPort: %d
   selector:
     app: b`, FindPortByName("http").ServicePort, WorkloadPorts[0].Port)
-		case2 := TrafficTestCase{
+		cases = append(cases, TrafficTestCase{
 			name:   "case 2 service port match",
 			config: svc,
 			call:   c.CallWithRetryOrFail,
@@ -554,9 +554,7 @@ spec:
 				Timeout:   time.Millisecond * 100,
 				Validator: echo.ExpectOK(),
 			},
-		}
-		// TODO(https://github.com/istio/istio/issues/29199) enable this test
-		_ = case2
+		})
 
 		// Case 3
 		// We match the target port, but front with a different service port
