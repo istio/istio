@@ -144,7 +144,7 @@ func TestStandardizeWeight(t *testing.T) {
 		input  []int
 		output []int
 	}{
-		{"single", []int{1}, []int{100}},
+		{"single", []int{1}, []int{0}},
 		{"double", []int{1, 1}, []int{50, 50}},
 		{"zero", []int{1, 0}, []int{100, 0}},
 		{"all zero", []int{0, 0}, []int{50, 50}},
@@ -160,7 +160,7 @@ func TestStandardizeWeight(t *testing.T) {
 			if !reflect.DeepEqual(tt.output, got) {
 				t.Errorf("standardizeWeights() = %v, want %v", got, tt.output)
 			}
-			if intSum(tt.output) != 100 {
+			if len(tt.output) > 1 && intSum(tt.output) != 100 {
 				t.Errorf("invalid weights, should sum to 100: %v", got)
 			}
 		})
