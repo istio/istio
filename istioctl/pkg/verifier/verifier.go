@@ -144,7 +144,7 @@ func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOpera
 		return 0, 0, errs.ToError()
 	}
 
-	builder := resource.NewBuilder(v.k8sConfig()).Unstructured()
+	builder := resource.NewBuilder(v.k8sConfig()).ContinueOnError().Unstructured()
 	for cat, manifest := range manifests {
 		for i, manitem := range manifest {
 			reader := strings.NewReader(manitem)
@@ -202,10 +202,13 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				Do(context.TODO()).
 				Into(deployment)
 			if err != nil {
+				v.reportFailure(kind, name, namespace, err)
 				return err
 			}
 			if err = verifyDeploymentStatus(deployment); err != nil {
-				return istioVerificationFailureError(filename, err)
+				ivf := istioVerificationFailureError(filename, err)
+				v.reportFailure(kind, name, namespace, ivf)
+				return ivf
 			}
 			if namespace == v.istioNamespace && strings.HasPrefix(name, "istio") {
 				istioDeploymentCount++
@@ -221,10 +224,13 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				Do(context.TODO()).
 				Into(job)
 			if err != nil {
+				v.reportFailure(kind, name, namespace, err)
 				return err
 			}
 			if err := verifyJobPostInstall(job); err != nil {
-				return istioVerificationFailureError(filename, err)
+				ivf := istioVerificationFailureError(filename, err)
+				v.reportFailure(kind, name, namespace, ivf)
+				return ivf
 			}
 		case "IstioOperator":
 			// It is not a problem if the cluster does not include the IstioOperator
@@ -238,6 +244,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			by := util.ToYAML(un)
 			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
+				v.reportFailure(kind, name, namespace, err)
 				return err
 			}
 			if v.manifestsPath != "" {
@@ -263,6 +270,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 					Name(name).
 					Do(context.TODO())
 				if result.Error() != nil {
+					v.reportFailure(kind, name, namespace, result.Error())
 					return istioVerificationFailureError(filename,
 						fmt.Errorf("the required %s:%s is not ready due to: %v",
 							kind, name, result.Error()))
@@ -346,9 +354,13 @@ func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 }
 
 func istioVerificationFailureError(filename string, reason error) error {
-	return fmt.Errorf("istio installation failed, incomplete or does not match \"%s\": %v", filename, reason)
+	return fmt.Errorf("Istio installation failed, incomplete or does not match \"%s\": %v", filename, reason) // nolint
 }
 
 func (v *StatusVerifier) k8sConfig() *genericclioptions.ConfigFlags {
 	return &genericclioptions.ConfigFlags{KubeConfig: &v.kubeconfig, Context: &v.context}
+}
+
+func (v *StatusVerifier) reportFailure(kind, name, namespace string, err error) {
+	v.logger.LogAndPrintf("✘ %s: %s.%s: %v", kind, name, namespace, err)
 }
