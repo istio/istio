@@ -850,7 +850,8 @@ func ParseIstioVersion(ver string) *IstioVersion {
 	// we are guaranteed to have atleast major and minor based on the regex
 	major, _ := strconv.Atoi(parts[0])
 	minor, _ := strconv.Atoi(parts[1])
-	patch := 0
+	// Assume very large patch release if not set
+	patch := 65535
 	if len(parts) > 2 {
 		patch, _ = strconv.Atoi(parts[2])
 	}
