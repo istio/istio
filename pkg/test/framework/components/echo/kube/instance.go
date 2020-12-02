@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -229,6 +229,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			return err
 		}
 
+		// support proxyConfig customizations on VMs via annotation in the echo API.
 		for k, v := range subset.Annotations {
 			if k.Name == "proxy.istio.io/config" {
 				if err := patchProxyConfigFile(path.Join(subsetDir, "mesh.yaml"), v.Value); err != nil {
@@ -237,20 +238,34 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			}
 		}
 
-		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-			// apply node port mapping
-			// TODO allow this to easily be set with a --setenv flag to workload entry cmd
-			f, err := os.OpenFile(path.Join(subsetDir, "cluster.env"), os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+		// customize cluster.env
+		f, err := os.OpenFile(path.Join(subsetDir, "cluster.env"), os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+		if err != nil {
+			return err
+		}
+
+		// TODO this is a hack – we can remove it when https://github.com/istio/istio/issues/29125 is fixed
+		// copy proxy config into cluster.env; may eventually move into istioctl (where proxy config is on the WorkloadGroup)
+		mc, err := readMeshConfig(path.Join(subsetDir, "mesh.yaml"))
+		if err != nil {
+			return err
+		}
+		for k, v := range mc.DefaultConfig.ProxyMetadata {
+			_, err = f.Write([]byte(fmt.Sprintf("%s=%s\n", k, v)))
 			if err != nil {
 				return err
 			}
+		}
+		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
+			// apply node port mapping
 			_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port)))
 			if err != nil {
 				return err
 			}
-			if err = f.Close(); err != nil {
-				return err
-			}
+		}
+
+		if err = f.Close(); err != nil {
+			return err
 		}
 
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
@@ -297,17 +312,13 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 }
 
 func patchProxyConfigFile(file string, overrides string) error {
-	baseYAML, err := ioutil.ReadFile(file)
+	config, err := readMeshConfig(file)
 	if err != nil {
-		return err
-	}
-	config := &v1alpha1.ProxyConfig{}
-	if err := gogoprotomarshal.ApplyYAML(string(baseYAML), config); err != nil {
 		return err
 	}
 	overrideYAML := "defaultConfig:\n"
 	overrideYAML += istio.Indent(overrides, "  ")
-	if err := gogoprotomarshal.ApplyYAML(overrideYAML, config); err != nil {
+	if err := gogoprotomarshal.ApplyYAML(overrideYAML, config.DefaultConfig); err != nil {
 		return err
 	}
 	outYAML, err := gogoprotomarshal.ToYAML(config)
@@ -315,6 +326,18 @@ func patchProxyConfigFile(file string, overrides string) error {
 		return err
 	}
 	return ioutil.WriteFile(file, []byte(outYAML), 0744)
+}
+
+func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
+	baseYAML, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	config := &meshconfig.MeshConfig{}
+	if err := gogoprotomarshal.ApplyYAML(string(baseYAML), config); err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 // registerVMs creates a WorkloadEntry for each "vm" pod similar to manual VM registration
