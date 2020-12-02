@@ -129,13 +129,9 @@ var (
 	// Description: The resource has a schema validation warning.
 	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
 
-	// ServiceEntryMissingAddressesAndProtocol defines a diag.MessageType for message "ServiceEntryMissingAddressesAndProtocol".
-	// Description: missing Addresses and Protocol in ServiceEntry, which can lead to undefined behavior.
-	ServiceEntryMissingAddressesAndProtocol = diag.NewMessageType(diag.Warning, "IST0134", "missing Addresses and Protocol, which can lead to undefined behavior.")
-
-	// ServiceEntryMissingAddressesAndProtocolTCP defines a diag.MessageType for message "ServiceEntryMissingAddressesAndProtocolTCP".
-	// Description: missing Addresses with Protocol TCP in ServiceEntry, which can lead to undefined behavior.
-	ServiceEntryMissingAddressesAndProtocolTCP = diag.NewMessageType(diag.Warning, "IST0135", "missing Addresses with Protocol TCP, which can lead to undefined behavior.")
+	// ServiceEntryAddressesRequired defines a diag.MessageType for message "ServiceEntryAddressesRequired".
+	// Description: Virtual IP addresses are required for ports serving TCP (or unset) protocol
+	ServiceEntryAddressesRequired = diag.NewMessageType(diag.Warning, "IST0134", "ServiceEntry addresses are required for this protocol.")
 )
 
 // All returns a list of all known message types.
@@ -171,8 +167,7 @@ func All() []*diag.MessageType {
 		VirtualServiceIneffectiveMatch,
 		VirtualServiceHostNotFoundInGateway,
 		SchemaWarning,
-		ServiceEntryMissingAddressesAndProtocol,
-		ServiceEntryMissingAddressesAndProtocolTCP,
+		ServiceEntryAddressesRequired,
 	}
 }
 
@@ -482,18 +477,10 @@ func NewSchemaWarning(r *resource.Instance, err error) diag.Message {
 	)
 }
 
-// NewServiceEntryMissingAddressesAndProtocol returns a new diag.Message based on ServiceEntryMissingAddressesAndProtocol.
-func NewServiceEntryMissingAddressesAndProtocol(r *resource.Instance) diag.Message {
+// NewServiceEntryAddressesRequired returns a new diag.Message based on ServiceEntryAddressesRequired.
+func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
-		ServiceEntryMissingAddressesAndProtocol,
-		r,
-	)
-}
-
-// NewServiceEntryMissingAddressesAndProtocolTCP returns a new diag.Message based on ServiceEntryMissingAddressesAndProtocolTCP.
-func NewServiceEntryMissingAddressesAndProtocolTCP(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		ServiceEntryMissingAddressesAndProtocolTCP,
+		ServiceEntryAddressesRequired,
 		r,
 	)
 }

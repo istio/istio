@@ -52,18 +52,8 @@ func (serviceEntry *ProtocolAdressesAnalyzer) analyzeProtocolAddresses(resource 
 
 	if se.Addresses == nil {
 		for index, port := range se.Ports {
-			if port.Protocol == "" {
-				message := msg.NewServiceEntryMissingAddressesAndProtocol(resource)
-
-				if line, ok := util.ErrorLine(resource, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
-					message.Line = line
-				}
-
-				context.Report(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), message)
-			}
-
-			if port.Protocol == "TCP" {
-				message := msg.NewServiceEntryMissingAddressesAndProtocolTCP(resource)
+			if port.Protocol == "" || port.Protocol == "TCP" {
+				message := msg.NewServiceEntryAddressesRequired(resource)
 
 				if line, ok := util.ErrorLine(resource, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
 					message.Line = line
