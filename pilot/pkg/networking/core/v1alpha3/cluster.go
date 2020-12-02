@@ -169,7 +169,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -189,6 +189,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 	return clusters
 }
+
+var NilClusterPatcher = clusterPatcher{}
 
 type clusterPatcher struct {
 	efw  *model.EnvoyFilterWrapper
@@ -231,7 +233,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			discoveryType := convertResolution(proxy, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -260,6 +262,11 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
+type ClusterInstances struct {
+	PrimaryInstance *model.ServiceInstance
+	AllInstances    []*model.ServiceInstance
+}
+
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
 
 	clusters := make([]*cluster.Cluster, 0)
@@ -284,15 +291,26 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			return nil
 		}
 
-		have := make(map[*model.Port]bool)
+		clustersToBuild := make(map[int][]*model.ServiceInstance)
 		for _, instance := range instances {
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
-			if !have[instance.ServicePort] {
-				localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, instance, actualLocalHost)
-				clusters = cp.conditionallyAppend(clusters, localCluster)
-				have[instance.ServicePort] = true
+			// However, we still need to capture all the instances on this port, as its required to populate telemetry metadata
+			// The first instance will be used as the "primary" instance; this means if we have an conflicts between
+			// Services the first one wins
+			ep := instance.ServicePort.Port
+			if util.IsIstioVersionGE181(cb.proxy) {
+				// Istio 1.8.1+ switched to keying on EndpointPort. We need both logics in place to support smooth upgrade from 1.8.0 to 1.8.x
+				ep = int(instance.Endpoint.EndpointPort)
 			}
+			clustersToBuild[ep] = append(clustersToBuild[ep], instance)
+		}
+
+		// For each workload port, we will construct a cluster
+		for _, instances := range clustersToBuild {
+			instance := instances[0]
+			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
+			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
@@ -334,7 +352,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			instance.Endpoint.ServicePortName = listenPort.Name
 			instance.Endpoint.EndpointPort = uint32(port)
 
-			localCluster := cb.buildInboundClusterForPortOrUDS(nil, instance, endpointAddress)
+			localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), endpointAddress, instance, nil)
 			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
 	}
@@ -362,7 +380,9 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 			Hostname:   host.Name(sidecar + "." + sidecarns),
 			Attributes: attrs,
 		},
-		Endpoint: &model.IstioEndpoint{},
+		Endpoint: &model.IstioEndpoint{
+			EndpointPort: ingressListener.Port.Number,
+		},
 	}
 }
 
@@ -1065,7 +1085,7 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 	}
 }
 
-func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
+func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, instances []*model.ServiceInstance) {
 	if opts.cluster == nil {
 		return
 	}
@@ -1096,7 +1116,7 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	if direction == model.TrafficDirectionInbound {
 		// For inbound cluster, add all services on the cluster port
 		have := make(map[host.Name]bool)
-		for _, svc := range opts.proxy.ServiceInstances {
+		for _, svc := range instances {
 			if svc.ServicePort.Port != opts.port.Port {
 				// If the service port is different from the the port of the cluster that is being built,
 				// skip adding telemetry metadata for the service to the cluster.
