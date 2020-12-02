@@ -87,6 +87,10 @@ const (
 	// Path for credentialName.
 	// Required parameters: server index.
 	CredentialName = "{.spec.servers[%d].tls.credentialName}"
+
+	// Path for Port in ServiceEntry.
+	// Required parameters: port index.
+	ServiceEntryPort = "{.spec.ports[%d].name}"
 )
 
 // ErrorLine returns the line number of the input path key in the resource
