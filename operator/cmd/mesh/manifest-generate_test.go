@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,6 +25,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
@@ -35,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	tutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/version"
 )
@@ -702,4 +707,282 @@ func generateManifest(inFile, flags string, chartSource chartSourceType) (string
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
 func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
 	return runManifestCommand("generate", filenames, flags, chartSource)
+}
+
+func mustGetWebhook(t test.Failer, obj object.K8sObject) []v1.MutatingWebhook {
+	t.Helper()
+	path := mustGetPath(t, obj, "webhooks")
+	by, err := json.Marshal(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mwh []v1.MutatingWebhook
+	if err := json.Unmarshal(by, &mwh); err != nil {
+		t.Fatal(err)
+	}
+	return mwh
+}
+
+func getWebhooks(t *testing.T, setFlags string, webhookName string) []v1.MutatingWebhook {
+	t.Helper()
+	got, err := runManifestGenerate([]string{}, setFlags, liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return mustGetWebhook(t, mustFindObject(t, objs, webhookName, name.MutatingWebhookConfigurationStr))
+}
+
+// This test checks the mutating webhook selectors behavior, especially with interaction with revisions
+func TestWebhookSelector(t *testing.T) {
+	empty := klabels.Set{}
+	legacyLabel := klabels.Set{"istio-injection": "enabled"}
+	legacyLabelDisabled := klabels.Set{"istio-injection": "disabled"}
+	defaultRevLabel := klabels.Set{"istio.io/rev": "default"}
+	canaryRevLabel := klabels.Set{"istio.io/rev": "canary"}
+	legacyAndDefaultLabel := klabels.Set{"istio-injection": "enabled", "istio.io/rev": "default"}
+	legacyAndCanaryLabel := klabels.Set{"istio-injection": "enabled", "istio.io/rev": "canary"}
+
+	objEnabled := klabels.Set{"sidecar.istio.io/inject": "true"}
+	objDisable := klabels.Set{"sidecar.istio.io/inject": "false"}
+
+	defaultWebhook := getWebhooks(t, "", "istio-sidecar-injector")
+	revWebhook := getWebhooks(t, "--set revision=canary", "istio-sidecar-injector-canary")
+	bothWebhooks := append([]v1.MutatingWebhook{}, defaultWebhook...)
+	bothWebhooks = append(bothWebhooks, revWebhook...)
+
+	objectSelectorWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.objectSelector.enabled=true", "istio-sidecar-injector")
+	// nolint: lll
+	objectSelectorWebhookRevision := getWebhooks(t, "--set values.sidecarInjectorWebhook.objectSelector.enabled=true --set revision=canary", "istio-sidecar-injector-canary")
+
+	autoWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.enableNamespacesByDefault=true", "istio-sidecar-injector")
+	// nolint: lll
+	autoWebhookObjectSelector := getWebhooks(t, "--set values.sidecarInjectorWebhook.enableNamespacesByDefault=true --set values.sidecarInjectorWebhook.objectSelector.enabled=true --set values.sidecarInjectorWebhook.objectSelector.autoInject=false", "istio-sidecar-injector")
+	// nolint: lll
+	autoWebhookObjectSelectorRevision := getWebhooks(t, "--set revision=canary --set values.sidecarInjectorWebhook.enableNamespacesByDefault=true --set values.sidecarInjectorWebhook.objectSelector.enabled=true --set values.sidecarInjectorWebhook.objectSelector.autoInject=false", "istio-sidecar-injector-canary")
+
+	type test struct {
+		namespaceLabel klabels.Set
+		objectLabel    klabels.Set
+		match          string
+	}
+	cases := []struct {
+		name     string
+		webhooks []v1.MutatingWebhook
+		checks   []test
+	}{
+		// When we do not have a revision, everything with istio-injection is matched
+		{
+			name:     "default",
+			webhooks: defaultWebhook,
+			checks: []test{
+				{empty, empty, ""},
+				{defaultRevLabel, empty, ""},
+				{canaryRevLabel, empty, ""},
+				{legacyLabel, empty, "istiod"},
+				{legacyAndDefaultLabel, empty, "istiod"},
+
+				{legacyAndCanaryLabel, empty, "istiod"},
+			},
+		},
+		// We only have a revision label. We should match only on explicit revision label and send to that revision
+		{
+			name:     "revision only",
+			webhooks: revWebhook,
+			checks: []test{
+				{empty, empty, ""},
+				{defaultRevLabel, empty, ""},
+				{canaryRevLabel, empty, "istiod-canary"},
+				{legacyLabel, empty, ""},
+				{legacyAndDefaultLabel, empty, ""},
+				{legacyAndCanaryLabel, empty, ""},
+			},
+		},
+
+		// We have a revision and a default install
+		{
+			name:     "both",
+			webhooks: bothWebhooks,
+			checks: []test{
+				{empty, empty, ""},
+				{defaultRevLabel, empty, ""},
+				{canaryRevLabel, empty, "istiod-canary"},
+				{legacyLabel, empty, "istiod"},
+				{legacyAndDefaultLabel, empty, "istiod"},
+				{legacyAndCanaryLabel, empty, "istiod"},
+			},
+		},
+
+		// object selector enabled
+		// This should have the same behavior as before, but if the disable label is set its always disabled
+		{
+			name:     "object selector",
+			webhooks: objectSelectorWebhook,
+			checks: []test{
+				// no label
+				{empty, empty, ""},
+				{defaultRevLabel, empty, ""},
+				{canaryRevLabel, empty, ""},
+				{legacyLabel, empty, "istiod"},
+				{legacyAndDefaultLabel, empty, "istiod"},
+				{legacyAndCanaryLabel, empty, "istiod"},
+
+				// disabled
+				{empty, objDisable, ""},
+				{defaultRevLabel, objDisable, ""},
+				{canaryRevLabel, objDisable, ""},
+				{legacyLabel, objDisable, ""},
+				{legacyAndDefaultLabel, objDisable, ""},
+				{legacyAndCanaryLabel, objDisable, ""},
+
+				// enabled
+				{empty, objEnabled, ""},
+				{defaultRevLabel, objEnabled, ""},
+				{canaryRevLabel, objEnabled, ""},
+				{legacyLabel, objEnabled, "istiod"},
+				{legacyAndDefaultLabel, objEnabled, "istiod"},
+				{legacyAndCanaryLabel, objEnabled, "istiod"},
+			},
+		},
+
+		// object selector enabled, with a revision
+		{
+			name:     "object selector revision",
+			webhooks: objectSelectorWebhookRevision,
+			checks: []test{
+				{empty, objDisable, ""},
+				{defaultRevLabel, objDisable, ""},
+				{canaryRevLabel, objDisable, ""},
+				{legacyLabel, objDisable, ""},
+				{legacyAndDefaultLabel, objDisable, ""},
+				{legacyAndCanaryLabel, objDisable, ""},
+
+				{empty, objEnabled, ""},
+				{defaultRevLabel, objEnabled, ""},
+				{canaryRevLabel, objEnabled, "istiod-canary"},
+				{legacyLabel, objEnabled, ""},
+				{legacyAndDefaultLabel, objEnabled, ""},
+				{legacyAndCanaryLabel, objEnabled, ""},
+			},
+		},
+
+		// Auto injection
+		{
+			name:     "auto",
+			webhooks: autoWebhook,
+			checks: []test{
+				{empty, empty, "istiod"},
+				{canaryRevLabel, empty, ""},
+				{legacyLabel, empty, "istiod"},
+				{legacyLabelDisabled, empty, ""},
+				// TODO: This is sort of a weird behavior. We should still be able to explicitly select the revision
+				{defaultRevLabel, empty, ""},
+				// TODO: These two is oddly different behavior than without auto injection; istio-injection=enabled is ignored
+				{legacyAndDefaultLabel, empty, ""},
+				{legacyAndCanaryLabel, empty, ""},
+			},
+		},
+
+		// Auto injection with object selector as well
+		// Need object selector to be explicitly set to inject
+		{
+			name:     "auto object selector",
+			webhooks: autoWebhookObjectSelector,
+			checks: []test{
+				{empty, empty, ""},
+				{defaultRevLabel, empty, ""},
+				{canaryRevLabel, empty, ""},
+				{legacyLabel, empty, ""},
+				{legacyAndDefaultLabel, empty, ""},
+				{legacyAndCanaryLabel, empty, ""},
+
+				{empty, objDisable, ""},
+				{defaultRevLabel, objDisable, ""},
+				{canaryRevLabel, objDisable, ""},
+				{legacyLabel, objDisable, ""},
+				{legacyAndDefaultLabel, objDisable, ""},
+				{legacyAndCanaryLabel, objDisable, ""},
+
+				{empty, objEnabled, "istiod"},
+				{defaultRevLabel, objEnabled, ""},
+				{canaryRevLabel, objEnabled, ""},
+				{legacyLabel, objEnabled, "istiod"},
+				{legacyLabelDisabled, objEnabled, ""},
+				// TODO: These two is oddly different behavior than without auto injection; istio-injection=enabled is ignored
+				{legacyAndDefaultLabel, objEnabled, ""},
+				{legacyAndCanaryLabel, objEnabled, ""},
+			},
+		},
+
+		// Auto injection with object selector as well that is a revision
+		{
+			name:     "auto object selector revision",
+			webhooks: autoWebhookObjectSelectorRevision,
+			checks: []test{
+				{empty, empty, ""},
+				{defaultRevLabel, empty, ""},
+				{canaryRevLabel, empty, ""},
+				{legacyLabel, empty, ""},
+				{legacyAndDefaultLabel, empty, ""},
+				{legacyAndCanaryLabel, empty, ""},
+
+				{empty, objDisable, ""},
+				{defaultRevLabel, objDisable, ""},
+				{canaryRevLabel, objDisable, ""},
+				{legacyLabel, objDisable, ""},
+				{legacyAndDefaultLabel, objDisable, ""},
+				{legacyAndCanaryLabel, objDisable, ""},
+
+				{empty, objEnabled, ""},
+				{defaultRevLabel, objEnabled, ""},
+				// TODO: this should have matched!
+				{canaryRevLabel, objEnabled, ""},
+				{legacyLabel, objEnabled, ""},
+				{legacyLabelDisabled, objEnabled, ""},
+				{legacyAndDefaultLabel, objEnabled, ""},
+				{legacyAndCanaryLabel, objEnabled, ""},
+
+				{empty, canaryRevLabel, "istiod-canary"},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			whs := tt.webhooks
+			for _, tt := range tt.checks {
+				t.Run(fmt.Sprintf("%v/%v", tt.namespaceLabel, tt.objectLabel), func(t *testing.T) {
+					found := ""
+					for _, wh := range whs {
+						sn := wh.ClientConfig.Service.Name
+						matches := selectorMatches(t, wh.NamespaceSelector, tt.namespaceLabel) && selectorMatches(t, wh.ObjectSelector, tt.objectLabel)
+						if matches && found != "" {
+							t.Fatalf("matched multiple webhooks. Had %v, matched %v", found, sn)
+						}
+						if matches {
+							found = sn
+						}
+					}
+					if found != tt.match {
+						t.Fatalf("expected webhook to go to service %q, found %q", tt.match, found)
+					}
+				})
+			}
+		})
+	}
+}
+
+func selectorMatches(t *testing.T, selector *metav1.LabelSelector, labels klabels.Set) bool {
+	t.Helper()
+	// From webhook spec: "Default to the empty LabelSelector, which matches everything."
+	if selector == nil {
+		return true
+	}
+	s, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s.Matches(labels)
 }
