@@ -39,7 +39,7 @@ const fieldOwnerOperator = "istio-operator"
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
-func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObjects, int, error) {
+func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply bool) (object.K8sObjects, int, error) {
 	var processedObjects object.K8sObjects
 	var deployedObjects int
 	var errs util.Errors
@@ -101,8 +101,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (object.K8sObject
 			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 				return nil, 0, err
 			}
-			// server side apply is currently disabled because of https://github.com/kubernetes/kubernetes/issues/96351
-			if err := h.ApplyObject(obj.UnstructuredObject(), false); err != nil {
+			if err := h.ApplyObject(obj.UnstructuredObject(), serverSideApply); err != nil {
 				scope.Error(err.Error())
 				errs = util.AppendErr(errs, err)
 				continue
