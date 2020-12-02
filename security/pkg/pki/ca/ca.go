@@ -141,7 +141,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caRSAKeySize,
-			IsDualUse:    dualUse,
 		}
 		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
 		if ckErr != nil {
