@@ -15,7 +15,6 @@
 package main
 
 import (
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -122,9 +121,7 @@ proxyStatsMatcher:
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := os.Setenv("PROXY_CONFIG", tt.environment); err != nil {
-				t.Fatal(err)
-			}
+			proxyConfigEnv = tt.environment
 			got, err := getMeshConfig(tt.file, tt.annotation)
 			if err != nil {
 				t.Fatal(err)
