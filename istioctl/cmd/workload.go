@@ -35,6 +35,7 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -376,7 +377,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	md["ISTIO_META_CLUSTER_ID"] = clusterID
 	md["ISTIO_META_MESH_ID"] = meshConfig.DefaultConfig.MeshId
 	md["ISTIO_META_NETWORK"] = we.Network
-	if portsJSON, err := json.Marshal(we.Ports); err == nil {
+	if portsJSON, err := json.Marshal(workloadEntryToPodPortsMeta(we.Ports)); err == nil {
 		md["ISTIO_META_POD_PORTS"] = string(portsJSON)
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
@@ -390,11 +391,25 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_META_AUTO_REGISTER_GROUP"] = wg.Name
 	}
 
-	proxyYAML, err := gogoprotomarshal.ToYAML(meshConfig.DefaultConfig)
+	proxyConfig, err := gogoprotomarshal.ToJSONMap(meshConfig.DefaultConfig)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), []byte(proxyYAML), filePerms)
+
+	proxyYAML, err := yaml.Marshal(map[string]interface{}{"defaultConfig": proxyConfig})
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
+}
+
+func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
+	var out model.PodPortList
+	for name, port := range p {
+		out = append(out, model.PodPort{Name: name, ContainerPort: int(port)})
+	}
+	return out
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
