@@ -145,9 +145,6 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 // UpdateWorkloadEntryHealth updates the associated WorkloadEntries health status
 // based on the corresponding health check performed by istio-agent.
 func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {
-	if !features.WorkloadEntryHealthChecks {
-		return
-	}
 	// we assume that the workload entry exists
 	// if auto registration does not exist, try looking
 	// up in NodeMetadata
