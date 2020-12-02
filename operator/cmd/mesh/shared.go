@@ -206,7 +206,7 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr st
 		Name:    componentName,
 		Content: manifestStr,
 	}
-	_, _, err = reconciler.ApplyManifest(ms)
+	_, _, err = reconciler.ApplyManifest(ms, reconciler.CheckSSAEnabled())
 	return err
 }
 
