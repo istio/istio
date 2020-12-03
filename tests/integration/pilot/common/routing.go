@@ -471,6 +471,136 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 	return cases
 }
 
+// serviceCases tests overlapping Services. There are a few cases.
+// Consider we have our base service B, with service port P and target port T
+// 1) Another service, B', with P -> T. In this case, both the listener and the cluster will conflict.
+//    Because everything is workload oriented, this is not a problem unless they try to make them different
+//    protocols (this is explicitly called out as "not supported") or control inbound connectionPool settings
+//    (which is moving to Sidecar soon)
+// 2) Another service, B', with P -> T'. In this case, the listener will be distinct, since its based on the target.
+//    The cluster, however, will be shared, which is broken, because we should be forwarding to T when we call B, and T' when we call B'.
+// 3) Another service, B', with P' -> T. In this case, the listener is shared. This is fine, with the exception of different protocols
+//    The cluster is distinct.
+// 4) Another service, B', with P' -> T'. There is no conflicts here at all.
+func serviceCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, c := range apps.PodA {
+		c := c
+
+		// Case 1
+		// Identical to port "http" or service B, just behind another service name
+		svc := fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-alt-1
+  labels:
+    app: b
+spec:
+  ports:
+  - name: http
+    port: %d
+    targetPort: %d
+  selector:
+    app: b`, FindPortByName("http").ServicePort, FindPortByName("http").InstancePort)
+		cases = append(cases, TrafficTestCase{
+			name:   "case 1 both match",
+			config: svc,
+			call:   c.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address:   "b-alt-1",
+				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+				Timeout:   time.Millisecond * 100,
+				Validator: echo.ExpectOK(),
+			},
+		})
+
+		// Case 2
+		// We match the service port, but forward to a different port
+		// Here we make the new target tcp so the test would fail if it went to the http port
+		svc = fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-alt-2
+  labels:
+    app: b
+spec:
+  ports:
+  - name: tcp
+    port: %d
+    targetPort: %d
+  selector:
+    app: b`, FindPortByName("http").ServicePort, WorkloadPorts[0].Port)
+		cases = append(cases, TrafficTestCase{
+			name:   "case 2 service port match",
+			config: svc,
+			call:   c.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address:   "b-alt-2",
+				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.TCP},
+				Scheme:    scheme.TCP,
+				Timeout:   time.Millisecond * 100,
+				Validator: echo.ExpectOK(),
+			},
+		})
+
+		// Case 3
+		// We match the target port, but front with a different service port
+		svc = fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-alt-3
+  labels:
+    app: b
+spec:
+  ports:
+  - name: http
+    port: 12345
+    targetPort: %d
+  selector:
+    app: b`, FindPortByName("http").InstancePort)
+		cases = append(cases, TrafficTestCase{
+			name:   "case 3 target port match",
+			config: svc,
+			call:   c.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address:   "b-alt-3",
+				Port:      &echo.Port{ServicePort: 12345, Protocol: protocol.HTTP},
+				Timeout:   time.Millisecond * 100,
+				Validator: echo.ExpectOK(),
+			},
+		})
+
+		// Case 4
+		// Completely new set of ports
+		svc = fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-alt-4
+  labels:
+    app: b
+spec:
+  ports:
+  - name: http
+    port: 12346
+    targetPort: %d
+  selector:
+    app: b`, WorkloadPorts[1].Port)
+		cases = append(cases, TrafficTestCase{
+			name:   "case 4 no match",
+			config: svc,
+			call:   c.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address:   "b-alt-4",
+				Port:      &echo.Port{ServicePort: 12346, Protocol: protocol.HTTP},
+				Timeout:   time.Millisecond * 100,
+				Validator: echo.ExpectOK(),
+			},
+		})
+	}
+
+	return cases
+}
+
 // Todo merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}

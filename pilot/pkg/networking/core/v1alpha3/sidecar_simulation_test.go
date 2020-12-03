@@ -15,16 +15,778 @@
 package v1alpha3_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/golang/protobuf/jsonpb"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 )
+
+func flattenInstances(il ...[]*model.ServiceInstance) []*model.ServiceInstance {
+	ret := []*model.ServiceInstance{}
+	for _, i := range il {
+		ret = append(ret, i...)
+	}
+	return ret
+}
+
+func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targetPort int) []*model.ServiceInstance {
+	ret := []*model.ServiceInstance{}
+	for _, p := range svc.Ports {
+		if p.Port != servicePort {
+			continue
+		}
+		ret = append(ret, &model.ServiceInstance{
+			Service:     svc,
+			ServicePort: p,
+			Endpoint: &model.IstioEndpoint{
+				Address:         proxy.IPAddresses[0],
+				ServicePortName: p.Name,
+				EndpointPort:    uint32(targetPort),
+			},
+		})
+	}
+	return ret
+}
+
+func TestInboundClusters(t *testing.T) {
+	proxy := &model.Proxy{
+		IPAddresses: []string{"1.2.3.4"},
+	}
+	proxy180 := &model.Proxy{
+		IPAddresses: []string{"1.2.3.4"},
+		Metadata:    &model.NodeMetadata{IstioVersion: "1.8.0"},
+	}
+	service := &model.Service{
+		Hostname:    host.Name("backend.default.svc.cluster.local"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports: model.PortList{&model.Port{
+			Name:     "default",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}, &model.Port{
+			Name:     "other",
+			Port:     81,
+			Protocol: protocol.HTTP,
+		}},
+		Resolution: model.ClientSideLB,
+	}
+	serviceAlt := &model.Service{
+		Hostname:    host.Name("backend-alt.default.svc.cluster.local"),
+		Address:     "1.1.1.2",
+		ClusterVIPs: make(map[string]string),
+		Ports: model.PortList{&model.Port{
+			Name:     "default",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		}, &model.Port{
+			Name:     "other",
+			Port:     81,
+			Protocol: protocol.HTTP,
+		}},
+		Resolution: model.ClientSideLB,
+	}
+
+	cases := []struct {
+		name      string
+		configs   []config.Config
+		services  []*model.Service
+		instances []*model.ServiceInstance
+		// Assertions
+		clusters    map[string][]string
+		telemetry   map[string][]string
+		legacyProxy bool
+	}{
+		// Proxy 1.8.1+ tests
+		{name: "empty"},
+		{name: "empty service", services: []*model.Service{service}},
+		{
+			name:      "single service, partial instance",
+			services:  []*model.Service{service},
+			instances: makeInstances(proxy, service, 80, 8080),
+			clusters: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
+			},
+		},
+		{
+			name:     "single service, multiple instance",
+			services: []*model.Service{service},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081)),
+			clusters: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8081||": {string(service.Hostname)},
+			},
+		},
+		{
+			name:     "multiple services with same service port, different target",
+			services: []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081),
+				makeInstances(proxy, serviceAlt, 80, 8082),
+				makeInstances(proxy, serviceAlt, 81, 8083)),
+			clusters: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+				"inbound|8082||": {"127.0.0.1:8082"},
+				"inbound|8083||": {"127.0.0.1:8083"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8081||": {string(service.Hostname)},
+				"inbound|8082||": {string(serviceAlt.Hostname)},
+				"inbound|8083||": {string(serviceAlt.Hostname)},
+			},
+		},
+		{
+			name:     "multiple services with same service port and target",
+			services: []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy, service, 80, 8080),
+				makeInstances(proxy, service, 81, 8081),
+				makeInstances(proxy, serviceAlt, 80, 8080),
+				makeInstances(proxy, serviceAlt, 81, 8081)),
+			clusters: map[string][]string{
+				"inbound|8080||": {"127.0.0.1:8080"},
+				"inbound|8081||": {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|8080||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8081||": {string(serviceAlt.Hostname), string(service.Hostname)},
+			},
+		},
+		{
+			name: "ingress to same port",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "127.0.0.1:80",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:80"},
+			},
+		},
+		{
+			name: "ingress to different port",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "127.0.0.1:8080",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+			},
+		},
+		{
+			name: "ingress to socket",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "unix:///socket",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": {"/socket"},
+			},
+		},
+		{
+			name: "multiple ingress",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{
+								Number:   80,
+								Protocol: "HTTP",
+								Name:     "http",
+							},
+							DefaultEndpoint: "127.0.0.1:8080",
+						},
+						{
+							Port: &networking.Port{
+								Number:   81,
+								Protocol: "HTTP",
+								Name:     "http",
+							},
+							DefaultEndpoint: "127.0.0.1:8080",
+						},
+					}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+				"inbound|81||": {"127.0.0.1:8080"},
+			},
+		},
+
+		// Proxy 1.8.0 tests
+		{
+			name:        "single service, partial instance",
+			legacyProxy: true,
+			services:    []*model.Service{service},
+			instances:   makeInstances(proxy180, service, 80, 8080),
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+			},
+			telemetry: map[string][]string{
+				"inbound|80||": {string(service.Hostname)},
+			},
+		},
+		{
+			name:        "single service, multiple instance",
+			legacyProxy: true,
+			services:    []*model.Service{service},
+			instances: flattenInstances(
+				makeInstances(proxy180, service, 80, 8080),
+				makeInstances(proxy180, service, 81, 8081)),
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+				"inbound|81||": {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|80||": {string(service.Hostname)},
+				"inbound|81||": {string(service.Hostname)},
+			},
+		},
+		{
+			name:        "multiple services with same service port, different target",
+			legacyProxy: true,
+			services:    []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy180, service, 80, 8080),
+				makeInstances(proxy180, service, 81, 8081),
+				makeInstances(proxy180, serviceAlt, 80, 8082),
+				makeInstances(proxy180, serviceAlt, 81, 8083)),
+			clusters: map[string][]string{
+				// BUG: we are missing 8080 and 8081. This is fixed for 1.8.1+
+				"inbound|80||": {"127.0.0.1:8082"},
+				"inbound|81||": {"127.0.0.1:8083"},
+			},
+			telemetry: map[string][]string{
+				"inbound|80||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81||": {string(serviceAlt.Hostname), string(service.Hostname)},
+			},
+		},
+		{
+			name:        "multiple services with same service port and target",
+			legacyProxy: true,
+			services:    []*model.Service{service, serviceAlt},
+			instances: flattenInstances(
+				makeInstances(proxy180, service, 80, 8080),
+				makeInstances(proxy180, service, 81, 8081),
+				makeInstances(proxy180, serviceAlt, 80, 8080),
+				makeInstances(proxy180, serviceAlt, 81, 8081)),
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+				"inbound|81||": {"127.0.0.1:8081"},
+			},
+			telemetry: map[string][]string{
+				"inbound|80||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|81||": {string(serviceAlt.Hostname), string(service.Hostname)},
+			},
+		},
+		{
+			name:        "ingress to same port",
+			legacyProxy: true,
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "127.0.0.1:80",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:80"},
+			},
+		},
+		{
+			name:        "ingress to different port",
+			legacyProxy: true,
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "127.0.0.1:8080",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+			},
+		},
+		{
+			name:        "ingress to socket",
+			legacyProxy: true,
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						DefaultEndpoint: "unix:///socket",
+					}}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": {"/socket"},
+			},
+		},
+		{
+			name:        "multiple ingress",
+			legacyProxy: true,
+			configs: []config.Config{
+				{
+					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
+					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{
+								Number:   80,
+								Protocol: "HTTP",
+								Name:     "http",
+							},
+							DefaultEndpoint: "127.0.0.1:8080",
+						},
+						{
+							Port: &networking.Port{
+								Number:   81,
+								Protocol: "HTTP",
+								Name:     "http",
+							},
+							DefaultEndpoint: "127.0.0.1:8080",
+						},
+					}},
+				},
+			},
+			clusters: map[string][]string{
+				"inbound|80||": {"127.0.0.1:8080"},
+				"inbound|81||": {"127.0.0.1:8080"},
+			},
+		},
+	}
+	for _, tt := range cases {
+		name := tt.name
+		if tt.legacyProxy {
+			name += "-legacy"
+		}
+		t.Run(name, func(t *testing.T) {
+			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+				Services:  tt.services,
+				Instances: tt.instances,
+				Configs:   tt.configs,
+			})
+			testProxy := proxy
+			if tt.legacyProxy {
+				testProxy = proxy180
+			}
+			sim := simulation.NewSimulationFromConfigGen(t, s, s.SetupProxy(testProxy))
+
+			clusters := xdstest.FilterClusters(sim.Clusters, func(c *cluster.Cluster) bool {
+				return strings.HasPrefix(c.Name, "inbound")
+			})
+			if len(s.PushContext().ProxyStatus) != 0 {
+				// TODO make this fatal, once inbound conflict is silenced
+				t.Logf("got unexpected error: %+v", s.PushContext().ProxyStatus)
+			}
+			cmap := xdstest.ExtractClusters(clusters)
+			got := xdstest.MapKeys(cmap)
+
+			// Check we have all expected clusters
+			if !reflect.DeepEqual(xdstest.MapKeys(tt.clusters), got) {
+				t.Errorf("expected clusters: %v, got: %v", xdstest.MapKeys(tt.clusters), got)
+			}
+
+			for name, c := range cmap {
+				// Check the upstream endpoints match
+				got := xdstest.ExtractLoadAssignments([]*endpoint.ClusterLoadAssignment{c.GetLoadAssignment()})[name]
+				if !reflect.DeepEqual(tt.clusters[name], got) {
+					t.Errorf("%v: expected endpoints %v, got %v", name, tt.clusters[name], got)
+				}
+				gotTelemetry := extractClusterMetadataServices(t, c)
+				if !reflect.DeepEqual(tt.telemetry[name], gotTelemetry) {
+					t.Errorf("%v: expected telemetry services %v, got %v", name, tt.telemetry[name], gotTelemetry)
+				}
+
+				if tt.legacyProxy {
+					// This doesn't work with the legacy proxies which have issues (https://github.com/istio/istio/issues/29199)
+					continue
+				}
+				// simulate an actual call, this ensures we are aligned with the inbound listener configuration
+				_, _, _, port := model.ParseSubsetKey(name)
+				sim.Run(simulation.Call{
+					Port:     port,
+					Address:  "1.2.3.4",
+					CallMode: simulation.CallModeInbound,
+				}).Matches(t, simulation.Result{
+					ClusterMatched: fmt.Sprintf("inbound|%d||", port),
+				})
+			}
+			if t.Failed() {
+				t.Log(xdstest.DumpList(t, xdstest.InterfaceSlice(sim.Listeners)))
+			}
+		})
+	}
+}
+
+type clusterServicesMetadata struct {
+	Services []struct {
+		Host      string
+		Name      string
+		Namespace string
+	}
+}
+
+func extractClusterMetadataServices(t test.Failer, c *cluster.Cluster) []string {
+	got := c.GetMetadata().GetFilterMetadata()[util.IstioMetadataKey]
+	if got == nil {
+		return nil
+	}
+	s, err := (&jsonpb.Marshaler{}).MarshalToString(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta := clusterServicesMetadata{}
+	if err := json.Unmarshal([]byte(s), &meta); err != nil {
+		t.Fatal(err)
+	}
+	res := []string{}
+	for _, m := range meta.Services {
+		res = append(res, m.Host)
+	}
+	return res
+}
+
+func TestPortLevelPeerAuthentication(t *testing.T) {
+	pa := `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  selector:
+    matchLabels:
+      app: foo
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    9090:
+      mode: DISABLE
+---`
+	sidecar := `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  labels:
+    app: foo
+  name: sidecar
+spec:
+  ingress:
+  - defaultEndpoint: 127.0.0.1:8080
+    port:
+      name: tls
+      number: 8080
+      protocol: TCP
+  - defaultEndpoint: 127.0.0.1:9090
+    port:
+      name: plaintext
+      number: 9090
+      protocol: TCP
+  egress:
+  - hosts:
+    - "*/*"
+  workloadSelector:
+    labels:
+      app: foo
+---`
+	partialSidecar := `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  labels:
+    app: foo
+  name: sidecar
+spec:
+  ingress:
+  - defaultEndpoint: 127.0.0.1:8080
+    port:
+      name: tls
+      number: 8080
+      protocol: TCP
+  egress:
+  - hosts:
+    - "*/*"
+  workloadSelector:
+    labels:
+      app: foo
+---`
+	instancePorts := `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: se
+spec:
+  hosts:
+  - foo.bar
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      app: foo
+  location: MESH_INTERNAL
+  resolution: STATIC
+  ports:
+  - name: tls
+    number: 8080
+    protocol: TCP
+  - name: plaintext
+    number: 9090
+    protocol: TCP
+---`
+	instanceNoPorts := `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: se
+spec:
+  hosts:
+  - foo.bar
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      app: foo
+  location: MESH_INTERNAL
+  resolution: STATIC
+  ports:
+  - name: random
+    number: 5050
+    protocol: TCP
+---`
+	mkCall := func(port int, tls simulation.TLSMode) simulation.Call {
+		// TODO https://github.com/istio/istio/issues/28506 address should not be required here
+		return simulation.Call{Port: port, CallMode: simulation.CallModeInbound, TLS: tls, Address: "1.1.1.1"}
+	}
+	cases := []struct {
+		name   string
+		config string
+		calls  []simulation.Expect
+	}{
+		{
+			name:   "service, no sidecar",
+			config: pa + instancePorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name:   "tls on tls port",
+					Call:   mkCall(8080, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+				},
+				{
+					Name:   "plaintext on plaintext port",
+					Call:   mkCall(9090, simulation.Plaintext),
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+				},
+				{
+					Name:   "tls on plaintext port",
+					Call:   mkCall(9090, simulation.MTLS),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+			},
+		},
+		{
+			name:   "service, full sidecar",
+			config: pa + sidecar + instancePorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name:   "tls on tls port",
+					Call:   mkCall(8080, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+				},
+				{
+					Name:   "plaintext on plaintext port",
+					Call:   mkCall(9090, simulation.Plaintext),
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+				},
+				{
+					Name:   "tls on plaintext port",
+					Call:   mkCall(9090, simulation.MTLS),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+			},
+		},
+		{
+			name:   "no service, no sidecar",
+			config: pa + instanceNoPorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name: "tls on tls port",
+					Call: mkCall(8080, simulation.MTLS),
+					// no ports defined, so we will passthrough
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+				},
+				{
+					Name: "plaintext on plaintext port",
+					Call: mkCall(9090, simulation.Plaintext),
+					// no ports defined, so we will fail. STRICT enforced
+					// TODO(https://github.com/istio/istio/issues/27994) portLevelMtls should still apply
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name: "tls on plaintext port",
+					Call: mkCall(9090, simulation.MTLS),
+					// no ports defined, so we will fail. STRICT allows
+					// TODO(https://github.com/istio/istio/issues/27994) portLevelMtls should still apply
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+				},
+			},
+		},
+		{
+			name:   "no service, full sidecar",
+			config: pa + sidecar + instanceNoPorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name:   "tls on tls port",
+					Call:   mkCall(8080, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+				},
+				{
+					Name:   "plaintext on plaintext port",
+					Call:   mkCall(9090, simulation.Plaintext),
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
+				},
+				{
+					Name:   "tls on plaintext port",
+					Call:   mkCall(9090, simulation.MTLS),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+			},
+		},
+		{
+			name:   "service, partial sidecar",
+			config: pa + partialSidecar + instancePorts,
+			calls: []simulation.Expect{
+				{
+					Name:   "plaintext on tls port",
+					Call:   mkCall(8080, simulation.Plaintext),
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name:   "tls on tls port",
+					Call:   mkCall(8080, simulation.MTLS),
+					Result: simulation.Result{ClusterMatched: "inbound|8080||"},
+				},
+				// Despite being defined in the Service, we get no filter chain since its not in Sidecar
+				// Since we do not create configs on passthrough, our port level policy is not defined
+				{
+					Name: "plaintext on plaintext port",
+					Call: mkCall(9090, simulation.Plaintext),
+					// no ports defined, so we will fail. STRICT enforced
+					// TODO(https://github.com/istio/istio/issues/27994) portLevelMtls should still apply
+					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+				},
+				{
+					Name: "tls on plaintext port",
+					Call: mkCall(9090, simulation.MTLS),
+					// no ports defined, so we will fail. STRICT allows
+					// TODO(https://github.com/istio/istio/issues/27994) portLevelMtls should still apply
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+				},
+			},
+		},
+	}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
+	for _, tt := range cases {
+		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+			name:   tt.name,
+			config: tt.config,
+			calls:  tt.calls,
+		})
+	}
+}
 
 func TestInbound(t *testing.T) {
 	mtlsMode := func(m string) string {

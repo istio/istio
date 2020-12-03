@@ -273,12 +273,22 @@ func IsIstioVersionGE18(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 8, Patch: -1}) >= 0
 }
 
-func BuildInboundSubsetKey(node *model.Proxy, subsetName string, hostname host.Name, port int) string {
-	if IsIstioVersionGE18(node) {
-		// On 1.8+ Proxies, we use format inbound|port||. Telemetry no longer requires the hostname
-		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", "", port)
+// IsIstioVersionGE181 checks whether the given Istio version is greater than or equals 1.8.1
+func IsIstioVersionGE181(node *model.Proxy) bool {
+	return node == nil || node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 8, Patch: 1}) >= 0
+}
+
+func BuildInboundSubsetKey(node *model.Proxy, subsetName string, hostname host.Name, servicePort int, endpointPort int) string {
+	if IsIstioVersionGE181(node) {
+		// On 1.8.1+ Proxies, we use format inbound|endpointPort||. Telemetry no longer requires the hostname
+		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", "", endpointPort)
+	} else if IsIstioVersionGE18(node) {
+		// On 1.8.0 Proxies, we used format inbound|servicePort||. Since changing a cluster name leads to a 503
+		// blip on upgrade, we will support this legacy format.
+		return model.BuildSubsetKey(model.TrafficDirectionInbound, "", "", servicePort)
 	}
-	return model.BuildSubsetKey(model.TrafficDirectionInbound, subsetName, hostname, port)
+	return model.BuildSubsetKey(model.TrafficDirectionInbound, subsetName, hostname, servicePort)
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {

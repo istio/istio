@@ -80,6 +80,20 @@ var EchoPorts = []echo.Port{
 	{Name: "auto-grpc", Protocol: protocol.GRPC, ServicePort: 7071, InstancePort: 17071},
 }
 
+var WorkloadPorts = []echo.WorkloadPort{
+	{Protocol: protocol.TCP, Port: 19092},
+	{Protocol: protocol.HTTP, Port: 18083},
+}
+
+func FindPortByName(name string) echo.Port {
+	for _, p := range EchoPorts {
+		if p.Name == name {
+			return p
+		}
+	}
+	return echo.Port{}
+}
+
 func serviceEntryPorts() []echo.Port {
 	res := []echo.Port{}
 	for _, p := range EchoPorts {
@@ -122,34 +136,38 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 	for _, c := range ctx.Environment().Clusters() {
 		builder.
 			With(nil, echo.Config{
-				Service:   PodASvc,
-				Namespace: apps.Namespace,
-				Ports:     EchoPorts,
-				Subsets:   []echo.SubsetConfig{{}},
-				Locality:  "region.zone.subzone",
-				Cluster:   c,
+				Service:           PodASvc,
+				Namespace:         apps.Namespace,
+				Ports:             EchoPorts,
+				Subsets:           []echo.SubsetConfig{{}},
+				Locality:          "region.zone.subzone",
+				Cluster:           c,
+				WorkloadOnlyPorts: WorkloadPorts,
 			}).
 			With(nil, echo.Config{
-				Service:   PodBSvc,
-				Namespace: apps.Namespace,
-				Ports:     EchoPorts,
-				Subsets:   []echo.SubsetConfig{{}},
-				Cluster:   c,
+				Service:           PodBSvc,
+				Namespace:         apps.Namespace,
+				Ports:             EchoPorts,
+				Subsets:           []echo.SubsetConfig{{}},
+				Cluster:           c,
+				WorkloadOnlyPorts: WorkloadPorts,
 			}).
 			With(nil, echo.Config{
-				Service:   PodCSvc,
-				Namespace: apps.Namespace,
-				Ports:     EchoPorts,
-				Subsets:   []echo.SubsetConfig{{}},
-				Cluster:   c,
+				Service:           PodCSvc,
+				Namespace:         apps.Namespace,
+				Ports:             EchoPorts,
+				Subsets:           []echo.SubsetConfig{{}},
+				Cluster:           c,
+				WorkloadOnlyPorts: WorkloadPorts,
 			}).
 			With(nil, echo.Config{
-				Service:   HeadlessSvc,
-				Headless:  true,
-				Namespace: apps.Namespace,
-				Ports:     headlessPorts,
-				Subsets:   []echo.SubsetConfig{{}},
-				Cluster:   c,
+				Service:           HeadlessSvc,
+				Headless:          true,
+				Namespace:         apps.Namespace,
+				Ports:             headlessPorts,
+				Subsets:           []echo.SubsetConfig{{}},
+				Cluster:           c,
+				WorkloadOnlyPorts: WorkloadPorts,
 			}).
 			With(nil, echo.Config{
 				Service:   NakedSvc,
@@ -163,7 +181,8 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 						},
 					},
 				},
-				Cluster: c,
+				Cluster:           c,
+				WorkloadOnlyPorts: WorkloadPorts,
 			}).
 			With(nil, echo.Config{
 				Service:           ExternalSvc,
@@ -178,7 +197,8 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 						},
 					},
 				},
-				Cluster: c,
+				Cluster:           c,
+				WorkloadOnlyPorts: WorkloadPorts,
 			})
 	}
 
@@ -191,7 +211,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 			AutoRegisterVM: false, // TODO support auto-registration with multi-primary
 			Subsets:        []echo.SubsetConfig{{}},
 			Cluster:        c[0],
-		})
+		WorkloadOnlyPorts: WorkloadPorts,})
 	}
 
 	echos, err := builder.Build()
