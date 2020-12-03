@@ -2240,12 +2240,26 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		if we.Address == "" {
-			return nil, fmt.Errorf("address must be set")
+		return validateWorkloadEntry(we)
+	})
+
+func validateWorkloadEntry(we *networking.WorkloadEntry) (warnings Warning, errs error) {
+	if we.Address == "" {
+		return nil, fmt.Errorf("address must be set")
+	}
+	// TODO: add better validation. The tricky thing is that we don't know if its meant to be
+	// DNS or STATIC type without association with a ServiceEntry
+	return nil, nil
+}
+
+// ValidateWorkloadGroup validates a workload group.
+var ValidateWorkloadGroup = registerValidateFunc("ValidateWorkloadGroup",
+	func(cfg config.Config) (warnings Warning, errs error) {
+		wg, ok := cfg.Spec.(*networking.WorkloadGroup)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		// TODO: add better validation. The tricky thing is that we don't know if its meant to be
-		// DNS or STATIC type without association with a ServiceEntry
-		return nil, nil
+		return validateWorkloadEntry(wg.Template)
 	})
 
 // ValidateServiceEntry validates a service entry.
