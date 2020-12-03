@@ -17,6 +17,7 @@ package helm
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
@@ -37,9 +38,9 @@ func New(kubeConfig, baseWorkDir string) *Helm {
 }
 
 // InstallChart installs the specified chart with its given name to the given namespace
-func (h *Helm) InstallChart(name, relpath, namespace, overridesFile string) error {
+func (h *Helm) InstallChart(name, relpath, namespace, overridesFile string, timeout time.Duration) error {
 	p := filepath.Join(h.baseDir, relpath)
-	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s", name, p, namespace, overridesFile, h.kubeConfig)
+	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s", name, p, namespace, overridesFile, h.kubeConfig, timeout)
 	return execCommand(command)
 }
 
