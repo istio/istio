@@ -483,6 +483,7 @@ func (a *ADSC) handleRecv() {
 				_ = proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
 			}
+			a.handleLDS(listeners)
 		case v3.ClusterType:
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
@@ -490,6 +491,7 @@ func (a *ADSC) handleRecv() {
 				_ = proto.Unmarshal(valBytes, cl)
 				clusters = append(clusters, cl)
 			}
+			a.handleCDS(clusters)
 		case v3.EndpointType:
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
@@ -497,6 +499,7 @@ func (a *ADSC) handleRecv() {
 				_ = proto.Unmarshal(valBytes, el)
 				eds = append(eds, el)
 			}
+			a.handleEDS(eds)
 		case v3.RouteType:
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
@@ -504,6 +507,7 @@ func (a *ADSC) handleRecv() {
 				_ = proto.Unmarshal(valBytes, rl)
 				routes = append(routes, rl)
 			}
+			a.handleRDS(routes)
 		default:
 			a.handleMCP(gvk, msg.Resources)
 		}
@@ -512,16 +516,6 @@ func (a *ADSC) handleRecv() {
 		// This scheme also allows us to chunk large responses !
 
 		// TODO: add hook to inject nacks
-		switch msg.TypeUrl {
-		case v3.ClusterType:
-			a.handleCDS(clusters)
-		case v3.EndpointType:
-			a.handleEDS(eds)
-		case v3.ListenerType:
-			a.handleLDS(listeners)
-		case v3.RouteType:
-			a.handleRDS(routes)
-		}
 
 		a.mutex.Lock()
 		if len(gvk) == 3 {
