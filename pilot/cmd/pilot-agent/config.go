@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/constants"
@@ -34,7 +36,7 @@ import (
 )
 
 // return proxyConfig and trustDomain
-func constructProxyConfig() (meshconfig.ProxyConfig, error) {
+func constructProxyConfig(role *model.Proxy) (meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
 	if err != nil {
 		log.Warnf("failed to read pod annotations: %v", err)
@@ -56,7 +58,17 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		proxyConfig = *meshConfig.DefaultConfig
 	}
 
-	proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
+	// If concurrency is unset, we will automatically set this based on CPU requests/limits for sidecars.
+	// For gateways, this will use all available CPUs.
+	// If explicitly set concurrency flag, this will be used.
+	if concurrency == 0 && role.Type == model.SidecarProxy {
+		byResources := determineConcurrencyOption()
+		if byResources != nil {
+			proxyConfig.Concurrency = byResources
+		}
+	} else {
+		proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
+	}
 	proxyConfig.ServiceCluster = serviceCluster
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {
@@ -72,6 +84,18 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 		return meshconfig.ProxyConfig{}, err
 	}
 	return applyAnnotations(proxyConfig, annotations), nil
+}
+
+func determineConcurrencyOption() *types.Int32Value {
+	limit, err := readPodCPULimits()
+	if err == nil && limit > 0 {
+		return &types.Int32Value{Value: int32(math.Ceil(float64(limit) / 1000))}
+	}
+	requests, err := readPodCPURequests()
+	if err == nil && requests > 0 {
+		return &types.Int32Value{Value: int32(math.Ceil(float64(requests) / 1000))}
+	}
+	return nil
 }
 
 // getMeshConfig gets the mesh config to use for proxy configuration
@@ -128,6 +152,22 @@ func readPodAnnotations() (map[string]string, error) {
 		return nil, err
 	}
 	return bootstrap.ParseDownwardAPI(string(b))
+}
+
+func readPodCPURequests() (int, error) {
+	b, err := ioutil.ReadFile(constants.PodInfoCPURequestsPath)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(string(b))
+}
+
+func readPodCPULimits() (int, error) {
+	b, err := ioutil.ReadFile(constants.PodInfoCPULimitsPath)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(string(b))
 }
 
 // Apply any overrides to proxy config from annotations
