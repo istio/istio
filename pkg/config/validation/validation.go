@@ -2113,11 +2113,37 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		if we.Address == "" {
-			return nil, fmt.Errorf("address must be set")
+		return validateWorkloadEntry(we)
+	})
+
+func validateWorkloadEntry(we *networking.WorkloadEntry) (warnings Warning, errs error) {
+	if we.Address == "" {
+		return nil, fmt.Errorf("address must be set")
+	}
+	// TODO: add better validation. The tricky thing is that we don't know if its meant to be
+	// DNS or STATIC type without association with a ServiceEntry
+	return nil, nil
+}
+
+// ValidateWorkloadGroup validates a workload group.
+var ValidateWorkloadGroup = registerValidateFunc("ValidateWorkloadGroup",
+	func(cfg config.Config) (warnings Warning, errs error) {
+		wg, ok := cfg.Spec.(*networking.WorkloadGroup)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		// TODO: add better validation. The tricky thing is that we don't know if its meant to be
-		// DNS or STATIC type without association with a ServiceEntry
+
+		if wg.Template == nil {
+			return nil, fmt.Errorf("template is required")
+		}
+		// Do not call validateWorkloadEntry. Some fields, such as address, are required in WorkloadEntry
+		// but not in the template since they are auto populated
+
+		if wg.Metadata != nil {
+			if err := labels.Instance(wg.Metadata.Labels).Validate(); err != nil {
+				return nil, fmt.Errorf("invalid labels: %v", err)
+			}
+		}
 		return nil, nil
 	})
 

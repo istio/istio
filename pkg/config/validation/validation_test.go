@@ -2319,6 +2319,60 @@ func TestValidateVirtualService(t *testing.T) {
 	}
 }
 
+func TestValidateWorkloadEntry(t *testing.T) {
+	testCases := []struct {
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
+	}{
+		{
+			name:  "valid",
+			in:    &networking.WorkloadEntry{Address: "1.2.3.4"},
+			valid: true,
+		},
+		{
+			name:  "missing address",
+			in:    &networking.WorkloadEntry{},
+			valid: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			warn, err := ValidateWorkloadEntry(config.Config{Spec: tc.in})
+			checkValidation(t, warn, err, tc.valid, tc.warning)
+		})
+	}
+}
+
+func TestValidateWorkloadGroup(t *testing.T) {
+	testCases := []struct {
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
+	}{
+		{
+			name:  "valid",
+			in:    &networking.WorkloadGroup{Template: &networking.WorkloadEntry{}},
+			valid: true,
+		},
+		{
+			name: "invalid",
+			in: &networking.WorkloadGroup{Template: &networking.WorkloadEntry{}, Metadata: &networking.WorkloadGroup_ObjectMeta{Labels: map[string]string{
+				".": "~",
+			}}},
+			valid: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			warn, err := ValidateWorkloadGroup(config.Config{Spec: tc.in})
+			checkValidation(t, warn, err, tc.valid, tc.warning)
+		})
+	}
+}
+
 func checkValidation(t *testing.T, gotWarning Warning, gotError error, valid bool, warning bool) {
 	t.Helper()
 	if (gotError == nil) != valid {

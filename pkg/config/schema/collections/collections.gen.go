@@ -209,7 +209,7 @@ var (
 			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateWorkloadGroup,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -600,7 +600,7 @@ var (
 			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateWorkloadGroup,
 		}.MustBuild(),
 	}.MustBuild()
 
