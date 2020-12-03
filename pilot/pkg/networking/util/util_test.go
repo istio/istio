@@ -32,7 +32,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"gopkg.in/d4l3k/messagediff.v1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -382,7 +381,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
 			got := BuildConfigInfoMetadata(v.in)
-			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("BuildConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
 			}
 		})
@@ -533,7 +532,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
 			got := AddConfigInfoMetadata(v.meta, v.in)
-			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("AddConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
 			}
 		})

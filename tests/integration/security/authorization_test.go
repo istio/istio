@@ -56,6 +56,10 @@ func (i rootNS) Name() string {
 	return i.rootNamespace
 }
 
+func (i rootNS) SetLabel(key, value string) error {
+	return nil
+}
+
 func newRootNS(ctx framework.TestContext) rootNS {
 	return rootNS{
 		rootNamespace: istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
@@ -1297,11 +1301,18 @@ func TestAuthorization_Custom(t *testing.T) {
 			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
-			var a, b, c echo.Instance
+			var a, b, c, d, e echo.Instance
+			echoConfig := func(name string, includeExtAuthz bool) echo.Config {
+				cfg := util.EchoConfig(name, ns, false, nil, nil)
+				cfg.IncludeExtAuthz = includeExtAuthz
+				return cfg
+			}
 			echoboot.NewBuilder(ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, nil)).
-				With(&b, util.EchoConfig("b", ns, false, nil, nil)).
-				With(&c, util.EchoConfig("c", ns, false, nil, nil)).
+				With(&a, echoConfig("a", false)).
+				With(&b, echoConfig("b", false)).
+				With(&c, echoConfig("c", false)).
+				With(&d, echoConfig("d", true)).
+				With(&e, echoConfig("e", true)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, header string, expectAllowed bool) rbacUtil.TestCase {
@@ -1322,15 +1333,29 @@ func TestAuthorization_Custom(t *testing.T) {
 			// Path "/custom" is protected by ext-authz service and is accessible with the header `x-ext-authz: allow`.
 			// Path "/health" is not protected and is accessible to public.
 			cases := []rbacUtil.TestCase{
+				// workload b is using an ext-authz service in its own pod of HTTP API.
 				newTestCase(b, "/custom", "allow", true),
 				newTestCase(b, "/custom", "deny", false),
 				newTestCase(b, "/health", "allow", true),
 				newTestCase(b, "/health", "deny", true),
 
+				// workload c is using an ext-authz service in its own pod of gRPC API.
 				newTestCase(c, "/custom", "allow", true),
 				newTestCase(c, "/custom", "deny", false),
 				newTestCase(c, "/health", "allow", true),
 				newTestCase(c, "/health", "deny", true),
+
+				// workload d is using an local ext-authz service in the same pod as the application of HTTP API.
+				newTestCase(d, "/custom", "allow", true),
+				newTestCase(d, "/custom", "deny", false),
+				newTestCase(d, "/health", "allow", true),
+				newTestCase(d, "/health", "deny", true),
+
+				// workload e is using an local ext-authz service in the same pod as the application of gRPC API.
+				newTestCase(e, "/custom", "allow", true),
+				newTestCase(e, "/custom", "deny", false),
+				newTestCase(e, "/health", "allow", true),
+				newTestCase(e, "/health", "deny", true),
 			}
 
 			rbacUtil.RunRBACTest(ctx, cases)

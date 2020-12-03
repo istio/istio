@@ -203,6 +203,11 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	for _, el := range out.EgressListeners {
+		// add dependencies on delegate virtual services
+		delegates := ps.DelegateVirtualServicesConfigKey(el.virtualServices)
+		for _, delegate := range delegates {
+			out.AddConfigDependencies(delegate)
+		}
 		for _, vs := range el.virtualServices {
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.VirtualService,
@@ -283,7 +288,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		for _, s := range listener.services {
 			addService(s)
 		}
-
+		// add dependencies on delegate virtual services
+		delegates := ps.DelegateVirtualServicesConfigKey(listener.virtualServices)
+		for _, delegate := range delegates {
+			out.AddConfigDependencies(delegate)
+		}
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in listener.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they

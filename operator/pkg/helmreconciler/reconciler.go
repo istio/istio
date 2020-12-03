@@ -32,6 +32,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
@@ -163,6 +164,8 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	// wg waits for all manifest processing goroutines to finish
 	var wg sync.WaitGroup
 
+	serverSideApply := h.CheckSSAEnabled()
+
 	for c, ms := range manifests {
 		c, ms := c, ms
 		wg.Add(1)
@@ -189,7 +192,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 					Name:    c,
 					Content: name.MergeManifestSlices(ms),
 				}
-				processedObjs, deployedObjects, err = h.ApplyManifest(m)
+				processedObjs, deployedObjects, err = h.ApplyManifest(m, serverSideApply)
 				if err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if len(processedObjs) != 0 || deployedObjects > 0 {
@@ -218,6 +221,23 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	}
 
 	return out
+}
+
+// CheckSSAEnabled is a helper function to check whether ServerSideApply should be used when applying manifests.
+func (h *HelmReconciler) CheckSSAEnabled() bool {
+	if h.restConfig != nil {
+		// check k8s minor version
+		k8sVer, err := k8sversion.GetKubernetesVersion(h.restConfig)
+		if err != nil {
+			scope.Errorf("failed to get k8s version: %s", err)
+		}
+		// There is a mutatingwebhook in gke that would corrupt the managedFields, which is fixed in k8s 1.18.
+		// See: https://github.com/kubernetes/kubernetes/issues/96351
+		if k8sVer >= 18 {
+			return true
+		}
+	}
+	return false
 }
 
 // Delete resources associated with the custom resource instance

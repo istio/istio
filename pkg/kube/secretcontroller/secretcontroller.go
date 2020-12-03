@@ -21,9 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,8 +67,7 @@ type Controller struct {
 
 	syncInterval time.Duration
 
-	mu          sync.RWMutex
-	initialSync bool
+	initialSync atomic.Bool
 }
 
 // RemoteCluster defines cluster struct
@@ -180,9 +179,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.initialSync
+	return c.initialSync.Load()
 }
 
 // StartSecretController creates the secret controller.
@@ -233,9 +230,7 @@ func (c *Controller) processNextItem() bool {
 
 func (c *Controller) processItem(secretName string) error {
 	if secretName == initialSyncSignal {
-		c.mu.Lock()
-		c.initialSync = true
-		c.mu.Unlock()
+		c.initialSync.Store(true)
 		return nil
 	}
 

@@ -15,6 +15,7 @@ spec:
     metadata:
       annotations:
         k8s.v1.cni.cncf.io/networks: '[{"name": "alt_cni"}, {"name": "istio-cni"}]'
+        kubectl.kubernetes.io/default-logs-container: hello
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
@@ -26,7 +27,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        istio.io/rev: ""
+        istio.io/rev: default
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: hello
         service.istio.io/canonical-revision: latest

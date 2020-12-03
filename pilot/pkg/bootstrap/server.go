@@ -524,8 +524,8 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		log.Info("initializing Istiod admin server")
 	}
 
-	whc := func() string {
-		return wh.Config.Template
+	whc := func() map[string]string {
+		return wh.Config.Templates
 	}
 
 	// Debug Server.

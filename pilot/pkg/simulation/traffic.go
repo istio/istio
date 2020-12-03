@@ -397,17 +397,18 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 	}, func(fc *listener.FilterChainMatch) bool {
 		ranger := cidranger.NewPCTrieRanger()
 		for _, a := range fc.GetPrefixRanges() {
-			_, cidr, err := net.ParseCIDR(fmt.Sprintf("%s/%d", a.AddressPrefix, a.GetPrefixLen().GetValue()))
+			s := fmt.Sprintf("%s/%d", a.AddressPrefix, a.GetPrefixLen().GetValue())
+			_, cidr, err := net.ParseCIDR(s)
 			if err != nil {
-				sim.t.Fatal(err)
+				sim.t.Fatalf("failed to parse cidr %v: %v", s, err)
 			}
 			if err := ranger.Insert(cidranger.NewBasicRangerEntry(*cidr)); err != nil {
-				sim.t.Fatal(err)
+				sim.t.Fatalf("failed to insert cidr %v: %v", cidr, err)
 			}
 		}
 		f, err := ranger.Contains(net.ParseIP(input.Address))
 		if err != nil {
-			sim.t.Fatal(err)
+			sim.t.Fatalf("cidr containers %v failed: %v", input.Address, err)
 		}
 		return f
 	})

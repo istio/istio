@@ -36,7 +36,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
-	"gopkg.in/d4l3k/messagediff.v1"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -2000,10 +2000,7 @@ func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expecte
 			t.Fatal(err)
 		}
 
-		tracing := cmgr.GetTracing()
-		diff, ok := messagediff.PrettyDiff(tracing, expected)
-
-		if !ok {
+		if diff := cmp.Diff(cmgr.GetTracing(), expected, protocmp.Transform()); diff != "" {
 			t.Fatalf("Testcase failure: %s custom tags did match not expected output; diff: %v", name, diff)
 		}
 	}

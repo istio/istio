@@ -128,6 +128,10 @@ var (
 	// SchemaWarning defines a diag.MessageType for message "SchemaWarning".
 	// Description: The resource has a schema validation warning.
 	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
+
+	// ServiceEntryAddressesRequired defines a diag.MessageType for message "ServiceEntryAddressesRequired".
+	// Description: Virtual IP addresses are required for ports serving TCP (or unset) protocol
+	ServiceEntryAddressesRequired = diag.NewMessageType(diag.Warning, "IST0134", "ServiceEntry addresses are required for this protocol.")
 )
 
 // All returns a list of all known message types.
@@ -163,6 +167,7 @@ func All() []*diag.MessageType {
 		VirtualServiceIneffectiveMatch,
 		VirtualServiceHostNotFoundInGateway,
 		SchemaWarning,
+		ServiceEntryAddressesRequired,
 	}
 }
 
@@ -469,5 +474,13 @@ func NewSchemaWarning(r *resource.Instance, err error) diag.Message {
 		SchemaWarning,
 		r,
 		err,
+	)
+}
+
+// NewServiceEntryAddressesRequired returns a new diag.Message based on ServiceEntryAddressesRequired.
+func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		ServiceEntryAddressesRequired,
+		r,
 	)
 }

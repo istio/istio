@@ -20,11 +20,7 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
-
-	"fortio.org/fortio/fhttp"
 )
 
 const (
@@ -52,85 +48,6 @@ func HTTPGet(url string) (code int, respBody string, err error) {
 	}
 	respBody = string(body)
 	code = resp.StatusCode
-	return code, respBody, nil
-}
-
-// HTTPPost sends POST
-func HTTPPost(url string, contentType string, reqBody string) (code int, respBody string, err error) {
-	log.Println("HTTP POST", url)
-	client := &http.Client{Timeout: httpTimeOut}
-	resp, err := client.Post(url, contentType, strings.NewReader(reqBody))
-	if err != nil {
-		log.Println(err)
-		return 0, "", err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-		return 0, "", err
-	}
-	respBody = string(body)
-	code = resp.StatusCode
-	log.Println(fhttp.DebugSummary(body, 512))
-	return code, respBody, nil
-}
-
-// ShortLiveHTTPPost send HTTP without keepalive
-func ShortLiveHTTPPost(url string, contentType string, reqBody string) (code int, respBody string, err error) {
-	log.Println("Short live HTTP POST", url)
-	tr := &http.Transport{
-		DisableKeepAlives: true,
-	}
-	client := &http.Client{Transport: tr}
-	resp, err := client.Post(url, contentType, strings.NewReader(reqBody))
-	if err != nil {
-		log.Println(err)
-		return 0, "", err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-		return 0, "", err
-	}
-	respBody = string(body)
-	code = resp.StatusCode
-	log.Println(respBody)
-	return code, respBody, nil
-}
-
-// HTTPGetWithHeaders send HTTP with headers
-func HTTPGetWithHeaders(l string, headers map[string]string) (code int, respBody string, err error) {
-	log.Println("HTTP GET with headers: ", l)
-	client := &http.Client{Timeout: httpTimeOut}
-	req := http.Request{}
-
-	req.Header = map[string][]string{}
-	for k, v := range headers {
-		req.Header[k] = []string{v}
-	}
-	req.Method = http.MethodGet
-	req.URL, err = url.Parse(l)
-	if err != nil {
-		log.Println(err)
-		return 0, "", err
-	}
-
-	resp, err := client.Do(&req)
-	if err != nil {
-		log.Println(err)
-		return 0, "", err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-		return 0, "", err
-	}
-	respBody = string(body)
-	code = resp.StatusCode
-	log.Println(respBody)
 	return code, respBody, nil
 }
 

@@ -16,9 +16,9 @@ package configmapwatcher
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
+	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,8 +44,7 @@ type Controller struct {
 	configMapName      string
 	callback           func(*v1.ConfigMap)
 
-	mu        sync.RWMutex
-	hasSynced bool
+	hasSynced atomic.Bool
 }
 
 // NewController returns a new ConfigMap watcher controller.
@@ -111,9 +110,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // HasSynced returns whether the underlying cache has synced and the callback has been called at least once.
 func (c *Controller) HasSynced() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.hasSynced
+	return c.hasSynced.Load()
 }
 
 func (c *Controller) runWorker() {
@@ -148,8 +145,6 @@ func (c *Controller) processItem() error {
 	}
 	c.callback(cm)
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.hasSynced = true
+	c.hasSynced.Store(true)
 	return nil
 }

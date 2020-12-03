@@ -51,7 +51,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/kube"
 )
 
 const yamlSeparator = "\n---"
@@ -467,171 +466,6 @@ func TestInjectRequired(t *testing.T) {
 	}
 }
 
-func TestWebhookInject(t *testing.T) {
-	cases := []struct {
-		inputFile    string
-		wantFile     string
-		templateFile string
-	}{
-		{
-			inputFile: "TestWebhookInject.yaml",
-			wantFile:  "TestWebhookInject.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_initContainers.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_containers.yaml",
-			wantFile:  "TestWebhookInject_no_containers.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_volumes.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_volumes_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_volumes_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_containers_volumes.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_containers_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_containers_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_initContainers_containers.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers_containers.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_initContainers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers_volumes.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_initContainers_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_initContainers_volumes_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers_volumes_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_initContainers_containers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers_containers_volumes.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_initContainers_containers_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers_containers_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_initContainers_containers_volumes_imagePullSecrets.yaml",
-			wantFile:  "TestWebhookInject_no_initcontainers_containers_volumes_imagePullSecrets.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_replace.yaml",
-			wantFile:  "TestWebhookInject_replace.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_replace_backwards_compat.yaml",
-			wantFile:  "TestWebhookInject_replace_backwards_compat.patch",
-		},
-		{
-			inputFile:    "TestWebhookInject_http_probe_rewrite.yaml",
-			wantFile:     "TestWebhookInject_http_probe_rewrite.patch",
-			templateFile: "TestWebhookInject_http_probe_rewrite_template.yaml",
-		},
-		{
-			inputFile:    "TestWebhookInject_http_probe_nosidecar_rewrite.yaml",
-			wantFile:     "TestWebhookInject_http_probe_nosidecar_rewrite.patch",
-			templateFile: "TestWebhookInject_http_probe_nosidecar_rewrite_template.yaml",
-		},
-		{
-			inputFile:    "TestWebhookInject_https_probe_rewrite.yaml",
-			wantFile:     "TestWebhookInject_https_probe_rewrite.patch",
-			templateFile: "TestWebhookInject_https_probe_rewrite_template.yaml",
-		},
-		{
-			inputFile:    "TestWebhookInject_http_probe_rewrite_enabled_via_annotation.yaml",
-			wantFile:     "TestWebhookInject_http_probe_rewrite_enabled_via_annotation.patch",
-			templateFile: "TestWebhookInject_http_probe_rewrite_enabled_via_annotation_template.yaml",
-		},
-		{
-			inputFile:    "TestWebhookInject_http_probe_rewrite_disabled_via_annotation.yaml",
-			wantFile:     "TestWebhookInject_http_probe_rewrite_disabled_via_annotation.patch",
-			templateFile: "TestWebhookInject_http_probe_rewrite_disabled_via_annotation_template.yaml",
-		},
-		{
-			inputFile:    "TestWebhookInject_injectorAnnotations.yaml",
-			wantFile:     "TestWebhookInject_injectorAnnotations.patch",
-			templateFile: "TestWebhookInject_injectorAnnotations_template.yaml",
-		},
-		{
-			inputFile: "TestWebhookInject_mtls_not_ready.yaml",
-			wantFile:  "TestWebhookInject_mtls_not_ready.patch",
-		},
-		{
-			inputFile:    "TestWebhookInject_validationOrder.yaml",
-			wantFile:     "TestWebhookInject_validationOrder.patch",
-			templateFile: "TestWebhookInject_validationOrder_template.yaml",
-		},
-		{
-			inputFile:    "TestWebhookInject_probe_rewrite_timeout_retention.yaml",
-			wantFile:     "TestWebhookInject_probe_rewrite_timeout_retention.patch",
-			templateFile: "TestWebhookInject_probe_rewrite_timeout_retention_template.yaml",
-		},
-		{
-			inputFile:    "TestWebhookInject_cron_job.yaml",
-			wantFile:     "TestWebhookInject_cron_job.patch",
-			templateFile: "TestWebhookInject_cron_job_template.yaml",
-		},
-		{
-			inputFile:    "TestWebhookInject_podRedirectAnnot.yaml",
-			wantFile:     "TestWebhookInject_podRedirectAnnot.patch",
-			templateFile: "TestWebhookInject_podRedirectAnnot_template.yaml",
-		},
-	}
-
-	for i, c := range cases {
-		input := filepath.Join("testdata/webhook", c.inputFile)
-		want := filepath.Join("testdata/webhook", c.wantFile)
-		templateFile := "TestWebhookInject_template.yaml"
-		if c.templateFile != "" {
-			templateFile = c.templateFile
-		}
-		c := c
-		t.Run(fmt.Sprintf("[%d] %s", i, c.inputFile), func(t *testing.T) {
-			wh := createTestWebhookFromFile(filepath.Join("testdata/webhook", templateFile), t)
-			podYAML := util.ReadFile(input, t)
-			podJSON, err := yaml.YAMLToJSON(podYAML)
-			if err != nil {
-				t.Fatalf(err.Error())
-			}
-			got := wh.inject(&kube.AdmissionReview{
-				Request: &kube.AdmissionRequest{
-					Object: runtime.RawExtension{
-						Raw: podJSON,
-					},
-				},
-			}, "")
-			var prettyPatch bytes.Buffer
-			if err := json.Indent(&prettyPatch, got.Patch, "", "  "); err != nil {
-				t.Fatalf(err.Error())
-			}
-			util.CompareContent(prettyPatch.Bytes(), want, t)
-		})
-	}
-}
-
 func simulateOwnerRef(m metav1.ObjectMeta, name string, gvk schema.GroupVersionKind) metav1.ObjectMeta {
 	controller := true
 	m.GenerateName = name
@@ -690,29 +524,6 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 	}
 	t.Fatalf("unknown type: %T", obj)
 	return nil
-}
-
-func createTestWebhookFromFile(templateFile string, t *testing.T) *Webhook {
-	t.Helper()
-	injectConfig, err := UnmarshalConfig(util.ReadFile(templateFile, t))
-	if err != nil {
-		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
-	}
-	valuesConfig := &struct {
-		Values string `json:"values"`
-	}{}
-	if err := yaml.Unmarshal(util.ReadFile(templateFile, t), valuesConfig); err != nil {
-		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
-	}
-	if valuesConfig.Values == "" {
-		valuesConfig.Values = "{}"
-	}
-	m := mesh.DefaultMeshConfig()
-	return &Webhook{
-		Config:       &injectConfig,
-		meshConfig:   &m,
-		valuesConfig: valuesConfig.Values,
-	}
 }
 
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
@@ -1051,16 +862,6 @@ func TestRunAndServe(t *testing.T) {
 	validPatch := []byte(`[
 {
     "op": "add",
-    "path": "/metadata/labels",
-    "value": {
-        "istio.io/rev": "",
-        "security.istio.io/tlsMode": "istio",
-        "service.istio.io/canonical-name": "test",
-        "service.istio.io/canonical-revision": "latest"
-    }
-},
-{
-    "op": "add",
     "path": "/metadata/annotations",
     "value": {
         "prometheus.io/path": "/stats/prometheus",
@@ -1095,13 +896,6 @@ func TestRunAndServe(t *testing.T) {
     "value": {
         "name": "istio-proxy",
         "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/securityContext",
-    "value": {
-        "fsGroup": 1337
     }
 },
 {

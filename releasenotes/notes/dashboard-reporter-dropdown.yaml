@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 27595
+releaseNotes:
+  - |
+    **Added** Istio Grafana Dashboards Query Reporter Dropdown.

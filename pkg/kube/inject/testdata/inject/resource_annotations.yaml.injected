@@ -12,6 +12,7 @@ spec:
   template:
     metadata:
       annotations:
+        kubectl.kubernetes.io/default-logs-container: resource
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
@@ -23,7 +24,7 @@ spec:
       creationTimestamp: null
       labels:
         app: resource
-        istio.io/rev: ""
+        istio.io/rev: default
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: resource
         service.istio.io/canonical-revision: latest

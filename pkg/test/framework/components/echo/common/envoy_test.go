@@ -132,6 +132,10 @@ func (n *fakeNamespace) ID() resource.ID {
 	panic("not implemented")
 }
 
+func (n *fakeNamespace) SetLabel(key, value string) error {
+	panic("not implemented")
+}
+
 func (*testConfig) Logs() (string, error) {
 	panic("not implemented")
 }

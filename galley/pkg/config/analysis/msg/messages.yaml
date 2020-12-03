@@ -348,3 +348,8 @@ messages:
       - name: err
         type: error
 
+  - name: "ServiceEntryAddressesRequired"
+    code: IST0134
+    level: Warning
+    description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol"
+    template: "ServiceEntry addresses are required for this protocol."

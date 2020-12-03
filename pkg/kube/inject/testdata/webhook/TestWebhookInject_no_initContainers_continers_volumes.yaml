@@ -1,3 +1,0 @@
-spec:
-  imagePullSecrets:
-    - name: p0
