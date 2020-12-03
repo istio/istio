@@ -2259,7 +2259,12 @@ var ValidateWorkloadGroup = registerValidateFunc("ValidateWorkloadGroup",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		return validateWorkloadEntry(wg.Template)
+		if wg.Template == nil {
+			return nil, fmt.Errorf("template is required")
+		}
+		// Do not call validateWorkloadEntry. Some fields, such as address, are required in WorkloadEntry
+		// but not in the template since they are auto populated
+		return nil, nil
 	})
 
 // ValidateServiceEntry validates a service entry.

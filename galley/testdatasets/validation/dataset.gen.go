@@ -560,6 +560,7 @@ spec:
       grpc: 3550
       http: 8080
     serviceAccount: default
+    address: 1.2.3.4
 `)
 
 func datasetNetworkingV1alpha3WorkloadgroupValidYamlBytes() ([]byte, error) {
