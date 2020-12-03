@@ -21,5 +21,4 @@ import (
 
 func TestMain(m *testing.M) {
 	// TODO(https://github.com/istio/istio/issues/28863) fix these tests to prevent breaking all future tests
-	return
 }
