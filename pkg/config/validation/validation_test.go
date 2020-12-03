@@ -2366,8 +2366,8 @@ func TestValidateWorkloadGroup(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:  "invalid",
-			in:    &networking.WorkloadGroup{Template: &networking.WorkloadEntry{}, Metadata: &networking.WorkloadGroup_ObjectMeta{Labels: map[string]string{
+			name: "invalid",
+			in: &networking.WorkloadGroup{Template: &networking.WorkloadEntry{}, Metadata: &networking.WorkloadGroup_ObjectMeta{Labels: map[string]string{
 				".": "~",
 			}}},
 			valid: false,
