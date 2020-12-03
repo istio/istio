@@ -2259,11 +2259,18 @@ var ValidateWorkloadGroup = registerValidateFunc("ValidateWorkloadGroup",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
+
 		if wg.Template == nil {
 			return nil, fmt.Errorf("template is required")
 		}
 		// Do not call validateWorkloadEntry. Some fields, such as address, are required in WorkloadEntry
 		// but not in the template since they are auto populated
+
+		if wg.Metadata != nil {
+			if err := labels.Instance(wg.Metadata.Labels).Validate(); err != nil {
+				return nil, fmt.Errorf("invalid labels: %v", err)
+			}
+		}
 		return nil, nil
 	})
 
