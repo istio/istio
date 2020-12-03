@@ -71,10 +71,10 @@ sidecarInjectorWebhook:
   # with the exception of namespaces with "istio-injection:disabled" annotation
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
-  # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
-  # It is disabled by default since this function will only work after k8s v1.15.
+  # Enable objectSelector to filter out pods with no need for sidecar before calling istiod.
+  # It is enabled by default as the minimum supported Kubernetes version is 1.15+
   objectSelector:
-    enabled: false
+    enabled: true
     autoInject: true
   rewriteAppHTTPProbe: true
 istiodRemote:
