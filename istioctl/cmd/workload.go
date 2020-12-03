@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -260,13 +261,17 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
-	if err := createClusterEnv(wg, outputDir); err != nil {
+	var (
+		err         error
+		proxyConfig *meshconfig.ProxyConfig
+	)
+	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir); err != nil {
+		return err
+	}
+	if err := createClusterEnv(wg, proxyConfig, outputDir); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir); err != nil {
-		return err
-	}
-	if err := createMeshConfig(kubeClient, wg, clusterID, outputDir); err != nil {
 		return err
 	}
 	if err := createHosts(kubeClient, ingressIP, outputDir); err != nil {
@@ -276,7 +281,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 }
 
 // Write cluster.env into the given directory
-func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
+func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, dir string) error {
 	we := wg.Spec.Template
 	ports := []string{}
 	for _, v := range we.Ports {
@@ -289,14 +294,23 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 	}
 
 	// default attributes and service name, namespace, ports, service account, service CIDR
-	clusterEnv := map[string]string{
-		"ISTIO_INBOUND_PORTS":    portBehavior,
-		"ISTIO_NAMESPACE":        wg.Namespace,
-		"ISTIO_SERVICE":          fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
-		"ISTIO_SERVICE_CIDR":     "*",
-		"SERVICE_ACCOUNT":        we.ServiceAccount,
-		"ISTIO_META_DNS_CAPTURE": strconv.FormatBool(dnsCapture),
+	overrides := map[string]string{
+		"ISTIO_INBOUND_PORTS": portBehavior,
+		"ISTIO_NAMESPACE":     wg.Namespace,
+		"ISTIO_SERVICE":       fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
+		"ISTIO_SERVICE_CIDR":  "*",
+		"SERVICE_ACCOUNT":     we.ServiceAccount,
 	}
+
+	// clusterEnv will use proxyMetadata from the proxyConfig + overrides specific to the WorkloadGroup and cmd args
+	// this is similar to the way the injector sets all values proxyConfig.proxyMetadata to the Pod's env
+	clusterEnv := map[string]string{}
+	for _, metaMap := range []map[string]string{config.ProxyMetadata, overrides} {
+		for k, v := range metaMap {
+			clusterEnv[k] = v
+		}
+	}
+
 	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
 }
 
@@ -333,8 +347,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	return nil
 }
 
-// TODO: Support the proxy.istio.io/config annotation
-func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir string) error {
+func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir string) (*meshconfig.ProxyConfig, error) {
 	istioCM := "istio"
 	// Case with multiple control planes
 	revision := kubeClient.Revision()
@@ -344,7 +357,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	istio, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
 	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
-		return fmt.Errorf("configmap %s was not found in namespace %s: %v", istioCM, istioNamespace, err)
+		return nil, fmt.Errorf("configmap %s was not found in namespace %s: %v", istioCM, istioNamespace, err)
 	}
 	// fill some fields before applying the yaml to prevent errors later
 	meshConfig := &meshconfig.MeshConfig{
@@ -353,7 +366,17 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		},
 	}
 	if err := gogoprotomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
-		return err
+		return nil, err
+	}
+
+	we := wg.Spec.Template
+	// support proxy.istio.io/config on the WorkloadGroup, in the WorkloadGroup spec, or on the WorkloadEntry template
+	for _, metaMap := range []map[string]string{wg.Annotations, wg.Spec.Metadata.Annotations, wg.Annotations} {
+		if pcYaml, ok := metaMap[annotation.ProxyConfig.Name]; ok {
+			if err := gogoprotomarshal.ApplyYAML(pcYaml, meshConfig.DefaultConfig); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	labels := map[string]string{}
@@ -361,7 +384,6 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		labels[k] = v
 	}
 	// case where a user provided custom workload group has labels in the workload entry template field
-	we := wg.Spec.Template
 	if len(we.Labels) > 0 {
 		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s\n", we.Labels)
 		for k, v := range we.Labels {
@@ -387,21 +409,25 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
 
+	// TODO the defaults should be controlled by meshConfig/proxyConfig; if flags not given to the command proxyCOnfig takes precedence
+	if dnsCapture {
+		md["ISTIO_META_DNS_CAPTURE"] = strconv.FormatBool(dnsCapture)
+	}
 	if autoRegister {
 		md["ISTIO_META_AUTO_REGISTER_GROUP"] = wg.Name
 	}
 
 	proxyConfig, err := gogoprotomarshal.ToJSONMap(meshConfig.DefaultConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	proxyYAML, err := yaml.Marshal(map[string]interface{}{"defaultConfig": proxyConfig})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
+	return meshConfig.DefaultConfig, ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
 }
 
 func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
