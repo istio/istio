@@ -29,6 +29,8 @@ import (
 )
 
 func TestPostInstallControlPlaneVerification(t *testing.T) {
+	//TODO: fix flaky post install test
+	t.Skip("https://github.com/istio/istio/issues/28863")
 	framework.
 		NewTest(t).
 		Features("installation.istioctl.postinstall_verify").
