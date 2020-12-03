@@ -19,6 +19,7 @@
 
 PACKAGE="${1:?test packages}"
 PACKAGES="$(go list "${PACKAGE}")"
+VERBOSE="${VERBOSE:-0}"
 
 red='\e[0;31m'
 green='\e[0;32m'
@@ -41,11 +42,13 @@ for p in $PACKAGES; do
     if [[ $? != 0 ]]; then
       echo -e "    ${red}${testname} failed, see /tmp/test-results/${testname} for full logs$clr"
       pass=0
+    elif [[ "${VERBOSE}" != 0 ]]; then
+      echo -e "      ${green}PASS${clr} ${testname}"
     fi
   done
   if [[ $pass == 1 ]]; then
-    echo -e "    ${green}PASS ${dir}${clr}"
+    echo -e "  ${green}PASS${clr} ${dir}"
   else
-    echo -e "    ${red}FAIL ${dir}${clr}"
+    echo -e "  ${red}FAIL${clr} ${dir}"
   fi
 done
