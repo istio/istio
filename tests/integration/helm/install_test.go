@@ -56,7 +56,7 @@ const (
 	GatewayChartsDir    = "gateways"
 	retryDelay          = 2 * time.Second
 	retryTimeOut        = 5 * time.Minute
-	helmTimeout = 2 * time.Minute
+	helmTimeout         = 2 * time.Minute
 )
 
 var (
