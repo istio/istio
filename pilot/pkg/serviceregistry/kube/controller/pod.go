@@ -62,6 +62,14 @@ func newPodCache(c *Controller, informer coreinformers.PodInformer, queueEndpoin
 	return out
 }
 
+func isPodReady(pod *v1.Pod) bool {
+	ready := true
+	for _, cs := range pod.Status.ContainerStatuses {
+		ready = ready && cs.Ready
+	}
+	return ready
+}
+
 // onEvent updates the IP-based index (pc.podsByIP).
 func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	pc.Lock()
@@ -82,6 +90,9 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 
 	ip := pod.Status.PodIP
 
+	// trigger the eds update when the pods are ready, or become unready
+	edsUpdateRequired := false
+
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
 	if len(ip) > 0 {
@@ -89,32 +100,54 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 		switch ev {
 		case model.EventAdd:
 			switch pod.Status.Phase {
-			case v1.PodPending, v1.PodRunning:
+			case v1.PodPending:
 				if key != pc.podsByIP[ip] {
-					// add to cache if the pod is running or pending
+					// add to cache if the pod is pending
+					// This is for keeping the old logic
+					pc.update(ip, key)
+				}
+			case v1.PodRunning:
+				if isPodReady(pod) {
+					edsUpdateRequired = true
+				}
+				if key != pc.podsByIP[ip] {
 					pc.update(ip, key)
 				}
 			}
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil {
+				edsUpdateRequired = true
+				ev = model.EventDelete
 				// delete only if this pod was in the cache
 				if pc.podsByIP[ip] == key {
 					pc.deleteIP(ip)
 				}
-				ev = model.EventDelete
 			} else {
 				switch pod.Status.Phase {
-				case v1.PodPending, v1.PodRunning:
+				case v1.PodPending:
 					if key != pc.podsByIP[ip] {
-						// add to cache if the pod is running or pending
 						pc.update(ip, key)
 					}
-
+				case v1.PodRunning:
+					if isPodReady(pod) {
+						edsUpdateRequired = true
+						if key != pc.podsByIP[ip] {
+							pc.update(ip, key)
+						}
+					}
+					// When running pods become unready, we also need to trigger eds update
+					if key == pc.podsByIP[ip] && !isPodReady(pod) {
+						pc.deleteIP(ip)
+						edsUpdateRequired = true
+						ev = model.EventDelete
+					}
 				default:
 					// delete if the pod switched to other states and is in the cache
 					if pc.podsByIP[ip] == key {
 						pc.deleteIP(ip)
 					}
+					edsUpdateRequired = true
+					ev = model.EventDelete
 				}
 			}
 		case model.EventDelete:
@@ -122,6 +155,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			if pc.podsByIP[ip] == key {
 				pc.deleteIP(ip)
 			}
+			edsUpdateRequired = true
+		}
+		if !edsUpdateRequired {
+			return nil
 		}
 		// fire instance handles for workload
 		for _, handler := range pc.c.workloadHandlers {
