@@ -33,11 +33,6 @@ func (s *Server) ServiceController() *aggregate.Controller {
 
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
-	serviceControllers := s.ServiceController()
-
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
-	serviceControllers.AddRegistry(s.serviceEntryStore)
-
 	registered := make(map[serviceregistry.ProviderID]bool)
 	for _, r := range args.RegistryOptions.Registries {
 		serviceRegistry := serviceregistry.ProviderID(r)
@@ -59,6 +54,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
+	serviceControllers := s.ServiceController()
+	serviceControllers.AddRegistry(s.serviceEntryStore)
 	// Defer running of the service controllers.
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go serviceControllers.Run(stop)
