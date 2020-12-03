@@ -25,11 +25,12 @@ import (
 )
 
 const (
-	bugReportSubdir     = "bug-report"
-	proxyLogsPathSubdir = "proxies"
-	istioLogsPathSubdir = "istio"
-	clusterInfoSubdir   = "cluster"
-	analyzeSubdir       = "analyze"
+	bugReportSubdir        = "bug-report"
+	proxyLogsPathSubdir    = "proxies"
+	istioLogsPathSubdir    = "istio"
+	clusterInfoSubdir      = "cluster"
+	analyzeSubdir          = "analyze"
+	operatorLogsPathSubdir = "operator"
 )
 
 var (
@@ -53,6 +54,10 @@ func ProxyOutputPath(rootDir, namespace, pod string) string {
 
 func IstiodPath(rootDir, namespace, pod string) string {
 	return filepath.Join(getRootDir(rootDir), istioLogsPathSubdir, namespace, pod)
+}
+
+func OperatorPath(rootDir, namespace, pod string) string {
+	return filepath.Join(getRootDir(rootDir), operatorLogsPathSubdir, namespace, pod)
 }
 
 func AnalyzePath(rootDir, namespace string) string {
