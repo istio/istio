@@ -38,11 +38,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"istio.io/api/annotation"
-	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
@@ -228,14 +226,6 @@ func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
 	wh.Config = sidecarConfig
 	wh.valuesConfig = valuesConfig
 	wh.mu.Unlock()
-}
-
-func setIfUnset(m map[string]string, k, v string) {
-	if _, f := m[k]; f {
-		// already set
-		return
-	}
-	m[k] = v
 }
 
 type ContainerReorder int
@@ -432,8 +422,6 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 		return err
 	}
 
-	applyFSGroup(pod)
-
 	if err := applyRewrite(pod, req); err != nil {
 		return err
 	}
@@ -448,21 +436,10 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 }
 
 func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionParameters) {
-	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, req.deployMeta.Name)
-	setIfUnset(pod.Labels, label.TLSMode, model.IstioMutualTLSModeLabel)
-	setIfUnset(pod.Labels, model.IstioCanonicalServiceLabelName, canonicalSvc)
-	setIfUnset(pod.Labels, label.IstioRev, req.revision)
-	setIfUnset(pod.Labels, model.IstioCanonicalServiceRevisionLabelName, canonicalRev)
-
 	// Add all additional injected annotations. These are overridden if needed
 	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec)
 
-	for k := range AnnotationValidation {
-		if injectedPodData.ObjectMeta.Annotations[k] != "" {
-			pod.Annotations[k] = injectedPodData.ObjectMeta.Annotations[k]
-		}
-	}
-
+	// Deprecated; should be set directly in the template instead
 	for k, v := range req.injectedAnnotations {
 		pod.Annotations[k] = v
 	}
@@ -528,22 +505,6 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 		patchRewriteProbe(pod.Annotations, pod, req.meshConfig.GetDefaultConfig().GetStatusPort())
 	}
 	return nil
-}
-
-func applyFSGroup(pod *corev1.Pod) {
-	if features.EnableLegacyFSGroupInjection {
-		// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
-		// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
-		// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-		var grp = int64(1337)
-		if pod.Spec.SecurityContext == nil {
-			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-				FSGroup: &grp,
-			}
-		} else {
-			pod.Spec.SecurityContext.FSGroup = &grp
-		}
-	}
 }
 
 // applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.

@@ -18,7 +18,6 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/enableCoreDump: "true"
         sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
@@ -97,9 +96,6 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"sidecar.istio.io/enableCoreDump":"true"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
@@ -196,8 +192,6 @@ spec:
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
-      securityContext:
-        fsGroup: 1337
       volumes:
       - emptyDir:
           medium: Memory
