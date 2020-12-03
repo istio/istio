@@ -371,3 +371,15 @@ messages:
     args:
       - name: annotation
         type: string
+
+  - name: "IngressRouteRulesNotAffected"
+    code: IST0137
+    level: Warning
+    description: "Virtualservice not affected Ingress route"
+    template: "Subset configuration in %s not affected ingress route in %s."
+    args:
+      - name: virtualservice
+        type: string
+      - name: virtualserviceingress
+        type: string
+

@@ -140,6 +140,9 @@ var (
 	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
 	// Description: An Istio annotation may not be suitable for production.
 	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
+	// IngressRouteRulesNotAffected defines a diag.MessageType for message "IngressRouteRulesNotAffected".
+	// Description: Virtualservice not affected Ingress route
+	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0135", "Configuration in %s not affected ingress route in %s.")
 )
 
 // All returns a list of all known message types.
@@ -178,6 +181,7 @@ func All() []*diag.MessageType {
 		ServiceEntryAddressesRequired,
 		DeprecatedAnnotation,
 		AlphaAnnotation,
+		IngressRouteRulesNotAffected,
 	}
 }
 
@@ -510,5 +514,12 @@ func NewAlphaAnnotation(r *resource.Instance, annotation string) diag.Message {
 		AlphaAnnotation,
 		r,
 		annotation,
+// NewIngressRouteRulesNotAffected returns a new diag.Message based on IngressRouteRulesNotAffected.
+func NewIngressRouteRulesNotAffected(r *resource.Instance, virtualservice string, virtualserviceingress string) diag.Message {
+	return diag.NewMessage(
+		IngressRouteRulesNotAffected,
+		r,
+		virtualservice,
+		virtualserviceingress,
 	)
 }

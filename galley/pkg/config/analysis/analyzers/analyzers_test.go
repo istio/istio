@@ -449,6 +449,16 @@ var testGrid = []testCase{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-07.default"},
 		},
 	},
+	{
+		name: "Route Rule no effect on Ingress",
+		inputFiles: []string{
+			"testdata/virtualservice_route_rule_no_effects_ingress.yaml",
+		},
+		analyzer: &virtualservice.DestinationHostAnalyzer{},
+		expected: []message{
+			{msg.IngressRouteRulesNotAffected, "VirtualService testing-service-01-test-01.default"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
