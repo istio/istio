@@ -19,6 +19,7 @@ import (
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -140,7 +141,10 @@ func TestDeploymentYAML(t *testing.T) {
 			tc.config.Cluster = resource.FakeCluster{
 				NameValue: "cluster-0",
 			}
-			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(nil, tc.config, settings, kube.Cluster{
+			if err := common.FillInDefaults(nil, "", &tc.config); err != nil {
+				t.Errorf("failed filling in defaults: %v", err)
+			}
+			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, kube.Cluster{
 				ExtendedClient: kubetest.MockClient{},
 			})
 			if err != nil {
