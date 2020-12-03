@@ -28,9 +28,17 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	mcp "istio.io/api/mcp/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 type testAdscRunServer struct{}
@@ -74,12 +82,13 @@ func TestADSC_Run(t *testing.T) {
 		{
 			desc: "stream-2-unnamed-resources",
 			inAdsc: &ADSC{
-				url:        "127.0.0.1:49133",
-				Received:   make(map[string]*xdsapi.DiscoveryResponse),
-				Updates:    make(chan string),
-				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
-				RecvWg:     sync.WaitGroup{},
-				cfg:        &Config{},
+				url:         "127.0.0.1:49133",
+				Received:    make(map[string]*xdsapi.DiscoveryResponse),
+				Updates:     make(chan string),
+				XDSUpdates:  make(chan *xdsapi.DiscoveryResponse),
+				RecvWg:      sync.WaitGroup{},
+				cfg:         &Config{},
+				VersionInfo: map[string]string{},
 			},
 			port: uint32(49133),
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
@@ -319,4 +328,98 @@ func readFile(dir string, t *testing.T) string {
 		t.Fatalf("file %s issue: %v", dat, err)
 	}
 	return string(dat)
+}
+
+func TestADSC_handleMCP(t *testing.T) {
+	adsc := &ADSC{
+		VersionInfo: map[string]string{},
+		Store:       model.MakeIstioStore(memory.Make(collections.Pilot)),
+	}
+
+	tests := []struct {
+		desc              string
+		resources         []*any.Any
+		expectedResources [][]string
+	}{
+		{
+			desc: "create-resources",
+			resources: []*any.Any{
+				constructResource("foo1", "foo1.bar.com", "192.1.1.1"),
+				constructResource("foo2", "foo2.bar.com", "192.1.1.2"),
+			},
+			expectedResources: [][]string{
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo2", "foo2.bar.com", "192.1.1.2"},
+			},
+		},
+		{
+			desc: "update-and-create-resources",
+			resources: []*any.Any{
+				constructResource("foo1", "foo1.bar.com", "192.1.1.1"),
+				constructResource("foo2", "foo2.bar.com", "192.2.2.2"),
+				constructResource("foo3", "foo2.bar.com", "192.1.1.3"),
+			},
+			expectedResources: [][]string{
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo2", "foo2.bar.com", "192.2.2.2"},
+				{"foo3", "foo2.bar.com", "192.1.1.3"},
+			},
+		},
+		{
+			desc: "delete-and-create-resources",
+			resources: []*any.Any{
+				constructResource("foo4", "foo4.bar.com", "192.1.1.4"),
+			},
+			expectedResources: [][]string{
+				{"foo4", "foo4.bar.com", "192.1.1.4"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			gvk := []string{"networking.istio.io", "v1alpha3", "ServiceEntry"}
+			adsc.handleMCP(gvk, tt.resources)
+			configs, _ := adsc.Store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), "")
+			if len(configs) != len(tt.expectedResources) {
+				t.Errorf("expecte %v got %v", len(tt.expectedResources), len(configs))
+			}
+			configMap := make(map[string][]string)
+			for _, conf := range configs {
+				service, _ := conf.Spec.(*networking.ServiceEntry)
+				configMap[conf.Name] = []string{conf.Name, service.Hosts[0], service.Addresses[0]}
+			}
+			for _, expected := range tt.expectedResources {
+				got, ok := configMap[expected[0]]
+				if !ok {
+					t.Errorf("expecte %v got none", expected)
+				} else {
+					for i, value := range expected {
+						if value != got[i] {
+							t.Errorf("expecte %v got %v", value, got[i])
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func constructResource(name string, host string, address string) *any.Any {
+	service := &networking.ServiceEntry{
+		Hosts:     []string{host},
+		Addresses: []string{address},
+	}
+	seAny, _ := types.MarshalAny(service)
+	resource := &mcp.Resource{
+		Metadata: &mcp.Metadata{
+			Name:       "default/" + name,
+			CreateTime: types.TimestampNow(),
+		},
+		Body: seAny,
+	}
+	resAny, _ := types.MarshalAny(resource)
+	return &any.Any{
+		TypeUrl: resAny.TypeUrl,
+		Value:   resAny.Value,
+	}
 }

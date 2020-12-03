@@ -440,7 +440,7 @@ func (a *ADSC) handleRecv() {
 		// Group-value-kind - used for high level api generator.
 		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
 
-		adscLog.Infoa("Received ", a.url, " type ", msg.TypeUrl,
+		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
 			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
 		if a.cfg.ResponseHandler != nil {
 			a.cfg.ResponseHandler.HandleResponse(a, msg)
@@ -452,7 +452,7 @@ func (a *ADSC) handleRecv() {
 			m := &v1alpha1.MeshConfig{}
 			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
-				log.Warna("Failed to unmarshal mesh config", err)
+				adscLog.Warn("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
@@ -474,54 +474,56 @@ func (a *ADSC) handleRecv() {
 		clusters := []*cluster.Cluster{}
 		routes := []*route.RouteConfiguration{}
 		eds := []*endpoint.ClusterLoadAssignment{}
-		for _, rsc := range msg.Resources { // Any
-			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
-			valBytes := rsc.Value
-			switch rsc.TypeUrl {
-			case v3.ListenerType:
+		a.VersionInfo[msg.TypeUrl] = msg.VersionInfo
+		switch msg.TypeUrl {
+		case v3.ListenerType:
+			for _, rsc := range msg.Resources {
+				valBytes := rsc.Value
 				ll := &listener.Listener{}
 				_ = proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
-			case v3.ClusterType:
+			}
+			a.handleLDS(listeners)
+		case v3.ClusterType:
+			for _, rsc := range msg.Resources {
+				valBytes := rsc.Value
 				cl := &cluster.Cluster{}
 				_ = proto.Unmarshal(valBytes, cl)
 				clusters = append(clusters, cl)
-			case v3.EndpointType:
+			}
+			a.handleCDS(clusters)
+		case v3.EndpointType:
+			for _, rsc := range msg.Resources {
+				valBytes := rsc.Value
 				el := &endpoint.ClusterLoadAssignment{}
 				_ = proto.Unmarshal(valBytes, el)
 				eds = append(eds, el)
-			case v3.RouteType:
+			}
+			a.handleEDS(eds)
+		case v3.RouteType:
+			for _, rsc := range msg.Resources {
+				valBytes := rsc.Value
 				rl := &route.RouteConfiguration{}
 				_ = proto.Unmarshal(valBytes, rl)
 				routes = append(routes, rl)
-			default:
-				err = a.handleMCP(gvk, rsc, valBytes)
-				if err != nil {
-					log.Warnf("Error handling received MCP config %v", err)
-				}
 			}
+			a.handleRDS(routes)
+		default:
+			a.handleMCP(gvk, msg.Resources)
 		}
 
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
 		// This scheme also allows us to chunk large responses !
 
 		// TODO: add hook to inject nacks
-		switch msg.TypeUrl {
-		case v3.ClusterType:
-			a.handleCDS(clusters)
-		case v3.EndpointType:
-			a.handleEDS(eds)
-		case v3.ListenerType:
-			a.handleLDS(listeners)
-		case v3.RouteType:
-			a.handleRDS(routes)
-		}
 
 		a.mutex.Lock()
 		if len(gvk) == 3 {
 			gt := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
-			a.sync[gt.String()] = time.Now()
-			a.syncCh <- gt.String()
+			if _, exist := a.sync[gt.String()]; !exist {
+				a.sync[gt.String()] = time.Now()
+				a.syncCh <- gt.String()
+			}
 		}
 		a.Received[msg.TypeUrl] = msg
 		a.ack(msg)
@@ -1094,51 +1096,76 @@ func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	return a.eds
 }
 
-func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
+func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	if len(gvk) != 3 {
-		return nil // Not MCP
+		return // Not MCP
 	}
 	// Generic - fill up the store
 	if a.Store == nil {
-		return nil
+		return
 	}
-	m := &mcp.Resource{}
-	err := types.UnmarshalAny(&types.Any{
-		TypeUrl: rsc.TypeUrl,
-		Value:   rsc.Value,
-	}, m)
+
+	groupVersionKind := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+	existingConfigs, err := a.Store.List(groupVersionKind, "")
 	if err != nil {
-		return err
+		adscLog.Warnf("Error listing existing configs %v", err)
+		return
 	}
-	val, err := mcpToPilot(m)
-	if err != nil {
-		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
-		return err
-	}
-	val.GroupVersionKind = config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
-	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
-	if cfg == nil {
-		_, err = a.Store.Create(*val)
+
+	var received = make(map[string]*config.Config)
+	for _, rsc := range resources {
+		m := &mcp.Resource{}
+		err := types.UnmarshalAny(&types.Any{
+			TypeUrl: rsc.TypeUrl,
+			Value:   rsc.Value,
+		}, m)
 		if err != nil {
-			return err
+			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
+			continue
 		}
-	} else {
-		_, err = a.Store.Update(*val)
+		val, err := mcpToPilot(m)
 		if err != nil {
-			return err
+			adscLog.Warn("Invalid data ", err, " ", string(rsc.Value))
+			continue
 		}
-	}
-	if a.LocalCacheDir != "" {
-		strResponse, err := json.MarshalIndent(val, "  ", "  ")
-		if err != nil {
-			return err
+		received[val.Namespace+"/"+val.Name] = val
+
+		val.GroupVersionKind = groupVersionKind
+		cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
+		if cfg == nil {
+			_, err = a.Store.Create(*val)
+			if err != nil {
+				adscLog.Warnf("Error adding a new resource to the store %v", err)
+				continue
+			}
+		} else {
+			_, err = a.Store.Update(*val)
+			if err != nil {
+				adscLog.Warnf("Error updating an existing resource in the store %v", err)
+				continue
+			}
 		}
-		err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-			val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
-		if err != nil {
-			return err
+		if a.LocalCacheDir != "" {
+			strResponse, err := json.MarshalIndent(val, "  ", "  ")
+			if err != nil {
+				adscLog.Warnf("Error marshaling received MCP config %v", err)
+				continue
+			}
+			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
+				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+			if err != nil {
+				adscLog.Warnf("Error writing received MCP config to local file %v", err)
+			}
 		}
 	}
 
-	return nil
+	// remove deleted resources from cache
+	for _, config := range existingConfigs {
+		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
+			err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace, nil)
+			if err != nil {
+				adscLog.Warnf("Error deleting an outdated resource from the store %v", err)
+			}
+		}
+	}
 }
