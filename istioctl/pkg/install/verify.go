@@ -21,6 +21,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -74,6 +75,9 @@ istioctl experimental precheck.
 		RunE: func(c *cobra.Command, args []string) error {
 			installationVerifier := verifier.NewStatusVerifier(istioNamespace, manifestsPath,
 				*kubeConfigFlags.KubeConfig, *kubeConfigFlags.Context, filenames, opts, nil, nil)
+			if formatting.IstioctlColorDefault(c.OutOrStdout()) {
+				installationVerifier.Colorize()
+			}
 			return installationVerifier.Verify()
 		},
 	}
