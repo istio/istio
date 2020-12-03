@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 29364
+releaseNotes:
+  - |
+    **Fixed** Newer control plane installations were removing permissions for `rbac.istio.io` from `istiod`, causing
+    older control planes relying on that CRD group to hang on restart.
