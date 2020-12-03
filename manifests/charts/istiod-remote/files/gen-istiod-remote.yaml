@@ -79,7 +79,7 @@ data:
         "oneNamespace": false,
         "operatorManageWebhooks": false,
         "pilotCertProvider": "istiod",
-        "priorityClassName": "",
+        "priorityClassName": "system-cluster-critical",
         "proxy": {
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",

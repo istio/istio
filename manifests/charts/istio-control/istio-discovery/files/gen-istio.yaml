@@ -99,7 +99,7 @@ data:
         "oneNamespace": false,
         "operatorManageWebhooks": false,
         "pilotCertProvider": "istiod",
-        "priorityClassName": "",
+        "priorityClassName": "system-cluster-critical",
         "proxy": {
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",
@@ -753,6 +753,7 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istiod-service-account
+      priorityClassName: "system-cluster-critical"
       securityContext:
         fsGroup: 1337
       containers:
