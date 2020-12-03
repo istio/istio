@@ -57,12 +57,12 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 
 	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
-		a.analyzeVirtualServiceSubset(r, ctx, virtualServiceDestinations)
+		a.analyzeSubset(r, ctx, virtualServiceDestinations)
 		return true
 	})
 }
 
-func (d *DestinationHostAnalyzer) analyzeVirtualServiceSubset(r *resource.Instance, ctx analysis.Context, virtualServiceDestinations map[resource.FullName][]*v1alpha3.Destination) {
+func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analysis.Context, vsDestinations map[resource.FullName][]*v1alpha3.Destination) {
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	// if there's no gateway specified, we're done
@@ -74,7 +74,7 @@ func (d *DestinationHostAnalyzer) analyzeVirtualServiceSubset(r *resource.Instan
 		for routeIndex, route := range http.Route {
 			if route.Destination.Subset == "" {
 
-				for virtualservice, destinations := range virtualServiceDestinations {
+				for virtualservice, destinations := range vsDestinations {
 					for _, destination := range destinations {
 
 						if destination.Host == route.Destination.Host {

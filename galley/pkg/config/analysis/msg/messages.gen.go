@@ -142,7 +142,7 @@ var (
 	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
 	// IngressRouteRulesNotAffected defines a diag.MessageType for message "IngressRouteRulesNotAffected".
 	// Description: Virtualservice not affected Ingress route
-	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0135", "Configuration in %s not affected ingress route in %s.")
+	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0135", "Subset configuration in %s not affected ingress route in %s.")
 )
 
 // All returns a list of all known message types.

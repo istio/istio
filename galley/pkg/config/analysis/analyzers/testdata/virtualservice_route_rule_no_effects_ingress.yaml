@@ -28,7 +28,7 @@ spec:
   http:
   - route:
     - destination:
-        host: ratings.default.svc.cluster.local # Expected: validation error since destination don't have subset
+        host: ratings # Expected: validation error since destination don't have subset
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -59,7 +59,7 @@ spec:
   http:
   - route:
     - destination:
-        host: ratings.default.svc.cluster.local # Expected: no validation error
+        host: ratings # Expected: no validation error
         subset: v1
 --- 
 apiVersion: networking.istio.io/v1alpha3
@@ -69,9 +69,9 @@ metadata:
   namespace: default
 spec:
   hosts:
-  - ratings.default.svc.cluster.local
+  - ratings
   http:
   - route:
     - destination:
-        host: ratings.default.svc.cluster.local
+        host: ratings
         subset: v1
