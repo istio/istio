@@ -229,11 +229,11 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 	var out []*model.ServiceInstance
 	for _, slice := range slices {
-		hostname := kube.ServiceHostname(slice.Labels[discovery.LabelServiceName], slice.Namespace, c.domainSuffix)
 		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				pod, _ := getPod(c, a, &metav1.ObjectMeta{Name: slice.Labels[discovery.LabelServiceName], Namespace: slice.Namespace}, e.TargetRef, hostname)
+				// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
+				pod := c.getPod(a, &metav1.ObjectMeta{Name: slice.Labels[discovery.LabelServiceName], Namespace: slice.Namespace}, e.TargetRef)
 				if pod != nil {
 					podLabels = pod.Labels
 				}

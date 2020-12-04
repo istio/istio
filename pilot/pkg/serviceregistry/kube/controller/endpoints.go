@@ -120,12 +120,12 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 		return nil
 	}
 	ep := item.(*v1.Endpoints)
-	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, e.c.domainSuffix)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			pod, _ := getPod(c, ea.IP, &ep.ObjectMeta, ea.TargetRef, hostname)
+			// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
+			pod := c.getPod(ea.IP, &ep.ObjectMeta, ea.TargetRef)
 			if pod != nil {
 				podLabels = pod.Labels
 			}
