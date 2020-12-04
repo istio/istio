@@ -2307,6 +2307,10 @@ func validateReadinessProbe(probe *networking.ReadinessProbe) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf(`httpGet.schema must be one of "http", "https"`))
 		}
 		for _, header := range h.HttpHeaders {
+			if header == nil {
+				errs = appendErrors(errs, fmt.Errorf("invalid nil header"))
+				continue
+			}
 			errs = appendErrors(errs, ValidateHTTPHeaderName(header.Name))
 		}
 	case *networking.ReadinessProbe_TcpSocket:
