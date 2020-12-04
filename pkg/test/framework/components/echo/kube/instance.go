@@ -241,37 +241,19 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			}
 		}
 
-		// customize cluster.env
-		f, err := os.OpenFile(path.Join(subsetDir, "cluster.env"), os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-		if err != nil {
-			return err
-		}
-
-		// TODO this is a hack – we can remove it when https://github.com/istio/istio/issues/29125 is fixed
-		// copy proxy config into cluster.env; may eventually move into istioctl (where proxy config is on the WorkloadGroup)
-		mc, err := readMeshConfig(path.Join(subsetDir, "mesh.yaml"))
-		if err != nil {
-			return err
-		}
-		for k, v := range mc.DefaultConfig.ProxyMetadata {
-			if _, ok := c.cfg.VMEnvironment[k]; ok {
-				continue
-			}
-			_, err = f.Write([]byte(fmt.Sprintf("%s=%s\n", k, v)))
+		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
+			// customize cluster.env with NodePort mapping
+			f, err := os.OpenFile(path.Join(subsetDir, "cluster.env"), os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 			if err != nil {
 				return err
 			}
-		}
-		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-			// apply node port mapping
 			_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port)))
 			if err != nil {
 				return err
 			}
-		}
-
-		if err = f.Close(); err != nil {
-			return err
+			if err = f.Close(); err != nil {
+				return err
+			}
 		}
 
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
