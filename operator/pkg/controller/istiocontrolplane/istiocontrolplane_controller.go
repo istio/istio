@@ -61,6 +61,8 @@ const (
 	finalizer = "istio-finalizer.install.istio.io"
 	// finalizerMaxRetries defines the maximum number of attempts to remove the finalizer.
 	finalizerMaxRetries = 1
+	// IgnoreReconcileAnnotation is annotation of IstioOperator CR so it would be ignored during Reconcile loop.
+	IgnoreReconcileAnnotation = "install.istio.io/ignoreReconcile"
 )
 
 var (
@@ -218,6 +220,20 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	operatorRevision, _ := os.LookupEnv("REVISION")
 	if operatorRevision != "" && operatorRevision != iop.Spec.Revision {
 		scope.Infof("Ignoring IstioOperator CR %s with revision %s, since operator revision is %s.", iopName, iop.Spec.Revision, operatorRevision)
+		return reconcile.Result{}, nil
+	}
+
+	if iop.Annotations != nil {
+		if ir := iop.Annotations[IgnoreReconcileAnnotation]; ir == "true" {
+			scope.Infof("Ignoring the IstioOperator CR %s because it is annotated to be ignored for reconcile ", iopName)
+			return reconcile.Result{}, nil
+		}
+	}
+
+	// for backward compatibility, the previous applied installed-state CR does not have the ignore reconcile annotation
+	// TODO(richardwxn): remove this check and rely on annotation check only
+	if strings.HasPrefix(iop.Name, name.InstalledSpecCRPrefix) {
+		scope.Infof("Ignoring the installed-state IstioOperator CR %s ", iopName)
 		return reconcile.Result{}, nil
 	}
 
