@@ -73,6 +73,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 	})
 	// TODO return err from Patch through Get
 	if err == nil {
+		adsLog.Debugf("updated auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
 		return nil
 	} else if !errors.IsNotFound(err) && err.Error() != "item not found" {
 		adsLog.Errorf("updating auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
@@ -94,6 +95,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 		adsLog.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 		return fmt.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
+	adsLog.Infof("auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
 	return nil
 }
 
@@ -219,6 +221,7 @@ func (sg *InternalGen) cleanupEntry(wle config.Config) {
 	if err := sg.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
 		adsLog.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
 	}
+	adsLog.Infof("cleaned up auto-registered WorkloadEntry %s/%s", wle.Namespace, wle.Name)
 }
 
 func shouldCleanupEntry(wle config.Config) bool {
