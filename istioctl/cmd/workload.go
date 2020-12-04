@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -327,13 +328,18 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 		return err
 	}
 
+	serviceAccount := wg.Spec.Template.ServiceAccount
 	token := &authenticationv1.TokenRequest{
+		// ObjectMeta isn't required in real k8s, but needed for tests
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccount,
+			Namespace: wg.Namespace,
+		},
 		Spec: authenticationv1.TokenRequestSpec{
 			Audiences:         []string{"istio-ca"},
 			ExpirationSeconds: &tokenDuration,
 		},
 	}
-	serviceAccount := wg.Spec.Template.ServiceAccount
 	tokenReq, err := kubeClient.CoreV1().ServiceAccounts(wg.Namespace).CreateToken(context.Background(), serviceAccount, token, metav1.CreateOptions{})
 	// errors if the token could not be created with the given service account in the given namespace
 	if err != nil {
@@ -369,21 +375,29 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		return nil, err
 	}
 
-	we := wg.Spec.Template
-	// support proxy.istio.io/config on the WorkloadGroup, in the WorkloadGroup spec, or on the WorkloadEntry template
-	for _, metaMap := range []map[string]string{wg.Annotations, wg.Spec.Metadata.Annotations, wg.Annotations} {
-		if pcYaml, ok := metaMap[annotation.ProxyConfig.Name]; ok {
+	// performing separate map-merge, apply seems to completely overwrite all metadata
+	proxyMetadata := meshConfig.DefaultConfig.ProxyMetadata
+
+	// support proxy.istio.io/config on the WorkloadGroup, in the WorkloadGroup spec
+	for _, annotations := range []map[string]string{wg.Annotations, wg.Spec.Metadata.Annotations} {
+		if pcYaml, ok := annotations[annotation.ProxyConfig.Name]; ok {
 			if err := gogoprotomarshal.ApplyYAML(pcYaml, meshConfig.DefaultConfig); err != nil {
 				return nil, err
 			}
+			for k, v := range meshConfig.DefaultConfig.ProxyMetadata {
+				proxyMetadata[k] = v
+			}
 		}
 	}
+
+	meshConfig.DefaultConfig.ProxyMetadata = proxyMetadata
 
 	labels := map[string]string{}
 	for k, v := range wg.Spec.Metadata.Labels {
 		labels[k] = v
 	}
 	// case where a user provided custom workload group has labels in the workload entry template field
+	we := wg.Spec.Template
 	if len(we.Labels) > 0 {
 		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s\n", we.Labels)
 		for k, v := range we.Labels {
@@ -473,9 +487,10 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 
 // Returns a map with each k,v entry on a new line
 func mapToString(m map[string]string) string {
-	var b strings.Builder
+	lines := []string{}
 	for k, v := range m {
-		fmt.Fprintf(&b, "%s=%s\n", k, v)
+		lines = append(lines, fmt.Sprintf("%s=%s", k, v))
 	}
-	return b.String()
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
 }
