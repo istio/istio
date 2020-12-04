@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+
+releaseNotes:
+  - |
+    **Added** support merging slashes in the HTTP path. This can be enabled by setting "PILOT_HTTP_MERGE_SLASHES_IN_PATH"
+    to true.
+
