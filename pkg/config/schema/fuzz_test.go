@@ -161,7 +161,26 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 			*t = types.Value{Kind: &types.Value_StringValue{StringValue: ""}}
 		},
 		func(t *networking.ReadinessProbe, c fuzz.Continue) {
-			*t = networking.ReadinessProbe{}
+			t.FailureThreshold = c.Int31()
+			t.SuccessThreshold = c.Int31()
+			t.InitialDelaySeconds = c.Int31()
+			t.PeriodSeconds = c.Int31()
+			t.TimeoutSeconds = c.Int31()
+			if c.RandBool() {
+				hc := &networking.HTTPHealthCheckConfig{}
+				c.Fuzz(hc)
+				t.HealthCheckMethod = &networking.ReadinessProbe_HttpGet{HttpGet: hc}
+			} else {
+				if c.RandBool() {
+					hc := &networking.TCPHealthCheckConfig{}
+					c.Fuzz(hc)
+					t.HealthCheckMethod = &networking.ReadinessProbe_TcpSocket{TcpSocket: hc}
+				} else {
+					hc := &networking.ExecHealthCheckConfig{}
+					c.Fuzz(hc)
+					t.HealthCheckMethod = &networking.ReadinessProbe_Exec{Exec: hc}
+				}
+			}
 		},
 		func(t *security.AuthorizationPolicy, c fuzz.Continue) {
 			*t = security.AuthorizationPolicy{}
