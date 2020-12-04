@@ -2372,6 +2372,102 @@ func TestValidateWorkloadGroup(t *testing.T) {
 			}}},
 			valid: false,
 		},
+		{
+			name: "probe missing method",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe:    &networking.ReadinessProbe{},
+			},
+			valid: false,
+		},
+		{
+			name: "probe nil",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_HttpGet{},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "probe http empty",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_HttpGet{
+						HttpGet: &networking.HTTPHealthCheckConfig{},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "probe http valid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_HttpGet{
+						HttpGet: &networking.HTTPHealthCheckConfig{
+							Port: 5,
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "probe tcp invalid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_TcpSocket{
+						TcpSocket: &networking.TCPHealthCheckConfig{},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "probe tcp valid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_TcpSocket{
+						TcpSocket: &networking.TCPHealthCheckConfig{
+							Port: 5,
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "probe exec invalid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_Exec{
+						Exec: &networking.ExecHealthCheckConfig{},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "probe exec valid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_Exec{
+						Exec: &networking.ExecHealthCheckConfig{
+							Command: []string{"foo", "bar"},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
