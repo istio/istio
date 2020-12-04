@@ -178,6 +178,12 @@ var (
 		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
 	).Get()
 
+	EnableWasm = env.RegisterBoolVar(
+		"PILOT_ENABLE_WASM",
+		false,
+		"If enabled, Wasm-based telemetry will be enabled.",
+	).Get()
+
 	ScopeGatewayToNamespace = env.RegisterBoolVar(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
