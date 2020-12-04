@@ -40,7 +40,7 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
-	// needResync is map of IP to endpoint names. This is used to requeue endpoint
+	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
 	needResync         map[string]sets.Set
@@ -169,8 +169,8 @@ func (pc *PodCache) update(ip, key string) {
 
 	if endpointsToUpdate, f := pc.needResync[ip]; f {
 		delete(pc.needResync, ip)
-		for ep := range endpointsToUpdate {
-			pc.queueEndpointEvent(ep)
+		for epKey := range endpointsToUpdate {
+			pc.queueEndpointEvent(epKey)
 		}
 		endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 	}
@@ -225,7 +225,7 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 	return pc.getPodByKey(key)
 }
 
-// getPodByKey returns the pod or nil if pod not found or an error occurred
+// getPodByKey returns the pod by key formatted `ns/name`
 func (pc *PodCache) getPodByKey(key string) *v1.Pod {
 	item, _, _ := pc.informer.GetStore().GetByKey(key)
 	if item != nil {

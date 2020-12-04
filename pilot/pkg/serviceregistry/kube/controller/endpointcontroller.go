@@ -120,24 +120,16 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 //   this may happen due to eventually consistency issues, out of order events, etc. In this case, the caller
 //   should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
 //   correctness and security.
-func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (rpod *v1.Pod, expectPod bool) {
+func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (*v1.Pod, bool) {
 	if targetRef != nil && targetRef.Kind == "Pod" {
 		key := kube.KeyFunc(targetRef.Name, targetRef.Namespace)
 		pod := c.pods.getPodByKey(key)
 		if pod == nil {
-			// This means, the endpoint event has arrived before pod event.
-			// This might happen because PodCache is eventually consistent.
-			log.Debugf("Endpoint without pod %s %s.%s", ip, ep.Name, ep.Namespace)
-			endpointsWithNoPods.Increment()
-			if c.metrics != nil {
-				c.metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
-			}
-			// Tell pod cache we want to queue the endpoint event when this pod arrives.
-			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
-			c.pods.queueEndpointEventOnPodArrival(epkey, ip)
+			c.registerEndpointResync(ep, ip, host)
 		}
 		return pod, true
 	}
+
 	// This means the endpoint is manually controlled
 	// TODO: this may be not correct because of the hostnetwork pods may have same ip address
 	// Do we have a way to get the pod from only endpoint?
@@ -148,5 +140,23 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 			pod = nil
 		}
 	}
+	if pod == nil {
+		c.registerEndpointResync(ep, ip, host)
+	}
+	// There maybe no pod at all, so return false
 	return pod, false
+}
+
+func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, host host.Name) {
+	// This means, the endpoint event has arrived before pod event.
+	// This might happen because PodCache is eventually consistent.
+	log.Debugf("Endpoint without pod %s %s.%s", ip, ep.Name, ep.Namespace)
+	endpointsWithNoPods.Increment()
+	if c.metrics != nil {
+		c.metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
+	}
+	// Tell pod cache we want to queue the endpoint event when this pod arrives.
+	epkey := kube.KeyFunc(ep.Name, ep.Namespace)
+	c.pods.queueEndpointEventOnPodArrival(epkey, ip)
+
 }
