@@ -132,6 +132,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			client:             client,
 		},
 	}
+	loadCertFromSecret := (scrtErr == nil)
 	if scrtErr != nil {
 		pkiCaLog.Infof("Failed to get secret (error: %s), will create one", scrtErr)
 
@@ -169,10 +170,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 				return nil, fmt.Errorf("failed to create CA due to secret write error")
 			}
+			loadCertFromSecret = true
 			pkiCaLog.Warnf("Secret %v in namespace %v already exists", CASecret, namespace)
 		}
 		pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
-	} else {
+	}
+	if loadCertFromSecret {
 		pkiCaLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
 		rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rootCertFile)
 		if err != nil {
