@@ -220,8 +220,8 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	return nil
 }
 
-func loadCert(name string) (string, error) {
-	data, err := cert.ReadSampleCertFromFile(name)
+func loadCert(filename string) (string, error) {
+	data, err := cert.ReadSampleCertFromFile(filename)
 	if err != nil {
 		return "", err
 	}

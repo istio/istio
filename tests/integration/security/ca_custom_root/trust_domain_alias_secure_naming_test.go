@@ -127,7 +127,5 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 					}
 				})
 			}
-
-			ctx.WhenDone(Cleanup)
 		})
 }

@@ -133,7 +133,11 @@ func CreateCASecret(ctx resource.Context) error {
 }
 
 func ReadSampleCertFromFile(f string) ([]byte, error) {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "samples/certs", f))
+	filename := f
+	if !path.IsAbs(filename) {
+		filename = path.Join(env.IstioSrc, "samples/certs", f)
+	}
+	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
