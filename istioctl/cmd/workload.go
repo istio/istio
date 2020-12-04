@@ -492,5 +492,5 @@ func mapToString(m map[string]string) string {
 		lines = append(lines, fmt.Sprintf("%s=%s", k, v))
 	}
 	sort.Strings(lines)
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n") + "\n"
 }
