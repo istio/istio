@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -241,19 +242,8 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			}
 		}
 
-		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-			// customize cluster.env with NodePort mapping
-			f, err := os.OpenFile(path.Join(subsetDir, "cluster.env"), os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-			if err != nil {
-				return err
-			}
-			_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port)))
-			if err != nil {
-				return err
-			}
-			if err = f.Close(); err != nil {
-				return err
-			}
+		if err := customizeVMEnvironment(ctx, cfg, path.Join(subsetDir, "cluster.env"), istiodAddr); err != nil {
+			return err
 		}
 
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
@@ -297,6 +287,34 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	}
 
 	return nil
+}
+
+func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) (err error) {
+	f, err := os.OpenFile(clusterEnv, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	defer func() {
+		if closeErr := f.Close(); err != nil {
+			err = closeErr
+		}
+	}()
+	if cfg.VMEnvironment != nil {
+		for k, v := range cfg.VMEnvironment {
+			_, err = f.Write([]byte(fmt.Sprintf("%s=%s\n", k, v)))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
+		// customize cluster.env with NodePort mapping
+		if err != nil {
+			return err
+		}
+		_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port)))
+		if err != nil {
+			return err
+		}
+	}
+	return
 }
 
 func patchProxyConfigFile(file string, overrides string) error {
