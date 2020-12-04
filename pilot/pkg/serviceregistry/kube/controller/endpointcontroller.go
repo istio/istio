@@ -145,7 +145,6 @@ func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, ho
 	// Tell pod cache we want to queue the endpoint event when this pod arrives.
 	epkey := kube.KeyFunc(ep.Name, ep.Namespace)
 	c.pods.queueEndpointEventOnPodArrival(epkey, ip)
-
 }
 
 // getPod fetches a pod by name or IP address.
