@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/pkg/log"
 )
 
@@ -2271,8 +2272,68 @@ var ValidateWorkloadGroup = registerValidateFunc("ValidateWorkloadGroup",
 				return nil, fmt.Errorf("invalid labels: %v", err)
 			}
 		}
-		return nil, nil
+
+		return nil, validateReadinessProbe(wg.Probe)
 	})
+
+func validateReadinessProbe(probe *networking.ReadinessProbe) (errs error) {
+	if probe == nil {
+		return nil
+	}
+	if probe.PeriodSeconds < 0 {
+		errs = appendErrors(errs, fmt.Errorf("periodSeconds must be non-negative"))
+	}
+	if probe.InitialDelaySeconds < 0 {
+		errs = appendErrors(errs, fmt.Errorf("initialDelaySeconds must be non-negative"))
+	}
+	if probe.TimeoutSeconds < 0 {
+		errs = appendErrors(errs, fmt.Errorf("timeoutSeconds must be non-negative"))
+	}
+	if probe.SuccessThreshold < 0 {
+		errs = appendErrors(errs, fmt.Errorf("successThreshold must be non-negative"))
+	}
+	if probe.FailureThreshold < 0 {
+		errs = appendErrors(errs, fmt.Errorf("failureThreshold must be non-negative"))
+	}
+	switch m := probe.HealthCheckMethod.(type) {
+	case *networking.ReadinessProbe_HttpGet:
+		h := m.HttpGet
+		if h == nil {
+			errs = appendErrors(errs, fmt.Errorf("httpGet may not be nil"))
+			break
+		}
+		errs = appendErrors(errs, ValidatePort(int(h.Port)))
+		if h.Scheme != "" && h.Scheme != string(apimirror.URISchemeHTTPS) && h.Scheme != string(apimirror.URISchemeHTTP) {
+			errs = appendErrors(errs, fmt.Errorf(`httpGet.schema must be one of "http", "https"`))
+		}
+		for _, header := range h.HttpHeaders {
+			if header == nil {
+				errs = appendErrors(errs, fmt.Errorf("invalid nil header"))
+				continue
+			}
+			errs = appendErrors(errs, ValidateHTTPHeaderName(header.Name))
+		}
+	case *networking.ReadinessProbe_TcpSocket:
+		h := m.TcpSocket
+		if h == nil {
+			errs = appendErrors(errs, fmt.Errorf("tcpSocket may not be nil"))
+			break
+		}
+		errs = appendErrors(errs, ValidatePort(int(h.Port)))
+	case *networking.ReadinessProbe_Exec:
+		h := m.Exec
+		if h == nil {
+			errs = appendErrors(errs, fmt.Errorf("exec may not be nil"))
+			break
+		}
+		if len(h.Command) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("exec.command is required"))
+		}
+	default:
+		errs = appendErrors(errs, fmt.Errorf("unknown health check method %T", m))
+	}
+	return errs
+}
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",

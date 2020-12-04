@@ -48,6 +48,8 @@ type URIScheme string
 const (
 	// URISchemeHTTPS means that the scheme used will be https://
 	URISchemeHTTPS URIScheme = "HTTPS"
+	// URISchemeHTTP means that the scheme used will be http://
+	URISchemeHTTP URIScheme = "HTTP"
 )
 
 // HTTPHeader describes a custom header to be used in HTTP probes
