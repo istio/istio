@@ -76,15 +76,23 @@ var (
 9092 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
+9092 VirtualService: a\..*
+   when headers are end-user=jason
 9093 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
+9093 VirtualService: a\..*
+   when headers are end-user=jason
 81 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
+81 VirtualService: a\..*
+   when headers are end-user=jason
 7071 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
+7071 VirtualService: a\..*
+   when headers are end-user=jason
 82 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -93,55 +101,7 @@ var (
 82 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 `)
 
-	describePodAOutput = regexp.MustCompile(`Service: a\..*
-   Port: http 80/HTTP targets pod port 18080
-   Port: grpc 7070/GRPC targets pod port 17070
-   Port: tcp 9090/TCP targets pod port 19090
-   Port: tcp-server 9091/TCP targets pod port 16060
-   Port: auto-tcp 9092/UnsupportedProtocol targets pod port 19091
-   Port: auto-tcp-server 9093/UnsupportedProtocol targets pod port 16061
-   Port: auto-http 81/UnsupportedProtocol targets pod port 18081
-   Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
-   Port: http-instance 82/HTTP targets pod port 18082
-80 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-80 VirtualService: a\..*
-   when headers are end-user=jason
-80 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-7070 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-7070 VirtualService: a\..*
-   when headers are end-user=jason
-7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-9090 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-9091 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-9091 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-9092 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-9093 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-81 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-7071 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-82 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
-82 VirtualService: a\..*
-   when headers are end-user=jason
-82 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-`)
+	describePodAOutput = describeSvcAOutput
 
 	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
 Next Step: Add related labels to the deployment to align with Istio's requirement: ` + url.DeploymentRequirements
@@ -240,7 +200,7 @@ func TestDescribe(t *testing.T) {
 					return err
 				}
 				if !describePodAOutput.MatchString(output) {
-					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describeSvcAOutput)
+					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describePodAOutput)
 				}
 				return nil
 			}, retry.Timeout(time.Second*5))

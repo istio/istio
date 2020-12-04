@@ -285,7 +285,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		cmName := fmt.Sprintf("%s-%s-vm-bootstrap", cfg.Service, subset.Version)
 		cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
 		_, err = c.cluster.CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
-		if err != nil {
+		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return err
 		}
 	}
