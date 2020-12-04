@@ -222,10 +222,11 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		scope.Infof("Ignoring IstioOperator CR %s with revision %s, since operator revision is %s.", iopName, iop.Spec.Revision, operatorRevision)
 		return reconcile.Result{}, nil
 	}
-
-	if ir := iop.Annotations[IgnoreReconcileAnnotation]; ir == "true" {
-		scope.Infof("Ignoring the IstioOperator CR %s because it is annotated to be ignored for reconcile ", iopName)
-		return reconcile.Result{}, nil
+	if iop.Annotations != nil {
+		if ir := iop.Annotations[IgnoreReconcileAnnotation]; ir == "true" {
+			scope.Infof("Ignoring the IstioOperator CR %s because it is annotated to be ignored for reconcile ", iopName)
+			return reconcile.Result{}, nil
+		}
 	}
 
 	// for backward compatibility, the previous applied installed-state CR does not have the ignore reconcile annotation
