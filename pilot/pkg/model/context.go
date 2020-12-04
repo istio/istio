@@ -508,7 +508,12 @@ type NodeMetadata struct {
 	Generator string `json:"GENERATOR,omitempty"`
 
 	// DNSCapture indicates whether the workload has enabled dns capture
-	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
+	DNSCapture StringBool `json:"DNS_CAPTURE,omitempty"`
+
+	// DNSAutoAllocate indicates whether the workload should have auto allocated addresses for ServiceEntry
+	// This allows resolving ServiceEntries, which is especially useful for distinguishing TCP traffic
+	// This depends on DNSCapture.
+	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
