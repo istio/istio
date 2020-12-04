@@ -367,7 +367,10 @@ func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err er
 	v.logger.LogAndPrintf("Checked %v custom resource definitions", crdCount)
 	v.logger.LogAndPrintf("Checked %v Istio Deployments", istioDeploymentCount)
 	if istioDeploymentCount == 0 {
-		v.logger.LogAndPrintf("! No Istio installation found: %v", err)
+		if err != nil {
+			v.logger.LogAndPrintf("! No Istio installation found: %v", err)
+		}
+		v.logger.LogAndPrintf("! No Istio installation found")
 		return fmt.Errorf("no Istio installation found")
 	}
 	if err != nil {
