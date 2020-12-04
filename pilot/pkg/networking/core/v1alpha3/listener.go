@@ -483,6 +483,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		connectionManager: &hcm.HttpConnectionManager{
 			// Append and forward client cert to backend.
 			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+			MergeSlashes:             features.MergeSlashesInPath,
 			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 				Subject: proto.BoolTrue,
 				Uri:     true,
@@ -1669,6 +1670,8 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.NormalizePath = proto.BoolTrue
+	connectionManager.MergeSlashes = features.MergeSlashesInPath
+
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {

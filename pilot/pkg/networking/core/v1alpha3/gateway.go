@@ -353,6 +353,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 				useRemoteAddress: true,
 				connectionManager: &hcm.HttpConnectionManager{
 					XffNumTrustedHops: xffNumTrustedHops,
+					MergeSlashes:      features.MergeSlashesInPath,
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: forwardClientCertDetails,
 					SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
@@ -383,6 +384,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			useRemoteAddress: true,
 			connectionManager: &hcm.HttpConnectionManager{
 				XffNumTrustedHops: xffNumTrustedHops,
+				MergeSlashes:      features.MergeSlashesInPath,
 				// Forward client cert if connection is mTLS
 				ForwardClientCertDetails: forwardClientCertDetails,
 				SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
