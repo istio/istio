@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -35,12 +36,6 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/pkg/log"
-)
-
-const (
-	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
-	// in the last install operation.
-	installedSpecCRPrefix = "installed-state"
 )
 
 type installArgs struct {
@@ -192,6 +187,10 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 
 	// Save a copy of what was installed as a CR in the cluster under an internal name.
 	iop.Name = savedIOPName(iop)
+	if iop.Annotations == nil {
+		iop.Annotations = make(map[string]string)
+	}
+	iop.Annotations[istiocontrolplane.IgnoreReconcileAnnotation] = "true"
 	iopStr, err := util.MarshalWithJSONPB(iop)
 	if err != nil {
 		return err
@@ -201,7 +200,7 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 }
 
 func savedIOPName(iop *v1alpha12.IstioOperator) string {
-	ret := installedSpecCRPrefix
+	ret := name.InstalledSpecCRPrefix
 	if iop.Name != "" {
 		ret += "-" + iop.Name
 	}
