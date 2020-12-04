@@ -26,7 +26,6 @@ import (
 )
 
 const (
-	TmpDir = "tmp"
 	HTTPS  = "https"
 	POLICY = `
 apiVersion: "security.istio.io/v1beta1"
