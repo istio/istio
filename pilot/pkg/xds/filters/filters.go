@@ -52,7 +52,7 @@ const (
 	TLSTransportProtocol       = "tls"
 	RawBufferTransportProtocol = "raw_buffer"
 
-	MXFilterName = "istio.metadata_exchange"
+	MxFilterName = "istio.metadata_exchange"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -140,7 +140,9 @@ var (
 	}
 
 	TCPMx = &listener.Filter{
-		Name: MXFilterName,
+		Name: MxFilterName,
+		// TODO: we need to publish this tcp proto: https://github.com/istio/proxy/blob/master/src/envoy/tcp/metadata_exchange/config/metadata_exchange.proto
+		// somewhere as go code
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&udpa.TypedStruct{
 			TypeUrl: "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
 			Value: &structpb.Struct{
@@ -165,20 +167,9 @@ var (
 )
 
 func buildHTTPMxFilter() *hcm.HttpFilter {
-	vmConfig := &v3.PluginConfig_VmConfig{
-		VmConfig: &v3.VmConfig{
-			Runtime: "envoy.wasm.runtime.null",
-			Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
-				Local: &core.DataSource{
-					Specifier: &core.DataSource_InlineString{
-						InlineString: "envoy.wasm.metadata_exchange",
-					},
-				},
-			}},
-		},
-	}
+	var vmConfig *v3.PluginConfig_VmConfig
 
-	if features.EnableWasm {
+	if features.EnableWasmTelemetry {
 		vmConfig = &v3.PluginConfig_VmConfig{
 			VmConfig: &v3.VmConfig{
 				Runtime:          "envoy.wasm.runtime.v8",
@@ -191,6 +182,19 @@ func buildHTTPMxFilter() *hcm.HttpFilter {
 					},
 				}},
 			}}
+	} else {
+		vmConfig = &v3.PluginConfig_VmConfig{
+			VmConfig: &v3.VmConfig{
+				Runtime: "envoy.wasm.runtime.null",
+				Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
+					Local: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							InlineString: "envoy.wasm.metadata_exchange",
+						},
+					},
+				}},
+			},
+		}
 	}
 
 	httpMxConfigProto := &wasm.Wasm{
@@ -206,7 +210,7 @@ func buildHTTPMxFilter() *hcm.HttpFilter {
 	}
 
 	return &hcm.HttpFilter{
-		Name:       MXFilterName,
+		Name:       MxFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: typed},
 	}
 }

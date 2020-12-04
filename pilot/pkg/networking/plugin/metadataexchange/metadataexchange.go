@@ -8,16 +8,15 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
-// Plugin implements Istio Telemetry HTTP and TCP metadata exchange
+// Plugin implements Istio Telemetry HTTP/TCP metadata exchange
 type Plugin struct{}
 
-// NewPlugin returns an instance of the metadataexchange plugin
+// NewPlugin returns an instance of the metadata exchange plugin
 func NewPlugin() plugin.Plugin {
 	return Plugin{}
 }
 
-// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
-// Can be used to add additional filters.
+// OnInboundListener is called whenever a new HTTP/TCP metadata exchange filter is added to the Listener filter chain.
 func (p Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
@@ -32,8 +31,7 @@ func (p Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.Filte
 	return nil
 }
 
-// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service.
-// Can be used to add additional filters on the outbound path.
+// OnOutboundListener is called whenever a new HTTP/TCP metadata exchange filter is added to the Listener filter chain.
 func (p Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	return buildFilter(in, mutable, false)
 }
@@ -49,18 +47,14 @@ func (p Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []netwo
 	return nil
 }
 
+// Build the HTTP or TCP metadata exchange telemetry filter based on the LisenterProtocol
 func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isPassthrough bool) error {
 	for i := range mutable.FilterChains {
 		if in.ListenerProtocol == networking.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
-			// gateway only has http_filter what about wasm enabled in this case?
-			if httpMxFilter := xdsfilters.HTTPMx; httpMxFilter != nil {
-				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, httpMxFilter)
-			}
+			mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, xdsfilters.HTTPMx)
 		}
 		if features.EnableTCPMetadataExchange && (in.ListenerProtocol == networking.ListenerProtocolTCP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolTCP) {
-			if tcpMxFilter := xdsfilters.TCPMx; tcpMxFilter != nil {
-				mutable.FilterChains[i].TCP = append(mutable.FilterChains[i].TCP, tcpMxFilter)
-			}
+			mutable.FilterChains[i].TCP = append(mutable.FilterChains[i].TCP, xdsfilters.TCPMx)
 		}
 	}
 	return nil

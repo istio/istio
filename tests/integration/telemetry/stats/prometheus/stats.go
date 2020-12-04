@@ -61,7 +61,7 @@ func GetPromInstance() prometheus.Instance {
 	return promInst
 }
 
-// TestStatsFilter includes common test logic for stats and metadataexchange exchange filters running
+// TestStatsFilter includes common test logic for stats and metadataexchange filters running
 // with nullvm and wasm runtime.
 func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
@@ -95,7 +95,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		})
 }
 
-// TestStatsTCPFilter includes common test logic for stats and metadataexchange exchange filters running
+// TestStatsTCPFilter includes common test logic for stats and metadataexchange filters running
 // with nullvm and wasm runtime for TCP.
 func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).

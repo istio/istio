@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: telemetry
-issue:
-  - 28410
-releaseNotes:
-  - |
-    **Added** HTTP and TCP metadata exchange telemetry filter configuration plugin.
