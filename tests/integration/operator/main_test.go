@@ -17,8 +17,13 @@ package operator
 
 import (
 	"testing"
+
+	"istio.io/istio/pkg/test/framework"
 )
 
 func TestMain(m *testing.M) {
-	// TODO(https://github.com/istio/istio/issues/28863) fix these tests to prevent breaking all future tests
+	framework.
+		NewSuite(m).
+		RequireSingleCluster().
+		Run()
 }
