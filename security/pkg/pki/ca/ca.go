@@ -160,8 +160,16 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		// Write the key/cert back to secret so they will be persistent when CA restarts.
 		secret := k8ssecret.BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
 		if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
-			pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
-			return nil, fmt.Errorf("failed to create CA due to secret write error")
+			// From https://github.com/istio/istio/issues/28236, in rare occasions,
+			// creating secret may fail due to: (error: secrets "istio-ca-secret" already exists).
+			// Based on https://github.com/istio/istio/issues/28236, when creation failed, try read the secret,
+			// if the reading also fails, return the error then.
+			_, readErr := client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+			if readErr != nil {
+				pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
+				return nil, fmt.Errorf("failed to create CA due to secret write error")
+			}
+			pkiCaLog.Warnf("Secret %v in namespace %v already exists", CASecret, namespace)
 		}
 		pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 	} else {
