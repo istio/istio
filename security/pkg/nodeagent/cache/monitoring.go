@@ -50,11 +50,11 @@ var (
 		monitoring.WithLabels(RequestType))
 
 	numFileWatcherFailures = monitoring.NewSum(
-		"num_file_watcher_failures",
+		"num_file_watcher_failures_total",
 		"Number of times file watcher failed to add watchers")
 
 	numFileSecretFailures = monitoring.NewSum(
-		"num_file_secret_failures",
+		"num_file_secret_failures_total",
 		"Number of times secret generation failed for files")
 )
 
