@@ -386,3 +386,9 @@ messages:
         type: string
       - name: ports
         type: "[]int32"
+
+  - name: "GatewayDuplicateCertificate"
+    code: IST0137
+    level: Error
+    description: "Duplicate certificate in multiple gateway, causing 404"
+    template: "Duplicate certificate in multiple gateway, causing 404."

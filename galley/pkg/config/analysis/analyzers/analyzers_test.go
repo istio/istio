@@ -450,6 +450,19 @@ var testGrid = []testCase{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-07.default"},
 		},
 	},
+	{
+		name: "certificate duplication in Gateway",
+		inputFiles: []string{
+			"testdata/gateway-duplicate-certificate.yaml",
+		},
+		analyzer: &gateway.CertificateAnalyzer{},
+		expected: []message{
+			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-01.istio-system"},
+			{msg.GatewayDuplicateCertificate, "Gateway gateway-02-test-01.istio-system"},
+			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-02.istio-system"},
+			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-03.default"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing

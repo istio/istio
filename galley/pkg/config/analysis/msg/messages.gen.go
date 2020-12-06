@@ -144,6 +144,10 @@ var (
 	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
 	// Description: Two services selecting the same workload with same target port are MUST refer to the same port.
 	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
+
+	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
+	// Description: Duplicate certificate in multiple gateway, causing 404
+	GatewayDuplicateCertificate = diag.NewMessageType(diag.Error, "IST0135", "Duplicate certificate in multiple gateway, causing 404.")
 )
 
 // All returns a list of all known message types.
@@ -183,6 +187,7 @@ func All() []*diag.MessageType {
 		DeprecatedAnnotation,
 		AlphaAnnotation,
 		DeploymentConflictingPorts,
+		GatewayDuplicateCertificate,
 	}
 }
 
@@ -527,5 +532,11 @@ func NewDeploymentConflictingPorts(r *resource.Instance, deployment string, serv
 		services,
 		targetPort,
 		ports,
+
+// NewGatewayDuplicateCertificate returns a new diag.Message based on GatewayDuplicateCertificate.
+func NewGatewayDuplicateCertificate(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		GatewayDuplicateCertificate,
+		r,
 	)
 }
