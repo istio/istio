@@ -16,13 +16,11 @@ package envoyfilter
 
 import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"istio.io/istio/pilot/pkg/networking/util"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
@@ -54,19 +52,18 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 			isTransportSocketPatch := cpValueCast.TransportSocket != nil
 
 			if isTransportSocketPatch {
+
 				// Test if the cluster contains a config for TransportSocket
-				cTransportSocketMatches := c.GetTransportSocketMatches()
+				cTransportSocketMatches := c.TransportSocketMatches
 				isTlsConfig := false
-				transportSocketName := ""
 				tlsIndex := -1
 
 				if cTransportSocketMatches != nil {
 					lenTSM := len(cTransportSocketMatches)
 					for t := 0; t < lenTSM; t++ {
 						if cTransportSocketMatches[t] != nil {
-							if cTransportSocketMatches[t].TransportSocket != nil {
-								transportSocketName = cTransportSocketMatches[t].TransportSocket.Name
-								if tlsName == transportSocketName {
+							if cTransportSocketMatches[t].TransportSocket != nil{
+								if tlsName == cTransportSocketMatches[t].TransportSocket.Name {
 									isTlsConfig = true
 									tlsIndex = t
 									break
@@ -78,28 +75,28 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 
 				if isTlsConfig {
 
-					// Extract tlsContext from patch
+					// Extract Context from patch
+					var contextPatch ptypes.DynamicAny
 					cpCastTSocket := cpValueCast.TransportSocket
-					tlsContextPatch := &tls.UpstreamTlsContext{}
-					errPatch := ptypes.UnmarshalAny(cpCastTSocket.GetTypedConfig(), tlsContextPatch)
+					errPatch := ptypes.UnmarshalAny(cpCastTSocket.GetTypedConfig(), &contextPatch)
 					if errPatch != nil {
 						log.Errorf("ERROR UnmarshalAny patch: %v", errPatch)
 						continue
 					}
 
-					// Extract tlsContext from cluster
-					tlsContextCluster := &tls.UpstreamTlsContext{}
+					// Extract Context from cluster
+					var contextCluster ptypes.DynamicAny
 					cTransportSocket := cTransportSocketMatches[tlsIndex].TransportSocket
-					errCluster := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), tlsContextCluster)
+					errCluster := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), &contextCluster)
 					if errCluster != nil {
 						log.Errorf("ERROR UnmarshalAny cluster: %v", errCluster)
 						continue
 					}
 
 					// Merge the patch and the cluster at a lower level
-					proto.Merge(tlsContextCluster, tlsContextPatch)
+					proto.Merge(contextCluster.Message, contextPatch.Message)
 					// Merge the above result with the whole cluster
-					proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(tlsContextCluster))
+					proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(contextCluster.Message))
 
 				}else {
 					proto.Merge(c, cp.Value)
