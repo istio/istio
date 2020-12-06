@@ -130,7 +130,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.MemRegistry.ClusterID = "v2-debug"
 
 	sctl.AddRegistry(serviceregistry.Simple{
-		ClusterID:        "v2-debug",
+		ClusterID:        s.MemRegistry.ClusterID,
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.Controller,
