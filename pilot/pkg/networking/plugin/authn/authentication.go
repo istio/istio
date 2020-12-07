@@ -18,14 +18,14 @@ import (
 	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -142,8 +142,7 @@ func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
 	// This means the Sidecar resource takes precedence over the service. A port defined in service but not in Sidecar
 	// means the port is going to be handled by the pass through filter chain.
 	if node.SidecarScope.HasCustomIngressListeners {
-		rule := node.SidecarScope.Config.Spec.(*v1alpha3.Sidecar)
-		for _, ingressListener := range rule.Ingress {
+		for _, ingressListener := range node.SidecarScope.Sidecar.Ingress {
 			if port == ingressListener.Port.Number {
 				return false
 			}

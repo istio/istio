@@ -397,66 +397,66 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				listeners = append(listeners, l)
 			}
 		}
+		return listeners
 
-	} else {
-		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-		for _, ingressListener := range rule.Ingress {
-			// determine the bindToPort setting for listeners. Validation guarantees that these are all IP listeners.
-			bindToPort := false
-			if noneMode {
-				// do not care what the listener's capture mode setting is. The proxy does not use iptables
-				bindToPort = true
-			} else if ingressListener.CaptureMode == networking.CaptureMode_NONE {
-				// proxy uses iptables redirect or tproxy. IF mode is not set
-				// for older proxies, it defaults to iptables redirect.  If the
-				// listener's capture mode specifies NONE, then the proxy wants
-				// this listener alone to be on a physical port. If the
-				// listener's capture mode is default, then its same as
-				// iptables i.e. bindToPort is false.
-				bindToPort = true
-			}
+	}
 
-			listenPort := &model.Port{
-				Port:     int(ingressListener.Port.Number),
-				Protocol: protocol.Parse(ingressListener.Port.Protocol),
-				Name:     ingressListener.Port.Name,
-			}
+	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
+		// determine the bindToPort setting for listeners. Validation guarantees that these are all IP listeners.
+		bindToPort := false
+		if noneMode {
+			// do not care what the listener's capture mode setting is. The proxy does not use iptables
+			bindToPort = true
+		} else if ingressListener.CaptureMode == networking.CaptureMode_NONE {
+			// proxy uses iptables redirect or tproxy. IF mode is not set
+			// for older proxies, it defaults to iptables redirect.  If the
+			// listener's capture mode specifies NONE, then the proxy wants
+			// this listener alone to be on a physical port. If the
+			// listener's capture mode is default, then its same as
+			// iptables i.e. bindToPort is false.
+			bindToPort = true
+		}
 
-			bind := ingressListener.Bind
-			if len(bind) == 0 {
-				// User did not provide one. Pick the proxy's IP or wildcard inbound listener.
-				bind = getSidecarInboundBindIP(node)
-			}
+		listenPort := &model.Port{
+			Port:     int(ingressListener.Port.Number),
+			Protocol: protocol.Parse(ingressListener.Port.Protocol),
+			Name:     ingressListener.Port.Name,
+		}
 
-			instance := configgen.findOrCreateServiceInstance(node.ServiceInstances, ingressListener,
-				sidecarScope.Config.Name, sidecarScope.Config.Namespace)
+		bind := ingressListener.Bind
+		if len(bind) == 0 {
+			// User did not provide one. Pick the proxy's IP or wildcard inbound listener.
+			bind = getSidecarInboundBindIP(node)
+		}
 
-			listenerOpts := buildListenerOpts{
-				push:       push,
-				proxy:      node,
-				bind:       bind,
-				port:       listenPort,
-				bindToPort: bindToPort,
-			}
+		instance := configgen.findOrCreateServiceInstance(node.ServiceInstances, ingressListener,
+			sidecarScope.Name, sidecarScope.Namespace)
 
-			// we don't need to set other fields of the endpoint here as
-			// the consumers of this service instance (listener/filter chain constructors)
-			// are simply looking for the service port and the service associated with the instance.
-			instance.ServicePort = listenPort
+		listenerOpts := buildListenerOpts{
+			push:       push,
+			proxy:      node,
+			bind:       bind,
+			port:       listenPort,
+			bindToPort: bindToPort,
+		}
 
-			// Validation ensures that the protocol specified in Sidecar.ingress
-			// is always a valid known protocol
-			pluginParams := &plugin.InputParams{
-				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(listenPort.Protocol,
-					core.TrafficDirection_INBOUND),
-				Node:            node,
-				ServiceInstance: instance,
-				Push:            push,
-			}
+		// we don't need to set other fields of the endpoint here as
+		// the consumers of this service instance (listener/filter chain constructors)
+		// are simply looking for the service port and the service associated with the instance.
+		instance.ServicePort = listenPort
 
-			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
-				listeners = append(listeners, l)
-			}
+		// Validation ensures that the protocol specified in Sidecar.ingress
+		// is always a valid known protocol
+		pluginParams := &plugin.InputParams{
+			ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(listenPort.Protocol,
+				core.TrafficDirection_INBOUND),
+			Node:            node,
+			ServiceInstance: instance,
+			Push:            push,
+		}
+
+		if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
+			listeners = append(listeners, l)
 		}
 	}
 

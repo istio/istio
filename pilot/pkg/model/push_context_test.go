@@ -621,10 +621,10 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 }
 
 func scopeToSidecar(scope *SidecarScope) string {
-	if scope == nil || scope.Config == nil {
+	if scope == nil {
 		return ""
 	}
-	return scope.Config.Namespace + "/" + scope.Config.Name
+	return scope.Namespace + "/" + scope.Name
 }
 
 func TestSetDestinationRuleMerging(t *testing.T) {
