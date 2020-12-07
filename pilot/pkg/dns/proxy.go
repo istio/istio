@@ -18,8 +18,6 @@ import (
 	"net"
 
 	"github.com/miekg/dns"
-
-	"istio.io/pkg/log"
 )
 
 type dnsProxy struct {
