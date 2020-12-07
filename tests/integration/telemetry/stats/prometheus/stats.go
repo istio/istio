@@ -104,7 +104,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						}
 
 						return nil
-					}, retry.Delay(util.RetryDelayInSeconds), retry.Timeout(util.RetryTimeoutInSeconds))
+					}, retry.Delay(util.RetryDelay), retry.Timeout(util.RetryTimeout))
 					if err != nil {
 						return err
 					}
@@ -139,7 +139,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 						}
 
 						return nil
-					}, retry.Delay(util.RetryDelayInSeconds), retry.Timeout(util.RetryTimeoutInSeconds))
+					}, retry.Delay(util.RetryDelay), retry.Timeout(util.RetryTimeout))
 					if err != nil {
 						return err
 					}

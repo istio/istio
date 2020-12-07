@@ -121,7 +121,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 						}
 						return nil
 
-					}, retry.Delay(telemetry.RetryDelayInSeconds), retry.Timeout(telemetry.RetryTimeoutInSeconds))
+					}, retry.Delay(telemetry.RetryDelay), retry.Timeout(telemetry.RetryTimeout))
 					if err != nil {
 						return err
 					}

@@ -21,13 +21,13 @@ import (
 )
 
 var (
-	// RetryDelayInSeconds is the retry delay used in tests.
-	RetryDelayInSeconds time.Duration
-	// RetryTimeoutInSeconds is the retry timeout used in tests.
-	RetryTimeoutInSeconds time.Duration
+	// RetryDelay is the retry delay used in tests.
+	RetryDelay time.Duration
+	// RetryTimeout is the retry timeout used in tests.
+	RetryTimeout time.Duration
 )
 
 func init() {
-	flag.DurationVar(&RetryDelayInSeconds, "istio.test.telemetry.retryDelay", time.Second*3, "Default retry delay used in tests")
-	flag.DurationVar(&RetryTimeoutInSeconds, "istio.test.telemetry.retryTimeout", time.Second*80, "Default retry timeout used in tests")
+	flag.DurationVar(&RetryDelay, "istio.test.telemetry.retryDelay", time.Second*3, "Default retry delay used in tests")
+	flag.DurationVar(&RetryTimeout, "istio.test.telemetry.retryTimeout", time.Second*80, "Default retry timeout used in tests")
 }

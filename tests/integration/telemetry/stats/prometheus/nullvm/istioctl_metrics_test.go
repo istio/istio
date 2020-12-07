@@ -41,7 +41,7 @@ func TestIstioctlMetrics(t *testing.T) {
 					return err
 				}
 				return validateDefaultOutput(t, ctx, "server")
-			}, retry.Delay(telemetry.RetryDelayInSeconds), retry.Timeout(telemetry.RetryTimeoutInSeconds))
+			}, retry.Delay(telemetry.RetryDelay), retry.Timeout(telemetry.RetryTimeout))
 
 		})
 
