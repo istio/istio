@@ -57,7 +57,7 @@ func TestValidateChainingVirtualService(t *testing.T) {
 					},
 				}},
 			},
-			valid: false,
+			valid: true,
 		},
 		{
 			name: "root with delegate and destination in one route",

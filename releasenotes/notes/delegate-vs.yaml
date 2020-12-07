@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 29123
+releaseNotes:
+  - |
+    **Fixed** delegate virtualservice change could not trigger any xDS push.
