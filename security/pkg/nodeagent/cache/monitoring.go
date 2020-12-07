@@ -48,6 +48,14 @@ var (
 		"num_failed_outgoing_requests",
 		"Number of failed outgoing requests (e.g. to a token exchange server, CA, etc.)",
 		monitoring.WithLabels(RequestType))
+
+	numFileWatcherFailures = monitoring.NewSum(
+		"num_file_watcher_failures_total",
+		"Number of times file watcher failed to add watchers")
+
+	numFileSecretFailures = monitoring.NewSum(
+		"num_file_secret_failures_total",
+		"Number of times secret generation failed for files")
 )
 
 func init() {
@@ -56,5 +64,7 @@ func init() {
 		numOutgoingRequests,
 		numOutgoingRetries,
 		numFailedOutgoingRequests,
+		numFileWatcherFailures,
+		numFileSecretFailures,
 	)
 }
