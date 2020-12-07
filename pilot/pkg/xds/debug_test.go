@@ -27,9 +27,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/tests/util/leak"
 )
 
 func TestSyncz(t *testing.T) {
+	leak.Check(t)
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS()
@@ -131,6 +133,7 @@ func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantS
 }
 
 func TestConfigDump(t *testing.T) {
+	leak.Check(t)
 	tests := []struct {
 		name     string
 		wantCode int
@@ -201,6 +204,7 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 }
 
 func TestDebugHandlers(t *testing.T) {
+	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	req, err := http.NewRequest("GET", "/debug", nil)
 	if err != nil {

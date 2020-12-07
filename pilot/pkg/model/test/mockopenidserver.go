@@ -171,14 +171,15 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 	wait := 10 * time.Millisecond
 	for try := 0; try < 10; try++ {
 		// Try to call the server
-		if _, err := httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {
+		res, err := httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL))
+		if err != nil {
 			log.Infof("Server not yet serving: %v", err)
 			// Retry after some sleep.
 			wait *= 2
 			time.Sleep(wait)
 			continue
 		}
-
+		res.Body.Close()
 		log.Infof("Successfully serving on %s", ms.URL)
 		atomic.StoreUint64(&ms.OpenIDHitNum, 0)
 		atomic.StoreUint64(&ms.PubKeyHitNum, 0)
