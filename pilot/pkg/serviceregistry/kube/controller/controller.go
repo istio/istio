@@ -1164,7 +1164,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collectio
 	return nil
 }
 
-// GetIstioServiceAccounts returns the Istio service accounts running a serivce
+// GetIstioServiceAccounts returns the Istio service accounts running a service
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
