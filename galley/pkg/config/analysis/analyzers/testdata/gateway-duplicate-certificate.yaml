@@ -1,3 +1,4 @@
+---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -228,3 +229,106 @@ spec:
       credentialName: "02-test-06-wildcard-cert" # no validation error
     hosts:
     - "02.test-06.com"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    type: internal
+    istio: ingressgateway
+  name: internal-ingressgateway
+  namespace: istio-system
+spec:
+  containers:
+    - args:
+      name: istio-proxy
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: test-01-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: test-02-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: test-03-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 01-test-04-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 02-test-04-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 01-test-05-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 02-test-05-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 01-test-06-wildcard-cert
+  namespace: istio-system
+type: Opaque
+---
+apiVersion: v1
+data:
+  cert: aHVzaCBodXNoIGh1c2gK
+  key: c2VjcmV0IHNlY3JldAo=
+kind: Secret
+metadata:
+  name: 02-test-06-wildcard-cert
+  namespace: istio-system
+type: Opaque
