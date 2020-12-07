@@ -255,6 +255,9 @@ func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
 //      ~300us via agent when doing the cname redirect
 //      5-6ms to upstream resolver directly
 //      6-7ms via agent to upstream resolver (cache miss)
+// Also useful for load testing is using dnsperf. This can be run with:
+//   docker run -v $PWD:$PWD -w $PWD --network host quay.io/ssro/dnsperf dnsperf -p 15053 -d input -c 100 -l 30
+// where `input` contains dns queries to run, such as `echo.default. A`
 func BenchmarkDNS(t *testing.B) {
 	if initErr != nil {
 		t.Fatal(initErr)
