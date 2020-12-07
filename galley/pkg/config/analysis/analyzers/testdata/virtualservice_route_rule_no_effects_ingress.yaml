@@ -61,6 +61,17 @@ spec:
     - destination:
         host: ratings # Expected: no validation error
         subset: v1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratings
+  namespace: default
+spec:
+  ports:
+  - port: 80
+    name: http-ratings
+    protocol: HTTP
 --- 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
