@@ -468,7 +468,7 @@ func TestSidecarScope(t *testing.T) {
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
 			Name:             "global",
-			Namespace:        "istio-system",
+			Namespace:        constants.IstioSystemNamespace,
 		},
 		Spec: sidecarWithoutWorkloadSelector,
 	}
@@ -496,13 +496,13 @@ func TestSidecarScope(t *testing.T) {
 		{
 			proxy:      &Proxy{ConfigNamespace: "default"},
 			collection: labels.Collection{map[string]string{"app": "bar"}},
-			sidecar:    "istio-system/global",
+			sidecar:    "default/global",
 			describe:   "no match local sidecar",
 		},
 		{
 			proxy:      &Proxy{ConfigNamespace: "nosidecar"},
 			collection: labels.Collection{map[string]string{"app": "bar"}},
-			sidecar:    "istio-system/global",
+			sidecar:    "nosidecar/global",
 			describe:   "no sidecar",
 		},
 	}
