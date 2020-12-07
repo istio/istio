@@ -79,15 +79,16 @@ func (gateway *CertificateAnalyzer) analyzeDuplicateCertificate(currentResource 
 
 func haveSameCertificate(currentGatewayTLS, gatewayTLS *v1alpha3.ServerTLSSettings) bool {
 
-	if currentGatewayTLS.CredentialName == gatewayTLS.CredentialName {
-		return true
+	if currentGatewayTLS.CredentialName != "" && gatewayTLS.CredentialName != "" {
+		return currentGatewayTLS.CredentialName == gatewayTLS.CredentialName
 	}
 
-	if currentGatewayTLS.CredentialName == "" && gatewayTLS.CredentialName == "" {
+	if currentGatewayTLS.ServerCertificate != "" && gatewayTLS.ServerCertificate != "" {
 		if currentGatewayTLS.ServerCertificate == gatewayTLS.ServerCertificate {
-			if currentGatewayTLS.PrivateKey == gatewayTLS.PrivateKey {
-				return true
+			if currentGatewayTLS.PrivateKey != "" && gatewayTLS.PrivateKey != "" {
+				return currentGatewayTLS.PrivateKey == gatewayTLS.PrivateKey
 			}
+			return false
 		}
 	}
 
