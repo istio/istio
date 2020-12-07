@@ -181,8 +181,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			// IstioOperator isn't part of pkg/config/schema/collections,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
-
-			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+			fixTimestampRelatedUnmarshalIssues(un)
 			by := util.ToYAML(un)
 			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
@@ -421,7 +420,8 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		return nil, err
 	}
 	for _, un := range ul.Items {
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		fixTimestampRelatedUnmarshalIssues(&un)
+
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
@@ -444,7 +444,7 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 	}
 	retval := make([]*v1alpha1.IstioOperator, 0)
 	for _, un := range ul.Items {
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		fixTimestampRelatedUnmarshalIssues(&un)
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
@@ -453,4 +453,13 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 		retval = append(retval, iop)
 	}
 	return retval, nil
+}
+
+func fixTimestampRelatedUnmarshalIssues(un *unstructured.Unstructured) {
+	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+
+	// UnmarshalIstioOperator fails because managedFields could contain time
+	// and gogo/protobuf/jsonpb(v1.3.1) tries to unmarshal it as struct (the type
+	// meta_v1.Time is really a struct) and fails.
+	un.SetManagedFields([]meta_v1.ManagedFieldsEntry{})
 }
