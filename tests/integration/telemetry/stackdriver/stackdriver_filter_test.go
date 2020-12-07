@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
+	telemetrypkg "istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -121,7 +122,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 						}
 						return nil
 
-					}, retry.Delay(telemetry.RetryDelay), retry.Timeout(telemetry.RetryTimeout))
+					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
 					if err != nil {
 						return err
 					}
