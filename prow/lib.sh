@@ -90,7 +90,7 @@ function buildx-create() {
   if ! docker buildx ls | grep -q container-builder; then
     docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:buildx-stable-1 --name container-builder
     # Pre-warm the builder. If it fails, fetch logs, but continue
-    docker buildx inspect --bootstrap || docker logs buildx_buildkit_container-builder0 || true
+    docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
   fi
   docker buildx use container-builder
 }
