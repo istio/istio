@@ -204,6 +204,8 @@ data:
     injectedAnnotations:
 
     template: |
+      {{- $containers := list }}
+      {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
       metadata:
         labels:
           security.istio.io/tlsMode: {{ index .ObjectMeta.Labels `security.istio.io/tlsMode` | default "istio" }}
@@ -211,8 +213,8 @@ data:
           service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest" }}
           istio.io/rev: {{ .Revision | default "default" }}
         annotations: {
-          {{- if eq (len .Spec.Containers) 1 }}
-          kubectl.kubernetes.io/default-logs-container: "{{ (index .Spec.Containers 0).Name }}",
+          {{- if eq (len $containers) 1 }}
+          kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
           {{ end }}
       {{- if .Values.istio_cni.enabled }}
           {{- if not .Values.istio_cni.chained }}
@@ -469,7 +471,7 @@ data:
               {{- end}}
               ]
           - name: ISTIO_META_APP_CONTAINERS
-            value: "{{- range $index, $container := .Spec.Containers }}{{- if ne $index 0}},{{- end}}{{ $container.Name }}{{- end}}"
+            value: "{{ $containers | join "," }}"
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
           - name: ISTIO_META_INTERCEPTION_MODE
