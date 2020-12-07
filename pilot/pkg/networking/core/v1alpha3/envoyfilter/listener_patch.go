@@ -17,7 +17,6 @@ package envoyfilter
 import (
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -174,7 +173,7 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 			return
 		} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
 
-			// Test if the patch is for TransportSocket
+			// Test if the patch contains a config for TransportSocket
 			cpValueCast, errCpCast := (cp.Value).(*xdslistener.FilterChain)
 			if !errCpCast {
 				log.Errorf("ERROR Cast of cp.Value: %v", errCpCast)
@@ -189,32 +188,32 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 				if fc.TransportSocket != nil {
 					fcTransportSocketName = fc.TransportSocket.Name
 				}
-				isTLSConfig := tlsName == fcTransportSocketName
+				isTransportSocketConfig := cpValueCast.TransportSocket.Name == fcTransportSocketName
 
-				if isTLSConfig {
+				if isTransportSocketConfig {
 
-					// Extract tlsContext from patch
-					cpCastTSocket := cpValueCast.TransportSocket
-					tlsContextPatch := &tls.DownstreamTlsContext{}
-					errPatch := ptypes.UnmarshalAny(cpCastTSocket.GetTypedConfig(), tlsContextPatch)
+					// Extract ConfigType from patch
+					var configTypePatch ptypes.DynamicAny
+					cpTransportSocket := cpValueCast.TransportSocket
+					errPatch := ptypes.UnmarshalAny(cpTransportSocket.GetTypedConfig(), &configTypePatch)
 					if errPatch != nil {
 						log.Errorf("ERROR UnmarshalAny patch: %v", errPatch)
 						continue
 					}
 
-					// Extract tlsContext from Listener
-					tlsContextListener := &tls.DownstreamTlsContext{}
+					// Extract ConfigType from Listener
+					var configTypeListener ptypes.DynamicAny
 					cTransportSocket := fc.TransportSocket
-					errListener := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), tlsContextListener)
+					errListener := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), &configTypeListener)
 					if errListener != nil {
 						log.Errorf("ERROR UnmarshalAny Listener: %v", errListener)
 						continue
 					}
 
 					// Merge the patch and the listener at a lower level
-					proto.Merge(tlsContextListener, tlsContextPatch)
+					proto.Merge(configTypeListener.Message, configTypePatch.Message)
 					// Merge the above result with the whole listener
-					proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(tlsContextListener))
+					proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(configTypeListener.Message))
 				}
 			} else {
 				proto.Merge(fc, cp.Value)

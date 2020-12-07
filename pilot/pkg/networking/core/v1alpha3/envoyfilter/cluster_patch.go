@@ -26,8 +26,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-const tlsName = "envoy.transport_sockets.tls"
-
 func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster) (out *cluster.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
@@ -43,7 +41,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		}
 		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
 
-			// Test if the patch is for TransportSocket
+			// Test if the patch contains a config for TransportSocket
 			cpValueCast, errCpCast := (cp.Value).(*cluster.Cluster)
 			if !errCpCast {
 				log.Errorf("ERROR Cast of cp.Value: %v", errCpCast)
@@ -55,17 +53,16 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 
 				// Test if the cluster contains a config for TransportSocket
 				cTransportSocketMatches := c.TransportSocketMatches
-				isTlsConfig := false
-				tlsIndex := -1
+				isTransportSocketCluster := false
+				transportSocketIndex := -1
 
 				if cTransportSocketMatches != nil {
-					lenTSM := len(cTransportSocketMatches)
-					for t := 0; t < lenTSM; t++ {
+					for t := 0; t < len(cTransportSocketMatches); t++ {
 						if cTransportSocketMatches[t] != nil {
 							if cTransportSocketMatches[t].TransportSocket != nil{
-								if tlsName == cTransportSocketMatches[t].TransportSocket.Name {
-									isTlsConfig = true
-									tlsIndex = t
+								if cpValueCast.TransportSocket.Name == cTransportSocketMatches[t].TransportSocket.Name {
+									isTransportSocketCluster = true
+									transportSocketIndex = t
 									break
 								}
 							}
@@ -73,35 +70,35 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 					}
 				}
 
-				if isTlsConfig {
+				if isTransportSocketCluster {
 
-					// Extract Context from patch
-					var contextPatch ptypes.DynamicAny
-					cpCastTSocket := cpValueCast.TransportSocket
-					errPatch := ptypes.UnmarshalAny(cpCastTSocket.GetTypedConfig(), &contextPatch)
+					// Extract ConfigType from patch
+					var configTypePatch ptypes.DynamicAny
+					cpTransportSocket := cpValueCast.TransportSocket
+					errPatch := ptypes.UnmarshalAny(cpTransportSocket.GetTypedConfig(), &configTypePatch)
 					if errPatch != nil {
 						log.Errorf("ERROR UnmarshalAny patch: %v", errPatch)
 						continue
 					}
 
-					// Extract Context from cluster
-					var contextCluster ptypes.DynamicAny
-					cTransportSocket := cTransportSocketMatches[tlsIndex].TransportSocket
-					errCluster := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), &contextCluster)
+					// Extract ConfigType from cluster
+					var configTypeCluster ptypes.DynamicAny
+					cTransportSocket := cTransportSocketMatches[transportSocketIndex].TransportSocket
+					errCluster := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), &configTypeCluster)
 					if errCluster != nil {
 						log.Errorf("ERROR UnmarshalAny cluster: %v", errCluster)
 						continue
 					}
 
 					// Merge the patch and the cluster at a lower level
-					proto.Merge(contextCluster.Message, contextPatch.Message)
+					proto.Merge(configTypeCluster.Message, configTypePatch.Message)
 					// Merge the above result with the whole cluster
-					proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(contextCluster.Message))
+					proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(configTypeCluster.Message))
 
-				}else {
+				} else {
 					proto.Merge(c, cp.Value)
 				}
-			}else {
+			} else {
 				proto.Merge(c, cp.Value)
 			}
 		}
