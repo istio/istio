@@ -111,7 +111,6 @@ type Config struct {
 	Template string `json:"template"`
 
 	// DefaultTemplates defines the default template to use for pods that do not explicitly specify a template
-	// NOTE: this currently only allows a single element. This is a list to allow for future expansion
 	DefaultTemplates []string `json:"defaultTemplates"`
 
 	// Templates defines a set of templates to be used. The specified template will be run, provided with
@@ -155,6 +154,9 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 		injectConfig.Templates[SidecarTemplateName] = injectConfig.Template
 	}
 	injectConfig.Template = ""
+	if len(injectConfig.DefaultTemplates) == 0 {
+		injectConfig.DefaultTemplates = []string{SidecarTemplateName}
+	}
 	return injectConfig, nil
 }
 
@@ -345,17 +347,29 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		return bbuf.String()
 	}
 
-	bbuf, err := parseTemplate(selectTemplate(params), funcMap, data)
-	if err != nil {
-		return nil, nil, err
+	mergedPod = params.pod
+	templatePod = &corev1.Pod{}
+	for _, templateName := range selectTemplates(params) {
+		templateYAML, f := params.templates[templateName]
+		if !f {
+			return nil, nil, fmt.Errorf("requested template %q not found", templateYAML)
+		}
+		bbuf, err := parseTemplate(templateYAML, funcMap, data)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		mergedPod, err = unmarshalTemplate(mergedPod, bbuf.Bytes())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
+		}
+		templatePod, err = mergeInjectedConfig(templatePod, bbuf.Bytes())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed applying injection overlay: %v", err)
+		}
 	}
 
-	merged, templated, err := unmarshalTemplate(params.pod, bbuf.Bytes())
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
-	}
-
-	return merged, templated, nil
+	return mergedPod, templatePod, nil
 }
 
 type legacyTemplate struct {
@@ -371,50 +385,26 @@ type templateIndicator struct {
 // The template can be either the legacy form, with the pod spec inlined with some custom options,
 // or the new form with just a full Pod yaml (allowing overriding metadata).
 // See https://eagain.net/articles/go-dynamic-json/ for more information on dynamically parsing JSON.
-func unmarshalTemplate(originalPod *corev1.Pod, raw []byte) (*corev1.Pod, *corev1.Pod, error) {
-	indicator := &templateIndicator{}
-	if err := yaml.Unmarshal(raw, indicator); err != nil {
-		return nil, nil, fmt.Errorf("failed to read template indicator: %v", err)
-	}
-	if indicator.Containers != nil {
-		// This is a legacy format
-		injectionData := &legacyTemplate{}
-		if err := yaml.Unmarshal(raw, injectionData); err != nil {
-			return nil, nil, fmt.Errorf("failed to read template: %v", err)
-		}
-		pod := corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: injectionData.PodRedirectAnnot,
-			},
-			Spec: injectionData.PodSpec,
-		}
-
-		// Merge the original pod spec with the injected overlay
-		mergedPod, err := mergeInjectedConfigLegacy(originalPod, raw)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to merge pod spec: %v", err)
-		}
-
-		return mergedPod, &pod, nil
-	}
-
-	// This is a Pod format
-	pod := &corev1.Pod{}
-	if err := yaml.Unmarshal(raw, pod); err != nil {
-		return nil, nil, fmt.Errorf("failed to read template: %v", err)
-	}
-
+func unmarshalTemplate(originalPod *corev1.Pod, raw []byte) (*corev1.Pod, error) {
 	mergedPod, err := mergeInjectedConfig(originalPod, raw)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to merge pod spec: %v", err)
+		return nil, fmt.Errorf("failed to merge pod spec: %v", err)
 	}
 
-	return mergedPod, pod, nil
+	return mergedPod, nil
 }
 
-func selectTemplate(params InjectionParameters) string {
-	// TODO in the future this will be configurable via defaultTemplates and annotation
-	return params.template[SidecarTemplateName]
+func selectTemplates(params InjectionParameters) []string {
+	// TODO move annotation to istio/api
+	if a, f := params.pod.Annotations[TemplatesAnnotation]; f {
+		names := []string{}
+		for _, tmplName := range strings.Split(a, ",") {
+			name := strings.TrimSpace(tmplName)
+			names = append(names, name)
+		}
+		return names
+	}
+	return params.defaultTemplate
 }
 
 func stripPod(req InjectionParameters) *corev1.Pod {
@@ -657,10 +647,12 @@ func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string,
 		return out, nil
 	}
 	params := InjectionParameters{
-		pod:                 pod,
-		deployMeta:          deploymentMetadata,
-		typeMeta:            typeMeta,
-		template:            sidecarTemplate,
+		pod:        pod,
+		deployMeta: deploymentMetadata,
+		typeMeta:   typeMeta,
+		// Todo replace with some template resolver abstraction
+		templates:           sidecarTemplate,
+		defaultTemplate:     []string{SidecarTemplateName},
 		meshConfig:          meshconfig,
 		valuesConfig:        valuesConfig,
 		revision:            revision,

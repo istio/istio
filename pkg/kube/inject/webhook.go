@@ -325,7 +325,8 @@ type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          *metav1.ObjectMeta
 	typeMeta            *metav1.TypeMeta
-	template            Templates
+	templates           Templates
+	defaultTemplate     []string
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
@@ -422,6 +423,12 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 // OverrideAnnotation is used to store the overrides for injected containers
 // TODO move this to api repo
 const OverrideAnnotation = "proxy.istio.io/overrides"
+
+// TemplatesAnnotation declares the set of templates to use for injection. If not specified, DefaultTemplates
+// will take precedence, which will inject a standard sidecar.
+// The format is a comma separated list. For example, `inject.istio.io/templates: sidecar,debug`.
+// TODO move this to api repo
+const TemplatesAnnotation = "inject.istio.io/templates"
 
 // reapplyOverwrittenContainers enables users to provide container level overrides for settings in the injection template
 // * originalPod: the pod before injection. If needed, we will apply some configurations from this pod on top of the final pod
@@ -708,33 +715,6 @@ func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 	return &pod, nil
 }
 
-func mergeInjectedConfigLegacy(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
-	current, err := json.Marshal(req.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	// The template is yaml, StrategicMergePatch expects JSON
-	injectedJSON, err := yaml.YAMLToJSON(injected)
-	if err != nil {
-		return nil, fmt.Errorf("yaml to json: %v", err)
-	}
-
-	podSpec := corev1.PodSpec{}
-	// Overlay the injected template onto the original podSpec
-	patched, err := strategicpatch.StrategicMergePatch(current, injectedJSON, podSpec)
-	if err != nil {
-		return nil, fmt.Errorf("strategic merge: %v", err)
-	}
-	if err := json.Unmarshal(patched, &podSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
-	}
-	pod := req.DeepCopy()
-	pod.Spec = podSpec
-
-	return pod, nil
-}
-
 func mergeInjectedConfig(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
 	// The template is yaml, StrategicMergePatch expects JSON
 	injectedJSON, err := yaml.YAMLToJSON(injected)
@@ -778,7 +758,8 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		pod:                 &pod,
 		deployMeta:          deploy,
 		typeMeta:            typeMeta,
-		template:            wh.Config.Templates,
+		templates:           wh.Config.Templates,
+		defaultTemplate:     wh.Config.DefaultTemplates,
 		meshConfig:          wh.meshConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
