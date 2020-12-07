@@ -227,8 +227,8 @@ global:
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
   # will not be killed because of low priority class.
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-  # for more detail.
-  priorityClassName: ""
+  # for more details.
+  priorityClassName: "system-cluster-critical"
   proxy:
     image: proxyv2
     # This controls the 'policy' in the sidecar injector.
