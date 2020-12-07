@@ -284,6 +284,7 @@ func (sc *SecretCache) addFileWatcher(file string, token string, connKey ConnKey
 	cacheLog.Infof("adding watcher for file %s", file)
 	if err := sc.certWatcher.Add(file); err != nil {
 		cacheLog.Errorf("%v: error adding watcher for file, skipping watches [%s] %v", connKey, file, err)
+		numFileWatcherFailures.Increment()
 		return
 	}
 	go func() {
@@ -302,6 +303,7 @@ func (sc *SecretCache) addFileWatcher(file string, token string, connKey ConnKey
 						// Regenerate the Secret and trigger the callback that pushes the secrets to proxy.
 						if _, secret, err := sc.generateFileSecret(ckey, token); err != nil {
 							cacheLog.Errorf("%v: error in generating secret after file change [%s] %v", ckey, file, err)
+							numFileSecretFailures.Increment()
 						} else {
 							cacheLog.Infof("%v: file changed, triggering secret push to proxy [%s]", ckey, file)
 							sc.callbackWithTimeout(ckey, secret)
