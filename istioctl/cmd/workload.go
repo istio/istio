@@ -405,6 +405,9 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 			labels[k] = v
 		}
 	}
+
+	meshConfig.DefaultConfig.ReadinessProbe = wg.Spec.Probe
+
 	md := meshConfig.DefaultConfig.ProxyMetadata
 	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
 	md["POD_NAMESPACE"] = wg.Namespace
