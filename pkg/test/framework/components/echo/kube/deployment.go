@@ -314,10 +314,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        {{- range $name, $value := $.Environment }}
-        - name: {{ $name }}
-          value: "{{ $value }}"
-        {{- end }}
         readinessProbe:
           httpGet:
             path: /healthz/ready
@@ -429,7 +425,6 @@ func generateYAMLWithSettings(cfg echo.Config,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
-		"Environment":     cfg.VMEnvironment,
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
 	}
