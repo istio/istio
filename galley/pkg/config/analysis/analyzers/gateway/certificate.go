@@ -83,12 +83,14 @@ func haveSameCertificate(currentGatewayTLS, gatewayTLS *v1alpha3.ServerTLSSettin
 		return currentGatewayTLS.CredentialName == gatewayTLS.CredentialName
 	}
 
-	if currentGatewayTLS.ServerCertificate != "" && gatewayTLS.ServerCertificate != "" {
-		if currentGatewayTLS.ServerCertificate == gatewayTLS.ServerCertificate {
-			if currentGatewayTLS.PrivateKey != "" && gatewayTLS.PrivateKey != "" {
-				return currentGatewayTLS.PrivateKey == gatewayTLS.PrivateKey
+	if currentGatewayTLS.CredentialName == "" && gatewayTLS.CredentialName == "" {
+		if currentGatewayTLS.ServerCertificate != "" && gatewayTLS.ServerCertificate != "" {
+			if currentGatewayTLS.ServerCertificate == gatewayTLS.ServerCertificate {
+				if currentGatewayTLS.PrivateKey != "" && gatewayTLS.PrivateKey != "" {
+					return currentGatewayTLS.PrivateKey == gatewayTLS.PrivateKey
+				}
+				return false
 			}
-			return false
 		}
 	}
 
