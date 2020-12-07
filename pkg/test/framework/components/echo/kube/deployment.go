@@ -291,10 +291,10 @@ spec:
 {{- end }}
 {{- end }}
         env:
-        {{- range $name, $value := $.Environment }}
-        - name: {{ $name }}
-          value: "{{ $value }}"
-        {{- end }}
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /healthz/ready
@@ -406,7 +406,6 @@ func generateYAMLWithSettings(cfg echo.Config,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
-		"Environment":  cfg.VMEnvironment,
 		"StartupProbe": supportStartupProbe,
 	}
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)
