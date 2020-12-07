@@ -383,7 +383,7 @@ func getInjectionStatus(podSpec corev1.PodSpec) string {
 // and multiple templates will be supported by applying them in successive order.
 //
 // In addition to the plain templating, there is some post processing done to
-// handle cases that cannot feasible be covered in the template, such as
+// handle cases that cannot feasibly be covered in the template, such as
 // re-ordering pods, rewriting readiness probes, etc.
 func injectPod(req InjectionParameters) ([]byte, error) {
 	checkPreconditions(req)
@@ -432,6 +432,8 @@ const OverrideAnnotation = "proxy.istio.io/overrides"
 // 2. There is an overlap (ie, both define istio-proxy), but that is because the pod is being re-injected.
 //    In this case we do nothing, since we want to apply the new settings
 // 3. There is an overlap. We will re-apply the original container.
+// Where "overlap" is a container defined in both the original and template pod. Typically, this would mean
+// the user has defined an `istio-proxy` container in their own pod spec.
 func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod, templatePod *corev1.Pod) (*corev1.Pod, error) {
 	type podOverrides struct {
 		Containers     []corev1.Container `json:"containers,omitempty"`
