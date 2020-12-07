@@ -32,6 +32,7 @@ const testRetryInterval = time.Millisecond * 10
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, testRetryInterval)
+	defer r.Close()
 
 	ms, err := test.StartNewServer()
 	defer ms.Stop()
@@ -78,6 +79,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 
 func TestResolveJwksURI(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, testRetryInterval)
+	defer r.Close()
 
 	ms, err := test.StartNewServer()
 	defer ms.Stop()

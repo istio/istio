@@ -341,6 +341,7 @@ func (r *JwksResolver) refresher() {
 			r.refresh()
 		case <-closeChan:
 			r.refreshTicker.Stop()
+			return
 		}
 	}
 }

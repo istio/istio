@@ -175,7 +175,9 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	}
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
-	wait.Until(c.runWorker, 5*time.Second, stopCh)
+
+	go wait.Until(c.runWorker, 5*time.Second, stopCh)
+	<-stopCh
 }
 
 func (c *Controller) HasSynced() bool {
