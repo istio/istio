@@ -325,7 +325,9 @@ type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          *metav1.ObjectMeta
 	typeMeta            *metav1.TypeMeta
-	template            Templates
+	templates           Templates
+	defaultTemplate     []string
+	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
@@ -422,6 +424,12 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 // OverrideAnnotation is used to store the overrides for injected containers
 // TODO move this to api repo
 const OverrideAnnotation = "proxy.istio.io/overrides"
+
+// TemplatesAnnotation declares the set of templates to use for injection. If not specified, DefaultTemplates
+// will take precedence, which will inject a standard sidecar.
+// The format is a comma separated list. For example, `inject.istio.io/templates: sidecar,debug`.
+// TODO move this to api repo
+const TemplatesAnnotation = "inject.istio.io/templates"
 
 // reapplyOverwrittenContainers enables users to provide container level overrides for settings in the injection template
 // * originalPod: the pod before injection. If needed, we will apply some configurations from this pod on top of the final pod
@@ -751,7 +759,9 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		pod:                 &pod,
 		deployMeta:          deploy,
 		typeMeta:            typeMeta,
-		template:            wh.Config.Templates,
+		templates:           wh.Config.Templates,
+		defaultTemplate:     wh.Config.DefaultTemplates,
+		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,

@@ -417,11 +417,84 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 	t.Helper()
 	webhook := &Webhook{
 		Config: &Config{
-			Templates: map[string]string{SidecarTemplateName: template},
-			Policy:    InjectionPolicyEnabled,
+			Templates:        map[string]string{SidecarTemplateName: template},
+			Policy:           InjectionPolicyEnabled,
+			DefaultTemplates: []string{SidecarTemplateName},
 		},
 	}
 	runWebhook(t, webhook, []byte(input), []byte(expected), false)
+}
+
+func TestMultipleInjectionTemplates(t *testing.T) {
+	webhook := &Webhook{
+		Config: &Config{
+			Templates: map[string]string{
+				"sidecar": `
+spec:
+  containers:
+  - name: istio-proxy
+    image: proxy
+`,
+				"init": `
+spec:
+ initContainers:
+ - name: istio-init
+   image: proxy
+`,
+			},
+			Aliases: map[string][]string{"both": {"sidecar", "init"}},
+			Policy:  InjectionPolicyEnabled,
+		},
+	}
+
+	input := `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello
+  annotations:
+    inject.istio.io/templates: sidecar,init
+spec:
+  containers:
+  - name: hello
+    image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+`
+	inputAlias := `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello
+  annotations:
+    inject.istio.io/templates: both
+spec:
+  containers:
+  - name: hello
+    image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+`
+	// nolint: lll
+	expected := `
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    inject.istio.io/templates: %s
+    prometheus.io/path: /stats/prometheus
+    prometheus.io/port: "0"
+    prometheus.io/scrape: "true"
+    sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+  name: hello
+spec:
+  initContainers:
+  - name: istio-init
+    image: proxy
+  containers:
+    - name: hello
+      image: fake.docker.io/google-samples/hello-go-gke:1.0
+    - name: istio-proxy
+      image: proxy
+`
+	runWebhook(t, webhook, []byte(input), []byte(fmt.Sprintf(expected, "sidecar,init")), false)
+	runWebhook(t, webhook, []byte(inputAlias), []byte(fmt.Sprintf(expected, "both")), false)
 }
 
 // TestStrategicMerge ensures we can use https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md
