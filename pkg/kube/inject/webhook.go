@@ -414,8 +414,6 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 		pod.Labels = map[string]string{}
 	}
 
-	applyConcurrency(pod.Spec.Containers)
-
 	overwriteClusterInfo(pod.Spec.Containers, req)
 
 	if err := applyPrometheusMerge(pod, req.meshConfig); err != nil {
