@@ -19,7 +19,7 @@ import (
 	"strings"
 )
 
-var unsafeValue = regexp.MustCompile("[^\\w@%+=:,./-]")
+var unsafeValue = regexp.MustCompile(`[^\\w@%+=:,./-]`)
 
 func Quote(s string) string {
 	// ported from https://github.com/chrissimpkins/shellescape/blob/master/lib/shellescape/main.py
