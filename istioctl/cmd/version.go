@@ -75,12 +75,12 @@ func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptio
 	return func() (*istioVersion.MeshInfo, error) {
 		remInfo, err := getRemoteInfo(*opts)
 		if err != nil {
-			fmt.Fprintf((*pc).OutOrStdout(), "%v\n", err)
+			fmt.Fprintf((*pc).OutOrStderr(), "%v\n", err)
 			// Return nil so that the client version is printed
 			return nil, nil
 		}
 		if remInfo == nil {
-			fmt.Fprintf((*pc).OutOrStdout(), "Istio is not present in the cluster with namespace %q\n", istioNamespace)
+			fmt.Fprintf((*pc).OutOrStderr(), "Istio is not present in the cluster with namespace %q\n", istioNamespace)
 		}
 		return remInfo, err
 	}
