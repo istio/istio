@@ -17,7 +17,6 @@ spec:
       - name: istio-proxy
         image: auto
         # Test that we can override a complex field like the command
-        # TODO this is broken since we append --concurrency to it
         args: ["-c", "my-config.yaml"]
         command:
         - envoy

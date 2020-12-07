@@ -32,8 +32,6 @@ spec:
       - args:
         - -c
         - my-config.yaml
-        - --concurrency
-        - "2"
         command:
         - envoy
         env:
@@ -196,6 +194,16 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
+          - path: cpu-limit
+            resourceFieldRef:
+              containerName: istio-proxy
+              divisor: 1m
+              resource: limits.cpu
+          - path: cpu-request
+            resourceFieldRef:
+              containerName: istio-proxy
+              divisor: 1m
+              resource: requests.cpu
         name: istio-podinfo
       - name: istio-token
         projected:
