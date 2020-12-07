@@ -21,9 +21,9 @@ import (
 )
 
 var (
-	// Default retry delay used in tests.
+	// RetryDelayInSeconds is the retry delay used in tests.
 	RetryDelayInSeconds time.Duration
-	// Default retry timeout used in tests.
+	// RetryTimeoutInSeconds is the retry timeout used in tests.
 	RetryTimeoutInSeconds time.Duration
 )
 
