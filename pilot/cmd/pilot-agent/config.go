@@ -86,11 +86,18 @@ func constructProxyConfig(role *model.Proxy) (meshconfig.ProxyConfig, error) {
 	return applyAnnotations(proxyConfig, annotations), nil
 }
 
+// determineConcurrencyOption determines the correct setting for --concurrency based on CPU requests/limits
 func determineConcurrencyOption() *types.Int32Value {
+	// If limit is set, us that
+	// The format in the file is a plain integer. `100` in the file is equal to `100m` (based on `divisor: 1m`
+	// in the pod spec).
+	// With the resource setting, we round up to single integer number; for example, if we have a 500m limit
+	// the pod will get concurrency=1. With 6500m, it will get concurrency=7.
 	limit, err := readPodCPULimits()
 	if err == nil && limit > 0 {
 		return &types.Int32Value{Value: int32(math.Ceil(float64(limit) / 1000))}
 	}
+	// If limit is unset, use requests instead, with the same logic.
 	requests, err := readPodCPURequests()
 	if err == nil && requests > 0 {
 		return &types.Int32Value{Value: int32(math.Ceil(float64(requests) / 1000))}
