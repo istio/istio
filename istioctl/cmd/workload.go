@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/shellescape"
 )
 
 var (
@@ -489,7 +490,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 func mapToString(m map[string]string) string {
 	lines := []string{}
 	for k, v := range m {
-		lines = append(lines, fmt.Sprintf("%s=%s", k, v))
+		lines = append(lines, fmt.Sprintf("%s=%s", k, shellescape.Quote(v)))
 	}
 	sort.Strings(lines)
 	return strings.Join(lines, "\n") + "\n"
