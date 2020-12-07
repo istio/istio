@@ -87,8 +87,8 @@ func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string
 }
 
 func (v *StatusVerifier) Colorize() {
-	v.successMarker = color.New(color.FgGreen).Sprint("✔")
-	v.failureMarker = color.New(color.FgRed).Sprint("✘")
+	v.successMarker = color.New(color.FgGreen).Sprint(v.successMarker)
+	v.failureMarker = color.New(color.FgRed).Sprint(v.failureMarker)
 }
 
 // Verify implements Verifier interface. Here we check status of deployment
