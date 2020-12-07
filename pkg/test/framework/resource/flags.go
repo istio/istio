@@ -79,4 +79,7 @@ func init() {
 
 	flag.StringVar(&settingsFromCommandLine.Revision, "istio.test.revision", settingsFromCommandLine.Revision,
 		"If set to XXX, overwrite the default namespace label (istio-injection=enabled) with istio.io/rev=XXX.")
+
+	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
+		"Skip VM related parts in all tests.")
 }
