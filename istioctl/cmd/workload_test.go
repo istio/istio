@@ -15,9 +15,20 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"path"
 	"strings"
 	"testing"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube"
+	testKube "istio.io/istio/pkg/test/kube"
 )
 
 var (
@@ -55,7 +66,7 @@ spec:
 `
 )
 
-func TestCreateGroup(t *testing.T) {
+func TestWorkloadGroupCreate(t *testing.T) {
 	cases := []testcase{
 		{
 			description:       "Invalid command args - missing service name and namespace",
@@ -104,7 +115,7 @@ func TestCreateGroup(t *testing.T) {
 	}
 }
 
-func TestGenerateConfig(t *testing.T) {
+func TestWorkloadEntryConfigureInvalidArgs(t *testing.T) {
 	cases := []testcase{
 		{
 			description:       "Invalid command args - missing valid input spec",
@@ -137,4 +148,94 @@ func TestGenerateConfig(t *testing.T) {
 			verifyAddToMeshOutput(t, c)
 		})
 	}
+}
+
+const goldenSuffix = ".golden"
+
+// TestWorkloadEntryConfigure enumerates test cases based on subdirectories of testdata/vmconfig.
+// Each subdirectory contains two input files: workloadgroup.yaml and meshconfig.yaml that are used
+// to generate golden outputs from the VM command.
+func TestWorkloadEntryConfigure(t *testing.T) {
+	files, err := ioutil.ReadDir("testdata/vmconfig")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range files {
+		if !dir.IsDir() {
+			continue
+		}
+		t.Run(dir.Name(), func(t *testing.T) {
+			testdir := path.Join("testdata/vmconfig", dir.Name())
+			kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
+				return &testKube.MockClient{
+					Interface: fake.NewSimpleClientset(
+						&v1.ServiceAccount{
+							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+						},
+						&v1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
+							Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+						},
+						&v1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
+							Data: map[string]string{
+								"mesh": string(util.ReadFile(path.Join(testdir, "meshconfig.yaml"), t)),
+							},
+						},
+					),
+				}, nil
+			}
+
+			cmd := []string{
+				"x", "workload", "entry", "configure",
+				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
+				"-o", testdir,
+			}
+			if _, err := runTestCmd(t, cmd); err != nil {
+				t.Fatal(err)
+			}
+
+			checkFiles := map[string]bool{
+				// outputs to check
+				"mesh.yaml": true, "istio-token": true, "hosts": true, "root-cert.pem": true, "cluster.env": true,
+				// inputs that we allow to exist, if other files seep in unexpectedly we fail the test
+				".gitignore": false, "meshconfig.yaml": false, "workloadgroup.yaml": false,
+			}
+
+			outputFiles, err := ioutil.ReadDir(testdir)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, f := range outputFiles {
+				checkGolden, ok := checkFiles[f.Name()]
+				if !ok {
+					if checkGolden, ok := checkFiles[f.Name()[:len(f.Name())-len(goldenSuffix)]]; !(checkGolden && ok) {
+						t.Errorf("unexpected file in output dir: %s", f.Name())
+					}
+					continue
+				}
+				if checkGolden {
+					t.Run(f.Name(), func(t *testing.T) {
+						contents := util.ReadFile(path.Join(testdir, f.Name()), t)
+						goldenFile := path.Join(testdir, f.Name()+goldenSuffix)
+						util.RefreshGoldenFile(contents, goldenFile, t)
+						util.CompareContent(contents, goldenFile, t)
+					})
+				}
+			}
+		})
+	}
+}
+
+func runTestCmd(t *testing.T, args []string) (string, error) {
+	t.Helper()
+	// TODO there is already probably something else that does this
+	var out bytes.Buffer
+	rootCmd := GetRootCmd(args)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	err := rootCmd.Execute()
+	output := out.String()
+	return output, err
 }
