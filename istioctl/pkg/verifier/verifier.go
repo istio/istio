@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/fatih/color"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +59,8 @@ type StatusVerifier struct {
 	controlPlaneOpts clioptions.ControlPlaneOptions
 	logger           clog.Logger
 	iop              *v1alpha1.IstioOperator
+	successMarker    string
+	failureMarker    string
 }
 
 // NewStatusVerifier creates a new instance of post-install verifier
@@ -78,7 +81,14 @@ func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string
 		kubeconfig:       kubeconfig,
 		context:          context,
 		iop:              installedIOP,
+		successMarker:    "✔",
+		failureMarker:    "✘",
 	}
+}
+
+func (v *StatusVerifier) Colorize() {
+	v.successMarker = color.New(color.FgGreen).Sprint(v.successMarker)
+	v.failureMarker = color.New(color.FgRed).Sprint(v.failureMarker)
 }
 
 // Verify implements Verifier interface. Here we check status of deployment
@@ -280,7 +290,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				crdCount++
 			}
 		}
-		v.logger.LogAndPrintf("✔ %s: %s.%s checked successfully", kind, name, namespace)
+		v.logger.LogAndPrintf("%s %s: %s.%s checked successfully", v.successMarker, kind, name, namespace)
 		return nil
 	})
 	return crdCount, istioDeploymentCount, err
@@ -320,7 +330,7 @@ func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err er
 		// Don't return full error; it is usually an unwielded aggregate
 		return fmt.Errorf("Istio installation failed") // nolint
 	}
-	v.logger.LogAndPrintf("✔ Istio is installed and verified successfully")
+	v.logger.LogAndPrintf("%s Istio is installed and verified successfully", v.successMarker)
 	return nil
 }
 
@@ -363,5 +373,5 @@ func (v *StatusVerifier) k8sConfig() *genericclioptions.ConfigFlags {
 }
 
 func (v *StatusVerifier) reportFailure(kind, name, namespace string, err error) {
-	v.logger.LogAndPrintf("✘ %s: %s.%s: %v", kind, name, namespace, err)
+	v.logger.LogAndPrintf("%s %s: %s.%s: %v", v.failureMarker, kind, name, namespace, err)
 }

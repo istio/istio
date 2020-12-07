@@ -17,11 +17,15 @@ package formatting
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/mattn/go-isatty"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/pkg/env"
 )
 
 // Formatting options for Messages
@@ -34,6 +38,7 @@ const (
 var (
 	MsgOutputFormatKeys = []string{LogFormat, JSONFormat, YAMLFormat}
 	MsgOutputFormats    = make(map[string]bool)
+	termEnvVar          = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 )
 
 func init() {
@@ -108,4 +113,19 @@ func colorSuffix(colorize bool) string {
 		return ""
 	}
 	return "\033[0m"
+}
+
+func IstioctlColorDefault(writer io.Writer) bool {
+	if strings.EqualFold(termEnvVar.Get(), "dumb") {
+		return false
+	}
+
+	file, ok := writer.(*os.File)
+	if ok {
+		if !isatty.IsTerminal(file.Fd()) {
+			return false
+		}
+	}
+
+	return true
 }
