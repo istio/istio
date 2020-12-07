@@ -191,36 +191,46 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 				isTransportSocketConfig := cpValueCast.TransportSocket.Name == fcTransportSocketName
 
 				if isTransportSocketConfig {
-
-					// Extract ConfigType from patch
-					var configTypePatch ptypes.DynamicAny
-					cpTransportSocket := cpValueCast.TransportSocket
-					errPatch := ptypes.UnmarshalAny(cpTransportSocket.GetTypedConfig(), &configTypePatch)
-					if errPatch != nil {
-						log.Errorf("ERROR UnmarshalAny patch: %v", errPatch)
+					ret := mergeTransportSocketListener(cpValueCast, fc)
+					if ret != nil{
+						log.Errorf("ERROR mergeTransportSocketListener: %v", ret)
 						continue
 					}
-
-					// Extract ConfigType from Listener
-					var configTypeListener ptypes.DynamicAny
-					cTransportSocket := fc.TransportSocket
-					errListener := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), &configTypeListener)
-					if errListener != nil {
-						log.Errorf("ERROR UnmarshalAny Listener: %v", errListener)
-						continue
-					}
-
-					// Merge the patch and the listener at a lower level
-					proto.Merge(configTypeListener.Message, configTypePatch.Message)
-					// Merge the above result with the whole listener
-					proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(configTypeListener.Message))
 				}
+
 			} else {
 				proto.Merge(fc, cp.Value)
 			}
 		}
 	}
 	doNetworkFilterListOperation(patchContext, patches, listener, fc)
+}
+
+func mergeTransportSocketListener(cpValueCast *xdslistener.FilterChain, fc *xdslistener.FilterChain) error {
+	// Extract ConfigType from patch
+	var configTypePatch ptypes.DynamicAny
+	cpTransportSocket := cpValueCast.TransportSocket
+	errPatch := ptypes.UnmarshalAny(cpTransportSocket.GetTypedConfig(), &configTypePatch)
+	if errPatch != nil {
+		log.Errorf("ERROR UnmarshalAny patch: %v", errPatch)
+		return errPatch
+	}
+
+	// Extract ConfigType from Listener
+	var configTypeListener ptypes.DynamicAny
+	cTransportSocket := fc.TransportSocket
+	errListener := ptypes.UnmarshalAny(cTransportSocket.GetTypedConfig(), &configTypeListener)
+	if errListener != nil {
+		log.Errorf("ERROR UnmarshalAny Listener: %v", errListener)
+		return errListener
+	}
+
+	// Merge the patch and the listener at a lower level
+	proto.Merge(configTypeListener.Message, configTypePatch.Message)
+	// Merge the above result with the whole listener
+	proto.Merge(cTransportSocket.GetTypedConfig(), util.MessageToAny(configTypeListener.Message))
+
+	return nil
 }
 
 func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
