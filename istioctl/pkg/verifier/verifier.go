@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -104,6 +106,13 @@ func (v *StatusVerifier) Verify() error {
 }
 
 func (v *StatusVerifier) verifyInstallIOPRevision() error {
+	var err error
+	if v.controlPlaneOpts.Revision == "" {
+		v.controlPlaneOpts.Revision, err = getRevision(v.istioNamespace, v.kubeconfig, v.context)
+		if err != nil {
+			return err
+		}
+	}
 	iop, err := v.operatorFromCluster(v.controlPlaneOpts.Revision)
 	if err != nil {
 		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
@@ -114,6 +123,26 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
 		iop, fmt.Sprintf("in cluster operator %s", iop.GetName()))
 	return v.reportStatus(crdCount, istioDeploymentCount, err)
+}
+
+func getRevision(istioNamespace, kubeConfig, ctx string) (string, error) {
+	var revision string
+	cfg, err := kube.BuildClientConfig(kubeConfig, ctx)
+	if err != nil {
+		return "", err
+	}
+	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(cfg), "")
+	if err != nil {
+		return "", fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
+	}
+	pods, err := kubeClient.PodsForSelector(context.TODO(), istioNamespace, "app=istiod")
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch istiod pod, error: %v", err)
+	}
+	for _, pod := range pods.Items {
+		revision = pod.ObjectMeta.GetLabels()[label.IstioRev]
+	}
+	return revision, nil
 }
 
 func (v *StatusVerifier) verifyFinalIOP() error {
