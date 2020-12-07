@@ -75,7 +75,7 @@ func UpdateConfigCondition(cfg config.Config, condition *v1alpha1.IstioCondition
 }
 
 func UpdateCondition(conditions []*v1alpha1.IstioCondition, condition *v1alpha1.IstioCondition) []*v1alpha1.IstioCondition {
-	ret := conditions[:]
+	ret := append([]*v1alpha1.IstioCondition(nil), conditions...)
 	idx := -1
 	for i, cond := range ret {
 		if cond.Type == condition.Type {

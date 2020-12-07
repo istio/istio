@@ -813,12 +813,11 @@ func setHealth(cfg config.Config, healthy bool) config.Config {
 			Type:   status.ConditionHealthy,
 			Status: status.StatusTrue,
 		})
-	} else {
-		return status.UpdateConfigCondition(cfg, &v1alpha1.IstioCondition{
-			Type:   status.ConditionHealthy,
-			Status: status.StatusFalse,
-		})
 	}
+	return status.UpdateConfigCondition(cfg, &v1alpha1.IstioCondition{
+		Type:   status.ConditionHealthy,
+		Status: status.StatusFalse,
+	})
 }
 
 func waitForEdsUpdate(t *testing.T, xdsUpdater *FakeXdsUpdater, expected int) {
