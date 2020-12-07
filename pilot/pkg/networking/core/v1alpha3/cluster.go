@@ -312,67 +312,67 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			localCluster := cb.buildInboundClusterForPortOrUDS(cb.proxy, int(instance.Endpoint.EndpointPort), actualLocalHost, instance, instances)
 			clusters = cp.conditionallyAppend(clusters, localCluster)
 		}
-	} else {
-		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-		for _, ingressListener := range rule.Ingress {
-			// LDS would have setup the inbound clusters
-			// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
-			listenPort := &model.Port{
-				Port:     int(ingressListener.Port.Number),
-				Protocol: protocol.Parse(ingressListener.Port.Protocol),
-				Name:     ingressListener.Port.Name,
-			}
+		return clusters
+	}
 
-			// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
-			// by the user and parse it into host:port or a unix domain socket
-			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
-			endpointAddress := actualLocalHost
-			port := 0
-			var err error
-			instanceIPCluster := false
-			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
-				// this is a UDS endpoint. assign it as is
-				endpointAddress = ingressListener.DefaultEndpoint
-			} else {
-				// parse the ip, port. Validation guarantees presence of :
-				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
-				if len(parts) < 2 {
-					continue
-				}
-				if port, err = strconv.Atoi(parts[1]); err != nil {
-					continue
-				}
-				if parts[0] == model.PodIPAddressPrefix {
-					endpointAddress = cb.proxy.IPAddresses[0]
-					instanceIPCluster = true
-				}
-			}
-
-			// Find the service instance that corresponds to this ingress listener by looking
-			// for a service instance that matches this ingress port as this will allow us
-			// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
-			instance := configgen.findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Config.Name, sidecarScope.Config.Namespace)
-			instance.Endpoint.Address = endpointAddress
-			instance.ServicePort = listenPort
-			instance.Endpoint.ServicePortName = listenPort.Name
-			instance.Endpoint.EndpointPort = uint32(port)
-
-			localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), endpointAddress, instance, nil)
-			if instanceIPCluster {
-				// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
-				// config which will be skipped. This mirrors the "passthrough" clusters.
-				// TODO: consider moving all clusters to use this for consistency.
-				localCluster.UpstreamBindConfig = &core.BindConfig{
-					SourceAddress: &core.SocketAddress{
-						Address: util.InboundPassthroughBindIpv4,
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: uint32(0),
-						},
-					},
-				}
-			}
-			clusters = cp.conditionallyAppend(clusters, localCluster)
+	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
+		// LDS would have setup the inbound clusters
+		// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
+		listenPort := &model.Port{
+			Port:     int(ingressListener.Port.Number),
+			Protocol: protocol.Parse(ingressListener.Port.Protocol),
+			Name:     ingressListener.Port.Name,
 		}
+
+		// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
+		// by the user and parse it into host:port or a unix domain socket
+		// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
+		endpointAddress := actualLocalHost
+		port := 0
+		var err error
+		instanceIPCluster := false
+		if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
+			// this is a UDS endpoint. assign it as is
+			endpointAddress = ingressListener.DefaultEndpoint
+		} else {
+			// parse the ip, port. Validation guarantees presence of :
+			parts := strings.Split(ingressListener.DefaultEndpoint, ":")
+			if len(parts) < 2 {
+				continue
+			}
+			if port, err = strconv.Atoi(parts[1]); err != nil {
+				continue
+			}
+			if parts[0] == model.PodIPAddressPrefix {
+				endpointAddress = cb.proxy.IPAddresses[0]
+				instanceIPCluster = true
+			}
+		}
+
+		// Find the service instance that corresponds to this ingress listener by looking
+		// for a service instance that matches this ingress port as this will allow us
+		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
+		instance := configgen.findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
+		instance.Endpoint.Address = endpointAddress
+		instance.ServicePort = listenPort
+		instance.Endpoint.ServicePortName = listenPort.Name
+		instance.Endpoint.EndpointPort = uint32(port)
+
+		localCluster := cb.buildInboundClusterForPortOrUDS(nil, int(ingressListener.Port.Number), endpointAddress, instance, nil)
+		if instanceIPCluster {
+			// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
+			// config which will be skipped. This mirrors the "passthrough" clusters.
+			// TODO: consider moving all clusters to use this for consistency.
+			localCluster.UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: util.InboundPassthroughBindIpv4,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
+				},
+			}
+		}
+		clusters = cp.conditionallyAppend(clusters, localCluster)
 	}
 
 	return clusters
