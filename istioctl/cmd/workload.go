@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/util/shellescape"
 	"os"
 	"path/filepath"
 	"sort"
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/shellescape"
 )
 
 var (
