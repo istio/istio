@@ -723,8 +723,8 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
 		for _, wrapper := range sidecars {
-			if wrapper.Config != nil && wrapper.Config.Spec != nil {
-				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
+			if wrapper.Sidecar != nil {
+				sidecar := wrapper.Sidecar
 				// if there is no workload selector, the config applies to all workloads
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {

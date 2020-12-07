@@ -46,14 +46,9 @@ func TestProxyNeedsPush(t *testing.T) {
 		want    bool
 	}
 
-	proxyCfg := &config.Config{Meta: config.Meta{
-		Name:      generalName,
-		Namespace: nsName,
-	}}
-
 	sidecar := &model.Proxy{
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{Config: proxyCfg, RootNamespace: nsRoot}}
+		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName, RootNamespace: nsRoot}}
 	gateway := &model.Proxy{Type: model.Router}
 
 	sidecarScopeKindNames := map[config.GroupVersionKind]string{
