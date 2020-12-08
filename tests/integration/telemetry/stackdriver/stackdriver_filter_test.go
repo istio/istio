@@ -91,10 +91,10 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName string) er
 	return jsonpb.UnmarshalString(resource, out)
 }
 
-// TODO: add test for log, trace and edge.
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range clt {

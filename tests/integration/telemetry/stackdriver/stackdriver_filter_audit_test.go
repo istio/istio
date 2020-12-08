@@ -17,7 +17,9 @@ package stackdriver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/telemetry"
 )
 
 const (
@@ -42,6 +45,7 @@ const (
 // TestStackdriverAuditLogging testing Authz Policy can config stackdriver with audit policy
 func TestStackdriverHTTPAuditLogging(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 
@@ -56,10 +60,10 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 
 			t.Logf("Traffic sent to namespace %v", ns)
 			for _, cltInstance := range clt {
-				scopes.Framework.Infof("Validating Audit policy and Telemetry for Cluster %v", cltInstance)
+				scopes.Framework.Infof("Validating Audit policy and Telemetry for Cluster %v", cltInstance.Config().Cluster.Name())
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := sendTrafficForAudit(t); err != nil {
+						if err := sendTrafficForAudit(t, cltInstance); err != nil {
 							return err
 						}
 
@@ -85,7 +89,10 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 						if errAuditFoo == nil && errAuditBar == nil && errAuditAll == nil && errAuditNone != nil {
 							return nil
 						}
-						return nil
+
+						var errs []string
+						errs = append(errs, errAuditAll.Error(), errAuditFoo.Error(), errAuditBar.Error(), errAuditNone.Error())
+						return fmt.Errorf(strings.Join(errs, "\n"))
 					}, retry.Delay(5*time.Second), retry.Timeout(80*time.Second))
 
 					if err != nil {
@@ -101,7 +108,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 }
 
 // send http requests with different header and path
-func sendTrafficForAudit(t *testing.T) error {
+func sendTrafficForAudit(t *testing.T, cltInstance echo.Instance) error {
 	t.Helper()
 
 	newOptions := func(headers http.Header, path string) echo.CallOptions {
@@ -110,7 +117,7 @@ func sendTrafficForAudit(t *testing.T) error {
 			PortName: "http",
 			Headers:  headers,
 			Path:     path,
-			Count:    requestCountMultipler * len(srv),
+			Count:    telemetry.RequestCountMultipler,
 		}
 	}
 
@@ -133,12 +140,10 @@ func sendTrafficForAudit(t *testing.T) error {
 		newOptions(map[string][]string{"X-Audit": {"bar"}}, "/audit-all"),
 	}
 
-	for _, cltInstance := range clt {
-		for _, opt := range opts {
-			if _, err := cltInstance.Call(opt); err != nil {
-				t.Logf("with call option %v got err %v", opt, err)
-				return err
-			}
+	for _, opt := range opts {
+		if _, err := cltInstance.Call(opt); err != nil {
+			t.Logf("with call option %v got err %v", opt, err)
+			return err
 		}
 	}
 	return nil
