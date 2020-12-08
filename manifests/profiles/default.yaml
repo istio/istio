@@ -193,8 +193,5 @@ spec:
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
       rewriteAppHTTPProbe: true
-      objectSelector:
-        enabled: false
-        autoInject: true
 
     clusterResources: true
