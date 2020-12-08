@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 29427
+  - 28516
+upgradeNotes:
+  - title: Connectivity issues among your proxies when updating from 1.7.x to 1.7.5 or newer.
+    content: |
+      When upgrading your Istio data plane from 1.7.x (where x < 5) to 1.7.5 or newer, you may 
+      observe connectivity issues between your gateway and your sidecars or among your sidecars 
+      with 503 errors in the log. This happens when 1.7.5+ proxies send HTTP 1xx or 204 response 
+      codes with headers that 1.7.x proxies reject. To fix this, upgrade all your 
+      proxies (gateways and sidecars) to 1.7.5+ as soon as possible.
