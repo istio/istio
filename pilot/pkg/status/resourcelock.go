@@ -50,7 +50,7 @@ func (ce *cacheEntry) shouldRun() (result bool) {
 		// increment and return true
 		ce.countLock.Lock()
 		if ce.routineCount < 2 {
-			ce.routineCount += 1
+			ce.routineCount++
 			result = true
 		}
 		ce.countLock.Unlock()
@@ -60,7 +60,7 @@ func (ce *cacheEntry) shouldRun() (result bool) {
 
 func (ce *cacheEntry) decrementCount() {
 	ce.countLock.Lock()
-	ce.routineCount -= 1
+	ce.routineCount--
 	ce.countLock.Unlock()
 }
 
