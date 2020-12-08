@@ -33,6 +33,8 @@ type operatorCommonArgs struct {
 	hub string
 	// tag is the tag for the operator image.
 	tag string
+	// imagePullSecrets is an array of imagePullSecret to pull operator image from the private registry
+	imagePullSecrets []string
 	// operatorNamespace is the namespace the operator controller is installed into.
 	operatorNamespace string
 	// watchedNamespaces is the namespaces the operator controller watches, could be namespace list separated by comma.
@@ -78,6 +80,12 @@ istioNamespace: {{.IstioNamespace}}
 watchedNamespaces: {{.WatchedNamespaces}}
 hub: {{.Hub}}
 tag: {{.Tag}}
+{{- if .ImagePullSecrets }}
+imagePullSecrets:
+{{- range .ImagePullSecrets }}
+- {{ . }}
+{{- end }}
+{{- end }}
 revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 `
 
@@ -87,6 +95,7 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		WatchedNamespaces string
 		Hub               string
 		Tag               string
+		ImagePullSecrets  []string
 		Revision          string
 	}{
 		OperatorNamespace: ocArgs.operatorNamespace,
@@ -94,6 +103,7 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		WatchedNamespaces: ocArgs.watchedNamespaces,
 		Hub:               ocArgs.hub,
 		Tag:               ocArgs.tag,
+		ImagePullSecrets:  ocArgs.imagePullSecrets,
 		Revision:          ocArgs.revision,
 	}
 	vals, err := util.RenderTemplate(tmpl, tv)
