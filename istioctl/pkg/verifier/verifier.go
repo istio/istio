@@ -108,7 +108,7 @@ func (v *StatusVerifier) Verify() error {
 func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	var err error
 	if v.controlPlaneOpts.Revision == "" {
-		v.controlPlaneOpts.Revision, err = getRevision(v.istioNamespace, v.kubeconfig, v.context)
+		v.controlPlaneOpts.Revision, err = v.getRevision()
 		if err != nil {
 			return err
 		}
@@ -125,24 +125,36 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	return v.reportStatus(crdCount, istioDeploymentCount, err)
 }
 
-func getRevision(istioNamespace, kubeConfig, ctx string) (string, error) {
+func (v *StatusVerifier) getRevision() (string, error) {
 	var revision string
-	cfg, err := kube.BuildClientConfig(kubeConfig, ctx)
+	kubeClient, err := v.createClient()
 	if err != nil {
 		return "", err
 	}
-	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(cfg), "")
-	if err != nil {
-		return "", fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
-	}
-	pods, err := kubeClient.PodsForSelector(context.TODO(), istioNamespace, "app=istiod")
+	pods, err := kubeClient.PodsForSelector(context.TODO(), v.istioNamespace, "app=istiod")
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch istiod pod, error: %v", err)
 	}
 	for _, pod := range pods.Items {
-		revision = pod.ObjectMeta.GetLabels()[label.IstioRev]
+		rev := pod.ObjectMeta.GetLabels()[label.IstioRev]
+		if rev == "default" {
+			continue
+		}
+		revision = rev
 	}
 	return revision, nil
+}
+
+func (v *StatusVerifier) createClient() (kube.ExtendedClient, error) {
+	cfg, err := kube.BuildClientConfig(v.kubeconfig, v.context)
+	if err != nil {
+		return nil, err
+	}
+	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(cfg), "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
+	}
+	return kubeClient, nil
 }
 
 func (v *StatusVerifier) verifyFinalIOP() error {
