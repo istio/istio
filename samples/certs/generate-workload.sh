@@ -25,7 +25,7 @@ san="spiffe://trust-domain-$name/ns/$ns/sa/$sa"
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 FINAL_DIR=$DIR
-if [ ! -z "$tmp" ]; then
+if [ -n "$tmp" ]; then
   if [ -d "$tmp" ]; then
     FINAL_DIR=$tmp
     cp "$DIR"/root-cert.pem "$FINAL_DIR"
