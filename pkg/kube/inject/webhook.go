@@ -327,6 +327,7 @@ type InjectionParameters struct {
 	typeMeta            *metav1.TypeMeta
 	templates           Templates
 	defaultTemplate     []string
+	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
@@ -760,6 +761,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		typeMeta:            typeMeta,
 		templates:           wh.Config.Templates,
 		defaultTemplate:     wh.Config.DefaultTemplates,
+		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,

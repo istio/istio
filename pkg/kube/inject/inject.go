@@ -117,6 +117,11 @@ type Config struct {
 	// SidecarTemplateData, and merged with the original pod spec using a strategic merge patch.
 	Templates Templates `json:"templates"`
 
+	// Aliases defines a translation of a name to inject template. For example, `sidecar: [proxy,init]` could allow
+	// referencing two templates, "proxy" and "init" by a single name, "sidecar".
+	// Expansion is not recursive.
+	Aliases map[string][]string `json:"aliases"`
+
 	// NeverInjectSelector: Refuses the injection on pods whose labels match this selector.
 	// It's an array of label selectors, that will be OR'ed, meaning we will iterate
 	// over it and stop at the first match
@@ -402,9 +407,21 @@ func selectTemplates(params InjectionParameters) []string {
 			name := strings.TrimSpace(tmplName)
 			names = append(names, name)
 		}
-		return names
+		return resolveAliases(params, names)
 	}
-	return params.defaultTemplate
+	return resolveAliases(params, params.defaultTemplate)
+}
+
+func resolveAliases(params InjectionParameters, names []string) []string {
+	ret := []string{}
+	for _, name := range names {
+		if al, f := params.aliases[name]; f {
+			ret = append(ret, al...)
+		} else {
+			ret = append(ret, name)
+		}
+	}
+	return ret
 }
 
 func stripPod(req InjectionParameters) *corev1.Pod {
@@ -653,6 +670,9 @@ func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string,
 		// Todo replace with some template resolver abstraction
 		templates:           sidecarTemplate,
 		defaultTemplate:     []string{SidecarTemplateName},
+		aliases: map[string][]string{
+			SidecarTemplateName: []string{"istio-proxy", "istio-init"},
+		},
 		meshConfig:          meshconfig,
 		valuesConfig:        valuesConfig,
 		revision:            revision,

@@ -23,6 +23,10 @@ data:
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
     # NOTE: this currently only allows a single element
     defaultTemplates: [sidecar]
+    aliases:
+      sidecar:
+      - istio-proxy
+      - istio-init
     policy: {{ .Values.global.proxy.autoInject }}
     alwaysInjectSelector:
 {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}
