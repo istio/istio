@@ -30,17 +30,39 @@ type ResourceMutex struct {
 type cacheEntry struct {
 	// the runlock ensures only one routine is writing status for a given resource at a time
 	runLock sync.Mutex
-	// the cachelock protects writes and reads to the two cache values
+	// the cachelock protects writes and reads to the cache values
 	cacheLock sync.Mutex
 	// the cacheVale represents the latest version of the resource, including ResourceVersion
 	cacheVal *Resource
 	// the cacheProgress represents the latest version of the Progress
 	cacheProgress *Progress
-	countLock     sync.Mutex
+	countLock     sync.RWMutex
 	// track how many routines are running for this resource.  always <= 2
 	routineCount int32
 	// track if this resource has been deleted, and if so, stop writing updates for it
 	deleted bool
+}
+
+func (ce *cacheEntry) shouldRun() (result bool) {
+	ce.countLock.RLock()
+	count := ce.routineCount
+	ce.countLock.RUnlock()
+	if count < 2 {
+		// increment and return true
+		ce.countLock.Lock()
+		if ce.routineCount < 2 {
+			ce.routineCount += 1
+			result = true
+		}
+		ce.countLock.Unlock()
+	}
+	return
+}
+
+func (ce *cacheEntry) decrementCount() (result bool) {
+	ce.countLock.Lock()
+	ce.routineCount -= 1
+	ce.countLock.Unlock()
 }
 
 func (rl *ResourceMutex) Delete(r Resource) {
@@ -62,33 +84,24 @@ func (rl *ResourceMutex) OncePerResource(ctx context.Context, r Resource, p Prog
 	f.cacheVal = &r
 	f.cacheProgress = &p
 	f.cacheLock.Unlock()
-	// we only fire off goroutine if routincount < 2, so we can have a currently running routine and a standby routine
-	if atomic.LoadInt32(&f.routineCount) < 2 {
-		f.countLock.Lock()
-		if atomic.LoadInt32(&f.routineCount) < 2 {
-			// double check routinecount before incrementing to avoid race
-			atomic.AddInt32(&f.routineCount, 1)
-			f.countLock.Unlock()
-			go func() {
-				f.runLock.Lock()
-				f.cacheLock.Lock()
-				if f.deleted {
-					atomic.AddInt32(&f.routineCount, -1)
-					delete(rl.cache, lr)
-					f.cacheLock.Unlock()
-					f.runLock.Unlock()
-					return
-				}
-				finalResource := f.cacheVal
-				finalProgress := f.cacheProgress
+	if f.shouldRun() {
+		go func() {
+			f.runLock.Lock()
+			f.cacheLock.Lock()
+			if f.deleted {
+				f.decrementCount()
+				delete(rl.cache, lr)
 				f.cacheLock.Unlock()
-				target(ctx, *finalResource, *finalProgress)
-				atomic.AddInt32(&f.routineCount, -1)
 				f.runLock.Unlock()
-			}()
-		} else {
-			f.countLock.Unlock()
-		}
+				return
+			}
+			finalResource := f.cacheVal
+			finalProgress := f.cacheProgress
+			f.cacheLock.Unlock()
+			target(ctx, *finalResource, *finalProgress)
+			f.decrementCount()
+			f.runLock.Unlock()
+		}()
 	}
 }
 

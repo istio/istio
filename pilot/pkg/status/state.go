@@ -153,7 +153,6 @@ func (c *DistributionController) writeAllStatus(ctx context.Context) (staleRepor
 		}
 		if distributionState.TotalInstances > 0 { // this is necessary when all reports are stale.
 			c.queueWriteStatus(ctx, config, distributionState)
-			//go c.writeStatus(ctx, config, distributionState)
 		}
 	}
 	return
@@ -172,9 +171,6 @@ func (c *DistributionController) writeStatus(ctx context.Context, config Resourc
 	// Note: I'd like to use Pilot's ConfigStore here to avoid duplicate reads and writes, but
 	// the update() function is not implemented, and the Get() function returns the resource
 	// in a different format than is needed for k8s.updateStatus.
-	//c.currentlyWriting.Mock(config)
-	//defer c.currentlyWriting.Unlock(config)
-	log.Warnf("writing status for config %v", config)
 	resourceInterface := c.initK8sResource(config.GroupVersionResource).
 		Namespace(config.Namespace)
 	// should this be moved to some sort of InformerCache for speed?
