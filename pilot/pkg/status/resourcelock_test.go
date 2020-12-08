@@ -65,22 +65,22 @@ func TestResourceLock_Lock(t *testing.T) {
 			fmt.Printf("finishing %s %s\n", nth, config.ResourceVersion)
 		}
 	}
-	rlock.OncePerResource(nil, r1, Progress{}, printer("first", true))
+	rlock.OncePerResource(context.TODO(), r1, Progress{}, printer("first", true))
 	time.Sleep(10 * time.Millisecond)
-	rlock.OncePerResource(nil, r1a, Progress{}, printer("second", true))
+	rlock.OncePerResource(context.TODO(), r1a, Progress{}, printer("second", true))
 	time.Sleep(10 * time.Millisecond)
 	r1.ResourceVersion = "r1.3"
 	for i := 0; i < 1000; i++ {
-		rlock.OncePerResource(nil, r1, Progress{}, printer("third", false))
+		rlock.OncePerResource(context.TODO(), r1, Progress{}, printer("third", false))
 	}
 	time.Sleep(5 * time.Second)
-	rlock.OncePerResource(nil, r1, Progress{}, printer("fourth", true))
+	rlock.OncePerResource(context.TODO(), r1, Progress{}, printer("fourth", true))
 	time.Sleep(1100 * time.Millisecond)
 
-	rlock.OncePerResource(nil, r1, Progress{}, printer("fifth", true))
+	rlock.OncePerResource(context.TODO(), r1, Progress{}, printer("fifth", true))
 	time.Sleep(10 * time.Millisecond)
-	rlock.OncePerResource(nil, r1a, Progress{}, printer("sixth", false))
-	rlock.OncePerResource(nil, r1a, Progress{}, printer("seventh", false))
+	rlock.OncePerResource(context.TODO(), r1a, Progress{}, printer("sixth", false))
+	rlock.OncePerResource(context.TODO(), r1a, Progress{}, printer("seventh", false))
 	rlock.Delete(r1a)
 	time.Sleep(2200 * time.Millisecond)
 	m.Lock()

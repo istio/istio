@@ -17,7 +17,6 @@ package status
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -59,7 +58,7 @@ func (ce *cacheEntry) shouldRun() (result bool) {
 	return
 }
 
-func (ce *cacheEntry) decrementCount() (result bool) {
+func (ce *cacheEntry) decrementCount() {
 	ce.countLock.Lock()
 	ce.routineCount -= 1
 	ce.countLock.Unlock()
@@ -114,33 +113,33 @@ func convert(i Resource) lockResource {
 }
 
 // returns value indicating if init was necessary
-func (r *ResourceMutex) init() bool {
-	if r.cache == nil {
-		r.masterLock.Lock()
-		defer r.masterLock.Unlock()
+func (rl *ResourceMutex) init() bool {
+	if rl.cache == nil {
+		rl.masterLock.Lock()
+		defer rl.masterLock.Unlock()
 		// double check, per pattern
-		if r.cache == nil {
-			r.cache = make(map[lockResource]*cacheEntry)
+		if rl.cache == nil {
+			rl.cache = make(map[lockResource]*cacheEntry)
 		}
 		return true
 	}
 	return false
 }
 
-func (r *ResourceMutex) retrieveEntry(i lockResource) *cacheEntry {
-	if !r.init() {
-		r.masterLock.RLock()
-		if result, ok := r.cache[i]; ok {
-			r.masterLock.RUnlock()
+func (rl *ResourceMutex) retrieveEntry(i lockResource) *cacheEntry {
+	if !rl.init() {
+		rl.masterLock.RLock()
+		if result, ok := rl.cache[i]; ok {
+			rl.masterLock.RUnlock()
 			return result
 		}
 		// transition to write lock
-		r.masterLock.RUnlock()
+		rl.masterLock.RUnlock()
 	}
-	r.masterLock.Lock()
-	defer r.masterLock.Unlock()
-	r.cache[i] = &cacheEntry{}
-	return r.cache[i]
+	rl.masterLock.Lock()
+	defer rl.masterLock.Unlock()
+	rl.cache[i] = &cacheEntry{}
+	return rl.cache[i]
 }
 
 type lockResource struct {
