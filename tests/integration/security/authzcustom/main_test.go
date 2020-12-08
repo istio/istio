@@ -13,17 +13,16 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package extauthzcustomaction
+package authzcustom
 
 import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/label"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 

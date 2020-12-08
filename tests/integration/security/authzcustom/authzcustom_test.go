@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package extauthzcustomaction
+package authzcustom
 
 import (
 	"testing"
@@ -63,7 +63,7 @@ func TestAuthorization_Custom(t *testing.T) {
 				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
 
-			policy := applyYAML("../testdata/authz/v1beta1-custom.yaml.tmpl", ns)
+			policy := applyYAML("testdata/v1beta1-custom.yaml.tmpl", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
 			var a, b, c, d, e echo.Instance
