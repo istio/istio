@@ -190,11 +190,4 @@ spec:
             secretName: istio-ingressgateway-ca-certs
             mountPath: /etc/istio/ingressgateway-ca-certs
 
-    sidecarInjectorWebhook:
-      enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: true
-      objectSelector:
-        enabled: false
-        autoInject: true
-
     clusterResources: true
