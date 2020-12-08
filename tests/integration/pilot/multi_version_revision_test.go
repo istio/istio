@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -50,11 +52,13 @@ func TestMultiVersionRevision(t *testing.T) {
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
-			defer func() {
+			ctx.WhenDone(func() error {
+				var errs *multierror.Error
 				for _, config := range configs {
-					ctx.Config().DeleteYAML("istio-system", config)
+					multierror.Append(errs, ctx.Config().DeleteYAML("istio-system", config))
 				}
-			}()
+				return errs.ErrorOrNil()
+			})
 
 			revisionedNamespaces := []revisionedNamespace{}
 			for _, v := range installVersions {
@@ -93,12 +97,17 @@ func TestMultiVersionRevision(t *testing.T) {
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8080,
+							InstancePort: 8000,
 						},
 						{
 							Name:         "tcp",
 							Protocol:     protocol.TCP,
 							InstancePort: 9000,
+						},
+						{
+							Name:         "grpc",
+							Protocol:     protocol.GRPC,
+							InstancePort: 9090,
 						},
 					},
 				})
@@ -111,35 +120,26 @@ func TestMultiVersionRevision(t *testing.T) {
 // testAllEchoCalls takes list of revisioned namespaces and generates list of echo calls covering
 // communication between every pair of namespaces
 func testAllEchoCalls(t *testing.T, echoInstances []echo.Instance) {
+	trafficTypes := []string{"http", "tcp", "grpc"}
 	for _, source := range echoInstances {
 		for _, dest := range echoInstances {
 			if source == dest {
 				continue
 			}
-			t.Run(fmt.Sprintf("http-%s->%s", source.Config().Service, dest.Config().Service), func(t *testing.T) {
-				retry.UntilSuccessOrFail(t, func() error {
-					resp, err := source.Call(echo.CallOptions{
-						Target:   dest,
-						PortName: "http",
-					})
-					if err != nil {
-						return err
-					}
-					return resp.CheckOK()
-				}, retry.Delay(time.Millisecond*150))
-			})
-			t.Run(fmt.Sprintf("tcp-%s->%s", source.Config().Service, dest.Config().Service), func(t *testing.T) {
-				retry.UntilSuccessOrFail(t, func() error {
-					resp, err := source.Call(echo.CallOptions{
-						Target:   dest,
-						PortName: "tcp",
-					})
-					if err != nil {
-						return err
-					}
-					return resp.CheckOK()
-				}, retry.Delay(time.Millisecond*150))
-			})
+			for _, trafficType := range trafficTypes {
+				t.Run(fmt.Sprintf("%s-%s->%s", trafficType, source.Config().Service, dest.Config().Service), func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := source.Call(echo.CallOptions{
+							Target:   dest,
+							PortName: trafficType,
+						})
+						if err != nil {
+							return err
+						}
+						return resp.CheckOK()
+					}, retry.Delay(time.Millisecond*150))
+				})
+			}
 		}
 	}
 }
