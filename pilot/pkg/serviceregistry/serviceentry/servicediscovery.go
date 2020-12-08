@@ -23,6 +23,7 @@ import (
 	"go.uber.org/atomic"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -118,7 +119,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// If an entry is unhealthy, we will mark this as a delete instead
 	// This ensures we do not track unhealthy endpoints
-	if !isHealthy(curr) {
+	if features.WorkloadEntryHealthChecks && !isHealthy(curr) {
 		event = model.EventDelete
 	}
 

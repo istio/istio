@@ -14,79 +14,13 @@
 
 package status
 
-import (
-	"istio.io/api/meta/v1alpha1"
-	"istio.io/istio/pkg/config"
-)
-
 const (
-	StatusTrue  = "True"
-	StatusFalse = "False"
-)
+	// WorkloadEntryHealthCheckAnnotation is the annotation that is added to workload entries when
+	// health checks are enabled.
+	// If this annotation is present, a WorkloadEntry with the condition Healthy=False or Healthy not set
+	// should be treated as unhealthy and not sent to proxies
+	WorkloadEntryHealthCheckAnnotation = "proxy.istio.io/health-checks-enabled"
 
-const (
+	// ConditionHealthy defines a status field to declare if a WorkloadEntry is healthy or not
 	ConditionHealthy = "Healthy"
 )
-
-const (
-	WorkloadEntryHealthCheckAnnotation = "proxy.istio.io/health-checks-enabled"
-)
-
-func GetBoolConditionFromSpec(cfg config.Config, condition string, defaultValue bool) bool {
-	c, ok := cfg.Status.(*v1alpha1.IstioStatus)
-	if !ok {
-		return defaultValue
-	}
-	return GetBoolCondition(c.Conditions, condition, defaultValue)
-}
-
-func GetBoolCondition(conditions []*v1alpha1.IstioCondition, condition string, defaultValue bool) bool {
-	got := GetCondition(conditions, condition)
-	if got == nil {
-		return defaultValue
-	}
-	if got.Status == StatusTrue {
-		return true
-	}
-	if got.Status == StatusFalse {
-		return false
-	}
-	return defaultValue
-}
-
-func GetCondition(conditions []*v1alpha1.IstioCondition, condition string) *v1alpha1.IstioCondition {
-	for _, cond := range conditions {
-		if cond.Type == condition {
-			return cond
-		}
-	}
-	return nil
-}
-
-func UpdateConfigCondition(cfg config.Config, condition *v1alpha1.IstioCondition) config.Config {
-	cfg = cfg.DeepCopy()
-	var status *v1alpha1.IstioStatus
-	if cfg.Status == nil {
-		cfg.Status = &v1alpha1.IstioStatus{}
-	}
-	status = cfg.Status.(*v1alpha1.IstioStatus)
-	status.Conditions = UpdateCondition(status.Conditions, condition)
-	return cfg
-}
-
-func UpdateCondition(conditions []*v1alpha1.IstioCondition, condition *v1alpha1.IstioCondition) []*v1alpha1.IstioCondition {
-	ret := append([]*v1alpha1.IstioCondition(nil), conditions...)
-	idx := -1
-	for i, cond := range ret {
-		if cond.Type == condition.Type {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		ret = append(ret, condition)
-	} else {
-		ret[idx] = condition
-	}
-	return ret
-}
