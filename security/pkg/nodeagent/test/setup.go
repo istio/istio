@@ -162,12 +162,11 @@ func (e *Env) StartProxy(t *testing.T) {
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
 	serverOptions := &security.Options{
-		WorkloadUDSPath:   e.ProxySetup.SDSPath(),
-		UseLocalJWT:       true,
-		JWTPath:           proxyTokenPath,
-		CAEndpoint:        fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
-		EnableWorkloadSDS: true,
-		RecycleInterval:   5 * time.Minute,
+		WorkloadUDSPath: e.ProxySetup.SDSPath(),
+		UseLocalJWT:     true,
+		JWTPath:         proxyTokenPath,
+		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
+		RecycleInterval: 5 * time.Minute,
 	}
 
 	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "")

@@ -100,7 +100,7 @@ func TestCitadelClient(t *testing.T) {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
+		resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
 		if err != nil {
 			if err.Error() != tc.expectedErr {
 				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
@@ -199,7 +199,7 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("test case [%s]: failed to create ca client: %v", id, err)
 				}
-				resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
+				resp, err := cli.CSRSign(context.Background(), []byte{01}, tc.token, 1)
 				if err != nil {
 					if err.Error() != tc.expectedErr {
 						return fmt.Errorf("test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)

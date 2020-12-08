@@ -21,13 +21,11 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
 	ca2 "istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -51,15 +49,11 @@ func NewServer(options *ca2.Options, workloadSecretCache ca2.SecretManager) (*Se
 	s := &Server{
 		workloadSds: newSDSService(workloadSecretCache, options, options.FileMountedCerts),
 	}
-	if options.EnableWorkloadSDS {
-		if err := s.initWorkloadSdsService(options); err != nil {
-			sdsServiceLog.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
-			return nil, err
-		}
-		sdsServiceLog.Infof("SDS gRPC server for workload UDS starts, listening on %q", options.WorkloadUDSPath)
+	if err := s.initWorkloadSdsService(options); err != nil {
+		sdsServiceLog.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
+		return nil, err
 	}
-
-	version.Info.RecordComponentBuildTag("citadel_agent")
+	sdsServiceLog.Infof("SDS gRPC server for workload UDS starts, listening on %q", options.WorkloadUDSPath)
 
 	return s, nil
 }
@@ -100,12 +94,7 @@ func NewPlugins(in []string) []ca2.TokenExchanger {
 }
 
 func (s *Server) initWorkloadSdsService(options *ca2.Options) error { //nolint: unparam
-	if options.GrpcServer != nil {
-		s.grpcWorkloadServer = options.GrpcServer
-		s.workloadSds.register(s.grpcWorkloadServer)
-		return nil
-	}
-	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions(options)...)
+	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 
 	var err error
@@ -144,18 +133,9 @@ func (s *Server) initWorkloadSdsService(options *ca2.Options) error { //nolint: 
 	return nil
 }
 
-func (s *Server) grpcServerOptions(options *ca2.Options) []grpc.ServerOption {
+func (s *Server) grpcServerOptions() []grpc.ServerOption {
 	grpcOptions := []grpc.ServerOption{
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
-	}
-
-	if options.CertFile != "" && options.KeyFile != "" {
-		creds, err := credentials.NewServerTLSFromFile(options.CertFile, options.KeyFile)
-		if err != nil {
-			sdsServiceLog.Errorf("Failed to load TLS keys: %s", err)
-			return nil
-		}
-		grpcOptions = append(grpcOptions, grpc.Creds(creds))
 	}
 
 	return grpcOptions

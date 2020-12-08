@@ -312,10 +312,6 @@ func (ms *mockIngressGatewaySecretStore) DeleteSecret(conID, resourceName string
 	ms.secrets.Delete(key)
 }
 
-func (ms *mockIngressGatewaySecretStore) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
-	return false
-}
-
 // StartStreamTest starts SDS server and checks SDS connectivity.
 func StartStreamTest(t *testing.T) *StreamSetup {
 	s := &StreamSetup{t: t}
@@ -347,9 +343,8 @@ func StartStreamTest(t *testing.T) *StreamSetup {
 
 func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGatewaySecretStore) {
 	arg := security.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   100 * time.Second,
-		WorkloadUDSPath:   socket,
+		RecycleInterval: 100 * time.Second,
+		WorkloadUDSPath: socket,
 	}
 	st := &mockIngressGatewaySecretStore{
 		checkToken: false,

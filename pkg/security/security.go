@@ -19,8 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"istio.io/pkg/env"
 )
 
@@ -68,16 +66,6 @@ type Options struct {
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
-	// IngressGatewayUDSPath is the unix domain socket through which SDS server communicates with
-	// ingress gateway proxies.
-	GatewayUDSPath string
-
-	// CertFile is the path of Cert File for gRPC server TLS settings.
-	CertFile string
-
-	// KeyFile is the path of Key File for gRPC server TLS settings.
-	KeyFile string
-
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
 
@@ -88,29 +76,8 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
-	// The Vault CA address.
-	VaultAddress string
-
-	// The Vault auth path.
-	VaultAuthPath string
-
-	// The Vault role.
-	VaultRole string
-
-	// The Vault sign CSR path.
-	VaultSignCsrPath string
-
-	// The Vault TLS root certificate.
-	VaultTLSRootCert string
-
-	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
-	GrpcServer *grpc.Server
-
 	// Recycle job running interval (to clean up staled sds client connections).
 	RecycleInterval time.Duration
-
-	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
-	EnableWorkloadSDS bool
 
 	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
 	// from the UDS caller. Used when it runs in the same container with Envoy.
@@ -128,9 +95,6 @@ type Options struct {
 	// ProvCert is the directory for client to provide the key and certificate to server
 	// when do mtls
 	ProvCert string
-
-	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
-	TLSEnabled bool
 
 	// ClusterID is the cluster where the agent resides.
 	// Normally initialized from ISTIO_META_CLUSTER_ID - after a tortuous journey it
@@ -200,8 +164,7 @@ type Options struct {
 // interface to get back a signed certificate. There is no guarantee that the SAN
 // in the request will be returned - server may replace it.
 type Client interface {
-	CSRSign(ctx context.Context, reqID string, csrPEM []byte, subjectID string,
-		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
+	CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error)
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -232,11 +195,6 @@ type SecretItem struct {
 	PrivateKey       []byte
 
 	RootCert []byte
-
-	// RootCertOwnedByCompoundSecret is true if this SecretItem was created by a
-	// K8S secret having both server cert/key and client ca and should be deleted
-	// with the secret.
-	RootCertOwnedByCompoundSecret bool
 
 	// ResourceName passed from envoy SDS discovery request.
 	// "ROOTCA" for root cert request, "default" for key/cert request.
