@@ -297,10 +297,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
 	// The JWT authenticator requires the multicluster registry to be initialized, so we build this later
-	authenticators := []authenticate.Authenticator{
-		&authenticate.ClientCertAuthenticator{},
-		kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
-	}
+	authenticators := setupAuthenticators(s)
 
 	caOpts.Authenticators = authenticators
 	if features.XDSAuth {
@@ -328,6 +325,48 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	})
 
 	return s, nil
+}
+
+func setupAuthenticators(s *Server) []authenticate.Authenticator {
+	authentictors := []authenticate.Authenticator{
+		&authenticate.ClientCertAuthenticator{},
+		kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
+	}
+	iss := trustedIssuer.Get()
+	aud := audience.Get()
+
+	token, err := ioutil.ReadFile(s.jwtPath)
+	if err == nil {
+		tok, err := detectAuthEnv(string(token))
+		if err != nil {
+			log.Warn("Starting with invalid K8S JWT token", err, string(token))
+		} else {
+			if iss == "" {
+				iss = tok.Iss
+			}
+			if len(tok.Aud) > 0 && len(aud) == 0 {
+				aud = tok.Aud[0]
+			}
+		}
+	}
+
+	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
+	// for all tokens - no need to configure twice. The token may also include cluster info to auto-configure
+	// networking properties.
+	if iss != "" && // issuer set explicitly or extracted from our own JWT
+		k8sInCluster.Get() == "" { // not running in cluster - in cluster use direct call to apiserver
+		// Add a custom authenticator using standard JWT validation, if not running in K8S
+		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
+		oidcAuth, err := authenticate.NewJwtAuthenticator(iss, spiffe.GetTrustDomain(), aud)
+		if err == nil {
+			authentictors = append(authentictors, oidcAuth)
+			log.Info("Using out-of-cluster JWT authentication")
+		} else {
+			log.Info("K8S token doesn't support OIDC, using only in-cluster auth")
+		}
+	}
+
+	return authentictors
 }
 
 func getClusterID(args *PilotArgs) string {

@@ -175,23 +175,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		log.Warn("the CA to run is nil")
 		return
 	}
-	iss := trustedIssuer.Get()
-	aud := audience.Get()
-
-	token, err := ioutil.ReadFile(s.jwtPath)
-	if err == nil {
-		tok, err := detectAuthEnv(string(token))
-		if err != nil {
-			log.Warn("Starting with invalid K8S JWT token", err, string(token))
-		} else {
-			if iss == "" {
-				iss = tok.Iss
-			}
-			if len(tok.Aud) > 0 && len(aud) == 0 {
-				aud = tok.Aud[0]
-			}
-		}
-	}
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
@@ -199,22 +182,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
-	}
-
-	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
-	// for all tokens - no need to configure twice. The token may also include cluster info to auto-configure
-	// networking properties.
-	if iss != "" && // issuer set explicitly or extracted from our own JWT
-		k8sInCluster.Get() == "" { // not running in cluster - in cluster use direct call to apiserver
-		// Add a custom authenticator using standard JWT validation, if not running in K8S
-		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
-		oidcAuth, err := authenticate.NewJwtAuthenticator(iss, opts.TrustDomain, aud)
-		if err == nil {
-			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
-			log.Info("Using out-of-cluster JWT authentication")
-		} else {
-			log.Info("K8S token doesn't support OIDC, using only in-cluster auth")
-		}
 	}
 
 	caServer.Register(grpc)
