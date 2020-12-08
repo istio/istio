@@ -256,7 +256,6 @@ var (
 				secOpts.CAEndpoint = proxyConfig.DiscoveryAddress
 			}
 
-			secOpts.EnableWorkloadSDS = true
 			secOpts.CAProviderName = caProviderEnv
 
 			secOpts.TrustDomain = trustDomainEnv
