@@ -39,7 +39,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 	// TODO: include revision based on REVISION env
 	// TODO: set default namespace based on POD_NAMESPACE env
 	return meshconfig.ProxyConfig{
-		// missing: ConnectTimeout: 10 * time.Second,
 		ConfigPath:               constants.ConfigPathDir,
 		ServiceCluster:           constants.ServiceClusterName,
 		DrainDuration:            types.DurationProto(45 * time.Second),
@@ -58,13 +57,9 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		},
 
 		// Code defaults
-		BinaryPath:            constants.BinaryPathFilename,
-		StatsdUdpAddress:      "",
-		EnvoyMetricsService:   &meshconfig.RemoteService{Address: ""},
-		EnvoyAccessLogService: &meshconfig.RemoteService{Address: ""},
-		CustomConfigFile:      "",
-		StatNameLength:        189,
-		StatusPort:            15020,
+		BinaryPath:     constants.BinaryPathFilename,
+		StatNameLength: 189,
+		StatusPort:     15020,
 	}
 }
 
