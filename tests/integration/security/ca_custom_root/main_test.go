@@ -55,8 +55,8 @@ type EchoDeployments struct {
 }
 
 var (
-	inst    istio.Instance
-	apps    = &EchoDeployments{}
+	inst istio.Instance
+	apps = &EchoDeployments{}
 )
 
 func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
