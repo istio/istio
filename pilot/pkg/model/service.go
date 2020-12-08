@@ -607,7 +607,7 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy, push *PushContext) stri
 	if node.Metadata != nil && node.Metadata.ClusterID != "" && push.ServiceIndex.ClusterVIPs[s][node.Metadata.ClusterID] != "" {
 		return push.ServiceIndex.ClusterVIPs[s][node.Metadata.ClusterID]
 	}
-	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
+	if node.Metadata != nil && node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
 		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
 		return s.AutoAllocatedAddress
 	}

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 29324
+releaseNotes:
+- |
+  **Added** a new experimental proxy option, `DNS_AUTO_ALLOCATE`, to control auto allocation of ServiceEntry addresses. Previously,
+  this option was tied to `DNS_CAPTURE`. Now, `DNS_CAPTURE` can be enabled without auto allocation.
