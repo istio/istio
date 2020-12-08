@@ -70,7 +70,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	builder := echoboot.NewBuilder(ctx)
 	for _, c := range ctx.Clusters() {
 		clName := c.Name()
-		builder.
+		builder = builder.
 			With(nil, echo.Config{
 				Service:   fmt.Sprintf("client-%s", clName),
 				Namespace: appNsInst,
@@ -96,8 +96,7 @@ func TestSetup(ctx resource.Context) (err error) {
 						InstancePort: 9000,
 					},
 				},
-			}).
-			Build()
+			})
 	}
 	echos, err := builder.Build()
 	if err != nil {
