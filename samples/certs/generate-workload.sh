@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-set -euxo pipefail
+set -euo pipefail
 
 name=${1:-foo}
 ns=${2:-$name}
@@ -25,12 +25,17 @@ san="spiffe://trust-domain-$name/ns/$ns/sa/$sa"
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 FINAL_DIR=$DIR
-if [ -n "$tmp" ]; then
-  FINAL_DIR=$tmp
-  cp "$DIR"/root-cert.pem "$FINAL_DIR"
-  cp "$DIR"/ca-cert.pem "$FINAL_DIR"
-  cp "$DIR"/ca-key.pem "$FINAL_DIR"
-  cp "$DIR"/cert-chain.pem "$FINAL_DIR"
+if [ ! -z "$tmp" ]; then
+  if [ -d "$tmp" ]; then
+    FINAL_DIR=$tmp
+    cp "$DIR"/root-cert.pem "$FINAL_DIR"
+    cp "$DIR"/ca-cert.pem "$FINAL_DIR"
+    cp "$DIR"/ca-key.pem "$FINAL_DIR"
+    cp "$DIR"/cert-chain.pem "$FINAL_DIR"
+  else
+    echo "tmp argument is not a directory: $tmp"
+    exit 1
+  fi
 fi
 
 function cleanup() {
