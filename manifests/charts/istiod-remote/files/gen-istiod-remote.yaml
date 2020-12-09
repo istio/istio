@@ -157,6 +157,7 @@ data:
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
+        "excludeNamespaces": [],
         "injectedAnnotations": {},
         "neverInjectSelector": [],
         "objectSelector": {

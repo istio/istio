@@ -983,6 +983,8 @@ message SidecarInjectorConfig {
 
   // Configure the injection url for sidecar injector webhook
   string injectionURL = 22;
+
+  repeated string excludeNamespaces = 23;
 }
 
 // Configuration for each of the supported tracers.

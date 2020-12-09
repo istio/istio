@@ -90,6 +90,11 @@ sidecarInjectorWebhook:
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
 
+  # This represents a deny-list of namespaces for the istio sidecar-injector webhook. Use this value to exclude a known
+  # subset of namespaces from istio sidecar injection.
+  # NOTE: This is applicable only when "enableNamespacesByDefault" is set to true.
+  excludeNamespaces: []
+
   # Enable objectSelector to filter out pods with no need for sidecar before calling istiod.
   # It is enabled by default as the minimum supported Kubernetes version is 1.15+
   objectSelector:
