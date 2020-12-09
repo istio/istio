@@ -102,15 +102,24 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		// clusters with discovery type STATIC, STRICT_DNS rely on cluster.LoadAssignment field.
 		// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
-		if c.GetType() != cluster.Cluster_EDS {
+
+		isPassthrough := subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() == nil &&
+			subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
+
+		if !(isPassthrough || c.GetType() == cluster.Cluster_EDS) {
 			if len(subset.Labels) != 0 {
 				lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
 			} else {
 				lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, port.Port, nil)
 			}
 		}
+		clusterType := c.GetType()
 
-		subsetCluster := cb.buildDefaultCluster(subsetClusterName, c.GetType(), lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
+		if isPassthrough {
+			clusterType = cluster.Cluster_ORIGINAL_DST
+		}
+
+		subsetCluster := cb.buildDefaultCluster(subsetClusterName, clusterType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 
 		if subsetCluster == nil {
 			continue

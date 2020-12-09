@@ -114,6 +114,37 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 		},
 		{
+			name:        "destination rule with pass through subsets",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[string]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							LoadBalancer: &networking.LoadBalancerSettings{
+								LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+				},
+			},
+		},
+		{
 			name:        "destination rule with subsets for SniDnat cluster",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: SniDnatClusterMode,
@@ -205,54 +236,63 @@ func TestApplyDestinationRule(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			instances := []*model.ServiceInstance{
-				{
-					Service:     tt.service,
-					ServicePort: tt.port,
-					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
-						EndpointPort: 10001,
-						Locality: model.Locality{
-							ClusterID: "",
-							Label:     "region1/zone1/subzone1",
+			if tt.name == "destination rule with pass through subsets" {
+				instances := []*model.ServiceInstance{
+					{
+						Service:     tt.service,
+						ServicePort: tt.port,
+						Endpoint: &model.IstioEndpoint{
+							Address:      "192.168.1.1",
+							EndpointPort: 10001,
+							Locality: model.Locality{
+								ClusterID: "",
+								Label:     "region1/zone1/subzone1",
+							},
+							TLSMode: model.IstioMutualTLSModeLabel,
 						},
-						TLSMode: model.IstioMutualTLSModeLabel,
 					},
-				},
-			}
-
-			var cfg *config.Config
-			if tt.destRule != nil {
-				cfg = &config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.DestinationRule,
-						Name:             "acme",
-						Namespace:        "default",
-					},
-					Spec: tt.destRule,
 				}
-			}
-			cg := NewConfigGenTest(t, TestOptions{
-				ConfigPointers: []*config.Config{cfg},
-				Services:       []*model.Service{tt.service},
-			})
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
-			subsetClusters := cb.applyDestinationRule(tt.cluster, tt.clusterMode, tt.service, tt.port, tt.networkView)
-			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
-				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
-			}
-			if len(tt.expectedSubsetClusters) > 0 {
-				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
-			}
-			// Validate that use client protocol configures cluster correctly.
-			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
-				if tt.cluster.ProtocolSelection != cluster.Cluster_USE_DOWNSTREAM_PROTOCOL {
-					t.Errorf("Expected cluster to have USE_DOWNSTREAM_PROTOCOL but has %v", tt.cluster.ProtocolSelection)
+				var cfg *config.Config
+				if tt.destRule != nil {
+					cfg = &config.Config{
+						Meta: config.Meta{
+							GroupVersionKind: gvk.DestinationRule,
+							Name:             "acme",
+							Namespace:        "default",
+						},
+						Spec: tt.destRule,
+					}
 				}
-				if tt.cluster.Http2ProtocolOptions == nil {
-					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+				cg := NewConfigGenTest(t, TestOptions{
+					ConfigPointers: []*config.Config{cfg},
+					Services:       []*model.Service{tt.service},
+				})
+				cg.MemRegistry.WantGetProxyServiceInstances = instances
+				cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
+
+				subsetClusters := cb.applyDestinationRule(tt.cluster, tt.clusterMode, tt.service, tt.port, tt.networkView)
+				if len(subsetClusters) != len(tt.expectedSubsetClusters) {
+					t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
+				}
+				if len(tt.expectedSubsetClusters) > 0 {
+					compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
+				}
+				// Validate that use client protocol configures cluster correctly.
+				if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
+					if tt.cluster.ProtocolSelection != cluster.Cluster_USE_DOWNSTREAM_PROTOCOL {
+						t.Errorf("Expected cluster to have USE_DOWNSTREAM_PROTOCOL but has %v", tt.cluster.ProtocolSelection)
+					}
+					if tt.cluster.Http2ProtocolOptions == nil {
+						t.Errorf("Expected cluster to have http2 protocol options but they are absent")
+					}
+				}
+
+				// Validate that ORIGINAL_DST cluster does not have load assignments
+				for _, subset := range subsetClusters {
+					if subset.GetType() == cluster.Cluster_ORIGINAL_DST && subset.GetLoadAssignment() != nil {
+						t.Errorf("Passthrough subsets should not have load assignments")
+					}
 				}
 			}
 		})
