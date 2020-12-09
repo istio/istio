@@ -204,7 +204,7 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 		return nil, err
 	}
 
-	if err := createNamespace(clientset, iop.Namespace, networkName(iop)); err != nil {
+	if err := createNamespace(clientset, v1alpha12.Namespace(iop.Spec), networkName(iop)); err != nil {
 		return iop, err
 	}
 
