@@ -473,6 +473,43 @@ func TestApplyListenerPatches(t *testing.T) {
 }`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 6381,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: "default-network-filter",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REPLACE,
+				Value:     buildPatchStruct(`{"name": "default-network-filter-replaced"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 6381,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: "default-network-filter-removed",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
 		// This patch should not be applied because network filter name doesn't match
 		{
 			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
@@ -601,6 +638,31 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 		{
+			Name: "default-filter-chain",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 6381,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{Name: "network-filter"},
+					},
+				},
+			},
+			DefaultFilterChain: &listener.FilterChain{
+				Filters: []*listener.Filter{
+					{Name: "default-network-filter"},
+					{Name: "default-network-filter-removed"},
+				},
+			},
+		},
+		{
 			Name: "another-listener",
 		},
 		{
@@ -723,6 +785,30 @@ func TestApplyListenerPatches(t *testing.T) {
 					Filters: []*listener.Filter{
 						{Name: "network-filter-should-not-be-replaced"},
 					},
+				},
+			},
+		},
+		{
+			Name: "default-filter-chain",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 6381,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{Name: "network-filter"},
+					},
+				},
+			},
+			DefaultFilterChain: &listener.FilterChain{
+				Filters: []*listener.Filter{
+					{Name: "default-network-filter-replaced"},
 				},
 			},
 		},
