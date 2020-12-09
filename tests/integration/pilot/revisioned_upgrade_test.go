@@ -89,7 +89,15 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	// start sending traffic to the echo instance and trigger rollout
 	trafficDoneChan := make(chan struct{})
 	upgradeDoneChan := make(chan struct{})
-	go sendTraffic(t, revisionedInstance, upgradeDoneChan, trafficDoneChan)
+	stopChan := make(chan struct{})
+	// ensure we don't leak the traffic sending routine when upgrade fails
+	defer func() {
+		select {
+		case stopChan <- struct{}{}:
+		default:
+		}
+	}()
+	go sendTraffic(t, revisionedInstance, upgradeDoneChan, trafficDoneChan, stopChan)
 
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
 		t.Fatalf("could not relabel namespace to enable default injection: %v", err)
@@ -101,6 +109,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	// ensure that rollout completes with pods running updated proxies
 	// traffic will be send to the upgrading namespace throughout this rollout
 	retry.UntilSuccessOrFail(t, func() error {
+		fmt.Println("upgrade retry in progress...")
 		fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) // nolint: lll
 		pods, _ := kubetest.CheckPodsAreReady(fetch)
 
@@ -122,19 +131,22 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 
 	// mark the upgrade as finished
 	upgradeDoneChan <- struct{}{}
+	fmt.Println("upgrade finished")
 
 	// traffic will continue to send for a few seconds following upgrade completion
 	// wait for this before test ends
 	<-trafficDoneChan
+	fmt.Println("traffic finished")
 }
 
 // sendTraffic sends traffic to the upgrading namespace during the upgrade
 // when upgradeDone chan is written to, we send a fixed additional number of echo requests
 // and then write out to trafficDone chan
-func sendTraffic(t *testing.T, instance echo.Instance, upgradeDone <-chan struct{}, trafficDone chan<- struct{}) {
-	t.Helper()
+func sendTraffic(t *testing.T, instance echo.Instance, upgradeDone <-chan struct{}, trafficDone chan<- struct{}, stopChan <-chan struct{}) {
 	for {
 		select {
+		case <-stopChan:
+			return
 		case <-upgradeDone:
 			for i := 0; i < 5; i++ {
 				sendUpgradeInstanceTrafficOrFail(t, instance)
@@ -143,8 +155,9 @@ func sendTraffic(t *testing.T, instance echo.Instance, upgradeDone <-chan struct
 			trafficDone <- struct{}{}
 			return
 		default:
+			fmt.Println("sending traffic")
 			sendUpgradeInstanceTrafficOrFail(t, instance)
-			time.Sleep(time.Second)
+			time.Sleep(time.Millisecond * 500)
 		}
 	}
 }
