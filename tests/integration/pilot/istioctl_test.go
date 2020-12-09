@@ -69,6 +69,10 @@ var (
    Matching subsets: v1
    No Traffic Policy
 9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
+443 DestinationRule: a.echo-1-20670 for "a"
+   Matching subsets: v1
+   No Traffic Policy
+443 RBAC policies: ns[echo-1-20670]-policy[integ-test]-rule[0]
 9091 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy

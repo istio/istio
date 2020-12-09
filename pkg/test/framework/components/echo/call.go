@@ -154,6 +154,13 @@ func ExpectCluster(expected string) Validator {
 	})
 }
 
+// ExpectKey returns a validator that checks a key matches the provided value
+func ExpectKey(key, expected string) Validator {
+	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
+		return responses.CheckKey(key, expected)
+	})
+}
+
 // ExpectHost returns a Validator that checks the responses for the given host header.
 func ExpectHost(expected string) Validator {
 	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
