@@ -267,7 +267,7 @@ var (
 	}
 
 	// pilotTraceSamplingEnv is value of PILOT_TRACE_SAMPLING env bounded
-	// by [0.0, 100.0]; if outside the range it is set to 100.0
+	// by [0.0, 100.0]; if outside the range it is set to 1.0
 	pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
 
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
@@ -1781,7 +1781,7 @@ func getPilotRandomSamplingEnv() float64 {
 	f := features.TraceSampling
 	if f < 0.0 || f > 100.0 {
 		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
-		return 100.0
+		return 1.0
 	}
 	return f
 }
@@ -1793,7 +1793,7 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 		sampling = config.Tracing.Sampling
 
 		if sampling > 100.0 {
-			sampling = 100.0
+			sampling = 1.0
 		}
 	}
 	cfg.ClientSampling = &xdstype.Percent{
