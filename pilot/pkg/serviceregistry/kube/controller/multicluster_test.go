@@ -100,6 +100,8 @@ func Test_KubeSecretController(t *testing.T) {
 		mockserviceController,
 		nil, "", nil, nil)
 
+	mc.InitSecretController(stop)
+
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)
 
