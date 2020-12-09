@@ -136,6 +136,13 @@ func doFilterChainListOperation(patchContext networking.EnvoyFilter_PatchContext
 		}
 		doFilterChainOperation(patchContext, patches, listener, listener.FilterChains[i], &filterChainsRemoved)
 	}
+	if fc := listener.GetDefaultFilterChain(); fc.GetFilters() != nil {
+		removed := false
+		doFilterChainOperation(patchContext, patches, listener, fc, &removed)
+		if removed {
+			listener.DefaultFilterChain = nil
+		}
+	}
 	for _, cp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			if !commonConditionMatch(patchContext, cp) ||

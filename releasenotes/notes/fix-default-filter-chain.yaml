@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue: []
+releaseNotes:
+- |
+  **Fixed** an issue causing `EnvoyFilter`s that match filter chains to fail to properly apply.
+
+
