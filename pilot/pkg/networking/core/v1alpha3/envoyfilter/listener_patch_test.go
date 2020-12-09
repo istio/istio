@@ -1325,10 +1325,17 @@ func TestApplyListenerPatches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			oldInputs := []*listener.Listener{}
+			for _, o := range tt.args.listeners {
+				oldInputs = append(oldInputs, proto.Clone(o).(*listener.Listener))
+			}
 			got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push, tt.args.push.EnvoyFilters(tt.args.proxy),
 				tt.args.listeners, tt.args.skipAdds)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+			if diff := cmp.Diff(oldInputs, tt.args.listeners, protocmp.Transform()); diff != "" {
+				t.Errorf("original inputs mutated (-want +got):\n%s", diff)
 			}
 		})
 	}

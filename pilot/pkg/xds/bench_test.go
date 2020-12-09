@@ -295,7 +295,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			IstioVersion: "1.9.0",
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
-		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
+		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 9},
 		ConfigNamespace: "default",
 	}
 

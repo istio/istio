@@ -39,6 +39,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 			continue
 		}
 		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp) {
+			c = proto.Clone(c).(*cluster.Cluster)
 			proto.Merge(c, cp.Value)
 		}
 	}

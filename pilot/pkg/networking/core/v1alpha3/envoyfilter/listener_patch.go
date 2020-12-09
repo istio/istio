@@ -66,16 +66,14 @@ func doListenerListOperation(
 	skipAdds bool) []*xdslistener.Listener {
 	listenersRemoved := false
 
+	ret := make([]*xdslistener.Listener, len(listeners))
 	// do all the changes for a single envoy filter crd object. [including adds]
 	// then move on to the next one
 
 	// only removes/merges plus next level object operations [add/remove/merge]
-	for _, listener := range listeners {
-		if listener.Name == "" {
-			// removed by another op
-			continue
-		}
-		doListenerOperation(patchContext, envoyFilterWrapper.Patches, listener, &listenersRemoved)
+	for i, listener := range listeners {
+		ret[i] = proto.Clone(listener).(*xdslistener.Listener)
+		doListenerOperation(patchContext, envoyFilterWrapper.Patches, ret[i], &listenersRemoved)
 	}
 	// adds at listener level if enabled
 	if !skipAdds {
@@ -87,21 +85,21 @@ func doListenerListOperation(
 
 				// clone before append. Otherwise, subsequent operations on this listener will corrupt
 				// the master value stored in CP..
-				listeners = append(listeners, proto.Clone(cp.Value).(*xdslistener.Listener))
+				ret = append(ret, proto.Clone(cp.Value).(*xdslistener.Listener))
 			}
 		}
 	}
 
 	if listenersRemoved {
-		tempArray := make([]*xdslistener.Listener, 0, len(listeners))
-		for _, l := range listeners {
+		tempArray := make([]*xdslistener.Listener, 0, len(ret))
+		for _, l := range ret {
 			if l.Name != "" {
 				tempArray = append(tempArray, l)
 			}
 		}
 		return tempArray
 	}
-	return listeners
+	return ret
 }
 
 func doListenerOperation(patchContext networking.EnvoyFilter_PatchContext,

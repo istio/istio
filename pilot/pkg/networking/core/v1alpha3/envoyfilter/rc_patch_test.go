@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -637,10 +638,14 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			oldInput := proto.Clone(tt.args.routeConfiguration).(*route.RouteConfiguration)
 			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
 				tt.args.push, tt.args.routeConfiguration)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyRouteConfigurationPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+			if diff := cmp.Diff(oldInput, tt.args.routeConfiguration, protocmp.Transform()); diff != "" {
+				t.Errorf("original inputs mutated (-want +got):\n%s", diff)
 			}
 		})
 	}

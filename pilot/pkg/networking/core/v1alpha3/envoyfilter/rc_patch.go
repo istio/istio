@@ -42,6 +42,7 @@ func ApplyRouteConfigurationPatches(
 	if efw == nil {
 		return out
 	}
+	routeConfiguration = proto.Clone(routeConfiguration).(*route.RouteConfiguration)
 
 	// only merge is applicable for route configuration.
 	for _, cp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {

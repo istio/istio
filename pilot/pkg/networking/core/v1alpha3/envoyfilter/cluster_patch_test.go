@@ -19,6 +19,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -291,6 +292,10 @@ func TestClusterPatching(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			efw := push.EnvoyFilters(tc.proxy)
 			output := []*cluster.Cluster{}
+			oldInputs := []*cluster.Cluster{}
+			for _, o := range tc.input {
+				oldInputs = append(oldInputs, proto.Clone(o).(*cluster.Cluster))
+			}
 			for _, c := range tc.input {
 				if ShouldKeepCluster(tc.patchContext, efw, c) {
 					output = append(output, ApplyClusterMerge(tc.patchContext, efw, c))
@@ -298,7 +303,10 @@ func TestClusterPatching(t *testing.T) {
 			}
 			output = append(output, InsertedClusters(tc.patchContext, efw)...)
 			if diff := cmp.Diff(tc.output, output, protocmp.Transform()); diff != "" {
-				t.Errorf("%s mismatch (-want +got):\n%s", tc.name, diff)
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(oldInputs, tc.input, protocmp.Transform()); diff != "" {
+				t.Errorf("original inputs mutated (-want +got):\n%s", diff)
 			}
 		})
 	}
