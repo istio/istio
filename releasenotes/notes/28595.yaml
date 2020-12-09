@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 28595
+releaseNotes:
+  - |
+    **Fixed** istioctl upgrade failure from 1.6.x to 1.7.x

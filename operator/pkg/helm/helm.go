@@ -326,7 +326,7 @@ func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		baseCRYAML, err = util.OverlayIOP(defaultYAML, baseCRYAML)
+		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
 		if err != nil {
 			return "", err
 		}
