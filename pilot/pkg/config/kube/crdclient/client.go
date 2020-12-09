@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"time"
 
+	jsonmerge "github.com/evanphx/json-patch/v5"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -360,7 +361,7 @@ func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 	}
 }
 
-func genPatchBytes(oldRes, modRes runtime.Object) ([]byte, error) {
+func genPatchBytes(oldRes, modRes runtime.Object, typ types.PatchType) ([]byte, error) {
 	oldJSON, err := json.Marshal(oldRes)
 	if err != nil {
 		return nil, err
@@ -369,11 +370,16 @@ func genPatchBytes(oldRes, modRes runtime.Object) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO apply requires a "merge" style patch; see CreateTwoWayMerge patch or CreateMergePatch
-	ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
-	if err != nil {
-		return nil, err
+	switch typ {
+	case types.MergePatchType:
+		return jsonmerge.CreateMergePatch(oldJSON, newJSON)
+	case types.JSONPatchType:
+		ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(ops)
+	default:
+		return nil, fmt.Errorf("invalid patch type: %s", typ)
 	}
-	// TODO apply may require setting gvk ourselves on the patch payload
-	return json.Marshal(ops)
 }

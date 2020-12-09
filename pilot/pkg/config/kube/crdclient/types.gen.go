@@ -334,7 +334,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*networkingv1alpha3.DestinationRule)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -349,7 +349,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*networkingv1alpha3.EnvoyFilter)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -364,7 +364,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*networkingv1alpha3.Gateway)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -379,7 +379,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*networkingv1alpha3.ServiceEntry)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -394,7 +394,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*networkingv1alpha3.Sidecar)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -409,7 +409,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*networkingv1alpha3.VirtualService)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -424,12 +424,12 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*networkingv1alpha3.WorkloadEntry)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().WorkloadEntries(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.WorkloadGroup{
 			ObjectMeta: origMeta,
@@ -439,7 +439,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*networkingv1alpha3.WorkloadGroup)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -454,7 +454,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*securityv1beta1.AuthorizationPolicy)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -469,7 +469,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*securityv1beta1.PeerAuthentication)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -484,7 +484,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*securityv1beta1.RequestAuthentication)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -499,7 +499,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*servicev1alpha1.BackendPolicySpec)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -514,7 +514,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*servicev1alpha1.GatewayClassSpec)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -529,7 +529,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*servicev1alpha1.GatewaySpec)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -544,7 +544,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*servicev1alpha1.HTTPRouteSpec)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -559,7 +559,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*servicev1alpha1.TCPRouteSpec)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}
@@ -574,7 +574,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			ObjectMeta: modMeta,
 			Spec:       *(mod.Spec.(*servicev1alpha1.TLSRouteSpec)),
 		}
-		patchBytes, err := genPatchBytes(oldRes, modRes)
+		patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
 		if err != nil {
 			return nil, err
 		}

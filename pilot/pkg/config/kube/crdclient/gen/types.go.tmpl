@@ -101,7 +101,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
             ObjectMeta: modMeta,
             Spec:       *(mod.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
         }
-        patchBytes, err := genPatchBytes(oldRes, modRes)
+        patchBytes, err := genPatchBytes(oldRes, modRes, types.MergePatchType)
         if err != nil {
             return nil, err
         }
