@@ -15,6 +15,8 @@
 package model
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -68,7 +70,7 @@ func (*FakeStore) Update(config config.Config) (newRevision string, err error) {
 
 func (*FakeStore) UpdateStatus(config config.Config) (string, error) { return "", nil }
 
-func (*FakeStore) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (*FakeStore) Patch(typ config.GroupVersionKind, name, namespace string, patchType types.PatchType, patchFn config.PatchFunc) (string, error) {
 	return "", nil
 }
 

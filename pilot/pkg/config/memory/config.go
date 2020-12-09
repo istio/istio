@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -222,7 +224,7 @@ func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
 	return rev, nil
 }
 
-func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patchType types.PatchType, patchFn config.PatchFunc) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
 

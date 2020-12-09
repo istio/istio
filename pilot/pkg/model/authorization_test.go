@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
@@ -420,6 +421,6 @@ func (fs *authzFakeStore) UpdateStatus(config.Config) (string, error) {
 	return "not implemented", nil
 }
 
-func (fs *authzFakeStore) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (fs *authzFakeStore) Patch(typ config.GroupVersionKind, name, namespace string, patchType types.PatchType, patchFn config.PatchFunc) (string, error) {
 	return "not implemented", nil
 }

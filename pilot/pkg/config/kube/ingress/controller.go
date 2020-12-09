@@ -25,6 +25,7 @@ import (
 
 	ingress "k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/informers/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
@@ -366,7 +367,7 @@ func (c *controller) UpdateStatus(config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Patch(_ config.GroupVersionKind, _, _ string, _ config.PatchFunc) (string, error) {
+func (c *controller) Patch(_ config.GroupVersionKind, _, _ string, _ types.PatchType, _ config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 

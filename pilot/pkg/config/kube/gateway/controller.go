@@ -20,6 +20,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -145,7 +146,7 @@ func (c controller) UpdateStatus(config config.Config) (newRevision string, err 
 	return "", errUnsupportedOp
 }
 
-func (c controller) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (c controller) Patch(typ config.GroupVersionKind, name, namespace string, patchType types.PatchType, patchFn config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 
