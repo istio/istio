@@ -47,7 +47,6 @@ var (
 		{Group: "", Version: "v1", Kind: name.ServiceStr},
 		{Group: "", Version: "v1", Kind: name.CMStr},
 		{Group: "", Version: "v1", Kind: name.PVCStr},
-		{Group: "", Version: "v1", Kind: name.PodStr},
 		{Group: "", Version: "v1", Kind: name.SecretStr},
 		{Group: "", Version: "v1", Kind: name.SAStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
