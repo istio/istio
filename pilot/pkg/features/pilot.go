@@ -33,9 +33,9 @@ var (
 
 	TraceSampling = env.RegisterFloatVar(
 		"PILOT_TRACE_SAMPLING",
-		100.0,
+		1.0,
 		"Sets the mesh-wide trace sampling percentage. Should be 0.0 - 100.0. Precision to 0.01. "+
-			"Default is 100, not recommended for production use.",
+			"Default is 1.0.",
 	).Get()
 
 	// EnableIstioTags controls whether or not to configure Envoy with support for Istio-specific tags
