@@ -70,28 +70,38 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 						clName := cltInstance.Config().Cluster.Name()
 						t.Logf("Collect Audit Log for cluster %v", clName)
 
+						var errs []string
+
 						errAuditFoo := validateLogs(t, serverAuditFooLogEntry, clName)
 						if errAuditFoo == nil {
 							t.Logf("Foo Audit Log validated for cluster %v", clName)
+						} else {
+							errs = append(errs, errAuditFoo.Error())
 						}
+
 						errAuditBar := validateLogs(t, serverAuditBarLogEntry, clName)
 						if errAuditBar == nil {
 							t.Logf("Bar Audit Log validated for cluster %v", clName)
+						} else {
+							errs = append(errs, errAuditBar.Error())
 						}
+
 						errAuditAll := validateLogs(t, serverAuditAllLogEntry, clName)
 						if errAuditAll == nil {
 							t.Logf("All Audit Log validated for cluster %v", clName)
+						} else {
+							errs = append(errs, errAuditAll.Error())
 						}
+
 						errAuditNone := validateLogs(t, serverAuditNoneLogEntry, clName)
 						if errAuditNone == nil {
 							t.Logf("None Audit Log validated for cluster %v", clName)
 						}
-						if errAuditFoo == nil && errAuditBar == nil && errAuditAll == nil && errAuditNone != nil {
+						if len(errs) == 0 && errAuditNone != nil {
 							return nil
 						}
 
-						var errs []string
-						errs = append(errs, errAuditAll.Error(), errAuditFoo.Error(), errAuditBar.Error(), errAuditNone.Error())
+						errs = append(errs, errAuditNone.Error())
 						return fmt.Errorf(strings.Join(errs, "\n"))
 					}, retry.Delay(5*time.Second), retry.Timeout(80*time.Second))
 
