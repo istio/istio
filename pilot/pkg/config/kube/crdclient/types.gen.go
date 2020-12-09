@@ -934,4 +934,3 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 		}
 	},
 }
-

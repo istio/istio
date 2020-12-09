@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"

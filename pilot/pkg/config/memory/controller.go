@@ -16,6 +16,7 @@ package memory
 
 import (
 	"errors"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -103,7 +104,8 @@ func (c *controller) UpdateStatus(config config.Config) (newRevision string, err
 	return
 }
 
-func (c *controller) Patch(typ config.GroupVersionKind, name, namespace string, patchType types.PatchType, patchFn config.PatchFunc) (newRevision string, err error) {
+func (c *controller) Patch(typ config.GroupVersionKind, name, namespace string,
+	patchType types.PatchType, patchFn config.PatchFunc) (newRevision string, err error) {
 	oldconfig := c.configStore.Get(typ, name, namespace)
 	if oldconfig == nil {
 		return "", errNotFound
