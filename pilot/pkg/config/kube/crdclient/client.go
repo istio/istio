@@ -373,7 +373,8 @@ func genPatchBytes(oldRes, modRes runtime.Object, typ types.PatchType) ([]byte, 
 	switch typ {
 	case types.MergePatchType:
 		return jsonmerge.CreateMergePatch(oldJSON, newJSON)
-	case types.MergePatchType:
+	case types.JSONPatchType:
+		// TODO can we consolidate to one lib?
 		ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
 		if err != nil {
 			return nil, err
