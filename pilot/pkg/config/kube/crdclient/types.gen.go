@@ -339,7 +339,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().DestinationRules(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.EnvoyFilter{
 			ObjectMeta: origMeta,
@@ -354,7 +354,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().EnvoyFilters(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: origMeta,
@@ -369,7 +369,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().Gateways(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: origMeta,
@@ -384,7 +384,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().ServiceEntries(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.Sidecar{
 			ObjectMeta: origMeta,
@@ -399,7 +399,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().Sidecars(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: origMeta,
@@ -414,7 +414,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().VirtualServices(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.WorkloadEntry{
 			ObjectMeta: origMeta,
@@ -444,7 +444,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().WorkloadGroups(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		oldRes := &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: origMeta,
@@ -459,7 +459,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.SecurityV1beta1().AuthorizationPolicies(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
 		oldRes := &clientsecurityv1beta1.PeerAuthentication{
 			ObjectMeta: origMeta,
@@ -474,7 +474,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.SecurityV1beta1().PeerAuthentications(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
 		oldRes := &clientsecurityv1beta1.RequestAuthentication{
 			ObjectMeta: origMeta,
@@ -489,7 +489,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return ic.SecurityV1beta1().RequestAuthentications(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SServiceApisV1Alpha1Backendpolicies.Resource().GroupVersionKind():
 		oldRes := &servicev1alpha1.BackendPolicy{
 			ObjectMeta: origMeta,
@@ -504,7 +504,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return sc.NetworkingV1alpha1().BackendPolicies(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 		oldRes := &servicev1alpha1.GatewayClass{
 			ObjectMeta: origMeta,
@@ -519,7 +519,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return sc.NetworkingV1alpha1().GatewayClasses().
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind():
 		oldRes := &servicev1alpha1.Gateway{
 			ObjectMeta: origMeta,
@@ -534,7 +534,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return sc.NetworkingV1alpha1().Gateways(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
 		oldRes := &servicev1alpha1.HTTPRoute{
 			ObjectMeta: origMeta,
@@ -549,7 +549,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return sc.NetworkingV1alpha1().HTTPRoutes(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
 		oldRes := &servicev1alpha1.TCPRoute{
 			ObjectMeta: origMeta,
@@ -564,7 +564,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return sc.NetworkingV1alpha1().TCPRoutes(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SServiceApisV1Alpha1Tlsroutes.Resource().GroupVersionKind():
 		oldRes := &servicev1alpha1.TLSRoute{
 			ObjectMeta: origMeta,
@@ -579,7 +579,7 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 			return nil, err
 		}
 		return sc.NetworkingV1alpha1().TLSRoutes(orig.Namespace).
-			Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+			Patch(context.TODO(), orig.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
 	}
