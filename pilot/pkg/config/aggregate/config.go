@@ -19,6 +19,7 @@ import (
 	"errors"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -159,11 +160,11 @@ func (cr *store) UpdateStatus(c config.Config) (string, error) {
 	return cr.writer.UpdateStatus(c)
 }
 
-func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patchType types.PatchType, patchFn config.PatchFunc) (string, error) {
 	if cr.writer == nil {
 		return "", errorUnsupported
 	}
-	return cr.writer.Patch(typ, name, namespace, patchFn)
+	return cr.writer.Patch(typ, name, namespace, patchType, patchFn)
 }
 
 type storeCache struct {

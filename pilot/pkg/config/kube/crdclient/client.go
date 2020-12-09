@@ -247,7 +247,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 
 // Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
 // read-modify-write conflicts when there are many concurrent-writers to the same resource.
-func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchType types.PatchType, patchFn config.PatchFunc) (string, error) {
 	// it is okay if orig is stale - we just care about the diff
 	orig := cl.Get(typ, name, namespace)
 	if orig == nil {
@@ -257,7 +257,7 @@ func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, pat
 	modified := patchFn(orig.DeepCopy())
 
 	oo := *orig
-	meta, err := patch(cl.istioClient, cl.serviceApisClient, oo, getObjectMetadata(oo), modified, getObjectMetadata(modified))
+	meta, err := patch(cl.istioClient, cl.serviceApisClient, patchType, oo, getObjectMetadata(oo), modified, getObjectMetadata(modified))
 	if err != nil {
 		return "", err
 	}

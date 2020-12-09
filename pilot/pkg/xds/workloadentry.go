@@ -67,7 +67,7 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 	}
 
 	// Try to patch, if it fails then try to create
-	_, err := sg.store.Patch(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace, func(cfg config.Config) config.Config {
+	_, err := sg.store.Patch(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace, kubetypes.MergePatchType, func(cfg config.Config) config.Config {
 		setConnectMeta(&cfg, sg.Server.instanceID, con)
 		return cfg
 	})
