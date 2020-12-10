@@ -476,7 +476,10 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 		}
 	}
 
-	if cluster.IsConfig() {
+	if cluster.IsConfig() && i.environment.IsMulticluster() {
+		// only deploy east west gateway in multicluster env
+		// as there are a few tests that require special gateway setup
+		// for example: security-file-mounted-certs, security-mtlsk8sca, security-sds-ingress-k8sca
 		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
 			return err
 		}
