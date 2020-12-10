@@ -43,6 +43,7 @@ var (
 	msg         string
 	method      string
 	http2       bool
+	alpn        []string
 	serverFirst bool
 	clientCert  string
 	clientKey   string
@@ -126,6 +127,7 @@ func init() {
 		"Treat as a server first protocol; do not send request until magic string is received")
 	rootCmd.PersistentFlags().StringVar(&clientCert, "client-cert", "", "client certificate file to use for request")
 	rootCmd.PersistentFlags().StringVar(&clientKey, "client-key", "", "client certificate key file to use for request")
+	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -154,6 +156,10 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		Http2:         http2,
 		ServerFirst:   serverFirst,
 		Method:        method,
+	}
+
+	if alpn != nil {
+		request.Alpn = &proto.Alpn{Value: alpn}
 	}
 
 	for _, header := range headers {
