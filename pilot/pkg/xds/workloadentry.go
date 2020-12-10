@@ -217,9 +217,11 @@ func (sg *InternalGen) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 func (sg *InternalGen) cleanupEntry(wle config.Config) {
 	if err := sg.cleanupLimit.Wait(context.TODO()); err != nil {
 		adsLog.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
+		return
 	}
 	if err := sg.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
 		adsLog.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
+		return
 	}
 	adsLog.Infof("cleaned up auto-registered WorkloadEntry %s/%s", wle.Namespace, wle.Name)
 }
