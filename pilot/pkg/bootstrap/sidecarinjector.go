@@ -93,14 +93,14 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	// Patch cert if a webhook config name is provided.
 	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 	// operator or CI/CD
-	if features.InjectionWebhookConfigName.Get() != "" {
+	if features.InjectionWebhookConfigName != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// No leader election - different istiod revisions will patch their own cert.
 			caBundlePath := s.caBundlePath
 			if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
 				caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
 			}
-			webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, caBundlePath, s.kubeClient, stop)
+			webhooks.PatchCertLoop(args.Revision, features.InjectionWebhookConfigName, webhookName, caBundlePath, s.kubeClient, stop)
 			return nil
 		})
 	}

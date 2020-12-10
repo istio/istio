@@ -181,10 +181,10 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 	// operator or CI/CD
 	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
-	if features.InjectionWebhookConfigName.Get() != "" && m.caBundlePath != "" && !localCluster && (features.ExternalIstioD || features.CentralIstioD) {
+	if features.InjectionWebhookConfigName != "" && m.caBundlePath != "" && !localCluster && (features.ExternalIstioD || features.CentralIstioD) {
 		// TODO remove the patch loop init from initSidecarInjector (does this need leader elect? how well does it work with multi-primary?)
 		log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, client.Kube(), stopCh)
+		go webhooks.PatchCertLoop(features.Revision, features.InjectionWebhookConfigName, webhookName, m.caBundlePath, client.Kube(), stopCh)
 		validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
 		if validationWebhookController != nil {

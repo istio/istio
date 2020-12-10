@@ -24,7 +24,6 @@ import (
 	"k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
@@ -58,11 +57,8 @@ func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 
 const delayedRetryTime = time.Second
 
-// Moved out of injector main. Changes:
-// - pass the existing k8s client
-// - use the K8S root instead of citadel root CA
-// - removed the watcher - the k8s CA is already mounted at startup, no more delay waiting for it
-func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string, client kubernetes.Interface, stopCh <-chan struct{}) {
+// PatchCertLoop monitors webhooks labeled with the specified revision and patches them with the given CA bundle
+func PatchCertLoop(revision, injectionWebhookConfigName, webhookName, caBundlePath string, client kubernetes.Interface, stopCh <-chan struct{}) {
 	// K8S own CA
 	caCertPem, err := ioutil.ReadFile(caBundlePath)
 	if err != nil {
@@ -70,20 +66,16 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 		return
 	}
 
-	var retry bool
-	if err = patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-		injectionWebhookConfigName, webhookName, caCertPem); err != nil {
-		log.Warn("Error patching Webhook ", err)
-		retry = true
-	}
+	// used for retries on patching canonical injection webhook for this revision
+	shouldPatchCanonicalWebhook := make(chan struct{})
 
-	shouldPatch := make(chan struct{})
-
-	watchlist := cache.NewListWatchFromClient(
+	watchlist := cache.NewFilteredListWatchFromClient(
 		client.AdmissionregistrationV1beta1().RESTClient(),
 		"mutatingwebhookconfigurations",
 		"",
-		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", injectionWebhookConfigName)))
+		func(options *metav1.ListOptions) {
+			options.LabelSelector = fmt.Sprintf("istio.io/rev=%s", revision)
+		})
 
 	_, controller := cache.NewInformer(
 		watchlist,
@@ -97,10 +89,28 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 				if oldConfig.ResourceVersion != newConfig.ResourceVersion {
 					for i, w := range newConfig.Webhooks {
 						if w.Name == webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
-							log.Infof("Detected a change in CABundle, patching MutatingWebhookConfiguration again")
-							shouldPatch <- struct{}{}
+							log.Infof("Detected a change in CA bundle, patching MutatingWebhookConfiguration for %s", newConfig.Name)
+							// either this is the canonical webhook for the revision and we should keep trying to patch
+							// the CABundle forever or it is a revision tag webhook and we should try once
+							if newConfig.Name == injectionWebhookConfigName {
+								shouldPatchCanonicalWebhook <- struct{}{}
+							} else {
+								if err := doPatch(client, newConfig.Name, webhookName, caCertPem); err != nil {
+									log.Errorf("failed to patch updated webhook %s: %v", newConfig.Name, err)
+								}
+							}
 							break
 						}
+					}
+				}
+			},
+			AddFunc: func(obj interface{}) {
+				config := obj.(*v1beta1.MutatingWebhookConfiguration)
+				if config.Name == injectionWebhookConfigName {
+					shouldPatchCanonicalWebhook <- struct{}{}
+				} else {
+					if err := doPatch(client, config.Name, webhookName, caCertPem); err != nil {
+						log.Errorf("failed to patch updated webhook %s: %v", config.Name, err)
 					}
 				}
 			},
@@ -110,21 +120,17 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 
 	go func() {
 		var delayedRetryC <-chan time.Time
-		if retry {
-			delayedRetryC = time.After(delayedRetryTime)
-		}
-
 		for {
 			select {
 			case <-delayedRetryC:
-				if retry := doPatch(client, injectionWebhookConfigName, webhookName, caCertPem); retry {
+				if err := doPatch(client, injectionWebhookConfigName, webhookName, caCertPem); err != nil {
 					delayedRetryC = time.After(delayedRetryTime)
 				} else {
 					log.Infof("Retried patch succeeded")
 					delayedRetryC = nil
 				}
-			case <-shouldPatch:
-				if retry := doPatch(client, injectionWebhookConfigName, webhookName, caCertPem); retry {
+			case <-shouldPatchCanonicalWebhook:
+				if err := doPatch(client, injectionWebhookConfigName, webhookName, caCertPem); err != nil {
 					if delayedRetryC == nil {
 						delayedRetryC = time.After(delayedRetryTime)
 					}
@@ -136,14 +142,15 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 	}()
 }
 
-func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caCertPem []byte) (retry bool) {
+func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caCertPem []byte) error {
 	client := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-	if err := patchMutatingWebhookConfig(client, webhookConfigName, webhookName, caCertPem); err != nil {
-		log.Errorf("Patch webhook failed: %v", err)
-		return true
+	err := patchMutatingWebhookConfig(client, webhookConfigName, webhookName, caCertPem)
+	if err != nil {
+		log.Errorf("Patch webhook failed for webhook %s: %v", webhookName, err)
+	} else {
+		log.Infof("Patched webhook %s", webhookName)
 	}
-	log.Infof("Patched webhook %s", webhookName)
-	return false
+	return err
 }
 
 func CreateValidationWebhookController(client kube.Client,
