@@ -103,8 +103,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
 
-		isPassthrough := subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() == nil &&
-			subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
+		isPassthrough := subset.GetTrafficPolicy().GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH
 
 		if !(isPassthrough || c.GetType() == cluster.Cluster_EDS) {
 			if len(subset.Labels) != 0 {
