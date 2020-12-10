@@ -368,6 +368,7 @@ func validateEdges(t *testing.T, clName string) error {
 		edge.Source.Uid = ""
 		edge.Source.ClusterName = ""
 		edge.Source.Location = ""
+		edge.Protocol = 0
 		t.Logf("edge: %v", edge)
 		if proto.Equal(edge, &wantEdge) {
 			return nil
