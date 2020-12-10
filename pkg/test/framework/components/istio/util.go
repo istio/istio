@@ -80,7 +80,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 	primary := cluster.Primary()
 	if !primary.IsConfig() {
 		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
-		//a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
+		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
 		address, err := retry.Do(func() (interface{}, bool, error) {
 			return getRemoteServiceAddress(i.environment.Settings(), primary, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)

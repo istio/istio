@@ -265,7 +265,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 	i.workDir = workDir
 
-	//generate istioctl config files for config, control plane(primary) and remote clusters
+	// generate istioctl config files for config, control plane(primary) and remote clusters
 	istioctlConfigFiles, err := createIstioctlConfigFile(workDir, cfg)
 	if err != nil {
 		return nil, err

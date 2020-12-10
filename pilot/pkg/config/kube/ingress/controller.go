@@ -286,7 +286,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 }
 
 func (c *controller) Schemas() collection.Schemas {
-	//TODO: are these two config descriptors right?
+	// TODO: are these two config descriptors right?
 	return schemas
 }
 

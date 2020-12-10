@@ -93,7 +93,7 @@ func NewPlugins(in []string) []ca2.TokenExchanger {
 	return plugins
 }
 
-func (s *Server) initWorkloadSdsService(options *ca2.Options) error { //nolint: unparam
+func (s *Server) initWorkloadSdsService(options *ca2.Options) error { // nolint: unparam
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 
