@@ -20,10 +20,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	telemetrypkg "istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/util/retry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
@@ -35,13 +35,16 @@ func TestIstioctlMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.istioctl").
 		Run(func(ctx framework.TestContext) {
+
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(t); err != nil {
+				if err := common.SendTraffic(t, common.GetClientInstances()[0]); err != nil {
 					return err
 				}
 				return validateDefaultOutput(t, ctx, "server")
-			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+			}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
+
 		})
+
 }
 
 func validateDefaultOutput(t *testing.T, ctx framework.TestContext, workload string) error { // nolint:interfacer

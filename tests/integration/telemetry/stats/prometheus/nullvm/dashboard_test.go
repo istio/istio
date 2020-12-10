@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package telemetry
+package nullvm
 
 import (
 	"context"
@@ -30,19 +30,17 @@ import (
 	"golang.org/x/sync/errgroup"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
+	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -130,7 +128,7 @@ func TestDashboard(t *testing.T) {
 		Features("observability.telemetry.dashboard").
 		Run(func(ctx framework.TestContext) {
 
-			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
+			p := common.GetPromInstance()
 			setupDashboardTest(ctx)
 			waitForMetrics(ctx, p)
 			for _, d := range dashboards {
@@ -142,7 +140,7 @@ func TestDashboard(t *testing.T) {
 							continue
 						}
 						t.Logf("Verifying %s for cluster %s", d.name, cl.Name())
-						cm, err := cl.CoreV1().ConfigMaps(i.Settings().TelemetryNamespace).Get(
+						cm, err := cl.CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
 							context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 						if err != nil {
 							t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
@@ -297,15 +295,11 @@ spec:
     - destination:
         host: server
         port:
-          number: 7777
+          number: 9000
 `
 
 func setupDashboardTest(t framework.TestContext) {
-	ns := namespace.NewOrFail(t, t, namespace.Config{
-		Prefix: "dashboard",
-		Inject: true,
-	})
-	t.Config().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(gatewayConfig, ns.Name()))
+	t.Config().ApplyYAMLOrFail(t, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
 
 	// Apply just the grafana dashboards
 	cfg, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
@@ -314,32 +308,6 @@ func setupDashboardTest(t framework.TestContext) {
 	}
 	t.Config().ApplyYAMLOrFail(t, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
 
-	for _, cl := range t.Clusters() {
-		var instance echo.Instance
-		echoboot.
-			NewBuilder(t).
-			With(&instance, echo.Config{
-				Service:   "server",
-				Cluster:   cl,
-				Namespace: ns,
-				Subsets:   []echo.SubsetConfig{{}},
-				Ports: []echo.Port{
-					{
-						Name:     "http",
-						Protocol: protocol.HTTP,
-						// We use a port > 1024 to not require root
-						InstancePort: 8090,
-					},
-					{
-						Name:         "tcp",
-						Protocol:     protocol.TCP,
-						InstancePort: 7777,
-						ServicePort:  7777,
-					},
-				},
-			}).
-			BuildOrFail(t)
-	}
 	// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
 	// Spread out over 20s so rate() queries will behave correctly
 	g, _ := errgroup.WithContext(context.Background())
@@ -347,14 +315,14 @@ func setupDashboardTest(t framework.TestContext) {
 	for t := 0; t < 20; t++ {
 		<-ticker.C
 		g.Go(func() error {
-			for _, ing := range ingr {
+			for _, ing := range common.GetIngressInstance() {
 				tcpAddr := ing.TCPAddress()
 				for i := 0; i < 10; i++ {
 					_, err := ing.CallEcho(echo.CallOptions{
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", ns.Name()),
+						Path: fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
@@ -371,7 +339,7 @@ func setupDashboardTest(t framework.TestContext) {
 						ServicePort: tcpAddr.Port,
 					},
 					Address: tcpAddr.IP.String(),
-					Path:    fmt.Sprintf("/echo-%s", ns.Name()),
+					Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
 					Headers: map[string][]string{
 						"Host": {"server"},
 					},

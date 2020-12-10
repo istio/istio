@@ -16,17 +16,21 @@
 package prometheus
 
 import (
+	"context"
 	"fmt"
 	"testing"
-	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -38,12 +42,7 @@ var (
 	ist            istio.Instance
 	appNsInst      namespace.Instance
 	promInst       prometheus.Instance
-)
-
-const (
-	// For multicluster tests we multiply the number of requests with a
-	// constant multiplier to make sure we have cross cluster traffic.
-	requestCountMultipler = 3
+	ingr           []ingress.Instance
 )
 
 // GetIstioInstance gets Istio instance.
@@ -61,6 +60,19 @@ func GetPromInstance() prometheus.Instance {
 	return promInst
 }
 
+// GetIstioInstance gets Istio instance.
+func GetIngressInstance() []ingress.Instance {
+	return ingr
+}
+
+func GetClientInstances() echo.Instances {
+	return client
+}
+
+func GetServerInstances() echo.Instances {
+	return server
+}
+
 // TestStatsFilter includes common test logic for stats and mx exchange filters running
 // with nullvm and wasm runtime.
 func TestStatsFilter(t *testing.T, feature features.Feature) {
@@ -68,29 +80,40 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			sourceQuery, destinationQuery, appQuery := buildQuery()
-			if err := SendTraffic(t); err != nil {
-				t.Fatalf("Could not send traffic %v", err)
-			}
 
-			for _, c := range ctx.Clusters() {
-				retry.UntilSuccessOrFail(t, func() error {
-					// Query client side metrics
-					if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
-						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(c, promInst, "istio_requests_total"))
-						return err
-					}
-					if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
-						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(c, promInst, "istio_requests_total"))
-						return err
-					}
-					// This query will continue to increase due to readiness probe; don't wait for it to converge
-					if err := QueryFirstPrometheus(t, c, appQuery, GetPromInstance()); err != nil {
-						t.Logf("prometheus values for istio_echo_http_requests_total: \n%s", util.PromDump(c, promInst, "istio_echo_http_requests_total"))
-						return err
-					}
+			g, _ := errgroup.WithContext(context.Background())
+			for _, cltInstance := range client {
+				g.Go(func() error {
+					err := retry.UntilSuccess(func() error {
+						if err := SendTraffic(t, cltInstance); err != nil {
+							return err
+						}
+						c := cltInstance.Config().Cluster
+						// Query client side metrics
+						if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
+							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
+							return err
+						}
+						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
+							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
+							return err
+						}
+						// This query will continue to increase due to readiness probe; don't wait for it to converge
+						if err := QueryFirstPrometheus(t, c, appQuery, GetPromInstance()); err != nil {
+							t.Logf("prometheus values for istio_echo_http_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_echo_http_requests_total"))
+							return err
+						}
 
+						return nil
+					}, retry.Delay(telemetry.RetryDelay), retry.Timeout(telemetry.RetryTimeout))
+					if err != nil {
+						return err
+					}
 					return nil
-				}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+				})
+			}
+			if err := g.Wait(); err != nil {
+				t.Fatalf("test failed: %v", err)
 			}
 		})
 }
@@ -102,19 +125,30 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			destinationQuery := buildTCPQuery()
-			if err := SendTCPTraffic(t); err != nil {
-				t.Fatalf("Could not send traffic %v", err)
-			}
 
-			for _, c := range ctx.Clusters() {
-				retry.UntilSuccessOrFail(t, func() error {
-					if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
-						t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
+			g, _ := errgroup.WithContext(context.Background())
+			for _, cltInstance := range client {
+				g.Go(func() error {
+					err := retry.UntilSuccess(func() error {
+						if err := SendTCPTraffic(t, cltInstance); err != nil {
+							return err
+						}
+						c := cltInstance.Config().Cluster
+						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
+							t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
+							return err
+						}
+
+						return nil
+					}, retry.Delay(telemetry.RetryDelay), retry.Timeout(telemetry.RetryTimeout))
+					if err != nil {
 						return err
 					}
-
 					return nil
-				}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+				})
+			}
+			if err := g.Wait(); err != nil {
+				t.Fatalf("test failed: %v", err)
 			}
 		})
 }
@@ -159,6 +193,8 @@ func TestSetup(ctx resource.Context) (err error) {
 				},
 			}).
 			Build()
+
+		ingr = append(ingr, ist.IngressFor(c))
 	}
 	echos, err := builder.Build()
 	if err != nil {
@@ -174,37 +210,27 @@ func TestSetup(ctx resource.Context) (err error) {
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.
-func SendTraffic(t *testing.T) error {
-	for _, cltInstance := range client {
-		retry.UntilSuccessOrFail(t, func() error {
-			_, err := cltInstance.Call(echo.CallOptions{
-				Target:   server[0],
-				PortName: "http",
-				Count:    requestCountMultipler * len(server),
-			})
-			if err != nil {
-				return err
-			}
-			return nil
-		}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
+func SendTraffic(t *testing.T, cltInstance echo.Instance) error {
+	_, err := cltInstance.Call(echo.CallOptions{
+		Target:   server[0],
+		PortName: "http",
+		Count:    util.RequestCountMultipler * len(server),
+	})
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
-func SendTCPTraffic(t *testing.T) error {
-	for _, cltInstance := range client {
-		retry.UntilSuccessOrFail(t, func() error {
-			_, err := cltInstance.Call(echo.CallOptions{
-				Target:   server[0],
-				PortName: "tcp",
-				Count:    requestCountMultipler * len(server),
-			})
-			if err != nil {
-				return err
-			}
-			return nil
-		}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
+func SendTCPTraffic(t *testing.T, cltInstance echo.Instance) error {
+	_, err := cltInstance.Call(echo.CallOptions{
+		Target:   server[0],
+		PortName: "tcp",
+		Count:    util.RequestCountMultipler * len(server),
+	})
+	if err != nil {
+		return err
 	}
 	return nil
 }
