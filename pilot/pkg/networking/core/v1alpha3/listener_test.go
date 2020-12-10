@@ -1657,7 +1657,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 100.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
@@ -1681,7 +1681,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 100.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
@@ -1705,7 +1705,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 100.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
@@ -1730,7 +1730,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 100.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
@@ -1755,7 +1755,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 100.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
@@ -1800,7 +1800,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 100.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
@@ -1873,7 +1873,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 100.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
@@ -1929,7 +1929,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 100.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
