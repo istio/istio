@@ -54,8 +54,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "",
-		revisionFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
 
 func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {
