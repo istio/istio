@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package workloadentry
 
 import (
 	"fmt"
@@ -27,6 +27,7 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -68,11 +69,10 @@ var (
 
 func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
-	ig := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig.EnableWorkloadEntryController(store)
+	c := NewController(store, "")
 	createOrFail(t, store, wgA)
 	stop := make(chan struct{})
-	go ig.Run(stop)
+	go c.Run(stop)
 	defer close(stop)
 
 	cases := map[string]*model.Proxy{
@@ -85,7 +85,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			_ = ig.RegisterWorkload(tc, &Connection{proxy: tc, Connect: time.Now()})
+			_ = c.RegisterWorkload(tc, time.Now())
 			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if err != nil {
 				t.Fatalf("failed listing WorkloadEntry: %v", err)
@@ -99,7 +99,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 }
 
 func TestAutoregistrationLifecycle(t *testing.T) {
-	ig1, ig2, store := setup(t)
+	c1, c2, store := setup(t)
 	stopped1 := false
 	stop1, stop2 := make(chan struct{}), make(chan struct{})
 	defer func() {
@@ -109,57 +109,57 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		}
 	}()
 	defer close(stop2)
-	go ig1.Run(stop1)
-	go ig2.Run(stop2)
+	go c1.Run(stop1)
+	go c2.Run(stop2)
 
 	p := fakeProxy("1.2.3.4", wgA, "nw1")
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
-		_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
-		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
+		_ = c1.RegisterWorkload(p, time.Now())
+		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 	})
 	t.Run("multinetwork same ip", func(t *testing.T) {
 		// make sure we don't overrwrite a similar entry for a different network
-		_ = ig2.RegisterWorkload(p2, &Connection{proxy: p2, Connect: time.Now()})
-		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
-		checkEntryOrFail(t, store, wgA, p2, ig2.Server.instanceID)
+		_ = c2.RegisterWorkload(p2, time.Now())
+		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
+		checkEntryOrFail(t, store, wgA, p2, c2.instanceID)
 	})
 	t.Run("fast reconnect", func(t *testing.T) {
 		t.Run("same instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect meta
-			ig1.QueueUnregisterWorkload(p)
+			c1.QueueUnregisterWorkload(p)
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the same instance id
-			_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
-			checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
+			_ = c1.RegisterWorkload(p, time.Now())
+			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 		})
 		t.Run("different instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect metadata
-			ig1.QueueUnregisterWorkload(p)
+			c1.QueueUnregisterWorkload(p)
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the new instance id
-			_ = ig2.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
-			checkEntryOrFail(t, store, wgA, p, ig2.Server.instanceID)
+			_ = c2.RegisterWorkload(p, time.Now())
+			checkEntryOrFail(t, store, wgA, p, c2.instanceID)
 		})
 	})
 	t.Run("slow reconnect", func(t *testing.T) {
 		// disconnect, wait and make sure entry is gone
-		ig2.QueueUnregisterWorkload(p)
+		c2.QueueUnregisterWorkload(p)
 		retry.UntilSuccessOrFail(t, func() error {
 			return checkNoEntry(store, wgA, p)
 		})
 		// reconnect
-		_ = ig1.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
-		checkEntryOrFail(t, store, wgA, p, ig1.Server.instanceID)
+		_ = c1.RegisterWorkload(p, time.Now())
+		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
 		// disconnect, kill the cleanup queue from the first controller
-		ig1.QueueUnregisterWorkload(p)
-		// stop processing the delayed close queue in ig1, forces using periodic cleanup
+		c1.QueueUnregisterWorkload(p)
+		// stop processing the delayed close queue in c1, forces using periodic cleanup
 		close(stop1)
 		stopped1 = true
 		// unfortunately, this retry at worst could be twice as long as the sweep interval
@@ -173,7 +173,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 func TestUpdateHealthCondition(t *testing.T) {
 	ig, _, store := setup(t)
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
-	_ = ig.RegisterWorkload(p, &Connection{proxy: p, Connect: time.Now()})
+	_ = ig.RegisterWorkload(p, time.Now())
 	t.Run("auto registered healthy health", func(t *testing.T) {
 		ig.UpdateWorkloadEntryHealth(p, HealthEvent{
 			Healthy: true,
@@ -256,14 +256,12 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 	}
 }
 
-func setup(t *testing.T) (*InternalGen, *InternalGen, model.ConfigStoreCache) {
+func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreCache) {
 	store := memory.NewController(memory.Make(collections.All))
-	ig1 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-1"})
-	ig1.EnableWorkloadEntryController(store)
-	ig2 := NewInternalGen(&DiscoveryServer{instanceID: "pilot-2"})
-	ig2.EnableWorkloadEntryController(store)
+	c1 := NewController(store, "pilot-1")
+	c2 := NewController(store, "pilot-2")
 	createOrFail(t, store, wgA)
-	return ig1, ig2, store
+	return c1, c2, store
 }
 
 func checkNoEntry(store model.ConfigStoreCache, wg config.Config, proxy *model.Proxy) error {

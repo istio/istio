@@ -26,8 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -126,7 +127,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				initialWLE := entries[0]
 
 				// keep force-disconnecting until we observe a reconnect to a different istiod instance
-				initialPilot := initialWLE.Annotations[xds.WorkloadControllerAnnotation]
+				initialPilot := initialWLE.Annotations[workloadentry.WorkloadControllerAnnotation]
 				disconnectProxy(ctx, initialPilot, autoVM)
 				retry.UntilSuccessOrFail(ctx, func() error {
 					entries := getWorkloadEntriesOrFail(ctx, autoVM)
@@ -134,7 +135,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 						ctx.Fatalf("WorkloadEntry was cleaned up unexpectedly")
 					}
 
-					currentPilot := entries[0].Annotations[xds.WorkloadControllerAnnotation]
+					currentPilot := entries[0].Annotations[workloadentry.WorkloadControllerAnnotation]
 					if currentPilot == initialPilot || !strings.HasPrefix(currentPilot, "istiod-") {
 						disconnectProxy(ctx, currentPilot, autoVM)
 						return errors.New("expected WorkloadEntry to be updated by other pilot")

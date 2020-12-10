@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,28 +20,18 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
-	"golang.org/x/time/rate"
+	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
 )
 
 const (
 	TypeURLConnections = "istio.io/connections"
-	TypeURLDisconnect  = "istio.io/disconnect"
 
 	// TODO: TypeURLReady - readiness events for endpoints, agent can propagate
-
-	// TypeURLNACK will receive messages of type DiscoveryRequest, containing
-	// the 'NACK' from envoy on rejected configs. Only ID is set in metadata.
-	// This includes all the info that envoy (client) provides.
-	TypeURLNACK = "istio.io/nack"
 
 	// TypeDebugSyncronization requests Envoy CSDS for proxy sync status
 	TypeDebugSyncronization = "istio.io/debug/syncz"
@@ -54,15 +44,6 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
-	// TODO move WorkloadEntry related tasks into their own object and give InternalGen a reference.
-	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
-	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
-	store model.ConfigStoreCache
-	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
-	cleanupLimit *rate.Limiter
-	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
-	cleanupQueue queue.Delayed
-
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
 }
@@ -71,40 +52,6 @@ func NewInternalGen(s *DiscoveryServer) *InternalGen {
 	return &InternalGen{
 		Server: s,
 	}
-}
-
-func (sg *InternalGen) OnConnect(con *Connection) {
-	sg.startPush(TypeURLConnections, []proto.Message{con.node})
-}
-
-func (sg *InternalGen) OnDisconnect(con *Connection) {
-	sg.QueueUnregisterWorkload(con.proxy)
-
-	sg.startPush(TypeURLDisconnect, []proto.Message{con.node})
-}
-
-func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCache) {
-	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
-		sg.store = store
-		sg.cleanupLimit = rate.NewLimiter(rate.Limit(20), 1)
-		sg.cleanupQueue = queue.NewDelayed()
-	}
-}
-
-func (sg *InternalGen) Run(stop <-chan struct{}) {
-	if sg.store != nil && sg.cleanupQueue != nil {
-		go sg.periodicWorkloadEntryCleanup(stop)
-		go sg.cleanupQueue.Run(stop)
-	}
-}
-
-func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
-	// Make sure we include the ID - the DR may not include metadata
-	if dr.Node == nil {
-		dr.Node = &core.Node{}
-	}
-	dr.Node.Id = node.ID
-	sg.startPush(TypeURLNACK, []proto.Message{dr})
 }
 
 // PushAll will immediately send a response to all connections that
@@ -142,24 +89,6 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 			}
 		}()
 	}
-}
-
-// startPush is similar with DiscoveryServer.startPush() - but called directly,
-// since status discovery is not driven by config change events.
-// We also want connection events to be dispatched as soon as possible,
-// they may be consumed by other instances of Istiod to update internal state.
-func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
-
-	resources := make([]*any.Any, 0, len(data))
-	for _, v := range data {
-		resources = append(resources, util.MessageToAny(v))
-	}
-	dr := &discovery.DiscoveryResponse{
-		TypeUrl:   typeURL,
-		Resources: resources,
-	}
-
-	sg.Server.PushAll(dr)
 }
 
 // Generate XDS responses about internal events:
