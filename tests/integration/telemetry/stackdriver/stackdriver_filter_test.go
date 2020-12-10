@@ -113,7 +113,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 						if err := validateLogs(t, serverLogEntry, clName); err != nil {
 							return err
 						}
-						if err := validateTraces(t); err != nil {
+						if err := validateTraces(t, clName); err != nil {
 							return err
 						}
 						if err := validateEdges(t, clName); err != nil {
