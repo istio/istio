@@ -18,6 +18,11 @@ const (
 	istioRevLabel = "istio.io/rev"
 )
 
+var (
+	revision  = ""
+	overwrite = false
+)
+
 func tagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
@@ -32,8 +37,38 @@ func tagCommand() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(tagRemoveCommand())
+	cmd.AddCommand(tagApplyCommand())
 	cmd.AddCommand(tagListCommand())
+	cmd.AddCommand(tagRemoveCommand())
+
+	return cmd
+}
+
+func tagApplyCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "apply",
+		Short:   "Create or modify revision tags",
+		Example: "istioctl x tag apply prod --revision 1-8-0",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return fmt.Errorf("must provide a tag for creation")
+			}
+			if len(args) > 1 {
+				return fmt.Errorf("must provide a single tag for creation")
+			}
+
+			client, err := kubeClient(kubeconfig, configContext)
+			if err != nil {
+				return fmt.Errorf("failed to create kubernetes client: %v", err)
+			}
+
+			return applyTag(context.Background(), client, args[0])
+		},
+	}
+
+	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, "whether to overwrite an existing tag")
+	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "revision to point tag to")
+	cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
 }
@@ -83,6 +118,11 @@ func tagRemoveCommand() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// applyTag creates or modifies a revision tag
+func applyTag(ctx context.Context, kubeClient kube.ExtendedClient, tag string) error {
+	return nil
 }
 
 // removeTag removes an existing revision tag
