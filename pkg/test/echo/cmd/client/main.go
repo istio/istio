@@ -43,6 +43,7 @@ var (
 	msg             string
 	method          string
 	http2           bool
+	alpn        []string
 	serverFirst     bool
 	followRedirects bool
 	clientCert      string
@@ -129,6 +130,7 @@ func init() {
 		"If enabled, will follow 3xx redirects with the Location header")
 	rootCmd.PersistentFlags().StringVar(&clientCert, "client-cert", "", "client certificate file to use for request")
 	rootCmd.PersistentFlags().StringVar(&clientKey, "client-key", "", "client certificate key file to use for request")
+	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -158,6 +160,10 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		ServerFirst:     serverFirst,
 		FollowRedirects: followRedirects,
 		Method:          method,
+	}
+
+	if alpn != nil {
+		request.Alpn = &proto.Alpn{Value: alpn}
 	}
 
 	for _, header := range headers {
