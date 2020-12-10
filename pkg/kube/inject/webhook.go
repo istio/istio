@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
+	"gomodules.xyz/jsonpatch/v3"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,14 +35,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"istio.io/api/annotation"
-	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -69,11 +71,10 @@ const (
 
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
-	mu                     sync.RWMutex
-	Config                 *Config
-	sidecarTemplateVersion string
-	meshConfig             *meshconfig.MeshConfig
-	valuesConfig           string
+	mu           sync.RWMutex
+	Config       *Config
+	meshConfig   *meshconfig.MeshConfig
+	valuesConfig string
 
 	healthCheckInterval time.Duration
 	healthCheckFile     string
@@ -105,8 +106,8 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 }
 
 func unmarshalConfig(data []byte) (*Config, error) {
-	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil {
+	c, err := UnmarshalConfig(data)
+	if err != nil {
 		return nil, err
 	}
 
@@ -114,7 +115,7 @@ func unmarshalConfig(data []byte) (*Config, error) {
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
-	log.Debugf("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
+	log.Debugf("Templates: |\n  %v", c.Templates, "\n", "\n  ", -1)
 	return &c, nil
 }
 
@@ -221,347 +222,44 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 }
 
 func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
-	version := sidecarTemplateVersionHash(sidecarConfig.Template)
 	wh.mu.Lock()
 	wh.Config = sidecarConfig
 	wh.valuesConfig = valuesConfig
-	wh.sidecarTemplateVersion = version
 	wh.mu.Unlock()
 }
 
-// It would be great to use https://github.com/mattbaird/jsonpatch to
-// generate RFC6902 JSON patches. Unfortunately, it doesn't produce
-// correct patches for object removal. Fortunately, our patching needs
-// are fairly simple so generating them manually isn't horrible (yet).
-type rfc6902PatchOperation struct {
-	Op    string      `json:"op"`
-	Path  string      `json:"path"`
-	Value interface{} `json:"value,omitempty"`
-}
+type ContainerReorder int
 
-// JSONPatch `remove` is applied sequentially. Remove items in reverse
-// order to avoid renumbering indices.
-func removeContainers(containers []corev1.Container, removed []string, path string) (patch []rfc6902PatchOperation) {
-	names := map[string]bool{}
-	for _, name := range removed {
-		names[name] = true
-	}
-	for i := len(containers) - 1; i >= 0; i-- {
-		if _, ok := names[containers[i].Name]; ok {
-			patch = append(patch, rfc6902PatchOperation{
-				Op:   "remove",
-				Path: fmt.Sprintf("%v/%v", path, i),
-			})
-		}
-	}
-	return patch
-}
+const (
+	MoveFirst ContainerReorder = iota
+	MoveLast
+	Remove
+)
 
-func removeVolumes(volumes []corev1.Volume, removed []string, path string) (patch []rfc6902PatchOperation) {
-	names := map[string]bool{}
-	for _, name := range removed {
-		names[name] = true
-	}
-	for i := len(volumes) - 1; i >= 0; i-- {
-		if _, ok := names[volumes[i].Name]; ok {
-			patch = append(patch, rfc6902PatchOperation{
-				Op:   "remove",
-				Path: fmt.Sprintf("%v/%v", path, i),
-			})
-		}
-	}
-	return patch
-}
-
-func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, removed []string, path string) (patch []rfc6902PatchOperation) {
-	names := map[string]bool{}
-	for _, name := range removed {
-		names[name] = true
-	}
-	for i := len(imagePullSecrets) - 1; i >= 0; i-- {
-		if _, ok := names[imagePullSecrets[i].Name]; ok {
-			patch = append(patch, rfc6902PatchOperation{
-				Op:   "remove",
-				Path: fmt.Sprintf("%v/%v", path, i),
-			})
-		}
-	}
-	return patch
-}
-
-func addContainer(sic *SidecarInjectionSpec, target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
-	saJwtSecretMountName := ""
-	var saJwtSecretMount corev1.VolumeMount
-	// find service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
-	// https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#service-account-automation) from app container
-	for _, add := range target {
-		for _, vmount := range add.VolumeMounts {
-			if vmount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
-				saJwtSecretMountName = vmount.Name
-				saJwtSecretMount = vmount
-			}
-		}
-	}
-	first := len(target) == 0
-	var value interface{}
-	for _, add := range added {
-		if add.Name == "istio-proxy" && saJwtSecretMountName != "" {
-			// add service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
-			// https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#service-account-automation) to istio-proxy container,
-			// so that envoy could fetch/pass k8s sa jwt and pass to sds server, which will be used to request workload identity for the pod.
-			add.VolumeMounts = append(add.VolumeMounts, saJwtSecretMount)
-		}
-		value = add
-		path := basePath
-		if first {
-			first = false
-			value = []corev1.Container{add}
-		} else if shouldBeInjectedInFront(add, sic) {
-			path += "/0"
+func modifyContainers(cl []corev1.Container, name string, modifier ContainerReorder) []corev1.Container {
+	containers := []corev1.Container{}
+	var match *corev1.Container
+	for _, c := range cl {
+		c := c
+		if c.Name != name {
+			containers = append(containers, c)
 		} else {
-			path += "/-"
+			match = &c
 		}
-		patch = append(patch, rfc6902PatchOperation{
-			Op:    "add",
-			Path:  path,
-			Value: value,
-		})
 	}
-	return patch
-}
-
-func shouldBeInjectedInFront(container corev1.Container, sic *SidecarInjectionSpec) bool {
-	switch container.Name {
-	case ValidationContainerName:
-		return true
-	case ProxyContainerName:
-		return sic.HoldApplicationUntilProxyStarts
+	if match == nil {
+		return containers
+	}
+	switch modifier {
+	case MoveFirst:
+		return append([]corev1.Container{*match}, containers...)
+	case MoveLast:
+		return append(containers, *match)
+	case Remove:
+		return containers
 	default:
-		return false
+		return cl
 	}
-}
-
-func addSecurityContext(target *corev1.PodSecurityContext, basePath string) (patch []rfc6902PatchOperation) {
-	patch = append(patch, rfc6902PatchOperation{
-		Op:    "add",
-		Path:  basePath,
-		Value: target,
-	})
-	return patch
-}
-
-func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902PatchOperation) {
-	first := len(target) == 0
-	var value interface{}
-	for _, add := range added {
-		value = add
-		path := basePath
-		if first {
-			first = false
-			value = []corev1.Volume{add}
-		} else {
-			path += "/-"
-		}
-		patch = append(patch, rfc6902PatchOperation{
-			Op:    "add",
-			Path:  path,
-			Value: value,
-		})
-	}
-	return patch
-}
-
-func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath string) (patch []rfc6902PatchOperation) {
-	first := len(target) == 0
-	var value interface{}
-	for _, add := range added {
-		value = add
-		path := basePath
-		if first {
-			first = false
-			value = []corev1.LocalObjectReference{add}
-		} else {
-			path += "/-"
-		}
-		patch = append(patch, rfc6902PatchOperation{
-			Op:    "add",
-			Path:  path,
-			Value: value,
-		})
-	}
-	return patch
-}
-
-func addPodDNSConfig(target *corev1.PodDNSConfig, basePath string) (patch []rfc6902PatchOperation) {
-	patch = append(patch, rfc6902PatchOperation{
-		Op:    "add",
-		Path:  basePath,
-		Value: target,
-	})
-	return patch
-}
-
-// escape JSON Pointer value per https://tools.ietf.org/html/rfc6901
-func escapeJSONPointerValue(in string) string {
-	step := strings.Replace(in, "~", "~0", -1)
-	return strings.Replace(step, "/", "~1", -1)
-}
-
-// adds labels to the target spec, will not overwrite label's value if it already exists
-func addLabels(target map[string]string, added map[string]string) []rfc6902PatchOperation {
-	patches := []rfc6902PatchOperation{}
-
-	addedKeys := make([]string, 0, len(added))
-	for key := range added {
-		addedKeys = append(addedKeys, key)
-	}
-	sort.Strings(addedKeys)
-
-	for _, key := range addedKeys {
-		value := added[key]
-		patch := rfc6902PatchOperation{
-			Op:    "add",
-			Path:  "/metadata/labels/" + escapeJSONPointerValue(key),
-			Value: value,
-		}
-
-		if target == nil {
-			target = map[string]string{}
-			patch.Path = "/metadata/labels"
-			patch.Value = map[string]string{
-				key: value,
-			}
-		}
-
-		if target[key] == "" {
-			patches = append(patches, patch)
-		}
-	}
-
-	return patches
-}
-
-func updateAnnotation(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
-	// To ensure deterministic patches, we sort the keys
-	var keys []string
-	for k := range added {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		value := added[key]
-		if target == nil {
-			target = map[string]string{}
-			patch = append(patch, rfc6902PatchOperation{
-				Op:   "add",
-				Path: "/metadata/annotations",
-				Value: map[string]string{
-					key: value,
-				},
-			})
-		} else {
-			op := "add"
-			if target[key] != "" {
-				op = "replace"
-			}
-			patch = append(patch, rfc6902PatchOperation{
-				Op:    op,
-				Path:  "/metadata/annotations/" + escapeJSONPointerValue(key),
-				Value: value,
-			})
-		}
-	}
-	return patch
-}
-
-func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision string, annotations map[string]string,
-	sic *SidecarInjectionSpec, workloadName string, mesh *meshconfig.MeshConfig) ([]byte, error) {
-
-	var patch []rfc6902PatchOperation
-
-	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
-
-	sidecar := FindSidecar(sic.Containers)
-	// We don't have to escape json encoding here when using golang libraries.
-	if rewrite && sidecar != nil {
-		if prober := DumpAppProbers(&pod.Spec); prober != "" {
-			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
-		}
-	}
-
-	if rewrite {
-		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, mesh.GetDefaultConfig().GetStatusPort())...)
-	}
-
-	// Remove any containers previously injected by kube-inject using
-	// container and volume name as unique key for removal.
-	patch = append(patch, removeContainers(pod.Spec.InitContainers, prevStatus.InitContainers, "/spec/initContainers")...)
-	patch = append(patch, removeContainers(pod.Spec.Containers, prevStatus.Containers, "/spec/containers")...)
-	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
-	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
-
-	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
-		scrape := status.PrometheusScrapeConfiguration{
-			Scrape: pod.ObjectMeta.Annotations["prometheus.io/scrape"],
-			Path:   pod.ObjectMeta.Annotations["prometheus.io/path"],
-			Port:   pod.ObjectMeta.Annotations["prometheus.io/port"],
-		}
-		empty := status.PrometheusScrapeConfiguration{}
-		if sidecar != nil && scrape != empty {
-			by, err := json.Marshal(scrape)
-			if err != nil {
-				return nil, err
-			}
-			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.PrometheusScrapingConfig.Name, Value: string(by)})
-		}
-		annotations["prometheus.io/port"] = strconv.Itoa(int(mesh.GetDefaultConfig().GetStatusPort()))
-		annotations["prometheus.io/path"] = "/stats/prometheus"
-		annotations["prometheus.io/scrape"] = "true"
-	}
-
-	patch = append(patch, addContainer(sic, pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
-	patch = append(patch, addContainer(sic, pod.Spec.Containers, sic.Containers, "/spec/containers")...)
-	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
-	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
-
-	if sic.DNSConfig != nil {
-		patch = append(patch, addPodDNSConfig(sic.DNSConfig, "/spec/dnsConfig")...)
-	}
-
-	if pod.Spec.SecurityContext != nil {
-		patch = append(patch, addSecurityContext(pod.Spec.SecurityContext, "/spec/securityContext")...)
-	}
-
-	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
-
-	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, workloadName)
-	patchLabels := map[string]string{
-		label.TLSMode:                                model.IstioMutualTLSModeLabel,
-		model.IstioCanonicalServiceLabelName:         canonicalSvc,
-		label.IstioRev:                               revision,
-		model.IstioCanonicalServiceRevisionLabelName: canonicalRev,
-	}
-	if network := topologyValues(sic); network != "" {
-		// only added if if not already set
-		patchLabels[label.IstioNetwork] = network
-	}
-	patch = append(patch, addLabels(pod.Labels, patchLabels)...)
-
-	return json.Marshal(patch)
-}
-
-// topologyValues will find the value of ISTIO_META_NETWORK in the spec or return a zero-value
-func topologyValues(sic *SidecarInjectionSpec) string {
-	// TODO should we just return the values used to populate the template from InjectionData?
-	for _, c := range sic.Containers {
-		for _, e := range c.Env {
-			if e.Name == "ISTIO_META_NETWORK" {
-				return e.Value
-			}
-		}
-	}
-	return ""
 }
 
 func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) bool {
@@ -619,45 +317,6 @@ func extractCanonicalServiceLabel(podLabels map[string]string, workloadName stri
 	return workloadName
 }
 
-// Retain deprecated hardcoded container and volumes names to aid in
-// backwards compatible migration to the new SidecarInjectionStatus.
-var (
-	legacyInitContainerNames = []string{"istio-init", "enable-core-dump"}
-	legacyContainerNames     = []string{"istio-proxy"}
-	legacyVolumeNames        = []string{"istio-certs", "istio-envoy"}
-)
-
-func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
-	var statusBytes []byte
-	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[annotation.SidecarStatus.Name]; ok {
-			statusBytes = []byte(value)
-		}
-	}
-
-	// default case when injected pod has explicit status
-	var iStatus SidecarInjectionStatus
-	if err := json.Unmarshal(statusBytes, &iStatus); err == nil {
-		// heuristic assumes status is valid if any of the resource
-		// lists is non-empty.
-		if len(iStatus.InitContainers) != 0 ||
-			len(iStatus.Containers) != 0 ||
-			len(iStatus.Volumes) != 0 ||
-			len(iStatus.ImagePullSecrets) != 0 {
-			return &iStatus
-		}
-	}
-
-	// backwards compatibility case when injected pod has legacy
-	// status. Infer status from the list of legacy hardcoded
-	// container and volume names.
-	return &SidecarInjectionStatus{
-		InitContainers: legacyInitContainerNames,
-		Containers:     legacyContainerNames,
-		Volumes:        legacyVolumeNames,
-	}
-}
-
 func toAdmissionResponse(err error) *kube.AdmissionResponse {
 	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
@@ -666,8 +325,7 @@ type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          *metav1.ObjectMeta
 	typeMeta            *metav1.TypeMeta
-	template            string
-	version             string
+	template            Templates
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
@@ -675,42 +333,416 @@ type InjectionParameters struct {
 	injectedAnnotations map[string]string
 }
 
-func injectPod(req InjectionParameters) ([]byte, error) {
-	pod := req.pod
+func checkPreconditions(params InjectionParameters) {
+	spec := params.pod.Spec
+	metadata := params.pod.ObjectMeta
+	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
+	if spec.DNSPolicy != "" && spec.DNSPolicy != corev1.DNSClusterFirst {
+		podName := potentialPodName(metadata)
+		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
+			metadata.Namespace+"/"+podName, corev1.DNSClusterFirst)
+	}
+}
 
-	if features.EnableLegacyFSGroupInjection {
-		// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
-		// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
-		// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-		var grp = int64(1337)
-		if pod.Spec.SecurityContext == nil {
-			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-				FSGroup: &grp,
-			}
-		} else {
-			pod.Spec.SecurityContext.FSGroup = &grp
+func getInjectionStatus(podSpec corev1.PodSpec) string {
+	stat := &SidecarInjectionStatus{}
+	for _, c := range podSpec.InitContainers {
+		stat.InitContainers = append(stat.InitContainers, c.Name)
+	}
+	for _, c := range podSpec.Containers {
+		stat.Containers = append(stat.Containers, c.Name)
+	}
+	for _, c := range podSpec.Volumes {
+		stat.Volumes = append(stat.Volumes, c.Name)
+	}
+	for _, c := range podSpec.ImagePullSecrets {
+		stat.ImagePullSecrets = append(stat.ImagePullSecrets, c.Name)
+	}
+	statusAnnotationValue, err := json.Marshal(stat)
+	if err != nil {
+		return "{}"
+	}
+	return string(statusAnnotationValue)
+}
+
+// injectPod is the core of the injection logic. This takes a pod and injection
+// template, as well as some inputs to the injection template, and produces a
+// JSON patch.
+//
+// In the webhook, we will receive a Pod directly from Kubernetes, and return the
+// patch directly; Kubernetes will take care of applying the patch.
+//
+// For kube-inject, we will parse out a Pod from YAML (which may involve
+// extraction from higher level types like Deployment), then apply the patch
+// locally.
+//
+// The injection logic works by first applying the rendered injection template on
+// top of the input pod This is done using a Strategic Patch Merge
+// (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md)
+// Currently only a single template is supported, although in the future the template to use will be configurable
+// and multiple templates will be supported by applying them in successive order.
+//
+// In addition to the plain templating, there is some post processing done to
+// handle cases that cannot feasibly be covered in the template, such as
+// re-ordering pods, rewriting readiness probes, etc.
+func injectPod(req InjectionParameters) ([]byte, error) {
+	checkPreconditions(req)
+
+	// The patch will be built relative to the initial pod, capture its current state
+	originalPodSpec, err := json.Marshal(req.pod)
+	if err != nil {
+		return nil, err
+	}
+
+	// Run the injection template, giving us a partial pod spec
+	mergedPod, injectedPodData, err := RunTemplate(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run injection template: %v", err)
+	}
+
+	mergedPod, err = reapplyOverwrittenContainers(mergedPod, req.pod, injectedPodData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to re apply container: %v", err)
+	}
+
+	// Apply some additional transformations to the pod
+	if err := postProcessPod(mergedPod, *injectedPodData, req); err != nil {
+		return nil, fmt.Errorf("failed to process pod: %v", err)
+	}
+
+	patch, err := createPatch(mergedPod, originalPodSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create patch: %v", err)
+	}
+
+	log.Debugf("AdmissionResponse: patch=%v\n", string(patch))
+	return patch, nil
+}
+
+// OverrideAnnotation is used to store the overrides for injected containers
+// TODO move this to api repo
+const OverrideAnnotation = "proxy.istio.io/overrides"
+
+// reapplyOverwrittenContainers enables users to provide container level overrides for settings in the injection template
+// * originalPod: the pod before injection. If needed, we will apply some configurations from this pod on top of the final pod
+// * templatePod: the rendered injection template. This is needed only to see what containers we injected
+// * finalPod: the current result of injection, roughly equivalent to the merging of originalPod and templatePod
+// There are essentially three cases we cover here:
+// 1. There is no overlap in containers in original and template pod. We will do nothing.
+// 2. There is an overlap (ie, both define istio-proxy), but that is because the pod is being re-injected.
+//    In this case we do nothing, since we want to apply the new settings
+// 3. There is an overlap. We will re-apply the original container.
+// Where "overlap" is a container defined in both the original and template pod. Typically, this would mean
+// the user has defined an `istio-proxy` container in their own pod spec.
+func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod, templatePod *corev1.Pod) (*corev1.Pod, error) {
+	type podOverrides struct {
+		Containers     []corev1.Container `json:"containers,omitempty"`
+		InitContainers []corev1.Container `json:"initContainers,omitempty"`
+	}
+
+	overrides := podOverrides{}
+	existingOverrides := podOverrides{}
+	if annotationOverrides, f := originalPod.Annotations[OverrideAnnotation]; f {
+		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
+			return nil, err
 		}
 	}
 
-	spec, iStatus, err := InjectionData(req, req.typeMeta, req.deployMeta)
+	for _, c := range templatePod.Spec.Containers {
+		match := FindContainer(c.Name, existingOverrides.Containers)
+		if match == nil {
+			match = FindContainer(c.Name, originalPod.Spec.Containers)
+		}
+		if match == nil {
+			continue
+		}
+		overlay := *match.DeepCopy()
+		if overlay.Image == AutoImage {
+			overlay.Image = ""
+		}
+		overrides.Containers = append(overrides.Containers, overlay)
+		newMergedPod, err := applyContainer(finalPod, overlay)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply sidecar container: %v", err)
+		}
+		finalPod = newMergedPod
+	}
+	for _, c := range templatePod.Spec.InitContainers {
+		match := FindContainer(c.Name, existingOverrides.InitContainers)
+		if match == nil {
+			match = FindContainer(c.Name, originalPod.Spec.InitContainers)
+		}
+		if match == nil {
+			continue
+		}
+		overlay := *match.DeepCopy()
+		if overlay.Image == AutoImage {
+			overlay.Image = ""
+		}
+		overrides.InitContainers = append(overrides.InitContainers, overlay)
+		newMergedPod, err := applyInitContainer(finalPod, overlay)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply sidecar init container: %v", err)
+		}
+		finalPod = newMergedPod
+	}
+
+	_, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
+	if !alreadyInjected && (len(overrides.Containers) > 0 || len(overrides.InitContainers) > 0) {
+		// We found any overrides. Put them in the pod annotation so we can re-apply them on re-injection
+		js, err := json.Marshal(overrides)
+		if err != nil {
+			return nil, err
+		}
+		if finalPod.Annotations == nil {
+			finalPod.Annotations = map[string]string{}
+		}
+		finalPod.Annotations[OverrideAnnotation] = string(js)
+	}
+
+	return finalPod, nil
+}
+
+func createPatch(pod *corev1.Pod, original []byte) ([]byte, error) {
+	reinjected, err := json.Marshal(pod)
 	if err != nil {
 		return nil, err
 	}
+	p, err := jsonpatch.CreatePatch(original, reinjected)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(p)
+}
 
-	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
+// postProcessPod applies additionally transformations to the pod after merging with the injected template
+// This is generally things that cannot reasonably be added to the template
+func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParameters) error {
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+	if pod.Labels == nil {
+		pod.Labels = map[string]string{}
+	}
 
-	// Add all additional injected annotations
+	overwriteClusterInfo(pod.Spec.Containers, req)
+
+	if err := applyPrometheusMerge(pod, req.meshConfig); err != nil {
+		return err
+	}
+
+	if err := applyRewrite(pod, req); err != nil {
+		return err
+	}
+
+	applyMetadata(pod, injectedPod, req)
+
+	if err := reorderPod(pod, req); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionParameters) {
+	// Add all additional injected annotations. These are overridden if needed
+	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec)
+
+	// Deprecated; should be set directly in the template instead
 	for k, v := range req.injectedAnnotations {
-		annotations[k] = v
+		pod.Annotations[k] = v
+	}
+}
+
+// reorderPod ensures containers are properly ordered after merging
+func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
+	var (
+		merr error
+	)
+	mc := &meshconfig.MeshConfig{
+		DefaultConfig: &meshconfig.ProxyConfig{},
+	}
+	// Get copy of pod proxyconfig, to determine container ordering
+	if pca, f := req.pod.ObjectMeta.GetAnnotations()[annotation.ProxyConfig.Name]; f {
+		mc, merr = mesh.ApplyProxyConfig(pca, *req.meshConfig)
+		if merr != nil {
+			return merr
+		}
 	}
 
-	patchBytes, err := createPatch(pod, injectionStatus(pod), req.revision, annotations, spec, req.deployMeta.Name, req.meshConfig)
+	valuesStruct := &opconfig.Values{}
+	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
+		return fmt.Errorf("could not parse configuration values: %v", err)
+	}
+	// nolint: staticcheck
+	holdPod := mc.DefaultConfig.HoldApplicationUntilProxyStarts.GetValue() ||
+		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
+
+	proxyLocation := MoveLast
+	// If HoldApplicationUntilProxyStarts is set, reorder the proxy location
+	if holdPod {
+		proxyLocation = MoveFirst
+	}
+
+	// Proxy container should be last, unless HoldApplicationUntilProxyStarts is set
+	// This is to ensure `kubectl exec` and similar commands continue to default to the user's container
+	pod.Spec.Containers = modifyContainers(pod.Spec.Containers, ProxyContainerName, proxyLocation)
+	// Validation container must be first to block any user containers
+	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ValidationContainerName, MoveFirst)
+	// Init container must be last to allow any traffic to pass before iptables is setup
+	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveLast)
+	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveLast)
+
+	return nil
+}
+
+func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
+	valuesStruct := &opconfig.Values{}
+	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
+		return fmt.Errorf("could not parse configuration values: %v", err)
+	}
+
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
+	sidecar := FindSidecar(pod.Spec.Containers)
+
+	// We don't have to escape json encoding here when using golang libraries.
+	if rewrite && sidecar != nil {
+		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
+			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
+		}
+		patchRewriteProbe(pod.Annotations, pod, req.meshConfig.GetDefaultConfig().GetStatusPort())
+	}
+	return nil
+}
+
+// applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.
+// This moves the current prometheus.io annotations into an environment variable and replaces them
+// pointing to the agent.
+func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
+	sidecar := FindSidecar(pod.Spec.Containers)
+	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
+		targetPort := strconv.Itoa(int(mesh.GetDefaultConfig().GetStatusPort()))
+		if cur, f := pod.Annotations["prometheus.io/port"]; f {
+			// We have already set the port, assume user is controlling this or, more likely, re-injected
+			// the pod.
+			if cur == targetPort {
+				return nil
+			}
+		}
+		scrape := status.PrometheusScrapeConfiguration{
+			Scrape: pod.Annotations["prometheus.io/scrape"],
+			Path:   pod.Annotations["prometheus.io/path"],
+			Port:   pod.Annotations["prometheus.io/port"],
+		}
+		empty := status.PrometheusScrapeConfiguration{}
+		if sidecar != nil && scrape != empty {
+			by, err := json.Marshal(scrape)
+			if err != nil {
+				return err
+			}
+			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.PrometheusScrapingConfig.Name, Value: string(by)})
+		}
+		if pod.Annotations == nil {
+			pod.Annotations = map[string]string{}
+		}
+		pod.Annotations["prometheus.io/port"] = targetPort
+		pod.Annotations["prometheus.io/path"] = "/stats/prometheus"
+		pod.Annotations["prometheus.io/scrape"] = "true"
+	}
+	return nil
+}
+
+const (
+	// AutoImage is the special image name to indicate to the injector that we should use the injected image, and NOT override it
+	// This is necessary because image is a required field on container, so if a user defines an istio-proxy container
+	// with customizations they must set an image.
+	AutoImage = "auto"
+)
+
+// applyContainer merges a container spec on top of the provided pod
+func applyContainer(target *corev1.Pod, container corev1.Container) (*corev1.Pod, error) {
+	overlay := &corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{container}}}
+
+	overlayJSON, err := json.Marshal(overlay)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
-	return patchBytes, nil
+	return applyOverlay(target, overlayJSON)
+}
+
+// applyInitContainer merges a container spec on top of the provided pod as an init container
+func applyInitContainer(target *corev1.Pod, container corev1.Container) (*corev1.Pod, error) {
+	overlay := &corev1.Pod{Spec: corev1.PodSpec{
+		// We need to set containers to empty, otherwise it will marshal as "null" and delete all containers
+		Containers:     []corev1.Container{},
+		InitContainers: []corev1.Container{container},
+	}}
+
+	overlayJSON, err := json.Marshal(overlay)
+	if err != nil {
+		return nil, err
+	}
+
+	return applyOverlay(target, overlayJSON)
+}
+
+// applyContainer merges a pod spec, provided as JSON, on top of the provided pod
+func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
+	currentJSON, err := json.Marshal(target)
+	if err != nil {
+		return nil, err
+	}
+
+	pod := corev1.Pod{}
+	// Overlay the injected template onto the original podSpec
+	patched, err := strategicpatch.StrategicMergePatch(currentJSON, overlayJSON, pod)
+	if err != nil {
+		return nil, fmt.Errorf("strategic merge: %v", err)
+	}
+
+	if err := json.Unmarshal(patched, &pod); err != nil {
+		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
+	}
+	return &pod, nil
+}
+
+func mergeInjectedConfigLegacy(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
+	current, err := json.Marshal(req.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	// The template is yaml, StrategicMergePatch expects JSON
+	injectedJSON, err := yaml.YAMLToJSON(injected)
+	if err != nil {
+		return nil, fmt.Errorf("yaml to json: %v", err)
+	}
+
+	podSpec := corev1.PodSpec{}
+	// Overlay the injected template onto the original podSpec
+	patched, err := strategicpatch.StrategicMergePatch(current, injectedJSON, podSpec)
+	if err != nil {
+		return nil, fmt.Errorf("strategic merge: %v", err)
+	}
+	if err := json.Unmarshal(patched, &podSpec); err != nil {
+		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
+	}
+	pod := req.DeepCopy()
+	pod.Spec = podSpec
+
+	return pod, nil
+}
+
+func mergeInjectedConfig(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
+	// The template is yaml, StrategicMergePatch expects JSON
+	injectedJSON, err := yaml.YAMLToJSON(injected)
+	if err != nil {
+		return nil, fmt.Errorf("yaml to json: %v", err)
+	}
+
+	return applyOverlay(req, injectedJSON)
 }
 
 func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {
@@ -723,7 +755,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	}
 
 	// Deal with potential empty fields, e.g., when the pod is created by a deployment
-	podName := potentialPodName(&pod.ObjectMeta)
+	podName := potentialPodName(pod.ObjectMeta)
 	if pod.ObjectMeta.Namespace == "" {
 		pod.ObjectMeta.Namespace = req.Namespace
 	}
@@ -731,9 +763,11 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
-	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, &pod.ObjectMeta) {
+	wh.mu.RLock()
+	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
+		wh.mu.RUnlock()
 		return &kube.AdmissionResponse{
 			Allowed: true,
 		}
@@ -744,14 +778,14 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		pod:                 &pod,
 		deployMeta:          deploy,
 		typeMeta:            typeMeta,
-		template:            wh.Config.Template,
-		version:             wh.sidecarTemplateVersion,
+		template:            wh.Config.Templates,
 		meshConfig:          wh.meshConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
 	}
+	wh.mu.RUnlock()
 
 	patchBytes, err := injectPod(params)
 	if err != nil {

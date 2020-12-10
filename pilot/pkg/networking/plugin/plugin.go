@@ -28,6 +28,8 @@ const (
 	Authz = "authz"
 	// Health is the name of the health plugin passed through the command line
 	Health = "health"
+	// MetadataExchange is the name of the telemetry plugin passed through the command line
+	MetadataExchange = "metadata_exchange"
 )
 
 // InputParams is a set of values passed to Plugin callback methods. Not all fields are guaranteed to

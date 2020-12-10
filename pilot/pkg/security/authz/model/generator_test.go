@@ -255,17 +255,8 @@ func TestGenerator(t *testing.T) {
           name: :authority`),
 		},
 		{
-			name:  "pathGenerator14",
-			g:     pathGenerator{isIstioVersionGE15: false},
-			value: "/abc",
-			want: yamlPermission(t, `
-         header:
-          exactMatch: /abc
-          name: :path`),
-		},
-		{
-			name:  "pathGenerator15",
-			g:     pathGenerator{isIstioVersionGE15: true},
+			name:  "pathGenerator",
+			g:     pathGenerator{},
 			value: "/abc",
 			want: yamlPermission(t, `
          urlPath:

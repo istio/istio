@@ -49,16 +49,16 @@ var (
 func buildMockController() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.ReplicatedFooServiceName: mock.ReplicatedFooServiceV1,
-			mock.HelloService.Hostname:    mock.HelloService,
-			mock.ExtHTTPService.Hostname:  mock.ExtHTTPService,
+			mock.ReplicatedFooServiceName: mock.ReplicatedFooServiceV1.DeepCopy(),
+			mock.HelloService.Hostname:    mock.HelloService.DeepCopy(),
+			mock.ExtHTTPService.Hostname:  mock.ExtHTTPService.DeepCopy(),
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.ReplicatedFooServiceName: mock.ReplicatedFooServiceV2,
-			mock.WorldService.Hostname:    mock.WorldService,
-			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService,
+			mock.ReplicatedFooServiceName: mock.ReplicatedFooServiceV2.DeepCopy(),
+			mock.WorldService.Hostname:    mock.WorldService.DeepCopy(),
+			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService.DeepCopy(),
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
@@ -89,18 +89,18 @@ func buildMockControllerForMultiCluster() *Controller {
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
 			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0", []string{}),
-			mock.WorldService.Hostname: mock.WorldService,
+			mock.WorldService.Hostname: mock.WorldService.DeepCopy(),
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.ProviderID("mockAdapter1"),
+		ProviderID:       serviceregistry.Kubernetes,
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
 		Controller:       &mock.Controller{},
 	}
 
 	registry2 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.ProviderID("mockAdapter2"),
+		ProviderID:       serviceregistry.Kubernetes,
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
 		Controller:       &mock.Controller{},
@@ -248,9 +248,6 @@ func TestGetServiceError(t *testing.T) {
 	svc, err = aggregateCtl.GetService(mock.WorldService.Hostname)
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if service is found")
-	}
-	if svc == nil {
-		t.Fatal("Fail to get service")
 	}
 	if svc.Hostname != mock.WorldService.Hostname {
 		t.Fatal("Returned service is incorrect")
@@ -427,7 +424,7 @@ func TestAddRegistry(t *testing.T) {
 	}
 }
 
-func TestDeleteRegistry(t *testing.T) {
+func TestGetDeleteRegistry(t *testing.T) {
 	registries := []serviceregistry.Simple{
 		{
 			ProviderID: "registry1",
@@ -437,69 +434,64 @@ func TestDeleteRegistry(t *testing.T) {
 			ProviderID: "registry2",
 			ClusterID:  "cluster2",
 		},
+		{
+			ProviderID: "registry3",
+			ClusterID:  "cluster3",
+		},
 	}
 	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
-	ctrl.DeleteRegistry(registries[0].ClusterID)
-	if l := len(ctrl.registries); l != 1 {
-		t.Fatalf("Expected length of the registries slice should be 1, got %d", l)
-	}
-}
 
-func TestGetRegistries(t *testing.T) {
-	registries := []serviceregistry.Simple{
-		{
-			ProviderID: "registry1",
-			ClusterID:  "cluster1",
-		},
-		{
-			ProviderID: "registry2",
-			ClusterID:  "cluster2",
-		},
-	}
-	ctrl := NewController(Options{})
-	for _, r := range registries {
-		ctrl.AddRegistry(r)
-	}
+	// Test Get
 	result := ctrl.GetRegistries()
-	if len(ctrl.registries) != len(result) {
-		t.Fatal("Length of the original registries slice does not match to returned by GetRegistries.")
+	if l := len(result); l != 3 {
+		t.Fatalf("Expected length of the registries slice should be 3, got %d", l)
 	}
 
-	for i := range result {
-		if !reflect.DeepEqual(result[i], ctrl.registries[i]) {
-			t.Fatal("The original registries slice and resulting slice supposed to be identical.")
-		}
+	// Test Delete cluster2
+	ctrl.DeleteRegistry(registries[1].ClusterID)
+	result = ctrl.GetRegistries()
+	if l := len(result); l != 2 {
+		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
+	}
+	// check left registries are orders as before
+	if !reflect.DeepEqual(result[0], registries[0]) || !reflect.DeepEqual(result[1], registries[2]) {
+		t.Fatalf("Expected registries order has been changed")
 	}
 }
 
 func TestSkipSearchingRegistryForProxy(t *testing.T) {
-	cases := []struct {
-		node     string
-		registry string
-		self     string
-		want     bool
-	}{
-		{"main", "remote", "main", true},
-		{"remote", "main", "main", true},
-		{"remote", "Kubernetes", "main", true},
+	cluster1 := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.Kubernetes}
+	cluster2 := serviceregistry.Simple{ClusterID: "cluster-2", ProviderID: serviceregistry.Kubernetes}
+	// external registries may eventually be associated with a cluster
+	external := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.External}
 
-		{"main", "Kubernetes", "main", false},
-		{"main", "main", "main", false},
-		{"remote", "remote", "main", false},
-		{"", "main", "main", false},
-		{"main", "", "main", false},
-		{"main", "Kubernetes", "", false},
-		{"", "", "", false},
+	cases := []struct {
+		nodeClusterID string
+		registry      serviceregistry.Instance
+		want          bool
+	}{
+		// matching kube registry
+		{"cluster-1", cluster1, false},
+		// unmatching kube registry
+		{"cluster-1", cluster2, true},
+		// always search external
+		{"cluster-1", external, false},
+		{"cluster-2", external, false},
+		{"", external, false},
+		// always search for empty node cluster id
+		{"", cluster1, false},
+		{"", cluster2, false},
+		{"", external, false},
 	}
 
 	for i, c := range cases {
-		got := skipSearchingRegistryForProxy(c.node, c.registry, c.self)
+		got := skipSearchingRegistryForProxy(c.nodeClusterID, c.registry)
 		if got != c.want {
 			t.Errorf("%s: got %v want %v",
-				fmt.Sprintf("[%v] registry=%v node=%v", i, c.registry, c.node),
+				fmt.Sprintf("[%v] registry=%v node=%v", i, c.registry, c.nodeClusterID),
 				got, c.want)
 		}
 	}

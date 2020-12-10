@@ -43,7 +43,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "istio-iptables",
 	Short: "Set up iptables rules for Istio Sidecar",
-	Long:  "Script responsible for setting up port forwarding for Istio sidecar.",
+	Long:  "istio-iptables is responsible for setting up port forwarding for Istio Sidecar.",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
 		var ext dep.Dependencies

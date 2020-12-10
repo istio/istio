@@ -135,7 +135,7 @@ var (
 	proxiesQueueTime = monitoring.NewDistribution(
 		"pilot_proxy_queue_time",
 		"Time in seconds, a proxy is in the push queue before being dequeued.",
-		[]float64{.1, 1, 3, 5, 10, 20, 30},
+		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
 	)
 
 	pushTriggers = monitoring.NewSum(

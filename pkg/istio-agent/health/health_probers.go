@@ -15,6 +15,7 @@
 package health
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -60,20 +61,35 @@ func (p *ProbeResult) IsUnknown() bool {
 }
 
 type HTTPProber struct {
-	Config *v1alpha3.HTTPHealthCheckConfig
+	Config    *v1alpha3.HTTPHealthCheckConfig
+	Transport *http.Transport
+}
+
+func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig) *HTTPProber {
+	h := new(HTTPProber)
+	h.Config = cfg
+
+	// Create an http.Transport with TLSClientConfig for HTTPProber if the scheme is https,
+	// otherwise set up an empty one.
+	if cfg.Scheme == string(scheme.HTTPS) {
+		h.Transport = &http.Transport{
+			DisableKeepAlives: true,
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		}
+	} else {
+		h.Transport = &http.Transport{
+			DisableKeepAlives: true,
+		}
+	}
+	return h
 }
 
 // HttpProber_Probe will return whether or not the target is healthy (true -> healthy)
 // 	by making an HTTP Get response.
 func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	client := &http.Client{
-		Timeout: timeout,
-	}
-	// modify transport if scheme is https
-	if h.Config.Scheme == string(scheme.HTTPS) {
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
+		Timeout:   timeout,
+		Transport: h.Transport,
 	}
 	// transform crd into net http header
 	headers := make(http.Header)
@@ -102,10 +118,13 @@ func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	if headers.Get("Host") != "" {
 		req.Host = headers.Get("Host")
 	}
+	if _, ok := headers["User-Agent"]; !ok {
+		// explicitly set User-Agent so it's not set to default Go value. K8s use kube-probe.
+		headers.Set("User-Agent", "istio-probe/1.0")
+	}
 	res, err := client.Do(req)
 	// if we were unable to connect, count as failure
 	if err != nil {
-		healthCheckLog.Infof("Health Check failed for %v: %v", targetURL.String(), err)
 		return Unhealthy, err
 	}
 	defer func() {
@@ -116,7 +135,6 @@ func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	}()
 	// from [200,400)
 	if res.StatusCode >= http.StatusOK && res.StatusCode < http.StatusBadRequest {
-		healthCheckLog.Debugf("Health check succeeded for %v", targetURL.String())
 		return Healthy, nil
 	}
 	return Unhealthy, fmt.Errorf("status code was not from [200,400), bad code %v", res.StatusCode)
@@ -144,43 +162,16 @@ type ExecProber struct {
 }
 
 func (e *ExecProber) Probe(timeout time.Duration) (ProbeResult, error) {
-	cmd := exec.Cmd{
-		Path: e.Config.Command[0],
-		Args: e.Config.Command[1:],
-	}
-	if err := cmd.Start(); err != nil {
-		// should this be unknown? exit code returns status, this shouldnt
-		// should we extract exit status from here?
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, e.Config.Command[0], e.Config.Command[1:]...)
+	if err := cmd.Run(); err != nil {
+		select {
+		case <-ctx.Done():
+			return Unhealthy, fmt.Errorf("command timeout exceeded: %v", err)
+		default:
+		}
 		return Unhealthy, err
 	}
-
-	// wait on another channel
-	done := make(chan error)
-	go func() { done <- cmd.Wait() }()
-	// start timeout timer
-	timeoutTimer := time.After(timeout)
-
-	select {
-	case <-timeoutTimer:
-		if err := cmd.Process.Kill(); err != nil {
-			healthCheckLog.Errorf("Unable to kill process after timeout: %v", err)
-			return Unhealthy, err
-		}
-		// timeout exceeded counts as unhealthy, return nil err
-		return Unhealthy, nil
-	case err := <-done:
-		// extract exit status, log and return
-		if err == nil {
-			return Healthy, nil
-		}
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if exitError.ExitCode() == 0 {
-				// exited successfully
-				return Healthy, nil
-			}
-			healthCheckLog.Infof("Command %v exited with non-zero status %v", cmd.String(), exitError.ExitCode())
-			return Unhealthy, err
-		}
-		return Unhealthy, fmt.Errorf("could not extract ExitError from command error")
-	}
+	return Healthy, nil
 }

@@ -56,6 +56,7 @@ func (b *builder) Build() (echo.Instances, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build instance: %v", err)
 	}
+	scopes.Framework.Debugf("created echo deployments in %v", time.Since(t0))
 
 	if err := b.initializeInstances(instances); err != nil {
 		return nil, fmt.Errorf("initialize instances: %v", err)
@@ -81,6 +82,8 @@ func (b *builder) BuildOrFail(t test.Failer) echo.Instances {
 }
 
 func (b *builder) newInstances() ([]echo.Instance, error) {
+	// TODO consider making this parallel. This was attempted but had issues with concurrent writes
+	// it should be possible though.
 	instances := make([]echo.Instance, 0, len(b.configs))
 	for _, cfg := range b.configs {
 		inst, err := newInstance(b.ctx, cfg)

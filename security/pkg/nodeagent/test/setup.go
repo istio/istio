@@ -117,6 +117,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 	// Set up test environment for Proxy
 	proxySetup := istioEnv.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
+	proxySetup.EnvoyParams = []string{"--boostrap-version", "3"}
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
 	env.InboundListenerPort = int(proxySetup.Ports().ServerProxyPort)
@@ -161,12 +162,11 @@ func (e *Env) StartProxy(t *testing.T) {
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
 	serverOptions := &security.Options{
-		WorkloadUDSPath:   e.ProxySetup.SDSPath(),
-		UseLocalJWT:       true,
-		JWTPath:           proxyTokenPath,
-		CAEndpoint:        fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
-		EnableWorkloadSDS: true,
-		RecycleInterval:   5 * time.Minute,
+		WorkloadUDSPath: e.ProxySetup.SDSPath(),
+		UseLocalJWT:     true,
+		JWTPath:         proxyTokenPath,
+		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
+		RecycleInterval: 5 * time.Minute,
 	}
 
 	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "")
@@ -178,7 +178,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 	}
 	opt := e.cacheOptions(t)
 	workloadSecretCache := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, opt)
-	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache, nil)
+	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache)
 	if err != nil {
 		t.Fatalf("failed to start SDS server: %+v", err)
 	}

@@ -7,6 +7,10 @@ kubeadmConfigPatches:
     kind: ClusterConfiguration
     metadata:
       name: config
+    etcd:
+      local:
+        # Run etcd in a tmpfs (in RAM) for performance improvements
+        dataDir: /tmp/kind-cluster-etcd
     apiServer:
       extraArgs:
         "service-account-issuer": "kubernetes.default.svc"

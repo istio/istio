@@ -16,6 +16,7 @@
 package policy
 
 import (
+	"errors"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -48,16 +50,13 @@ func TestRateLimiting(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
-			isLocal := false
-			yaml, err := setupEnvoyFilter(ctx, isLocal)
+			yaml, err := setupEnvoyFilter(ctx, "testdata/enable_envoy_ratelimit.yaml")
 			if err != nil {
 				t.Fatalf("Could not setup envoy filter patches.")
 			}
 			defer cleanupEnvoyFilter(ctx, yaml)
 
-			if !sendTrafficAndCheckIfRatelimited(t) {
-				t.Errorf("No request received StatusTooMantRequest Error.")
-			}
+			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
 
@@ -66,23 +65,34 @@ func TestLocalRateLimiting(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
 		Run(func(ctx framework.TestContext) {
-			isLocal := true
-			yaml, err := setupEnvoyFilter(ctx, isLocal)
+			yaml, err := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit.yaml")
 			if err != nil {
 				t.Fatalf("Could not setup envoy filter patches.")
 			}
 			defer cleanupEnvoyFilter(ctx, yaml)
 
-			if !sendTrafficAndCheckIfRatelimited(t) {
-				t.Errorf("No request received StatusTooMantRequest Error.")
+			sendTrafficAndCheckIfRatelimited(t)
+		})
+}
+
+func TestLocalRouteSpecificRateLimiting(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ratelimit.envoy").
+		Run(func(ctx framework.TestContext) {
+			yaml, err := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
+			if err != nil {
+				t.Fatalf("Could not setup envoy filter patches.")
 			}
+			defer cleanupEnvoyFilter(ctx, yaml)
+
+			sendTrafficAndCheckIfRatelimited(t)
 		})
 }
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Skip("https://github.com/istio/istio/issues/28285").
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
@@ -150,18 +160,10 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	// TODO(gargnupur): Figure out a way to query, envoy is ready to talk to rate limit service.
-	// Also, change to use mock rate limit and redis service.
-	time.Sleep(time.Second * 60)
-
 	return nil
 }
 
-func setupEnvoyFilter(ctx resource.Context, isLocal bool) (string, error) {
-	file := "testdata/enable_envoy_ratelimit.yaml"
-	if isLocal {
-		file = "testdata/enable_envoy_local_ratelimit.yaml"
-	}
+func setupEnvoyFilter(ctx resource.Context, file string) (string, error) {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		return "", err
@@ -190,20 +192,27 @@ func cleanupEnvoyFilter(ctx resource.Context, yaml string) error {
 	return nil
 }
 
-func sendTrafficAndCheckIfRatelimited(t *testing.T) bool {
+func sendTrafficAndCheckIfRatelimited(t *testing.T) {
 	t.Helper()
-	t.Logf("Sending 300 requests...")
-	httpOpts := echo.CallOptions{
-		Target:   srv,
-		PortName: "http",
-		Count:    300,
-	}
-	if parsedResponse, err := clt.Call(httpOpts); err == nil {
-		for _, resp := range parsedResponse {
-			if response.StatusCodeTooManyRequests == resp.Code {
-				return true
+	retry.UntilSuccessOrFail(t, func() error {
+		t.Logf("Sending 5 requests...")
+		httpOpts := echo.CallOptions{
+			Target:   srv,
+			PortName: "http",
+			Count:    5,
+		}
+		received409 := false
+		if parsedResponse, err := clt.Call(httpOpts); err == nil {
+			for _, resp := range parsedResponse {
+				if response.StatusCodeTooManyRequests == resp.Code {
+					received409 = true
+					break
+				}
 			}
 		}
-	}
-	return false
+		if !received409 {
+			return errors.New("no request received StatusTooManyRequest error")
+		}
+		return nil
+	}, retry.Delay(10*time.Second), retry.Timeout(60*time.Second))
 }

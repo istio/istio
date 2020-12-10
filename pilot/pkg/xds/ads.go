@@ -24,7 +24,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -48,12 +47,11 @@ var (
 	connectionNumber = int64(0)
 )
 
-// DiscoveryStream is an interface for ADS.
-type DiscoveryStream interface {
-	Send(*discovery.DiscoveryResponse) error
-	Recv() (*discovery.DiscoveryRequest, error)
-	grpc.ServerStream
-}
+// DiscoveryStream is a server interface for XDS.
+type DiscoveryStream = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+
+// DiscoveryClient is a client interface for XDS.
+type DiscoveryClient = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
 // Connection holds information about connected client.
 type Connection struct {
@@ -178,14 +176,13 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-
 	if !s.preProcessRequest(con.proxy, req) {
 		return nil
 	}
+
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
-
 	shouldRespond := s.shouldRespond(con, req)
 
 	// Check if we have a blocked push. If this was an ACK, we will send it. Either way we remove the blocked push
@@ -450,10 +447,8 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 		return err
 	}
 
-	// Based on node metadata and version, we can associate a different generator.
-	// TODO: use a map of generators, so it's easily customizable and to avoid deps
 	proxy.WatchedResources = map[string]*model.WatchedResource{}
-
+	// Based on node metadata and version, we can associate a different generator.
 	if proxy.Metadata.Generator != "" {
 		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
 	}
@@ -574,14 +569,16 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 // pre-process request. returns whether or not to continue.
 func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) bool {
 	if req.TypeUrl == v3.HealthInfoType {
-		event := HealthEvent{}
-		if req.ErrorDetail == nil {
-			event.Healthy = true
-		} else {
-			event.Healthy = false
-			event.Message = req.ErrorDetail.Message
+		if features.WorkloadEntryHealthChecks {
+			event := HealthEvent{}
+			if req.ErrorDetail == nil {
+				event.Healthy = true
+			} else {
+				event.Healthy = false
+				event.Message = req.ErrorDetail.Message
+			}
+			s.InternalGen.UpdateWorkloadEntryHealth(proxy, event)
 		}
-		s.InternalGen.UpdateWorkloadEntryHealth(proxy, event)
 		return false
 	}
 	return true
@@ -622,7 +619,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range getPushResources(con.proxy.WatchedResources) {
+	for _, w := range getWatchedResources(con.proxy.WatchedResources) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
@@ -676,7 +673,7 @@ var KnownPushOrder = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+func getWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
 	wr := make([]*model.WatchedResource, 0, len(resources))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
@@ -717,15 +714,12 @@ func (s *DiscoveryServer) adsClientCount() int {
 func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	var connection *Connection
 
-	s.adsClientsMutex.RLock()
-	for _, v := range s.adsClients {
+	for _, v := range s.Clients() {
 		if v.proxy.Metadata.ClusterID == clusterID && v.proxy.IPAddresses[0] == ip {
 			connection = v
 			break
 		}
-
 	}
-	s.adsClientsMutex.RUnlock()
 
 	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
 	if connection == nil {
@@ -786,17 +780,8 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(req *model.PushRequest) {
-
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	s.adsClientsMutex.RLock()
-
-	// Create a temp map to avoid locking the add/remove
-	pending := make([]*Connection, 0, len(s.adsClients))
-	for _, v := range s.adsClients {
-		pending = append(pending, v)
-	}
-	s.adsClientsMutex.RUnlock()
 
 	if adsLog.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
@@ -805,7 +790,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 		}
 	}
 	req.Start = time.Now()
-	for _, p := range pending {
+	for _, p := range s.Clients() {
 		s.pushQueue.Enqueue(p, req)
 	}
 }

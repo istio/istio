@@ -119,7 +119,7 @@ func removeInjectedContainers(containers []corev1.Container, injectedContainerNa
 	return containers
 }
 
-func restoreAppProbes(containers []corev1.Container, probers map[string]*istioStatus.Prober) []corev1.Container {
+func restoreAppProbes(containers []corev1.Container, probers map[string]*inject.Prober) []corev1.Container {
 	re := regexp.MustCompile("/app-health/([a-z]+)/(readyz|livez|startupz)")
 	for name, prober := range probers {
 		matches := re.FindStringSubmatch(name)
@@ -160,7 +160,6 @@ func restoreAppProbes(containers []corev1.Container, probers map[string]*istioSt
 	}
 	return containers
 }
-
 func retrieveAppProbe(containers []corev1.Container) string {
 	for _, c := range containers {
 		if c.Name != proxyContainerName {
@@ -310,7 +309,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 		return out, nil
 	}
 
-	var appProbe istioStatus.KubeAppProbers
+	var appProbe inject.KubeAppProbers
 	appProbeStr := retrieveAppProbe(podSpec.Containers)
 	if appProbeStr != "" {
 		if err := json.Unmarshal([]byte(appProbeStr), &appProbe); err != nil {

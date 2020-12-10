@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 27595
+releaseNotes:
+  - |
+    **Fixed** Correction of Istio Grafana Dashboards Queries which have reporter field.

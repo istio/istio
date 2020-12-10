@@ -58,14 +58,13 @@ func TestHttpProber(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			server, port := createHTTPServer(tt.statusCode)
 			defer server.Close()
-			httpProber := HTTPProber{
-				Config: &v1alpha3.HTTPHealthCheckConfig{
+			httpProber := NewHTTPProber(
+				&v1alpha3.HTTPHealthCheckConfig{
 					Path:   "/test/health/check",
 					Port:   port,
 					Host:   "127.0.0.1",
 					Scheme: "http",
-				},
-			}
+				})
 
 			if tt.statusCode == -1 {
 				server.Close()
@@ -129,15 +128,21 @@ func TestExecProber(t *testing.T) {
 	}{
 		{
 			desc:                "Healthy",
-			command:             []string{"/usr/bin/whoami"},
+			command:             []string{"true"},
 			expectedProbeResult: Healthy,
 			expectedError:       nil,
 		},
 		{
 			desc:                "Unhealthy",
-			command:             []string{"/usr/bin/foooobarrrrrr"},
+			command:             []string{"false"},
 			expectedProbeResult: Unhealthy,
-			expectedError:       errors.New("fork/exec /usr/bin/foooobarrrrrr: no such file or directory"),
+			expectedError:       errors.New("exit status 1"),
+		},
+		{
+			desc:                "Timeout",
+			command:             []string{"sleep", "1"},
+			expectedProbeResult: Unhealthy,
+			expectedError:       errors.New("command timeout exceeded: signal: killed"),
 		},
 	}
 
@@ -150,8 +155,17 @@ func TestExecProber(t *testing.T) {
 			}
 
 			got, err := execProber.Probe(time.Second)
-			if got != tt.expectedProbeResult || (err == nil && tt.expectedError != nil) || (err != nil && tt.expectedError == nil) {
-				t.Errorf("%s: got: %v, expected: %v, got error: %v, expected error %v", tt.desc, got, tt.expectedProbeResult, err, tt.expectedError)
+			if got != tt.expectedProbeResult {
+				t.Errorf("got: %v, expected: %v", got, tt.expectedProbeResult)
+			}
+			errorOrEmpty := func(e error) string {
+				if e != nil {
+					return e.Error()
+				}
+				return ""
+			}
+			if errorOrEmpty(err) != errorOrEmpty(tt.expectedError) {
+				t.Errorf("got err: %v, expected err: %v", err, tt.expectedError)
 			}
 		})
 	}

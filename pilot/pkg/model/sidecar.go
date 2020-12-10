@@ -39,7 +39,9 @@ var (
 		gvk.DestinationRule: {},
 	}
 
-	sidecarScopeNamespaceConfigTypes = map[config.GroupVersionKind]struct{}{
+	// clusterScopedConfigTypes includes configs when they are in root namespace,
+	// they will be applied to all namespaces within the cluster.
+	clusterScopedConfigTypes = map[config.GroupVersionKind]struct{}{
 		gvk.Sidecar:               {},
 		gvk.EnvoyFilter:           {},
 		gvk.AuthorizationPolicy:   {},
@@ -63,9 +65,13 @@ var (
 // specified Sidecar CRD, we will construct one that has a catch all egress
 // listener that imports every public service/virtualService in the mesh.
 type SidecarScope struct {
+	Name string
+	// This is the namespace where the sidecar takes effect,
+	// maybe different from the ns where sidecar resides if sidecar is in root ns.
+	Namespace string
 	// The crd itself. Can be nil if we are constructing the default
 	// sidecar scope
-	Config *config.Config
+	Sidecar *networking.Sidecar
 
 	// Set of egress listeners, and their associated services.  A sidecar
 	// scope should have either ingress/egress listeners or both.  For
@@ -152,6 +158,8 @@ type IstioEgressListenerWrapper struct {
 	virtualServices []config.Config
 }
 
+const defaultSidecar = "default-sidecar"
+
 // DefaultSidecarScopeForNamespace is a sidecar scope object with a default catch all egress listener
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
@@ -168,9 +176,8 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
-		Config: &config.Config{Meta: config.Meta{
-			Namespace: configNamespace,
-		}},
+		Name:               defaultSidecar,
+		Namespace:          configNamespace,
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name]*config.Config),
@@ -203,6 +210,11 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	for _, el := range out.EgressListeners {
+		// add dependencies on delegate virtual services
+		delegates := ps.DelegateVirtualServicesConfigKey(el.virtualServices)
+		for _, delegate := range delegates {
+			out.AddConfigDependencies(delegate)
+		}
 		for _, vs := range el.virtualServices {
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.VirtualService,
@@ -227,14 +239,17 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		return DefaultSidecarScopeForNamespace(ps, configNamespace)
 	}
 
-	r := sidecarConfig.Spec.(*networking.Sidecar)
+	sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 	out := &SidecarScope{
+		Name:               sidecarConfig.Name,
+		Namespace:          configNamespace,
+		Sidecar:            sidecar,
 		configDependencies: make(map[uint32]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 	}
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
-	for _, e := range r.Egress {
+	for _, e := range sidecar.Egress {
 		out.EgressListeners = append(out.EgressListeners,
 			convertIstioListenerToWrapper(ps, configNamespace, e))
 	}
@@ -283,7 +298,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		for _, s := range listener.services {
 			addService(s)
 		}
-
+		// add dependencies on delegate virtual services
+		delegates := ps.DelegateVirtualServicesConfigKey(listener.virtualServices)
+		for _, delegate := range delegates {
+			out.AddConfigDependencies(delegate)
+		}
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in listener.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
@@ -344,18 +363,17 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		}
 	}
 
-	if r.OutboundTrafficPolicy == nil {
+	if sidecar.OutboundTrafficPolicy == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
 			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 			}
 		}
 	} else {
-		out.OutboundTrafficPolicy = r.OutboundTrafficPolicy
+		out.OutboundTrafficPolicy = sidecar.OutboundTrafficPolicy
 	}
 
-	out.Config = sidecarConfig
-	if len(r.Ingress) > 0 {
+	if len(sidecar.Ingress) > 0 {
 		out.HasCustomIngressListeners = true
 	}
 
@@ -468,8 +486,8 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 	}
 
 	// This kind of config will trigger a change if made in the root namespace or the same namespace
-	if _, f := sidecarScopeNamespaceConfigTypes[config.Kind]; f {
-		return config.Namespace == sc.RootNamespace || config.Namespace == sc.Config.Namespace
+	if _, f := clusterScopedConfigTypes[config.Kind]; f {
+		return config.Namespace == sc.RootNamespace || config.Namespace == sc.Namespace
 	}
 
 	// This kind of config is unknown to sidecarScope.

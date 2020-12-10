@@ -57,8 +57,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				listenerProtocol: networking.ListenerProtocolAuto,
 				tlsV2Enabled:     false,
 			},
-			// No need to set up filter chain, default one is okay.
-			want: nil,
+			want: []networking.FilterChain{{}},
 		},
 		{
 			name: "MTLSDisable",
@@ -70,7 +69,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				listenerProtocol: networking.ListenerProtocolAuto,
 				tlsV2Enabled:     false,
 			},
-			want: nil,
+			want: []networking.FilterChain{{}},
 		},
 		{
 			name: "MTLSStrict using SDS",

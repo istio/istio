@@ -267,7 +267,7 @@ var (
 	}
 
 	// pilotTraceSamplingEnv is value of PILOT_TRACE_SAMPLING env bounded
-	// by [0.0, 100.0]; if outside the range it is set to 100.0
+	// by [0.0, 100.0]; if outside the range it is set to 1.0
 	pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
 
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
@@ -397,66 +397,66 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				listeners = append(listeners, l)
 			}
 		}
+		return listeners
 
-	} else {
-		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-		for _, ingressListener := range rule.Ingress {
-			// determine the bindToPort setting for listeners. Validation guarantees that these are all IP listeners.
-			bindToPort := false
-			if noneMode {
-				// do not care what the listener's capture mode setting is. The proxy does not use iptables
-				bindToPort = true
-			} else if ingressListener.CaptureMode == networking.CaptureMode_NONE {
-				// proxy uses iptables redirect or tproxy. IF mode is not set
-				// for older proxies, it defaults to iptables redirect.  If the
-				// listener's capture mode specifies NONE, then the proxy wants
-				// this listener alone to be on a physical port. If the
-				// listener's capture mode is default, then its same as
-				// iptables i.e. bindToPort is false.
-				bindToPort = true
-			}
+	}
 
-			listenPort := &model.Port{
-				Port:     int(ingressListener.Port.Number),
-				Protocol: protocol.Parse(ingressListener.Port.Protocol),
-				Name:     ingressListener.Port.Name,
-			}
+	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
+		// determine the bindToPort setting for listeners. Validation guarantees that these are all IP listeners.
+		bindToPort := false
+		if noneMode {
+			// do not care what the listener's capture mode setting is. The proxy does not use iptables
+			bindToPort = true
+		} else if ingressListener.CaptureMode == networking.CaptureMode_NONE {
+			// proxy uses iptables redirect or tproxy. IF mode is not set
+			// for older proxies, it defaults to iptables redirect.  If the
+			// listener's capture mode specifies NONE, then the proxy wants
+			// this listener alone to be on a physical port. If the
+			// listener's capture mode is default, then its same as
+			// iptables i.e. bindToPort is false.
+			bindToPort = true
+		}
 
-			bind := ingressListener.Bind
-			if len(bind) == 0 {
-				// User did not provide one. Pick the proxy's IP or wildcard inbound listener.
-				bind = getSidecarInboundBindIP(node)
-			}
+		listenPort := &model.Port{
+			Port:     int(ingressListener.Port.Number),
+			Protocol: protocol.Parse(ingressListener.Port.Protocol),
+			Name:     ingressListener.Port.Name,
+		}
 
-			instance := configgen.findOrCreateServiceInstance(node.ServiceInstances, ingressListener,
-				sidecarScope.Config.Name, sidecarScope.Config.Namespace)
+		bind := ingressListener.Bind
+		if len(bind) == 0 {
+			// User did not provide one. Pick the proxy's IP or wildcard inbound listener.
+			bind = getSidecarInboundBindIP(node)
+		}
 
-			listenerOpts := buildListenerOpts{
-				push:       push,
-				proxy:      node,
-				bind:       bind,
-				port:       listenPort,
-				bindToPort: bindToPort,
-			}
+		instance := configgen.findOrCreateServiceInstance(node.ServiceInstances, ingressListener,
+			sidecarScope.Name, sidecarScope.Namespace)
 
-			// we don't need to set other fields of the endpoint here as
-			// the consumers of this service instance (listener/filter chain constructors)
-			// are simply looking for the service port and the service associated with the instance.
-			instance.ServicePort = listenPort
+		listenerOpts := buildListenerOpts{
+			push:       push,
+			proxy:      node,
+			bind:       bind,
+			port:       listenPort,
+			bindToPort: bindToPort,
+		}
 
-			// Validation ensures that the protocol specified in Sidecar.ingress
-			// is always a valid known protocol
-			pluginParams := &plugin.InputParams{
-				ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(listenPort.Protocol,
-					core.TrafficDirection_INBOUND),
-				Node:            node,
-				ServiceInstance: instance,
-				Push:            push,
-			}
+		// we don't need to set other fields of the endpoint here as
+		// the consumers of this service instance (listener/filter chain constructors)
+		// are simply looking for the service port and the service associated with the instance.
+		instance.ServicePort = listenPort
 
-			if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
-				listeners = append(listeners, l)
-			}
+		// Validation ensures that the protocol specified in Sidecar.ingress
+		// is always a valid known protocol
+		pluginParams := &plugin.InputParams{
+			ListenerProtocol: istionetworking.ModelProtocolToListenerProtocol(listenPort.Protocol,
+				core.TrafficDirection_INBOUND),
+			Node:            node,
+			ServiceInstance: instance,
+			Push:            push,
+		}
+
+		if l := configgen.buildSidecarInboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap); l != nil {
+			listeners = append(listeners, l)
 		}
 	}
 
@@ -472,7 +472,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
 		clusterName = util.BuildInboundSubsetKey(node, pluginParams.ServiceInstance.ServicePort.Name,
-			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port)
+			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 	}
 
 	httpOpts := &httpListenerOpts{
@@ -515,7 +515,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
 	clusterName := util.BuildInboundSubsetKey(pluginParams.Node, pluginParams.ServiceInstance.ServicePort.Name,
-		pluginParams.ServiceInstance.Service.Hostname, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+		pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
 
 	thriftOpts := &thriftListenerOpts{
 		transport:   thrift.TransportType_AUTO_TRANSPORT,
@@ -545,6 +545,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		if old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
 			// For sidecar specified listeners, the caller is expected to supply a dummy service instance
 			// with the right port and a hostname constructed from the sidecar config's name+namespace
+			// TODO everything in inbound listener is now workload oriented. We should no longer have listener conflicts.
 			pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node.ID,
 				fmt.Sprintf("Conflicting inbound listener:%d. existing: %s, incoming: %s", listenerOpts.port.Port,
 					old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
@@ -557,11 +558,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	for _, p := range configgen.Plugins {
 		chains := p.OnInboundFilterChains(pluginParams)
 		allChains = append(allChains, chains...)
-	}
-
-	if len(allChains) == 0 {
-		// add one empty entry to the list so we generate a default listener below
-		allChains = []istionetworking.FilterChain{{}}
 	}
 
 	tlsInspectorEnabled := false
@@ -1711,7 +1707,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
-	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager)
+	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager, listenerOpts.proxy)
 
 	if listenerOpts.push.Mesh.EnableTracing {
 		proxyConfig := listenerOpts.proxy.Metadata.ProxyConfigOrDefault(listenerOpts.push.Mesh.DefaultConfig)
@@ -1734,20 +1730,58 @@ func buildTracingConfig(config *meshconfig.ProxyConfig) *hcm.HttpConnectionManag
 					Value: config.Tracing.MaxPathTagLength,
 				}
 		}
-
-		if len(config.Tracing.CustomTags) != 0 {
-			tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
-		}
+		tracingCfg.CustomTags = buildCustomTags(config.Tracing.CustomTags)
 	}
 
 	return tracingCfg
+}
+
+func defaultTags() []*tracing.CustomTag {
+	return []*tracing.CustomTag{
+		{
+			Tag: "istio.canonical_revision",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         "CANONICAL_REVISION",
+					DefaultValue: "latest",
+				},
+			},
+		},
+		{
+			Tag: "istio.canonical_service",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         "CANONICAL_SERVICE",
+					DefaultValue: "unknown",
+				},
+			},
+		},
+		{
+			Tag: "istio.mesh_id",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         "ISTIO_META_MESH_ID",
+					DefaultValue: "unknown",
+				},
+			},
+		},
+		{
+			Tag: "istio.namespace",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         "POD_NAMESPACE",
+					DefaultValue: "default",
+				},
+			},
+		},
+	}
 }
 
 func getPilotRandomSamplingEnv() float64 {
 	f := features.TraceSampling
 	if f < 0.0 || f > 100.0 {
 		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
-		return 100.0
+		return 1.0
 	}
 	return f
 }
@@ -1759,7 +1793,7 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 		sampling = config.Tracing.Sampling
 
 		if sampling > 100.0 {
-			sampling = 100.0
+			sampling = 1.0
 		}
 	}
 	cfg.ClientSampling = &xdstype.Percent{
@@ -1774,7 +1808,13 @@ func updateTraceSamplingConfig(config *meshconfig.ProxyConfig, cfg *hcm.HttpConn
 }
 
 func buildCustomTags(customTags map[string]*meshconfig.Tracing_CustomTag) []*tracing.CustomTag {
+
 	var tags []*tracing.CustomTag
+
+	if features.EnableIstioTags {
+		defaultTags := defaultTags()
+		tags = append(tags, defaultTags...)
+	}
 
 	for tagName, tagInfo := range customTags {
 		switch tag := tagInfo.Type.(type) {
@@ -1970,7 +2010,7 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
-	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener)
+	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener, opts.proxy)
 
 	if opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)

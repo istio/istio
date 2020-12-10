@@ -17,5 +17,5 @@ upgradeNotes:
       related Mixer configuration, you will not be able to upgrade without taking
       action to either (a) convert your existing configuration and code to the new
       extension model for Istio or (b) using the gRPC shim developed to bridge
-      transition to the new model. For more details, please refer the docs on
-      istio.io.
+      transition to the new model. For more details, [please refer to the developer
+      wiki](https://github.com/istio/istio/wiki/Enabling-Envoy-Authorization-Service-and-gRPC-Access-Log-Service-With-Mixer).

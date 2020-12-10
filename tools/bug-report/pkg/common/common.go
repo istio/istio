@@ -27,6 +27,7 @@ const (
 
 	ProxyContainerName     = "istio-proxy"
 	DiscoveryContainerName = "discovery"
+	OperatorContainerName  = "istio-operator"
 )
 
 type kv struct {
@@ -101,6 +102,11 @@ func IsDiscoveryContainer(clusterVersion, container string, labels map[string]st
 // IsProxyContainer reports whether container is an istio proxy container.
 func IsProxyContainer(_, container string) bool {
 	return container == ProxyContainerName
+}
+
+// IsOperatorContainer reports whether the container is an istio-operator container.
+func IsOperatorContainer(_, container string) bool {
+	return container == OperatorContainerName
 }
 
 func getVersionKey(clusterVersion string) string {

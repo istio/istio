@@ -21,9 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,8 +67,7 @@ type Controller struct {
 
 	syncInterval time.Duration
 
-	mu          sync.RWMutex
-	initialSync bool
+	initialSync atomic.Bool
 }
 
 // RemoteCluster defines cluster struct
@@ -176,24 +175,29 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	}
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
-	wait.Until(c.runWorker, 5*time.Second, stopCh)
+
+	go wait.Until(c.runWorker, 5*time.Second, stopCh)
+	<-stopCh
 }
 
 func (c *Controller) HasSynced() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.initialSync
+	return c.initialSync.Load()
 }
 
 // StartSecretController creates the secret controller.
-func StartSecretController(k8s kubernetes.Interface, addCallback addSecretCallback,
-	updateCallback updateSecretCallback, removeCallback removeSecretCallback, namespace string, syncInterval time.Duration) *Controller {
-	stopCh := make(chan struct{})
+func StartSecretController(
+	k8s kubernetes.Interface,
+	addCallback addSecretCallback, updateCallback updateSecretCallback,
+	removeCallback removeSecretCallback,
+	namespace string,
+	syncInterval time.Duration,
+	stop <-chan struct{},
+) *Controller {
 	clusterStore := newClustersStore()
 	controller := NewController(k8s, namespace, clusterStore, addCallback, updateCallback, removeCallback)
 	controller.syncInterval = syncInterval
 
-	go controller.Run(stopCh)
+	go controller.Run(stop)
 
 	return controller
 }
@@ -228,9 +232,7 @@ func (c *Controller) processNextItem() bool {
 
 func (c *Controller) processItem(secretName string) error {
 	if secretName == initialSyncSignal {
-		c.mu.Lock()
-		c.initialSync = true
-		c.mu.Unlock()
+		c.initialSync.Store(true)
 		return nil
 	}
 

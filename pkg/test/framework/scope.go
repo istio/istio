@@ -153,7 +153,7 @@ func (s *scope) done(nocleanup bool) error {
 		scopes.Framework.Debugf("Begin cleaning up %s", name)
 		if e := c.Close(); e != nil {
 			scopes.Framework.Debugf("Error cleaning up %s: %v", name, e)
-			err = multierror.Append(err, e)
+			err = multierror.Append(err, e).ErrorOrNil()
 		}
 		scopes.Framework.Debugf("Cleanup complete for %s", name)
 	}

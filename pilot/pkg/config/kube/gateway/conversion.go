@@ -361,12 +361,6 @@ func buildTCPDestination(action []k8s.RouteForwardTo, ns string) []*istio.RouteD
 		return nil
 	}
 
-	if len(action) == 1 {
-		return []*istio.RouteDestination{{
-			Destination: buildGenericDestination(action[0], ns),
-		}}
-	}
-
 	weights := []int{}
 	for _, w := range action {
 		weights = append(weights, int(w.Weight))
@@ -398,8 +392,16 @@ func buildTLSMatch(match []k8s.TLSRouteMatch) []*istio.TLSMatchAttributes {
 	res := make([]*istio.TLSMatchAttributes, 0, len(match))
 	for _, m := range match {
 		res = append(res, &istio.TLSMatchAttributes{
-			SniHosts: m.SNIs,
+			SniHosts: hostnamesToStringlist(m.SNIs),
 		})
+	}
+	return res
+}
+
+func hostnamesToStringlist(h []k8s.Hostname) []string {
+	res := make([]string, 0, len(h))
+	for _, i := range h {
+		res = append(res, string(i))
 	}
 	return res
 }
@@ -415,12 +417,6 @@ func intSum(n []int) int {
 func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string) []*istio.HTTPRouteDestination {
 	if action == nil {
 		return nil
-	}
-
-	if len(action) == 1 {
-		return []*istio.HTTPRouteDestination{{
-			Destination: buildDestination(action[0], ns),
-		}}
 	}
 
 	weights := []int{}
@@ -478,6 +474,10 @@ func buildGenericDestination(to k8s.RouteForwardTo, ns string) *istio.Destinatio
 // In the event we cannot cleanly move to 100 denominator, we will round up weights in order. See test for details.
 // TODO in the future we should probably just make VirtualService support relative weights directly
 func standardizeWeights(weights []int) []int {
+	if len(weights) == 1 {
+		// Instead of setting weight=100 for a single destination, we will not set weight at all
+		return []int{0}
+	}
 	total := intSum(weights)
 	if total == 0 {
 		// All empty, fallback to even weight

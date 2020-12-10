@@ -29,46 +29,75 @@ import (
 )
 
 func TestNDS(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		ConfigString: mustReadFile(t, "./testdata/nds-se.yaml"),
-	})
-
-	ads := s.ConnectADS().WithType(v3.NameTableType)
-	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
-		Node: &corev3.Node{
-			Id: ads.ID,
-			Metadata: model.NodeMetadata{
-				DNSCapture: "agent",
-			}.ToStruct(),
-		},
-	})
-
-	var nt nds.NameTable
-	err := ptypes.UnmarshalAny(res.Resources[0], &nt)
-	if err != nil {
-		t.Fatal("Failed to unmarshal name table", err)
-		return
-	}
-	if len(nt.Table) == 0 {
-		t.Fatalf("expected more than 0 entries in name table")
-	}
-	expectedNameTable := &nds.NameTable{
-		Table: map[string]*nds.NameTable_NameInfo{
-			"random-1.host.example": {
-				Ips:      []string{"240.240.0.1"},
-				Registry: "External",
+	cases := []struct {
+		name     string
+		meta     model.NodeMetadata
+		expected *nds.NameTable
+	}{
+		{
+			name: "auto allocate",
+			meta: model.NodeMetadata{
+				DNSCapture:      true,
+				DNSAutoAllocate: true,
 			},
-			"random-2.host.example": {
-				Ips:      []string{"9.9.9.9"},
-				Registry: "External",
-			},
-			"random-3.host.example": {
-				Ips:      []string{"240.240.0.2"},
-				Registry: "External",
+			expected: &nds.NameTable{
+				Table: map[string]*nds.NameTable_NameInfo{
+					"random-1.host.example": {
+						Ips:      []string{"240.240.0.1"},
+						Registry: "External",
+					},
+					"random-2.host.example": {
+						Ips:      []string{"9.9.9.9"},
+						Registry: "External",
+					},
+					"random-3.host.example": {
+						Ips:      []string{"240.240.0.2"},
+						Registry: "External",
+					},
+				},
 			},
 		},
+		{
+			name: "just capture",
+			meta: model.NodeMetadata{
+				DNSCapture: true,
+			},
+			expected: &nds.NameTable{
+				Table: map[string]*nds.NameTable_NameInfo{
+					"random-2.host.example": {
+						Ips:      []string{"9.9.9.9"},
+						Registry: "External",
+					},
+				},
+			},
+		},
 	}
-	if diff := cmp.Diff(nt, expectedNameTable, protocmp.Transform()); diff != "" {
-		t.Fatalf("name table does not match expected value:\n %v", diff)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				ConfigString: mustReadFile(t, "./testdata/nds-se.yaml"),
+			})
+
+			ads := s.ConnectADS().WithType(v3.NameTableType)
+			res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+				Node: &corev3.Node{
+					Id:       ads.ID,
+					Metadata: tt.meta.ToStruct(),
+				},
+			})
+
+			var nt nds.NameTable
+			err := ptypes.UnmarshalAny(res.Resources[0], &nt)
+			if err != nil {
+				t.Fatal("Failed to unmarshal name table", err)
+				return
+			}
+			if len(nt.Table) == 0 {
+				t.Fatalf("expected more than 0 entries in name table")
+			}
+			if diff := cmp.Diff(nt, tt.expected, protocmp.Transform()); diff != "" {
+				t.Fatalf("name table does not match expected value:\n %v", diff)
+			}
+		})
 	}
 }

@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
-	"istio.io/pkg/env"
 )
 
 // AnalyzerFoundIssuesError indicates that at least one analyzer found problems.
@@ -74,8 +73,6 @@ var (
 	suppress          []string
 	analysisTimeout   time.Duration
 	recursive         bool
-
-	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -271,7 +268,7 @@ func Analyze() *cobra.Command {
 		"List the analyzers available to run. Suppresses normal execution.")
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", true,
 		"Use live Kubernetes cluster for analysis. Set --use-kube=false to analyze files only.")
-	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
+	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", formatting.IstioctlColorDefault(analysisCmd.OutOrStdout()),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
 	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Enable verbose output")
@@ -376,21 +373,6 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		return nil
 	})
 	return readers, err
-}
-
-func istioctlColorDefault(cmd *cobra.Command) bool {
-	if strings.EqualFold(termEnvVar.Get(), "dumb") {
-		return false
-	}
-
-	file, ok := cmd.OutOrStdout().(*os.File)
-	if ok {
-		if !isatty.IsTerminal(file.Fd()) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func errorIfMessagesExceedThreshold(messages []diag.Message) error {

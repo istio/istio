@@ -18,26 +18,256 @@
 package cacustomroot
 
 import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path"
 	"testing"
 
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
-var (
-	inst istio.Instance
+const (
+	ASvc = "a"
+	BSvc = "b"
 )
+
+type EchoDeployments struct {
+	Namespace namespace.Instance
+	// workloads for TestSecureNaming
+	A, B echo.Instances
+	// workloads for TestTrustDomainAliasSecureNaming
+	// workload Client is also used by TestTrustDomainValidation
+	Client, ServerNakedFoo, ServerNakedBar echo.Instances
+	// workloads for TestTrustDomainValidation
+	Naked, Server echo.Instances
+}
+
+var (
+	inst    istio.Instance
+	apps    = &EchoDeployments{}
+	Cleanup func() error
+)
+
+func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
+	var err error
+	apps.Namespace, err = namespace.New(ctx, namespace.Config{
+		Prefix: "test-ns",
+		Inject: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Create testing certs using runtime namespace.
+	Cleanup, err = generateCerts(apps.Namespace.Name())
+	if err != nil {
+		return err
+	}
+	rootCert, err := loadCert("root-cert.pem")
+	if err != nil {
+		return err
+	}
+	clientCert, err := loadCert(TmpDir + "/workload-foo-cert.pem")
+	if err != nil {
+		return err
+	}
+	Key, err := loadCert(TmpDir + "/workload-foo-key.pem")
+	if err != nil {
+		return err
+	}
+
+	builder := echoboot.NewBuilder(ctx)
+	for _, cluster := range ctx.Clusters() {
+		builder.
+			With(nil, util.EchoConfig(ASvc, apps.Namespace, false, nil, cluster)).
+			With(nil, util.EchoConfig(BSvc, apps.Namespace, false, nil, cluster)).
+			// Deploy 3 workloads:
+			// client: echo app with istio-proxy sidecar injected, holds default trust domain cluster.local.
+			// serverNakedFoo: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-foo.
+			// serverNakedBar: echo app without istio-proxy sidecar, holds custom trust domain trust-domain-bar.
+			With(nil, echo.Config{
+				Namespace: apps.Namespace,
+				Service:   "client",
+				Cluster:   cluster,
+			}).
+			With(nil, echo.Config{
+				Namespace: apps.Namespace,
+				Service:   "server-naked-foo",
+				Subsets: []echo.SubsetConfig{
+					{
+						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+					},
+				},
+				ServiceAccount: true,
+				Ports: []echo.Port{
+					{
+						Name:         HTTPS,
+						Protocol:     protocol.HTTPS,
+						ServicePort:  443,
+						InstancePort: 8443,
+						TLS:          true,
+					},
+				},
+				TLSSettings: &common.TLSSettings{
+					RootCert:   rootCert,
+					ClientCert: clientCert,
+					Key:        Key,
+				},
+				Cluster: cluster,
+			}).
+			With(nil, echo.Config{
+				Namespace: apps.Namespace,
+				Service:   "server-naked-bar",
+				Subsets: []echo.SubsetConfig{
+					{
+						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+					},
+				},
+				ServiceAccount: true,
+				Ports: []echo.Port{
+					{
+						Name:         HTTPS,
+						Protocol:     protocol.HTTPS,
+						ServicePort:  443,
+						InstancePort: 8443,
+						TLS:          true,
+					},
+				},
+				TLSSettings: &common.TLSSettings{
+					RootCert:   rootCert,
+					ClientCert: clientCert,
+					Key:        Key,
+				},
+				Cluster: cluster,
+			}).
+			With(nil, echo.Config{
+				Namespace: apps.Namespace,
+				Service:   "naked",
+				Subsets: []echo.SubsetConfig{
+					{
+						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+					},
+				},
+				Cluster: cluster,
+			}).
+			With(nil, echo.Config{
+				Subsets:        []echo.SubsetConfig{{}},
+				Namespace:      apps.Namespace,
+				Service:        "server",
+				ServiceAccount: true,
+				Ports: []echo.Port{
+					{
+						Name:         httpPlaintext,
+						Protocol:     protocol.HTTP,
+						ServicePort:  8090,
+						InstancePort: 8090,
+					},
+					{
+						Name:         httpMTLS,
+						Protocol:     protocol.HTTP,
+						ServicePort:  8091,
+						InstancePort: 8091,
+					},
+					{
+						Name:         tcpPlaintext,
+						Protocol:     protocol.TCP,
+						ServicePort:  8092,
+						InstancePort: 8092,
+					},
+					{
+						Name:         tcpMTLS,
+						Protocol:     protocol.TCP,
+						ServicePort:  8093,
+						InstancePort: 8093,
+					},
+				},
+				WorkloadOnlyPorts: []echo.WorkloadPort{
+					{
+						Port:     9000,
+						Protocol: protocol.TCP,
+					},
+				},
+				Cluster: cluster,
+			})
+	}
+	echos, err := builder.Build()
+	if err != nil {
+		return err
+	}
+	apps.A = echos.Match(echo.Service(ASvc))
+	apps.B = echos.Match(echo.Service(BSvc))
+	apps.Client = echos.Match(echo.Service("client"))
+	apps.ServerNakedFoo = echos.Match(echo.Service("server-naked-foo"))
+	apps.ServerNakedBar = echos.Match(echo.Service("server-naked-bar"))
+	apps.Naked = echos.Match(echo.Service("naked"))
+	apps.Server = echos.Match(echo.Service("server"))
+	return nil
+}
+
+func loadCert(name string) (string, error) {
+	data, err := cert.ReadSampleCertFromFile(name)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func generateCerts(ns string) (func() error, error) {
+	workDir := path.Join(env.IstioSrc, "samples/certs")
+	script := path.Join(workDir, "generate-workload.sh")
+
+	crts := []struct {
+		td string
+		sa string
+	}{
+		{
+			td: "foo",
+			sa: "server-naked-foo",
+		},
+		{
+			td: "bar",
+			sa: "server-naked-bar",
+		},
+	}
+
+	for _, crt := range crts {
+		command := exec.Cmd{
+			Path:   script,
+			Args:   []string{script, crt.td, ns, crt.sa, TmpDir},
+			Stdout: os.Stdout,
+			Stderr: os.Stdout,
+		}
+		if err := command.Run(); err != nil {
+			return nil, fmt.Errorf("failed to create testing certificates: %s", err)
+		}
+	}
+
+	return func() error {
+		return os.RemoveAll(path.Join(env.IstioSrc, "samples/certs/"+TmpDir))
+	}, nil
+}
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
+		Setup(func(ctx resource.Context) error {
+			return SetupApps(ctx, apps)
+		}).
 		Run()
 }
 

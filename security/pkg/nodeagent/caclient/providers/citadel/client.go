@@ -77,8 +77,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 }
 
 // CSR Sign calls Citadel to sign a CSR.
-func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
@@ -128,7 +127,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 		if !ok {
 			return nil, fmt.Errorf("failed to append certificates")
 		}
-		citadelClientLog.Info("Citadel client using custom root: ", c.caEndpoint, " ", string(c.caTLSRootCert))
+		citadelClientLog.Info("Citadel client using custom root cert: ", c.caEndpoint)
 	}
 	var certificate tls.Certificate
 	config := tls.Config{

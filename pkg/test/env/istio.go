@@ -20,7 +20,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"istio.io/pkg/log"
 )
@@ -95,17 +94,16 @@ var (
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/gcemetadata/gce_metadata_server.yaml")
 )
 
+var (
+	_, b, _, _ = runtime.Caller(0)
+
+	// Root folder of this project
+	// This relies on the fact this file is 3 levels up from the root; if this changes, adjust the path below
+	Root = filepath.Join(filepath.Dir(b), "../../..")
+)
+
 func getDefaultIstioSrc() string {
-	// Assume it is run inside istio.io/istio
-	current, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	idx := strings.Index(current, filepath.Join("/src", "istio.io", "istio"))
-	if idx > 0 {
-		return filepath.Join(current[0:idx], "/src", "istio.io", "istio")
-	}
-	return current // launching from GOTOP (for example in goland)
+	return Root
 }
 
 func getDefaultIstioOut() string {

@@ -30,9 +30,9 @@ import (
 	"time"
 
 	"github.com/prometheus/common/expfmt"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
@@ -131,6 +131,39 @@ func TestNewServer(t *testing.T) {
 		if !strings.Contains(err.Error(), tc.err) {
 			t.Errorf("test case failed [%v], expect error %v, got %v", tc.probe, tc.err, err)
 		}
+	}
+}
+
+func TestPprof(t *testing.T) {
+	pprofPath := "/debug/pprof/cmdline"
+	// Starts the pilot agent status server.
+	server, err := NewServer(Config{StatusPort: 0})
+	if err != nil {
+		t.Fatalf("failed to create status server %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go server.Run(ctx)
+
+	var statusPort uint16
+	for statusPort == 0 {
+		server.mutex.RLock()
+		statusPort = server.statusPort
+		server.mutex.RUnlock()
+	}
+
+	client := http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, pprofPath), nil)
+	if err != nil {
+		t.Fatalf("[%v] failed to create request", pprofPath)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal("request failed: ", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("[%v] unexpected status code, want = %v, got = %v", pprofPath, http.StatusOK, resp.StatusCode)
 	}
 }
 
@@ -330,13 +363,13 @@ func TestAppProbe(t *testing.T) {
 
 	simpleConfig := KubeAppProbers{
 		"/app-health/hello-world/readyz": &Prober{
-			HTTPGet: &v1.HTTPGetAction{
+			HTTPGet: &apimirror.HTTPGetAction{
 				Path: "/hello/sunnyvale",
 				Port: intstr.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 		"/app-health/hello-world/livez": &Prober{
-			HTTPGet: &v1.HTTPGetAction{
+			HTTPGet: &apimirror.HTTPGetAction{
 				Port: intstr.IntOrString{IntVal: int32(appPort)},
 			},
 		},
@@ -366,10 +399,10 @@ func TestAppProbe(t *testing.T) {
 			probePath: "app-health/header/readyz",
 			config: KubeAppProbers{
 				"/app-health/header/readyz": &Prober{
-					HTTPGet: &v1.HTTPGetAction{
+					HTTPGet: &apimirror.HTTPGetAction{
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
-						HTTPHeaders: []v1.HTTPHeader{
+						HTTPHeaders: []apimirror.HTTPHeader{
 							{"Host", testHostValue},
 							{testHeader, testHeaderValue},
 						},
@@ -382,7 +415,7 @@ func TestAppProbe(t *testing.T) {
 			probePath: "app-health/hello-world/readyz",
 			config: KubeAppProbers{
 				"/app-health/hello-world/readyz": &Prober{
-					HTTPGet: &v1.HTTPGetAction{
+					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "hello/texas",
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 					},
@@ -394,7 +427,7 @@ func TestAppProbe(t *testing.T) {
 			probePath: "app-health/hello-world/livez",
 			config: KubeAppProbers{
 				"/app-health/hello-world/livez": &Prober{
-					HTTPGet: &v1.HTTPGetAction{
+					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "hello/texas",
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 					},

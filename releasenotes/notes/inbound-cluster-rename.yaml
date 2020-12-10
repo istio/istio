@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: bug-fix
+issue:
+- 29199
+
+releaseNotes:
+- |
+  **Fixed** a regression in Istio 1.8.0 causing workloads with multiple Services with overlapping ports to send
+  traffic to the wrong port.

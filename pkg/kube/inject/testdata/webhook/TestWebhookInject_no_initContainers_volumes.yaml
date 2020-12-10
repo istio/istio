@@ -1,5 +1,0 @@
-spec:
-  containers:
-    - name: c0
-  volumes:
-    - name: v0

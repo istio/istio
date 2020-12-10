@@ -78,7 +78,7 @@ gateways:
       # A gateway with this mode ensures that pilot generates an additional
       # set of clusters for internal services but without Istio mTLS, to
       # enable cross cluster routing.
-      ISTIO_META_ROUTER_MODE: "sni-dnat"
+      ISTIO_META_ROUTER_MODE: "standard"
 
     nodeSelector: {}
     tolerations: []
@@ -120,6 +120,12 @@ global:
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
   # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
   defaultConfigVisibilitySettings: []
+
+  # Default node selector to be applied to all deployments so that all pods can be
+  # constrained to run a particular nodes. Each component can overwrite these default
+  # values by adding its node selector block in the relevant section below and setting
+  # the desired values.
+  defaultNodeSelector: {}
 
   # enable pod disruption budget for the control plane, which is used to
   # ensure Istio control plane components are gradually upgraded or recovered.

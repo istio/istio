@@ -1074,7 +1074,7 @@ the configuration objects that affect that service.`,
 			}
 
 			// Get all the labels for all the matching pods.  We will used this to complain
-			// if NONE of the pods match a VirtaulService
+			// if NONE of the pods match a VirtualService
 			podsLabels := make([]k8s_labels.Set, len(matchingPods))
 			for i, pod := range matchingPods {
 				podsLabels[i] = k8s_labels.Set(pod.ObjectMeta.Labels)

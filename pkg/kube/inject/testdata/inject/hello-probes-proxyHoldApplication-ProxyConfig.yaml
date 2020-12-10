@@ -1,0 +1,46 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+      annotations:
+        proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
+    spec:
+      containers:
+      - name: hello
+        image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+        ports:
+        - name: http
+          containerPort: 80
+        livenessProbe:
+          httpGet:
+            port: http
+        readinessProbe:
+          httpGet:
+            port: 3333
+      - name: world
+        image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+        ports:
+        - name: http
+          containerPort: 90
+        livenessProbe:
+          httpGet:
+            port: http
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /tmp/healthy

@@ -1,4 +1,4 @@
-# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=v0.1.0-rc2"`
+# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=v0.1.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -12,6 +12,8 @@ spec:
     kind: BackendPolicy
     listKind: BackendPolicyList
     plural: backendpolicies
+    shortNames:
+    - bp
     singular: backendpolicy
   scope: Namespaced
   versions:
@@ -226,6 +228,8 @@ spec:
     kind: GatewayClass
     listKind: GatewayClassList
     plural: gatewayclasses
+    shortNames:
+    - gc
     singular: gatewayclass
   scope: Cluster
   versions:
@@ -311,8 +315,8 @@ spec:
                 - lastTransitionTime: "1970-01-01T00:00:00Z"
                   message: Waiting for controller
                   reason: Waiting
-                  status: Unknown
-                  type: InvalidParameters
+                  status: "False"
+                  type: Admitted
                 description: Conditions is the current status from the controller
                   for this GatewayClass.
                 items:
@@ -413,6 +417,8 @@ spec:
     kind: Gateway
     listKind: GatewayList
     plural: gateways
+    shortNames:
+    - gtw
     singular: gateway
   scope: Namespaced
   versions:
@@ -964,8 +970,7 @@ spec:
                 description: Listeners provide status for each unique listener port
                   defined in the Spec.
                 items:
-                  description: ListenerStatus is the status associated with a Listener
-                    port.
+                  description: ListenerStatus is the status associated with a Listener.
                   properties:
                     conditions:
                       description: Conditions describe the current condition of this
@@ -1046,18 +1051,27 @@ spec:
                       x-kubernetes-list-map-keys:
                       - type
                       x-kubernetes-list-type: map
+                    hostname:
+                      description: Hostname is the Listener hostname value for which
+                        this message is reporting the status.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
                     port:
                       description: Port is the unique Listener port value for which
-                        this message is reporting the status. If more than one Gateway
-                        Listener shares the same port value, this message reports
-                        the combined status of all such Listeners.
+                        this message is reporting the status.
                       format: int32
                       maximum: 65535
                       minimum: 1
                       type: integer
+                    protocol:
+                      description: Protocol is the Listener protocol value for which
+                        this message is reporting the status.
+                      type: string
                   required:
                   - conditions
                   - port
+                  - protocol
                   type: object
                 maxItems: 64
                 type: array
@@ -1191,9 +1205,9 @@ spec:
               rules:
                 description: Rules are a list of HTTP matchers, filters and actions.
                 items:
-                  description: HTTPRouteRule defines semantics for matching an incoming
-                    HTTP request against a set of matching rules and executing an
-                    action (and optionally filters) on the request.
+                  description: HTTPRouteRule defines semantics for matching an HTTP
+                    request based on conditions, optionally executing additional processing
+                    steps, and forwarding the request to an API object.
                   properties:
                     filters:
                       description: "Filters define the filters that are applied to
@@ -1204,7 +1218,7 @@ spec:
                         type of filter: - ALL core filters MUST be supported by all
                         implementations. - Implementers are encouraged to support
                         extended filters. - Implementation-specific custom filters
-                        have no API guarantees across implementations. Specifying
+                        have no API guarantees across   implementations. \n Specifying
                         a core filter multiple times has unspecified or custom conformance.
                         \n Support: core"
                       items:
@@ -1283,12 +1297,12 @@ spec:
                                   to mirror matched requests to. If both BackendRef
                                   and ServiceName are specified, ServiceName will
                                   be given precedence. \n If the referent cannot be
-                                  found, the route must be dropped from the Gateway.
-                                  The controller should raise the \"ResolvedRefs\"
-                                  condition on the Gateway with the \"DroppedRoutes\"
-                                  reason. The gateway status for this route should
-                                  be updated with a condition that describes the error
-                                  more specifically. \n Support: Custom"
+                                  found, the rule is not included in the route. The
+                                  controller should raise the \"ResolvedRefs\" condition
+                                  on the Gateway with the \"DegradedRoutes\" reason.
+                                  The gateway status for this route should be updated
+                                  with a condition that describes the error more specifically.
+                                  \n Support: Custom"
                                 properties:
                                   group:
                                     description: Group is the group of the referent.
@@ -1324,12 +1338,12 @@ spec:
                                   this takes the place of BackendRef. If both BackendRef
                                   and ServiceName are specified, ServiceName will
                                   be given precedence. \n If the referent cannot be
-                                  found, the route must be dropped from the Gateway.
-                                  The controller should raise the \"ResolvedRefs\"
-                                  condition on the Gateway with the \"DroppedRoutes\"
-                                  reason. The gateway status for this route should
-                                  be updated with a condition that describes the error
-                                  more specifically. \n Support: Core"
+                                  found, the rule is not included in the route. The
+                                  controller should raise the \"ResolvedRefs\" condition
+                                  on the Gateway with the \"DegradedRoutes\" reason.
+                                  The gateway status for this route should be updated
+                                  with a condition that describes the error more specifically.
+                                  \n Support: Core"
                                 maxLength: 253
                                 type: string
                             required:
@@ -1368,7 +1382,10 @@ spec:
                       type: array
                     forwardTo:
                       description: ForwardTo defines the backend(s) where matching
-                        requests should be sent.
+                        requests should be sent. If unspecified, the rule performs
+                        no forwarding. If unspecified and no filters are specified
+                        that would result in a response being sent, a 503 error code
+                        is returned.
                       items:
                         description: HTTPRouteForwardTo defines how a HTTPRoute should
                           forward a request.
@@ -1490,10 +1507,10 @@ spec:
                                         to mirror matched requests to. If both BackendRef
                                         and ServiceName are specified, ServiceName
                                         will be given precedence. \n If the referent
-                                        cannot be found, the route must be dropped
-                                        from the Gateway. The controller should raise
+                                        cannot be found, the rule is not included
+                                        in the route. The controller should raise
                                         the \"ResolvedRefs\" condition on the Gateway
-                                        with the \"DroppedRoutes\" reason. The gateway
+                                        with the \"DegradedRoutes\" reason. The gateway
                                         status for this route should be updated with
                                         a condition that describes the error more
                                         specifically. \n Support: Custom"
@@ -1532,10 +1549,10 @@ spec:
                                         to. When specified, this takes the place of
                                         BackendRef. If both BackendRef and ServiceName
                                         are specified, ServiceName will be given precedence.
-                                        \n If the referent cannot be found, the route
-                                        must be dropped from the Gateway. The controller
+                                        \n If the referent cannot be found, the rule
+                                        is not included in the route. The controller
                                         should raise the \"ResolvedRefs\" condition
-                                        on the Gateway with the \"DroppedRoutes\"
+                                        on the Gateway with the \"DegradedRoutes\"
                                         reason. The gateway status for this route
                                         should be updated with a condition that describes
                                         the error more specifically. \n Support: Core"
@@ -1594,7 +1611,17 @@ spec:
                               should raise the \"ResolvedRefs\" condition on the Gateway
                               with the \"DroppedRoutes\" reason. The gateway status
                               for this route should be updated with a condition that
-                              describes the error more specifically. \n Support: Core"
+                              describes the error more specifically. \n The protocol
+                              to use should be specified with the AppProtocol field
+                              on Service resources. This field was introduced in Kubernetes
+                              1.18. If using an earlier version of Kubernetes, a `networking.x-k8s.io/app-protocol`
+                              annotation on the BackendPolicy resource may be used
+                              to define the protocol. If the AppProtocol field is
+                              available, this annotation should not be used. The AppProtocol
+                              field, when populated, takes precedence over the annotation
+                              in the BackendPolicy resource. For custom backends,
+                              it is encouraged to add a semantically-equivalent field
+                              in the Custom Resource Definition. \n Support: Core"
                             maxLength: 253
                             type: string
                           weight:
@@ -1639,7 +1666,16 @@ spec:
                         how to specify multiple match conditions that should be ANDed
                         together. \n If no matches are specified, the default is a
                         prefix path match on \"/\", which has the effect of matching
-                        every HTTP request."
+                        every HTTP request. \n A client request may match multiple
+                        HTTP route rules. Matching precedence MUST be determined in
+                        order of the following criteria, continuing on ties: * The
+                        longest matching hostname. * The longest matching path. *
+                        The largest number of header matches * The oldest Route based
+                        on creation timestamp. For example, a Route with   a creation
+                        timestamp of \"2020-09-08 01:02:03\" is given precedence over
+                        \  a Route with a creation timestamp of \"2020-09-08 01:02:04\".
+                        * The Route appearing first in alphabetical order (namespace/name)
+                        for   example, foo/bar is given precedence over foo/baz."
                       items:
                         description: "HTTPRouteMatch defines the predicate used to
                           match requests to a given action. Multiple match types are
@@ -1652,11 +1688,11 @@ spec:
                         properties:
                           extensionRef:
                             description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior.  For example, resource
+                              extension to the \"match\" behavior. For example, resource
                               \"myroutematcher\" in group \"networking.acme.io\".
-                              If the referent cannot be found, the route must be dropped
-                              from the Gateway. The controller should raise the \"ResolvedRefs\"
-                              condition on the Gateway with the \"DroppedRoutes\"
+                              If the referent cannot be found, the rule is not included
+                              in the route. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DegradedRoutes\"
                               reason. The gateway status for this route should be
                               updated with a condition that describes the error more
                               specifically. \n Support: custom"
@@ -1693,7 +1729,8 @@ spec:
                                   implementations can support POSIX, PCRE or any other
                                   dialects of regular expressions. Please read the
                                   implementation's documentation to determine the
-                                  supported dialect."
+                                  supported dialect. \n HTTP Header name matching
+                                  MUST be case-insensitive (RFC 2616 - section 4.2)."
                                 enum:
                                 - Exact
                                 - RegularExpression
@@ -1706,7 +1743,7 @@ spec:
                                   matched. It MUST contain at least one entry. \n
                                   The HTTP header field name to match is the map key,
                                   and the value of the HTTP header is the map value.
-                                  HTTP header field names MUST be matched case-insensitively.
+                                  HTTP header field name matching MUST be case-insensitive.
                                   \n Multiple match values are ANDed together, meaning,
                                   a request must match all the specified headers to
                                   select the route."
@@ -1771,8 +1808,8 @@ spec:
                       contains a TLS certificate and private key. This certificate
                       MUST be used for TLS handshakes for the domain this RouteTLSConfig
                       is associated with. If an entry in this list omits or specifies
-                      the empty string for both the group and the resource, the resource
-                      defaults to "secrets". An implementation may support other resources
+                      the empty string for both the group and kind, the resource defaults
+                      to "secrets". An implementation may support other resources
                       (for example, resource "mycertificates" in group "networking.acme.io").
                       Support: Core (Kubernetes Secrets) Support: Implementation-specific
                       (Other resource types)'
@@ -2035,9 +2072,9 @@ spec:
                               forward matched requests to. If both BackendRef and
                               ServiceName are specified, ServiceName will be given
                               precedence. \n If the referent cannot be found, the
-                              route must be dropped from the Gateway. The controller
-                              should raise the \"ResolvedRefs\" condition on the Gateway
-                              with the \"DroppedRoutes\" reason. The gateway status
+                              rule is not included in the route. The controller should
+                              raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DegradedRoutes\" reason. The gateway status
                               for this route should be updated with a condition that
                               describes the error more specifically. \n Support: Custom"
                             properties:
@@ -2075,11 +2112,21 @@ spec:
                               takes the place of BackendRef. If both BackendRef and
                               ServiceName are specified, ServiceName will be given
                               precedence. \n If the referent cannot be found, the
-                              route must be dropped from the Gateway. The controller
-                              should raise the \"ResolvedRefs\" condition on the Gateway
-                              with the \"DroppedRoutes\" reason. The gateway status
+                              rule is not included in the route. The controller should
+                              raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DegradedRoutes\" reason. The gateway status
                               for this route should be updated with a condition that
-                              describes the error more specifically. \n Support: Core"
+                              describes the error more specifically. \n The protocol
+                              to use is defined using AppProtocol field (introduced
+                              in Kubernetes 1.18) in the Service resource. In the
+                              absence of the AppProtocol field a `networking.x-k8s.io/app-protocol`
+                              annotation on the BackendPolicy resource may be used
+                              to define the protocol. If the AppProtocol field is
+                              available, this annotation should not be used. The AppProtocol
+                              field, when populated, takes precedence over the annotation
+                              in the BackendPolicy resource. For custom backends,
+                              it is encouraged to add a semantically-equivalent field
+                              in the Custom Resource Definition. \n Support: Core"
                             maxLength: 253
                             type: string
                           weight:
@@ -2105,30 +2152,28 @@ spec:
                         - port
                         type: object
                       maxItems: 4
+                      minItems: 1
                       type: array
                     matches:
                       description: Matches define conditions used for matching the
                         rule against incoming TCP connections. Each match is independent,
                         i.e. this rule will be matched if **any** one of the matches
-                        is satisfied.
+                        is satisfied. If unspecified, all requests from the associated
+                        gateway TCP listener will match.
                       items:
                         description: TCPRouteMatch defines the predicate used to match
                           connections to a given action.
                         properties:
                           extensionRef:
                             description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior.  The resource may
-                              be \"configmap\" (use the empty string for the group)
-                              or an implementation-defined resource (for example,
-                              resource \"myroutematchers\" in group \"networking.acme.io\").
-                              Omitting or specifying the empty string for both the
-                              resource and group indicates that the resource is \"configmaps\".
-                              \n If the referent cannot be found, the route must be
-                              dropped from the Gateway. The controller should raise
-                              the \"ResolvedRefs\" condition on the Gateway with the
-                              \"DroppedRoutes\" reason. The gateway status for this
-                              route should be updated with a condition that describes
-                              the error more specifically. \n Support: custom"
+                              extension to the \"match\" behavior.  For example, resource
+                              \"mytcproutematcher\" in group \"networking.acme.io\".
+                              If the referent cannot be found, the rule is not included
+                              in the route. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DegradedRoutes\"
+                              reason. The gateway status for this route should be
+                              updated with a condition that describes the error more
+                              specifically. \n Support: custom"
                             properties:
                               group:
                                 description: Group is the group of the referent.
@@ -2153,7 +2198,11 @@ spec:
                         type: object
                       maxItems: 8
                       type: array
+                  required:
+                  - forwardTo
                   type: object
+                maxItems: 16
+                minItems: 1
                 type: array
             required:
             - rules
@@ -2316,9 +2365,9 @@ spec:
       openAPIV3Schema:
         description: "TLSRoute is the Schema for the TLSRoute resource. TLSRoute is
           similar to TCPRoute but can be configured to match against TLS-specific
-          metadata. This allows more flexibility in matching streams for in a given
-          TLS listener. \n If you need to forward traffic to a single target for a
-          TLS listener, you could chose to use a TCPRoute with a TLS listener."
+          metadata. This allows more flexibility in matching streams for a given TLS
+          listener. \n If you need to forward traffic to a single target for a TLS
+          listener, you could chose to use a TCPRoute with a TLS listener."
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -2394,9 +2443,9 @@ spec:
                               forward matched requests to. If both BackendRef and
                               ServiceName are specified, ServiceName will be given
                               precedence. \n If the referent cannot be found, the
-                              route must be dropped from the Gateway. The controller
-                              should raise the \"ResolvedRefs\" condition on the Gateway
-                              with the \"DroppedRoutes\" reason. The gateway status
+                              rule is not included in the route. The controller should
+                              raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DegradedRoutes\" reason. The gateway status
                               for this route should be updated with a condition that
                               describes the error more specifically. \n Support: Custom"
                             properties:
@@ -2434,11 +2483,21 @@ spec:
                               takes the place of BackendRef. If both BackendRef and
                               ServiceName are specified, ServiceName will be given
                               precedence. \n If the referent cannot be found, the
-                              route must be dropped from the Gateway. The controller
-                              should raise the \"ResolvedRefs\" condition on the Gateway
-                              with the \"DroppedRoutes\" reason. The gateway status
+                              rule is not included in the route. The controller should
+                              raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DegradedRoutes\" reason. The gateway status
                               for this route should be updated with a condition that
-                              describes the error more specifically. \n Support: Core"
+                              describes the error more specifically. \n The protocol
+                              to use is defined using AppProtocol field (introduced
+                              in Kubernetes 1.18) in the Service resource. In the
+                              absence of the AppProtocol field a `networking.x-k8s.io/app-protocol`
+                              annotation on the BackendPolicy resource may be used
+                              to define the protocol. If the AppProtocol field is
+                              available, this annotation should not be used. The AppProtocol
+                              field, when populated, takes precedence over the annotation
+                              in the BackendPolicy resource. For custom backends,
+                              it is encouraged to add a semantically-equivalent field
+                              in the Custom Resource Definition. \n Support: Core"
                             maxLength: 253
                             type: string
                           weight:
@@ -2464,30 +2523,28 @@ spec:
                         - port
                         type: object
                       maxItems: 4
+                      minItems: 1
                       type: array
                     matches:
                       description: Matches define conditions used for matching the
-                        rule against incoming TLS handshake. Each match is independent,
+                        rule against an incoming TLS handshake. Each match is independent,
                         i.e. this rule will be matched if **any** one of the matches
-                        is satisfied.
+                        is satisfied. If unspecified, all requests from the associated
+                        gateway TLS listener will match.
                       items:
                         description: TLSRouteMatch defines the predicate used to match
                           connections to a given action.
                         properties:
                           extensionRef:
                             description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior.  The resource may
-                              be \"configmap\" (use the empty string for the group)
-                              or an implementation-defined resource (for example,
-                              resource \"myroutematchers\" in group \"networking.acme.io\").
-                              Omitting or specifying the empty string for both the
-                              resource and group indicates that the resource is \"configmaps\".
-                              \n If the referent cannot be found, the route must be
-                              dropped from the Gateway. The controller should raise
-                              the \"ResolvedRefs\" condition on the Gateway with the
-                              \"DroppedRoutes\" reason. The gateway status for this
-                              route should be updated with a condition that describes
-                              the error more specifically. \n Support: custom"
+                              extension to the \"match\" behavior.  For example, resource
+                              \"mytlsroutematcher\" in group \"networking.acme.io\".
+                              If the referent cannot be found, the rule is not included
+                              in the route. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DegradedRoutes\"
+                              reason. The gateway status for this route should be
+                              updated with a condition that describes the error more
+                              specifically. \n Support: custom"
                             properties:
                               group:
                                 description: Group is the group of the referent.
@@ -2511,7 +2568,7 @@ spec:
                             type: object
                           snis:
                             description: "SNIs defines a set of SNI names that should
-                              match against the SNI attribute of TLS CLientHello message
+                              match against the SNI attribute of TLS ClientHello message
                               in TLS handshake. \n SNI can be \"precise\" which is
                               a domain name without the terminating dot of a network
                               host (e.g. \"foo.example.com\") or \"wildcard\", which
@@ -2519,21 +2576,30 @@ spec:
                               (e.g. \"*.example.com\"). The wildcard character '*'
                               must appear by itself as the first DNS label and matches
                               only a single label. You cannot have a wildcard label
-                              by itself (e.g. Host == \"*\"). Requests will be matched
-                              against the Host field in the following order: \n 1.
-                              If SNI is precise, the request matches this rule if
-                              \   the SNI in ClientHello is equal to one of the defined
-                              SNIs. 2. If SNI is a wildcard, then the request matches
-                              this rule if    the SNI is to equal to the suffix    (removing
-                              the first label) of the wildcard rule. \n Support: core"
+                              by itself (e.g. Host == \"*\"). \n Requests will be
+                              matched against the Host field in the following order:
+                              \n 1. If SNI is precise, the request matches this rule
+                              if the SNI in    ClientHello is equal to one of the
+                              defined SNIs. 2. If SNI is a wildcard, then the request
+                              matches this rule if the    SNI is to equal to the suffix
+                              (removing the first label) of the    wildcard rule.
+                              3. If SNIs is unspecified, all requests associated with
+                              the gateway TLS    listener will match. This can be
+                              used to define a default backend    for a TLS listener.
+                              \n Support: core"
                             items:
+                              description: Hostname is used to specify a hostname
+                                that should be matched.
+                              maxLength: 253
+                              minLength: 1
                               type: string
                             maxItems: 16
-                            minItems: 1
                             type: array
                         type: object
                       maxItems: 8
                       type: array
+                  required:
+                  - forwardTo
                   type: object
                 maxItems: 16
                 minItems: 1
@@ -2773,9 +2839,9 @@ spec:
                               forward matched requests to. If both BackendRef and
                               ServiceName are specified, ServiceName will be given
                               precedence. \n If the referent cannot be found, the
-                              route must be dropped from the Gateway. The controller
-                              should raise the \"ResolvedRefs\" condition on the Gateway
-                              with the \"DroppedRoutes\" reason. The gateway status
+                              rule is not included in the route. The controller should
+                              raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DegradedRoutes\" reason. The gateway status
                               for this route should be updated with a condition that
                               describes the error more specifically. \n Support: Custom"
                             properties:
@@ -2813,11 +2879,21 @@ spec:
                               takes the place of BackendRef. If both BackendRef and
                               ServiceName are specified, ServiceName will be given
                               precedence. \n If the referent cannot be found, the
-                              route must be dropped from the Gateway. The controller
-                              should raise the \"ResolvedRefs\" condition on the Gateway
-                              with the \"DroppedRoutes\" reason. The gateway status
+                              rule is not included in the route. The controller should
+                              raise the \"ResolvedRefs\" condition on the Gateway
+                              with the \"DegradedRoutes\" reason. The gateway status
                               for this route should be updated with a condition that
-                              describes the error more specifically. \n Support: Core"
+                              describes the error more specifically. \n The protocol
+                              to use is defined using AppProtocol field (introduced
+                              in Kubernetes 1.18) in the Service resource. In the
+                              absence of the AppProtocol field a `networking.x-k8s.io/app-protocol`
+                              annotation on the BackendPolicy resource may be used
+                              to define the protocol. If the AppProtocol field is
+                              available, this annotation should not be used. The AppProtocol
+                              field, when populated, takes precedence over the annotation
+                              in the BackendPolicy resource. For custom backends,
+                              it is encouraged to add a semantically-equivalent field
+                              in the Custom Resource Definition. \n Support: Core"
                             maxLength: 253
                             type: string
                           weight:
@@ -2843,27 +2919,28 @@ spec:
                         - port
                         type: object
                       maxItems: 4
+                      minItems: 1
                       type: array
                     matches:
-                      description: Matches defines which packets match this rule.
+                      description: Matches define conditions used for matching the
+                        rule against incoming UDP connections. Each match is independent,
+                        i.e. this rule will be matched if **any** one of the matches
+                        is satisfied. If unspecified, all requests from the associated
+                        gateway UDP listener will match.
                       items:
                         description: UDPRouteMatch defines the predicate used to match
                           packets to a given action.
                         properties:
                           extensionRef:
                             description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior.  The resource may
-                              be \"configmap\" (use the empty string for the group)
-                              or an implementation-defined resource (for example,
-                              resource \"myroutematchers\" in group \"networking.acme.io\").
-                              Omitting or specifying the empty string for both the
-                              resource and group indicates that the resource is \"configmaps\".
-                              \n If the referent cannot be found, the route must be
-                              dropped from the Gateway. The controller should raise
-                              the \"ResolvedRefs\" condition on the Gateway with the
-                              \"DroppedRoutes\" reason. The gateway status for this
-                              route should be updated with a condition that describes
-                              the error more specifically. \n Support: custom"
+                              extension to the \"match\" behavior.  For example, resource
+                              \"myudproutematcher\" in group \"networking.acme.io\".
+                              If the referent cannot be found, the rule is not included
+                              in the route. The controller should raise the \"ResolvedRefs\"
+                              condition on the Gateway with the \"DegradedRoutes\"
+                              reason. The gateway status for this route should be
+                              updated with a condition that describes the error more
+                              specifically. \n Support: custom"
                             properties:
                               group:
                                 description: Group is the group of the referent.
@@ -2888,7 +2965,11 @@ spec:
                         type: object
                       maxItems: 8
                       type: array
+                  required:
+                  - forwardTo
                   type: object
+                maxItems: 16
+                minItems: 1
                 type: array
             required:
             - rules

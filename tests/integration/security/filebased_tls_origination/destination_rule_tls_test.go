@@ -84,6 +84,7 @@ spec:
 							Set(echo.SidecarVolume, `{"custom-certs":{"configMap":{"name":"server-certs"}}}`).
 							Set(echo.SidecarVolumeMount, `{"custom-certs":{"mountPath":"/etc/certs/custom"}}`),
 					}},
+					Cluster: ctx.Clusters().Default(),
 				}).
 				With(&server, echo.Config{
 					Service:   "server",
@@ -121,6 +122,7 @@ spec:
 						Version:     "v1",
 						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 					}},
+					Cluster: ctx.Clusters().Default(),
 				}).
 				BuildOrFail(t)
 

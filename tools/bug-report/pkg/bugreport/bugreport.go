@@ -294,6 +294,8 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(client, config, resources, namespace, pod, &mandatoryWg)
 
+		case common.IsOperatorContainer(params.ClusterVersion, container):
+			getOperatorLogs(client, config, resources, namespace, pod, &optionalWg)
 		}
 	}
 
@@ -360,6 +362,20 @@ func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, r
 		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog)
+		log.Infof("Done with logs %s", pod)
+	}()
+}
+
+// getOperatorLogs fetches istio-operator logs for the given namespace/pod and writes the output.
+func getOperatorLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
+	namespace, pod string, wg *sync.WaitGroup) {
+	wg.Add(1)
+	log.Infof("Waiting on logs %s", pod)
+	go func() {
+		defer wg.Done()
+		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.OperatorContainerName)
+		appendGlobalErr(err)
+		writeFile(filepath.Join(archive.OperatorPath(tempDir, namespace, pod), "operator.log"), clog)
 		log.Infof("Done with logs %s", pod)
 	}()
 }

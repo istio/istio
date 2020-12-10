@@ -188,7 +188,24 @@ func appendMultusNetwork(existingValue, istioCniNetwork string) string {
 	i := strings.LastIndex(existingValue, "]")
 	isJSON := i != -1
 	if isJSON {
+		networks := []map[string]interface{}{}
+		err := json.Unmarshal([]byte(existingValue), &networks)
+		if err != nil {
+			// existingValue is not valid JSON; nothing we can do but skip injection
+			log.Warnf("Unable to unmarshal Multus Network annotation JSON value: %v", err)
+			return existingValue
+		}
+		for _, net := range networks {
+			if net["name"] == istioCniNetwork {
+				return existingValue
+			}
+		}
 		return existingValue[0:i] + fmt.Sprintf(`, {"name": "%s"}`, istioCniNetwork) + existingValue[i:]
+	}
+	for _, net := range strings.Split(existingValue, ",") {
+		if strings.TrimSpace(net) == istioCniNetwork {
+			return existingValue
+		}
 	}
 	return existingValue + ", " + istioCniNetwork
 }

@@ -97,6 +97,7 @@ features:
       conditions:
       grpc-protocol:
       path-normalization:
+      custom:
     authentication:
       jwt:
       ingressjwt:
@@ -126,6 +127,7 @@ features:
     helm:
       default:
       firstpartyjwt:
+    upgrade:
   # describes internal build and testing infrastrcuture
   infrastructure:
     # the testing framework

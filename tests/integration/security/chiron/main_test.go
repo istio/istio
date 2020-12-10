@@ -32,7 +32,6 @@ func TestMain(m *testing.M) {
 	// Integration test for provisioning DNS certificates.
 	// TODO (lei-tang): investigate whether this test can be moved to integration/security.
 	framework.NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig)).
 		Run()

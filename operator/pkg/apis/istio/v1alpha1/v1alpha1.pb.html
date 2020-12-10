@@ -2931,17 +2931,6 @@ No
 No
 </td>
 </tr>
-<tr id="ProxyConfig-holdApplicationUntilProxyStarts">
-<td><code>holdApplicationUntilProxyStarts</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="ProxyConfig-resources" class="deprecated ">
 <td><code>resources</code></td>
 <td><code><a href="#Resources">Resources</a></code></td>
@@ -2949,6 +2938,19 @@ No
 <p>K8s resources settings.</p>
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="ProxyConfig-holdApplicationUntilProxyStarts" class="deprecated ">
+<td><code>holdApplicationUntilProxyStarts</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready</p>
+
+<p>Deprecated: replaced by ProxyConfig setting which allows per-pod configuration of this behavior.</p>
 
 </td>
 <td>

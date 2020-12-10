@@ -29,17 +29,18 @@ const staticResourceTemplate = `
 package {{.PackageName}}
 
 import (
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config"
 )
 
 var (
 {{- range .Entries }}
-	{{.Resource.Kind}} = collections.{{ .Collection.VariableName }}.Resource().GroupVersionKind()
+	{{.Type}} = config.GroupVersionKind{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Kind: "{{.Resource.Kind}}"}
 {{- end }}
 )
 `
 
 const staticCollectionsTemplate = `
+{{- .FilePrefix}}
 // GENERATED FILE -- DO NOT EDIT
 //
 
@@ -142,8 +143,12 @@ type colEntry struct {
 
 func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 	entries := make([]colEntry, 0, len(m.Collections))
+	customNames := map[string]string{
+		"k8s/service_apis/v1alpha1/gateways": "ServiceApisGateway",
+	}
 	for _, c := range m.Collections {
-		if !c.Pilot {
+		// Filter out pilot ones, as these are duplicated
+		if c.Pilot {
 			continue
 		}
 		r := m.FindResourceForGroupKind(c.Group, c.Kind)
@@ -151,14 +156,18 @@ func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
 		}
 
+		name := r.Kind
+		if cn, f := customNames[c.Name]; f {
+			name = cn
+		}
 		entries = append(entries, colEntry{
-			Collection: c,
-			Resource:   r,
+			Type:     name,
+			Resource: r,
 		})
 	}
 
 	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Collection.Name, entries[j].Collection.Name) < 0
+		return strings.Compare(entries[i].Type, entries[j].Type) < 0
 	})
 
 	context := struct {
@@ -179,9 +188,12 @@ type packageImport struct {
 }
 
 // StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.
-func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
+func StaticCollections(packageName string, m *ast.Metadata, filter func(name string) bool, prefix string) (string, error) {
 	entries := make([]colEntry, 0, len(m.Collections))
 	for _, c := range m.Collections {
+		if !filter(c.Name) {
+			continue
+		}
 		r := m.FindResourceForGroupKind(c.Group, c.Kind)
 		if r == nil {
 			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
@@ -228,11 +240,13 @@ func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
 	context := struct {
 		Entries     []colEntry
 		PackageName string
+		FilePrefix  string
 		Packages    []packageImport
 	}{
 		Entries:     entries,
 		PackageName: packageName,
 		Packages:    packages,
+		FilePrefix:  prefix,
 	}
 
 	// Calculate the Go packages that needs to be imported for the proto types to be registered.

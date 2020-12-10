@@ -38,7 +38,8 @@ setup_and_export_git_sha
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
-NODE_IMAGE="kindest/node:v1.18.2"
+NODE_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
+KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
 PARAMS=()
@@ -50,6 +51,11 @@ while (( "$#" )); do
     --node-image)
       NODE_IMAGE=$2
       shift 2
+    ;;
+    # Config for enabling different Kubernetes features in KinD (see prow/config{endpointslice.yaml,trustworthy-jwt.yaml}).
+    --kind-config)
+    KIND_CONFIG=$2
+    shift 2
     ;;
     --skip-setup)
       SKIP_SETUP=true
@@ -128,7 +134,7 @@ fi
 export T="${T:-"-v -count=1"}"
 export CI="true"
 
-make init
+trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
   export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
@@ -136,10 +142,10 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    time setup_kind_cluster 
+    trace "setup kind cluster" setup_kind_cluster "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
   else
-    time load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
-    time setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
+    trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
+    trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
 
     export INTEGRATION_TEST_KUBECONFIG
     INTEGRATION_TEST_KUBECONFIG=$(IFS=','; echo "${KUBECONFIGS[*]}")
@@ -170,8 +176,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  time setup_kind_registry
-  time build_images "${PARAMS[*]}"
+  trace "setup kind registry" setup_kind_registry
+  trace "build images" build_images "${PARAMS[*]}"
 fi
 
 # If a variant is defined, update the tag accordingly
@@ -181,7 +187,7 @@ fi
 
 # Run the test target if provided.
 if [[ -n "${PARAMS:-}" ]]; then
-  make "${PARAMS[*]}"
+  trace "test" make "${PARAMS[*]}"
 fi
 
 # Check if the user is running the clusters in manual mode.

@@ -77,6 +77,7 @@ type operatorComponent struct {
 	installManifest map[string][]string
 	ingress         map[resource.ClusterIndex]map[string]ingress.Instance
 	workDir         string
+	deployTime      time.Duration
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -90,6 +91,14 @@ func (i *operatorComponent) ID() resource.ID {
 
 func (i *operatorComponent) Settings() Config {
 	return i.settings
+}
+
+func removeCRDsSlice(raw []string) string {
+	res := []string{}
+	for _, r := range raw {
+		res = append(res, removeCRDs(r))
+	}
+	return yml.JoinString(res...)
 }
 
 // When we cleanup, we should not delete CRDs. This will filter out all the crds
@@ -146,36 +155,66 @@ func (i *operatorComponent) CustomIngressFor(cluster resource.Cluster, serviceNa
 	return i.ingress[cluster.Index()][istioLabel]
 }
 
-func (i *operatorComponent) Close() (err error) {
-	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
-	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
-	if i.settings.DeployIstio {
-		for _, cluster := range i.ctx.Clusters() {
-			for _, manifest := range i.installManifest[cluster.Name()] {
-				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDs(manifest)); e != nil {
-					err = multierror.Append(err, e)
-				}
-			}
-
-			// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
-			for _, cm := range leaderElectionConfigMaps {
-				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
-					kubeApiMeta.DeleteOptions{}); e != nil {
-					err = multierror.Append(err, e)
-				}
-			}
-			if i.environment.IsMulticluster() {
-				if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
-					kube2.DeleteOptionsForeground()); e != nil {
-					err = multierror.Append(err, e)
-				}
-				if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
-					err = multierror.Append(err, e)
-				}
-			}
-		}
+func appendToFile(contents string, file string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
 	}
-	return
+
+	defer f.Close()
+
+	if _, err = f.WriteString(contents); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (i *operatorComponent) Close() error {
+	t0 := time.Now()
+	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
+
+	// Write time spent for cleanup and deploy to ARTIFACTS/trace.yaml and logs to allow analyzing test times
+	defer func() {
+		delta := time.Since(t0)
+		y := fmt.Sprintf(`'suite/%s':
+  istio-deploy: %f
+  istio-cleanup: %f
+`, i.ctx.Settings().TestID, i.deployTime.Seconds(), delta.Seconds())
+		_ = appendToFile(y, filepath.Join(i.ctx.Settings().BaseDir, "trace.yaml"))
+		scopes.Framework.Infof("=== SUCCEEDED: Cleanup Istio in %v [Suite=%s] ===", delta, i.ctx.Settings().TestID)
+	}()
+
+	if i.settings.DeployIstio {
+		errG := multierror.Group{}
+		for _, cluster := range i.ctx.Clusters() {
+			cluster := cluster
+			errG.Go(func() (err error) {
+				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDsSlice(i.installManifest[cluster.Name()])); e != nil {
+					err = multierror.Append(err, e)
+				}
+				// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
+				for _, cm := range leaderElectionConfigMaps {
+					if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
+						kubeApiMeta.DeleteOptions{}); e != nil {
+						err = multierror.Append(err, e)
+					}
+				}
+				if i.environment.IsMulticluster() {
+					// in multicluster mode we simply delete the namespace
+					if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
+						kube2.DeleteOptionsForeground()); e != nil {
+						err = multierror.Append(err, e)
+					}
+					if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
+						err = multierror.Append(err, e)
+					}
+				}
+				return
+			})
+		}
+		return errG.Wait().ErrorOrNil()
+	}
+	return nil
 }
 
 func (i *operatorComponent) Dump(ctx resource.Context) {
@@ -208,6 +247,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		installManifest: map[string][]string{},
 		ingress:         map[resource.ClusterIndex]map[string]ingress.Instance{},
 	}
+	t0 := time.Now()
+	defer func() {
+		i.deployTime = time.Since(t0)
+	}()
 	i.id = ctx.TrackResource(i)
 
 	if !cfg.DeployIstio {

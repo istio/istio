@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/pkg/monitoring"
@@ -101,6 +100,8 @@ type virtualServiceIndex struct {
 	privateByNamespaceAndGateway map[string]map[string][]config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
+	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
+	delegates map[ConfigKey][]ConfigKey
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
@@ -108,6 +109,7 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[string]map[string][]config.Config{},
 		exportedToNamespaceByGateway: map[string]map[string][]config.Config{},
+		delegates:                    map[ConfigKey][]ConfigKey{},
 	}
 }
 
@@ -208,7 +210,8 @@ type PushContext struct {
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkGateways map[string][]*Gateway
 
-	initDone atomic.Bool
+	initDone        atomic.Bool
+	initializeMutex sync.Mutex
 }
 
 // Gateway is the gateway of a network
@@ -335,6 +338,9 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return first
 	}
 
+	reason := make([]TriggerReason, 0, len(first.Reason)+len(other.Reason))
+	reason = append(reason, first.Reason...)
+	reason = append(reason, other.Reason...)
 	merged := &PushRequest{
 		// Keep the first (older) start time
 		Start: first.Start,
@@ -346,7 +352,7 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 		Push: other.Push,
 
 		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
-		Reason: append(first.Reason, other.Reason...),
+		Reason: reason,
 	}
 
 	// Do not merge when any one is empty
@@ -676,7 +682,7 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 	return nil
 }
 
-// VirtualServices lists all virtual services bound to the specified gateways
+// VirtualServicesForGateway lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
 func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) []config.Config {
@@ -684,6 +690,16 @@ func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) [
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 	return res
+}
+
+// DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
+func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
+	var out []ConfigKey
+	for _, vs := range vses {
+		out = append(out, ps.virtualServiceIndex.delegates[ConfigKey{Kind: gvk.VirtualService, Namespace: vs.Namespace, Name: vs.Name}]...)
+	}
+
+	return out
 }
 
 // getSidecarScope returns a SidecarScope object associated with the
@@ -707,8 +723,8 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
 		for _, wrapper := range sidecars {
-			if wrapper.Config != nil && wrapper.Config.Spec != nil {
-				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
+			if wrapper.Sidecar != nil {
+				sidecar := wrapper.Sidecar
 				// if there is no workload selector, the config applies to all workloads
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
@@ -862,6 +878,10 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
+	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
+	// If this does happen, one thread will block then exit early from initDone=true
+	ps.initializeMutex.Lock()
+	defer ps.initializeMutex.Unlock()
 	if ps.initDone.Load() {
 		return nil
 	}
@@ -961,10 +981,7 @@ func (ps *PushContext) updateContext(
 		case gvk.RequestAuthentication,
 			gvk.PeerAuthentication:
 			authnChanged = true
-		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
+		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
 			virtualServicesChanged = true
 			gatewayChanged = true
 		}
@@ -1173,7 +1190,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(vservices)
 
-	vservices = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
+	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
 
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
@@ -1540,16 +1557,16 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 			// no need populate workloadSelector, as it is not used later.
 			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
 		}
-	}
-	// merge EnvoyFilterWrapper
-	for _, efw := range matchedEnvoyFilters {
-		for applyTo, cps := range efw.Patches {
-			if out.Patches[applyTo] == nil {
-				out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
-			}
-			for _, cp := range cps {
-				if proxyMatch(proxy, cp) {
-					out.Patches[applyTo] = append(out.Patches[applyTo], cp)
+		// merge EnvoyFilterWrapper
+		for _, efw := range matchedEnvoyFilters {
+			for applyTo, cps := range efw.Patches {
+				if out.Patches[applyTo] == nil {
+					out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
+				}
+				for _, cp := range cps {
+					if proxyMatch(proxy, cp) {
+						out.Patches[applyTo] = append(out.Patches[applyTo], cp)
+					}
 				}
 			}
 		}

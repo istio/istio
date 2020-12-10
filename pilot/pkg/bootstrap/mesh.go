@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/kubemesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -66,7 +67,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	// Watch the istio ConfigMap for mesh config changes.
 	// This may be necessary for external Istiod.
 	configMapName := getMeshConfigMapName(args.Revision)
-	s.environment.Watcher = mesh.NewConfigMapWatcher(
+	s.environment.Watcher = kubemesh.NewConfigMapWatcher(
 		s.kubeClient, args.Namespace, configMapName, configMapKey)
 }
 

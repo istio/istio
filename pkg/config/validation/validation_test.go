@@ -2327,6 +2327,156 @@ func TestValidateVirtualService(t *testing.T) {
 	}
 }
 
+func TestValidateWorkloadEntry(t *testing.T) {
+	testCases := []struct {
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
+	}{
+		{
+			name:  "valid",
+			in:    &networking.WorkloadEntry{Address: "1.2.3.4"},
+			valid: true,
+		},
+		{
+			name:  "missing address",
+			in:    &networking.WorkloadEntry{},
+			valid: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			warn, err := ValidateWorkloadEntry(config.Config{Spec: tc.in})
+			checkValidation(t, warn, err, tc.valid, tc.warning)
+		})
+	}
+}
+
+func TestValidateWorkloadGroup(t *testing.T) {
+	testCases := []struct {
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
+	}{
+		{
+			name:  "valid",
+			in:    &networking.WorkloadGroup{Template: &networking.WorkloadEntry{}},
+			valid: true,
+		},
+		{
+			name: "invalid",
+			in: &networking.WorkloadGroup{Template: &networking.WorkloadEntry{}, Metadata: &networking.WorkloadGroup_ObjectMeta{Labels: map[string]string{
+				".": "~",
+			}}},
+			valid: false,
+		},
+		{
+			name: "probe missing method",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe:    &networking.ReadinessProbe{},
+			},
+			valid: false,
+		},
+		{
+			name: "probe nil",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_HttpGet{},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "probe http empty",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_HttpGet{
+						HttpGet: &networking.HTTPHealthCheckConfig{},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "probe http valid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_HttpGet{
+						HttpGet: &networking.HTTPHealthCheckConfig{
+							Port: 5,
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "probe tcp invalid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_TcpSocket{
+						TcpSocket: &networking.TCPHealthCheckConfig{},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "probe tcp valid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_TcpSocket{
+						TcpSocket: &networking.TCPHealthCheckConfig{
+							Port: 5,
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "probe exec invalid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_Exec{
+						Exec: &networking.ExecHealthCheckConfig{},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "probe exec valid",
+			in: &networking.WorkloadGroup{
+				Template: &networking.WorkloadEntry{},
+				Probe: &networking.ReadinessProbe{
+					HealthCheckMethod: &networking.ReadinessProbe_Exec{
+						Exec: &networking.ExecHealthCheckConfig{
+							Command: []string{"foo", "bar"},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			warn, err := ValidateWorkloadGroup(config.Config{Spec: tc.in})
+			checkValidation(t, warn, err, tc.valid, tc.warning)
+		})
+	}
+}
+
 func checkValidation(t *testing.T, gotWarning Warning, gotError error, valid bool, warning bool) {
 	t.Helper()
 	if (gotError == nil) != valid {
@@ -2334,6 +2484,30 @@ func checkValidation(t *testing.T, gotWarning Warning, gotError error, valid boo
 	}
 	if (gotWarning == nil) == warning {
 		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, warning)
+	}
+}
+
+func stringOrEmpty(v error) string {
+	if v == nil {
+		return ""
+	}
+	return v.Error()
+}
+
+func checkValidationMessage(t *testing.T, gotWarning Warning, gotError error, wantWarning string, wantError string) {
+	t.Helper()
+	if (gotError == nil) != (wantError == "") {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+	if !strings.Contains(stringOrEmpty(gotError), wantError) {
+		t.Fatalf("got err=%v but wanted err=%v", gotError, wantError)
+	}
+
+	if (gotWarning == nil) != (wantWarning == "") {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
+	}
+	if !strings.Contains(stringOrEmpty(gotWarning), wantWarning) {
+		t.Fatalf("got warning=%v but wanted warning=%v", gotWarning, wantWarning)
 	}
 }
 
@@ -2800,9 +2974,10 @@ func TestValidateOutlierDetection(t *testing.T) {
 
 func TestValidateEnvoyFilter(t *testing.T) {
 	tests := []struct {
-		name  string
-		in    proto.Message
-		error string
+		name    string
+		in      proto.Message
+		error   string
+		warning string
 	}{
 		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
 
@@ -3062,7 +3237,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 										Fields: map[string]*types.Value{
 											"@type": {
 												Kind: &types.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
+													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
 												},
 											},
 										},
@@ -3072,6 +3247,40 @@ func TestValidateEnvoyFilter(t *testing.T) {
 						},
 					},
 				},
+				{
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Name: "envoy.tcp_proxy",
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"typed_config": {
+									Kind: &types.Value_StructValue{StructValue: &types.Struct{
+										Fields: map[string]*types.Value{
+											"@type": {
+												Kind: &types.Value_StringValue{
+													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+												},
+											},
+										},
+									}},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: ""},
+		{name: "deprecated config", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
 					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
@@ -3103,24 +3312,40 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: ""},
+		}, error: "", warning: "using deprecated type_url"},
+		{name: "deprecated type", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{
+								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+										Name: "envoy.http_connection_manager",
+									},
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+						Value:     &types.Struct{},
+					},
+				},
+			},
+		}, error: "", warning: "using deprecated filter name"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ValidateEnvoyFilter(config.Config{
+			warn, err := ValidateEnvoyFilter(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
 				Spec: tt.in,
 			})
-			if err == nil && tt.error != "" {
-				t.Fatalf("ValidateEnvoyFilter(%v) = nil, wanted %q", tt.in, tt.error)
-			} else if err != nil && tt.error == "" {
-				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.error) {
-				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted %q", tt.in, err, tt.error)
-			}
+			checkValidationMessage(t, warn, err, tt.warning, tt.error)
 		})
 	}
 }

@@ -3414,7 +3414,7 @@ spec:
                       type: string
                     type: array
                   forwardOriginalToken:
-                    description: If set to true, the orginal token will be kept for
+                    description: If set to true, the original token will be kept for
                       the ustream request.
                     type: boolean
                   fromHeaders:

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue:
+  - 27238
+releaseNotes:
+  - |
+    **Fixed** the CA's certificate signature algorithm to be the default algorithm corresponding to the CA's signing key type.

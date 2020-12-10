@@ -15,7 +15,6 @@
 package ra
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -93,18 +92,21 @@ func initFakeKubeClient(csrName string) *fake.Clientset {
 	return client
 }
 
-func createFakeK8sRA(client *fake.Clientset) (*IstioRA, error) {
+func createFakeK8sRA(client *fake.Clientset) (*KubernetesRA, error) {
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
 	caSigner := "kubernates.io/kube-apiserver-client"
 	caCertFile := "../testdata/example-ca-cert.pem"
-
-	raOpts := NewK8sRAOptions(defaultCertTTL, maxCertTTL, caCertFile, caSigner)
-	ra, err := NewK8sRA(raOpts, client.CertificatesV1beta1())
-	if err != nil {
-		return nil, fmt.Errorf("unable to create K8s CA")
+	raOpts := &IstioRAOptions{
+		ExternalCAType: ExtCAK8s,
+		DefaultCertTTL: defaultCertTTL,
+		MaxCertTTL:     maxCertTTL,
+		CaSigner:       caSigner,
+		CaCertFile:     caCertFile,
+		VerifyAppendCA: true,
+		K8sClient:      client.CertificatesV1beta1(),
 	}
-	return ra, nil
+	return NewKubernetesRA(raOpts)
 }
 
 // TestK8sSign : Verify that ra.k8sSign returns a valid certPEM while using k8s Fake Client to create a CSR
@@ -113,11 +115,11 @@ func TestK8sSign(t *testing.T) {
 	csrPEM := createFakeCsr(t)
 	csrName := chiron.GenCsrName()
 	client := initFakeKubeClient(csrName)
-	ra, err := createFakeK8sRA(client)
+	r, err := createFakeK8sRA(client)
 	if err != nil {
 		t.Errorf("Validation CSR failed")
 	}
-	_, err = ra.k8sSign(client.CertificatesV1beta1().CertificateSigningRequests(), csrPEM, csrName, ra.raOpts.caCertFile)
+	_, err = r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile)
 	if err != nil {
 		t.Errorf("K8s CA Signing CSR failed")
 	}
@@ -127,7 +129,7 @@ func TestValidateCSR(t *testing.T) {
 	csrPEM := createFakeCsr(t)
 	csrName := chiron.GenCsrName()
 	client := initFakeKubeClient(csrName)
-	ra, err := createFakeK8sRA(client)
+	_, err := createFakeK8sRA(client)
 
 	if err != nil {
 		t.Errorf("Validation CSR failed")
@@ -136,13 +138,13 @@ func TestValidateCSR(t *testing.T) {
 
 	// Test Case 1
 	testSubjectIDs = []string{testCsrHostName, "Random-Host-Name"}
-	if !ra.validateCSR(csrPEM, testSubjectIDs) {
+	if !ValidateCSR(csrPEM, testSubjectIDs) {
 		t.Errorf("Test 1: CSR Validation failed")
 	}
 
 	// Test Case 2
 	testSubjectIDs = []string{"Random-Host-Name"}
-	if ra.validateCSR(csrPEM, testSubjectIDs) {
+	if ValidateCSR(csrPEM, testSubjectIDs) {
 		t.Errorf("Test 2: CSR Validation failed")
 	}
 

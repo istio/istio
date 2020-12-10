@@ -20,6 +20,9 @@ data:
   # New fields should not use Values - it is a 'primary' config object, users should be able
   # to fine tune it or use it with kube-inject.
   config: |-
+    # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
+    # NOTE: this currently only allows a single element
+    defaultTemplates: [sidecar]
     policy: {{ .Values.global.proxy.autoInject }}
     alwaysInjectSelector:
 {{ toYaml .Values.sidecarInjectorWebhook.alwaysInjectSelector | trim | indent 6 }}

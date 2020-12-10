@@ -22,9 +22,9 @@ import (
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"golang.org/x/time/rate"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -54,13 +54,13 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
-	// Store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
-	// do not support writing.
-	Store model.ConfigStoreCache
-
-	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup
+	// TODO move WorkloadEntry related tasks into their own object and give InternalGen a reference.
+	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
+	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
+	store model.ConfigStoreCache
+	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
 	cleanupLimit *rate.Limiter
-
+	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
@@ -70,25 +70,10 @@ type InternalGen struct {
 func NewInternalGen(s *DiscoveryServer) *InternalGen {
 	return &InternalGen{
 		Server: s,
-		// TODO make this configurable
-		cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
-		cleanupQueue: queue.NewDelayed(),
 	}
 }
 
 func (sg *InternalGen) OnConnect(con *Connection) {
-	if con.node.Metadata != nil && con.node.Metadata.Fields != nil {
-		con.node.Metadata.Fields["istiod"] = &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: "TODO", // TODO: fill in the Istiod address - may include network, cluster, IP
-			},
-		}
-		con.node.Metadata.Fields["con"] = &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: con.ConID,
-			},
-		}
-	}
 	sg.startPush(TypeURLConnections, []proto.Message{con.node})
 }
 
@@ -96,20 +81,18 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 	sg.QueueUnregisterWorkload(con.proxy)
 
 	sg.startPush(TypeURLDisconnect, []proto.Message{con.node})
+}
 
-	if con.node.Metadata != nil && con.node.Metadata.Fields != nil {
-		con.node.Metadata.Fields["istiod"] = &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: "", // TODO: using empty string to indicate this node has no istiod connection. We'll iterate.
-			},
-		}
+func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCache) {
+	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
+		sg.store = store
+		sg.cleanupLimit = rate.NewLimiter(rate.Limit(20), 1)
+		sg.cleanupQueue = queue.NewDelayed()
 	}
-
-	// Note that it is quite possible for a 'connect' on a different istiod to happen before a disconnect.
 }
 
 func (sg *InternalGen) Run(stop <-chan struct{}) {
-	if sg.Store != nil && sg.cleanupQueue != nil {
+	if sg.store != nil && sg.cleanupQueue != nil {
 		go sg.periodicWorkloadEntryCleanup(stop)
 		go sg.cleanupQueue.Run(stop)
 	}
@@ -130,17 +113,15 @@ func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest)
 func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	s.adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
-	for _, v := range s.adsClients {
+	for _, v := range s.Clients() {
 		v.proxy.RLock()
 		if v.proxy.WatchedResources[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
 		v.proxy.RUnlock()
 	}
-	s.adsClientsMutex.RUnlock()
 
 	// only marshal resources if there are connected clients
 	if len(pending) == 0 {
@@ -191,12 +172,9 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 
 	switch w.TypeUrl {
 	case TypeURLConnections:
-		sg.Server.adsClientsMutex.RLock()
-		// Create a temp map to avoid locking the add/remove
-		for _, v := range sg.Server.adsClients {
+		for _, v := range sg.Server.Clients() {
 			res = append(res, util.MessageToAny(v.node))
 		}
-		sg.Server.adsClientsMutex.RUnlock()
 	case TypeDebugSyncronization:
 		res = sg.debugSyncz()
 	case TypeDebugConfigDump:
@@ -233,8 +211,7 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 		v3.ClusterType,
 	}
 
-	sg.Server.adsClientsMutex.RLock()
-	for _, con := range sg.Server.adsClients {
+	for _, con := range sg.Server.Clients() {
 		con.proxy.RLock()
 		// Skip "nodes" without metdata (they are probably istioctl queries!)
 		if isProxy(con) {
@@ -268,7 +245,6 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 		}
 		con.proxy.RUnlock()
 	}
-	sg.Server.adsClientsMutex.RUnlock()
 
 	return res
 }

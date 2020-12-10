@@ -79,7 +79,7 @@ var (
 )
 
 func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	checkClusters := []string{"outbound|8080||*.example.org", "inbound|8080||"}
+	checkClusters := []string{"outbound|8080||*.example.org", "inbound|10001||"}
 	settings := []*networking.ConnectionPoolSettings{
 		nil,
 		{
@@ -112,6 +112,9 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 			for _, c := range checkClusters {
 				cluster := clusters[c]
+				if cluster == nil {
+					t.Fatalf("cluster %v not found", c)
+				}
 				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
 				thresholds := cluster.CircuitBreakers.Thresholds[0]
 
@@ -149,7 +152,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			proxyType:                 model.SidecarProxy,
 			clusters:                  8,
 		}, {
-			clusterName:               "inbound|8080||",
+			clusterName:               "inbound|10001||",
 			useDownStreamProtocol:     false,
 			sniffingEnabledForInbound: false,
 			proxyType:                 model.SidecarProxy,
@@ -162,7 +165,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusters:                  8,
 		},
 		{
-			clusterName:               "inbound|9090||",
+			clusterName:               "inbound|10002||",
 			useDownStreamProtocol:     true,
 			sniffingEnabledForInbound: true,
 			proxyType:                 model.SidecarProxy,
@@ -209,7 +212,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			g.Expect(len(clusters)).To(Equal(tc.clusters))
 			c := clusters[tc.clusterName]
 
-			g.Expect(c.CommonHttpProtocolOptions).To(Not(BeNil()))
+			g.Expect(c.GetCommonHttpProtocolOptions()).To(Not(BeNil()))
 			commonHTTPProtocolOptions := c.CommonHttpProtocolOptions
 
 			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
@@ -333,7 +336,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			ServicePort: servicePort[1],
 			Endpoint: &model.IstioEndpoint{
 				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				EndpointPort: 10002,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone1",
@@ -1069,7 +1072,7 @@ func TestStatNamePattern(t *testing.T) {
 			Host: "*.example.org",
 		}})
 	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(xdstest.ExtractCluster("inbound|8080||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestDuplicateClusters(t *testing.T) {
@@ -1758,11 +1761,12 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 
 func TestApplyLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name             string
-		lbSettings       *networking.LoadBalancerSettings
-		discoveryType    cluster.Cluster_DiscoveryType
-		port             *model.Port
-		expectedLbPolicy cluster.Cluster_LbPolicy
+		name                           string
+		lbSettings                     *networking.LoadBalancerSettings
+		discoveryType                  cluster.Cluster_DiscoveryType
+		port                           *model.Port
+		expectedLbPolicy               cluster.Cluster_LbPolicy
+		expectedLocalityWeightedConfig bool
 	}{
 		{
 			name:             "lb = nil ORIGINAL_DST discovery type",
@@ -1774,6 +1778,28 @@ func TestApplyLoadBalancer(t *testing.T) {
 			discoveryType:    cluster.Cluster_EDS,
 			port:             &model.Port{Protocol: protocol.Redis},
 			expectedLbPolicy: cluster.Cluster_MAGLEV,
+		},
+		{
+			name: "Loadbalancer has distribute",
+			lbSettings: &networking.LoadBalancerSettings{
+				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+					Enabled: &types.BoolValue{Value: true},
+					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+						{
+							From: "region1/zone1/subzone1",
+							To: map[string]uint32{
+								"region1/zone1/subzone1": 80,
+								"region1/zone1/subzone2": 15,
+								"region1/zone1/subzone3": 5,
+							},
+						},
+					},
+				},
+			},
+			discoveryType:                  cluster.Cluster_EDS,
+			port:                           &model.Port{Protocol: protocol.HTTP},
+			expectedLbPolicy:               cluster.Cluster_ROUND_ROBIN,
+			expectedLocalityWeightedConfig: true,
 		},
 		// TODO: add more to cover all cases
 	}
@@ -1799,6 +1825,10 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 			if cluster.LbPolicy != test.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", cluster.LbPolicy, test.expectedLbPolicy)
+			}
+
+			if test.expectedLocalityWeightedConfig && cluster.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
+				t.Errorf("cluster expected to have weighed config, but is nil")
 			}
 		})
 	}
@@ -2173,11 +2203,10 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name      string
-		opts      *buildClusterOpts
-		tls       *networking.ClientTLSSettings
-		istiodSds bool
-		result    expectedResult
+		name   string
+		opts   *buildClusterOpts
+		tls    *networking.ClientTLSSettings
+		result expectedResult
 	}{
 		{
 			name: "tls mode disabled",
@@ -2699,27 +2728,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
 								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: credentialName + authn_model.SdsCaSuffix,
-									SdsConfig: &core.ConfigSource{
-										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
-												GrpcServices: []*core.GrpcService{
-													{
-														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.CredentialNameSDSUdsPath,
-																StatPrefix: authn_model.SDSStatPrefix,
-															},
-														},
-													},
-												},
-											},
-										},
-										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: features.InitialFetchTimeout,
-									},
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
 								},
 							},
 						},
@@ -2730,8 +2740,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:      "tls mode SIMPLE, with CredentialName specified Istiod SDS",
-			istiodSds: true,
+			name: "tls mode SIMPLE, with CredentialName specified",
 			opts: &buildClusterOpts{
 				cluster: &cluster.Cluster{
 					Name: "test-cluster",
@@ -2791,27 +2800,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: credentialName + authn_model.SdsCaSuffix,
-									SdsConfig: &core.ConfigSource{
-										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
-												GrpcServices: []*core.GrpcService{
-													{
-														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.CredentialNameSDSUdsPath,
-																StatPrefix: authn_model.SDSStatPrefix,
-															},
-														},
-													},
-												},
-											},
-										},
-										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: features.InitialFetchTimeout,
-									},
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
 								},
 							},
 						},
@@ -2844,27 +2834,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					CommonTlsContext: &tls.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
-								Name: credentialName,
-								SdsConfig: &core.ConfigSource{
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  authn_model.CredentialNameSDSUdsPath,
-															StatPrefix: authn_model.SDSStatPrefix,
-														},
-													},
-												},
-											},
-										},
-									},
-									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: features.InitialFetchTimeout,
-								},
+								Name:      "kubernetes://" + credentialName,
+								SdsConfig: authn_model.SDSAdsConfig,
 							},
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
@@ -2873,27 +2844,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
 								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: credentialName + authn_model.SdsCaSuffix,
-									SdsConfig: &core.ConfigSource{
-										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
-												GrpcServices: []*core.GrpcService{
-													{
-														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.CredentialNameSDSUdsPath,
-																StatPrefix: authn_model.SDSStatPrefix,
-															},
-														},
-													},
-												},
-											},
-										},
-										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: features.InitialFetchTimeout,
-									},
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
 								},
 							},
 						},
@@ -2925,54 +2877,16 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					CommonTlsContext: &tls.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
-								Name: credentialName,
-								SdsConfig: &core.ConfigSource{
-									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &core.ApiConfigSource{
-											ApiType:             core.ApiConfigSource_GRPC,
-											TransportApiVersion: core.ApiVersion_V3,
-											GrpcServices: []*core.GrpcService{
-												{
-													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  authn_model.CredentialNameSDSUdsPath,
-															StatPrefix: authn_model.SDSStatPrefix,
-														},
-													},
-												},
-											},
-										},
-									},
-									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: features.InitialFetchTimeout,
-								},
+								Name:      "kubernetes://" + credentialName,
+								SdsConfig: authn_model.SDSAdsConfig,
 							},
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: credentialName + authn_model.SdsCaSuffix,
-									SdsConfig: &core.ConfigSource{
-										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-											ApiConfigSource: &core.ApiConfigSource{
-												ApiType:             core.ApiConfigSource_GRPC,
-												TransportApiVersion: core.ApiVersion_V3,
-												GrpcServices: []*core.GrpcService{
-													{
-														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.CredentialNameSDSUdsPath,
-																StatPrefix: authn_model.SDSStatPrefix,
-															},
-														},
-													},
-												},
-											},
-										},
-										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: features.InitialFetchTimeout,
-									},
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
 								},
 							},
 						},
@@ -3026,9 +2940,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			old := features.EnableSDSServer
-			features.EnableSDSServer = tc.istiodSds
-			defer func() { features.EnableSDSServer = old }()
 			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
@@ -3747,7 +3658,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					ServiceInstances: tt.svcInsts,
 				},
 			}
-			addTelemetryMetadata(opt, tt.service, tt.direction)
+			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
 			if opt.cluster != nil && !reflect.DeepEqual(opt.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.cluster.Metadata)
 			}

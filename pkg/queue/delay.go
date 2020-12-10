@@ -16,6 +16,7 @@ package queue
 
 import (
 	"container/heap"
+	"runtime"
 	"sync"
 	"time"
 
@@ -23,9 +24,12 @@ import (
 )
 
 type delayTask struct {
-	do    func() error
-	runAt time.Time
+	do      func() error
+	runAt   time.Time
+	retries int
 }
+
+const maxTaskRetry = 3
 
 var _ heap.Interface = &pq{}
 
@@ -53,6 +57,13 @@ func (q *pq) Push(x interface{}) {
 func (q *pq) Pop() interface{} {
 	old := *q
 	n := len(old)
+	c := cap(old)
+	// Shrink the capacity of task queue.
+	if n < c/2 && c > 32 {
+		npq := make(pq, n, c/2)
+		copy(npq, old)
+		old = npq
+	}
 	if n == 0 {
 		return nil
 	}
@@ -97,16 +108,34 @@ func DelayQueueBuffer(bufferSize int) DelayQueueOption {
 func DelayQueueWorkers(workers int) DelayQueueOption {
 	return func(queue *delayQueue) {
 		queue.workers = workers
-		// TODO buffer execute channel?
 	}
 }
+
+// workerChanBuf determines whether the channel of a worker should be a buffered channel
+// to get the best performance.
+var workerChanBuf = func() int {
+	// Use blocking channel if GOMAXPROCS=1.
+	// This switches context from sender to receiver immediately,
+	// which results in higher performance.
+	var n int
+	if n = runtime.GOMAXPROCS(0); n == 1 {
+		return 0
+	}
+
+	// Make channel non-blocking and set up its capacity with GOMAXPROCS if GOMAXPROCS>1,
+	// otherwise the sender might be dragged down if the receiver is CPU-bound.
+	//
+	// GOMAXPROCS determines how many goroutines can run in parallel,
+	// which makes it the best choice as the channel capacity,
+	return n
+}()
 
 // NewDelayed gives a Delayed queue with maximum concurrency specified by workers.
 func NewDelayed(opts ...DelayQueueOption) Delayed {
 	q := &delayQueue{
 		workers: 1,
 		queue:   &pq{},
-		execute: make(chan *delayTask),
+		execute: make(chan *delayTask, workerChanBuf),
 		enqueue: make(chan *delayTask, 100),
 	}
 	for _, o := range opts {
@@ -201,8 +230,12 @@ func (d *delayQueue) work(stop <-chan struct{}) {
 		select {
 		case t := <-d.execute:
 			if err := t.do(); err != nil {
-				log.Errorf("Work item handle failed: %v", err)
-				// TODO requeue?
+				if t.retries < maxTaskRetry {
+					d.Push(t.do)
+					t.retries++
+					log.Warnf("Work item handle failed: %v %d times, retry it", err, t.retries)
+				}
+				log.Errorf("Work item handle failed: %v, reaching the maximum retry times: %d, drop it", err, maxTaskRetry)
 			}
 		case <-stop:
 			return
