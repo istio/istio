@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/golang/protobuf/ptypes/any"
 	"istio.io/pkg/log"
@@ -40,7 +39,7 @@ const (
 	TypeDebugConfigDump = "istio.io/debug/config_dump"
 )
 
-// InternalGen is a Generator for XDS status updates: connect, disconnect, nacks, acks
+// InternalGen is a Generator for XDS status: connections, syncz, configdump
 type InternalGen struct {
 	Server *DiscoveryServer
 
@@ -51,43 +50,6 @@ type InternalGen struct {
 func NewInternalGen(s *DiscoveryServer) *InternalGen {
 	return &InternalGen{
 		Server: s,
-	}
-}
-
-// PushAll will immediately send a response to all connections that
-// are watching for the specific type.
-// TODO: additional filters can be added, for example namespace.
-func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
-	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
-	// the same connection table
-	// Create a temp map to avoid locking the add/remove
-	pending := []*Connection{}
-	for _, v := range s.Clients() {
-		v.proxy.RLock()
-		if v.proxy.WatchedResources[res.TypeUrl] != nil {
-			pending = append(pending, v)
-		}
-		v.proxy.RUnlock()
-	}
-
-	// only marshal resources if there are connected clients
-	if len(pending) == 0 {
-		return
-	}
-
-	for _, p := range pending {
-		// p.send() waits for an ACK - which is reasonable for normal push,
-		// but in this case we want to sync fast and not bother with stuck connections.
-		// This is expecting a relatively small number of watchers - each other istiod
-		// plus few admin tools or bridges to real message brokers. The normal
-		// push expects 1000s of envoy connections.
-		con := p
-		go func() {
-			err := con.stream.Send(res)
-			if err != nil {
-				adsLog.Info("Failed to send internal event ", con.ConID, " ", err)
-			}
-		}()
 	}
 }
 
