@@ -115,6 +115,7 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	// unset controller, set disconnect time
 	cfg := sg.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
+		// TODO retry to handle slow propagation
 		// we failed to create the workload entry in the first place or it is not propagated
 		return
 	}
