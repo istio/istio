@@ -395,6 +395,9 @@ var (
 		"The amount of time an auto-registered workload can remain disconnected from all Pilot instances before the "+
 			"associated WorkloadEntry is cleaned up.").Get()
 
+	WorkloadEntryCleanupRateLimit = env.RegisterFloatVar("PILOT_WORKLOAD_ENTRY_CLEANUP_RATE", 50,
+		"The maximum number of WorkloadEntries that pilot will attempt to delete per-second.").Get()
+
 	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", false,
 		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
 

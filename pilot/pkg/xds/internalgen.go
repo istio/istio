@@ -86,7 +86,7 @@ func (sg *InternalGen) OnDisconnect(con *Connection) {
 func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCache) {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
 		sg.store = store
-		sg.cleanupLimit = rate.NewLimiter(rate.Limit(20), 1)
+		sg.cleanupLimit = rate.NewLimiter(rate.Limit(features.WorkloadEntryCleanupRateLimit), 1)
 		sg.cleanupQueue = queue.NewDelayed()
 	}
 }
