@@ -168,7 +168,6 @@ values:
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.configOverride.enable_audit_log"] = "true"
-	cfg.Values["global.proxy.componentLogLevel"] = "rbac:debug"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
 	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
