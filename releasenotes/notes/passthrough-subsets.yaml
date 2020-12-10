@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 25691
+releaseNotes:
+- |
+  **Fixed** a bug where load assignments were added to passthrough subsets resulting in Envoy rejecting those subset clusters.
