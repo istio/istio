@@ -22,7 +22,10 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -141,6 +144,9 @@ func initDependencies() map[name.ComponentName]chan struct{} {
 
 // Reconcile reconciles the associated resources.
 func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
+	if err := h.createNamespace(valuesv1alpha1.Namespace(h.iop.Spec), h.networkName()); err != nil {
+		return nil, err
+	}
 	manifestMap, err := h.RenderCharts()
 	if err != nil {
 		return nil, err
@@ -488,4 +494,54 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 			With(metrics.ResourceKindLabel.Value(util.GKString(gvk))).
 			Increment()
 	}
+}
+
+// createNamespace creates a namespace using the given k8s client.
+func (h *HelmReconciler) createNamespace(namespace string, network string) error {
+	if namespace == "" {
+		// Setup default namespace
+		namespace = name.IstioDefaultNamespace
+	}
+	// Check if the namespace already exists. If yes, do nothing. If no, create a new one.
+	// TODO(morvencao): consider to use the helm reconciler's client after Multi Namespace Cache
+	// supports get and create cluster scoped resources, see:
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/934
+	_, err := h.clientSet.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+				Labels: map[string]string{
+					"istio-injection": "disabled",
+				},
+			}}
+			if network != "" {
+				ns.Labels[label.IstioNetwork] = network
+			}
+			_, err := h.clientSet.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
+			}
+		} else {
+			return fmt.Errorf("failed to check if namespace %v exists: %v", namespace, err)
+		}
+	}
+
+	return nil
+}
+
+func (h *HelmReconciler) networkName() string {
+	if h.iop == nil || h.iop.Spec == nil || h.iop.Spec.Values == nil {
+		return ""
+	}
+	globalI := h.iop.Spec.Values["global"]
+	global, ok := globalI.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	nw, ok := global["network"].(string)
+	if !ok {
+		return ""
+	}
+	return nw
 }
