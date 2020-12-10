@@ -111,6 +111,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	}
 	tlsConfig := &tls.Config{
 		GetClientCertificate: getClientCertificate,
+		NextProtos:           cfg.Request.GetAlpn().GetValue(),
 	}
 	if cfg.Request.CaCert != "" {
 		certPool := x509.NewCertPool()
@@ -124,7 +125,9 @@ func newProtocol(cfg Config) (protocol, error) {
 
 	switch scheme.Instance(u.Scheme) {
 	case scheme.HTTP, scheme.HTTPS:
-		tlsConfig.NextProtos = []string{"http/1.1"}
+		if cfg.Request.Alpn == nil {
+			tlsConfig.NextProtos = []string{"http/1.1"}
+		}
 		proto := &httpProtocol{
 			client: &http.Client{
 				Transport: &http.Transport{
@@ -140,7 +143,9 @@ func newProtocol(cfg Config) (protocol, error) {
 			do: cfg.Dialer.HTTP,
 		}
 		if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
-			tlsConfig.NextProtos = []string{"http/2"}
+			if cfg.Request.Alpn == nil {
+				tlsConfig.NextProtos = []string{"h2"}
+			}
 			proto.client.Transport = &http2.Transport{
 				TLSClientConfig: tlsConfig,
 				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
