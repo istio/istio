@@ -520,6 +520,16 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if cluster.IsConfig() {
+		// there are a few tests that require special gateway setup which will cause eastwest gateway fail to start
+		// exclude these tests from installing eastwest gw for now
+		testID := i.ctx.Settings().TestID
+		excludedTests := []string{"security_file_mounted_certs", "security_mtlsk8sca", "security_sds_ingress_k8sca"}
+		for _, t := range excludedTests {
+			if t == testID {
+				return nil
+			}
+		}
+
 		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
 			return err
 		}
@@ -637,7 +647,7 @@ func install(c *operatorComponent, installSettings []string, istioCtl istioctl.I
 		"--skip-confirmation",
 	}
 	cmd = append(cmd, installSettings...)
-	scopes.Framework.Infof("Running istio control plane on cluster %s %v", clusterName, cmd)
+	scopes.Framework.Infof("Installing Istio components on cluster %s %v", clusterName, cmd)
 	if _, _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("install failed: %v", err)
 	}
