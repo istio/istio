@@ -58,7 +58,7 @@ spec:
 func TestStrictMTLS(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ecc_signature_algorithm").
+		Features("security.peer.ecc_signature_algorithm").
 		Run(func(ctx framework.TestContext) {
 			peerTemplate := tmpl.EvaluateOrFail(ctx, PeerAuthenticationConfig, map[string]string{"AppNamespace": apps.Namespace.Name()})
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), peerTemplate)
