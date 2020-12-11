@@ -172,12 +172,6 @@ var (
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	).Get()
 
-	EnableTCPMetadataExchange = env.RegisterBoolVar(
-		"PILOT_ENABLE_TCP_METADATA_EXCHANGE",
-		true,
-		"If enabled, metadata exchange will be enabled for TCP using ALPN and Network Metadata Exchange filters in Envoy",
-	).Get()
-
 	EnableWasmTelemetry = env.RegisterBoolVar(
 		"ENABLE_WASM_TELEMETRY",
 		false,
