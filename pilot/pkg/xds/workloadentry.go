@@ -128,7 +128,7 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 	}
 	// store the disconnect time early - between the time we Get the entry and apply the Update, we could have reconnected
 	// with a later ConnectedAt value
-	disconnAt := time.Now().Format(timeFormat)
+	disconnAt := time.Now()
 	// check if the WE already exists, update the status
 	entryName := autoregisteredWorkloadEntryName(proxy)
 	if entryName == "" {
@@ -152,13 +152,23 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 		return
 	}
 
+	if connAtStr, ok := cfg.Annotations[ConnectedAtAnnotation]; ok {
+		if connAt, err := time.Parse(timeFormat, connAtStr); err == nil && connAt.After(disconnAt) {
+			// reconnected during the retry loop
+			return
+		} else if err != nil {
+			log.Warnf("disconnect: WorkloadEntry %s/%s has invalid ConnectedAt timestamp: %s",
+				proxy.Metadata.Namespace, entryName, connAtStr)
+		}
+	}
+
 	// The wle has reconnected to another istiod and controlled by it.
 	if cfg.Annotations[WorkloadControllerAnnotation] != sg.Server.instanceID {
 		return
 	}
 	wle := cfg.DeepCopy()
 	delete(wle.Annotations, WorkloadControllerAnnotation)
-	wle.Annotations[DisconnectedAtAnnotation] = disconnAt
+	wle.Annotations[DisconnectedAtAnnotation] = disconnAt.Format(timeFormat)
 	// use update instead of patch to prevent race condition
 	_, err := sg.store.Update(wle)
 	if err != nil && !errors.IsConflict(err) {
