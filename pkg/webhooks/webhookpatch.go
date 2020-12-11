@@ -28,6 +28,7 @@ import (
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/pkg/log"
@@ -74,7 +75,7 @@ func PatchCertLoop(revision, injectionWebhookConfigName, webhookName, caBundlePa
 		"mutatingwebhookconfigurations",
 		"",
 		func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("istio.io/rev=%s", revision)
+			options.LabelSelector = fmt.Sprintf("%s=%s", label.IstioRev, revision)
 		})
 
 	_, controller := cache.NewInformer(
