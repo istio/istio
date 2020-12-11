@@ -520,8 +520,16 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	}
 
 	if cluster.IsConfig() {
-		// there are a few tests that require special gateway setup
-		// for example: security-file-mounted-certs, security-mtlsk8sca, security-sds-ingress-k8sca
+		// there are a few tests that require special gateway setup which will cause eastwest gateway fail to start
+		// exclude these tests from installing eastwest gw for now
+		testID := i.ctx.Settings().TestID
+		excludedTests := []string{"security-file-mounted-certs", "security-mtlsk8sca", "security-sds-ingress-k8sca"}
+		for _, t := range excludedTests {
+			if t == testID {
+				return nil
+			}
+		}
+
 		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {
 			return err
 		}
