@@ -117,7 +117,7 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 
 	var cfg config.Config
 	// unset controller, set disconnect time
-	if err := retry.OnError(wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}, func(err error) bool {
+	if err := retry.OnError(wait.Backoff{Duration: time.Millisecond * 500, Factor: 3, Steps: 3}, func(err error) bool {
 		// TODO retry on NotFound when Get returns an err
 		return err != nil
 	}, func() error {
