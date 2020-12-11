@@ -16,6 +16,8 @@
 package eccsignaturealgorithm
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -24,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"testing"
 )
 
 var (
@@ -34,7 +35,7 @@ var (
 
 type EchoDeployments struct {
 	// Namespace is used as the default namespace for reachability tests and other tests which can reuse the same config for echo instances
-	Namespace namespace.Instance
+	Namespace      namespace.Instance
 	Client, Server echo.Instance
 }
 
