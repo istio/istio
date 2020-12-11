@@ -1198,7 +1198,7 @@ func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
 
 // ValidateZipkinCollector validates the configuration for sending envoy spans to Zipkin
 func ValidateZipkinCollector(z *meshconfig.Tracing_Zipkin) error {
-	return ValidateProxyAddress(z.GetAddress())
+	return ValidateProxyAddress(strings.Replace(z.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
 // ValidateDatadogCollector validates the configuration for sending envoy spans to Datadog
