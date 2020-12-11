@@ -20,10 +20,11 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/api/label"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/api/label"
 )
 
 func TestMutatingWebhookPatch(t *testing.T) {
@@ -112,7 +113,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			[]byte("fake CA"),
-			revisionError.Error(),
+			errWrongRevision.Error(),
 		},
 		{
 			"WrongRevisionWebhookNotUpdated",
@@ -136,7 +137,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			[]byte("fake CA"),
-			revisionError.Error(),
+			errWrongRevision.Error(),
 		},
 		{
 			"MultipleWebhooks",

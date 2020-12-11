@@ -35,7 +35,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var revisionError = errors.New("webhook does not belong to target revision")
+var errWrongRevision = errors.New("webhook does not belong to target revision")
 
 func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
 	revision, webhookConfigName, webhookName string, caBundle []byte) error {
@@ -45,7 +45,7 @@ func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	}
 	v, ok := config.Labels[label.IstioRev]
 	if v != revision || !ok {
-		return revisionError
+		return errWrongRevision
 	}
 
 	found := false
@@ -115,7 +115,7 @@ func doPatchWithRetries(client kubernetes.Interface, revision, webhookConfigName
 	for {
 		if err := doPatch(client, revision, webhookConfigName, webhookName, caCertPem); err != nil {
 			// if the webhook no longer has the target revision, bail out
-			if errors.Is(err, revisionError) {
+			if errors.Is(err, errWrongRevision) {
 				return
 			}
 
