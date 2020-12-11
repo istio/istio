@@ -91,11 +91,13 @@ func PatchCertLoop(revision, injectionWebhookConfigName, webhookName, caBundlePa
 						if w.Name == webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
 							log.Infof("Detected a change in CA bundle, patching MutatingWebhookConfiguration for %s", newConfig.Name)
 							// either this is the canonical webhook for the revision and we should keep trying to patch
-							// the CABundle forever or it is a revision tag webhook and we should try once
+							// the CABundle forever or it is a revision tag webhook and we should try once since blindly
+							// retrying could lead to overwriting a webhook that's no longer labeled with our revision
 							if newConfig.Name == injectionWebhookConfigName {
 								shouldPatchCanonicalWebhook <- struct{}{}
 							} else {
-								if err := doPatch(client, newConfig.Name, webhookName, caCertPem); err != nil {
+								err = doPatch(client, newConfig.Name, webhookName, caCertPem)
+								if err != nil {
 									log.Errorf("failed to patch updated webhook %s: %v", newConfig.Name, err)
 								}
 							}
@@ -109,7 +111,8 @@ func PatchCertLoop(revision, injectionWebhookConfigName, webhookName, caBundlePa
 				if config.Name == injectionWebhookConfigName {
 					shouldPatchCanonicalWebhook <- struct{}{}
 				} else {
-					if err := doPatch(client, config.Name, webhookName, caCertPem); err != nil {
+					err = doPatch(client, config.Name, webhookName, caCertPem)
+					if err != nil {
 						log.Errorf("failed to patch updated webhook %s: %v", config.Name, err)
 					}
 				}

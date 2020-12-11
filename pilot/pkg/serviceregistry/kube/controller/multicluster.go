@@ -73,6 +73,7 @@ type Multicluster struct {
 	// fetchCaRoot maps the certificate name to the certificate
 	fetchCaRoot  func() map[string]string
 	caBundlePath string
+	revision     string
 
 	// secretNamespace where we get cluster-access secrets
 	secretNamespace  string
@@ -90,6 +91,7 @@ func NewMulticluster(
 	serviceController *aggregate.Controller,
 	serviceEntryStore *serviceentry.ServiceEntryStore,
 	caBundlePath string,
+	revision string,
 	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
 ) *Multicluster {
@@ -105,6 +107,7 @@ func NewMulticluster(
 		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
 		caBundlePath:          caBundlePath,
+		revision:              revision,
 		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
@@ -184,7 +187,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	if features.InjectionWebhookConfigName != "" && m.caBundlePath != "" && !localCluster && (features.ExternalIstioD || features.CentralIstioD) {
 		// TODO remove the patch loop init from initSidecarInjector (does this need leader elect? how well does it work with multi-primary?)
 		log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-		go webhooks.PatchCertLoop(features.Revision, features.InjectionWebhookConfigName, webhookName, m.caBundlePath, client.Kube(), stopCh)
+		go webhooks.PatchCertLoop(m.revision, features.InjectionWebhookConfigName, webhookName, m.caBundlePath, client.Kube(), stopCh)
 		validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
 		if validationWebhookController != nil {
