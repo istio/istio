@@ -98,6 +98,8 @@ gateways:
     additionalContainers: []
     configVolumes: []
 
+    deploymentRevision: ""
+
     ### Advanced options ############
     env:
       # A gateway with this mode ensures that pilot generates an additional

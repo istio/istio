@@ -525,7 +525,9 @@ message IngressGatewayConfig {
 
   google.protobuf.BoolValue runAsRoot = 45;
 
-  // Next available 46.
+  string deploymentRevision = 46;
+
+  // Next available 47.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
