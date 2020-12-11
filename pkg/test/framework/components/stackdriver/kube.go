@@ -38,9 +38,13 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
+type LogType int
+
 const (
-	stackdriverNamespace = "istio-stackdriver"
-	stackdriverPort      = 8091
+	ServerAccessLog      LogType = iota
+	ServerAuditLog       LogType = iota
+	stackdriverNamespace         = "istio-stackdriver"
+	stackdriverPort              = 8091
 )
 
 var (
@@ -152,11 +156,21 @@ func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 	return ret, nil
 }
 
-func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
+func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-	resp, err := client.Get("http://" + c.forwarder.Address() + "/logentries")
+
+	var resp *http.Response
+	var err error
+	switch filter {
+	case ServerAuditLog:
+		resp, err = client.Get("http://" + c.forwarder.Address() + "/auditlogentries")
+	case ServerAccessLog:
+		resp, err = client.Get("http://" + c.forwarder.Address() + "/logentries")
+	default:
+		err = fmt.Errorf("No such filter: %s", filter)
+	}
 	if err != nil {
 		return []*loggingpb.LogEntry{}, err
 	}

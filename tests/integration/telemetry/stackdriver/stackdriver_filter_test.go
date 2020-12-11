@@ -111,7 +111,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("Metrics validated")
-						if err := validateLogs(t, serverLogEntry, clName); err != nil {
+						if err := validateLogs(t, serverLogEntry, clName, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 						t.Logf("logs validated")
@@ -327,7 +327,7 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName string
 	return nil
 }
 
-func validateLogs(t *testing.T, srvLogEntry, clName string) error {
+func validateLogs(t *testing.T, srvLogEntry, clName string, filter stackdriver.LogType) error {
 	t.Helper()
 	var wantLog loggingpb.LogEntry
 	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName); err != nil {
@@ -335,7 +335,7 @@ func validateLogs(t *testing.T, srvLogEntry, clName string) error {
 	}
 
 	// Traverse all log entries received and compare with expected server log entry.
-	entries, err := sdInst.ListLogEntries()
+	entries, err := sdInst.ListLogEntries(filter)
 	if err != nil {
 		return fmt.Errorf("logs: failed to get received log entries: %v", err)
 	}

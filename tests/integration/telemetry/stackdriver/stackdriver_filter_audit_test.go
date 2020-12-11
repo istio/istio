@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -72,28 +73,28 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 
 						var errs []string
 
-						errAuditFoo := validateLogs(t, serverAuditFooLogEntry, clName)
+						errAuditFoo := validateLogs(t, serverAuditFooLogEntry, clName, stackdriver.ServerAuditLog)
 						if errAuditFoo == nil {
 							t.Logf("Foo Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditFoo.Error())
 						}
 
-						errAuditBar := validateLogs(t, serverAuditBarLogEntry, clName)
+						errAuditBar := validateLogs(t, serverAuditBarLogEntry, clName, stackdriver.ServerAuditLog)
 						if errAuditBar == nil {
 							t.Logf("Bar Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditBar.Error())
 						}
 
-						errAuditAll := validateLogs(t, serverAuditAllLogEntry, clName)
+						errAuditAll := validateLogs(t, serverAuditAllLogEntry, clName, stackdriver.ServerAuditLog)
 						if errAuditAll == nil {
 							t.Logf("All Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditAll.Error())
 						}
 
-						errAuditNone := validateLogs(t, serverAuditNoneLogEntry, clName)
+						errAuditNone := validateLogs(t, serverAuditNoneLogEntry, clName, stackdriver.ServerAuditLog)
 						if errAuditNone == nil {
 							t.Logf("None Audit Log validated for cluster %v", clName)
 						}
