@@ -17,6 +17,7 @@
 set -euo pipefail
 
 SINGLE_CLUSTER=0
+REVISION=""
 while (( "$#" )); do
   case "$1" in
     # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
@@ -35,6 +36,10 @@ while (( "$#" )); do
     ;;
     --mesh)
       MESH=$2
+      shift 2
+    ;;
+    --revision)
+      REVISION=$2
       shift 2
     ;;
     -*)
@@ -62,6 +67,7 @@ kind: IstioOperator
 metadata:
   name: eastwest
 spec:
+  revision: "${REVISION}"
   profile: empty
   components:
     ingressGateways:
@@ -110,13 +116,13 @@ $IOP
               - name: status-port
                 port: 15021
                 targetPort: 15021
-              - name: mtls
+              - name: tls
                 port: 15443
                 targetPort: 15443
-              - name: tcp-istiod
+              - name: tls-istiod
                 port: 15012
                 targetPort: 15012
-              - name: tcp-webhook
+              - name: tls-webhook
                 port: 15017
                 targetPort: 15017
 EOF
