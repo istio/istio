@@ -190,7 +190,8 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 		// TODO: handle cache miss
 		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
 		if int64(total) > (time.Minute.Milliseconds() / r.UpdateInterval.Milliseconds()) {
-			//remove from inProgressResources // TODO: cleanup completedResources
+			// remove from inProgressResources
+			// TODO: cleanup completedResources
 			toDelete = append(toDelete, item)
 		} else {
 			r.inProgressResources[item.ToModelKey()].completedIterations = total
@@ -229,7 +230,7 @@ func (r *Reporter) DeleteInProgressResource(res config.Config) {
 func (r *Reporter) writeReport(ctx context.Context) {
 	report, finishedResources := r.buildReport()
 	go r.removeCompletedResource(finishedResources)
-	//write to kubernetes here.
+	// write to kubernetes here.
 	reportbytes, err := yaml.Marshal(report)
 	if err != nil {
 		scope.Errorf("Error serializing Distribution Report: %v", err)

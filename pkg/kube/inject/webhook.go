@@ -86,7 +86,7 @@ type Webhook struct {
 	revision string
 }
 
-//nolint directives: interfacer
+// nolint directives: interfacer
 func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	data, err := ioutil.ReadFile(injectFile)
 	if err != nil {

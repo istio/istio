@@ -30,7 +30,7 @@ import (
 
 type IptablesConfigurator struct {
 	iptables *builder.IptablesBuilderImpl
-	//TODO(abhide): Fix dep.Dependencies with better interface
+	// TODO(abhide): Fix dep.Dependencies with better interface
 	ext dep.Dependencies
 	cfg *config.Config
 }
@@ -132,17 +132,17 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 				iptConfigurator.cfg.InboundTProxyMark)
 			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
 			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
-			//TODO: (abhide): Move this out of this method
+			// TODO: (abhide): Move this out of this method
 			iptConfigurator.ext.RunOrFail(
 				constants.IP, "-f", "inet", "rule", "add", "fwmark", iptConfigurator.cfg.InboundTProxyMark, "lookup",
 				iptConfigurator.cfg.InboundTProxyRouteTable)
 			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
 			// the loopback interface.
-			//TODO: (abhide): Move this out of this method
+			// TODO: (abhide): Move this out of this method
 			err := iptConfigurator.ext.Run(constants.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table",
 				iptConfigurator.cfg.InboundTProxyRouteTable)
 			if err != nil {
-				//TODO: (abhide): Move this out of this method
+				// TODO: (abhide): Move this out of this method
 				iptConfigurator.ext.RunOrFail(constants.IP, "route", "show", "table", "all")
 			}
 			// Create a new chain for redirecting inbound traffic to the common Envoy
@@ -370,7 +370,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.logConfig()
 
 	if iptConfigurator.cfg.EnableInboundIPv6 {
-		//TODO: (abhide): Move this out of this method
+		// TODO: (abhide): Move this out of this method
 		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
 	}
 

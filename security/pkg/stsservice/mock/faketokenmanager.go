@@ -59,7 +59,7 @@ func (tm *FakeTokenManager) SetRespStsParam(p stsservice.StsResponseParameters) 
 }
 
 func (tm *FakeTokenManager) SetToken(t stsservice.TokenInfo) {
-	//erase map
+	// erase map
 	tm.tokens.Range(func(key interface{}, value interface{}) bool {
 		tm.tokens.Delete(key)
 		return true

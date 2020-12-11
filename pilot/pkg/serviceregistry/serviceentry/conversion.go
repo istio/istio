@@ -58,7 +58,7 @@ func ServiceToServiceEntry(svc *model.Service) *config.Config {
 		//
 		Addresses: []string{svc.Address},
 
-		//Location:             0,
+		// Location:             0,
 
 		// Internal resolution:
 		//  - Passthrough - for ClusterIP=None and no ExternalName

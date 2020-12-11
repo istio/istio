@@ -130,12 +130,12 @@ var (
 	caRSAKeySize = env.RegisterIntVar("CITADEL_SELF_SIGNED_CA_RSA_KEY_SIZE", 2048,
 		"Specify the RSA key size to use for self-signed Istio CA certificates.")
 
-	//TODO: Likely to be removed and added to mesh config
+	// TODO: Likely to be removed and added to mesh config
 	externalCaType = env.RegisterStringVar("EXTERNAL_CA", "",
 		"External CA Integration Type. Permitted Values are ISTIOD_RA_KUBERNETES_API or "+
 			"ISTIOD_RA_ISTIO_API").Get()
 
-	//TODO: Likely to be removed and added to mesh config
+	// TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.RegisterStringVar("K8S_SIGNER", "",
 		"Kubernates CA Signer type. Valid from Kubernates 1.18").Get()
 )

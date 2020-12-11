@@ -155,7 +155,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Get Istio control plane namespace
-	//TODO(elfinhe): support components distributed in multiple namespaces
+	// TODO(elfinhe): support components distributed in multiple namespaces
 	istioNamespace := targetIOP.Namespace
 
 	// Read the current Istio version from the the cluster
