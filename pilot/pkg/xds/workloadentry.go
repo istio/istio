@@ -52,6 +52,10 @@ const (
 	timeFormat = time.RFC3339Nano
 )
 
+var (
+	backoff = wait.Backoff{Duration: time.Millisecond * 500, Factor: 3, Steps: 3}
+)
+
 type HealthEvent struct {
 	// whether or not the agent thought the target was empty
 	Healthy bool `json:"healthy,omitempty"`
@@ -69,17 +73,14 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 		return nil
 	}
 
-	// Try to patch, if it fails then try to create
-	_, err := sg.store.Patch(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace, func(cfg config.Config) config.Config {
-		setConnectMeta(&cfg, sg.Server.instanceID, con)
-		return cfg
-	})
-	// TODO return err from Patch through Get
+	// Try to patch, if it fails then try to create. QueueUnregister may change the "replace" op to an "add" if it
+	//removes the controller annotation, between crdclient's internal Get and Patch calls.
+	err := sg.patchEntryForReconnect(proxy.Metadata.Namespace, entryName, con)
 	if err == nil {
 		adsLog.Debugf("updated auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
 		return nil
 	} else if !errors.IsNotFound(err) && err.Error() != "item not found" {
-		adsLog.Errorf("updating auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+		adsLog.Errorf("updating auto-registered WorkloadEntry %s/%s: %v, %s", proxy.Metadata.Namespace, entryName, err, errors.ReasonForError(err))
 		return fmt.Errorf("updating auto-registered WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
 	}
 
@@ -94,12 +95,31 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
 	setConnectMeta(entry, sg.Server.instanceID, con)
 	_, err = sg.store.Create(*entry)
+
+	if errors.IsAlreadyExists(err) {
+		// the initial Patch may have failed due to a fast-reconnect and slow propagation in the API server
+		if err := sg.patchEntryForReconnect(proxy.Metadata.Namespace, entryName, con); err != nil {
+			return fmt.Errorf("updating auto-registered WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
+		}
+	}
+
 	if err != nil {
 		adsLog.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 		return fmt.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
 	adsLog.Infof("auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
 	return nil
+}
+
+func (sg *InternalGen) patchEntryForReconnect(namespace, entryName string, con *Connection) error {
+	// TODO the retry isn't necessary when using a more robust patch stragegy
+	return retry.OnError(backoff, errors.IsInvalid, func() error {
+		_, err := sg.store.Patch(gvk.WorkloadEntry, entryName, namespace, func(cfg config.Config) config.Config {
+			setConnectMeta(&cfg, sg.Server.instanceID, con)
+			return cfg
+		})
+		return err
+	})
 }
 
 func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
@@ -117,7 +137,7 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 
 	var cfg config.Config
 	// unset controller, set disconnect time
-	if err := retry.OnError(wait.Backoff{Duration: time.Millisecond * 500, Factor: 3, Steps: 3}, func(err error) bool {
+	if err := retry.OnError(backoff, func(err error) bool {
 		// TODO retry on NotFound when Get returns an err
 		return err != nil
 	}, func() error {
