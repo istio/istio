@@ -19,6 +19,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
@@ -161,19 +162,20 @@ func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, e
 		Timeout: 5 * time.Second,
 	}
 
-	var resp *http.Response
-	var err error
-	switch filter {
-	case ServerAuditLog:
-		resp, err = client.Get("http://" + c.forwarder.Address() + "/auditlogentries")
-	case ServerAccessLog:
-		resp, err = client.Get("http://" + c.forwarder.Address() + "/logentries")
-	default:
-		err = fmt.Errorf("No such filter: %s", filter)
-	}
+	resp, err := client.Get("http://" + c.forwarder.Address() + "/logentries")
 	if err != nil {
 		return []*loggingpb.LogEntry{}, err
 	}
+	var logNameFilter string
+	switch filter {
+	case ServerAuditLog:
+		logNameFilter = "/server-istio-audit-log"
+	case ServerAccessLog:
+		logNameFilter = "/server-accesslog-stackdriver"
+	default:
+		return []*loggingpb.LogEntry{}, fmt.Errorf("no such filter name: %s", logNameFilter)
+	}
+
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -186,31 +188,34 @@ func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, e
 	}
 	var ret []*loggingpb.LogEntry
 	for _, l := range r.Entries {
-		// Remove fields that do not need verification
-		l.Timestamp = nil
-		l.Trace = ""
-		l.SpanId = ""
-		l.Severity = ltype.LogSeverity_DEFAULT
-		if l.HttpRequest != nil {
-			l.HttpRequest.ResponseSize = 0
-			l.HttpRequest.RequestSize = 0
-			l.HttpRequest.ServerIp = ""
-			l.HttpRequest.RemoteIp = ""
-			l.HttpRequest.UserAgent = ""
-			l.HttpRequest.Latency = nil
+		if strings.HasSuffix(l.LogName, logNameFilter) {
+			// Remove fields that do not need verification
+			l.Timestamp = nil
+			l.Trace = ""
+			l.SpanId = ""
+			l.LogName = ""
+			l.Severity = ltype.LogSeverity_DEFAULT
+			if l.HttpRequest != nil {
+				l.HttpRequest.ResponseSize = 0
+				l.HttpRequest.RequestSize = 0
+				l.HttpRequest.ServerIp = ""
+				l.HttpRequest.RemoteIp = ""
+				l.HttpRequest.UserAgent = ""
+				l.HttpRequest.Latency = nil
+			}
+			delete(l.Labels, "request_id")
+			delete(l.Labels, "source_name")
+			delete(l.Labels, "destination_ip")
+			delete(l.Labels, "destination_name")
+			delete(l.Labels, "connection_id")
+			delete(l.Labels, "upstream_host")
+			delete(l.Labels, "connection_state")
+			delete(l.Labels, "source_ip")
+			delete(l.Labels, "source_port")
+			delete(l.Labels, "total_sent_bytes")
+			delete(l.Labels, "total_received_bytes")
+			ret = append(ret, l)
 		}
-		delete(l.Labels, "request_id")
-		delete(l.Labels, "source_name")
-		delete(l.Labels, "destination_ip")
-		delete(l.Labels, "destination_name")
-		delete(l.Labels, "connection_id")
-		delete(l.Labels, "upstream_host")
-		delete(l.Labels, "connection_state")
-		delete(l.Labels, "source_ip")
-		delete(l.Labels, "source_port")
-		delete(l.Labels, "total_sent_bytes")
-		delete(l.Labels, "total_received_bytes")
-		ret = append(ret, l)
 	}
 	return ret, nil
 }
