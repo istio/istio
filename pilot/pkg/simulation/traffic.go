@@ -156,12 +156,12 @@ type Result struct {
 	RouteConfigMatched string
 	VirtualHostMatched string
 	ClusterMatched     string
-	// StrictMatch controls whether we will strictly match the result. If not set, empty fields will
+	// StrictMatch controls whether we will strictly match the result. If unset, empty fields will
 	// be ignored, allowing testing only fields we care about This allows asserting that the result
 	// is *exactly* equal, allowing asserting a field is empty
 	StrictMatch bool
 	// If set, this will mark a test as skipped. Note the result is still checked first - we skip only
-	// if we pass the test. This is to ensure that if the behaviour changes, we still capture it; the skip
+	// if we pass the test. This is to ensure that if the behavior changes, we still capture it; the skip
 	// just ensures we notice a test is wrong
 	Skip string
 	t    test.Failer
@@ -247,7 +247,7 @@ func hasFilterOnPort(l *listener.Listener, filter string, port int) bool {
 	if got.FilterDisabled == nil {
 		return true
 	}
-	return !v1alpha3.EvaluateListenerFilterPredicatesInternal(got.FilterDisabled, false, port)
+	return !v1alpha3.EvaluateListenerFilterPredicates(got.FilterDisabled, false, port)
 }
 
 func (sim *Simulation) Run(input Call) (result Result) {
@@ -357,7 +357,7 @@ func (sim *Simulation) requiresMTLS(fc *listener.FilterChain) bool {
 	if len(t.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()) == 0 {
 		return false
 	}
-	// This is a lazy heuristic, we could check for explicit default resource or spiffee if it becomes neccesary
+	// This is a lazy heuristic, we could check for explicit default resource or spiffe if it becomes necessary
 	return t.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()[0].Name == "default"
 }
 
