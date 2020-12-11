@@ -187,7 +187,12 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	if features.InjectionWebhookConfigName.Get() != "" && m.caBundlePath != "" && !localCluster && (features.ExternalIstioD || features.CentralIstioD) {
 		// TODO remove the patch loop init from initSidecarInjector (does this need leader elect? how well does it work with multi-primary?)
 		log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-		go webhooks.PatchCertLoop(m.revision, webhookName, m.caBundlePath, client.Kube(), stopCh)
+		patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundlePath)
+		if err != nil {
+			log.Errorf("could not initialize webhook cert patcher")
+		} else {
+			patcher.Run(stopCh)
+		}
 		validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
 		if validationWebhookController != nil {

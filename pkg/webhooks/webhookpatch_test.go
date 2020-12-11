@@ -66,7 +66,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			[]byte("fake CA"),
-			"webhook entry \"webhook1\" not found in config \"config1\"",
+			errNoWebhookWithName.Error(),
 		},
 		{
 			"SuccessfullyPatched",
@@ -171,8 +171,15 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-			err := patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-				tc.revision, tc.configName, tc.webhookName, tc.pemData)
+			whPatcher := WebhookCertPatcher{
+				client:      client,
+				revision:    tc.revision,
+				webhookName: tc.webhookName,
+				caCertPem:   tc.pemData,
+			}
+
+			err := whPatcher.patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+				tc.configName)
 			if (err != nil) != (tc.err != "") {
 				t.Fatalf("Wrong error: got %v want %v", err, tc.err)
 			}

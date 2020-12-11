@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"k8s.io/api/admissionregistration/v1beta1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
@@ -31,58 +30,65 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/pkg/log"
 )
 
-var errWrongRevision = errors.New("webhook does not belong to target revision")
+var (
+	errWrongRevision     = errors.New("webhook does not belong to target revision")
+	errNoWebhookWithName = errors.New("webhook configuration did not contain webhook with target name")
+)
 
-func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
-	revision, webhookConfigName, webhookName string, caBundle []byte) error {
-	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	// prevents a race condition bewteen multiple istiods when the revision is changed or modified
-	v, ok := config.Labels[label.IstioRev]
-	if v != revision || !ok {
-		return errWrongRevision
-	}
+// WebhookCertPatcher listens for webhooks on specified revision and patches their CA bundles
+type WebhookCertPatcher struct {
+	client kubernetes.Interface
 
-	found := false
-	for i, w := range config.Webhooks {
-		if w.Name == webhookName {
-			config.Webhooks[i].ClientConfig.CABundle = caBundle
-			found = true
-		}
-	}
-	if !found {
-		return apierrors.NewInternalError(fmt.Errorf(
-			"webhook entry %q not found in config %q", webhookName, webhookConfigName))
-	}
+	// revision to patch webhooks for
+	revision    string
+	webhookName string
+	caCertPem   []byte
 
-	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
-	return err
+	queue queue.Instance
 }
 
-// PatchCertLoop monitors webhooks labeled with the specified revision and patches them with the given CA bundle
-func PatchCertLoop(revision, webhookName, caBundlePath string, client kubernetes.Interface, stopCh <-chan struct{}) {
-	// K8S own CA
+// Run runs the WebhookCertPatcher
+func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
+	go w.queue.Run(stopChan)
+	go w.runWebhookController(stopChan)
+}
+
+// NewWebhookCertPatcher creates a WebhookCertPatcher
+func NewWebhookCertPatcher(
+	client kubernetes.Interface,
+	revision, webhookName, caBundlePath string) (*WebhookCertPatcher, error) {
+
+	// ca from k8s
 	caCertPem, err := ioutil.ReadFile(caBundlePath)
 	if err != nil {
 		log.Errorf("Skipping webhook patch, missing CA path %v", caBundlePath)
-		return
+		return nil, fmt.Errorf("could not read CA path: %v", err)
 	}
 
+	return &WebhookCertPatcher{
+		client:      client,
+		revision:    revision,
+		webhookName: webhookName,
+		caCertPem:   caCertPem,
+		queue:       queue.NewQueue(time.Second * 2),
+	}, nil
+}
+
+func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
 	watchlist := cache.NewFilteredListWatchFromClient(
-		client.AdmissionregistrationV1beta1().RESTClient(),
+		w.client.AdmissionregistrationV1beta1().RESTClient(),
 		"mutatingwebhookconfigurations",
 		"",
 		func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("%s=%s", label.IstioRev, revision)
+			options.LabelSelector = fmt.Sprintf("%s=%s", label.IstioRev, w.revision)
 		})
 
-	_, controller := cache.NewInformer(
+	_, c := cache.NewInformer(
 		watchlist,
 		&v1beta1.MutatingWebhookConfiguration{},
 		0,
@@ -90,59 +96,84 @@ func PatchCertLoop(revision, webhookName, caBundlePath string, client kubernetes
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				oldConfig := oldObj.(*v1beta1.MutatingWebhookConfiguration)
 				newConfig := newObj.(*v1beta1.MutatingWebhookConfiguration)
-
-				if oldConfig.ResourceVersion != newConfig.ResourceVersion {
-					for i, w := range newConfig.Webhooks {
-						if w.Name == webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
-							log.Infof("Detected a change in CA bundle, patching MutatingWebhookConfiguration for %s", newConfig.Name)
-							go doPatchWithRetries(client, revision, newConfig.Name, webhookName, caCertPem)
-							break
-						}
-					}
-				}
+				w.updateWebhookHandler(oldConfig, newConfig)
 			},
 			AddFunc: func(obj interface{}) {
 				config := obj.(*v1beta1.MutatingWebhookConfiguration)
-				for i, w := range config.Webhooks {
-					if w.Name == webhookName && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, caCertPem) {
-						log.Infof("Detected a change in CA bundle, patching MutatingWebhookConfiguration for %s", config.Name)
-						go doPatchWithRetries(client, revision, config.Name, webhookName, caCertPem)
-						break
-					}
-				}
-				log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
-				go doPatchWithRetries(client, revision, config.Name, webhookName, caCertPem)
+				w.addWebhookHandler(config)
 			},
 		},
 	)
-	go controller.Run(stopCh)
+
+	c.Run(stopChan)
 }
 
-func doPatchWithRetries(client kubernetes.Interface, revision, webhookConfigName, webhookName string, caCertPem []byte) {
-	retryDelay := time.Second * 2
-	for {
-		if err := doPatch(client, revision, webhookConfigName, webhookName, caCertPem); err != nil {
-			// if the webhook no longer has the target revision, bail out
-			if errors.Is(err, errWrongRevision) {
-				return
+func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1beta1.MutatingWebhookConfiguration) {
+	if oldConfig.ResourceVersion != newConfig.ResourceVersion {
+		for i, wh := range newConfig.Webhooks {
+			if wh.Name == w.webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
+				w.queue.Push(func() error {
+					return w.webhookPatchTask(newConfig.Name)
+				})
+				break
 			}
-
-			// otherwise, wait and give it another try
-			time.Sleep(retryDelay)
-		} else {
-			return
 		}
 	}
 }
 
-func doPatch(cs kubernetes.Interface, revision, webhookConfigName, webhookName string, caCertPem []byte) error {
-	client := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-	err := patchMutatingWebhookConfig(client, revision, webhookConfigName, webhookName, caCertPem)
+func (w *WebhookCertPatcher) addWebhookHandler(config *v1beta1.MutatingWebhookConfiguration) {
+	for i, wh := range config.Webhooks {
+		if wh.Name == w.webhookName && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
+			log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
+			w.queue.Push(func() error {
+				return w.webhookPatchTask(config.Name)
+			})
+			break
+		}
+	}
+}
+
+// webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue
+func (w *WebhookCertPatcher) webhookPatchTask(webhookConfigName string) error {
+	err := w.patchMutatingWebhookConfig(
+		w.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+		webhookConfigName)
+
+	// do not want to retry the task if these errors occur, they indicate that
+	// we should no longer be patching the given webhook
+	if errors.Is(err, errWrongRevision) || errors.Is(err, errNoWebhookWithName) {
+		return nil
+	}
+
+	return err
+}
+
+// patchMutatingWebhookConfig takes a webhookConfigName and patches the CA bundle for that webhook configuration
+func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
+	client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
+	webhookConfigName string) error {
+	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("Patch webhook failed for webhook %s: %v", webhookName, err)
 		return err
 	}
-	log.Infof("Patched webhook %s", webhookName)
+	// prevents a race condition between multiple istiods when the revision is changed or modified
+	v, ok := config.Labels[label.IstioRev]
+	if v != w.revision || !ok {
+		return errWrongRevision
+	}
+
+	found := false
+	for i, wh := range config.Webhooks {
+		if wh.Name == w.webhookName {
+			config.Webhooks[i].ClientConfig.CABundle = w.caCertPem
+			found = true
+		}
+	}
+	if !found {
+		return errNoWebhookWithName
+	}
+
+	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
 	return err
 }
 
