@@ -94,13 +94,15 @@ func TestStrictMTLS(t *testing.T) {
 			if block == nil {
 				ctx.Fatalf("failed to parse certificate PEM")
 			}
-			cert, err := x509.ParseCertificate(block.Bytes)
+
+			// nolint: staticcheck
+			certificate, parseErr := x509.ParseCertificate(block.Bytes)
 			if err != nil {
-				ctx.Fatalf("failed to parse certificate: %v", err)
+				ctx.Fatalf("failed to parse certificate: %v", parseErr)
 			}
 
-			if cert.PublicKeyAlgorithm != x509.ECDSA {
-				ctx.Fatalf("public key used in server cert is not ECDSA: %v", cert.PublicKeyAlgorithm)
+			if certificate.PublicKeyAlgorithm != x509.ECDSA {
+				ctx.Fatalf("public key used in server cert is not ECDSA: %v", certificate.PublicKeyAlgorithm)
 			}
 		})
 }
