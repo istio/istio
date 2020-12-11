@@ -17,6 +17,9 @@ package xds
 import (
 	"context"
 	"fmt"
+	"istio.io/pkg/log"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"strings"
 	"time"
 
@@ -112,11 +115,20 @@ func (sg *InternalGen) QueueUnregisterWorkload(proxy *model.Proxy) {
 		return
 	}
 
+	var cfg config.Config
 	// unset controller, set disconnect time
-	cfg := sg.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
-	if cfg == nil {
-		// TODO retry to handle slow propagation
-		// we failed to create the workload entry in the first place or it is not propagated
+	if err := retry.OnError(wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}, func(err error) bool {
+		// TODO retry on NotFound when Get returns an err
+		return err != nil
+	}, func() error {
+		if c := sg.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace); c != nil {
+			cfg = *c
+			return nil
+		}
+		// TODO refactor ConfigStore.Get to return err
+		return fmt.Errorf("GET failure")
+	}); err != nil {
+		log.Errorf("disconnect: failed getting WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 		return
 	}
 
