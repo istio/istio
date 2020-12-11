@@ -43,6 +43,7 @@ func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	if err != nil {
 		return err
 	}
+	// prevents a race condition bewteen multiple istiods when the revision is changed or modified
 	v, ok := config.Labels[label.IstioRev]
 	if v != revision || !ok {
 		return errWrongRevision
@@ -102,6 +103,13 @@ func PatchCertLoop(revision, webhookName, caBundlePath string, client kubernetes
 			},
 			AddFunc: func(obj interface{}) {
 				config := obj.(*v1beta1.MutatingWebhookConfiguration)
+				for i, w := range config.Webhooks {
+					if w.Name == webhookName && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, caCertPem) {
+						log.Infof("Detected a change in CA bundle, patching MutatingWebhookConfiguration for %s", config.Name)
+						go doPatchWithRetries(client, revision, config.Name, webhookName, caCertPem)
+						break
+					}
+				}
 				log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
 				go doPatchWithRetries(client, revision, config.Name, webhookName, caCertPem)
 			},
@@ -132,9 +140,9 @@ func doPatch(cs kubernetes.Interface, revision, webhookConfigName, webhookName s
 	err := patchMutatingWebhookConfig(client, revision, webhookConfigName, webhookName, caCertPem)
 	if err != nil {
 		log.Errorf("Patch webhook failed for webhook %s: %v", webhookName, err)
-	} else {
-		log.Infof("Patched webhook %s", webhookName)
+		return err
 	}
+	log.Infof("Patched webhook %s", webhookName)
 	return err
 }
 
