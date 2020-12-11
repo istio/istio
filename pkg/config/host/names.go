@@ -120,7 +120,7 @@ func NamesForNamespace(hosts []string, namespace string) Names {
 			if parts[0] != namespace && parts[0] != "*" {
 				continue
 			}
-			//strip the namespace
+			// strip the namespace
 			host = parts[1]
 		}
 		result = append(result, Name(host))

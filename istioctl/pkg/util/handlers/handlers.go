@@ -46,7 +46,7 @@ func inferNsInfo(name, namespace string) (string, string) {
 	return name[0:separator], name[separator+1:]
 }
 
-//HandleNamespace returns the defaultNamespace if the namespace is empty
+// HandleNamespace returns the defaultNamespace if the namespace is empty
 func HandleNamespace(ns, defaultNamespace string) string {
 	if ns == v1.NamespaceAll {
 		ns = defaultNamespace

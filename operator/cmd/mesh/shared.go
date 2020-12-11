@@ -165,7 +165,7 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 		}
 	}
 
-	//Config loading rules:
+	// Config loading rules:
 	// 1. kubeconfig if it not empty string
 	// 2. In cluster config if running in-cluster
 	// 3. Config(s) in KUBECONFIG environment variable
@@ -248,7 +248,7 @@ func createNamespace(cs kubernetes.Interface, namespace string, network string) 
 		// Setup default namespace
 		namespace = istioDefaultNamespace
 	}
-	//check if the namespace already exists. If yes, do nothing. If no, create a new one.
+	// check if the namespace already exists. If yes, do nothing. If no, create a new one.
 	_, err := cs.CoreV1().Namespaces().Get(context.TODO(), namespace, v12.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {

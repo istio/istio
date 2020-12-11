@@ -157,7 +157,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 	for _, crd := range crds {
 		versions := crd.Spec.Versions
 		if len(versions) == 0 {
-			versions = []apiextensions.CustomResourceDefinitionVersion{{Name: crd.Spec.Version}} //nolint: staticcheck
+			versions = []apiextensions.CustomResourceDefinitionVersion{{Name: crd.Spec.Version}} // nolint: staticcheck
 		}
 		for _, ver := range versions {
 			gvk := schema.GroupVersionKind{
