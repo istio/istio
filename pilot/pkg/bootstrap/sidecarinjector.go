@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/webhooks"
 	"istio.io/pkg/env"
@@ -90,20 +89,17 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create injection webhook: %v", err)
 	}
-	// Patch cert if a webhook config name is provided.
-	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+	// Patching certs requires RBAC permissions, low-priv Istiod should not attempt to patch but rely on
 	// operator or CI/CD
-	if features.InjectionWebhookConfigName != "" {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			// No leader election - different istiod revisions will patch their own cert.
-			caBundlePath := s.caBundlePath
-			if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
-				caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
-			}
-			webhooks.PatchCertLoop(args.Revision, features.InjectionWebhookConfigName, webhookName, caBundlePath, s.kubeClient, stop)
-			return nil
-		})
-	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		// No leader election - different istiod revisions will patch their own cert.
+		caBundlePath := s.caBundlePath
+		if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+			caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
+		}
+		webhooks.PatchCertLoop(args.Revision, webhookName, caBundlePath, s.kubeClient, stop)
+		return nil
+	})
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go wh.Run(stop)
 		return nil
