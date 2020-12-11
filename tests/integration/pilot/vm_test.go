@@ -23,9 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/test/framework"
