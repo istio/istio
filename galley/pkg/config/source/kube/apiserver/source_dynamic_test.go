@@ -368,7 +368,10 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	addCrdEvents(wcrd, r.All())
 
 	// Now start properly and get events
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
+	}
+	cl := fake.NewSimpleDynamicClientWithCustomListKinds(k8sRuntime.NewScheme(), gvrToListKind)
 	k.AddResponse(cl, nil)
 	w := mockWatch(cl)
 
