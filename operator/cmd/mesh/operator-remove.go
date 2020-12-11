@@ -44,8 +44,7 @@ func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
 	cmd.PersistentFlags().StringVar(&oiArgs.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
-	cmd.PersistentFlags().StringVarP(&oiArgs.revision, "revision", "r", "",
-		revisionFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&oiArgs.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
 
 func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
