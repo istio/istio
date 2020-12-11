@@ -190,7 +190,8 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 		// TODO: handle cache miss
 		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
 		if int64(total) > (time.Minute.Milliseconds() / r.UpdateInterval.Milliseconds()) {
-			// remove from inProgressResources // TODO: cleanup completedResources
+			// remove from inProgressResources
+			// TODO: cleanup completedResources
 			toDelete = append(toDelete, item)
 		} else {
 			r.inProgressResources[item.ToModelKey()].completedIterations = total
