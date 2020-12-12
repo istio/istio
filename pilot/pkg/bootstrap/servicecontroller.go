@@ -88,6 +88,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.ServiceController(),
 		s.serviceEntryStore,
 		caBundlePath,
+		args.Revision,
 		s.fetchCARoot,
 		s.environment)
 
