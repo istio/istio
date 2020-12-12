@@ -769,8 +769,6 @@ spec:
             protocol: TCP
           - containerPort: 15017
             protocol: TCP
-          - containerPort: 15053
-            protocol: TCP
           readinessProbe:
             httpGet:
               path: /ready
