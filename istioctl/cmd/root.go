@@ -237,9 +237,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(configCmd())
-	postInstallWebhookCmd := Webhook()
-	deprecate(postInstallWebhookCmd)
-	postInstallCmd.AddCommand(postInstallWebhookCmd)
 	experimentalCmd.AddCommand(workloadCommands())
 	experimentalCmd.AddCommand(postInstallCmd)
 
