@@ -1,0 +1,336 @@
+# A-la-carte istio ingress gateway.
+# Must be installed in a separate namespace, to minimize access to secrets.
+
+gateways:
+  istio-ingressgateway:
+    name: istio-ingressgateway
+    labels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+    ports:
+    ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
+    - port: 15021
+      targetPort: 15021
+      name: status-port
+      protocol: TCP
+    - port: 80
+      targetPort: 8080
+      name: http2
+      protocol: TCP
+    - port: 443
+      targetPort: 8443
+      name: https
+      protocol: TCP
+      # This is the port where sni routing happens
+    - port: 15443
+      targetPort: 15443
+      name: tls
+      protocol: TCP
+
+    # Scalability tunning
+    # replicaCount: 1
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+
+    cpu:
+      targetAverageUtilization: 80
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    serviceAnnotations: {}
+
+    # Enable cross-cluster access using SNI matching
+    zvpn:
+      enabled: false
+      suffix: global
+
+    # To generate an internal load balancer:
+    # --set serviceAnnotations.cloud.google.com/load-balancer-type=internal
+    #serviceAnnotations:
+    #    cloud.google.com/load-balancer-type: "internal"
+
+    podAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+
+    #### MESH EXPANSION PORTS  ########
+    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
+    # to pilot/citadel if global.meshExpansion settings are enabled.
+    # Delete these ports if mesh expansion is not enabled, to avoid
+    # exposing unnecessary ports on the web.
+    # You can remove these ports if you are not using mesh expansion
+    meshExpansionPorts:
+    - port: 15012
+      targetPort: 15012
+      name: tcp-istiod
+    ####### end MESH EXPANSION PORTS ######
+
+    ##############
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
+
+    customService: false
+    externalTrafficPolicy: ""
+
+    ingressPorts: []
+    additionalContainers: []
+    configVolumes: []
+
+    ### Advanced options ############
+    env:
+      # A gateway with this mode ensures that pilot generates an additional
+      # set of clusters for internal services but without Istio mTLS, to
+      # enable cross cluster routing.
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+
+    nodeSelector: {}
+    tolerations: []
+
+    # Specify the pod anti-affinity that allows you to constrain which nodes
+    # your pod is eligible to be scheduled based on labels on pods that are
+    # already running on the node rather than based on labels on nodes.
+    # There are currently two types of anti-affinity:
+    #    "requiredDuringSchedulingIgnoredDuringExecution"
+    #    "preferredDuringSchedulingIgnoredDuringExecution"
+    # which denote "hard" vs. "soft" requirements, you can define your values
+    # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+    # correspondingly.
+    # For example:
+    # podAntiAffinityLabelSelector:
+    # - key: security
+    #   operator: In
+    #   values: S1,S2
+    #   topologyKey: "kubernetes.io/hostname"
+    # This pod anti-affinity rule says that the pod requires not to be scheduled
+    # onto a node if that node is already running a pod with label having key
+    # "security" and value "S1".
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+
+    # whether to run the gateway in a privileged container
+    runAsRoot: false
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
+
+# For Helm compatibility.
+ownerName: ""
+
+global:
+  # set the default set of namespaces to which services, service entries, virtual services, destination
+  # rules should be exported to. Currently only one value can be provided in this list. This value
+  # should be one of the following two options:
+  # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
+  defaultConfigVisibilitySettings: []
+
+  # enable pod disruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
+  defaultPodDisruptionBudget:
+    enabled: true
+
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  # Default node tolerations to be applied to all deployments so that all pods can be
+  # scheduled to a particular nodes with matching taints. Each component can overwrite
+  # these default values by adding its tolerations block in the relevant section below
+  # and setting the desired values.
+  # Configure this field in case that all pods of Istio control plane are expected to
+  # be scheduled to particular nodes with specified taints.
+  defaultTolerations: []
+
+  # Default hub for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Dev builds from prow are on gcr.io
+  hub: gcr.io/istio-testing
+
+  # Default tag for Istio images.
+  tag: latest
+
+  # Specify image pull policy if default behavior isn't desired.
+  # Default behavior: latest images will be Always else IfNotPresent.
+  imagePullPolicy: ""
+
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
+  # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
+  # Must be set for any cluster configured with private docker registry.
+  imagePullSecrets: []
+  # - private-registry-key
+
+  # To output all istio components logs in json format by adding --log_as_json argument to each container argument
+  logAsJson: false
+
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+
+  # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
+  # The control plane has different scopes depending on component, but can configure default log level across all components
+  # If empty, default scope and level will be used as configured in code
+  logging:
+    level: "default:info"
+
+  # If set to true, the pilot and citadel mtls will be exposed on the
+  # ingress gateway
+  meshExpansion:
+    enabled: false
+    # If set to true, the pilot and citadel mtls and the plain text pilot ports
+    # will be exposed on an internal gateway
+    useILB: false
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low priority class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
+
+  proxy:
+    image: proxyv2
+
+    # CAUTION: It is important to ensure that all Istio helm charts specify the same clusterDomain value
+    # cluster domain. Default value is "cluster.local".
+    clusterDomain: "cluster.local"
+
+    # Per Component log level for proxy, applies to gateways and sidecars. If a component level is
+    # not set, then the global "logLevel" will be used.
+    componentLogLevel: "misc:error"
+
+    # If set, newly injected sidecars will have core dumps enabled.
+    enableCoreDump: false
+
+    # Log level for proxy, applies to gateways and sidecars.
+    # Expected values are: trace|debug|info|warning|error|critical|off
+    logLevel: warning
+
+  ##############################################################################################
+  # The following values are found in other charts. To effectively modify these values, make   #
+  # make sure they are consistent across your Istio helm charts                                #
+  ##############################################################################################
+
+  # The customized CA address to retrieve certificates for the pods in the cluster.
+  # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
+  caAddress: ""
+
+  # Used to locate istiod.
+  istioNamespace: istio-system
+
+  # Configure the policy for validating JWT.
+  # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
+  jwtPolicy: "third-party-jwt"
+
+  # Mesh ID means Mesh Identifier. It should be unique within the scope where
+  # meshes will interact with each other, but it is not required to be
+  # globally/universally unique. For example, if any of the following are true,
+  # then two meshes must have different Mesh IDs:
+  # - Meshes will have their telemetry aggregated in one place
+  # - Meshes will be federated together
+  # - Policy will be written referencing one mesh from the other
+  #
+  # If an administrator expects that any of these conditions may become true in
+  # the future, they should ensure their meshes have different Mesh IDs
+  # assigned.
+  #
+  # Within a multicluster mesh, each cluster must be (manually or auto)
+  # configured to have the same Mesh ID value. If an existing cluster 'joins' a
+  # multicluster mesh, it will need to be migrated to the new mesh ID. Details
+  # of migration TBD, and it may be a disruptive operation to change the Mesh
+  # ID post-install.
+  #
+  # If the mesh admin does not specify a value, Istio will use the value of the
+  # mesh's Trust Domain. The best practice is to select a proper Trust Domain
+  # value.
+  meshID: ""
+
+  # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
+  mountMtlsCerts: false
+
+  multiCluster:
+    # Set to true to connect two kubernetes clusters via their respective
+    # ingressgateway services when pods in each cluster cannot directly
+    # talk to one another. All clusters should be using Istio mTLS and must
+    # have a shared root CA for this model to work.
+    enabled: false
+    # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
+    # to properly label proxies
+    clusterName: ""
+    # The suffix for global service names
+    globalDomainSuffix: "global"
+    # Enable envoy filter to translate `globalDomainSuffix` to cluster local suffix for cross cluster communication
+    includeEnvoyFilter: true
+
+  # Network defines the network this cluster belong to. This name
+  # corresponds to the networks in the map of mesh networks.
+  network: ""
+
+  # Configure the certificate provider for control plane communication.
+  # Currently, two providers are supported: "kubernetes" and "istiod".
+  # As some platforms may not have kubernetes signing APIs,
+  # Istiod is the default
+  pilotCertProvider: istiod
+
+  sds:
+    # The JWT token for SDS and the aud field of such JWT. See RFC 7519, section 4.1.3.
+    # When a CSR is sent from Citadel Agent to the CA (e.g. Citadel), this aud is to make sure the
+    # JWT is intended for the CA.
+    token:
+      aud: istio-ca
+
+  sts:
+    # The service port used by Security Token Service (STS) server to handle token exchange requests.
+    # Setting this port to a non-zero value enables STS server.
+    servicePort: 0
+
+  # Deprecated, use meshConfig.trustDomain
+#  trustDomain: ""
+
+meshConfig:
+  enablePrometheusMerge: true
+#  trustDomain: ""
+  defaultConfig:
+    proxyMetadata: {}
+    tracing:
+    #      tlsSettings:
+    #        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+    #        clientCertificate: # example: /etc/istio/tracer/cert-chain.pem
+    #        privateKey:        # example: /etc/istio/tracer/key.pem
+    #        caCertificates:    # example: /etc/istio/tracer/root-cert.pem
+    #        sni:               # example: tracer.somedomain
+    #        subjectAltNames: []
+    # - tracer.somedomain

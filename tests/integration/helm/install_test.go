@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,8 +38,6 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/util/sanitycheck"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -68,7 +67,7 @@ var (
 func TestDefaultInstall(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default").
+		Features("installation.helm.default.install").
 		Run(func(ctx framework.TestContext) {
 			workDir, err := ctx.CreateTmpDirectory("helm-install-test")
 			if err != nil {
@@ -92,7 +91,7 @@ global:
 			}
 			installGatewaysCharts(t, cs, h, overrideValuesFile)
 
-			verifyInstallation(t, ctx, cs)
+			verifyInstallation(ctx, cs)
 
 			t.Cleanup(func() {
 				deleteGatewayCharts(t, h)
@@ -105,7 +104,7 @@ global:
 func TestInstallWithFirstPartyJwt(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.firstpartyjwt").
+		Features("installation.helm.firstpartyjwt.install").
 		Run(func(ctx framework.TestContext) {
 			workDir, err := ctx.CreateTmpDirectory("helm-install-test")
 			if err != nil {
@@ -130,7 +129,7 @@ global:
 			}
 			installGatewaysCharts(t, cs, h, overrideValuesFile)
 
-			verifyInstallation(t, ctx, cs)
+			verifyInstallation(ctx, cs)
 
 			t.Cleanup(func() {
 				deleteGatewayCharts(t, h)
@@ -181,21 +180,31 @@ func deleteGatewayCharts(t *testing.T, h *helm.Helm) {
 }
 
 // verifyInstallation verify that the Helm installation is successful
-func verifyInstallation(t *testing.T, ctx resource.Context, cs resource.Cluster) {
+func verifyInstallation(ctx framework.TestContext, cs resource.Cluster) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 
-	retry.UntilSuccessOrFail(t, func() error {
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewSinglePodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
+	retry.UntilSuccessOrFail(ctx, func() error {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
 			return fmt.Errorf("istiod pod is not ready: %v", err)
 		}
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewSinglePodFetch(cs, IstioNamespace, "app=istio-ingressgateway")); err != nil {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingressgateway")); err != nil {
 			return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
 		}
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewSinglePodFetch(cs, IstioNamespace, "app=istio-egressgateway")); err != nil {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-egressgateway")); err != nil {
 			return fmt.Errorf("istio egress gateway pod is not ready: %v", err)
 		}
 		return nil
 	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
-	sanitycheck.RunTrafficTest(t, ctx)
 	scopes.Framework.Infof("=== succeeded ===")
+}
+
+func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) string {
+	workDir := ctx.CreateTmpDirectoryOrFail("helm")
+	overrideValues := fmt.Sprintf(valuesStr, hub, tag)
+	overrideValuesFile := filepath.Join(workDir, "values.yaml")
+	if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+		ctx.Fatalf("failed to write iop cr file: %v", err)
+	}
+
+	return overrideValuesFile
 }
