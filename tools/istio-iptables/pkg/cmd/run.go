@@ -146,13 +146,6 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 				iptConfigurator.ext.RunOrFail(constants.IP, "route", "show", "table", "all")
 			}
 
-			ifaceName := getNIC()
-			if ifaceName != "" {
-				// set route local net
-				iptConfigurator.ext.RunOrFail(
-					"sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.route_localnet=1", ifaceName))
-			}
-
 			// Create a new chain for redirecting inbound traffic to the common Envoy
 			// port.
 			// In the ISTIOINBOUND chain, '-j RETURN' bypasses Envoy and
@@ -589,18 +582,4 @@ func (iptConfigurator *IptablesConfigurator) executeCommands() {
 		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV6())
 
 	}
-}
-
-func getNIC() string {
-	ifaces, _ := net.Interfaces()
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 {
-			continue // interface down
-		}
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
-		}
-		return iface.Name
-	}
-	return ""
 }
