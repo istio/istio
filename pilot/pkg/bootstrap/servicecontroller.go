@@ -34,6 +34,8 @@ func (s *Server) ServiceController() *aggregate.Controller {
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	registered := make(map[serviceregistry.ProviderID]bool)
+	// serviceentry store must be created before creating multucluster registry, so that it can wire up handlers.
+	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
 	for _, r := range args.RegistryOptions.Registries {
 		serviceRegistry := serviceregistry.ProviderID(r)
 		if _, exists := registered[serviceRegistry]; exists {
@@ -54,7 +56,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.XDSServer)
 	serviceControllers := s.ServiceController()
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 	// Defer running of the service controllers.
