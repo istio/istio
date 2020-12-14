@@ -125,7 +125,7 @@ spec:
 ---`
 	mkCall := func(port int, tls simulation.TLSMode) simulation.Call {
 		// TODO https://github.com/istio/istio/issues/28506 address should not be required here
-		r := simulation.Call{Port: port, CallMode: simulation.CallModeInbound, TLS: tls, Address: "1.1.1.1"}
+		r := simulation.Call{Protocol: simulation.HTTP, Port: port, CallMode: simulation.CallModeInbound, TLS: tls, Address: "1.1.1.1"}
 		if tls == simulation.MTLS {
 			r.Alpn = "istio"
 		}
@@ -194,9 +194,13 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name:   "mtls on port 8000",
-					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Name: "mtls on port 8000",
+					Call: mkCall(8000, simulation.MTLS),
+					Result: simulation.Result{
+						// This is broken, we should pass it through
+						Error: simulation.ErrNoFilterChain,
+						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743283641",
+					},
 				},
 				{
 					Name:   "plaintext port 9000",
@@ -220,9 +224,10 @@ spec:
 					Result: simulation.Result{ClusterMatched: "inbound|8000||"},
 				},
 				{
-					Name:   "mtls on port 8000",
-					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Name: "mtls on port 8000",
+					Call: mkCall(8000, simulation.MTLS),
+					// This will send an mTLS request to plaintext HTTP port, which is expected to fail
+					Result: simulation.Result{Error: simulation.ErrProtocolError},
 				},
 				{
 					Name:   "plaintext port 9000",
@@ -256,9 +261,13 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name:   "mtls port 9000",
-					Call:   mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Name: "mtls port 9000",
+					Call: mkCall(9000, simulation.MTLS),
+					Result: simulation.Result{
+						// This is broken, we should be passing it through
+						Error: simulation.ErrNoFilterChain,
+						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743286797",
+					},
 				},
 			},
 		},
@@ -282,9 +291,13 @@ spec:
 					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
 				},
 				{
-					Name:   "mtls port 9000",
-					Call:   mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Name: "mtls port 9000",
+					Call: mkCall(9000, simulation.MTLS),
+					Result: simulation.Result{
+						// This is broken, we should be passing it through
+						Error: simulation.ErrNoFilterChain,
+						Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-743286797",
+					},
 				},
 			},
 		},
@@ -324,9 +337,10 @@ spec:
 					Result: simulation.Result{ClusterMatched: "inbound|8000||"},
 				},
 				{
-					Name:   "mtls on port 8000",
-					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Name: "mtls on port 8000",
+					Call: mkCall(8000, simulation.MTLS),
+					// We match the plaintext HTTP filter chain, which is a protocol error (as expected)
+					Result: simulation.Result{Error: simulation.ErrProtocolError},
 				},
 				{
 					Name:   "plaintext port 9000",
@@ -459,7 +473,7 @@ spec:
 ---`
 	mkCall := func(port int, tls simulation.TLSMode) simulation.Call {
 		// TODO https://github.com/istio/istio/issues/28506 address should not be required here
-		return simulation.Call{Port: port, CallMode: simulation.CallModeInbound, TLS: tls, Address: "1.1.1.1"}
+		return simulation.Call{Protocol: simulation.TCP, Port: port, CallMode: simulation.CallModeInbound, TLS: tls, Address: "1.1.1.1"}
 	}
 	cases := []struct {
 		name   string
@@ -486,9 +500,10 @@ spec:
 					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
 				},
 				{
-					Name:   "tls on plaintext port",
-					Call:   mkCall(9090, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Name: "tls on plaintext port",
+					Call: mkCall(9090, simulation.MTLS),
+					// TLS is fine here; we are not sniffing TLS at all so anything is allowed
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
 				},
 			},
 		},
@@ -512,9 +527,10 @@ spec:
 					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
 				},
 				{
-					Name:   "tls on plaintext port",
-					Call:   mkCall(9090, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Name: "tls on plaintext port",
+					Call: mkCall(9090, simulation.MTLS),
+					// TLS is fine here; we are not sniffing TLS at all so anything is allowed
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
 				},
 			},
 		},
@@ -567,9 +583,10 @@ spec:
 					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
 				},
 				{
-					Name:   "tls on plaintext port",
-					Call:   mkCall(9090, simulation.MTLS),
-					Result: simulation.Result{Error: simulation.ErrNoFilterChain},
+					Name: "tls on plaintext port",
+					Call: mkCall(9090, simulation.MTLS),
+					// TLS is fine here; we are not sniffing TLS at all so anything is allowed
+					Result: simulation.Result{ClusterMatched: "inbound|9090||"},
 				},
 			},
 		},
