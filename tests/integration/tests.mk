@@ -69,6 +69,11 @@ ifneq ($(_INTEGRATION_TEST_CONFIG_TOPOLOGY),)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.configTopology=$(_INTEGRATION_TEST_CONFIG_TOPOLOGY)
 endif
 
+_INTEGRATION_TEST_TOPOLOGY_FILE ?= $(INTEGRATION_TEST_TOPOLOGY_FILE)
+ifneq ($(_INTEGRATION_TEST_TOPOLOGY_FILE),)
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.topology=$(_INTEGRATION_TEST_TOPOLOGY_FILE)
+endif
+
 test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
