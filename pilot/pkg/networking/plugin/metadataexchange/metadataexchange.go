@@ -15,7 +15,6 @@
 package metadataexchange
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -67,8 +66,8 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 		if in.ListenerProtocol == networking.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, xdsfilters.HTTPMx)
 		}
-		if features.EnableTCPMetadataExchange && (in.ListenerProtocol == networking.ListenerProtocolTCP ||
-			mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolTCP) {
+		if in.ListenerProtocol == networking.ListenerProtocolTCP ||
+			mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolTCP {
 			mutable.FilterChains[i].TCP = append(mutable.FilterChains[i].TCP, xdsfilters.TCPMx)
 		}
 	}

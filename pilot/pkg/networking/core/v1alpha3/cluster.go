@@ -962,22 +962,10 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		default:
 			if c.Http2ProtocolOptions != nil {
 				// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-				// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
-				// metadataexchange is enabled.
-				if features.EnableTCPMetadataExchange {
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
-				} else {
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
-				}
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
 			} else {
 				// This is in-mesh cluster, advertise it with ALPN.
-				// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
-				// metadataexchange is enabled.
-				if features.EnableTCPMetadataExchange {
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
-				} else {
-					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
-				}
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 			}
 		}
 	case networking.ClientTLSSettings_SIMPLE:
