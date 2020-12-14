@@ -273,22 +273,6 @@ func createNamespace(cs kubernetes.Interface, namespace string, network string) 
 	return nil
 }
 
-func networkName(iop *v1alpha1.IstioOperator) string {
-	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
-		return ""
-	}
-	globalI := iop.Spec.Values["global"]
-	global, ok := globalI.(map[string]interface{})
-	if !ok {
-		return ""
-	}
-	nw, ok := global["network"].(string)
-	if !ok {
-		return ""
-	}
-	return nw
-}
-
 // saveIOPToCluster saves the state in an IOP CR in the cluster.
 func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) error {
 	obj, err := object.ParseYAMLToK8sObject([]byte(iop))
