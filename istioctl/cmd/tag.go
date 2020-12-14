@@ -6,17 +6,16 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"io"
-	"istio.io/istio/pkg/kube"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"text/tabwriter"
+
+	"istio.io/api/label"
+	"istio.io/istio/pkg/kube"
 )
 
-const (
-	istioTagLabel = "istio.io/tag"
-	istioRevLabel = "istio.io/rev"
-)
+const istioTagLabel = "istio.io/tag"
 
 var (
 	revision  = ""
@@ -212,7 +211,7 @@ func deleteTagWebhooks(ctx context.Context, client kube.ExtendedClient, webhooks
 // getNamespacesWithTag retrieves all namespaces pointed at the given tag
 func getNamespacesWithTag(ctx context.Context, client kube.ExtendedClient, tag string) ([]string, error) {
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("istio.io/rev=%s", tag),
+		LabelSelector: fmt.Sprintf("%s=%s", label.IstioRev, tag),
 	})
 	if err != nil {
 		return nil, err
@@ -235,7 +234,7 @@ func getTagName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 
 // getRevision extracts tag target revision from webhook object
 func getTagRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
-	if tagName, ok := wh.ObjectMeta.Labels[istioRevLabel]; ok {
+	if tagName, ok := wh.ObjectMeta.Labels[label.IstioRev]; ok {
 		return tagName, nil
 	}
 	return "", fmt.Errorf("could not extract tag name from webhook")
