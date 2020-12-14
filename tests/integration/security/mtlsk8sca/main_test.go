@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 		Setup(func(ctx resource.Context) error {
 			// TODO: due to issue https://github.com/istio/istio/issues/25286,
 			// currently VM does not work in this test
-			return util.SetupApps(ctx, inst, apps, false)
+			return util.SetupApps(ctx, inst, apps)
 		}).
 		Run()
 }
