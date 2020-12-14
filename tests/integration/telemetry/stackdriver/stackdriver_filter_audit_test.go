@@ -36,11 +36,10 @@ import (
 )
 
 const (
-	serverAuditAllLogEntry  = "testdata/security_authz_audit/server_audit_all_log.json.tmpl"
-	serverAuditFooLogEntry  = "testdata/security_authz_audit/server_audit_foo_log.json.tmpl"
-	serverAuditBarLogEntry  = "testdata/security_authz_audit/server_audit_bar_log.json.tmpl"
-	serverAuditNoneLogEntry = "testdata/security_authz_audit/server_audit_none_log.json.tmpl"
-	auditPolicyForLogEntry  = "testdata/security_authz_audit/v1beta1-audit-authorization-policy.yaml.tmpl"
+	serverAuditAllLogEntry = "testdata/security_authz_audit/server_audit_all_log.json.tmpl"
+	serverAuditFooLogEntry = "testdata/security_authz_audit/server_audit_foo_log.json.tmpl"
+	serverAuditBarLogEntry = "testdata/security_authz_audit/server_audit_bar_log.json.tmpl"
+	auditPolicyForLogEntry = "testdata/security_authz_audit/v1beta1-audit-authorization-policy.yaml.tmpl"
 )
 
 // TestStackdriverAuditLogging testing Authz Policy can config stackdriver with audit policy
@@ -59,7 +58,6 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, ns, policies...)
 			t.Logf("Audit policy deployed to namespace %v", ns)
 
-			t.Logf("Traffic sent to namespace %v", ns)
 			for _, cltInstance := range clt {
 				scopes.Framework.Infof("Validating Audit policy and Telemetry for Cluster %v", cltInstance.Config().Cluster.Name())
 				g.Go(func() error {
@@ -67,6 +65,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 						if err := sendTrafficForAudit(t, cltInstance); err != nil {
 							return err
 						}
+						t.Logf("Traffic sent to namespace %v", ns)
 
 						clName := cltInstance.Config().Cluster.Name()
 						t.Logf("Collect Audit Log for cluster %v", clName)
@@ -94,15 +93,21 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 							errs = append(errs, errAuditAll.Error())
 						}
 
-						errAuditNone := validateLogs(t, serverAuditNoneLogEntry, clName, stackdriver.ServerAuditLog)
-						if errAuditNone == nil {
-							t.Logf("None Audit Log validated for cluster %v", clName)
+						entries, err := sdInst.ListLogEntries(stackdriver.ServerAuditLog)
+						if err != nil {
+							errs = append(errs, err.Error())
+						} else {
+							for _, l := range entries {
+								if l.HttpRequest != nil && strings.HasSuffix(l.HttpRequest.RequestUrl, "audit-none") {
+									errs = append(errs, "unwanted audit log entry `/audit-none` received.")
+								}
+							}
 						}
-						if len(errs) == 0 && errAuditNone != nil {
+
+						if len(errs) == 0 {
 							return nil
 						}
 
-						errs = append(errs, errAuditNone.Error())
 						return fmt.Errorf(strings.Join(errs, "\n"))
 					}, retry.Delay(5*time.Second), retry.Timeout(80*time.Second))
 

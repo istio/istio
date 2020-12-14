@@ -42,10 +42,13 @@ import (
 type LogType int
 
 const (
-	ServerAccessLog      LogType = iota
-	ServerAuditLog       LogType = iota
-	stackdriverNamespace         = "istio-stackdriver"
-	stackdriverPort              = 8091
+	stackdriverNamespace = "istio-stackdriver"
+	stackdriverPort      = 8091
+)
+
+const (
+	ServerAccessLog LogType = iota
+	ServerAuditLog
 )
 
 var (
@@ -188,34 +191,35 @@ func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, e
 	}
 	var ret []*loggingpb.LogEntry
 	for _, l := range r.Entries {
-		if strings.HasSuffix(l.LogName, logNameFilter) {
-			// Remove fields that do not need verification
-			l.Timestamp = nil
-			l.Trace = ""
-			l.SpanId = ""
-			l.LogName = ""
-			l.Severity = ltype.LogSeverity_DEFAULT
-			if l.HttpRequest != nil {
-				l.HttpRequest.ResponseSize = 0
-				l.HttpRequest.RequestSize = 0
-				l.HttpRequest.ServerIp = ""
-				l.HttpRequest.RemoteIp = ""
-				l.HttpRequest.UserAgent = ""
-				l.HttpRequest.Latency = nil
-			}
-			delete(l.Labels, "request_id")
-			delete(l.Labels, "source_name")
-			delete(l.Labels, "destination_ip")
-			delete(l.Labels, "destination_name")
-			delete(l.Labels, "connection_id")
-			delete(l.Labels, "upstream_host")
-			delete(l.Labels, "connection_state")
-			delete(l.Labels, "source_ip")
-			delete(l.Labels, "source_port")
-			delete(l.Labels, "total_sent_bytes")
-			delete(l.Labels, "total_received_bytes")
-			ret = append(ret, l)
+		if !strings.HasSuffix(l.LogName, logNameFilter) {
+			continue
 		}
+		// Remove fields that do not need verification
+		l.Timestamp = nil
+		l.Trace = ""
+		l.SpanId = ""
+		l.LogName = ""
+		l.Severity = ltype.LogSeverity_DEFAULT
+		if l.HttpRequest != nil {
+			l.HttpRequest.ResponseSize = 0
+			l.HttpRequest.RequestSize = 0
+			l.HttpRequest.ServerIp = ""
+			l.HttpRequest.RemoteIp = ""
+			l.HttpRequest.UserAgent = ""
+			l.HttpRequest.Latency = nil
+		}
+		delete(l.Labels, "request_id")
+		delete(l.Labels, "source_name")
+		delete(l.Labels, "destination_ip")
+		delete(l.Labels, "destination_name")
+		delete(l.Labels, "connection_id")
+		delete(l.Labels, "upstream_host")
+		delete(l.Labels, "connection_state")
+		delete(l.Labels, "source_ip")
+		delete(l.Labels, "source_port")
+		delete(l.Labels, "total_sent_bytes")
+		delete(l.Labels, "total_received_bytes")
+		ret = append(ret, l)
 	}
 	return ret, nil
 }
