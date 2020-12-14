@@ -74,6 +74,7 @@ var (
 		PrimaryClusterIOPFile: IntegrationTestDefaultsIOP,
 		ConfigClusterIOPFile:  IntegrationTestDefaultsIOP,
 		RemoteClusterIOPFile:  IntegrationTestRemoteDefaultsIOP,
+		DeployEastWestGW:      true,
 	}
 )
 
@@ -141,6 +142,10 @@ type Config struct {
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
 	SkipWaitForValidationWebhook bool
+
+	// Indicates that the test should deploy Istio's east west gateway into the target Kubernetes cluster
+	// before running tests.
+	DeployEastWestGW bool
 }
 
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {

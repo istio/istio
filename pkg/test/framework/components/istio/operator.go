@@ -293,7 +293,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if cluster.IsPrimary() {
 			cluster := cluster
 			errG.Go(func() error {
-				return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
+				return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec, deployEastWestGW)
 			})
 		}
 	}
@@ -473,7 +473,8 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resour
 // installControlPlaneCluster installs the istiod control plane to the given cluster.
 // The cluster is considered a "primary" cluster if it is also a "config cluster", in which case components
 // like ingress will be installed.
-func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string, spec *opAPI.IstioOperatorSpec) error {
+func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string,
+	spec *opAPI.IstioOperatorSpec, deployEastWestGW bool) error {
 	scopes.Framework.Infof("setting up %s as control-plane cluster", cluster.Name())
 
 	if !cluster.IsConfig() {
@@ -522,12 +523,8 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resour
 	if cluster.IsConfig() {
 		// there are a few tests that require special gateway setup which will cause eastwest gateway fail to start
 		// exclude these tests from installing eastwest gw for now
-		testID := i.ctx.Settings().TestID
-		excludedTests := []string{"security_file_mounted_certs", "security_mtlsk8sca", "security_sds_ingress_k8sca"}
-		for _, t := range excludedTests {
-			if t == testID {
-				return nil
-			}
+		if !cfg.DeployEastWestGW {
+			return nil
 		}
 
 		if err := i.deployEastWestGateway(cluster, spec.Revision); err != nil {

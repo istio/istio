@@ -63,7 +63,7 @@ func TestMain(m *testing.M) {
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
 		Label("CustomSetup").
-		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
+		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret, false)).
 		Run()
 }
 
@@ -178,6 +178,7 @@ values:
       #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
 `
+	cfg.DeployEastWestGW = false
 }
 
 func CreateCustomIstiodSecret(ctx resource.Context) error {
