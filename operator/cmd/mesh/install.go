@@ -204,10 +204,6 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 		return nil, err
 	}
 
-	if err := createNamespace(clientset, iop.Namespace, networkName(iop)); err != nil {
-		return iop, err
-	}
-
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
