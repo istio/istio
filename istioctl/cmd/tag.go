@@ -334,5 +334,6 @@ func buildInjectionWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string)
 		},
 	}
 	injectionWebhook.NamespaceSelector = &tagWebhookNamespaceSelector
+	injectionWebhook.ClientConfig.CABundle = []byte("") // istiod patches the CA bundle in
 	return *injectionWebhook, nil
 }
