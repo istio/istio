@@ -327,6 +327,8 @@ const (
 	DebugTrigger TriggerReason = "debug"
 	// Describes a push triggered for a Secret change
 	SecretTrigger TriggerReason = "secret"
+	// Describes a push triggered by a discovery Namespace change
+	DiscoveryNamespaceUpdate TriggerReason = "discovery-namespace"
 )
 
 // Merge two update requests together
@@ -984,6 +986,8 @@ func (ps *PushContext) updateContext(
 		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
 			virtualServicesChanged = true
 			gatewayChanged = true
+		case gvk.Namespace:
+			servicesChanged = true
 		}
 	}
 
