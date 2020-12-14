@@ -293,7 +293,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if cluster.IsPrimary() {
 			cluster := cluster
 			errG.Go(func() error {
-				return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec, deployEastWestGW)
+				return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
 			})
 		}
 	}
@@ -474,7 +474,7 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster resour
 // The cluster is considered a "primary" cluster if it is also a "config cluster", in which case components
 // like ingress will be installed.
 func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string,
-	spec *opAPI.IstioOperatorSpec, deployEastWestGW bool) error {
+	spec *opAPI.IstioOperatorSpec) error {
 	scopes.Framework.Infof("setting up %s as control-plane cluster", cluster.Name())
 
 	if !cluster.IsConfig() {
