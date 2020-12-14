@@ -63,7 +63,6 @@ type StatusVerifier struct {
 	iop              *v1alpha1.IstioOperator
 	successMarker    string
 	failureMarker    string
-	noIstioMarker    string
 }
 
 // NewStatusVerifier creates a new instance of post-install verifier
@@ -86,14 +85,12 @@ func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string
 		iop:              installedIOP,
 		successMarker:    "✔",
 		failureMarker:    "✘",
-		noIstioMarker:    "!",
 	}
 }
 
 func (v *StatusVerifier) Colorize() {
 	v.successMarker = color.New(color.FgGreen).Sprint(v.successMarker)
 	v.failureMarker = color.New(color.FgRed).Sprint(v.failureMarker)
-	v.noIstioMarker = color.New(color.FgRed).Sprint(v.noIstioMarker)
 }
 
 // Verify implements Verifier interface. Here we check status of deployment
@@ -371,9 +368,9 @@ func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err er
 	v.logger.LogAndPrintf("Checked %v Istio Deployments", istioDeploymentCount)
 	if istioDeploymentCount == 0 {
 		if err != nil {
-			v.logger.LogAndPrintf("%s No Istio installation found: %v", v.noIstioMarker, err)
+			v.logger.LogAndPrintf("! No Istio installation found: %v", err)
 		} else {
-			v.logger.LogAndPrintf("%s No Istio installation found", v.noIstioMarker)
+			v.logger.LogAndPrintf("! No Istio installation found")
 		}
 		return fmt.Errorf("no Istio installation found")
 	}
