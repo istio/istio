@@ -721,28 +721,3 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 	chains = append(chains, &listener.FilterChain{Name: VirtualOutboundCatchAllTCPFilterChainName, Filters: filterStack})
 	return chains
 }
-
-// EvaluateListenerFilterPredicates runs through the ListenerFilterChainMatchPredicate logic
-// This is exposed for testing only, and should not be used in XDS generation code
-func EvaluateListenerFilterPredicates(predicate *listener.ListenerFilterChainMatchPredicate, invertMatch bool, port int) bool {
-	if predicate == nil {
-		return false
-	}
-	switch r := predicate.Rule.(type) {
-	case *listener.ListenerFilterChainMatchPredicate_NotMatch:
-		return EvaluateListenerFilterPredicates(r.NotMatch, !invertMatch, port)
-	case *listener.ListenerFilterChainMatchPredicate_OrMatch:
-		matches := false
-		for _, r := range r.OrMatch.Rules {
-			matches = matches || EvaluateListenerFilterPredicates(r, invertMatch, port)
-		}
-		if invertMatch {
-			matches = !matches
-		}
-		return matches
-	case *listener.ListenerFilterChainMatchPredicate_DestinationPortRange:
-		return int32(port) >= r.DestinationPortRange.GetStart() && int32(port) < r.DestinationPortRange.GetEnd()
-	default:
-		panic("unsupported predicate")
-	}
-}
