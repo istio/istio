@@ -189,7 +189,7 @@ function cleanup_kind_clusters() {
 # cluster topology information to be loaded in advance
 function setup_kind_clusters() {
   IMAGE="${1:-"${DEFAULT_KIND_IMAGE}"}"
-  KUBECONFIG_DIR="$(mktemp -d)"
+  KUBECONFIG_DIR="${ARTIFACTS:-$(mktemp -d)}/kubeconfig"
   IP_FAMILY="${2:-ipv4}"
 
   check_default_cluster_yaml
