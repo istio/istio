@@ -62,21 +62,25 @@ type TestCase struct {
 // Run runs the given reachability test cases with the context.
 func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeployments) {
 	callOptions := []echo.CallOptions{
+		//{
+		//	PortName: "http",
+		//	Scheme:   scheme.HTTP,
+		//},
+		//{
+		//	PortName: "http",
+		//	Scheme:   scheme.WebSocket,
+		//},
+		//{
+		//	PortName: "tcp",
+		//	Scheme:   scheme.TCP,
+		//},
+		//{
+		//	PortName: "grpc",
+		//	Scheme:   scheme.GRPC,
+		//},
 		{
-			PortName: "http",
-			Scheme:   scheme.HTTP,
-		},
-		{
-			PortName: "http",
-			Scheme:   scheme.WebSocket,
-		},
-		{
-			PortName: "tcp",
-			Scheme:   scheme.TCP,
-		},
-		{
-			PortName: "grpc",
-			Scheme:   scheme.GRPC,
+			PortName: "https",
+			Scheme:   scheme.HTTPS,
 		},
 	}
 
@@ -191,7 +195,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 										tpe)
 
 									ctx.NewSubTest(subTestName).
-										RunParallel(func(ctx framework.TestContext) {
+										Run(func(ctx framework.TestContext) {
 											if onPreRun != nil {
 												onPreRun(ctx, src, opts)
 											}
