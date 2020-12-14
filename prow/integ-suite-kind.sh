@@ -88,7 +88,7 @@ while (( "$#" )); do
       shift 2
     ;;
     --topology-config)
-      CLUSTER_TOPOLOGY_CONFIG_FILE=$2
+      CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/${2}"
       shift 2
     ;;
     -*)
