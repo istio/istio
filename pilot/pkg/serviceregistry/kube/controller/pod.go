@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/util/sets"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -40,7 +41,9 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
-	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
+	podTransitionTime map[string]metav1.Time
+
+	// needResync is map of IP to endpoint names. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
 	needResync         map[string]sets.Set
@@ -57,9 +60,46 @@ func newPodCache(c *Controller, informer coreinformers.PodInformer, queueEndpoin
 		IPByPods:           make(map[string]string),
 		needResync:         make(map[string]sets.Set),
 		queueEndpointEvent: queueEndpointEvent,
+		podTransitionTime:  make(map[string]metav1.Time),
 	}
 
 	return out
+}
+
+// copy from kubernetes/pkg/api/v1/pod/utils.go
+func IsPodReady(pod *v1.Pod) bool {
+	return IsPodReadyConditionTrue(pod.Status)
+}
+
+// IsPodReadyConditionTrue returns true if a pod is ready; false otherwise.
+func IsPodReadyConditionTrue(status v1.PodStatus) bool {
+	condition := GetPodReadyCondition(status)
+	return condition != nil && condition.Status == v1.ConditionTrue
+}
+func GetPodReadyCondition(status v1.PodStatus) *v1.PodCondition {
+	_, condition := GetPodCondition(&status, v1.PodReady)
+	return condition
+}
+
+func GetPodCondition(status *v1.PodStatus, conditionType v1.PodConditionType) (int, *v1.PodCondition) {
+	if status == nil {
+		return -1, nil
+	}
+	return GetPodConditionFromList(status.Conditions, conditionType)
+}
+
+// GetPodConditionFromList extracts the provided condition from the given list of condition and
+// returns the index of the condition and the condition. Returns -1 and nil if the condition is not present.
+func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodConditionType) (int, *v1.PodCondition) {
+	if conditions == nil {
+		return -1, nil
+	}
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return i, &conditions[i]
+		}
+	}
+	return -1, nil
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
@@ -79,13 +119,14 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			return fmt.Errorf("tombstone contained object that is not a pod %#v", curr)
 		}
 	}
-
+	inTransitState := false
 	ip := pod.Status.PodIP
 
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
 	if len(ip) > 0 {
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
+		podCondition := GetPodReadyCondition(pod.Status)
 		switch ev {
 		case model.EventAdd:
 			switch pod.Status.Phase {
@@ -94,6 +135,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 					// add to cache if the pod is running or pending
 					pc.update(ip, key)
 				}
+				if _, ok := pc.podTransitionTime[ip]; !ok && IsPodReady(pod) {
+					pc.podTransitionTime[ip] = podCondition.LastTransitionTime
+					inTransitState = true
+				}
 			}
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil {
@@ -101,6 +146,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				if pc.podsByIP[ip] == key {
 					pc.deleteIP(ip)
 				}
+				delete(pc.podTransitionTime, ip)
 				ev = model.EventDelete
 			} else {
 				switch pod.Status.Phase {
@@ -109,12 +155,25 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 						// add to cache if the pod is running or pending
 						pc.update(ip, key)
 					}
-
+					if IsPodReady(pod) {
+						if lastTransitTime, ok := pc.podTransitionTime[ip]; !ok || !lastTransitTime.Equal(&podCondition.LastTransitionTime) {
+							pc.podTransitionTime[ip] = podCondition.LastTransitionTime
+							inTransitState = true
+						}
+					} else {
+						// This is when a healthy endpoint becomes unready
+						if _, ok := pc.podTransitionTime[ip]; ok {
+							inTransitState = true
+							pc.podTransitionTime[ip] = podCondition.LastTransitionTime
+							ev = model.EventDelete
+						}
+					}
 				default:
 					// delete if the pod switched to other states and is in the cache
 					if pc.podsByIP[ip] == key {
 						pc.deleteIP(ip)
 					}
+					delete(pc.podTransitionTime, ip)
 				}
 			}
 		case model.EventDelete:
@@ -122,15 +181,17 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			if pc.podsByIP[ip] == key {
 				pc.deleteIP(ip)
 			}
+			delete(pc.podTransitionTime, ip)
 		}
 		// fire instance handles for workload
 		for _, handler := range pc.c.workloadHandlers {
 			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "")
 			handler(&model.WorkloadInstance{
-				Name:      pod.Name,
-				Namespace: pod.Namespace,
-				Endpoint:  ep,
-				PortMap:   getPortMap(pod),
+				Name:           pod.Name,
+				Namespace:      pod.Namespace,
+				Endpoint:       ep,
+				PortMap:        getPortMap(pod),
+				InTransitState: inTransitState,
 			}, ev)
 		}
 	}
