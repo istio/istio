@@ -15,7 +15,10 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-const istioTagLabel = "istio.io/tag"
+const (
+	istioTagLabel             = "istio.io/tag"
+	istioInjectionWebhookName = "sidecar-injector.istio.io"
+)
 
 var (
 	revision  = ""
@@ -121,6 +124,24 @@ func tagRemoveCommand() *cobra.Command {
 
 // applyTag creates or modifies a revision tag
 func applyTag(ctx context.Context, kubeClient kube.ExtendedClient, tag string) error {
+	revWebhooks, err := getWebhooksWithRevision(ctx, kubeClient, revision)
+	if err != nil {
+		return err
+	}
+	if len(revWebhooks) == 0 {
+		return fmt.Errorf("cannot find webhook under with revision \"%s\"", revision)
+	}
+	if len(revWebhooks) > 1 {
+		return fmt.Errorf("found multiple canonical webhooks for revision \"%s\"", revision)
+	}
+
+	tagWebhook, err := buildTagWebhookFromCanonical(revWebhooks[0], tag, revision)
+	_, err = kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, tagWebhook, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Revision tag %s created\n", tag)
 	return nil
 }
 
@@ -148,6 +169,8 @@ func removeTag(ctx context.Context, kubeClient kube.ExtendedClient, tag string) 
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("Revision tag %s removed\n", tag)
 	return nil
 }
 
@@ -156,6 +179,10 @@ func listTags(ctx context.Context, kubeClient kube.ExtendedClient, writer io.Wri
 	tagWebhooks, err := getTagWebhooks(ctx, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve tags: %v", err)
+	}
+	if len(tagWebhooks) == 0 {
+		fmt.Println("No tag webhooks found.")
+		return nil
 	}
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "TAG\tREVISION\tNAMESPACES")
@@ -181,7 +208,9 @@ func listTags(ctx context.Context, kubeClient kube.ExtendedClient, writer io.Wri
 
 // getTagWebhooks returns all webhooks tagged with istio.io/tag
 func getTagWebhooks(ctx context.Context, client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
-	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
+	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: istioTagLabel,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +221,18 @@ func getTagWebhooks(ctx context.Context, client kube.ExtendedClient) ([]admit_v1
 func getWebhooksWithTag(ctx context.Context, client kube.ExtendedClient, tag string) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", istioTagLabel, tag),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return webhooks.Items, nil
+}
+
+// getWebhooksWithRevision returns webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag
+// this retrieves the webhook created at revision installation rather than tag webhooks
+func getWebhooksWithRevision(ctx context.Context, client kube.ExtendedClient, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
+	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IstioRev, rev, istioTagLabel),
 	})
 	if err != nil {
 		return nil, err
@@ -251,4 +292,47 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	sb.WriteString("\nProceed with deletion? (y/N)")
 
 	return sb.String()
+}
+
+// buildTagWebhookFromCanonical takes a canonical injector webhook for a given revision and generates a tag webhook
+// from the original webhook, we need to change (1) the namespace selector (2) the name (3) the labels
+func buildTagWebhookFromCanonical(wh admit_v1.MutatingWebhookConfiguration, tag, revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
+	tagWebhook := new(admit_v1.MutatingWebhookConfiguration)
+	tagWebhook.Name = fmt.Sprintf("istio-revision-tag-%s", tag)
+	tagWebhookLabels := map[string]string{istioTagLabel: tag, label.IstioRev: revision}
+	tagWebhook.Labels = tagWebhookLabels
+	injectionWebhook, err := buildInjectionWebhook(wh, tag)
+	if err != nil {
+		return nil, err
+	}
+	tagWebhook.Webhooks = []admit_v1.MutatingWebhook{
+		injectionWebhook,
+	}
+	return tagWebhook, nil
+}
+
+// buildInjectionWebhook takes a webhook configuration, copies the injection webhook, and changes key fields
+func buildInjectionWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string) (admit_v1.MutatingWebhook, error) {
+	var injectionWebhook *admit_v1.MutatingWebhook
+	for _, w := range wh.Webhooks {
+		if w.Name == istioInjectionWebhookName {
+			injectionWebhook = w.DeepCopy()
+		}
+	}
+	if injectionWebhook == nil {
+		return admit_v1.MutatingWebhook{}, fmt.Errorf("injection webhook not found")
+	}
+
+	tagWebhookNamespaceSelector := metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key: label.IstioRev, Operator: metav1.LabelSelectorOpIn, Values: []string{tag},
+			},
+			{
+				Key: "istio-injection", Operator: metav1.LabelSelectorOpDoesNotExist,
+			},
+		},
+	}
+	injectionWebhook.NamespaceSelector = &tagWebhookNamespaceSelector
+	return *injectionWebhook, nil
 }
