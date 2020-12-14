@@ -55,9 +55,8 @@ type EchoDeployments struct {
 }
 
 var (
-	inst    istio.Instance
-	apps    = &EchoDeployments{}
-	Cleanup func() error
+	inst istio.Instance
+	apps = &EchoDeployments{}
 )
 
 func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
@@ -70,20 +69,25 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		return err
 	}
 
+	tmpdir, err := ctx.CreateTmpDirectory("ca-custom-root")
+	if err != nil {
+		return err
+	}
+
 	// Create testing certs using runtime namespace.
-	Cleanup, err = generateCerts(apps.Namespace.Name())
+	err = generateCerts(tmpdir, apps.Namespace.Name())
 	if err != nil {
 		return err
 	}
-	rootCert, err := loadCert("root-cert.pem")
+	rootCert, err := loadCert(path.Join(tmpdir, "root-cert.pem"))
 	if err != nil {
 		return err
 	}
-	clientCert, err := loadCert(TmpDir + "/workload-foo-cert.pem")
+	clientCert, err := loadCert(path.Join(tmpdir, "workload-foo-cert.pem"))
 	if err != nil {
 		return err
 	}
-	Key, err := loadCert(TmpDir + "/workload-foo-key.pem")
+	Key, err := loadCert(path.Join(tmpdir, "workload-foo-key.pem"))
 	if err != nil {
 		return err
 	}
@@ -216,15 +220,15 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	return nil
 }
 
-func loadCert(name string) (string, error) {
-	data, err := cert.ReadSampleCertFromFile(name)
+func loadCert(filename string) (string, error) {
+	data, err := cert.ReadSampleCertFromFile(filename)
 	if err != nil {
 		return "", err
 	}
 	return string(data), nil
 }
 
-func generateCerts(ns string) (func() error, error) {
+func generateCerts(tmpdir, ns string) error {
 	workDir := path.Join(env.IstioSrc, "samples/certs")
 	script := path.Join(workDir, "generate-workload.sh")
 
@@ -245,18 +249,16 @@ func generateCerts(ns string) (func() error, error) {
 	for _, crt := range crts {
 		command := exec.Cmd{
 			Path:   script,
-			Args:   []string{script, crt.td, ns, crt.sa, TmpDir},
+			Args:   []string{script, crt.td, ns, crt.sa, tmpdir},
 			Stdout: os.Stdout,
 			Stderr: os.Stdout,
 		}
 		if err := command.Run(); err != nil {
-			return nil, fmt.Errorf("failed to create testing certificates: %s", err)
+			return fmt.Errorf("failed to create testing certificates: %s", err)
 		}
 	}
 
-	return func() error {
-		return os.RemoveAll(path.Join(env.IstioSrc, "samples/certs/"+TmpDir))
-	}, nil
+	return nil
 }
 
 func TestMain(m *testing.M) {
