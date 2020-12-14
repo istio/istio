@@ -44,6 +44,8 @@ type EchoDeployments struct {
 	PodB echo.Instances
 	// Standard echo app to be used by tests
 	PodC echo.Instances
+	// Standard echo app with TPROXY interception mode to be used by tests
+	PodTproxy echo.Instances
 	// Headless echo app to be used by tests
 	Headless echo.Instances
 	// Echo app to be used by tests, with no sidecar injected
@@ -58,13 +60,14 @@ type EchoDeployments struct {
 }
 
 const (
-	PodASvc     = "a"
-	PodBSvc     = "b"
-	PodCSvc     = "c"
-	VMSvc       = "vm"
-	HeadlessSvc = "headless"
-	NakedSvc    = "naked"
-	ExternalSvc = "external"
+	PodASvc      = "a"
+	PodBSvc      = "b"
+	PodCSvc      = "c"
+	PodTproxySvc = "tproxy"
+	VMSvc        = "vm"
+	HeadlessSvc  = "headless"
+	NakedSvc     = "naked"
+	ExternalSvc  = "external"
 
 	externalHostname = "fake.external.com"
 )
@@ -200,6 +203,16 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 				},
 				Cluster:           c,
 				WorkloadOnlyPorts: WorkloadPorts,
+			}).
+			With(nil, echo.Config{
+				Service:   PodTproxySvc,
+				Namespace: apps.Namespace,
+				Ports:     EchoPorts,
+				Subsets: []echo.SubsetConfig{{
+					Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+				}},
+				Cluster:           c,
+				WorkloadOnlyPorts: WorkloadPorts,
 			})
 	}
 	if !ctx.Settings().SkipVM {
@@ -225,6 +238,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 	apps.PodA = echos.Match(echo.Service(PodASvc))
 	apps.PodB = echos.Match(echo.Service(PodBSvc))
 	apps.PodC = echos.Match(echo.Service(PodCSvc))
+	apps.PodTproxy = echos.Match(echo.Service(PodTproxySvc))
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
