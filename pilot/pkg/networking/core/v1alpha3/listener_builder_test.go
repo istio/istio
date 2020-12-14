@@ -709,7 +709,7 @@ func TestInboundListenerFilters(t *testing.T) {
 func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.ListenerFilterChainMatchPredicate, expected map[int]bool) {
 	t.Helper()
 	for port, expect := range expected {
-		got := EvaluateListenerFilterPredicates(predicate, false, port)
+		got := xdstest.EvaluateListenerFilterPredicates(predicate, false, port)
 		if got != expect {
 			t.Errorf("expected port %v to have match=%v, got match=%v", port, expect, got)
 		}
