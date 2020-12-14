@@ -45,6 +45,7 @@ features:
       loadbalancing:
     ratelimit:
       envoy:
+    original-source-ip:
   usability:
     observability:
       describe:

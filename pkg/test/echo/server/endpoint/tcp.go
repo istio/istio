@@ -139,12 +139,14 @@ func (s *tcpInstance) echo(conn net.Conn) {
 }
 
 func (s *tcpInstance) writeResponse(conn net.Conn) {
+	ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	// Write non-request fields specific to the instance
 	respFields := map[response.Field]string{
 		response.StatusCodeField:     response.StatusCodeOK,
 		response.ClusterField:        s.Cluster,
 		response.ServiceVersionField: s.Version,
 		response.ServicePortField:    strconv.Itoa(s.Port.Port),
+		response.IPField:             ip,
 	}
 	for field, val := range respFields {
 		val := fmt.Sprintf("%s=%s\n", string(field), val)

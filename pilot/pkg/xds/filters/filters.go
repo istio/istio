@@ -114,7 +114,9 @@ var (
 	OriginalSrc = &listener.ListenerFilter{
 		Name: OriginalSrcFilterName,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{}),
+			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+				Mark: 1337,
+			}),
 		},
 	}
 	Alpn = &hcm.HttpFilter{

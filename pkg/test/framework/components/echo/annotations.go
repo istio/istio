@@ -41,6 +41,7 @@ var (
 	SidecarVolumeMount           = workloadAnnotation(annotation.SidecarUserVolumeMount.Name, "")
 	SidecarVolume                = workloadAnnotation(annotation.SidecarUserVolume.Name, "")
 	SidecarConfig                = workloadAnnotation(annotation.ProxyConfig.Name, "")
+	SidecarInterceptionMode      = workloadAnnotation(annotation.SidecarInterceptionMode.Name, "REDIRECT")
 )
 
 type AnnotationValue struct {

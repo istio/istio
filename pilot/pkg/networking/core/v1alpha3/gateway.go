@@ -136,8 +136,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			opts.filterChainOpts = filterChainOpts
 		}
 
-		l := buildListener(opts)
-		l.TrafficDirection = core.TrafficDirection_OUTBOUND
+		l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
 		mutable := &istionetworking.MutableObjects{
 			Listener: l,

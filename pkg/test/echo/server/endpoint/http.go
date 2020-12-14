@@ -295,7 +295,8 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 
 	writeField(body, "Method", r.Method)
 	writeField(body, "Proto", r.Proto)
-	writeField(body, "RemoteAddr", r.RemoteAddr)
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	writeField(body, response.IPField, ip)
 
 	keys := []string{}
 	for k := range r.Header {
