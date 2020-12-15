@@ -124,13 +124,14 @@ func TestTagList(t *testing.T) {
 
 func TestRemoveTag(t *testing.T) {
 	tcs := []struct {
-		name           string
-		tag            string
-		webhooksBefore admit_v1.MutatingWebhookConfigurationList
-		webhooksAfter  admit_v1.MutatingWebhookConfigurationList
-		namespaces     corev1.NamespaceList
-		outputMatches  []string
-		error          string
+		name             string
+		tag              string
+		webhooksBefore   admit_v1.MutatingWebhookConfigurationList
+		webhooksAfter    admit_v1.MutatingWebhookConfigurationList
+		namespaces       corev1.NamespaceList
+		outputMatches    []string
+		skipConfirmation bool
+		error            string
 	}{
 		{
 			name: "TestSimpleRemove",
@@ -145,10 +146,11 @@ func TestRemoveTag(t *testing.T) {
 					},
 				},
 			},
-			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{},
-			namespaces:    corev1.NamespaceList{},
-			outputMatches: []string{},
-			error:         "",
+			webhooksAfter:    admit_v1.MutatingWebhookConfigurationList{},
+			namespaces:       corev1.NamespaceList{},
+			outputMatches:    []string{},
+			skipConfirmation: true,
+			error:            "",
 		},
 		{
 			name: "TestWrongTagLabelNotRemoved",
@@ -173,9 +175,10 @@ func TestRemoveTag(t *testing.T) {
 					},
 				},
 			},
-			namespaces:    corev1.NamespaceList{},
-			outputMatches: []string{},
-			error:         "revision tag sample does not exist",
+			namespaces:       corev1.NamespaceList{},
+			outputMatches:    []string{},
+			skipConfirmation: true,
+			error:            "revision tag sample does not exist",
 		},
 		{
 			name: "TestDeleteTagWithDependentNamespace",
@@ -190,7 +193,16 @@ func TestRemoveTag(t *testing.T) {
 					},
 				},
 			},
-			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{},
+			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{
+				Items: []admit_v1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "istio-revision-tag-match",
+							Labels: map[string]string{istioTagLabel: "match"},
+						},
+					},
+				},
+			},
 			namespaces: corev1.NamespaceList{
 				Items: []corev1.Namespace{
 					{
@@ -201,8 +213,9 @@ func TestRemoveTag(t *testing.T) {
 					},
 				},
 			},
-			outputMatches: []string{"found 1 namespaces still pointing to tag \"match\": dependent"},
-			error:         "",
+			outputMatches:    []string{"Caution, found 1 namespace(s) still pointing to tag \"match\": dependent"},
+			skipConfirmation: false,
+			error:            "",
 		},
 	}
 
@@ -210,7 +223,7 @@ func TestRemoveTag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 			client := fake.NewSimpleClientset(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
-			err := removeTag(context.TODO(), client, tc.tag, &out)
+			err := removeTag(context.TODO(), client, tc.tag, tc.skipConfirmation, &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
