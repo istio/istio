@@ -577,6 +577,7 @@ func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.D
 				event.Healthy = false
 				event.Message = req.ErrorDetail.Message
 			}
+			adsLog.Debugf("updated health status of %v to %v", proxy.ID, event.Healthy)
 			s.InternalGen.UpdateWorkloadEntryHealth(proxy, event)
 		}
 		return false

@@ -21,18 +21,23 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 // Probe for readiness.
 type Probe struct {
 	LocalHostAddr       string
-	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
 	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
 	atleastOnceReady bool
 }
+
+type Prober interface {
+	// Check executes the probe and returns an error if the probe fails.
+	Check() error
+}
+
+var _ Prober = &Probe{}
 
 // Check executes the probe and returns an error if the probe fails.
 func (p *Probe) Check() error {

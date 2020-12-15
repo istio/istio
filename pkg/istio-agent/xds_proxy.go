@@ -43,6 +43,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -90,14 +91,27 @@ type XdsProxy struct {
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 
+const (
+	localHostIPv4 = "127.0.0.1"
+	localHostIPv6 = "[::1]"
+)
+
 func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	var err error
+	localHostAddr := localHostIPv4
+	if ia.cfg.IsIPv6 {
+		localHostAddr = localHostIPv6
+	}
+	envoyProbe := &ready.Probe{
+		AdminPort:     uint16(ia.proxyConfig.ProxyAdminPort),
+		LocalHostAddr: localHostAddr,
+	}
 	proxy := &XdsProxy{
 		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
 		clusterID:      ia.secOpts.ClusterID,
 		localDNSServer: ia.localDNSServer,
 		stopChan:       make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe),
+		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
 		xdsHeaders:     ia.cfg.XDSHeaders,
 	}
 
