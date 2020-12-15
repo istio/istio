@@ -6816,7 +6816,9 @@ rules:
     verbs: ["get", "list", "watch", "update"]
 
   # istio configuration
-  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+  # removing CRD permissions can break older versions of Istio running alongside this control plane (https://github.com/istio/istio/issues/29382)
+  # please proceed with caution
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io"]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
 
@@ -6889,6 +6891,7 @@ rules:
       - "security.istio.io"
       - "networking.istio.io"
       - "authentication.istio.io"
+      - "rbac.istio.io"
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
