@@ -391,6 +391,6 @@ func init() {
 			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, the default is every cluster maps to itself(e.g. 0:0,1:1,...).")
 	flag.StringVar(&topologyFile, "istio.test.kube.topology", "", "The path to a JSON file that defines control plane,"+
 		" network, and config cluster topology. The JSON document should be an array of objects that contain the keys \"control_plane_index\","+
-		" \"network_id\" and \"config_index\" with all integer values. If control_plane_index is ommitted, the index of the array item is used."+
-		"If network_id is ommitted, 0 will be used. If config_index is ommitted, control_plane_index will be used.")
+		" \"network_id\" and \"config_index\" with all integer values. If control_plane_index is omitted, the index of the array item is used."+
+		"If network_id is omitted, 0 will be used. If config_index is omitted, control_plane_index will be used.")
 }
