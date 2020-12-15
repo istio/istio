@@ -27,12 +27,14 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"gopkg.in/yaml.v2"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -190,7 +192,14 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0600); err != nil {
+
+	// we edit workload group template by hand to avoid too many customization flags on the cmd
+	var wgBytes []byte
+	if wgBytes, err = customizeWorkloadGroup(cfg, []byte(wg)); err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), wgBytes, 0600); err != nil {
 		return err
 	}
 
@@ -199,7 +208,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		return err
 	}
 	// this will wait until the eastwest gateway has an IP before running the next command
-	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster)
+	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster.Primary())
 	if err != nil {
 		return err
 	}
@@ -216,7 +225,8 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			"-o", subsetDir,
 		}
 		if ctx.Clusters().IsMulticluster() {
-			cmd = append(cmd, "--clusterID", c.cluster.Name())
+			// When VMs talk about "cluster", they refer to the cluster they connect to for discovery
+			cmd = append(cmd, "--clusterID", c.cluster.Primary().Name())
 		}
 		if cfg.AutoRegisterVM {
 			cmd = append(cmd, "--autoregister")
@@ -287,6 +297,18 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	}
 
 	return nil
+}
+
+func customizeWorkloadGroup(cfg echo.Config, wg []byte) ([]byte, error) {
+	workloadGroup := &v1alpha3.WorkloadGroup{}
+	if err := yaml.Unmarshal(wg, workloadGroup); err != nil {
+		return nil, err
+	}
+
+	// don't use the primary network, use the network it's actualy reachable from
+	workloadGroup.Spec.Template.Network = cfg.Cluster.NetworkName()
+
+	return yaml.Marshal(workloadGroup)
 }
 
 func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) (err error) {
@@ -393,7 +415,7 @@ spec:
     app: %s
     version: %s
 `, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
-		// Deploy the workload entry.
+		// Deploy the workload entry to all clusters.
 		if err := ctx.Config().ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
 			return err
 		}
