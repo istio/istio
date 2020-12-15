@@ -146,6 +146,10 @@ if [[ "${DEPLOYER}" == "gke" ]]; then
     # A slightly hacky step to setup the environment, see the comments on the
     # function signature.
     gcp_projects=$(multiproject_multicluster_setup)
+    IFS="," read -r -a arr <<< "${gcp_projects}"
+    # HOST_PROJECT is needed for the firewall setup after cluster creations.
+    export HOST_PROJECT="${arr[0]}"
+
     multi_cluster_deployer_flags+=("--cluster-name=prow-test1:1,prow-test2:2" "--machine-type=e2-standard-4" "--num-nodes=2" "--region=us-central1")
     multi_cluster_deployer_flags+=("--network=test-network" "--subnetwork-ranges=172.16.4.0/22 172.16.16.0/20 172.20.0.0/14,10.0.4.0/22 10.0.32.0/20 10.4.0.0/14" )
     multi_cluster_deployer_flags+=("--release-channel=regular" "--enable-workload-identity")

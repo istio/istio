@@ -95,6 +95,13 @@ if [[ -z "${CLUSTER_TOPOLOGY}" ]]; then
   exit 1
 fi
 
+# For MULTIPROJECT_MULTICLUSTER topology, firewall rules need to be added to
+# allow the clusters talking with each other for security tests.
+# See the details in b/175599359 and b/177919868
+if [[ "${CLUSTER_TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
+  gcloud compute --project="${HOST_PROJECT}" firewall-rules create extended-firewall-rule --network=test-network --allow=tcp,udp,icmp --direction=INGRESS
+fi
+
 # Get all contexts of the clusters.
 CONTEXTSTR=$(kubectl config view -o jsonpath="{range .contexts[*]}{.name}{','}{end}")
 CONTEXTSTR="${CONTEXTSTR::-1}"
