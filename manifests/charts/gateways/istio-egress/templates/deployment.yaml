@@ -228,6 +228,11 @@ spec:
           - name: {{ $key }}
             value: "{{ $value }}"
           {{- end }}
+          {{- $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
+          {{- if and (not $network_set) .Values.global.network }}
+          - name: ISTIO_META_NETWORK
+            value: {{ .Values.global.network }}
+          {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
             value: |
