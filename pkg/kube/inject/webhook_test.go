@@ -29,7 +29,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	openshiftv1 "github.com/openshift/api/apps/v1"
 	"k8s.io/api/admission/v1beta1"
@@ -56,16 +55,18 @@ import (
 const yamlSeparator = "\n---"
 
 var minimalSidecarTemplate = &Config{
-	Policy: InjectionPolicyEnabled,
+	Policy:           InjectionPolicyEnabled,
+	DefaultTemplates: []string{SidecarTemplateName},
 	Templates: map[string]string{SidecarTemplateName: `
-initContainers:
-- name: istio-init
-containers:
-- name: istio-proxy
-volumes:
-- name: istio-envoy
-imagePullSecrets:
-- name: istio-image-pull-secrets
+spec:
+  initContainers:
+  - name: istio-init
+  containers:
+  - name: istio-proxy
+  volumes:
+  - name: istio-envoy
+  imagePullSecrets:
+  - name: istio-image-pull-secrets
 `},
 }
 
@@ -718,19 +719,16 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 		removeContainerEnvEntry(want, "ISTIO_METAJSON_ANNOTATIONS")
 	}
 
-	marshaler := jsonpb.Marshaler{
-		Indent: "  ",
-	}
-	gotString, err := marshaler.MarshalToString(got)
+	gotString, err := yaml.Marshal(got)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantString, err := marshaler.MarshalToString(want)
+	wantString, err := yaml.Marshal(want)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return util.Compare([]byte(gotString), []byte(wantString))
+	return util.Compare(gotString, wantString)
 }
 
 func removeContainerEnvEntry(pod *corev1.Pod, envVarName string) {

@@ -708,33 +708,6 @@ func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 	return &pod, nil
 }
 
-func mergeInjectedConfigLegacy(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
-	current, err := json.Marshal(req.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	// The template is yaml, StrategicMergePatch expects JSON
-	injectedJSON, err := yaml.YAMLToJSON(injected)
-	if err != nil {
-		return nil, fmt.Errorf("yaml to json: %v", err)
-	}
-
-	podSpec := corev1.PodSpec{}
-	// Overlay the injected template onto the original podSpec
-	patched, err := strategicpatch.StrategicMergePatch(current, injectedJSON, podSpec)
-	if err != nil {
-		return nil, fmt.Errorf("strategic merge: %v", err)
-	}
-	if err := json.Unmarshal(patched, &podSpec); err != nil {
-		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
-	}
-	pod := req.DeepCopy()
-	pod.Spec = podSpec
-
-	return pod, nil
-}
-
 func mergeInjectedConfig(req *corev1.Pod, injected []byte) (*corev1.Pod, error) {
 	// The template is yaml, StrategicMergePatch expects JSON
 	injectedJSON, err := yaml.YAMLToJSON(injected)
