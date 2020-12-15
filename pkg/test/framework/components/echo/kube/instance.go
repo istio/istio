@@ -18,8 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"net"
 	"os"
 	"path"
@@ -190,7 +192,14 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0600); err != nil {
+
+	// we edit workload group template by hand to avoid too many customization flags on the cmd
+	var wgBytes []byte
+	if wgBytes, err = customizeWorkloadGroup(cfg, []byte(wg)); err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), wgBytes, 0600); err != nil {
 		return err
 	}
 
@@ -199,7 +208,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		return err
 	}
 	// this will wait until the eastwest gateway has an IP before running the next command
-	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster)
+	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster.Primary())
 	if err != nil {
 		return err
 	}
@@ -288,6 +297,18 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	}
 
 	return nil
+}
+
+func customizeWorkloadGroup(cfg echo.Config, wg []byte) ([]byte, error) {
+	workloadGroup := &v1alpha3.WorkloadGroup{}
+	if err := yaml.Unmarshal(wg, workloadGroup); err != nil {
+		return nil, err
+	}
+
+	// don't use the primary network, use the network it's actualy reachable from
+	workloadGroup.Spec.Template.Network = cfg.Cluster.NetworkName()
+
+	return yaml.Marshal(workloadGroup)
 }
 
 func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) (err error) {
