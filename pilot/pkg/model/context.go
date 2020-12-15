@@ -470,7 +470,7 @@ type NodeMetadata struct {
 	ClusterID string `json:"CLUSTER_ID,omitempty"`
 
 	// Network defines the network the node belongs to. It is an optional metadata,
-	// set at injection time. When set, the Endpoints returned to a note and not on same network
+	// set at injection time. When set, the Endpoints returned to a node and not on same network
 	// will be replaced with the gateway defined in the settings.
 	Network string `json:"NETWORK,omitempty"`
 
