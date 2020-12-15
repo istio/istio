@@ -27,7 +27,6 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	"golang.org/x/sync/errgroup"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -127,10 +126,13 @@ func TestDashboard(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
 		Run(func(ctx framework.TestContext) {
-
+			c, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			p := common.GetPromInstance()
-			setupDashboardTest(ctx)
-			waitForMetrics(ctx, p)
+			// We will send a bunch of requests until the test exits. This ensures we are continuously
+			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
+			// all in a single scrape which can lead to `rate()` not behaving correctly.
+			go setupDashboardTest(ctx, c.Done())
 			for _, d := range dashboards {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
@@ -157,9 +159,9 @@ func TestDashboard(t *testing.T) {
 						}
 
 						for _, query := range queries {
-							if err := checkMetric(cl, p, query, d.excluded); err != nil {
-								t.Errorf("Check query failed for cluster %s: %v", cl.Name(), err)
-							}
+							retry.UntilSuccessOrFail(t, func() error {
+								return checkMetric(cl, p, query, d.excluded)
+							}, retry.Timeout(time.Minute))
 						}
 					}
 				})
@@ -219,33 +221,10 @@ func checkMetric(cl resource.Cluster, p prometheus.Instance, query string, exclu
 		}
 	} else {
 		if numSamples != 0 {
-			scopes.Framework.Infof("Filtered out metric '%v', but got samples: %v", query, value)
+			scopes.Framework.Infof("Filtered out metric '%v', but got samples: %v", query, numSamples)
 		}
 	}
 	return nil
-}
-
-// nolint: interfacer
-func waitForMetrics(t framework.TestContext, instance prometheus.Instance) {
-	// These are sentinel metrics that will be used to evaluate if prometheus
-	// scraping has occurred and data is available via promQL.
-	// We will retry these queries, but not future ones, otherwise failures will take too long
-	queries := []string{
-		`istio_requests_total`,
-		`istio_tcp_received_bytes_total`,
-	}
-
-	for _, cl := range t.Clusters() {
-		for _, query := range queries {
-			err := retry.UntilSuccess(func() error {
-				return checkMetric(cl, instance, query, nil)
-			})
-			// Do not fail here - this is just to let the metrics sync. We will fail on the test if query fails
-			if err != nil {
-				t.Logf("Sentinel query %v failed: %v", query, err)
-			}
-		}
-	}
 }
 
 const gatewayConfig = `
@@ -298,7 +277,7 @@ spec:
           number: 9000
 `
 
-func setupDashboardTest(t framework.TestContext) {
+func setupDashboardTest(t framework.TestContext, done <-chan struct{}) {
 	t.Config().ApplyYAMLOrFail(t, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
 
 	// Apply just the grafana dashboards
@@ -310,30 +289,28 @@ func setupDashboardTest(t framework.TestContext) {
 
 	// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
 	// Spread out over 20s so rate() queries will behave correctly
-	g, _ := errgroup.WithContext(context.Background())
 	ticker := time.NewTicker(time.Second)
-	for t := 0; t < 20; t++ {
-		<-ticker.C
-		g.Go(func() error {
+	for {
+		select {
+		case <-ticker.C:
 			for _, ing := range common.GetIngressInstance() {
 				tcpAddr := ing.TCPAddress()
-				for i := 0; i < 10; i++ {
-					_, err := ing.CallEcho(echo.CallOptions{
-						Port: &echo.Port{
-							Protocol: protocol.HTTP,
-						},
-						Path: fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
-						Headers: map[string][]string{
-							"Host": {"server"},
-						},
-					})
-					if err != nil {
-						// Do not fail on errors since there may be initial startup errors
-						// These calls are not under tests, the dashboards are, so we can be leniant here
-						log.Warnf("requests failed: %v", err)
-					}
-				}
 				_, err := ing.CallEcho(echo.CallOptions{
+					Port: &echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Count: 10,
+					Path:  fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
+					Headers: map[string][]string{
+						"Host": {"server"},
+					},
+				})
+				if err != nil {
+					// Do not fail on errors since there may be initial startup errors
+					// These calls are not under tests, the dashboards are, so we can be leniant here
+					log.Warnf("requests failed: %v", err)
+				}
+				_, err = ing.CallEcho(echo.CallOptions{
 					Port: &echo.Port{
 						Protocol:    protocol.TCP,
 						ServicePort: tcpAddr.Port,
@@ -350,11 +327,9 @@ func setupDashboardTest(t framework.TestContext) {
 					log.Warnf("requests failed: %v", err)
 				}
 			}
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		t.Fatalf("ingress call failed: %v", err)
+		case <-done:
+			return
+		}
 	}
 }
 
