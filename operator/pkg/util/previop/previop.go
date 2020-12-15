@@ -12,22 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package previop
 
 import (
-	"fmt"
-	"strings"
-
-	yaml2 "github.com/ghodss/yaml"
 	protobuf "github.com/gogo/protobuf/types"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	v1alpha13 "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/operator/v1alpha1"
-	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/util/previop"
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/prevv1alpha1"
 )
 
 // Partially mirrored from istio/api and operator/pkg/api (for values).
@@ -36,7 +30,7 @@ import (
 // map[string]interface{} here (and similar for MeshConfig in v1alpha1.Values)
 // that alone would not be sufficient.
 // Only non-scalar types require tags, therefore most fields are omitted here.
-type iopMergeStructType struct {
+type IopMergeStructType17 struct {
 	v11.ObjectMeta `json:"metadata" patchStrategy:"merge"`
 	Spec           istioOperatorSpec `json:"spec" patchStrategy:"merge"`
 }
@@ -51,6 +45,8 @@ type istioOperatorSpec struct {
 type istioComponentSetSpec struct {
 	Base            *baseComponentSpec `json:"base" patchStrategy:"merge"`
 	Pilot           *componentSpec     `json:"pilot" patchStrategy:"merge"`
+	Policy          *componentSpec     `json:"policy" patchStrategy:"merge"`
+	Telemetry       *componentSpec     `json:"telemetry" patchStrategy:"merge"`
 	Cni             *componentSpec     `json:"cni" patchStrategy:"merge"`
 	IstiodRemote    *componentSpec     `json:"istiodRemote" patchStrategy:"merge"`
 	IngressGateways []*gatewaySpec     `json:"ingressGateways" patchStrategy:"merge" patchMergeKey:"name"`
@@ -71,6 +67,7 @@ type gatewaySpec struct {
 
 type externalComponentSpec struct {
 	IstioCoreDNS *componentSpec `json:"istiocoredns" patchStrategy:"merge"`
+	Prometheus   *componentSpec `json:"prometheus" patchStrategy:"merge"`
 }
 
 type values struct {
@@ -86,6 +83,11 @@ type values struct {
 	MeshConfig             *meshConfig                      `json:"meshConfig" patchStrategy:"merge"`
 	Base                   *v1alpha12.BaseConfig            `json:"base" patchStrategy:"merge"`
 	IstiodRemote           *v1alpha12.IstiodRemoteConfig    `json:"istiodRemote" patchStrategy:"merge"`
+	Mixer                  *v1alpha12.MixerConfig           `json:"mixer" patchStrategy:"merge"`
+	Prometheus             *v1alpha12.PrometheusConfig      `json:"prometheus" patchStrategy:"merge"`
+	Kiali                  *v1alpha12.KialiConfig           `json:"kiali" patchStrategy:"merge"`
+	Tracing                *tracingConfig                   `json:"tracing" patchStrategy:"merge"`
+	Grafana                *grafanaConfig                   `json:"grafana" patchStrategy:"merge"`
 }
 
 type gatewaysConfig struct {
@@ -134,6 +136,38 @@ type egressGatewayConfig struct {
 	ConfigVolumes                    []map[string]interface{}  `json:"configVolumes" patchStrategy:"replace"`
 	AdditionalContainers             []map[string]interface{}  `json:"additionalContainers" patchStrategy:"replace"`
 	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"replace"`
+}
+
+// Configurations for different tracing system to be installed.
+type tracingConfig struct {
+	// Enables tracing systems installation.
+	Enabled                          *protobuf.BoolValue                `json:"enabled" patchStrategy:"replace"`
+	Jaeger                           *v1alpha12.TracingJaegerConfig     `json:"jaeger" patchStrategy:"replace"`
+	NodeSelector                     map[string]interface{}             `json:"nodeSelector" patchStrategy:"merge"`
+	Service                          *v1alpha12.ServiceConfig           `json:"service" patchStrategy:"replace"`
+	Zipkin                           *v1alpha12.TracingZipkinConfig     `json:"zipkin" patchStrategy:"replace"`
+	Opencensus                       *v1alpha12.TracingOpencensusConfig `json:"opencensus" patchStrategy:"replace"`
+	PodAntiAffinityLabelSelector     []map[string]interface{}           `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{}           `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	Tolerations                      []map[string]interface{}           `json:"tolerations" patchStrategy:"replace"`
+}
+
+type grafanaConfig struct {
+	Image                            map[string]interface{}   `json:"image" patchStrategy:"replace"`
+	Enabled                          *protobuf.BoolValue      `json:"enabled" patchStrategy:"replace"`
+	Persist                          *protobuf.BoolValue      `json:"persist" patchStrategy:"replace"`
+	Security                         map[string]interface{}   `json:"security" patchStrategy:"merge"`
+	Service                          map[string]interface{}   `json:"service" patchStrategy:"replace"`
+	Datasources                      map[string]interface{}   `json:"datasources" patchStrategy:"replace"`
+	DashboardProviders               map[string]interface{}   `json:"dashboardProviders" patchStrategy:"replace"`
+	NodeSelector                     map[string]interface{}   `json:"nodeSelector" patchStrategy:"merge"`
+	PodAntiAffinityLabelSelector     []map[string]interface{} `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	PodAnnotations                   map[string]interface{}   `json:"podAnnotations" patchStrategy:"merge"`
+	Ports                            []*v1alpha12.PortsConfig `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
+	Env                              map[string]interface{}   `json:"env" patchStrategy:"merge"`
+	EnvSecrets                       map[string]interface{}   `json:"envSecrets" patchStrategy:"merge"`
+	Tolerations                      []map[string]interface{} `json:"tolerations" patchStrategy:"merge"`
 }
 
 type meshConfig struct {
@@ -196,7 +230,8 @@ type meshConfigServiceSettings struct {
 }
 
 type telemetryConfig struct {
-	V2 *telemetryV2Config `json:"v2" patchStrategy:"merge"`
+	V1 *v1alpha12.TelemetryV1Config `json:"v1" patchStrategy:"merge"`
+	V2 *telemetryV2Config           `json:"v2" patchStrategy:"merge"`
 }
 
 type telemetryV2Config struct {
@@ -207,88 +242,5 @@ type telemetryV2Config struct {
 }
 
 var (
-	iopMergeStruct iopMergeStructType
+	IopMergeStruct17 IopMergeStructType17
 )
-
-// OverlayIOP overlays over base using JSON strategic merge.
-func OverlayIOP(base, overlay string) (string, error) {
-	if strings.TrimSpace(base) == "" {
-		return overlay, nil
-	}
-	if strings.TrimSpace(overlay) == "" {
-		return base, nil
-	}
-	bj, err := yaml2.YAMLToJSON([]byte(base))
-	if err != nil {
-		return "", fmt.Errorf("yamlToJSON error in base: %s\n%s", err, bj)
-	}
-	oj, err := yaml2.YAMLToJSON([]byte(overlay))
-	if err != nil {
-		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
-	}
-	if base == "" {
-		bj = []byte("{}")
-	}
-	if overlay == "" {
-		oj = []byte("{}")
-	}
-	merged, err := strategicpatch.StrategicMergePatch(bj, oj, &iopMergeStruct)
-	if err != nil {
-		return "", fmt.Errorf("json merge error (%s) for base object: \n%s\n override object: \n%s", err, bj, oj)
-	}
-
-	my, err := yaml2.JSONToYAML(merged)
-	if err != nil {
-		return "", fmt.Errorf("jsonToYAML error (%s) for merged object: \n%s", err, merged)
-	}
-
-	return string(my), nil
-}
-
-// OverlayIOP overlays over base using JSON strategic merge.
-func OverlayIOPVersion(base, overlay string) (string, error) {
-	if strings.TrimSpace(base) == "" {
-		return overlay, nil
-	}
-	if strings.TrimSpace(overlay) == "" {
-		return base, nil
-	}
-	bj, err := yaml2.YAMLToJSON([]byte(base))
-	if err != nil {
-		return "", fmt.Errorf("yamlToJSON error in base: %s\n%s", err, bj)
-	}
-	oj, err := yaml2.YAMLToJSON([]byte(overlay))
-	if err != nil {
-		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
-	}
-	if base == "" {
-		bj = []byte("{}")
-	}
-	if overlay == "" {
-		oj = []byte("{}")
-	}
-	merged, err := strategicpatch.StrategicMergePatch(bj, oj, &previop.IopMergeStruct17)
-	if err != nil {
-		return "", fmt.Errorf("json merge error (%s) for base object: \n%s\n override object: \n%s", err, bj, oj)
-	}
-
-	my, err := yaml2.JSONToYAML(merged)
-	if err != nil {
-		return "", fmt.Errorf("jsonToYAML error (%s) for merged object: \n%s", err, merged)
-	}
-
-	return string(my), nil
-}
-
-//var strategicIOPMergeFunc = map[string]interface{}{
-//	"strategicIOPMerge":   strategicIOPMerge, // or use targetVersion and currentVersion as the key
-//	"strategicIOPMerge17": strategicIOPMerge17,
-//}
-
-//func strategicIOPMerge17(bj, oj []byte) ([]byte, error) {
-//	merged, err := strategicpatch.StrategicMergePatch(bj, oj, &previop.IopMergeStruct17)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return merged, nil
-//}

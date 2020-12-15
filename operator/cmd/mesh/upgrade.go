@@ -194,7 +194,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	} else {
 		currentSets = append(currentSets, "profile="+targetIOP.Spec.Profile)
 	}
-	currentProfileIOPSYaml, _, err := manifest.GenIOPFromProfile(profile, "", currentSets, true, true, nil, l)
+	currentProfileIOPSYaml, _, err := manifest.GenIOPFromProfileVersion(profile, "", currentSets, true, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)

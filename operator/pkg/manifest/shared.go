@@ -200,6 +200,87 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	return util.ToYAMLWithJSONPB(finalIOP), finalIOP, nil
 }
 
+// GenIOPFromProfileVersion generates an IstioOperator from the current installed version of profile name or path, and overlay YAMLs from user
+// files and the --set flag. If successful, it returns an IstioOperator string and struct.
+func GenIOPFromProfileVersion(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
+	kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
+	if err != nil {
+		return "", nil, err
+	}
+	if sfp := getValueForSetFlag(setFlags, "installPackagePath"); sfp != "" {
+		// set flag installPackagePath has the highest precedence, if set.
+		installPackagePath = sfp
+	}
+
+	// If installPackagePath is a URL, fetch and extract it and continue with the local filesystem path instead.
+	installPackagePath, profileOrPath, err = rewriteURLToLocalInstallPath(installPackagePath, profileOrPath, skipValidation)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
+	// can be found, and the selected profileOrPath. Both of these can come from either the user overlay file or --set flag.
+	outYAML, err := helm.GetProfileYAML(installPackagePath, profileOrPath)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Hub and tag are only known at build time and must be passed in here during runtime from build stamps.
+	outYAML, err = overlayHubAndTag(outYAML)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Merge k8s specific values.
+	if kubeConfig != nil {
+		kubeOverrides, err := getClusterSpecificValues(kubeConfig, skipValidation, l)
+		if err != nil {
+			return "", nil, err
+		}
+		installerScope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
+		outYAML, err = util.OverlayYAML(outYAML, kubeOverrides)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
+	// Combine file and --set overlays and translate any K8s settings in values to IOP format. Users should not set
+	// these but we have to support this path until it's deprecated.
+	overlayYAML, err := overlaySetFlagValues(fileOverlayYAML, setFlags)
+	if err != nil {
+		return "", nil, err
+	}
+	t := translate.NewReverseTranslator()
+	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+	}
+
+	// Merge user file and --set flags.
+	outYAML, err = util.OverlayIOPVersion(outYAML, overlayYAML)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
+	}
+
+	if err := name.ScanBundledAddonComponents(installPackagePath); err != nil {
+		return "", nil, err
+	}
+	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
+	outYAML, err = translate.OverlayValuesEnablement(outYAML, overlayYAML, overlayYAML)
+	if err != nil {
+		return "", nil, err
+	}
+
+	finalIOP, err := unmarshalAndValidateIOP(outYAML, skipValidation, allowUnknownField, l)
+	if err != nil {
+		return "", nil, err
+	}
+	// InstallPackagePath may have been a URL, change to extracted to local file path.
+	finalIOP.Spec.InstallPackagePath = installPackagePath
+	return util.ToYAMLWithJSONPB(finalIOP), finalIOP, nil
+}
+
 // ReadYamlProfile gets the overlay yaml file from list of files and return profile value from file overlay and set overlay.
 func ReadYamlProfile(inFilenames []string, setFlags []string, force bool, l clog.Logger) (string, string, error) {
 	profile := name.DefaultProfileName
