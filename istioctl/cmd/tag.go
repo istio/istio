@@ -8,16 +8,18 @@ import (
 	"io"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"strings"
 	"text/tabwriter"
 
 	"istio.io/api/label"
-	"istio.io/istio/pkg/kube"
 )
 
 const (
+	// TODO(monkeyanator) move into istio/api
 	istioTagLabel             = "istio.io/tag"
 	istioInjectionWebhookName = "sidecar-injector.istio.io"
+	revisionTagNamePrefix     = "istio-revision-tag"
 )
 
 var (
@@ -64,7 +66,7 @@ func tagApplyCommand() *cobra.Command {
 				return fmt.Errorf("failed to create kubernetes client: %v", err)
 			}
 
-			return applyTag(context.Background(), client, args[0])
+			return applyTag(context.Background(), client.Kube(), args[0], revision, cmd.OutOrStdout())
 		},
 	}
 
@@ -89,8 +91,7 @@ func tagListCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create kubernetes client: %v", err)
 			}
-
-			return listTags(context.Background(), client, cmd.OutOrStdout())
+			return listTags(context.Background(), client.Kube(), cmd.OutOrStdout())
 		},
 	}
 
@@ -115,7 +116,7 @@ func tagRemoveCommand() *cobra.Command {
 				return fmt.Errorf("failed to create kubernetes client: %v", err)
 			}
 
-			return removeTag(context.Background(), client, args[0])
+			return removeTag(context.Background(), client.Kube(), args[0], cmd.OutOrStdout())
 		},
 	}
 
@@ -123,7 +124,7 @@ func tagRemoveCommand() *cobra.Command {
 }
 
 // applyTag creates or modifies a revision tag
-func applyTag(ctx context.Context, kubeClient kube.ExtendedClient, tag string) error {
+func applyTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision string, w io.Writer) error {
 	revWebhooks, err := getWebhooksWithRevision(ctx, kubeClient, revision)
 	if err != nil {
 		return err
@@ -136,17 +137,21 @@ func applyTag(ctx context.Context, kubeClient kube.ExtendedClient, tag string) e
 	}
 
 	tagWebhook, err := buildTagWebhookFromCanonical(revWebhooks[0], tag, revision)
+	if err != nil {
+		return err
+	}
+
 	_, err = kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, tagWebhook, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Revision tag %s created\n", tag)
+	fmt.Fprintf(w, "Revision tag %s created\n", tag)
 	return nil
 }
 
 // removeTag removes an existing revision tag
-func removeTag(ctx context.Context, kubeClient kube.ExtendedClient, tag string) error {
+func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string, w io.Writer) error {
 	webhooks, err := getWebhooksWithTag(ctx, kubeClient, tag)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve tag with name %s: %v", tag, err)
@@ -161,7 +166,7 @@ func removeTag(ctx context.Context, kubeClient kube.ExtendedClient, tag string) 
 	}
 	// warn user if deleting a tag that still has namespaces pointed to it
 	if len(taggedNamespaces) > 0 {
-		fmt.Println(buildDeleteTagConfirmation(tag, taggedNamespaces))
+		fmt.Fprintf(w, buildDeleteTagConfirmation(tag, taggedNamespaces))
 	}
 
 	// proceed with webhook deletion
@@ -170,18 +175,18 @@ func removeTag(ctx context.Context, kubeClient kube.ExtendedClient, tag string) 
 		return err
 	}
 
-	fmt.Printf("Revision tag %s removed\n", tag)
+	fmt.Fprintf(w, "Revision tag %s removed\n", tag)
 	return nil
 }
 
 // listTags lists existing revision
-func listTags(ctx context.Context, kubeClient kube.ExtendedClient, writer io.Writer) error {
+func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Writer) error {
 	tagWebhooks, err := getTagWebhooks(ctx, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve tags: %v", err)
 	}
 	if len(tagWebhooks) == 0 {
-		fmt.Println("No tag webhooks found.")
+		fmt.Fprintf(writer, "No tag webhooks found.")
 		return nil
 	}
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
@@ -207,7 +212,7 @@ func listTags(ctx context.Context, kubeClient kube.ExtendedClient, writer io.Wri
 }
 
 // getTagWebhooks returns all webhooks tagged with istio.io/tag
-func getTagWebhooks(ctx context.Context, client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
+func getTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: istioTagLabel,
 	})
@@ -218,7 +223,7 @@ func getTagWebhooks(ctx context.Context, client kube.ExtendedClient) ([]admit_v1
 }
 
 // getWebhooksWithTag returns webhooks tagged with istio.io/tag=<tag>
-func getWebhooksWithTag(ctx context.Context, client kube.ExtendedClient, tag string) ([]admit_v1.MutatingWebhookConfiguration, error) {
+func getWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", istioTagLabel, tag),
 	})
@@ -230,7 +235,7 @@ func getWebhooksWithTag(ctx context.Context, client kube.ExtendedClient, tag str
 
 // getWebhooksWithRevision returns webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag
 // this retrieves the webhook created at revision installation rather than tag webhooks
-func getWebhooksWithRevision(ctx context.Context, client kube.ExtendedClient, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
+func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IstioRev, rev, istioTagLabel),
 	})
@@ -241,7 +246,7 @@ func getWebhooksWithRevision(ctx context.Context, client kube.ExtendedClient, re
 }
 
 // deleteTagWebhooks deletes the given webhooks
-func deleteTagWebhooks(ctx context.Context, client kube.ExtendedClient, webhooks []admit_v1.MutatingWebhookConfiguration) error {
+func deleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhooks []admit_v1.MutatingWebhookConfiguration) error {
 	var result error
 	for _, wh := range webhooks {
 		result = multierror.Append(client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
@@ -250,7 +255,7 @@ func deleteTagWebhooks(ctx context.Context, client kube.ExtendedClient, webhooks
 }
 
 // getNamespacesWithTag retrieves all namespaces pointed at the given tag
-func getNamespacesWithTag(ctx context.Context, client kube.ExtendedClient, tag string) ([]string, error) {
+func getNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]string, error) {
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", label.IstioRev, tag),
 	})
@@ -278,7 +283,7 @@ func getTagRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 	if tagName, ok := wh.ObjectMeta.Labels[label.IstioRev]; ok {
 		return tagName, nil
 	}
-	return "", fmt.Errorf("could not extract tag name from webhook")
+	return "", fmt.Errorf("could not extract tag revision from webhook")
 }
 
 // buildDeleteTagConfirmation takes a list of webhooks and creates a message prompting confirmation for their deletion
@@ -298,7 +303,7 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 // from the original webhook, we need to change (1) the namespace selector (2) the name (3) the labels
 func buildTagWebhookFromCanonical(wh admit_v1.MutatingWebhookConfiguration, tag, revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
 	tagWebhook := new(admit_v1.MutatingWebhookConfiguration)
-	tagWebhook.Name = fmt.Sprintf("istio-revision-tag-%s", tag)
+	tagWebhook.Name = fmt.Sprintf("%s-%s", revisionTagNamePrefix, tag)
 	tagWebhookLabels := map[string]string{istioTagLabel: tag, label.IstioRev: revision}
 	tagWebhook.Labels = tagWebhookLabels
 	injectionWebhook, err := buildInjectionWebhook(wh, tag)
