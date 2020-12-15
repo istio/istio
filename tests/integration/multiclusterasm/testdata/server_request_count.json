@@ -1,0 +1,22 @@
+{
+  "destination_canonical_revision": "v1",
+  "destination_canonical_service_name": "{{ .destSvc}}",
+  "destination_canonical_service_namespace": "{{ .namespace}}",
+  "destination_owner": "kubernetes://apis/apps/v1/namespaces/{{ .namespace}}/deployments/{{ .destSvc}}-v1",
+  "destination_port": "7070",
+  "destination_service_name": "{{ .destSvc}}",
+  "destination_service_namespace": "{{ .namespace}}",
+  "destination_workload_name": "{{ .destSvc}}-v1",
+  "destination_workload_namespace": "{{ .namespace}}",
+  "request_operation": "/proto.EchoTestService/Echo",
+  "request_protocol": "grpc",
+  "response_code": "200",
+  "service_authentication_policy": "MUTUAL_TLS",
+  "source_canonical_revision": "v1",
+  "source_canonical_service_name": "{{ .srcSvc}}",
+  "source_canonical_service_namespace": "{{ .namespace}}",
+  "source_owner": "kubernetes://apis/apps/v1/namespaces/{{ .namespace}}/deployments/{{ .srcSvc}}-v1",
+  "source_workload_name": "{{ .srcSvc}}-v1",
+  "source_workload_namespace": "{{ .namespace}}",
+  "mesh_uid": "{{ .meshID}}"
+}

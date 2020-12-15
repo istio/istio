@@ -138,6 +138,7 @@ features:
     multicluster:
       cluster_local:
       multimaster:
+      multimaster_telemetry:
       remote:
       centralremotekubeconfig:
     helm:

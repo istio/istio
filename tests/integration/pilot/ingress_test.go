@@ -49,6 +49,8 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
+			t.Skip("https://b.corp.google.com/issues/175420065")
+
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
