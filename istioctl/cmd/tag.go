@@ -269,15 +269,6 @@ func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 	return webhooks.Items, nil
 }
 
-// deleteTagWebhooks deletes the given webhooks
-func deleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhooks []admit_v1.MutatingWebhookConfiguration) error {
-	var result error
-	for _, wh := range webhooks {
-		result = multierror.Append(client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
-	}
-	return result
-}
-
 // getNamespacesWithTag retrieves all namespaces pointed at the given tag
 func getNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]string, error) {
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
@@ -308,6 +299,15 @@ func getTagRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 		return tagName, nil
 	}
 	return "", fmt.Errorf("could not extract tag revision from webhook")
+}
+
+// deleteTagWebhooks deletes the given webhooks
+func deleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhooks []admit_v1.MutatingWebhookConfiguration) error {
+	var result error
+	for _, wh := range webhooks {
+		result = multierror.Append(client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
+	}
+	return result
 }
 
 // buildDeleteTagConfirmation takes a list of webhooks and creates a message prompting confirmation for their deletion
