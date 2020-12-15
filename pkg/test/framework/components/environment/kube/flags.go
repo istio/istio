@@ -15,8 +15,10 @@
 package kube
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -46,6 +48,8 @@ var (
 	networkTopology string
 	// hold configTopology from command line to parse later
 	configTopology string
+	// file defining all types of topology
+	topologyFile string
 )
 
 // NewSettingsFromCommandLine returns Settings obtained from command-line flags.
@@ -81,19 +85,37 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	}
 	scopes.Framework.Infof("Using KubeConfigs: %v.", s.KubeConfig)
 
-	s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
-	if err != nil {
-		return nil, err
-	}
+	if topologyFile != "" {
+		cp, nw, cfg, err := parseTopologyFile(s.KubeConfig)
+		if err != nil {
+			return nil, err
+		}
+		// network is completly controlled from the env
+		s.networkTopology = nw
+		// don't ovverride topologies if a Suite explicitly sets it up
+		if s.ControlPlaneTopology == nil {
+			s.ControlPlaneTopology = cp
+		}
+		if s.ConfigTopology == nil {
+			s.ConfigTopology = cfg
+		}
+	} else {
+		// TODO cleanup suite-overriding semantics when using flags
 
-	s.networkTopology, err = parseNetworkTopology(s.KubeConfig)
-	if err != nil {
-		return nil, err
-	}
+		s.ControlPlaneTopology, err = newControlPlaneTopology(s.KubeConfig)
+		if err != nil {
+			return nil, err
+		}
 
-	s.ConfigTopology, err = newConfigTopology(s.KubeConfig, s.ControlPlaneTopology)
-	if err != nil {
-		return nil, err
+		s.networkTopology, err = parseNetworkTopology(s.KubeConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		s.ConfigTopology, err = newConfigTopology(s.KubeConfig, s.ControlPlaneTopology)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return s, nil
@@ -277,6 +299,55 @@ func parseNetworkTopology(kubeConfigs []string) (map[resource.ClusterIndex]strin
 	return out, nil
 }
 
+func parseTopologyFile(kubeconfigs []string) (cp clusterTopology, nw map[resource.ClusterIndex]string, cfg clusterTopology, err error) {
+	filename, err := normalizeFile(topologyFile)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	topologyBytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	topology := []topologyItem{}
+	if err := json.Unmarshal(topologyBytes, &topology); err != nil {
+		return nil, nil, nil, err
+	}
+	if len(topology) != len(kubeconfigs) {
+		return nil, nil, nil, fmt.Errorf("expected %d topology entries, got %d", len(kubeConfigs), len(topology))
+	}
+
+	cp = clusterTopology{}
+	nw = map[resource.ClusterIndex]string{}
+	cfg = clusterTopology{}
+
+	for i, item := range topology {
+		idx := resource.ClusterIndex(i)
+		if item.ControlPlaneIndex != nil {
+			cp[idx] = resource.ClusterIndex(*item.ControlPlaneIndex)
+		} else {
+			cp[idx] = idx
+		}
+		if item.NetworkID != nil {
+			// TODO allow specifying network names
+			nw[idx] = "test-network-" + strconv.Itoa(*item.NetworkID)
+		} else {
+			nw[idx] = "test-network-0"
+		}
+		if item.ConfigClusterIndex != nil {
+			cfg[idx] = resource.ClusterIndex(*item.ConfigClusterIndex)
+		} else {
+			cfg[idx] = cp[idx]
+		}
+	}
+	return
+}
+
+type topologyItem struct {
+	ControlPlaneIndex  *int `json:"control_plane_index,omitempty"`
+	NetworkID          *int `json:"network_id,omitempty"`
+	ConfigClusterIndex *int `json:"config_index,omitempty"`
+}
+
 func normalizeFile(originalPath string) (string, error) {
 	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
 	var err error
@@ -318,4 +389,8 @@ func init() {
 		"", "Specifies the mapping for each cluster to the cluster hosting its config. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<configClusterIndex>, where the indexes refer to the order in which "+
 			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, the default is every cluster maps to itself(e.g. 0:0,1:1,...).")
+	flag.StringVar(&topologyFile, "istio.test.kube.topology", "", "The path to a JSON file that defines control plane,"+
+		" network, and config cluster topology. The JSON document should be an array of objects that contain the keys \"control_plane_index\","+
+		" \"network_id\" and \"config_index\" with all integer values. If control_plane_index is omitted, the index of the array item is used."+
+		"If network_id is omitted, 0 will be used. If config_index is omitted, control_plane_index will be used.")
 }
