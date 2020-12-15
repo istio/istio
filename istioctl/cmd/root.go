@@ -247,11 +247,6 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(analyzeCmd, "istioNamespace")
 	rootCmd.AddCommand(analyzeCmd)
 
-	convertIngressCmd := convertIngress()
-	deprecate(convertIngressCmd)
-	hideInheritedFlags(convertIngressCmd, "namespace", "istioNamespace")
-	rootCmd.AddCommand(convertIngressCmd)
-
 	dashboardCmd := dashboard()
 	hideInheritedFlags(dashboardCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(dashboardCmd)
