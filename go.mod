@@ -41,7 +41,6 @@ require (
 	github.com/go-openapi/validate v0.19.5
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.3
-	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/go-cmp v0.5.2
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.1.2
