@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -210,6 +211,16 @@ func KeyFunc(name, namespace string) string {
 		return name
 	}
 	return namespace + "/" + name
+}
+
+// SplitKey returns namespace and name
+func SplitKey(key string) (namespace string, name string, err error) {
+	parts := strings.Split(key, "/")
+	if len(parts) == 2 {
+		return parts[0], parts[1], nil
+	}
+
+	return "", "", fmt.Errorf("unexpected key format: %q", key)
 }
 
 func formatUID(namespace, name string) string {

@@ -40,7 +40,7 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
-	// needResync is map of IP to endpoint names. This is used to requeue endpoint
+	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
 	needResync         map[string]sets.Set
@@ -169,8 +169,8 @@ func (pc *PodCache) update(ip, key string) {
 
 	if endpointsToUpdate, f := pc.needResync[ip]; f {
 		delete(pc.needResync, ip)
-		for ep := range endpointsToUpdate {
-			pc.queueEndpointEvent(ep)
+		for epKey := range endpointsToUpdate {
+			pc.queueEndpointEvent(epKey)
 		}
 		endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 	}
@@ -222,9 +222,32 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 	if !exists {
 		return nil
 	}
-	item, exists, err := pc.informer.GetStore().GetByKey(key)
-	if !exists || err != nil {
-		return nil
+	return pc.getPodByKey(key)
+}
+
+// getPodByKey returns the pod by key formatted `ns/name`
+func (pc *PodCache) getPodByKey(key string) *v1.Pod {
+	item, _, _ := pc.informer.GetStore().GetByKey(key)
+	if item != nil {
+		return item.(*v1.Pod)
 	}
-	return item.(*v1.Pod)
+	return nil
+}
+
+// getPodByKey returns the pod of the proxy
+func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
+	var pod *v1.Pod
+	key := podKeyByProxy(proxy)
+	if key != "" {
+		pod = pc.getPodByKey(key)
+		if pod != nil {
+			return pod
+		}
+	}
+
+	// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
+	// because multiple ips belong to the same pod
+	proxyIP := proxy.IPAddresses[0]
+	// just in case the proxy ID is bad formatted
+	return pc.getPodByIP(proxyIP)
 }

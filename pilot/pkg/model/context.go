@@ -181,7 +181,7 @@ type Proxy struct {
 	IPAddresses []string
 
 	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
-	// namespace.
+	// namespace <podName.namespace>.
 	ID string
 
 	// Locality is the location of where Envoy proxy runs. This is extracted from
