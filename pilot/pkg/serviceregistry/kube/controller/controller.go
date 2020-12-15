@@ -395,34 +395,34 @@ func (c *Controller) initDiscoveryNamespaceHandlers() {
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			incrementEvent(otype, "add")
-			c.queue.Push(func() error {
-				ns := obj.(*v1.Namespace)
-				if ns.Labels[model.PilotDiscoveryLabelName] == model.PilotDiscoveryLabelValue {
+			ns := obj.(*v1.Namespace)
+			if ns.Labels[model.PilotDiscoveryLabelName] == model.PilotDiscoveryLabelValue {
+				c.queue.Push(func() error {
 					handleNamespace(ns)
-				}
-				return nil
-			})
+					return nil
+				})
+			}
 		},
 		UpdateFunc: func(old, new interface{}) {
 			incrementEvent(otype, "update")
-			c.queue.Push(func() error {
-				oldNs := old.(*v1.Namespace)
-				newNs := new.(*v1.Namespace)
-				if oldNs.Labels[model.PilotDiscoveryLabelName] != newNs.Labels[model.PilotDiscoveryLabelName] {
+			oldNs := old.(*v1.Namespace)
+			newNs := new.(*v1.Namespace)
+			if oldNs.Labels[model.PilotDiscoveryLabelName] != newNs.Labels[model.PilotDiscoveryLabelName] {
+				c.queue.Push(func() error {
 					handleNamespace(newNs)
-				}
-				return nil
-			})
+					return nil
+				})
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			incrementEvent(otype, "delete")
-			c.queue.Push(func() error {
-				ns := obj.(*v1.Namespace)
-				if ns.Labels[model.PilotDiscoveryLabelName] == model.PilotDiscoveryLabelValue {
+			ns := obj.(*v1.Namespace)
+			if ns.Labels[model.PilotDiscoveryLabelName] == model.PilotDiscoveryLabelValue {
+				c.queue.Push(func() error {
 					handleNamespace(ns)
-				}
-				return nil
-			})
+					return nil
+				})
+			}
 		},
 	})
 }
