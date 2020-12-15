@@ -19,7 +19,9 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/pkg/log"
 )
 
 type WorkloadHealthChecker struct {
@@ -70,7 +72,7 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 	return cfg
 }
 
-func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthChecker {
+func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober) *WorkloadHealthChecker {
 	// if a config does not exist return a no-op prober
 	if cfg == nil {
 		return &WorkloadHealthChecker{
@@ -91,6 +93,11 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 		prober = nil
 	}
 
+	probers := []Prober{}
+	if envoyProbe != nil {
+		probers = append(probers, &EnvoyProber{envoyProbe})
+	}
+	probers = append(probers, prober)
 	return &WorkloadHealthChecker{
 		config: applicationHealthCheckConfig{
 			InitialDelay:   time.Duration(cfg.InitialDelaySeconds) * time.Second,
@@ -99,7 +106,7 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe) *WorkloadHealthCheck
 			SuccessThresh:  int(cfg.SuccessThreshold),
 			FailThresh:     int(cfg.FailureThreshold),
 		},
-		prober: prober,
+		prober: AggregateProber{Probes: probers},
 	}
 }
 
@@ -118,11 +125,13 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 	if w.prober == nil {
 		return
 	}
-
-	healthCheckLog.Infof("starting health check for %T", w.prober)
+	healthCheckLog.SetOutputLevel(log.DebugLevel)
+	healthCheckLog.Infof("starting health check for %T in %v", w.prober, w.config.InitialDelay)
 
 	// delay before starting probes.
 	time.Sleep(w.config.InitialDelay)
+
+	healthCheckLog.Debugf("health check initial delay complete")
 
 	// tracks number of success & failures after last success/failure
 	numSuccess, numFail := 0, 0
@@ -130,56 +139,51 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 	// first send a healthy message.
 	lastStateHealthy := false
 
-	if w.config.CheckFrequency == time.Second*0 {
-		// should probably hard-code a value somewhere else.
-		// like k8s, default to 10s
-		w.config.CheckFrequency = time.Second * 10
+	doCheck := func() {
+		// probe target
+		healthy, err := w.prober.Probe(w.config.ProbeTimeout)
+		if healthy.IsHealthy() {
+			healthCheckLog.Debug("probe completed with healthy status")
+			// we were healthy, increment success counter
+			numSuccess++
+			// wipe numFail (need consecutive success)
+			numFail = 0
+			// if we reached the threshold, mark the target as healthy
+			if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
+				healthCheckLog.Info("success threshold hit, marking as healthy")
+				callback(&ProbeEvent{Healthy: true})
+				numSuccess = 0
+				lastStateHealthy = true
+			}
+		} else {
+			healthCheckLog.Debugf("probe completed with unhealthy status: %v", err)
+			// we were not healthy, increment fail counter
+			numFail++
+			// wipe numSuccess (need consecutive failure)
+			numSuccess = 0
+			// if we reached the fail threshold, mark the target as unhealthy
+			if numFail == w.config.FailThresh && lastStateHealthy {
+				healthCheckLog.Infof("failure threshold hit, marking as unhealthy: %v", err)
+				callback(&ProbeEvent{
+					Healthy:          false,
+					UnhealthyStatus:  500,
+					UnhealthyMessage: err.Error(),
+				})
+				numFail = 0
+				lastStateHealthy = false
+			}
+		}
 	}
 
+	// Send the first request immediately
+	doCheck()
 	periodTicker := time.NewTicker(w.config.CheckFrequency)
 	for {
 		select {
 		case <-quit:
 			return
 		case <-periodTicker.C:
-			// probe target
-			healthy, err := w.prober.Probe(w.config.ProbeTimeout)
-			if healthy.IsHealthy() {
-				healthCheckLog.Debug("probe completed with healthy status")
-				// we were healthy, increment success counter
-				numSuccess++
-				// wipe numFail (need consecutive success)
-				numFail = 0
-				// if we reached the threshold, mark the target as healthy
-				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
-					healthCheckLog.Info("success threshold hit, marking as healthy")
-					callback(&ProbeEvent{Healthy: true})
-					numSuccess = 0
-					lastStateHealthy = true
-				}
-			} else {
-				healthCheckLog.Debugf("probe completed with unhealthy status: %v", err)
-				// we were not healthy, increment fail counter
-				numFail++
-				// wipe numSuccess (need consecutive failure)
-				numSuccess = 0
-				// if we reached the fail threshold, mark the target as unhealthy
-				if numFail == w.config.FailThresh && lastStateHealthy {
-					healthCheckLog.Infof("failure threshold hit, marking as unhealthy: %v", err)
-					callback(&ProbeEvent{
-						Healthy:          false,
-						UnhealthyStatus:  500,
-						UnhealthyMessage: err.Error(),
-					})
-					numFail = 0
-					lastStateHealthy = false
-				}
-			}
+			doCheck()
 		}
 	}
-}
-
-// TODO implement
-func (w *WorkloadHealthChecker) PerformEnvoyHealthCheck() {
-
 }
