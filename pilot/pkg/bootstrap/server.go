@@ -189,6 +189,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		MeshHolder: e,
 	})
 	e.ServiceDiscovery = ac
+	e.DiscoveryNamespaces = ac
 
 	s := &Server{
 		clusterID:       getClusterID(args),

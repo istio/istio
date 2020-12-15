@@ -27,6 +27,11 @@ const (
 	PilotDiscoveryLabelValue = "true"
 )
 
+type DiscoveryNamespaces interface {
+	// return set of discovery enabled namespaces if enabled, otherwise return (false, nil)
+	ListDiscoveryNamespaces() (bool, sets.String)
+}
+
 func GetDiscoveryNamespaces(lister v1.NamespaceLister) sets.String {
 	selector := labels.Set(map[string]string{PilotDiscoveryLabelName: PilotDiscoveryLabelValue}).AsSelector()
 	namespaceList, err := lister.List(selector)

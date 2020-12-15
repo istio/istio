@@ -312,8 +312,28 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
+	if !s.shouldUpdate(req) {
+		return
+	}
 	inboundConfigUpdates.Increment()
 	s.pushChannel <- req
+}
+
+// if discovery namespaces is enabled, return false if the PushRequest does not contain any ConfigUpdates in discovery enabled namespaces
+// in order to reduce the frequency of xDS updates to the proxies
+func (s *DiscoveryServer) shouldUpdate(req *model.PushRequest) bool {
+	if s.Env.DiscoveryNamespaces == nil {
+		return true
+	}
+	if enabled, discoveryNamespaces := s.Env.ListDiscoveryNamespaces(); enabled {
+		for configKey := range req.ConfigsUpdated {
+			if discoveryNamespaces.Has(configKey.Namespace) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
 }
 
 // Debouncing and push request happens in a separate thread, it uses locks

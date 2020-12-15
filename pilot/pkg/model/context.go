@@ -76,6 +76,9 @@ type Environment struct {
 	DomainSuffix string
 
 	ledger ledger.Ledger
+
+	// lists discovery namespaces
+	DiscoveryNamespaces
 }
 
 func (e *Environment) GetDomainSuffix() string {

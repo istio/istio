@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -338,6 +339,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent, nil)
 
 	return c
+}
+
+func (c *Controller) ListDiscoveryNamespaces() (bool, sets.String) {
+	if !c.enableDiscoveryNamespaces {
+		return false, nil
+	}
+	return true, model.GetDiscoveryNamespaces(c.nsInformer.Lister())
 }
 
 func (c *Controller) Provider() serviceregistry.ProviderID {
@@ -716,7 +724,7 @@ func (c *Controller) Stop() {
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
 	c.RLock()
-	discoveryNamespaces := model.GetDiscoveryNamespaces(c.nsInformer.Lister())
+	_, discoveryNamespaces := c.ListDiscoveryNamespaces()
 	out := make([]*model.Service, 0, len(c.servicesMap))
 	for _, svc := range c.servicesMap {
 		if !c.enableDiscoveryNamespaces || discoveryNamespaces.Has(svc.Attributes.Namespace) {

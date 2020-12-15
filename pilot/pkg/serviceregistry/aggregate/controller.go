@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -56,6 +57,24 @@ func NewController(opt Options) *Controller {
 		registries: make([]serviceregistry.Instance, 0),
 		meshHolder: opt.MeshHolder,
 	}
+}
+
+func (c *Controller) ListDiscoveryNamespaces() (bool, sets.String) {
+	allNamespaces := sets.NewString()
+	// Locking Registries list while walking it to prevent inconsistent results
+	for _, r := range c.GetRegistries() {
+		discoveryNamespaces, ok := r.(model.DiscoveryNamespaces)
+		if !ok {
+			continue
+		}
+		enabled, namespaces := discoveryNamespaces.ListDiscoveryNamespaces()
+		// discovery namespaces enabled is consistent across all service registries
+		if !enabled {
+			return false, nil
+		}
+		allNamespaces = allNamespaces.Union(namespaces)
+	}
+	return true, allNamespaces
 }
 
 // AddRegistry adds registries into the aggregated controller
