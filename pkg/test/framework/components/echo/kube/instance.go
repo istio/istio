@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -300,13 +299,18 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 }
 
 func customizeWorkloadGroup(cfg echo.Config, wg []byte) ([]byte, error) {
-	workloadGroup := &v1alpha3.WorkloadGroup{}
+	workloadGroup := map[string]interface{}{}
 	if err := yaml.Unmarshal(wg, workloadGroup); err != nil {
 		return nil, err
 	}
 
 	// don't use the primary network, use the network it's actually reachable from
-	workloadGroup.Spec.Template.Network = cfg.Cluster.NetworkName()
+	spec := workloadGroup["spec"].(map[interface{}]interface{})
+	if spec["template"] == nil {
+		spec["template"] = map[interface{}]interface{}{}
+	}
+	template := spec["template"].(map[interface{}]interface{})
+	template["network"] = cfg.Cluster.NetworkName()
 
 	return yaml.Marshal(workloadGroup)
 }
