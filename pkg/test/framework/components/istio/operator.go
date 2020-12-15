@@ -37,7 +37,6 @@ import (
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -119,12 +118,6 @@ func removeCRDs(istioYaml string) string {
 	return yml.JoinString(nonCrds...)
 }
 
-var leaderElectionConfigMaps = []string{
-	leaderelection.IngressController,
-	leaderelection.NamespaceController,
-	leaderelection.ValidationController,
-}
-
 type istioctlConfigFiles struct {
 	iopFile            string
 	operatorSpec       *opAPI.IstioOperatorSpec
@@ -196,10 +189,12 @@ func (i *operatorComponent) Close() error {
 				// This includes things like leader election locks (allowing next test to start without 30s delay),
 				// custom cacerts, custom kubeconfigs, etc.
 				// We avoid deleting the whole namespace since its extremely slow in Kubernetes (30-60s+)
-				if e := cluster.CoreV1().Secrets(i.settings.SystemNamespace).DeleteCollection(context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+				if e := cluster.CoreV1().Secrets(i.settings.SystemNamespace).DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 					err = multierror.Append(err, e)
 				}
-				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).DeleteCollection(context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 					err = multierror.Append(err, e)
 				}
 				return
