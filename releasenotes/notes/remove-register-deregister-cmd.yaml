@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **Removed** istioctl register and deregister command
+    **Removed** istioctl register and deregister commands
