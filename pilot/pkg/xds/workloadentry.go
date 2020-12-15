@@ -29,6 +29,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -95,7 +96,11 @@ func (sg *InternalGen) RegisterWorkload(proxy *model.Proxy, con *Connection) err
 		adsLog.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 		return fmt.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
-	adsLog.Infof("auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
+	hcMessage := ""
+	if _, f := entry.Annotations[status.WorkloadEntryHealthCheckAnnotation]; f {
+		hcMessage = " with health checking enabled"
+	}
+	adsLog.Infof("auto-registered WorkloadEntry %s/%s%s", proxy.Metadata.Namespace, entryName, hcMessage)
 	return nil
 }
 
@@ -162,20 +167,9 @@ func (sg *InternalGen) UpdateWorkloadEntryHealth(proxy *model.Proxy, event Healt
 		adsLog.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
 		return
 	}
-	wle := cfg.DeepCopy()
 
 	// replace the updated status
-	// should this status nil check be in the initial auto registration?
-	var status *v1alpha1.IstioStatus
-	if wle.Status == nil {
-		// for some reason we have a nil status, just make conditions
-		// an empty array
-		wle.Status = &v1alpha1.IstioStatus{
-			Conditions: []*v1alpha1.IstioCondition{},
-		}
-	}
-	status = wle.Status.(*v1alpha1.IstioStatus)
-	status.Conditions = UpdateHealthCondition(status.Conditions, event)
+	wle := status.UpdateConfigCondition(*cfg, transformHealthEvent(event))
 
 	// update the status
 	_, err := sg.store.UpdateStatus(wle)
@@ -276,6 +270,10 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if proxy.Locality != nil {
 		entry.Locality = util.LocalityToString(proxy.Locality)
 	}
+	if proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
+		annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"
+	}
+
 	return &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.WorkloadEntry,
@@ -335,39 +333,19 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 	return name
 }
 
-func UpdateHealthCondition(conditions []*v1alpha1.IstioCondition, event HealthEvent) []*v1alpha1.IstioCondition {
-	foundHealth := false
-	healthIdx := 0
-	for i, cond := range conditions {
-		if cond.Type == "Healthy" {
-			foundHealth = true
-			healthIdx = i
-			break
-		}
-	}
-	if !foundHealth {
-		// we have not inserted a healthy condition yet
-		// just append and return
-		return append(conditions, transformHealthEvent(event))
-	}
-	// we should just replace the health status
-	conditions[healthIdx] = transformHealthEvent(event)
-	return conditions
-}
-
 func transformHealthEvent(event HealthEvent) *v1alpha1.IstioCondition {
 	cond := &v1alpha1.IstioCondition{
-		Type: "Healthy",
+		Type: status.ConditionHealthy,
 		// last probe and transition are the same because
 		// we only send on transition in the agent
 		LastProbeTime:      types.TimestampNow(),
 		LastTransitionTime: types.TimestampNow(),
 	}
 	if event.Healthy {
-		cond.Status = "True"
+		cond.Status = status.StatusTrue
 		return cond
 	}
-	cond.Status = "False"
+	cond.Status = status.StatusFalse
 	cond.Message = event.Message
 	return cond
 }
