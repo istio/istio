@@ -30,9 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/meta/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -145,6 +148,7 @@ func setupTest(t *testing.T) (
 // TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
 // external service registry, which have cross-references by workload instances.
 func TestWorkloadInstances(t *testing.T) {
+	features.WorkloadEntryHealthChecks = true
 	port := &networking.Port{
 		Name:     "http",
 		Number:   80,
@@ -762,6 +766,59 @@ func TestWorkloadInstances(t *testing.T) {
 			t.Fatal(err)
 		}
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+	})
+
+	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
+		kc, _, store, kube, _ := setupTest(t)
+		makeService(t, kube, service)
+
+		// Start as unhealthy, should have no instances
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances := []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Mark healthy, get instances
+		makeIstioObject(t, store, setHealth(workloadEntry, true))
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Set back to unhealthy
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances = []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Remove health status entirely
+		makeIstioObject(t, store, workloadEntry)
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+}
+
+func setHealth(cfg config.Config, healthy bool) config.Config {
+	cfg = cfg.DeepCopy()
+	if cfg.Annotations == nil {
+		cfg.Annotations = map[string]string{}
+	}
+	cfg.Annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"
+	if healthy {
+		return status.UpdateConfigCondition(cfg, &v1alpha1.IstioCondition{
+			Type:   status.ConditionHealthy,
+			Status: status.StatusTrue,
+		})
+	}
+	return status.UpdateConfigCondition(cfg, &v1alpha1.IstioCondition{
+		Type:   status.ConditionHealthy,
+		Status: status.StatusFalse,
 	})
 }
 

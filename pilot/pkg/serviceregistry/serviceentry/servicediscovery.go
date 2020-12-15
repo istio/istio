@@ -17,12 +17,15 @@ package serviceentry
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"go.uber.org/atomic"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -112,6 +115,12 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		kind:      workloadEntryConfigType,
 		name:      curr.Name,
 		namespace: curr.Namespace,
+	}
+
+	// If an entry is unhealthy, we will mark this as a delete instead
+	// This ensures we do not track unhealthy endpoints
+	if features.WorkloadEntryHealthChecks && !isHealthy(curr) {
+		event = model.EventDelete
 	}
 
 	// fire off the k8s handlers
@@ -887,4 +896,27 @@ func makeConfigKey(svc *model.Service) model.ConfigKey {
 		Kind:      gvk.ServiceEntry,
 		Name:      string(svc.Hostname),
 		Namespace: svc.Attributes.Namespace}
+}
+
+// isHealthy checks that the provided WorkloadEntry is healthy. If health checks are not enabled,
+// it is assumed to always be healthy
+func isHealthy(cfg config.Config) bool {
+	if parseHealthAnnotation(cfg.Annotations[status.WorkloadEntryHealthCheckAnnotation]) {
+		// We default to false if the condition is not set. This ensures newly created WorkloadEntries
+		// are treated as unhealthy until we prove they are healthy by probe success.
+		return status.GetBoolConditionFromSpec(cfg, status.ConditionHealthy, false)
+	}
+	// If health check is not enabled, assume its healthy
+	return true
+}
+
+func parseHealthAnnotation(s string) bool {
+	if s == "" {
+		return false
+	}
+	p, err := strconv.ParseBool(s)
+	if err != nil {
+		return false
+	}
+	return p
 }

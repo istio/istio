@@ -13,3 +13,6 @@ spec:
   template:
     ports: {}
     serviceAccount: vm-serviceaccount
+  probe:
+    httpGet:
+      port: 8080
