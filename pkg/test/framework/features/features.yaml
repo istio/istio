@@ -132,6 +132,7 @@ features:
       revision_tags:
     multicluster:
       multimaster:
+      multimaster_telemetry:
       remote:
       centralremotekubeconfig:
     helm:

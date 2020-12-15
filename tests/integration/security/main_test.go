@@ -36,7 +36,11 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
-			return util.SetupApps(ctx, ist, apps, true)
+			buildVM := true
+			if ctx.Settings().SkipVM {
+				buildVM = false
+			}
+			return util.SetupApps(ctx, ist, apps, buildVM)
 		}).
 		Run()
 }

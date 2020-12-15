@@ -35,8 +35,10 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			ctx.Skip("https://b.corp.google.com/issues/175420065")
+
 			if !supportsCRDv1(ctx) {
-				t.Skip("Not supported; requires CRDv1 support.")
+				ctx.Skip("Not supported; requires CRDv1 support.")
 			}
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1

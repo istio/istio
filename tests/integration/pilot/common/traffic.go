@@ -102,7 +102,11 @@ func RunAllTrafficTests(ctx framework.TestContext, apps *EchoDeployments) {
 	}
 	cases["dns"] = DNSTestCases(apps)
 	for name, tts := range cases {
+		name := name
 		ctx.NewSubTest(name).Run(func(ctx framework.TestContext) {
+			if name == "gateway" {
+				ctx.Skip("https://b.corp.google.com/issues/175599359")
+			}
 			for _, tt := range tts {
 				tt.Run(ctx, apps.Namespace.Name())
 			}

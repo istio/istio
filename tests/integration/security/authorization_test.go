@@ -1257,6 +1257,12 @@ func TestAuthorization_Custom(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.custom").
 		Run(func(ctx framework.TestContext) {
+			// TODO(tairan): Migrate TestAuthorization_Custom into a subfolder as a new suite
+			// Currently --istio.test.skipVM is used in ASM Prow jobs
+			// Temporarily reuse this flag
+			if ctx.Settings().SkipVM {
+				ctx.Skip()
+			}
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-custom",
 				Inject: true,

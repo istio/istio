@@ -1,0 +1,47 @@
+apiVersion: sut.tailorbird.io/v1alpha1
+kind: Rookery
+metadata:
+  # !!!IMPORTANT!!!! READ BELOW
+  # Use names that are unique and easily identifiable
+  # To see list of currently running rookeries:
+  # kubectl get rookeries -n tailorbird-users
+  # To view existing knests:
+  # kubectl get knests -n tailorbird-users
+  # To view existing clusters:
+  # kubectl get clusters.sut.tailorbird.io -n tailorbird-users
+  # e.g., use your Google username as prefix.
+  # !!!IMPORTANT!!!! READ ABOVE
+  name: asm-ci-onprem-hub-scsn-rookery-1
+  namespace: tailorbird-users
+spec:
+  knests:
+    - apiVersion: sut.tailorbird.io/v1alpha1
+      kind: Knest
+      metadata:
+        name: asm-ci-onprem-hub-scsn-knest-1
+      spec:
+        clusters:
+          # TODO(tairan): use two clusters after b/176177944 is fixed
+          - apiVersion: sut.tailorbird.io/v1alpha1
+            kind: Cluster
+            metadata:
+              name: asm-ci-onprem-hub-scsn-cluster-01
+            spec:
+              provider: vsphere
+              distribution: gke
+              provisionerArgs:
+                username: prowuser
+                workerNumNodes: "2"
+                gkectlVersion: "latest"
+                vipNetwork: "fe"
+                # Assign the first cluster under one VPC
+                vsphereVpc: "atl-shared-vpc-02"
+                networkType: "any"
+                # useVipNetworkLabel requires use=frontent and i-know-what-i-am-doing=true
+                # if you dont know what you're doing, the request will fail (it knows).
+                useVipNetworkLabel: "use=frontend,i-know-what-i-am-doing=true"
+                # useNetworkLabel requires use=private and i-know-what-i-am-doing=true
+                useNetworkLabel: "use=private,i-know-what-i-am-doing=true"
+                # TODO(tairan): use a new CI project with permission for creating public GCS buckets
+                --connect-project: "tairan-asm-multi-cloud-dev"
+                workloadIdentity: "{\"Enabled\":true}"

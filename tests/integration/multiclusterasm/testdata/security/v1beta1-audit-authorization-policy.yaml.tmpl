@@ -1,0 +1,9 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  namespace: "{{ .Namespace }}"
+  name: "audit-all"
+spec:
+  action: AUDIT
+  rules:
+  - {}

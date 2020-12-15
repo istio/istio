@@ -1,0 +1,21 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: TOKEN_AUDIENCES
+          value: "istio-ca,PROJECT_ID.svc.id.goog" # {"$ref":"#/definitions/io.k8s.cli.substitutions.token-audiences"}
+        - name: EXTERNAL_CA
+          value: "ISTIOD_RA_CAS_API"
+        - name: CA_NAME
+          value: "" # {"$ref":"#/definitions/io.k8s.cli.setters.anthos.servicemesh.external_ca.ca_name"}
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        CA_PROVIDER: "Citadel"
+        PLUGINS: ""
+  values:
+    global:
+      caAddress: ""

@@ -1,0 +1,14 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    #pilot:
+    #  env:
+    #    PILOT_ENABLED_SERVICE_APIS: true
+    telemetry:
+      v2:
+        prometheus:
+          enabled: true
+        stackdriver:
+          configOverride:
+            enable_audit_log: true

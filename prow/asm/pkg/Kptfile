@@ -24,3 +24,33 @@ openAPI:
         setter:
           name: anthos.servicemesh.trustDomainAliases
           listValues:
+    io.k8s.cli.setters.anthos.servicemesh.hub-idp-url:
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.hub-idp-url
+          value: ""
+    io.k8s.cli.setters.anthos.servicemesh.gke-hub-metadata:
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.gke-hub-metadata
+          value: ""
+    io.k8s.cli.setters.anthos.servicemesh.external_ca.ca_name:
+      x-k8s-cli:
+        setter:
+          name: anthos.servicemesh.external_ca.ca_name
+          value: ""
+    io.k8s.cli.setters.gcloud.core.project:
+      type: string
+      x-k8s-cli:
+        setter:
+          name: gcloud.core.project
+          value: ""
+    io.k8s.cli.substitutions.token-audiences:
+      type: string
+      x-k8s-cli:
+        substitution:
+          name: token-audiences
+          pattern: "istio-ca,PROJECT_ID.svc.id.goog"
+          values:
+          - marker: PROJECT_ID
+            ref: '#/definitions/io.k8s.cli.setters.gcloud.core.project'
