@@ -19,6 +19,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
@@ -38,9 +39,16 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
+type LogType int
+
 const (
 	stackdriverNamespace = "istio-stackdriver"
 	stackdriverPort      = 8091
+)
+
+const (
+	ServerAccessLog LogType = iota
+	ServerAuditLog
 )
 
 var (
@@ -152,14 +160,25 @@ func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 	return ret, nil
 }
 
-func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
+func (c *kubeComponent) ListLogEntries(filter LogType) ([]*loggingpb.LogEntry, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
+
 	resp, err := client.Get("http://" + c.forwarder.Address() + "/logentries")
 	if err != nil {
 		return []*loggingpb.LogEntry{}, err
 	}
+	var logNameFilter string
+	switch filter {
+	case ServerAuditLog:
+		logNameFilter = "/server-istio-audit-log"
+	case ServerAccessLog:
+		logNameFilter = "/server-accesslog-stackdriver"
+	default:
+		return []*loggingpb.LogEntry{}, fmt.Errorf("no such filter name: %s", logNameFilter)
+	}
+
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -172,8 +191,14 @@ func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
 	}
 	var ret []*loggingpb.LogEntry
 	for _, l := range r.Entries {
+		if !strings.HasSuffix(l.LogName, logNameFilter) {
+			continue
+		}
 		// Remove fields that do not need verification
 		l.Timestamp = nil
+		l.Trace = ""
+		l.SpanId = ""
+		l.LogName = ""
 		l.Severity = ltype.LogSeverity_DEFAULT
 		if l.HttpRequest != nil {
 			l.HttpRequest.ResponseSize = 0

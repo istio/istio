@@ -91,12 +91,11 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName string) er
 	return jsonpb.UnmarshalString(resource, out)
 }
 
-// TODO: add test for log, trace and edge.
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
-
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range clt {
 				g.Go(func() error {
@@ -104,25 +103,31 @@ func TestStackdriverMonitoring(t *testing.T) {
 						if err := sendTraffic(t, cltInstance); err != nil {
 							return err
 						}
-
 						clName := cltInstance.Config().Cluster.Name()
 						scopes.Framework.Infof("Validating for cluster %s", clName)
+
 						//Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.
 						if err := validateMetrics(t, serverRequestCount, clientRequestCount, clName); err != nil {
 							return err
 						}
-						if err := validateLogs(t, serverLogEntry, clName); err != nil {
+						t.Logf("Metrics validated")
+						if err := validateLogs(t, serverLogEntry, clName, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
+						t.Logf("logs validated")
 						if err := validateTraces(t); err != nil {
 							return err
 						}
+						t.Logf("Traces validated")
 						if err := validateEdges(t, clName); err != nil {
 							return err
 						}
+						t.Logf("Edges validated")
+
 						return nil
 
 					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
+
 					if err != nil {
 						return err
 					}
@@ -162,6 +167,7 @@ values:
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
+	cfg.Values["telemetry.v2.stackdriver.configOverride.enable_audit_log"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
 	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
@@ -321,18 +327,19 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName string
 	return nil
 }
 
-func validateLogs(t *testing.T, srvLogEntry, clName string) error {
+func validateLogs(t *testing.T, srvLogEntry, clName string, filter stackdriver.LogType) error {
 	t.Helper()
-
 	var wantLog loggingpb.LogEntry
 	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
+
 	// Traverse all log entries received and compare with expected server log entry.
-	entries, err := sdInst.ListLogEntries()
+	entries, err := sdInst.ListLogEntries(filter)
 	if err != nil {
 		return fmt.Errorf("logs: failed to get received log entries: %v", err)
 	}
+
 	for _, l := range entries {
 		if proto.Equal(l, &wantLog) {
 			return nil
@@ -360,6 +367,7 @@ func validateEdges(t *testing.T, clName string) error {
 		edge.Source.Uid = ""
 		edge.Source.ClusterName = ""
 		edge.Source.Location = ""
+		edge.Protocol = 0
 		t.Logf("edge: %v", edge)
 		if proto.Equal(edge, &wantEdge) {
 			return nil
