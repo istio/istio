@@ -23,8 +23,9 @@ const (
 )
 
 var (
-	revision  = ""
-	overwrite = false
+	revision         = ""
+	overwrite        = false
+	skipConfirmation = false
 )
 
 func tagCommand() *cobra.Command {
@@ -53,6 +54,7 @@ func tagApplyCommand() *cobra.Command {
 		Use:     "apply",
 		Short:   "Create or modify revision tags",
 		Example: "istioctl x tag apply prod --revision 1-8-0",
+		Aliases: []string{"create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("must provide a tag for creation")
@@ -71,6 +73,7 @@ func tagApplyCommand() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, "whether to overwrite an existing tag")
+	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, "whether to skip confirmation for tag deletion")
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "revision to point tag to")
 	cmd.MarkPersistentFlagRequired("revision")
 
@@ -82,6 +85,7 @@ func tagListCommand() *cobra.Command {
 		Use:     "list",
 		Short:   "List existing revision tags and their corresponding revisions",
 		Example: "istioctl x tag list",
+		Aliases: []string{"show"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("tag list command does not accept arguments")
@@ -103,6 +107,7 @@ func tagRemoveCommand() *cobra.Command {
 		Use:     "remove",
 		Short:   "Remove an existing revision tag",
 		Example: "istioctl x tag remove prod",
+		Aliases: []string{"delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("must provide a tag for removal")
@@ -116,7 +121,7 @@ func tagRemoveCommand() *cobra.Command {
 				return fmt.Errorf("failed to create kubernetes client: %v", err)
 			}
 
-			return removeTag(context.Background(), client.Kube(), args[0], cmd.OutOrStdout())
+			return removeTag(context.Background(), client.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
 		},
 	}
 
@@ -151,7 +156,7 @@ func applyTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revisio
 }
 
 // removeTag removes an existing revision tag
-func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string, w io.Writer) error {
+func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string, skipConfirmation bool, w io.Writer) error {
 	webhooks, err := getWebhooksWithTag(ctx, kubeClient, tag)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve tag with name %s: %v", tag, err)
@@ -165,8 +170,11 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string,
 		return fmt.Errorf("could not retrieve namespaces dependent on tag: %s", tag)
 	}
 	// warn user if deleting a tag that still has namespaces pointed to it
-	if len(taggedNamespaces) > 0 {
-		fmt.Fprintf(w, buildDeleteTagConfirmation(tag, taggedNamespaces))
+	if len(taggedNamespaces) > 0 && !skipConfirmation {
+		if !confirm(buildDeleteTagConfirmation(tag, taggedNamespaces), w) {
+			fmt.Fprintf(w, "Aborting operation.\n")
+			return nil
+		}
 	}
 
 	// proceed with webhook deletion
@@ -186,7 +194,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		return fmt.Errorf("failed to retrieve tags: %v", err)
 	}
 	if len(tagWebhooks) == 0 {
-		fmt.Fprintf(writer, "No tag webhooks found.")
+		fmt.Fprintf(writer, "No tag webhooks found\n")
 		return nil
 	}
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
@@ -289,12 +297,12 @@ func getTagRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 // buildDeleteTagConfirmation takes a list of webhooks and creates a message prompting confirmation for their deletion
 func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	var sb strings.Builder
-	base := fmt.Sprintf("Caution, found %d namespaces still pointing to tag \"%s\":", len(taggedNamespaces), tag)
+	base := fmt.Sprintf("Caution, found %d namespace(s) still pointing to tag \"%s\":", len(taggedNamespaces), tag)
 	sb.WriteString(base)
 	for _, ns := range taggedNamespaces {
 		sb.WriteString(" " + ns)
 	}
-	sb.WriteString("\nProceed with deletion? (y/N)")
+	sb.WriteString("\nProceed with operation? [y/N]")
 
 	return sb.String()
 }
@@ -341,4 +349,22 @@ func buildInjectionWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string)
 	injectionWebhook.NamespaceSelector = &tagWebhookNamespaceSelector
 	injectionWebhook.ClientConfig.CABundle = []byte("") // istiod patches the CA bundle in
 	return *injectionWebhook, nil
+}
+
+// TODO(monkeyanator) duplicated between cmd/mesh/upgrade.go, move to common place
+// confirm waits for a user to confirm with the supplied message.
+func confirm(msg string, w io.Writer) bool {
+	fmt.Fprintf(w, "%s ", msg)
+
+	var response string
+	_, err := fmt.Scanln(&response)
+	if err != nil {
+		return false
+	}
+	response = strings.ToUpper(response)
+	if response == "Y" || response == "YES" {
+		return true
+	}
+
+	return false
 }
