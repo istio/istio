@@ -451,7 +451,7 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 		}
 		fqdn := d[0].Config().FQDN()
 		cases = append(cases, TrafficTestCase{
-			name:   fqdn,
+			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
 			// TODO call ingress in each cluster & fix flakes calling "external" (https://github.com/istio/istio/issues/28834)
 			skip: apps.External.Contains(d[0]) && d.Clusters().IsMulticluster(),
