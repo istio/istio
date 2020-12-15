@@ -129,6 +129,16 @@ func TestDashboard(t *testing.T) {
 			c, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			p := common.GetPromInstance()
+
+			ctx.Config().ApplyYAMLOrFail(ctx, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
+
+			// Apply just the grafana dashboards
+			cfg, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
+			if err != nil {
+				ctx.Fatal(err)
+			}
+			ctx.Config().ApplyYAMLOrFail(ctx, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
+
 			// We will send a bunch of requests until the test exits. This ensures we are continuously
 			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
 			// all in a single scrape which can lead to `rate()` not behaving correctly.
@@ -278,15 +288,6 @@ spec:
 `
 
 func setupDashboardTest(t framework.TestContext, done <-chan struct{}) {
-	t.Config().ApplyYAMLOrFail(t, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
-
-	// Apply just the grafana dashboards
-	cfg, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Config().ApplyYAMLOrFail(t, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
-
 	// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
 	// Spread out over 20s so rate() queries will behave correctly
 	ticker := time.NewTicker(time.Second)
