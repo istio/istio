@@ -237,7 +237,7 @@ func (pc *PodCache) getPodByKey(key string) *v1.Pod {
 // getPodByKey returns the pod of the proxy
 func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
 	var pod *v1.Pod
-	key := proxyPodKey(proxy)
+	key := podKeyByProxy(proxy)
 	if key != "" {
 		pod = pc.getPodByKey(key)
 		if pod != nil {

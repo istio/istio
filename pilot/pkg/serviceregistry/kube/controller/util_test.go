@@ -19,6 +19,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestHasProxyIP(t *testing.T) {
@@ -88,4 +90,53 @@ func TestGetLabelValue(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPodKeyByProxy(t *testing.T) {
+	testCases := []struct {
+		name        string
+		proxy       *model.Proxy
+		expectedKey string
+	}{
+		{
+			name: "invalid id: bad format",
+			proxy: &model.Proxy{
+				ID: "invalid",
+				Metadata: &model.NodeMetadata{
+					Namespace: "default",
+				},
+			},
+			expectedKey: "",
+		},
+		{
+			name: "invalid id: namespace mismatch",
+			proxy: &model.Proxy{
+				ID: "pod1.ns1",
+				Metadata: &model.NodeMetadata{
+					Namespace: "default",
+				},
+			},
+			expectedKey: "",
+		},
+		{
+			name: "invalid id: namespace mismatch",
+			proxy: &model.Proxy{
+				ID: "pod1.ns1",
+				Metadata: &model.NodeMetadata{
+					Namespace: "ns1",
+				},
+			},
+			expectedKey: "ns1/pod1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			key := podKeyByProxy(tc.proxy)
+			if key != tc.expectedKey {
+				t.Errorf("expected key %s != %s", tc.expectedKey, key)
+			}
+		})
+	}
+
 }

@@ -364,13 +364,15 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			createEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, nil, t)
 			fx.Wait("eds")
 
-			var svcNode model.Proxy
-			svcNode.Type = model.Router
-			svcNode.IPAddresses = []string{"128.0.0.1"}
-			svcNode.ID = "pod1.nsa"
-			svcNode.DNSDomain = "nsa.svc.cluster.local"
-			svcNode.Metadata = &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID}
-			serviceInstances := controller.GetProxyServiceInstances(&svcNode)
+			// this can test get pod by proxy ID
+			svcNode := &model.Proxy{
+				Type:        model.Router,
+				IPAddresses: []string{"128.0.0.1"},
+				ID:          "pod1.nsa",
+				DNSDomain:   "nsa.svc.cluster.local",
+				Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
+			}
+			serviceInstances := controller.GetProxyServiceInstances(svcNode)
 
 			if len(serviceInstances) != 1 {
 				t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
@@ -448,6 +450,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				map[string]string{"app": "prod-app"}, nil)
 			addPods(t, controller, fx, p)
 
+			// this can test get pod by proxy ip address
 			podServices := controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.1"},
@@ -509,6 +512,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				map[string]string{"app": "prod-app", "istio-locality": "region.zone"}, nil)
 			addPods(t, controller, fx, p)
 
+			// this can test get pod by proxy ip address
 			podServices = controller.GetProxyServiceInstances(&model.Proxy{
 				Type:            "sidecar",
 				IPAddresses:     []string{"129.0.0.2"},

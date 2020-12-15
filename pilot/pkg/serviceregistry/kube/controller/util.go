@@ -191,10 +191,10 @@ func isNodePortGatewayService(svc *v1.Service) bool {
 	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
 }
 
-// Get the proxy pod key which can be used to get pod from the informer cache
-func proxyPodKey(proxy *model.Proxy) string {
+// Get the pod key of the proxy which can be used to get pod from the informer cache
+func podKeyByProxy(proxy *model.Proxy) string {
 	parts := strings.Split(proxy.ID, ".")
-	if len(parts) == 2 && proxy.Metadata.Namespace != parts[1] {
+	if len(parts) == 2 && proxy.Metadata.Namespace == parts[1] {
 		return kube.KeyFunc(parts[0], parts[1])
 	}
 
