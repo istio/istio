@@ -32,6 +32,10 @@ import (
 )
 
 var (
+	fakeCACert = []byte("fake-CA-cert")
+)
+
+var (
 	defaultYAML = `apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadGroup
 metadata:
