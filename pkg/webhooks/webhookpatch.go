@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"k8s.io/api/admissionregistration/v1beta1"
+	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
@@ -141,7 +142,7 @@ func (w *WebhookCertPatcher) webhookPatchTask(webhookConfigName string) error {
 
 	// do not want to retry the task if these errors occur, they indicate that
 	// we should no longer be patching the given webhook
-	if errors.Is(err, errWrongRevision) || errors.Is(err, errNoWebhookWithName) {
+	if kubeErrors.IsNotFound(err) || errors.Is(err, errWrongRevision) || errors.Is(err, errNoWebhookWithName) {
 		return nil
 	}
 
