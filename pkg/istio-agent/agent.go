@@ -148,6 +148,9 @@ type AgentConfig struct {
 
 	// Extra headers to add to the XDS connection.
 	XDSHeaders map[string]string
+
+	// Is the proxy an IPv6 proxy
+	IsIPv6 bool
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is

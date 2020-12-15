@@ -125,7 +125,6 @@ func NewServer(config Config) (*Server, error) {
 		ready: &ready.Probe{
 			LocalHostAddr: config.LocalHostAddr,
 			AdminPort:     config.AdminPort,
-			NodeType:      config.NodeType,
 		},
 		envoyStatsPort: 15090,
 	}
@@ -198,7 +197,7 @@ func FormatProberURL(container string) (string, string, string) {
 
 // Run opens a the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
-	log.Infof("Opening status port %d\n", s.statusPort)
+	log.Infof("Opening status port %d", s.statusPort)
 
 	mux := http.NewServeMux()
 
