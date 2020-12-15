@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: documentation
+releaseNotes:
+  - |
+    **Added** Multicluster install docs have been re-written based on current
+    best practices, incorporating recent updates to onboarding tooling. In
+    particular, the multi-primary configuration (formerly known as
+    "replicated control planes") no longer relies on manually configuring the
+    `.global` stub domain, preferring instead to use `*.svc.cluster.local` for
+    accessing services throughout the mesh.
