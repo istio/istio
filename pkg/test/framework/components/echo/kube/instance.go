@@ -216,7 +216,8 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 			"-o", subsetDir,
 		}
 		if ctx.Clusters().IsMulticluster() {
-			cmd = append(cmd, "--clusterID", c.cluster.Name())
+			// When VMs talk about "cluster", they refer to the cluster they connect to for discovery
+			cmd = append(cmd, "--clusterID", c.cluster.Primary().Name())
 		}
 		if cfg.AutoRegisterVM {
 			cmd = append(cmd, "--autoregister")
@@ -393,7 +394,7 @@ spec:
     app: %s
     version: %s
 `, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
-		// Deploy the workload entry.
+		// Deploy the workload entry to all clusters.
 		if err := ctx.Config().ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
 			return err
 		}
