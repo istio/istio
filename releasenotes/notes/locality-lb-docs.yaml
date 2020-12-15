@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: documentation
+releaseNotes:
+  - |
+    **Added** The locality load balancing docs have been re-written into a
+    formal traffic management task. The new docs describe in more detail
+    how locality load balancing works as well as how to configure both
+    failover and weighted distribution. In addition, the new docs are now
+    automatically verified for correctness.
