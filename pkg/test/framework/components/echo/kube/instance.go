@@ -239,7 +239,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		if err := retry.UntilSuccess(func() error {
 			_, _, err = istioCtl.Invoke(cmd)
 			return err
-		}, retry.Timeout(5*time.Second)); err != nil {
+		}, retry.Timeout(20*time.Second)); err != nil {
 			return err
 		}
 
@@ -305,7 +305,7 @@ func customizeWorkloadGroup(cfg echo.Config, wg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// don't use the primary network, use the network it's actualy reachable from
+	// don't use the primary network, use the network it's actually reachable from
 	workloadGroup.Spec.Template.Network = cfg.Cluster.NetworkName()
 
 	return yaml.Marshal(workloadGroup)
