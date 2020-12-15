@@ -70,8 +70,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	c.RUnlock()
 
 	if svc != nil {
-		podIP := proxy.IPAddresses[0]
-		pod := c.pods.getPodByIP(podIP)
+		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)
 
 		for _, ss := range endpoints.Subsets {
@@ -125,7 +124,8 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			pod := c.pods.getPodByIP(ea.IP)
+			// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
+			pod := c.getPod(ea.IP, &ep.ObjectMeta, ea.TargetRef)
 			if pod != nil {
 				podLabels = pod.Labels
 			}

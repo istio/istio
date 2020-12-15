@@ -106,8 +106,7 @@ func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *mo
 		return out
 	}
 
-	podIP := proxy.IPAddresses[0]
-	pod := c.pods.getPodByIP(podIP)
+	pod := c.pods.getPodByProxy(proxy)
 	builder := NewEndpointBuilder(c, pod)
 
 	for _, port := range ep.Ports {
@@ -118,7 +117,6 @@ func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *mo
 		if !exists {
 			continue
 		}
-
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
 			for _, ep := range ep.Endpoints {
@@ -234,7 +232,8 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				pod := c.pods.getPodByIP(a)
+				// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
+				pod := c.getPod(a, &metav1.ObjectMeta{Name: slice.Labels[discovery.LabelServiceName], Namespace: slice.Namespace}, e.TargetRef)
 				if pod != nil {
 					podLabels = pod.Labels
 				}
