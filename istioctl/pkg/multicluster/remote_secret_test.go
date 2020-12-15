@@ -22,6 +22,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
@@ -35,12 +37,21 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
+var (
+	kubeSystemNamespaceUID = types.UID("54643f96-eca0-11e9-bb97-42010a80000a")
+	kubeSystemNamespace    = &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kube-system",
+			UID:  kubeSystemNamespaceUID,
+		},
+	}
+)
+
 const (
 	testNamespace          = "istio-system-test"
 	testServiceAccountName = "test-service-account"
 	testKubeconfig         = "test-kubeconfig"
 	testContext            = "test-context"
-	testNetwork            = "test-network"
 )
 
 func makeServiceAccount(secrets ...string) *v1.ServiceAccount {
