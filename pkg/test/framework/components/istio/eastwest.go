@@ -86,6 +86,15 @@ func (i *operatorComponent) deployEastWestGateway(cluster resource.Cluster, revi
 		installSettings = append(installSettings, "--revision", revision)
 	}
 
+	// Save the manifest generate output so we can later cleanup
+	genCmd := []string{"manifest", "generate"}
+	genCmd = append(genCmd, installSettings...)
+	out, _, err := istioCtl.Invoke(genCmd)
+	if err != nil {
+		return err
+	}
+	i.saveManifestForCleanup(cluster.Name(), out)
+
 	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
 	err = install(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {

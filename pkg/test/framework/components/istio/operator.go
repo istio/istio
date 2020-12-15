@@ -37,7 +37,6 @@ import (
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -119,12 +118,6 @@ func removeCRDs(istioYaml string) string {
 	return yml.JoinString(nonCrds...)
 }
 
-var leaderElectionConfigMaps = []string{
-	leaderelection.IngressController,
-	leaderelection.NamespaceController,
-	leaderelection.ValidationController,
-}
-
 type istioctlConfigFiles struct {
 	iopFile            string
 	operatorSpec       *opAPI.IstioOperatorSpec
@@ -192,22 +185,17 @@ func (i *operatorComponent) Close() error {
 				if e := i.ctx.Config(cluster).DeleteYAML("", removeCRDsSlice(i.installManifest[cluster.Name()])); e != nil {
 					err = multierror.Append(err, e)
 				}
-				// Clean up dynamic leader election locks. This allows new test suites to become the leader without waiting 30s
-				for _, cm := range leaderElectionConfigMaps {
-					if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).Delete(context.TODO(), cm,
-						kubeApiMeta.DeleteOptions{}); e != nil {
-						err = multierror.Append(err, e)
-					}
+				// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
+				// This includes things like leader election locks (allowing next test to start without 30s delay),
+				// custom cacerts, custom kubeconfigs, etc.
+				// We avoid deleting the whole namespace since its extremely slow in Kubernetes (30-60s+)
+				if e := cluster.CoreV1().Secrets(i.settings.SystemNamespace).DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
 				}
-				if i.environment.IsMulticluster() {
-					// in multicluster mode we simply delete the namespace
-					if e := cluster.CoreV1().Namespaces().Delete(context.TODO(), i.settings.SystemNamespace,
-						kube2.DeleteOptionsForeground()); e != nil {
-						err = multierror.Append(err, e)
-					}
-					if e := kube2.WaitForNamespaceDeletion(cluster, i.settings.SystemNamespace, retry.Timeout(time.Minute)); e != nil {
-						err = multierror.Append(err, e)
-					}
+				if e := cluster.CoreV1().ConfigMaps(i.settings.SystemNamespace).DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
 				}
 				return
 			})
@@ -758,15 +746,35 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 				Name:   cfg.SystemNamespace,
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
-			scopes.Framework.Infof("failed creating namespace %s on cluster %s. This can happen when deploying "+
-				"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
+			if errors.IsAlreadyExists(err) {
+				if _, err := cluster.CoreV1().Namespaces().Update(context.TODO(), &kubeApiCore.Namespace{
+					ObjectMeta: kubeApiMeta.ObjectMeta{
+						Labels: nsLabels,
+						Name:   cfg.SystemNamespace,
+					},
+				}, kubeApiMeta.UpdateOptions{}); err != nil {
+					scopes.Framework.Errorf("failed updating namespace %s on cluster %s. This can happen when deploying "+
+						"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
+				}
+			} else {
+				scopes.Framework.Errorf("failed creating namespace %s on cluster %s. This can happen when deploying "+
+					"multiple control planes. Error: %v", cfg.SystemNamespace, cluster.Name(), err)
+			}
 		}
 
 		// Create the secret for the cacerts.
 		if _, err := cluster.CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(), secret,
 			kubeApiMeta.CreateOptions{}); err != nil {
-			scopes.Framework.Infof("failed to create CA secrets on cluster %s. This can happen when deploying "+
-				"multiple control planes. Error: %v", cluster.Name(), err)
+			if errors.IsAlreadyExists(err) {
+				if _, err := cluster.CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), secret,
+					kubeApiMeta.UpdateOptions{}); err != nil {
+					scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
+						"multiple control planes. Error: %v", cluster.Name(), err)
+				}
+			} else {
+				scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
+					"multiple control planes. Error: %v", cluster.Name(), err)
+			}
 		}
 	}
 	return nil
@@ -862,7 +870,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(cluster resourc
 		return err
 	}
 
-	scopes.Framework.Infof("configuring external control plane %s to use config cluster in %s", cluster.Name())
+	scopes.Framework.Infof("configuring external control plane to use config cluster in %s", cluster.Name())
 	// ensure system namespace exists
 	_, err = cluster.CoreV1().Namespaces().
 		Create(context.TODO(), &kubeApiCore.Namespace{
