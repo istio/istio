@@ -1,6 +1,8 @@
 # This file provides some defaults for integration testing.
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  name: install
 spec:
   meshConfig:
     accessLogFile: "/dev/stdout"
