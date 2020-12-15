@@ -177,11 +177,6 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(kubeInjectCmd, "namespace")
 	rootCmd.AddCommand(kubeInjectCmd)
 
-	postInstallCmd := &cobra.Command{
-		Use:   "post-install",
-		Short: "Commands related to post-install",
-	}
-
 	experimentalCmd := &cobra.Command{
 		Use:     "experimental",
 		Aliases: []string{"x", "exp"},
@@ -238,7 +233,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(configCmd())
 	experimentalCmd.AddCommand(workloadCommands())
-	experimentalCmd.AddCommand(postInstallCmd)
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, "istioNamespace")
