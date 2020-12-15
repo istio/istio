@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: deprecate-istioctl-cmd
-area: istioctl
-issue:
-  - 29153
-
-releaseNotes:
-  - |
-    **Deprecated** istioctl experimental post-install webhook command
