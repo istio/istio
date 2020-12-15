@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -217,7 +216,6 @@ func (r ParsedResponses) CheckReachedClusters(clusters resource.Clusters) error 
 			return fmt.Errorf("reached cluster not in %v, got %v", clusters, hits)
 		}
 	}
-	log.Errorf("howardjohn: hits: %v, hits")
 	return nil
 }
 

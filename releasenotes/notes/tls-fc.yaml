@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 29538
+releaseNotes:
+- |
+  **Fixed** an issue causing one simple TLS requests from failing when permissive mode is enabled. This does not impact mTLS.
