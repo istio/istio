@@ -1,16 +1,31 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cmd
 
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
+	"text/tabwriter"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"io"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"strings"
-	"text/tabwriter"
 
 	"istio.io/api/label"
 )
@@ -23,6 +38,7 @@ const (
 )
 
 var (
+	// revision to point tag webhook at
 	revision         = ""
 	overwrite        = false
 	skipConfirmation = false
@@ -75,7 +91,7 @@ func tagApplyCommand() *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, "whether to overwrite an existing tag")
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, "whether to skip confirmation for tag deletion")
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "revision to point tag to")
-	cmd.MarkPersistentFlagRequired("revision")
+	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
 }
@@ -213,7 +229,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 			return fmt.Errorf("error parsing webhook \"%s\": %v", wh.Name, err)
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\n", tagName, tagRevision, strings.Join(tagNamespaces[:], ","))
+		fmt.Fprintf(w, "%s\t%s\t%s\n", tagName, tagRevision, strings.Join(tagNamespaces, ","))
 	}
 
 	return w.Flush()
@@ -336,6 +352,7 @@ func buildInjectionWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string)
 		return admit_v1.MutatingWebhook{}, fmt.Errorf("injection webhook not found")
 	}
 
+	// webhook should inject for istio.io/rev=<tag>
 	tagWebhookNamespaceSelector := metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
