@@ -31,8 +31,11 @@ import (
 // If no authenticators are configured, or if the request is on a non-secure
 // stream ( 15010 ) - returns an empty list of principals and no errors.
 func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
-	if !features.XDSAuth || len(s.Authenticators) == 0 {
+	if !features.XDSAuth {
 		return nil, nil
+	}
+	if len(s.Authenticators) == 0 {
+		return nil, errors.New("XDSAuth is true but there is no authenticator")
 	}
 
 	// Authenticate - currently just checks that request has a certificate signed with the our key.
