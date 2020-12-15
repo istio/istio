@@ -281,9 +281,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(bugReportCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
-	multiclusterCmd := multicluster.NewMulticlusterCommand()
-	deprecate(multiclusterCmd)
-	experimentalCmd.AddCommand(multiclusterCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
