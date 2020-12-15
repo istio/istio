@@ -16,7 +16,6 @@ package multicluster
 
 import (
 	"context"
-	"crypto/x509"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,13 +34,6 @@ func clusterUID(client kubernetes.Interface) (types.UID, error) {
 		return "", err
 	}
 	return kubeSystem.UID, nil
-}
-
-type CACerts struct {
-	// TODO select precedence if both secrets are present
-	externalCACert   *x509.Certificate
-	externalRootCert *x509.Certificate
-	selfSignedCACert *x509.Certificate
 }
 
 const (
