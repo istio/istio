@@ -88,6 +88,7 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 				scopes.Framework.Info("=== SUCCESS: context setup function ===")
 			}
 		}
+
 		ins, err := Deploy(ctx, &cfg)
 		if err != nil {
 			return err
