@@ -294,6 +294,7 @@ func setupDashboardTest(t framework.TestContext, done <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
+			t.Logf("sending traffic")
 			for _, ing := range common.GetIngressInstance() {
 				tcpAddr := ing.TCPAddress()
 				_, err := ing.CallEcho(echo.CallOptions{
@@ -329,6 +330,7 @@ func setupDashboardTest(t framework.TestContext, done <-chan struct{}) {
 				}
 			}
 		case <-done:
+			t.Logf("done sending traffic")
 			return
 		}
 	}
