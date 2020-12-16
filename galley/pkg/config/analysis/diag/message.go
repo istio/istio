@@ -102,11 +102,11 @@ func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
 	docURL := fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, strings.ToLower(m.Type.Code()), docQueryString)
 
 	mb := v1alpha1.AnalysisMessageBase{
+		DocumentationUrl: docURL,
+		Level:            v1alpha1.AnalysisMessageBase_Level(v1alpha1.AnalysisMessageBase_Level_value[strings.ToUpper(m.Type.Level().String())]),
 		Type: &v1alpha1.AnalysisMessageBase_Type{
 			Code: m.Type.Code(),
 		},
-		Level:            v1alpha1.AnalysisMessageBase_Level(v1alpha1.AnalysisMessageBase_Level_value[m.Type.Level().String()]),
-		DocumentationUrl: docURL,
 	}
 
 	var r map[string]interface{}
