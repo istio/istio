@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -75,10 +74,6 @@ const (
 
 func remoteSecretNameFromClusterName(clusterName string) string {
 	return remoteSecretPrefix + clusterName
-}
-
-func clusterNameFromRemoteSecretName(name string) string {
-	return strings.TrimPrefix(name, remoteSecretPrefix)
 }
 
 // NewCreateRemoteSecretCommand creates a new command for joining two contexts
