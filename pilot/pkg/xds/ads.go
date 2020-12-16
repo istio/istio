@@ -153,9 +153,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			adsLog.Infof("ADS: new connection for node:%s", con.ConID)
 			defer func() {
 				s.removeCon(con.ConID)
-				if s.InternalGen != nil {
-					s.InternalGen.OnDisconnect(con)
-				}
+				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy)
 			}()
 		}
 
@@ -287,9 +285,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		errCode := codes.Code(request.ErrorDetail.Code)
 		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
-		if s.InternalGen != nil {
-			s.InternalGen.OnNack(con.proxy, request)
-		}
 		return false
 	}
 
@@ -438,10 +433,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	s.addCon(con.ConID, con)
 
-	if s.InternalGen != nil {
-		s.InternalGen.OnConnect(con)
-	}
-
 	return nil
 }
 
@@ -482,7 +473,7 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	if err := s.InternalGen.RegisterWorkload(proxy, con); err != nil {
+	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return nil, err
 	}
 	s.setProxyState(proxy, s.globalPushContext())
