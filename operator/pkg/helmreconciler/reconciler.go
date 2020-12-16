@@ -379,12 +379,8 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	labels := make(map[string]string)
 
 	labels[operatorLabelStr] = operatorReconcileStr
-	if crName != "" {
-		labels[OwningResourceName] = crName
-	}
-	if crNamespace != "" {
-		labels[OwningResourceNamespace] = crNamespace
-	}
+	labels[OwningResourceName] = crName
+	labels[OwningResourceNamespace] = crNamespace
 	labels[istioVersionLabelStr] = version.Info.Version
 
 	revision := ""
