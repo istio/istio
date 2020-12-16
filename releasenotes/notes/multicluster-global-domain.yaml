@@ -1,0 +1,20 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Deprecated** the use of the `.global` stub domain for multi-primary
+    (formerly "replicated control planes") multicluster configurations. The new
+    onboarding flow uses a simpler configuration which allows services across
+    the mesh to be accessed via `*.cluster.local`. There were several
+    limitations with `.global`, such as poor load balancing when using
+    gateways, which are no longer an issue with the new configuration.
+
+upgradeNotes:
+  - title: Multicluster `.global` Stub Domain Deprecation
+    content: |
+      As part of this release, Istio has switched to a new configuration for
+      multi-primary (formerly "replicated control planes"). The new
+      configuration is simpler, has fewer limitations, and has been thoroughly
+      tested in a variety of environments. As a result, the `.global` stub
+      domain is now deprecated and no longer guaranteed to work going forward.
