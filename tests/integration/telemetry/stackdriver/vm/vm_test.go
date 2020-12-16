@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
@@ -129,7 +130,7 @@ func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool 
 }
 
 func gotLogEntry(want *loggingpb.LogEntry) bool {
-	entries, err := sdInst.ListLogEntries()
+	entries, err := sdInst.ListLogEntries(stackdriver.ServerAccessLog)
 	if err != nil {
 		log.Errorf("failed to get list of log entries from stackdriver: %v", err)
 		return false

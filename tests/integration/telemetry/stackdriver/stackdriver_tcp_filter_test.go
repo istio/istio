@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	telemetrypkg "istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/telemetry"
@@ -56,7 +57,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 						if err := validateMetrics(t, tcpServerConnectionCount, tcpClientConnectionCount, clName); err != nil {
 							return err
 						}
-						if err := validateLogs(t, tcpServerLogEntry, clName); err != nil {
+						if err := validateLogs(t, tcpServerLogEntry, clName, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 

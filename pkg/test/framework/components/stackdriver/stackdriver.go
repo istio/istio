@@ -30,7 +30,7 @@ type Instance interface {
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
 	ListTimeSeries() ([]*monitoringpb.TimeSeries, error)
-	ListLogEntries() ([]*loggingpb.LogEntry, error)
+	ListLogEntries(LogType) ([]*loggingpb.LogEntry, error)
 	ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error)
 	ListTraces() ([]*cloudtracepb.Trace, error)
 }
