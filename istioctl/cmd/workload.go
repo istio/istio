@@ -61,6 +61,9 @@ var (
 	autoRegister   bool
 	dnsCapture     bool
 	ports          []string
+	labels         []string
+	annotations    []string
+	svcAcctAnn     string
 )
 
 const (
