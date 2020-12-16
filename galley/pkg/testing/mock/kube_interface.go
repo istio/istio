@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	apiserverinternalv1alpha1 "k8s.io/client-go/kubernetes/typed/apiserverinternal/v1alpha1"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
 	appsv1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
@@ -43,8 +44,10 @@ import (
 	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	flowcontrolv1alpha1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
+	flowcontrolv1beta1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta1"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	networkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
+	nodev1 "k8s.io/client-go/kubernetes/typed/node/v1"
 	nodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
 	nodev1beta1 "k8s.io/client-go/kubernetes/typed/node/v1beta1"
 	policyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
@@ -54,7 +57,6 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
 	schedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
 	schedulingv1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
-	settingsv1alpha1 "k8s.io/client-go/kubernetes/typed/settings/v1alpha1"
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	storagev1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
@@ -206,6 +208,10 @@ func (c *kubeInterface) FlowcontrolV1alpha1() flowcontrolv1alpha1.FlowcontrolV1a
 	panic("not implemented")
 }
 
+func (c *kubeInterface) FlowcontrolV1beta1() flowcontrolv1beta1.FlowcontrolV1beta1Interface {
+	panic("implement me")
+}
+
 func (c *kubeInterface) NetworkingV1() networkingv1.NetworkingV1Interface {
 	panic("not implemented")
 }
@@ -220,6 +226,10 @@ func (c *kubeInterface) NodeV1alpha1() nodev1alpha1.NodeV1alpha1Interface {
 
 func (c *kubeInterface) NodeV1beta1() nodev1beta1.NodeV1beta1Interface {
 	panic("not implemented")
+}
+
+func (c *kubeInterface) NodeV1() nodev1.NodeV1Interface {
+	panic("implement me")
 }
 
 func (c *kubeInterface) SchedulingV1() v1.SchedulingV1Interface {
@@ -250,10 +260,6 @@ func (c *kubeInterface) SchedulingV1beta1() schedulingv1beta1.SchedulingV1beta1I
 	panic("not implemented")
 }
 
-func (c *kubeInterface) SettingsV1alpha1() settingsv1alpha1.SettingsV1alpha1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) StorageV1beta1() storagev1beta1.StorageV1beta1Interface {
 	panic("not implemented")
 }
@@ -264,4 +270,8 @@ func (c *kubeInterface) StorageV1() storagev1.StorageV1Interface {
 
 func (c *kubeInterface) StorageV1alpha1() storagev1alpha1.StorageV1alpha1Interface {
 	panic("not implemented")
+}
+
+func (c *kubeInterface) InternalV1alpha1() apiserverinternalv1alpha1.InternalV1alpha1Interface {
+	panic("implement me")
 }

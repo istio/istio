@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/fake"
 	k8sTesting "k8s.io/client-go/testing"
@@ -367,7 +368,10 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	addCrdEvents(wcrd, r.All())
 
 	// Now start properly and get events
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
+	}
+	cl := fake.NewSimpleDynamicClientWithCustomListKinds(k8sRuntime.NewScheme(), gvrToListKind)
 	k.AddResponse(cl, nil)
 	w := mockWatch(cl)
 
@@ -458,7 +462,10 @@ func addCrdEvents(w *mock.Watch, res []collection.Schema) {
 }
 
 func fakeClient(k *mock.Kube) *fake.FakeDynamicClient {
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
+	}
+	cl := fake.NewSimpleDynamicClientWithCustomListKinds(k8sRuntime.NewScheme(), gvrToListKind)
 	k.AddResponse(cl, nil)
 	return cl
 }
