@@ -84,7 +84,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			_ = c.RegisterWorkload(tc, time.Now())
+			c.RegisterWorkload(tc, time.Now())
 			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if err != nil {
 				t.Fatalf("failed listing WorkloadEntry: %v", err)
@@ -116,12 +116,12 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
-		_ = c1.RegisterWorkload(p, time.Now())
+		c1.RegisterWorkload(p, time.Now())
 		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 	})
 	t.Run("multinetwork same ip", func(t *testing.T) {
 		// make sure we don't overrwrite a similar entry for a different network
-		_ = c2.RegisterWorkload(p2, time.Now())
+		c2.RegisterWorkload(p2, time.Now())
 		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 		checkEntryOrFail(t, store, wgA, p2, c2.instanceID)
 	})
@@ -132,7 +132,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the same instance id
-			_ = c1.RegisterWorkload(p, time.Now())
+			c1.RegisterWorkload(p, time.Now())
 			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 		})
 		t.Run("different instance", func(t *testing.T) {
@@ -141,7 +141,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the new instance id
-			_ = c2.RegisterWorkload(p, time.Now())
+			c2.RegisterWorkload(p, time.Now())
 			checkEntryOrFail(t, store, wgA, p, c2.instanceID)
 		})
 	})
@@ -152,7 +152,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			return checkNoEntry(store, wgA, p)
 		})
 		// reconnect
-		_ = c1.RegisterWorkload(p, time.Now())
+		c1.RegisterWorkload(p, time.Now())
 		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 func TestUpdateHealthCondition(t *testing.T) {
 	ig, _, store := setup(t)
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
-	_ = ig.RegisterWorkload(p, time.Now())
+	ig.RegisterWorkload(p, time.Now())
 	t.Run("auto registered healthy health", func(t *testing.T) {
 		ig.UpdateWorkloadEntryHealth(p, HealthEvent{
 			Healthy: true,

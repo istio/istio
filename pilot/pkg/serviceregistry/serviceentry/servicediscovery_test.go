@@ -62,7 +62,7 @@ func callInstanceHandlers(instances []*model.WorkloadInstance, sd *ServiceEntryS
 func deleteConfigs(configs []*config.Config, store model.IstioConfigStore, t *testing.T) {
 	t.Helper()
 	for _, cfg := range configs {
-		err := store.Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace)
+		err := store.Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace, nil)
 		if err != nil {
 			t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 		}
