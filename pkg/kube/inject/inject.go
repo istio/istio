@@ -349,8 +349,11 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	if err != nil {
 		return nil, nil, err
 	}
-
-	merged, templated, err := unmarshalTemplate(params.pod, bbuf.Bytes())
+	templated := &corev1.Pod{}
+	if err := yaml.Unmarshal(bbuf.Bytes(), templated); err != nil {
+		return nil, nil, fmt.Errorf("failed to read template: %v", err)
+	}
+	merged, err := unmarshalTemplate(params.pod, bbuf.Bytes())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
 	}
@@ -358,58 +361,17 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	return merged, templated, nil
 }
 
-type legacyTemplate struct {
-	corev1.PodSpec   `json:",inline"`
-	PodRedirectAnnot map[string]string `yaml:"podRedirectAnnot"`
-}
-
-type templateIndicator struct {
-	Containers interface{}
-}
-
 // unmarshalTemplate returns the Pod for the passed in template
 // The template can be either the legacy form, with the pod spec inlined with some custom options,
 // or the new form with just a full Pod yaml (allowing overriding metadata).
 // See https://eagain.net/articles/go-dynamic-json/ for more information on dynamically parsing JSON.
-func unmarshalTemplate(originalPod *corev1.Pod, raw []byte) (*corev1.Pod, *corev1.Pod, error) {
-	indicator := &templateIndicator{}
-	if err := yaml.Unmarshal(raw, indicator); err != nil {
-		return nil, nil, fmt.Errorf("failed to read template indicator: %v", err)
-	}
-	if indicator.Containers != nil {
-		// This is a legacy format
-		injectionData := &legacyTemplate{}
-		if err := yaml.Unmarshal(raw, injectionData); err != nil {
-			return nil, nil, fmt.Errorf("failed to read template: %v", err)
-		}
-		pod := corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: injectionData.PodRedirectAnnot,
-			},
-			Spec: injectionData.PodSpec,
-		}
-
-		// Merge the original pod spec with the injected overlay
-		mergedPod, err := mergeInjectedConfigLegacy(originalPod, raw)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to merge pod spec: %v", err)
-		}
-
-		return mergedPod, &pod, nil
-	}
-
-	// This is a Pod format
-	pod := &corev1.Pod{}
-	if err := yaml.Unmarshal(raw, pod); err != nil {
-		return nil, nil, fmt.Errorf("failed to read template: %v", err)
-	}
-
+func unmarshalTemplate(originalPod *corev1.Pod, raw []byte) (*corev1.Pod, error) {
 	mergedPod, err := mergeInjectedConfig(originalPod, raw)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to merge pod spec: %v", err)
+		return nil, fmt.Errorf("failed to merge pod spec: %v", err)
 	}
 
-	return mergedPod, pod, nil
+	return mergedPod, nil
 }
 
 func selectTemplate(params InjectionParameters) string {
