@@ -16,6 +16,7 @@ package diag
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -81,4 +82,20 @@ func TestMessage_ReplaceLine(t *testing.T) {
 		result = append(result, m.ReplaceLine(v))
 	}
 	g.Expect(result).To(Equal([]string{"test.yaml", "test.yaml:321", "test.yaml:321", "test.yaml:321", "test", "test:321", "123:321", "123"}))
+}
+
+func TestMessage_UnstructuredAnalysisMessageBase(t *testing.T) {
+	g := NewWithT(t)
+	mt := NewMessageType(Error, "IST0042", "Cheese type not found: %q")
+	m := NewMessage(mt, &resource.Instance{Origin: testOrigin{name: "toppings/cheese", ref: testReference{"path/to/file"}}}, "Feta")
+	m.DocRef = "test-ref"
+
+	mb := m.UnstructuredAnalysisMessageBase()
+	g.Expect(mb["documentation_url"]).To(Equal(fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, "ist0042", "?ref=test-ref")))
+	g.Expect(mb["level"]).To(Equal(3.))
+	g.Expect(mb["type"]).To(Equal(
+		map[string]interface{}{
+			"code": "IST0042",
+		},
+	))
 }
