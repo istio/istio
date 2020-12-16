@@ -257,9 +257,39 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 	}
 }
 
+// if discovery namespaces is enabled, return false if the PushRequest does not contain any ConfigUpdates in discovery enabled namespaces
+// in order to reduce the frequency of xDS updates to the proxies
+func (s *DiscoveryServer) shouldUpdate(req *model.PushRequest) bool {
+	// TODO(harveyxia) leave this as is for testing, or update all tests?
+	if s.Env.DiscoveryNamespaces == nil {
+		return true
+	}
+	if enabled, discoveryNamespaces := s.Env.ListDiscoveryNamespaces(); enabled {
+		// push update if discovery namespace set changed
+		for _, reason := range req.Reason {
+			if reason == model.DiscoveryNamespaceUpdate {
+				return true
+			}
+		}
+		// push update if event occurred in discovery namespace
+		for configKey := range req.ConfigsUpdated {
+			if discoveryNamespaces.Has(configKey.Namespace) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
+	if !s.shouldUpdate(req) {
+		adsLog.Infof("skipping push, no config updates to discovery namespaces")
+		return
+	}
+
 	if !req.Full {
 		req.Push = s.globalPushContext()
 		go s.AdsPushAll(versionInfo(), req)
@@ -312,28 +342,8 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
-	if !s.shouldUpdate(req) {
-		return
-	}
 	inboundConfigUpdates.Increment()
 	s.pushChannel <- req
-}
-
-// if discovery namespaces is enabled, return false if the PushRequest does not contain any ConfigUpdates in discovery enabled namespaces
-// in order to reduce the frequency of xDS updates to the proxies
-func (s *DiscoveryServer) shouldUpdate(req *model.PushRequest) bool {
-	if s.Env.DiscoveryNamespaces == nil {
-		return true
-	}
-	if enabled, discoveryNamespaces := s.Env.ListDiscoveryNamespaces(); enabled {
-		for configKey := range req.ConfigsUpdated {
-			if discoveryNamespaces.Has(configKey.Namespace) {
-				return true
-			}
-		}
-		return false
-	}
-	return false
 }
 
 // Debouncing and push request happens in a separate thread, it uses locks
