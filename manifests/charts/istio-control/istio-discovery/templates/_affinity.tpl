@@ -1,9 +1,9 @@
 {{- define "nodeaffinity" }}
-nodeAffinity:
-  requiredDuringSchedulingIgnoredDuringExecution:
-  {{- include "nodeAffinityRequiredDuringScheduling" . }}
-  preferredDuringSchedulingIgnoredDuringExecution:
-  {{- include "nodeAffinityPreferredDuringScheduling" . }}
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    {{- include "nodeAffinityRequiredDuringScheduling" . }}
+    preferredDuringSchedulingIgnoredDuringExecution:
+    {{- include "nodeAffinityPreferredDuringScheduling" . }}
 {{- end }}
 
 {{- define "nodeAffinityRequiredDuringScheduling" }}

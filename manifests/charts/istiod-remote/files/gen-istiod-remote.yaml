@@ -51,6 +51,7 @@ data:
         },
         "caAddress": "",
         "centralIstiod": false,
+        "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
@@ -59,6 +60,7 @@ data:
             "cpu": "10m"
           }
         },
+        "defaultTolerations": [],
         "externalIstiod": true,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",

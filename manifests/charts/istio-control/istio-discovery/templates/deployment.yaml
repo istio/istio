@@ -229,7 +229,7 @@ spec:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
       affinity:
-{{ include "nodeaffinity" . | trim | indent 6 }}
+{{ include "nodeaffinity" . | trim | indent 8 }}
 {{- if .Values.pilot.tolerations }}
       tolerations:
 {{ toYaml .Values.pilot.tolerations | indent 6 }}
