@@ -44,6 +44,11 @@ data:
   values: |-
     {
       "global": {
+        "arch": {
+          "amd64": 2,
+          "ppc64le": 2,
+          "s390x": 2
+        },
         "caAddress": "",
         "centralIstiod": false,
         "defaultPodDisruptionBudget": {
