@@ -156,6 +156,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				if s.InternalGen != nil {
 					s.InternalGen.OnDisconnect(con)
 				}
+				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy)
 			}()
 		}
 
@@ -482,7 +483,7 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	if err := s.InternalGen.RegisterWorkload(proxy, con); err != nil {
+	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return nil, err
 	}
 	s.setProxyState(proxy, s.globalPushContext())

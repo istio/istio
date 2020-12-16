@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,13 +22,10 @@ import (
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
-	"golang.org/x/time/rate"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
 )
 
@@ -54,15 +51,6 @@ const (
 type InternalGen struct {
 	Server *DiscoveryServer
 
-	// TODO move WorkloadEntry related tasks into their own object and give InternalGen a reference.
-	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
-	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
-	store model.ConfigStoreCache
-	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
-	cleanupLimit *rate.Limiter
-	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
-	cleanupQueue queue.Delayed
-
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
 }
@@ -78,24 +66,7 @@ func (sg *InternalGen) OnConnect(con *Connection) {
 }
 
 func (sg *InternalGen) OnDisconnect(con *Connection) {
-	sg.QueueUnregisterWorkload(con.proxy)
-
 	sg.startPush(TypeURLDisconnect, []proto.Message{con.node})
-}
-
-func (sg *InternalGen) EnableWorkloadEntryController(store model.ConfigStoreCache) {
-	if features.WorkloadEntryAutoRegistration {
-		sg.store = store
-		sg.cleanupLimit = rate.NewLimiter(rate.Limit(20), 1)
-		sg.cleanupQueue = queue.NewDelayed()
-	}
-}
-
-func (sg *InternalGen) Run(stop <-chan struct{}) {
-	if sg.store != nil && sg.cleanupQueue != nil {
-		go sg.periodicWorkloadEntryCleanup(stop)
-		go sg.cleanupQueue.Run(stop)
-	}
 }
 
 func (sg *InternalGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
