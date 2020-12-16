@@ -167,11 +167,6 @@ debug and diagnose their Istio mesh.
 	}
 
 	cmd.AddFlags(rootCmd)
-	registerCmd := register()
-	deprecate(registerCmd)
-	rootCmd.AddCommand(registerCmd)
-	deprecate(deregisterCmd)
-	rootCmd.AddCommand(deregisterCmd)
 
 	kubeInjectCmd := injectCommand()
 	hideInheritedFlags(kubeInjectCmd, "namespace")
