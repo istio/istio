@@ -24,6 +24,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
@@ -115,7 +116,8 @@ type DiscoveryServer struct {
 	Authenticators []authenticate.Authenticator
 
 	// InternalGen is notified of connect/disconnect/nack on all connections
-	InternalGen *InternalGen
+	InternalGen             *InternalGen
+	WorkloadEntryController *workloadentry.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
 	serverReady atomic.Bool
@@ -205,9 +207,7 @@ func (s *DiscoveryServer) IsServerReady() bool {
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
-	if s.InternalGen != nil {
-		s.InternalGen.Run(stopCh)
-	}
+	go s.WorkloadEntryController.Run(stopCh)
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)

@@ -188,21 +188,6 @@ func TestInternalEvents(t *testing.T) {
 	if dr.Resources == nil || len(dr.Resources) == 0 {
 		t.Error("No data")
 	}
-
-	// Create a second connection - we should get an event.s
-	ads2 := s.Connect(nil, nil, nil)
-	defer ads2.Close()
-
-	dr, err = ads.WaitVersion(5*time.Second, xds.TypeURLConnections,
-		dr.VersionInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dr.Resources == nil || len(dr.Resources) == 0 {
-		t.Fatal("No data")
-	}
-	t.Log(dr.Resources[0])
-
 }
 
 func TestAdsReconnectAfterRestart(t *testing.T) {

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
+	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
@@ -140,7 +141,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
-	s.XDSServer.InternalGen.EnableWorkloadEntryController(configController)
+	s.XDSServer.WorkloadEntryController = workloadentry.NewController(configController, args.PodName)
 	return nil
 }
 
