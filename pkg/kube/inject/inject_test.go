@@ -424,45 +424,6 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 	runWebhook(t, webhook, []byte(input), []byte(expected), false)
 }
 
-// TestPodTemplate ensures we can use a legacy pod spec resource as the template schema (rather than Pod)
-func TestPodSpecTemplate(t *testing.T) {
-	testInjectionTemplate(t,
-		`
-containers:
-- name: istio-proxy
-  image: proxy`,
-		`
-apiVersion: v1
-kind: Pod
-metadata:
-  name: hello
-spec:
-  containers:
-  - name: hello
-    image: "fake.docker.io/google-samples/hello-go-gke:1.0"
-`,
-
-		// We expect resources to only have limits, since we had the "replace" directive.
-		// nolint: lll
-		`
-apiVersion: v1
-kind: Pod
-metadata:
-  annotations:
-    prometheus.io/path: /stats/prometheus
-    prometheus.io/port: "0"
-    prometheus.io/scrape: "true"
-    sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
-  name: hello
-spec:
-  containers:
-    - name: hello
-      image: fake.docker.io/google-samples/hello-go-gke:1.0
-    - name: istio-proxy
-      image: proxy
-`)
-}
-
 // TestStrategicMerge ensures we can use https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md
 // directives in the injection template
 func TestStrategicMerge(t *testing.T) {
