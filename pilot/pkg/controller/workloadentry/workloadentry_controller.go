@@ -276,9 +276,11 @@ func shouldCleanupEntry(wle config.Config) bool {
 func (c *Controller) cleanupEntry(wle config.Config) {
 	if err := c.cleanupLimit.Wait(context.TODO()); err != nil {
 		log.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
+		return
 	}
 	if err := c.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
 		log.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
+		return
 	}
 	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s", wle.Namespace, wle.Name)
 }
