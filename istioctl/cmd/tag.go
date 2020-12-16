@@ -47,7 +47,7 @@ var (
 func tagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
-		Short: "Command group used to interact with revision-tags",
+		Short: "Command group used to interact with revision tags",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.HelpFunc()(cmd, args)
 			if len(args) != 0 {
@@ -58,25 +58,25 @@ func tagCommand() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(tagApplyCommand())
+	cmd.AddCommand(tagSetCommand())
 	cmd.AddCommand(tagListCommand())
 	cmd.AddCommand(tagRemoveCommand())
 
 	return cmd
 }
 
-func tagApplyCommand() *cobra.Command {
+func tagSetCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "apply",
-		Short:   "Create or modify revision tags",
-		Example: "istioctl x tag apply prod --revision 1-8-0",
-		Aliases: []string{"create"},
+		Use:        "set",
+		Short:      "Create or modify revision tags",
+		Example:    "istioctl x tag set prod --revision 1-8-0",
+		SuggestFor: []string{"create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("must provide a tag for creation")
+				return fmt.Errorf("must provide a tag for midification")
 			}
 			if len(args) > 1 {
-				return fmt.Errorf("must provide a single tag for creation")
+				return fmt.Errorf("can only provide a single tag for creation")
 			}
 
 			client, err := kubeClient(kubeconfig, configContext)
@@ -84,7 +84,7 @@ func tagApplyCommand() *cobra.Command {
 				return fmt.Errorf("failed to create kubernetes client: %v", err)
 			}
 
-			return applyTag(context.Background(), client.Kube(), args[0], revision, cmd.OutOrStdout())
+			return setTag(context.Background(), client.Kube(), args[0], revision, cmd.OutOrStdout())
 		},
 	}
 
@@ -144,17 +144,17 @@ func tagRemoveCommand() *cobra.Command {
 	return cmd
 }
 
-// applyTag creates or modifies a revision tag
-func applyTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision string, w io.Writer) error {
+// setTag creates or modifies a revision tag.
+func setTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revision string, w io.Writer) error {
 	revWebhooks, err := getWebhooksWithRevision(ctx, kubeClient, revision)
 	if err != nil {
 		return err
 	}
 	if len(revWebhooks) == 0 {
-		return fmt.Errorf("cannot find webhook under with revision \"%s\"", revision)
+		return fmt.Errorf("cannot find webhook with revision %q", revision)
 	}
 	if len(revWebhooks) > 1 {
-		return fmt.Errorf("found multiple canonical webhooks for revision \"%s\"", revision)
+		return fmt.Errorf("found multiple canonical webhooks for revision %q", revision)
 	}
 
 	tagWebhook, err := buildTagWebhookFromCanonical(revWebhooks[0], tag, revision)
@@ -171,7 +171,7 @@ func applyTag(ctx context.Context, kubeClient kubernetes.Interface, tag, revisio
 	return nil
 }
 
-// removeTag removes an existing revision tag
+// removeTag removes an existing revision tag.
 func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string, skipConfirmation bool, w io.Writer) error {
 	webhooks, err := getWebhooksWithTag(ctx, kubeClient, tag)
 	if err != nil {
@@ -203,7 +203,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tag string,
 	return nil
 }
 
-// listTags lists existing revision
+// listTags lists existing revision.
 func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Writer) error {
 	tagWebhooks, err := getTagWebhooks(ctx, kubeClient)
 	if err != nil {
@@ -218,15 +218,15 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	for _, wh := range tagWebhooks {
 		tagName, err := getTagName(wh)
 		if err != nil {
-			return fmt.Errorf("error parsing webhook \"%s\": %v", wh.Name, err)
+			return fmt.Errorf("error parsing webhook %q: %v", wh.Name, err)
 		}
 		tagRevision, err := getTagRevision(wh)
 		if err != nil {
-			return fmt.Errorf("error parsing webhook \"%s\": %v", wh.Name, err)
+			return fmt.Errorf("error parsing webhook %q: %v", wh.Name, err)
 		}
 		tagNamespaces, err := getNamespacesWithTag(ctx, kubeClient, tagName)
 		if err != nil {
-			return fmt.Errorf("error parsing webhook \"%s\": %v", wh.Name, err)
+			return fmt.Errorf("error parsing webhook %q: %v", wh.Name, err)
 		}
 
 		fmt.Fprintf(w, "%s\t%s\t%s\n", tagName, tagRevision, strings.Join(tagNamespaces, ","))
@@ -235,7 +235,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	return w.Flush()
 }
 
-// getTagWebhooks returns all webhooks tagged with istio.io/tag
+// getTagWebhooks returns all webhooks tagged with istio.io/tag.
 func getTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: istioTagLabel,
@@ -246,7 +246,7 @@ func getTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v
 	return webhooks.Items, nil
 }
 
-// getWebhooksWithTag returns webhooks tagged with istio.io/tag=<tag>
+// getWebhooksWithTag returns webhooks tagged with istio.io/tag=<tag>.
 func getWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", istioTagLabel, tag),
@@ -257,7 +257,7 @@ func getWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag st
 	return webhooks.Items, nil
 }
 
-// getWebhooksWithRevision returns webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag
+// getWebhooksWithRevision returns webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
 // this retrieves the webhook created at revision installation rather than tag webhooks
 func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
@@ -269,7 +269,7 @@ func getWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 	return webhooks.Items, nil
 }
 
-// getNamespacesWithTag retrieves all namespaces pointed at the given tag
+// getNamespacesWithTag retrieves all namespaces pointed at the given tag.
 func getNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]string, error) {
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", label.IstioRev, tag),
@@ -285,7 +285,7 @@ func getNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag 
 	return nsNames, nil
 }
 
-// getTagName extracts tag name from webhook object
+// getTagName extracts tag name from webhook object.
 func getTagName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 	if tagName, ok := wh.ObjectMeta.Labels[istioTagLabel]; ok {
 		return tagName, nil
@@ -293,7 +293,7 @@ func getTagName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 	return "", fmt.Errorf("could not extract tag name from webhook")
 }
 
-// getRevision extracts tag target revision from webhook object
+// getRevision extracts tag target revision from webhook object.
 func getTagRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 	if tagName, ok := wh.ObjectMeta.Labels[label.IstioRev]; ok {
 		return tagName, nil
@@ -301,7 +301,7 @@ func getTagRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 	return "", fmt.Errorf("could not extract tag revision from webhook")
 }
 
-// deleteTagWebhooks deletes the given webhooks
+// deleteTagWebhooks deletes the given webhooks.
 func deleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhooks []admit_v1.MutatingWebhookConfiguration) error {
 	var result error
 	for _, wh := range webhooks {
@@ -310,10 +310,10 @@ func deleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhook
 	return result
 }
 
-// buildDeleteTagConfirmation takes a list of webhooks and creates a message prompting confirmation for their deletion
+// buildDeleteTagConfirmation takes a list of webhooks and creates a message prompting confirmation for their deletion.
 func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	var sb strings.Builder
-	base := fmt.Sprintf("Caution, found %d namespace(s) still pointing to tag \"%s\":", len(taggedNamespaces), tag)
+	base := fmt.Sprintf("Caution, found %d namespace(s) still pointing to tag %q:", len(taggedNamespaces), tag)
 	sb.WriteString(base)
 	for _, ns := range taggedNamespaces {
 		sb.WriteString(" " + ns)
@@ -323,10 +323,10 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	return sb.String()
 }
 
-// buildTagWebhookFromCanonical takes a canonical injector webhook for a given revision and generates a tag webhook
+// buildTagWebhookFromCanonical takes a canonical injector webhook for a given revision and generates a tag webhook.
 // from the original webhook, we need to change (1) the namespace selector (2) the name (3) the labels
 func buildTagWebhookFromCanonical(wh admit_v1.MutatingWebhookConfiguration, tag, revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
-	tagWebhook := new(admit_v1.MutatingWebhookConfiguration)
+	tagWebhook := &admit_v1.MutatingWebhookConfiguration{}
 	tagWebhook.Name = fmt.Sprintf("%s-%s", revisionTagNamePrefix, tag)
 	tagWebhookLabels := map[string]string{istioTagLabel: tag, label.IstioRev: revision}
 	tagWebhook.Labels = tagWebhookLabels
@@ -340,7 +340,7 @@ func buildTagWebhookFromCanonical(wh admit_v1.MutatingWebhookConfiguration, tag,
 	return tagWebhook, nil
 }
 
-// buildInjectionWebhook takes a webhook configuration, copies the injection webhook, and changes key fields
+// buildInjectionWebhook takes a webhook configuration, copies the injection webhook, and changes key fields.
 func buildInjectionWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string) (admit_v1.MutatingWebhook, error) {
 	var injectionWebhook *admit_v1.MutatingWebhook
 	for _, w := range wh.Webhooks {
@@ -379,9 +379,5 @@ func confirm(msg string, w io.Writer) bool {
 		return false
 	}
 	response = strings.ToUpper(response)
-	if response == "Y" || response == "YES" {
-		return true
-	}
-
-	return false
+	return response == "Y" || response == "YES"
 }

@@ -110,7 +110,7 @@ func TestTagList(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 			client := fake.NewSimpleClientset(tc.webhooks.DeepCopyObject(), tc.namespaces.DeepCopyObject())
-			err := listTags(context.TODO(), client, &out)
+			err := listTags(context.Background(), client, &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -239,7 +239,7 @@ func TestRemoveTag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 			client := fake.NewSimpleClientset(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
-			err := removeTag(context.TODO(), client, tc.tag, tc.skipConfirmation, &out)
+			err := removeTag(context.Background(), client, tc.tag, tc.skipConfirmation, &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -260,7 +260,7 @@ func TestRemoveTag(t *testing.T) {
 			}
 
 			// check mutating webhooks after run
-			webhooksAfter, _ := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+			webhooksAfter, _ := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
 			if len(webhooksAfter.Items) != len(tc.webhooksAfter.Items) {
 				t.Fatalf("expected %d after running, got %d", len(tc.webhooksAfter.Items), len(webhooksAfter.Items))
 			}
@@ -268,7 +268,7 @@ func TestRemoveTag(t *testing.T) {
 	}
 }
 
-func TestApplyTag(t *testing.T) {
+func TestSetTag(t *testing.T) {
 	revisionCanonicalWebhook := admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
@@ -408,7 +408,7 @@ func TestApplyTag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 			client := fake.NewSimpleClientset(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
-			err := applyTag(context.TODO(), client, tc.tag, tc.revision, &out)
+			err := setTag(context.Background(), client, tc.tag, tc.revision, &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -428,7 +428,7 @@ func TestApplyTag(t *testing.T) {
 				}
 			}
 
-			webhooksAfter, _ := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+			webhooksAfter, _ := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
 			if len(webhooksAfter.Items) != len(tc.webhooksAfter.Items) {
 				t.Fatalf("expected %d after running, got %d", len(tc.webhooksAfter.Items), len(webhooksAfter.Items))
 			}
