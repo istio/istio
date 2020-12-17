@@ -200,7 +200,7 @@ func poll(acceptedVersions []string, targetResource string, opts clioptions.Cont
 	}
 
 	for version, count := range versionCount {
-		if contains(acceptedVersions, version) {
+		if containsVersion(acceptedVersions, version) {
 			present += count
 		} else {
 			notpresent += count
@@ -308,4 +308,19 @@ func (w *watcher) BlockingRead() (string, error) {
 	case <-w.ctx.Done():
 		return "", w.ctx.Err()
 	}
+}
+
+func containsVersion(versions []string, version string) bool {
+	for _, v := range versions {
+		if len(version) > len(v) {
+			if strings.HasPrefix(version, v) {
+				return true
+			}
+		} else {
+			if version == v {
+				return true
+			}
+		}
+	}
+	return false
 }

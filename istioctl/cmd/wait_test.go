@@ -113,3 +113,60 @@ func newUnstructured(apiVersion, kind, namespace, name, resourceVersion string) 
 		},
 	}
 }
+
+func TestContainsVersion(t *testing.T) {
+	var tests = []struct {
+		Name             string
+		AcceptedVersions []string
+		Version          string
+		Result           bool
+	}{
+		{
+			Name: "all accepted version length less than 8 and contains",
+			AcceptedVersions: []string{
+				"1234",
+				"5678",
+			},
+			Version: "5678",
+			Result:  true,
+		},
+		{
+			Name: "all accepted version length less than 8 and not contains",
+			AcceptedVersions: []string{
+				"1234",
+				"5678",
+			},
+			Version: "9999",
+			Result:  false,
+		},
+		{
+			Name: "accepted version length more than 8 and contains",
+			AcceptedVersions: []string{
+				"12345678",
+				"5678",
+			},
+			Version: "123456789",
+			Result:  true,
+		},
+		{
+			Name: "accepted version length more than 8 and not contains",
+			AcceptedVersions: []string{
+				"12345678",
+				"56781023",
+			},
+			Version: "123456779",
+			Result:  false,
+		},
+	}
+	for _, i := range tests {
+		t.Run(i.Name, func(t *testing.T) {
+			if containsVersion(i.AcceptedVersions, i.Version) != i.Result {
+				if i.Result {
+					t.Errorf("excepted contains %s", i.Version)
+				} else {
+					t.Errorf("excepted not contains %s", i.Version)
+				}
+			}
+		})
+	}
+}
