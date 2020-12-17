@@ -321,10 +321,8 @@ func checkEntry(
 		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
 			err = multierror.Append(err, fmt.Errorf("expected connection timestamp to be set"))
 		}
-	} else {
-		if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
-			err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
-		}
+	} else if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+		err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
 	}
 
 	// check all labels are copied to the WorkloadEntry
