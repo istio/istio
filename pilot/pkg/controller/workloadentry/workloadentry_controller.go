@@ -78,13 +78,17 @@ type Controller struct {
 	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
 	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
 	store model.ConfigStoreCache
+
+	// Note: unregister is to update the workload entry status: like setting `DisconnectedAtAnnotation`
+	// and make the workload entry enqueue `cleanupQueue`
+	// cleanup is to delete the workload entry
+
+	// queue contains workloadEntry that need to be unregistered
+	queue workqueue.RateLimitingInterface
 	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
 	cleanupLimit *rate.Limiter
 	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
-
-	// workloadEntry that need to be registered
-	queue workqueue.RateLimitingInterface
 }
 
 func NewController(store model.ConfigStoreCache, instanceID string) *Controller {
@@ -241,7 +245,6 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 	}
 	wle := cfg.DeepCopy()
 	delete(wle.Annotations, ConnectedAtAnnotation)
-	delete(wle.Annotations, WorkloadControllerAnnotation)
 	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
 	// use update instead of patch to prevent race condition
 	_, err := c.store.Update(wle)
