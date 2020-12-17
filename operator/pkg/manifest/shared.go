@@ -166,7 +166,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 
 	// Combine file and --set overlays and translate any K8s settings in values to IOP format. Users should not set
 	// these but we have to support this path until it's deprecated.
-	overlayYAML, err := overlaySetFlagValues(fileOverlayYAML, setFlags)
+	overlayYAML, err := OverlaySetFlagValues(fileOverlayYAML, setFlags)
 	if err != nil {
 		return "", nil, err
 	}
@@ -457,8 +457,8 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 	return iop.Spec.InstallPackagePath, nil
 }
 
-// overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
-func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
+// OverlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
+func OverlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 	iop := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(iopYAML), &iop); err != nil {
 		return "", err
