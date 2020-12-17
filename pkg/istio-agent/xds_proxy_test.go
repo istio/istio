@@ -172,7 +172,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	conn.Close()
 	downstream.CloseSend()
 	waitDisconnect()
-	f.Store().Delete(gvk.WorkloadEntry, "group-1.1.1.1", "default")
+	f.Store().Delete(gvk.WorkloadEntry, "group-1.1.1.1", "default", nil)
 	proxy.PersistRequest(healthy)
 	conn = setupDownstreamConnection(t)
 	downstream = stream(t, conn)

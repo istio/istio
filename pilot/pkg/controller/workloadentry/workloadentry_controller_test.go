@@ -322,9 +322,6 @@ func checkEntry(
 			err = multierror.Append(err, fmt.Errorf("expected connection timestamp to be set"))
 		}
 	} else {
-		if _, ok := cfg.Annotations[WorkloadControllerAnnotation]; ok {
-			err = multierror.Append(err, fmt.Errorf("expected WorkloadEntry have controller annotation unset"))
-		}
 		if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
 			err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
 		}
