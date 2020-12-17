@@ -284,7 +284,7 @@ func (c *controller) UpdateStatus(config.Config) (newRevision string, err error)
 	return "", errUnsupported
 }
 
-func (c *controller) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (c *controller) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	log.Warnf("patch %s", errUnsupported)
 	return "", errUnsupported
 }
@@ -296,7 +296,7 @@ func (c *controller) Create(config.Config) (revision string, err error) {
 }
 
 // Delete is not implemented
-func (c *controller) Delete(_ config.GroupVersionKind, _, _ string) error {
+func (c *controller) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {
 	return errUnsupported
 }
 

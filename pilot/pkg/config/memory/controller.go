@@ -102,15 +102,11 @@ func (c *controller) UpdateStatus(config config.Config) (newRevision string, err
 	return
 }
 
-func (c *controller) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (newRevision string, err error) {
-	oldconfig := c.configStore.Get(typ, name, namespace)
-	if oldconfig == nil {
-		return "", errNotFound
-	}
-	cfg := patchFn(oldconfig.DeepCopy())
+func (c *controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRevision string, err error) {
+	cfg := patchFn(orig.DeepCopy())
 	if newRevision, err = c.configStore.Update(cfg); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
-			old:    *oldconfig,
+			old:    orig,
 			config: cfg,
 			event:  model.EventUpdate,
 		})
@@ -118,9 +114,9 @@ func (c *controller) Patch(typ config.GroupVersionKind, name, namespace string, 
 	return
 }
 
-func (c *controller) Delete(kind config.GroupVersionKind, key, namespace string) (err error) {
+func (c *controller) Delete(kind config.GroupVersionKind, key, namespace string, resourceVersion *string) (err error) {
 	if config := c.Get(kind, key, namespace); config != nil {
-		if err = c.configStore.Delete(kind, key, namespace); err == nil {
+		if err = c.configStore.Delete(kind, key, namespace, resourceVersion); err == nil {
 			c.monitor.ScheduleProcessEvent(ConfigEvent{
 				config: *config,
 				event:  model.EventDelete,

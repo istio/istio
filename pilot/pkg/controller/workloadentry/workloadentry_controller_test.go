@@ -82,7 +82,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			_ = c.RegisterWorkload(tc, time.Now())
+			c.RegisterWorkload(tc, time.Now())
 			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if err != nil {
 				t.Fatalf("failed listing WorkloadEntry: %v", err)
@@ -114,12 +114,12 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
-		_ = c1.RegisterWorkload(p, time.Now())
+		c1.RegisterWorkload(p, time.Now())
 		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 	})
 	t.Run("multinetwork same ip", func(t *testing.T) {
 		// make sure we don't overrwrite a similar entry for a different network
-		_ = c2.RegisterWorkload(p2, time.Now())
+		c2.RegisterWorkload(p2, time.Now())
 		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 		checkEntryOrFail(t, store, wgA, p2, c2.instanceID)
 	})
@@ -130,7 +130,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the same instance id
-			_ = c1.RegisterWorkload(p, time.Now())
+			c1.RegisterWorkload(p, time.Now())
 			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 		})
 		t.Run("different instance", func(t *testing.T) {
@@ -139,7 +139,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the new instance id
-			_ = c2.RegisterWorkload(p, time.Now())
+			c2.RegisterWorkload(p, time.Now())
 			checkEntryOrFail(t, store, wgA, p, c2.instanceID)
 		})
 	})
@@ -150,7 +150,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			return checkNoEntry(store, wgA, p)
 		})
 		// reconnect
-		_ = c1.RegisterWorkload(p, time.Now())
+		c1.RegisterWorkload(p, time.Now())
 		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
@@ -300,13 +300,8 @@ func checkEntry(
 		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
 			err = multierror.Append(err, fmt.Errorf("expected connection timestamp to be set"))
 		}
-	} else {
-		if _, ok := cfg.Annotations[WorkloadControllerAnnotation]; ok {
-			err = multierror.Append(err, fmt.Errorf("expected WorkloadEntry have controller annotation unset"))
-		}
-		if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
-			err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
-		}
+	} else if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+		err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
 	}
 
 	// check all labels are copied to the WorkloadEntry

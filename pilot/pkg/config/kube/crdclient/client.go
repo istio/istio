@@ -246,17 +246,10 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 
 // Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
 // read-modify-write conflicts when there are many concurrent-writers to the same resource.
-func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
-	// it is okay if orig is stale - we just care about the diff
-	orig := cl.Get(typ, name, namespace)
-	if orig == nil {
-		// TODO error from Get
-		return "", fmt.Errorf("item not found")
-	}
+func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	modified := patchFn(orig.DeepCopy())
 
-	oo := *orig
-	meta, err := patch(cl.istioClient, cl.serviceApisClient, oo, getObjectMetadata(oo), modified, getObjectMetadata(modified))
+	meta, err := patch(cl.istioClient, cl.serviceApisClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified))
 	if err != nil {
 		return "", err
 	}
@@ -264,8 +257,9 @@ func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, pat
 }
 
 // Delete implements store interface
-func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string) error {
-	return delete(cl.istioClient, cl.serviceApisClient, typ, name, namespace)
+// `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
+func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
+	return delete(cl.istioClient, cl.serviceApisClient, typ, name, namespace, resourceVersion)
 }
 
 // List implements store interface

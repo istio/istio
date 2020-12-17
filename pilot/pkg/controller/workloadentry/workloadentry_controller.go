@@ -24,6 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -48,6 +50,14 @@ const (
 	DisconnectedAtAnnotation = "istio.io/disconnectedAt"
 
 	timeFormat = time.RFC3339Nano
+	// maxRetries is the number of times a service will be retried before it is dropped out of the queue.
+	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
+	// sequence of delays between successive queuings of a service.
+	//
+	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
+	maxRetries = 15
+
+	workerNum = 5
 )
 
 var log = istiolog.RegisterScope("wle", "wle controller debugging", 0)
@@ -58,6 +68,13 @@ type Controller struct {
 	// store should either be k8s (for running pilot) or in-memory (for tests). MCP and other config store implementations
 	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
 	store model.ConfigStoreCache
+
+	// Note: unregister is to update the workload entry status: like setting `DisconnectedAtAnnotation`
+	// and make the workload entry enqueue `cleanupQueue`
+	// cleanup is to delete the workload entry
+
+	// queue contains workloadEntry that need to be unregistered
+	queue workqueue.RateLimitingInterface
 	// cleanupLimit rate limit's autoregistered WorkloadEntry cleanup calls to k8s
 	cleanupLimit *rate.Limiter
 	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
@@ -71,6 +88,7 @@ func NewController(store model.ConfigStoreCache, instanceID string) *Controller 
 			store:        store,
 			cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
 			cleanupQueue: queue.NewDelayed(),
+			queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "register"),
 		}
 	}
 	return nil
@@ -84,11 +102,44 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		go c.periodicWorkloadEntryCleanup(stop)
 		go c.cleanupQueue.Run(stop)
 	}
+
+	for i := 0; i < workerNum; i++ {
+		go wait.Until(c.worker, time.Second, stop)
+	}
+}
+
+func (c *Controller) worker() {
+	for c.processNextWorkItem() {
+	}
+}
+
+type workItem struct {
+	entryName  string
+	proxy      *model.Proxy
+	disConTime time.Time
+}
+
+func (c *Controller) processNextWorkItem() bool {
+	item, quit := c.queue.Get()
+	if quit {
+		return false
+	}
+	defer c.queue.Done(item)
+
+	workItem, ok := item.(*workItem)
+	if !ok {
+		return true
+	}
+
+	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime)
+	c.handleErr(err, item)
+	return true
 }
 
 func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
 	c.Annotations[WorkloadControllerAnnotation] = controller
 	c.Annotations[ConnectedAtAnnotation] = conTime.Format(timeFormat)
+	delete(c.Annotations, DisconnectedAtAnnotation)
 }
 
 func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) error {
@@ -101,34 +152,44 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 		return nil
 	}
 
-	// Try to patch, if it fails then try to create
-	_, err := c.store.Patch(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace, func(cfg config.Config) config.Config {
-		setConnectMeta(&cfg, c.instanceID, conTime)
-		return cfg
-	})
-	// TODO return err from Patch through Get
-	if err == nil {
+	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
+		log.Errorf(err)
+		return err
+	}
+	return nil
+}
+
+func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conTime time.Time) error {
+	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	if wle != nil {
+		lastConTime, _ := time.Parse(timeFormat, wle.Annotations[ConnectedAtAnnotation])
+		// the proxy has reconnected to another pilot, not belong to this one.
+		if conTime.Before(lastConTime) {
+			return nil
+		}
+		// Try to patch, if it fails then try to create
+		_, err := c.store.Patch(*wle, func(cfg config.Config) config.Config {
+			setConnectMeta(&cfg, c.instanceID, conTime)
+			return cfg
+		})
+		if err != nil {
+			return fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
+		}
 		log.Infof("updated auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
 		return nil
-	} else if !errors.IsNotFound(err) && err.Error() != "item not found" {
-		log.Errorf("updating auto-registered WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
-		return fmt.Errorf("updating auto-registered WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
 	}
 
 	// No WorkloadEntry, create one using fields from the associated WorkloadGroup
 	groupCfg := c.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if groupCfg == nil {
-		log.Errorf("auto-registration of %v failed: cannot find WorkloadGroup %s/%s",
-			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
-		return fmt.Errorf("auto-registration of %v failed: cannot find WorkloadGroup %s/%s",
+		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
 			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
 	setConnectMeta(entry, c.instanceID, conTime)
-	_, err = c.store.Create(*entry)
+	_, err := c.store.Create(*entry)
 	if err != nil {
-		log.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
-		return fmt.Errorf("auto-registration of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
+		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
 	log.Infof("auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
 	return nil
@@ -144,25 +205,37 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy) {
 		return
 	}
 
+	disconTime := time.Now()
+	if err := c.unregisterWorkload(entryName, proxy, disconTime); err != nil {
+		log.Errorf(err)
+		c.queue.AddRateLimited(&workItem{
+			entryName:  entryName,
+			proxy:      proxy,
+			disConTime: disconTime,
+		})
+	}
+}
+
+func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime time.Time) error {
 	// unset controller, set disconnect time
 	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
-		// we failed to create the workload entry in the first place or it is not propagated
-		return
+		// return error and backoff retry to prevent workloadentry leak
+		// TODO(@hzxuzhonghu): update the Get interface, fallback to calling apiserver.
+		return fmt.Errorf("workloadentry %s/%s is not found, maybe deleted or because of propagate latency", proxy.Metadata.Namespace, entryName)
 	}
 
 	// The wle has reconnected to another istiod and controlled by it.
 	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
-		return
+		return nil
 	}
 	wle := cfg.DeepCopy()
-	delete(wle.Annotations, WorkloadControllerAnnotation)
-	wle.Annotations[DisconnectedAtAnnotation] = time.Now().Format(timeFormat)
+	delete(wle.Annotations, ConnectedAtAnnotation)
+	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
 	// use update instead of patch to prevent race condition
 	_, err := c.store.Update(wle)
-	if err != nil && !errors.IsConflict(err) {
-		log.Warnf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
-		return
+	if err != nil {
+		return fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 	}
 
 	// after grace period, check if the workload ever reconnected
@@ -172,11 +245,12 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy) {
 		if wle == nil {
 			return nil
 		}
-		if shouldCleanupEntry(*wle) {
+		if c.shouldCleanupEntry(*wle) {
 			c.cleanupEntry(*wle)
 		}
 		return nil
 	}, features.WorkloadEntryCleanupGracePeriod)
+	return nil
 }
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
@@ -196,7 +270,7 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 			}
 			for _, wle := range wles {
 				wle := wle
-				if shouldCleanupEntry(wle) {
+				if c.shouldCleanupEntry(wle) {
 					c.cleanupQueue.Push(func() error {
 						c.cleanupEntry(wle)
 						return nil
@@ -209,10 +283,9 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 	}
 }
 
-func shouldCleanupEntry(wle config.Config) bool {
+func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	// don't clean-up if connected or non-autoregistered WorkloadEntries
-	if wle.Annotations[AutoRegistrationGroupAnnotation] == "" ||
-		wle.Annotations[WorkloadControllerAnnotation] != "" {
+	if wle.Annotations[AutoRegistrationGroupAnnotation] == "" {
 		return false
 	}
 
@@ -235,7 +308,7 @@ func (c *Controller) cleanupEntry(wle config.Config) {
 		log.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
 		return
 	}
-	if err := c.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace); err != nil {
+	if err := c.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace, &wle.ResourceVersion); err != nil && !errors.IsNotFound(err) {
 		log.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
 		return
 	}
@@ -325,4 +398,20 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		// TODO status fields used for garbage collection
 		Status: nil,
 	}
+}
+
+func (c *Controller) handleErr(err error, key interface{}) {
+	if err == nil {
+		c.queue.Forget(key)
+		return
+	}
+
+	if c.queue.NumRequeues(key) < maxRetries {
+		log.Debugf(err)
+		c.queue.AddRateLimited(key)
+		return
+	}
+
+	c.queue.Forget(key)
+	log.Errorf(err)
 }
