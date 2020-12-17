@@ -123,11 +123,11 @@ var (
 )
 
 func TestDashboard(t *testing.T) {
+	c, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
 		Run(func(ctx framework.TestContext) {
-			c, cancel := context.WithCancel(context.Background())
-			defer cancel()
 			p := common.GetPromInstance()
 
 			ctx.Config().ApplyYAMLOrFail(ctx, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
@@ -142,10 +142,10 @@ func TestDashboard(t *testing.T) {
 			// We will send a bunch of requests until the test exits. This ensures we are continuously
 			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
 			// all in a single scrape which can lead to `rate()` not behaving correctly.
-			go setupDashboardTest(ctx, c.Done())
+			go setupDashboardTest(c.Done())
 			for _, d := range dashboards {
 				d := d
-				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
+				ctx.NewSubTest(d.name).Run(func(t framework.TestContext) {
 					for _, cl := range ctx.Clusters() {
 						if !cl.IsPrimary() && d.requirePrimary {
 							// Skip verification of dashboards that won't be present on non primary(remote) clusters.
@@ -287,14 +287,16 @@ spec:
           number: 9000
 `
 
-func setupDashboardTest(t framework.TestContext, done <-chan struct{}) {
+func setupDashboardTest(done <-chan struct{}) {
 	// Send 200 http requests, 20 tcp requests across goroutines, generating a variety of error codes.
 	// Spread out over 20s so rate() queries will behave correctly
 	ticker := time.NewTicker(time.Second)
+	times := 0
 	for {
 		select {
 		case <-ticker.C:
-			t.Logf("sending traffic")
+			times += 1
+			scopes.Framework.Infof("sending traffic %v", times)
 			for _, ing := range common.GetIngressInstance() {
 				tcpAddr := ing.TCPAddress()
 				_, err := ing.CallEcho(echo.CallOptions{
@@ -330,7 +332,7 @@ func setupDashboardTest(t framework.TestContext, done <-chan struct{}) {
 				}
 			}
 		case <-done:
-			t.Logf("done sending traffic")
+			scopes.Framework.Infof("done sending traffic after %v rounds", times)
 			return
 		}
 	}
