@@ -86,6 +86,7 @@ type XdsProxy struct {
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
+	initialRequest *discovery.DiscoveryRequest
 	connectedMutex sync.RWMutex
 }
 
@@ -144,28 +145,41 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				},
 			}
 		}
-		proxy.SendRequest(req)
+		proxy.PersistRequest(req)
 	}, proxy.stopChan)
 	return proxy, nil
 }
 
-// SendRequest sends a request to the currently connected proxy
-func (p *XdsProxy) SendRequest(req *discovery.DiscoveryRequest) {
-	p.connectedMutex.RLock()
-	defer p.connectedMutex.RUnlock()
-	// TODO especially for health check purposes, we need a way to ensure the send succeeded. Otherwise,
-	// requests send to a disconnecting proxy will be permanently dropped.
+// PersistRequest sends a request to the currently connected proxy. Additionally, on any reconnection
+// to the upstream XDS request we will resend this request.
+func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
+	var ch chan *discovery.DiscoveryRequest
+
+	p.connectedMutex.Lock()
 	if p.connected != nil {
-		p.connected.requestsChan <- req
+		ch = p.connected.requestsChan
+	}
+	p.initialRequest = req
+	p.connectedMutex.Unlock()
+
+	// Immediately send if we are currently connect
+	if ch != nil {
+		ch <- req
 	}
 }
 
-func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
+func (p *XdsProxy) UnregisterStream() {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil {
 		close(p.connected.stopChan)
 	}
+	p.connected = nil
+}
+
+func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
+	p.connectedMutex.Lock()
+	defer p.connectedMutex.Unlock()
 	p.connected = c
 }
 
@@ -195,10 +209,16 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}
 
 	p.RegisterStream(con)
+	defer p.UnregisterStream()
 
 	// Handle downstream xds
-	firstNDSSent := false
+	initialRequestsSent := false
 	go func() {
+		// Send initial request
+		p.connectedMutex.RLock()
+		initialRequest := p.initialRequest
+		p.connectedMutex.RUnlock()
+
 		for {
 			// From Envoy
 			req, err := downstream.Recv()
@@ -208,12 +228,18 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			}
 			// forward to istiod
 			con.requestsChan <- req
-			if p.localDNSServer != nil && !firstNDSSent && req.TypeUrl == v3.ListenerType {
+			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
-				con.requestsChan <- &discovery.DiscoveryRequest{
-					TypeUrl: v3.NameTableType,
+				if p.localDNSServer != nil {
+					con.requestsChan <- &discovery.DiscoveryRequest{
+						TypeUrl: v3.NameTableType,
+					}
 				}
-				firstNDSSent = true
+				// Fire of a configured initial request, if there is one
+				if initialRequest != nil {
+					con.requestsChan <- initialRequest
+				}
+				initialRequestsSent = true
 			}
 		}
 	}()
