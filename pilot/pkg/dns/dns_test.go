@@ -220,6 +220,11 @@ func TestDNS(t *testing.T) {
 				if err != nil {
 					t.Errorf("Failed to resolve query for %s: %v", tt.host, err)
 				} else {
+					for _, answer := range res.Answer {
+						if answer.Header().Class != dns.ClassINET {
+							t.Errorf("expected class INET for all responses, got %+v for host %s", answer.Header(), tt.host)
+						}
+					}
 					if tt.expectExternalResolution {
 						// just make sure that the response has a valid DNS response from upstream resolvers
 						if res.Rcode != dns.RcodeSuccess {
