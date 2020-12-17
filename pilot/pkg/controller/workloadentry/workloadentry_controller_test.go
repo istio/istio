@@ -112,7 +112,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	go c2.Run(stop2)
 
 	p := fakeProxy("1.2.3.4", wgA, "nw1")
-	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
+	p2 := fakeProxy("1.2.3.5", wgA, "nw2")
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -89,16 +90,22 @@ type Controller struct {
 	cleanupLimit *rate.Limiter
 	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
+
+	mutex sync.Mutex
+	// record the current adsConnections number
+	// note: this is to handle reconnect to the same istiod, but in rare case the disconnect event is later than the connect event
+	adsConnections map[string]uint8
 }
 
 func NewController(store model.ConfigStoreCache, instanceID string) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
 		return &Controller{
-			instanceID:   instanceID,
-			store:        store,
-			cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
-			cleanupQueue: queue.NewDelayed(),
-			queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "register"),
+			instanceID:     instanceID,
+			store:          store,
+			cleanupLimit:   rate.NewLimiter(rate.Limit(20), 1),
+			cleanupQueue:   queue.NewDelayed(),
+			queue:          workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+			adsConnections: map[string]uint8{},
 		}
 	}
 	return nil
@@ -162,6 +169,10 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 		return nil
 	}
 
+	c.mutex.Lock()
+	c.adsConnections[proxy.IPAddresses[0]] = c.adsConnections[proxy.IPAddresses[0]] + 1
+	c.mutex.Unlock()
+
 	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
 		log.Errorf(err)
 		return err
@@ -218,6 +229,17 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy) {
 	if entryName == "" {
 		return
 	}
+
+	c.mutex.Lock()
+	num := c.adsConnections[proxy.IPAddresses[0]]
+	// if there is still ads connection, do not unregister.
+	if num > 1 {
+		c.adsConnections[proxy.IPAddresses[0]] = num - 1
+		c.mutex.Unlock()
+		return
+	}
+	delete(c.adsConnections, proxy.IPAddresses[0])
+	c.mutex.Unlock()
 
 	disconTime := time.Now()
 	if err := c.unregisterWorkload(entryName, proxy, disconTime); err != nil {
