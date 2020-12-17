@@ -46,6 +46,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
 	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
 	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", istioDefaultNamespace,
 		"The namespace Istio is installed into. Deprecated, use '--watchedNamespaces' instead.")
