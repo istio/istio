@@ -9,7 +9,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
-  namespace: istio-system
+  namespace: default
 spec:
   gatewayClassName: istio
   listeners:
