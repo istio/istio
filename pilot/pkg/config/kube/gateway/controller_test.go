@@ -40,11 +40,16 @@ var (
 			{
 				Port:     9009,
 				Protocol: "HTTP",
-				Routes:   svc.RouteBindingSelector{Kind: gvk.HTTPRoute.Kind},
+				Routes: svc.RouteBindingSelector{
+					Namespaces: &svc.RouteNamespaces{From: svc.RouteSelectAll},
+					Group:      gvk.HTTPRoute.Group,
+					Kind:       gvk.HTTPRoute.Kind,
+				},
 			},
 		},
 	}
 	httpRouteSpec = &svc.HTTPRouteSpec{
+		Gateways:  svc.RouteGateways{Allow: svc.GatewayAllowAll},
 		Hostnames: []svc.Hostname{"test.cluster.local"},
 	}
 
