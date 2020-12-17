@@ -24,7 +24,6 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -892,21 +892,22 @@ func TestController_Service(t *testing.T) {
 }
 
 func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
-	var servicesEqual = func(svcList, expectedSvcList []*model.Service) {
+	var servicesEqual = func(svcList, expectedSvcList []*model.Service) bool {
 		if len(svcList) != len(expectedSvcList) {
-			t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
+			return false
 		}
 		for i, exp := range expectedSvcList {
 			if exp.Hostname != svcList[i].Hostname {
-				t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Hostname, exp.Hostname)
+				return false
 			}
 			if exp.Address != svcList[i].Address {
-				t.Fatalf("got address of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Address, exp.Address)
+				return false
 			}
 			if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
-				t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Ports, exp.Ports)
+				return false
 			}
 		}
+		return true
 	}
 
 	svc1 := &model.Service{
@@ -980,27 +981,49 @@ func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
 
 			// test creating namespaces, event handlers should only be triggered for namespaces with the discovery label
 			createNamespace(t, controller.client, nsA, map[string]string{filter.PilotDiscoveryLabelName: filter.PilotDiscoveryLabelValue})
-			<-fx.Events
+			// service event handlers should trigger for svc1 and svc2
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
 			createNamespace(t, controller.client, nsB, map[string]string{})
 			expectedSvcList := []*model.Service{svc1, svc2}
-			svcList, _ := controller.Services()
-			servicesEqual(svcList, expectedSvcList)
+			eventually(t, func() bool {
+				svcList, _ := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
 
-			// test updating namespaces with discovery label
+			// test updating namespace with adding discovery label
 			updateNamespace(t, controller.client, nsB, map[string]string{filter.PilotDiscoveryLabelName: filter.PilotDiscoveryLabelValue})
-			<-fx.Events
+			// service event handlers should trigger for svc3 and svc4
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
 			expectedSvcList = []*model.Service{svc1, svc2, svc3, svc4}
-			svcList, _ = controller.Services()
-			servicesEqual(svcList, expectedSvcList)
+			eventually(t, func() bool {
+				svcList, _ := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
 
-			//test deleting namespaces
-			deleteNamespace(t, controller.client, nsA)
-			<-fx.Events
-			deleteNamespace(t, controller.client, nsB)
-			<-fx.Events
-			expectedSvcList = []*model.Service{}
-			svcList, _ = controller.Services()
-			servicesEqual(svcList, expectedSvcList)
+			// test updating namespace with removing discovery label
+			updateNamespace(t, controller.client, nsA, map[string]string{filter.PilotDiscoveryLabelName: "false"})
+			// service event handlers should trigger for svc1 and svc2
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+			expectedSvcList = []*model.Service{svc3, svc4}
+			eventually(t, func() bool {
+				svcList, _ := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
 		})
 	}
 }

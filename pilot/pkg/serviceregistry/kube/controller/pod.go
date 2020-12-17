@@ -23,12 +23,13 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	informer cache.SharedIndexInformer
+	informer filter.FilteredSharedIndexInformer
 
 	sync.RWMutex
 	// podsByIP maintains stable pod IP to name key mapping
@@ -48,7 +49,7 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(c *Controller, informer cache.SharedIndexInformer, queueEndpointEvent func(string)) *PodCache {
+func newPodCache(c *Controller, informer filter.FilteredSharedIndexInformer, queueEndpointEvent func(string)) *PodCache {
 	out := &PodCache{
 		informer:           informer,
 		c:                  c,
@@ -226,7 +227,7 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 
 // getPodByKey returns the pod by key formatted `ns/name`
 func (pc *PodCache) getPodByKey(key string) *v1.Pod {
-	item, _, _ := pc.informer.GetStore().GetByKey(key)
+	item, _, _ := pc.informer.GetIndexer().GetByKey(key)
 	if item != nil {
 		return item.(*v1.Pod)
 	}

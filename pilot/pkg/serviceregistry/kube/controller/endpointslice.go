@@ -27,6 +27,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
@@ -39,7 +40,7 @@ type endpointSliceController struct {
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
-func newEndpointSliceController(c *Controller, informer cache.SharedIndexInformer) *endpointSliceController {
+func newEndpointSliceController(c *Controller, informer filter.FilteredSharedIndexInformer) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
@@ -53,7 +54,7 @@ func newEndpointSliceController(c *Controller, informer cache.SharedIndexInforme
 	return out
 }
 
-func (esc *endpointSliceController) getInformer() cache.SharedIndexInformer {
+func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInformer {
 	return esc.informer
 }
 

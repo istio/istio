@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
@@ -200,10 +199,11 @@ type Controller struct {
 
 	queue queue.Instance
 
+	// TODO merge the namespace informers/listers
 	systemNsInformer cache.SharedIndexInformer
 	nsInformer       coreinformers.NamespaceInformer
 
-	serviceInformer cache.SharedIndexInformer
+	serviceInformer filter.FilteredSharedIndexInformer
 	serviceLister   listerv1.ServiceLister
 
 	endpoints kubeEndpointsController
@@ -298,7 +298,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// namespace informer should not be filtered because we need access to all namespaces
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
 	if options.EnableDiscoveryNamespaces {
-		c.initDiscoveryNamespaceHandlers()
+		c.initDiscoveryNamespaceHandlers(kubeClient, options.EndpointMode)
 	}
 
 	discoveryNamespaceFilter := filter.DiscoveryNamespacesFilterFunc(c.nsInformer.Lister(), options.EnableDiscoveryNamespaces)
@@ -318,13 +318,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	// This is for getting the node IPs of a selected set of nodes
-	c.nodeInformer = filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter, kubeClient.KubeInformer().Core().V1().Nodes().Informer())
-	c.nodeLister = listerv1.NewNodeLister(c.nodeInformer.GetIndexer())
+	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
+	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	registerHandlers(c.nodeInformer, c.queue, "Nodes", c.onNodeEvent, nil)
 
 	podInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
-		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
+		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
 		if err != nil {
 			log.Debugf("Endpoint %v lookup failed with error %v, skipping stale endpoint", key, err)
 			return
@@ -373,68 +373,6 @@ func (c *Controller) Cleanup() error {
 		// TODO(landow) do we need to notify service handlers?
 	}
 	return nil
-}
-
-// On namespace membership change, request a full xDS update since services need to be recomputed
-func (c *Controller) initDiscoveryNamespaceHandlers() {
-	var handleNamespace = func(ns *v1.Namespace) {
-		pushReq := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind: gvk.Namespace,
-				Name: ns.Name,
-			}: {}},
-			Reason: []model.TriggerReason{filter.DiscoveryNamespaceUpdate},
-		}
-		c.xdsUpdater.ConfigUpdate(pushReq)
-	}
-
-	otype := "Namespaces"
-	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			incrementEvent(otype, "add")
-			ns := obj.(*v1.Namespace)
-			if ns.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
-				c.queue.Push(func() error {
-					// resync all objects and trigger an xDS push to account for new namespace
-					if err := c.SyncAll(); err != nil {
-						return err
-					}
-					handleNamespace(ns)
-					return nil
-				})
-			}
-		},
-		UpdateFunc: func(old, new interface{}) {
-			incrementEvent(otype, "update")
-			oldNs := old.(*v1.Namespace)
-			newNs := new.(*v1.Namespace)
-			if oldNs.Labels[filter.PilotDiscoveryLabelName] != newNs.Labels[filter.PilotDiscoveryLabelName] {
-				c.queue.Push(func() error {
-					// resync all objects and trigger an xDS push since namespace scope has changed
-					if err := c.SyncAll(); err != nil {
-						return err
-					}
-					handleNamespace(newNs)
-					return nil
-				})
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			incrementEvent(otype, "delete")
-			ns := obj.(*v1.Namespace)
-			if ns.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
-				c.queue.Push(func() error {
-					// resync all objects and trigger an xDS push to account for deleted namespace
-					if err := c.SyncAll(); err != nil {
-						return err
-					}
-					handleNamespace(ns)
-					return nil
-				})
-			}
-		},
-	})
 }
 
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
@@ -565,7 +503,7 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc func(old, cur interface{}) bool
 
-func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
+func registerHandlers(informer filter.FilteredSharedIndexInformer, q queue.Instance, otype string,
 	handler func(interface{}, model.Event) error, filter FilterOutFunc) {
 	if filter == nil {
 		filter = func(old, cur interface{}) bool {
@@ -614,7 +552,7 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 
 // tryGetLatestObject attempts to fetch the latest version of the object from the cache.
 // Changes may have occurred between queuing and processing.
-func tryGetLatestObject(informer cache.SharedIndexInformer, obj interface{}) interface{} {
+func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interface{}) interface{} {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		log.Warnf("failed creating key for informer object: %v", err)
@@ -664,13 +602,13 @@ func (c *Controller) SyncAll() error {
 		}
 	}
 
-	nodes := c.nodeInformer.GetStore().List()
+	nodes := c.nodeInformer.GetIndexer().List()
 	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
 		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
 	}
 
-	services := c.serviceInformer.GetStore().List()
+	services := c.serviceInformer.GetIndexer().List()
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
@@ -684,7 +622,7 @@ func (c *Controller) SyncAll() error {
 
 func (c *Controller) syncPods() error {
 	var err *multierror.Error
-	pods := c.pods.informer.GetStore().List()
+	pods := c.pods.informer.GetIndexer().List()
 	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
@@ -694,7 +632,7 @@ func (c *Controller) syncPods() error {
 
 func (c *Controller) syncEndpoints() error {
 	var err *multierror.Error
-	endpoints := c.endpoints.getInformer().GetStore().List()
+	endpoints := c.endpoints.getInformer().GetIndexer().List()
 	log.Debugf("initializing%d endpoints", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))

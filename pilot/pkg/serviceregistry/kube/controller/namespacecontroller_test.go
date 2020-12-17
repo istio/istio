@@ -21,12 +21,12 @@ import (
 	"testing"
 	"time"
 
-	kube2 "istio.io/istio/pkg/test/kube"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/kube"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/k8s"
 )

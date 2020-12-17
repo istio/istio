@@ -4,6 +4,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type FilteredSharedIndexInformer interface {
+	AddEventHandler(handler cache.ResourceEventHandler)
+	GetIndexer() cache.Indexer
+	HasSynced() bool
+	Run(stopCh <-chan struct{})
+}
+
 type filteredSharedIndexInformer struct {
 	filterFunc func(obj interface{}) bool
 	cache.SharedIndexInformer
@@ -47,6 +54,15 @@ func (w *filteredSharedIndexInformer) AddEventHandler(handler cache.ResourceEven
 	})
 }
 
+func (w *filteredSharedIndexInformer) HasSynced() bool {
+	w.SharedIndexInformer.GetStore()
+	return w.SharedIndexInformer.HasSynced()
+}
+
+func (w *filteredSharedIndexInformer) Run(stopCh <-chan struct{}) {
+	w.SharedIndexInformer.Run(stopCh)
+}
+
 func (w *filteredSharedIndexInformer) GetIndexer() cache.Indexer {
 	return w.filteredIndexer
 }
@@ -65,6 +81,7 @@ func newFilteredIndexer(
 		Indexer:    indexer,
 	}
 }
+
 func (w filteredIndexer) List() []interface{} {
 	unfiltered := w.Indexer.List()
 	var filtered []interface{}
@@ -74,4 +91,15 @@ func (w filteredIndexer) List() []interface{} {
 		}
 	}
 	return filtered
+}
+
+func (w filteredIndexer) GetByKey(key string) (item interface{}, exists bool, err error) {
+	item, exists, err = w.Indexer.GetByKey(key)
+	if !exists || err != nil {
+		return nil, exists, err
+	}
+	if w.filterFunc(item) {
+		return item, true, nil
+	}
+	return nil, false, nil
 }
