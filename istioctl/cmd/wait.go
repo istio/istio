@@ -311,15 +311,12 @@ func (w *watcher) BlockingRead() (string, error) {
 }
 
 func containsVersion(versions []string, version string) bool {
+	if len(version) > 8 {
+		version = version[:8]
+	}
 	for _, v := range versions {
-		if len(version) > len(v) {
-			if strings.HasPrefix(version, v) {
-				return true
-			}
-		} else {
-			if version == v {
-				return true
-			}
+		if version == v {
+			return true
 		}
 	}
 	return false
