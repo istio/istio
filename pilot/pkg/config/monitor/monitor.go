@@ -185,7 +185,7 @@ func (m *Monitor) updateConfig(c *config.Config) {
 }
 
 func (m *Monitor) deleteConfig(c *config.Config) {
-	if err := m.store.Delete(c.GroupVersionKind, c.Name, c.Namespace); err != nil {
+	if err := m.store.Delete(c.GroupVersionKind, c.Name, c.Namespace, nil); err != nil {
 		log.Warnf("Failed to delete config (%+v): %v ", *c, err)
 	}
 }

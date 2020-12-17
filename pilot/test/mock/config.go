@@ -223,15 +223,15 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// delete missing elements
-	if err := r.Delete(config2.GroupVersionKind{}, "missing", ""); err == nil {
+	if err := r.Delete(config2.GroupVersionKind{}, "missing", "", nil); err == nil {
 		t.Error("expected error on deletion of missing type")
 	}
 
 	// delete missing elements
-	if err := r.Delete(mockGvk, "missing", ""); err == nil {
+	if err := r.Delete(mockGvk, "missing", "", nil); err == nil {
 		t.Error("expected error on deletion of missing element")
 	}
-	if err := r.Delete(mockGvk, "missing", "unknown"); err == nil {
+	if err := r.Delete(mockGvk, "missing", "unknown", nil); err == nil {
 		t.Error("expected error on deletion of missing element in unknown namespace")
 	}
 
@@ -265,7 +265,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// delete all elements
 	for i := range elts {
-		if err = r.Delete(mockGvk, elts[i].Name, elts[i].Namespace); err != nil {
+		if err = r.Delete(mockGvk, elts[i].Name, elts[i].Namespace, nil); err != nil {
 			t.Error(err)
 		}
 	}
@@ -388,7 +388,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			}
 
 			log.Infof("Calling Delete(%s)", config.Key())
-			if err := cache.Delete(mockGvk, config.Name, config.Namespace); err != nil {
+			if err := cache.Delete(mockGvk, config.Name, config.Namespace, nil); err != nil {
 				t.Error(err)
 			}
 		case model.EventDelete:
@@ -447,7 +447,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 
 	// remove elements directly through client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(mockGvk, keys[i].Name, keys[i].Namespace); err != nil {
+		if err := store.Delete(mockGvk, keys[i].Name, keys[i].Namespace, nil); err != nil {
 			t.Error(err)
 		}
 	}
@@ -477,7 +477,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(mockGvk, keys[i].Name, keys[i].Namespace); err != nil {
+		if err := store.Delete(mockGvk, keys[i].Name, keys[i].Namespace, nil); err != nil {
 			t.Error(err)
 		}
 	}

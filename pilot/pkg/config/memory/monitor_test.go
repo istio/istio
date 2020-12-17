@@ -90,7 +90,7 @@ func TestEventConsistency(t *testing.T) {
 
 	// Test Delete Event
 	testEvent = model.EventDelete
-	if err := controller.Delete(collections.Mock.Resource().GroupVersionKind(), testConfig.Name, TestNamespace); err != nil {
+	if err := controller.Delete(collections.Mock.Resource().GroupVersionKind(), testConfig.Name, TestNamespace, nil); err != nil {
 		t.Error(err)
 		return
 	}
