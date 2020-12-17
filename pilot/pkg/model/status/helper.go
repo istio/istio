@@ -24,6 +24,14 @@ const (
 	StatusFalse = "False"
 )
 
+func GetConditionFromSpec(cfg config.Config, condition string) *v1alpha1.IstioCondition {
+	c, ok := cfg.Status.(*v1alpha1.IstioStatus)
+	if !ok {
+		return nil
+	}
+	return GetCondition(c.Conditions, condition)
+}
+
 func GetBoolConditionFromSpec(cfg config.Config, condition string, defaultValue bool) bool {
 	c, ok := cfg.Status.(*v1alpha1.IstioStatus)
 	if !ok {
