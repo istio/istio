@@ -21,7 +21,6 @@ import (
 	discovery "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	discoveryinformer "k8s.io/client-go/informers/discovery/v1beta1"
 	discoverylister "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
@@ -40,17 +39,17 @@ type endpointSliceController struct {
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
-func newEndpointSliceController(c *Controller, informer discoveryinformer.EndpointSliceInformer) *endpointSliceController {
+func newEndpointSliceController(c *Controller, informer cache.SharedIndexInformer) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
-			informer: informer.Informer(),
+			informer: informer,
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", out.onEvent, nil)
+	registerHandlers(informer, c.queue, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 

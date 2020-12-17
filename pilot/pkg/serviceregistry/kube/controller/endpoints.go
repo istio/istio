@@ -18,7 +18,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -35,14 +34,14 @@ type endpointsController struct {
 
 var _ kubeEndpointsController = &endpointsController{}
 
-func newEndpointsController(c *Controller, informer coreinformers.EndpointsInformer) *endpointsController {
+func newEndpointsController(c *Controller, informer cache.SharedIndexInformer) *endpointsController {
 	out := &endpointsController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
-			informer: informer.Informer(),
+			informer: informer,
 		},
 	}
-	registerHandlers(informer.Informer(), c.queue, "Endpoints", out.onEvent, endpointsEqual)
+	registerHandlers(informer, c.queue, "Endpoints", out.onEvent, endpointsEqual)
 	return out
 }
 

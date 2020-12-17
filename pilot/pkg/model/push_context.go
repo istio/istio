@@ -984,6 +984,8 @@ func (ps *PushContext) updateContext(
 		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
 			virtualServicesChanged = true
 			gatewayChanged = true
+		case gvk.Namespace: // triggered by changes to pilot's discovery namespaces
+			servicesChanged = true
 		}
 	}
 

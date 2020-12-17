@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -49,9 +48,9 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(c *Controller, informer coreinformers.PodInformer, queueEndpointEvent func(string)) *PodCache {
+func newPodCache(c *Controller, informer cache.SharedIndexInformer, queueEndpointEvent func(string)) *PodCache {
 	out := &PodCache{
-		informer:           informer.Informer(),
+		informer:           informer,
 		c:                  c,
 		podsByIP:           make(map[string]string),
 		IPByPods:           make(map[string]string),

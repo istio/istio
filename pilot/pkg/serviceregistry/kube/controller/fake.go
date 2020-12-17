@@ -125,14 +125,15 @@ func (fx *FakeXdsUpdater) Clear() {
 }
 
 type FakeControllerOptions struct {
-	Client            kubelib.Client
-	NetworksWatcher   mesh.NetworksWatcher
-	ServiceHandler    func(service *model.Service, event model.Event)
-	Mode              EndpointMode
-	ClusterID         string
-	WatchedNamespaces string
-	DomainSuffix      string
-	XDSUpdater        model.XDSUpdater
+	Client                    kubelib.Client
+	NetworksWatcher           mesh.NetworksWatcher
+	ServiceHandler            func(service *model.Service, event model.Event)
+	Mode                      EndpointMode
+	ClusterID                 string
+	WatchedNamespaces         string
+	DomainSuffix              string
+	XDSUpdater                model.XDSUpdater
+	EnableDiscoveryNamespaces bool
 
 	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
 	SkipCacheSyncWait bool
@@ -158,14 +159,15 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	}
 
 	options := Options{
-		WatchedNamespaces: opts.WatchedNamespaces, // default is all namespaces
-		DomainSuffix:      domainSuffix,
-		XDSUpdater:        xdsUpdater,
-		Metrics:           &model.Environment{},
-		NetworksWatcher:   opts.NetworksWatcher,
-		EndpointMode:      opts.Mode,
-		ClusterID:         opts.ClusterID,
-		SyncInterval:      time.Microsecond,
+		WatchedNamespaces:         opts.WatchedNamespaces, // default is all namespaces
+		DomainSuffix:              domainSuffix,
+		XDSUpdater:                xdsUpdater,
+		Metrics:                   &model.Environment{},
+		NetworksWatcher:           opts.NetworksWatcher,
+		EndpointMode:              opts.Mode,
+		ClusterID:                 opts.ClusterID,
+		SyncInterval:              time.Microsecond,
+		EnableDiscoveryNamespaces: opts.EnableDiscoveryNamespaces,
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {

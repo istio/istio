@@ -24,6 +24,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -886,6 +887,120 @@ func TestController_Service(t *testing.T) {
 					t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Ports, exp.Ports)
 				}
 			}
+		})
+	}
+}
+
+func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
+	var servicesEqual = func(svcList, expectedSvcList []*model.Service) {
+		if len(svcList) != len(expectedSvcList) {
+			t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
+		}
+		for i, exp := range expectedSvcList {
+			if exp.Hostname != svcList[i].Hostname {
+				t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Hostname, exp.Hostname)
+			}
+			if exp.Address != svcList[i].Address {
+				t.Fatalf("got address of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Address, exp.Address)
+			}
+			if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
+				t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Ports, exp.Ports)
+			}
+		}
+	}
+
+	svc1 := &model.Service{
+		Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     8080,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+	svc2 := &model.Service{
+		Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     8081,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+	svc3 := &model.Service{
+		Hostname: kube.ServiceHostname("svc3", "nsB", defaultFakeDomainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     8082,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+	svc4 := &model.Service{
+		Hostname: kube.ServiceHostname("svc4", "nsB", defaultFakeDomainSuffix),
+		Address:  "10.0.0.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     8083,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode, EnableDiscoveryNamespaces: true})
+			defer controller.Stop()
+			// Use a timeout to keep the test from hanging.
+
+			nsA := "nsA"
+			nsB := "nsB"
+
+			// no events should be received since these occur in non discovery namespaces
+			createService(controller, "svc1", nsA,
+				map[string]string{},
+				[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
+			createService(controller, "svc2", nsA,
+				map[string]string{},
+				[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
+			createService(controller, "svc3", nsB,
+				map[string]string{},
+				[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
+			createService(controller, "svc4", nsB,
+				map[string]string{},
+				[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
+
+			// test creating namespaces, event handlers should only be triggered for namespaces with the discovery label
+			createNamespace(t, controller.client, nsA, map[string]string{filter.PilotDiscoveryLabelName: filter.PilotDiscoveryLabelValue})
+			<-fx.Events
+			createNamespace(t, controller.client, nsB, map[string]string{})
+			expectedSvcList := []*model.Service{svc1, svc2}
+			svcList, _ := controller.Services()
+			servicesEqual(svcList, expectedSvcList)
+
+			// test updating namespaces with discovery label
+			updateNamespace(t, controller.client, nsB, map[string]string{filter.PilotDiscoveryLabelName: filter.PilotDiscoveryLabelValue})
+			<-fx.Events
+			expectedSvcList = []*model.Service{svc1, svc2, svc3, svc4}
+			svcList, _ = controller.Services()
+			servicesEqual(svcList, expectedSvcList)
+
+			//test deleting namespaces
+			deleteNamespace(t, controller.client, nsA)
+			<-fx.Events
+			deleteNamespace(t, controller.client, nsB)
+			<-fx.Events
+			expectedSvcList = []*model.Service{}
+			svcList, _ = controller.Services()
+			servicesEqual(svcList, expectedSvcList)
 		})
 	}
 }
