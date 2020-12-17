@@ -243,6 +243,14 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
 		return nil
 	}
+
+	conTime, _ := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation])
+	// The wle has reconnected to this istiod,
+	// this may happen when the unregister fails retry
+	if disconTime.Before(conTime) {
+		return nil
+	}
+
 	wle := cfg.DeepCopy()
 	delete(wle.Annotations, ConnectedAtAnnotation)
 	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
@@ -334,6 +342,16 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 
 	disconnTime := wle.Annotations[DisconnectedAtAnnotation]
 	if disconnTime == "" {
+		return false
+	}
+
+	// If there is ConnectedAtAnnotation set, don't cleanup this workload entry.
+	// This may happen when the workload fast reconnects to the same istiod.
+	// 1. disconnect: the workload entry has been updated
+	// 2. connect: but the patch is based on the old workloadentry because of the propagation latency.
+	// So in this case the `DisconnectedAtAnnotation` is still there and the cleanup procedure will go on.
+	connTime := wle.Annotations[ConnectedAtAnnotation]
+	if connTime != "" {
 		return false
 	}
 
