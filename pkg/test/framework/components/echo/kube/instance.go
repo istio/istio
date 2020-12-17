@@ -80,6 +80,10 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 		return nil, err
 	}
 
+	if !cfg.Cluster.IsPrimary() && cfg.DeployAsVM {
+		return nil, fmt.Errorf("cannot deploy %s as VM on non-primary %s", cfg.Service, cfg.Cluster.Name())
+	}
+
 	c := &instance{
 		cfg:     cfg,
 		ctx:     ctx,
@@ -154,7 +158,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 	if !cfg.ServiceAccount {
 		serviceAccount = "default"
 	}
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cfg.Cluster.Primary()})
+	istioCtl, err := istioctl.New(ctx, istioctl.Config{Cluster: cfg.Cluster})
 	if err != nil {
 		return err
 	}
@@ -172,14 +176,14 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
-		if err := ctx.Config(cfg.Cluster.Primary()).ApplyYAML(cfg.Namespace.Name(), wg); err != nil {
+		if err := ctx.Config(cfg.Cluster).ApplyYAML(cfg.Namespace.Name(), wg); err != nil {
 			return err
 		}
 	}
 
 	if cfg.ServiceAccount {
 		// create service account, the next workload command will use it to generate a token
-		err = createServiceAccount(cfg.Cluster.Primary(), cfg.Namespace.Name(), serviceAccount)
+		err = createServiceAccount(cfg.Cluster, cfg.Namespace.Name(), serviceAccount)
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return err
 		}
@@ -207,7 +211,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		return err
 	}
 	// this will wait until the eastwest gateway has an IP before running the next command
-	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster.Primary())
+	istiodAddr, err := ist.RemoteDiscoveryAddressFor(cfg.Cluster)
 	if err != nil {
 		return err
 	}
@@ -225,7 +229,7 @@ func createVMConfig(ctx resource.Context, c *instance, cfg echo.Config) error {
 		}
 		if ctx.Clusters().IsMulticluster() {
 			// When VMs talk about "cluster", they refer to the cluster they connect to for discovery
-			cmd = append(cmd, "--clusterID", c.cluster.Primary().Name())
+			cmd = append(cmd, "--clusterID", c.cluster.Name())
 		}
 		if cfg.AutoRegisterVM {
 			cmd = append(cmd, "--autoregister")
