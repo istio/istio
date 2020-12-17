@@ -127,6 +127,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 
 func (v *StatusVerifier) getRevision() (string, error) {
 	var revision string
+	revCount := 0
 	kubeClient, err := v.createClient()
 	if err != nil {
 		return "", err
@@ -137,11 +138,13 @@ func (v *StatusVerifier) getRevision() (string, error) {
 	}
 	for _, pod := range pods.Items {
 		rev := pod.ObjectMeta.GetLabels()[label.IstioRev]
+		revCount++
 		if rev == "default" {
 			continue
 		}
 		revision = rev
 	}
+	v.logger.LogAndPrintf("%d Istio control planes detected, checking %s only", revCount, revision)
 	return revision, nil
 }
 
