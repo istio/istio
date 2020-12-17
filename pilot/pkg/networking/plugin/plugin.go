@@ -45,8 +45,6 @@ type InputParams struct {
 	Node *model.Proxy
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
 	ServiceInstance *model.ServiceInstance
-	// Service is the service colocated with the listener (applies to sidecar).
-	// For outbound TCP listeners, it is the destination service.
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
 }
