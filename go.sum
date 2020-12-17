@@ -1328,6 +1328,8 @@ istio.io/gogo-genproto v0.0.0-20210113155706-4daf5697332f h1:9710FpGLvIJ1GGEbpuT
 istio.io/gogo-genproto v0.0.0-20210113155706-4daf5697332f/go.mod h1:6BwTZRNbWS570wHX/uR1Wqk5e0157TofTAUMzT7N4+s=
 istio.io/pkg v0.0.0-20201230223204-2d0a1c8bd9e5 h1:gDra2gTI4upKwsw0QFuCHJY45PoH5BuwINuHXeplKek=
 istio.io/pkg v0.0.0-20201230223204-2d0a1c8bd9e5/go.mod h1:3mQXIbIrZzBPBUbmlIGo1GfAAH7yJLnqX2T8de13rgU=
+istio.io/pkg v0.0.0-20210113155506-0291dc98a0b6 h1:RjQRkrXgHN5nFd6QVXd/aueM0GozKWIbSAX/VAoMhEU=
+istio.io/pkg v0.0.0-20210113155506-0291dc98a0b6/go.mod h1:wylRr03NZNK0DnKN5tLwE8DVvGtJEq8QrP3JxuN85xY=
 k8s.io/api v0.18.1/go.mod h1:3My4jorQWzSs5a+l7Ge6JBbIxChLnY8HnuT58ZWolss=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.3/go.mod h1:UOaMwERbqJMfeeeHc8XJKawj4P9TgDRnViIqqBeH2QA=

@@ -214,6 +214,7 @@ type PushContext struct {
 
 	initDone        atomic.Bool
 	initializeMutex sync.Mutex
+	Cleanup func()
 }
 
 // Gateway is the gateway of a network
@@ -357,6 +358,10 @@ func (first *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
 		Reason: reason,
+	}
+
+	if first.Push != nil && first.Push.Cleanup != nil {
+		first.Push.Cleanup()
 	}
 
 	// Do not merge when any one is empty
@@ -894,6 +899,12 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.ServiceDiscovery = env.ServiceDiscovery
 	ps.IstioConfigStore = env.IstioConfigStore
 	ps.LedgerVersion = env.Version()
+	ps.Cleanup = func() {
+		err := env.GetLedger().EraseRootHash(ps.LedgerVersion)
+		if err != nil {
+			log.Errorf("unable to garbage collect old config version: %s", err)
+		}
+	}
 
 	// Must be initialized first
 	// as initServiceRegistry/VirtualServices/Destrules
