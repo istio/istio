@@ -104,10 +104,12 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	// upstream resolvers as is.
 	if dnsConfig != nil {
 		for _, s := range dnsConfig.Servers {
-			h.resolvConfServers = append(h.resolvConfServers, s+":53")
+			h.resolvConfServers = append(h.resolvConfServers, net.JoinHostPort(s, dnsConfig.Port))
 		}
 		h.searchNamespaces = dnsConfig.Search
 	}
+
+	log.WithLabels("search", h.searchNamespaces, "servers", h.resolvConfServers).Debugf("initialized DNS")
 
 	if h.udpDNSProxy, err = newDNSProxy("udp", h); err != nil {
 		return nil, err
@@ -167,7 +169,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	if len(req.Question) == 0 {
 		response = new(dns.Msg)
 		response.SetReply(req)
-		response.Rcode = dns.RcodeNameError
+		response.Rcode = dns.RcodeServerFailure
 		_ = w.WriteMsg(response)
 		return
 	}
@@ -178,7 +180,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	if lp == nil {
 		response = new(dns.Msg)
 		response.SetReply(req)
-		response.Rcode = dns.RcodeNameError
+		response.Rcode = dns.RcodeServerFailure
 		log.Debugf("dns request before lookup table is loaded")
 		_ = w.WriteMsg(response)
 		return
@@ -218,7 +220,7 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg)
 	var response *dns.Msg
 	for _, upstream := range h.resolvConfServers {
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
-		if err == nil && len(cResponse.Answer) > 0 {
+		if err == nil {
 			response = cResponse
 			break
 		}
@@ -226,7 +228,7 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg)
 	if response == nil {
 		response = new(dns.Msg)
 		response.SetReply(req)
-		response.Rcode = dns.RcodeNameError
+		response.Rcode = dns.RcodeServerFailure
 	}
 	return response
 }
