@@ -5,4 +5,4 @@ issue:
 - 29538
 releaseNotes:
 - |
-  **Fixed** an issue causing one simple TLS requests from failing when permissive mode is enabled. This does not impact mTLS.
+  **Fixed** an issue causing client side application TLS requests sent to PERMISSIVE mode enabled server to fail.
