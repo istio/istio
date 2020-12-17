@@ -144,7 +144,7 @@ func (v *StatusVerifier) getRevision() (string, error) {
 		}
 		revision = rev
 	}
-	v.logger.LogAndPrintf("%d Istio control planes detected, checking %s only", revCount, revision)
+	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %s only", revCount, revision)
 	return revision, nil
 }
 
