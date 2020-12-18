@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -266,36 +265,44 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		if direction == model.TrafficDirectionOutbound && len(host) > 0 && port > 0 {
 			isMeshCluster = true
 		}
-		if jwtPubKey == "" {
+		if len(jwtPubKey) > 0 {
+			// Inline Jwks
+			provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
+				LocalJwks: &core.DataSource{
+					Specifier: &core.DataSource_InlineString{
+						InlineString: jwtPubKey,
+					},
+				},
+			}
+		} else if isMeshCluster && features.EnableRemoteJwks {
 			// If Issuer is a mesh cluster configure Remote Jwks.
-			if isMeshCluster && features.EnableRemoteJwks {
-				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
-					RemoteJwks: &envoy_jwt.RemoteJwks{
-						HttpUri: &envoy_config_core_v3.HttpUri{
-							Uri: jwtRule.JwksUri,
-							HttpUpstreamType: &envoy_config_core_v3.HttpUri_Cluster{
-								Cluster: jwtRule.Issuer,
-							},
-						},
-						CacheDuration: &duration.Duration{Seconds: 5 * 60}, // TODO: Make this configurable if needed.
-					},
-				}
-			} else {
-				var err error
-				jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
-				if err != nil {
-					log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
-					// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
-					// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-					jwtPubKey = createFakeJwks(jwtRule.JwksUri)
-				}
-				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
-					LocalJwks: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: jwtPubKey,
+			provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
+				RemoteJwks: &envoy_jwt.RemoteJwks{
+					HttpUri: &core.HttpUri{
+						Uri: jwtRule.JwksUri,
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: jwtRule.Issuer,
 						},
 					},
-				}
+					CacheDuration: &duration.Duration{Seconds: 5 * 60}, // TODO: Make this configurable if needed.
+				},
+			}
+		} else {
+			// Fetch from URI
+			var err error
+			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
+			if err != nil {
+				log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
+				// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
+				// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
+				jwtPubKey = createFakeJwks(jwtRule.JwksUri)
+			}
+			provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
+				LocalJwks: &core.DataSource{
+					Specifier: &core.DataSource_InlineString{
+						InlineString: jwtPubKey,
+					},
+				},
 			}
 		}
 
