@@ -242,7 +242,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(manifestCmd)
 
 	operatorCmd := mesh.OperatorCmd()
-	hideInheritedFlags(operatorCmd, "charts")
+	hideInheritedFlags(operatorCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(operatorCmd)
 
 	installCmd := mesh.InstallCmd(loggingOptions)
