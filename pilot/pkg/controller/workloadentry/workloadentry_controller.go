@@ -17,6 +17,7 @@ package workloadentry
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -94,18 +95,29 @@ type Controller struct {
 	mutex sync.Mutex
 	// record the current adsConnections number
 	// note: this is to handle reconnect to the same istiod, but in rare case the disconnect event is later than the connect event
+	// keyed by ip+network
 	adsConnections map[string]uint8
+
+	// maxConnectionAge is a duration that workload entry should be cleanedup if it does not reconnects.
+	maxConnectionAge time.Duration
 }
 
-func NewController(store model.ConfigStoreCache, instanceID string) *Controller {
+// NewController create a controller which manages workload lifecycle and health status.
+func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge time.Duration) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
+		maxConnAge := maxConnAge + maxConnAge/2
+		// if overflow, set it to max int64
+		if maxConnAge < 0 {
+			maxConnAge = time.Duration(math.MaxInt64)
+		}
 		return &Controller{
-			instanceID:     instanceID,
-			store:          store,
-			cleanupLimit:   rate.NewLimiter(rate.Limit(20), 1),
-			cleanupQueue:   queue.NewDelayed(),
-			queue:          workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-			adsConnections: map[string]uint8{},
+			instanceID:       instanceID,
+			store:            store,
+			cleanupLimit:     rate.NewLimiter(rate.Limit(20), 1),
+			cleanupQueue:     queue.NewDelayed(),
+			queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+			adsConnections:   map[string]uint8{},
+			maxConnectionAge: maxConnAge,
 		}
 	}
 	return nil
@@ -170,7 +182,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	}
 
 	c.mutex.Lock()
-	c.adsConnections[proxy.IPAddresses[0]] = c.adsConnections[proxy.IPAddresses[0]] + 1
+	c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]]++
 	c.mutex.Unlock()
 
 	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
@@ -231,14 +243,14 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy) {
 	}
 
 	c.mutex.Lock()
-	num := c.adsConnections[proxy.IPAddresses[0]]
+	num := c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]]
 	// if there is still ads connection, do not unregister.
 	if num > 1 {
-		c.adsConnections[proxy.IPAddresses[0]] = num - 1
+		c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]] = num - 1
 		c.mutex.Unlock()
 		return
 	}
-	delete(c.adsConnections, proxy.IPAddresses[0])
+	delete(c.adsConnections, proxy.Metadata.Network+proxy.IPAddresses[0])
 	c.mutex.Unlock()
 
 	disconTime := time.Now()
@@ -362,11 +374,6 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 		return false
 	}
 
-	disconnTime := wle.Annotations[DisconnectedAtAnnotation]
-	if disconnTime == "" {
-		return false
-	}
-
 	// If there is ConnectedAtAnnotation set, don't cleanup this workload entry.
 	// This may happen when the workload fast reconnects to the same istiod.
 	// 1. disconnect: the workload entry has been updated
@@ -374,6 +381,17 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	// So in this case the `DisconnectedAtAnnotation` is still there and the cleanup procedure will go on.
 	connTime := wle.Annotations[ConnectedAtAnnotation]
 	if connTime != "" {
+		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
+		connAt, err := time.Parse(timeFormat, connTime)
+		// if it has been 1.5*maxConnectionAge since workload connected, should delete it.
+		if err == nil && uint64(time.Since(connAt)) > uint64(c.maxConnectionAge)+uint64(c.maxConnectionAge/2) {
+			return true
+		}
+		return false
+	}
+
+	disconnTime := wle.Annotations[DisconnectedAtAnnotation]
+	if disconnTime == "" {
 		return false
 	}
 
