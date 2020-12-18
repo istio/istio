@@ -158,6 +158,9 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 			adsLog.Infof("ADS: new connection for node:%s", con.ConID)
 			defer func() {
 				s.removeCon(con.ConID)
+				if s.StatusGen != nil {
+					s.StatusGen.OnDisconnect(con)
+				}
 				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy)
 			}()
 		}
@@ -312,6 +315,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		errCode := codes.Code(request.ErrorDetail.Code)
 		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
+		if s.StatusGen != nil {
+			s.StatusGen.OnNack(con.proxy, request)
+		}
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = request.ResponseNonce
 		con.proxy.Unlock()
@@ -466,6 +472,9 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	s.addCon(con.ConID, con)
 
+	if s.StatusGen != nil {
+		s.StatusGen.OnConnect(con)
+	}
 	return nil
 }
 
