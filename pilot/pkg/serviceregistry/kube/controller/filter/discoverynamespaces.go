@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "k8s.io/client-go/listers/core/v1"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 )
 
@@ -29,8 +28,6 @@ const (
 	PilotDiscoveryLabelName = "istio-discovery"
 	// PilotDiscoveryLabelValue is the value of for the label PilotDiscoveryLabelName used to indicate a namespace for discovery
 	PilotDiscoveryLabelValue = "true"
-	// Describes a push triggered by a discovery Namespace change
-	DiscoveryNamespaceUpdate model.TriggerReason = "discovery-namespace"
 )
 
 func DiscoveryNamespacesFilterFunc(lister v1.NamespaceLister, enableDiscoveryNamespaces bool) func(obj interface{}) bool {
