@@ -247,6 +247,11 @@ dockerx.%:
 docker.base: docker/Dockerfile.base
 	$(DOCKER_RULE)
 
+docker.manifests: manifests/copy-release-manifests.sh
+docker.manifests: manifests/helm-runner.sh
+docker.manifests: manifests/Dockerfile.manifests
+	$(DOCKER_RULE)
+
 docker.app_sidecar_base_debian_9: BUILD_ARGS=--build-arg VM_IMAGE_NAME=debian --build-arg VM_IMAGE_VERSION=9
 docker.app_sidecar_base_debian_9: VM_OS_DOCKERFILE_TEMPLATE=Dockerfile.app_sidecar_base
 docker.app_sidecar_base_debian_9: pkg/test/echo/docker/Dockerfile.app_sidecar_base
