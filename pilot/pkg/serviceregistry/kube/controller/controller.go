@@ -310,10 +310,16 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
-		endpointsInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter, kubeClient.KubeInformer().Core().V1().Endpoints().Informer())
+		endpointsInformer := filter.NewFilteredSharedIndexInformer(
+			discoveryNamespaceFilter,
+			kubeClient.KubeInformer().Core().V1().Endpoints().Informer(),
+		)
 		c.endpoints = newEndpointsController(c, endpointsInformer)
 	case EndpointSliceOnly:
-		endpointSliceInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter, kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer())
+		endpointSliceInformer := filter.NewFilteredSharedIndexInformer(
+			discoveryNamespaceFilter,
+			kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer(),
+		)
 		c.endpoints = newEndpointSliceController(c, endpointSliceInformer)
 	}
 
