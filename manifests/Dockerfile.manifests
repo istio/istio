@@ -21,9 +21,16 @@
 # We pin versions of stuff we install. Modify the various XXX_VERSION variables within the individual build contexts
 # in order to control these versions.
 
-FROM golang:1.15
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
 
-RUN apt-get update \
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+
+# The following section is used as base image if BASE_DISTRIBUTION=default
+FROM gcr.io/istio-release/base:${BASE_VERSION} as default
+
+ RUN apt-get update \
     && apt-get install -y git --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

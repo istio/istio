@@ -247,6 +247,7 @@ dockerx.%:
 docker.base: docker/Dockerfile.base
 	$(DOCKER_RULE)
 
+docker.manifests: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.manifests: manifests/copy-release-manifests.sh
 docker.manifests: manifests/Dockerfile.manifests
 	$(DOCKER_RULE)
