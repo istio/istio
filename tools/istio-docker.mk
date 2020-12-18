@@ -248,7 +248,6 @@ docker.base: docker/Dockerfile.base
 	$(DOCKER_RULE)
 
 docker.manifests: manifests/copy-release-manifests.sh
-docker.manifests: manifests/helm-runner.sh
 docker.manifests: manifests/Dockerfile.manifests
 	$(DOCKER_RULE)
 
