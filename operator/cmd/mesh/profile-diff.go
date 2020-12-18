@@ -40,7 +40,7 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 		Short: "Diffs two Istio configuration profiles",
 		Long:  "The diff subcommand displays the differences between two Istio configuration profiles.",
 		Example: `  # Profile diff by providing yaml files
-  istioctl profile diff manifests/profiles/default.yaml manifests/profiles/demo.yaml
+  istioctl profile diff --manifests manifests default demo
 
   # Profile diff by providing a profile name
   istioctl profile diff default demo`,
