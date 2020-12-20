@@ -143,7 +143,7 @@ func printIOPs(writer io.Writer, iops []*iopv1alpha1.IstioOperator, verbose bool
 				}
 			}
 			// The first row is for printing revision, IOP related information
-			numRows := max(len(customizations), max(1, len(customizations)))
+			numRows := max(len(components), max(1, len(customizations)))
 			for j := 0; j < numRows; j++ {
 				var outRevision string
 				if i == 0 && j == 0 {
