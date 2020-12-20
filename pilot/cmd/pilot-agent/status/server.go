@@ -498,6 +498,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 
 	// Forward incoming headers to the application.
 	for name, values := range req.Header {
+		if name == "Connection" {
+			continue
+		}
 		newValues := make([]string, len(values))
 		copy(newValues, values)
 		appReq.Header[name] = newValues
