@@ -66,7 +66,7 @@ func constructProxyConfig(role *model.Proxy) (meshconfig.ProxyConfig, error) {
 		if byResources != nil {
 			proxyConfig.Concurrency = byResources
 		}
-	} else {
+	} else if concurrency != 0 && proxyConfig.Concurrency == &types.Int32Value{Value: int32(0)} {
 		proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
 	}
 	proxyConfig.ServiceCluster = serviceCluster
