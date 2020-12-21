@@ -1287,6 +1287,10 @@ spec:
                                 description: Applies only to sidecars.
                                 format: string
                                 type: string
+                              destinationPort:
+                                description: The destination_port value used by a
+                                  filter chain's match condition.
+                                type: integer
                               filter:
                                 description: The name of a specific filter to apply
                                   the patch to.
