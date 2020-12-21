@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 29538
+releaseNotes:
+- |
+  **Fixed** an issue causing client side application TLS requests sent to a PERMISSIVE mode enabled server to fail.

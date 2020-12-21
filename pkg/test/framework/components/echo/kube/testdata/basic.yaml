@@ -48,6 +48,8 @@ spec:
           - "3333"
           - --version
           - "bar"
+          - --crt=/cert.crt
+          - --key=/cert.key
         ports:
         - containerPort: 8090
         - containerPort: 8080
