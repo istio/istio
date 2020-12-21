@@ -37,6 +37,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc/codes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -719,4 +720,30 @@ func ByteCount(b int) string {
 	}
 	return fmt.Sprintf("%.1f%cB",
 		float64(b)/float64(div), "kMGTPE"[exp])
+}
+
+var gRPCStringToCode = map[string]codes.Code{
+	`OK`:                    codes.OK,
+	`CANCELLED`:             codes.Canceled,
+	`UNKNOWN`:               codes.Unknown,
+	`INVALID_ARGUMENT`:      codes.InvalidArgument,
+	`DEADLINE_EXCEEDED`:     codes.DeadlineExceeded,
+	`NOT_FOUND`:             codes.NotFound,
+	`ALREADY_EXISTS`:        codes.AlreadyExists,
+	`PERMISSION_DENIED`:     codes.PermissionDenied,
+	`RESOURCE_EXHAUSTED`:    codes.ResourceExhausted,
+	`FAILED_PRECONDITION`:   codes.FailedPrecondition,
+	`ABORTED`:               codes.Aborted,
+	`OUT_OF_RANGE`:          codes.OutOfRange,
+	`UNIMPLEMENTED`:         codes.Unimplemented,
+	`INTERNAL`:              codes.Internal,
+	`UNAVAILABLE`:           codes.Unavailable,
+	`DATA_LOSS`:             codes.DataLoss,
+	`UNAUTHENTICATED`:       codes.Unauthenticated,
+}
+
+// GetgRPCCodeByString is used to get grpc code by code string
+func GetgRPCCodeByString(s string) (codes.Code, bool) {
+	code, ok := gRPCStringToCode[strings.ToUpper(s)]
+	return code, ok
 }

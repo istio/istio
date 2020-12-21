@@ -933,6 +933,16 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 			out.Abort.ErrorType = &xdshttpfault.FaultAbort_HttpStatus{
 				HttpStatus: uint32(a.HttpStatus),
 			}
+		case *networking.HTTPFaultInjection_Abort_GrpcStatus:
+			code, ok := util.GetgRPCCodeByString(a.GrpcStatus)
+			if ok {
+				out.Abort.ErrorType = &xdshttpfault.FaultAbort_GrpcStatus{
+					GrpcStatus: uint32(code),
+				}
+			} else {
+				log.Warnf("Unable to translate grpc code string to code: %s", a.GrpcStatus)
+				out.Abort = nil
+			}
 		default:
 			log.Warnf("Non-HTTP type abort faults are not yet supported")
 			out.Abort = nil
