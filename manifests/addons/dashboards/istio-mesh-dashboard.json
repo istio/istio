@@ -1203,7 +1203,7 @@
       "scroll": true,
       "showHeader": true,
       "sort": {
-        "col": 4,
+        "col": 5,
         "desc": true
       },
       "styles": [
@@ -1220,7 +1220,7 @@
           "link": false,
           "linkTargetBlank": false,
           "linkTooltip": "Workload dashboard",
-          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-namespace=${__cell_2:raw}&var-workload=${__cell_:raw}",
+          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-namespace=${__cell_3:raw}&var-workload=${__cell_2:raw}",
           "pattern": "destination_workload",
           "preserveFormat": false,
           "sanitize": false,
@@ -1444,7 +1444,7 @@
       "scroll": true,
       "showHeader": true,
       "sort": {
-        "col": 2,
+        "col": 5,
         "desc": true
       },
       "styles": [
@@ -1461,7 +1461,7 @@
           "link": false,
           "linkTargetBlank": false,
           "linkTooltip": "$__cell dashboard",
-          "linkUrl": "/dashboard/db/istio-tcp-workload-dashboard?var-namespace=${__cell_2:raw}&&var-workload=${__cell_:raw}",
+          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-namespace=${__cell_3:raw}&var-workload=${__cell_2:raw}",
           "pattern": "destination_workload",
           "preserveFormat": false,
           "sanitize": false,

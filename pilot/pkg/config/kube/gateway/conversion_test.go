@@ -22,6 +22,9 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8s "sigs.k8s.io/service-apis/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/test/util"
@@ -162,6 +165,182 @@ func TestStandardizeWeight(t *testing.T) {
 			}
 			if len(tt.output) > 1 && intSum(tt.output) != 100 {
 				t.Errorf("invalid weights, should sum to 100: %v", got)
+			}
+		})
+	}
+}
+
+func TestIsRouteMatch(t *testing.T) {
+	namespaces := map[string]*corev1.Namespace{
+		"select": {ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"selected": "true"},
+		}},
+		"not-select": {ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"selected": "false"},
+		}},
+	}
+	cases := []struct {
+		name     string
+		cfg      config.Config
+		gateway  config.Meta
+		routes   k8s.RouteBindingSelector
+		expected bool
+	}{
+		{
+			name: "defaults, same namespace",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "default"},
+			routes: k8s.RouteBindingSelector{
+				Kind:  gvk.HTTPRoute.Kind,
+				Group: gvk.HTTPRoute.Group,
+			},
+			// Default for both selectors will match everything in the same namespace
+			expected: true,
+		},
+		{
+			name: "defaults, different namespace",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
+			routes: k8s.RouteBindingSelector{
+				Kind:  gvk.HTTPRoute.Kind,
+				Group: gvk.HTTPRoute.Group,
+			},
+			// Default for both selectors will match everything in the same namespace
+			expected: false,
+		},
+		{
+			name: "route all, gateway all",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
+				Spec: &k8s.HTTPRouteSpec{
+					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowAll},
+				},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
+			routes: k8s.RouteBindingSelector{
+				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Group:      gvk.HTTPRoute.Group,
+				Kind:       gvk.HTTPRoute.Kind,
+			},
+			// Both allow cross namespace, this is allowed
+			expected: true,
+		},
+		{
+			name: "route all, gateway same",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
+				Spec: &k8s.HTTPRouteSpec{
+					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowAll},
+				},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
+			routes: k8s.RouteBindingSelector{
+				Group: gvk.HTTPRoute.Group,
+				Kind:  gvk.HTTPRoute.Kind,
+			},
+			// Gateway isn't looking in other namespaces
+			expected: false,
+		},
+		{
+			name: "route same, gateway all",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
+			routes: k8s.RouteBindingSelector{
+				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Group:      gvk.HTTPRoute.Group,
+				Kind:       gvk.HTTPRoute.Kind,
+			},
+			// Route doesn't allow cross namespace
+			expected: false,
+		},
+		{
+			name: "route references match",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
+				Spec: &k8s.HTTPRouteSpec{
+					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowFromList, GatewayRefs: []k8s.GatewayReference{
+						{Name: "gateway", Namespace: "not-default"},
+					}},
+				},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
+			routes: k8s.RouteBindingSelector{
+				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Group:      gvk.HTTPRoute.Group,
+				Kind:       gvk.HTTPRoute.Kind,
+			},
+			// direct reference matches
+			expected: true,
+		},
+		{
+			name: "route references no match",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
+				Spec: &k8s.HTTPRouteSpec{
+					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowFromList, GatewayRefs: []k8s.GatewayReference{
+						{Name: "not-gateway", Namespace: "not-default"},
+					}},
+				},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
+			routes: k8s.RouteBindingSelector{
+				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectAll},
+				Group:      gvk.HTTPRoute.Group,
+				Kind:       gvk.HTTPRoute.Kind,
+			},
+			// direct reference does not match
+			expected: false,
+		},
+		{
+			name: "gateway selector matches",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "select", GroupVersionKind: gvk.HTTPRoute},
+				Spec: &k8s.HTTPRouteSpec{
+					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowAll},
+				},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
+			routes: k8s.RouteBindingSelector{
+				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
+					"selected": "true",
+				}}},
+				Group: gvk.HTTPRoute.Group,
+				Kind:  gvk.HTTPRoute.Kind,
+			},
+			// selector matches namespace label
+			expected: true,
+		},
+		{
+			name: "gateway selector no match",
+			cfg: config.Config{
+				Meta: config.Meta{Namespace: "not-select", GroupVersionKind: gvk.HTTPRoute},
+				Spec: &k8s.HTTPRouteSpec{
+					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowAll},
+				},
+			},
+			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
+			routes: k8s.RouteBindingSelector{
+				Namespaces: &k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
+					"selected": "true",
+				}}},
+				Group: gvk.HTTPRoute.Group,
+				Kind:  gvk.HTTPRoute.Kind,
+			},
+			// selector does not match namespace
+			expected: false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isRouteMatch(tt.cfg, tt.gateway, tt.routes, namespaces)
+			if got != tt.expected {
+				t.Fatalf("expected match=%v, got match=%v", tt.expected, got)
 			}
 		})
 	}

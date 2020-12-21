@@ -55,11 +55,11 @@ func initDNS() error {
 				Namespace: "ns1",
 				Shortname: "productpage",
 			},
-			"reviews.ns2.svc.cluster.local": {
+			"example.ns2.svc.cluster.local": {
 				Ips:       []string{"10.10.10.10"},
 				Registry:  "Kubernetes",
 				Namespace: "ns2",
-				Shortname: "reviews",
+				Shortname: "example",
 			},
 			"details.ns2.svc.cluster.remote": {
 				Ips:       []string{"11.11.11.11", "12.12.12.12"},
@@ -94,7 +94,7 @@ func TestDNS(t *testing.T) {
 		host                     string
 		queryAAAA                bool
 		expected                 []dns.RR
-		expectResolutionFailure  bool
+		expectResolutionFailure  int
 		expectExternalResolution bool
 	}{
 		{
@@ -138,27 +138,27 @@ func TestDNS(t *testing.T) {
 			name:                    "failure: AAAA query for IPv4 k8s host (name.namespace) with search namespace",
 			host:                    "productpage.ns1.ns1.svc.cluster.local.",
 			queryAAAA:               true,
-			expectResolutionFailure: true,
+			expectResolutionFailure: dns.RcodeNameError,
 		},
 		{
 			name:     "success: k8s host - non local namespace - name.namespace",
-			host:     "reviews.ns2.",
-			expected: a("reviews.ns2.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
+			host:     "example.ns2.",
+			expected: a("example.ns2.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
 		},
 		{
 			name:     "success: k8s host - non local namespace - fqdn",
-			host:     "reviews.ns2.svc.cluster.local.",
-			expected: a("reviews.ns2.svc.cluster.local.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
+			host:     "example.ns2.svc.cluster.local.",
+			expected: a("example.ns2.svc.cluster.local.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
 		},
 		{
 			name:     "success: k8s host - non local namespace - name.namespace.svc",
-			host:     "reviews.ns2.svc.",
-			expected: a("reviews.ns2.svc.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
+			host:     "example.ns2.svc.",
+			expected: a("example.ns2.svc.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
 		},
 		{
 			name:                    "failure: k8s host - non local namespace - shortname",
-			host:                    "reviews.",
-			expectResolutionFailure: true,
+			host:                    "example.",
+			expectResolutionFailure: dns.RcodeNameError,
 		},
 		{
 			name: "success: remote cluster k8s svc - same ns and different domain - fqdn",
@@ -169,7 +169,7 @@ func TestDNS(t *testing.T) {
 		{
 			name:                    "failure: remote cluster k8s svc - same ns and different domain - name.namespace",
 			host:                    "details.ns2.",
-			expectResolutionFailure: true, // on home machines, the ISP may resolve to some generic webpage. So this test may fail on laptops
+			expectResolutionFailure: dns.RcodeNameError, // on home machines, the ISP may resolve to some generic webpage. So this test may fail on laptops
 		},
 		{
 			name:     "success: TypeA query returns A records only",
@@ -185,13 +185,13 @@ func TestDNS(t *testing.T) {
 		{
 			name:                    "failure: Error response if only AAAA records exist for typeA",
 			host:                    "ipv6.localhost.",
-			expectResolutionFailure: true,
+			expectResolutionFailure: dns.RcodeNameError,
 		},
 		{
 			name:                    "failure: Error response if only A records exist for typeAAAA",
 			host:                    "ipv4.localhost.",
 			queryAAAA:               true,
-			expectResolutionFailure: true,
+			expectResolutionFailure: dns.RcodeNameError,
 		},
 	}
 
@@ -220,13 +220,18 @@ func TestDNS(t *testing.T) {
 				if err != nil {
 					t.Errorf("Failed to resolve query for %s: %v", tt.host, err)
 				} else {
+					for _, answer := range res.Answer {
+						if answer.Header().Class != dns.ClassINET {
+							t.Errorf("expected class INET for all responses, got %+v for host %s", answer.Header(), tt.host)
+						}
+					}
 					if tt.expectExternalResolution {
 						// just make sure that the response has a valid DNS response from upstream resolvers
 						if res.Rcode != dns.RcodeSuccess {
 							t.Errorf("upstream dns resolution for %s failed", tt.host)
 						}
 					} else {
-						if tt.expectResolutionFailure && res.Rcode != dns.RcodeNameError {
+						if tt.expectResolutionFailure != res.Rcode {
 							t.Errorf("expected resolution failure but it succeeded for %s", tt.host)
 						}
 						if !equalsDNSrecords(res.Answer, tt.expected) {
