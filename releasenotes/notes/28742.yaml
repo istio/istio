@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+
+area: traffic-management
+
+issue:
+    - https://github.com/istio/istio/issues/28742
+
+releaseNotes:
+- |
+  **Added** Configuring mesh cluster as JWT issuer for mTLS and other benefits. This is disabled by default 
+  and can be enabled by setting "PILOT_JWT_ENABLE_REMOTE_JWKS" to true.
