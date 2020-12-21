@@ -96,7 +96,6 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 
 	// ensure that rollout completes with pods running updated proxies
 	retry.UntilSuccessOrFail(t, func() error {
-		fmt.Println("upgrade retry in progress...")
 		fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) // nolint: lll
 		pods, _ := kubetest.CheckPodsAreReady(fetch)
 
