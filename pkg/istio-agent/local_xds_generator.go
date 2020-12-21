@@ -93,7 +93,7 @@ func (sa *Agent) initXDSGenerator() {
 	g["api"] = &apigen.APIGenerator{}
 	g["api/"+envoyv2.EndpointType] = epGen
 
-	g[xds.TypeURLConnections] = p
+	g[xds.TypeURLConnect] = p
 	g[v3.ClusterType] = p
 
 	var err error
