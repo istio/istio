@@ -270,6 +270,71 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 		{
+			name: "JWT policy with non Mesh cluster as issuer and remote jwks enabled",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "invalid|7443|",
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+			},
+			enableRemoteJwks: true,
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Requires: &envoy_jwt.JwtRequirement{
+										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+											RequiresAny: &envoy_jwt.JwtRequirementOrList{
+												Requirements: []*envoy_jwt.JwtRequirement{
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+															ProviderName: "origins-0",
+														},
+													},
+													{
+														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+															AllowMissing: &empty.Empty{},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "invalid|7443|",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: test.JwtPubKey1,
+											},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "invalid|7443|",
+								},
+							},
+						}),
+				},
+			},
+		},
+		{
 			name: "Multi JWTs policy",
 			in: []*config.Config{
 				{
