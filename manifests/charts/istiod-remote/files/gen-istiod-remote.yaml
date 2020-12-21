@@ -163,7 +163,8 @@ data:
           "autoInject": true,
           "enabled": true
         },
-        "rewriteAppHTTPProbe": true
+        "rewriteAppHTTPProbe": true,
+        "templates": {}
       }
     }
 
