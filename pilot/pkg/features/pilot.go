@@ -178,6 +178,12 @@ var (
 		"If enabled, Wasm-based telemetry will be enabled.",
 	).Get()
 
+	EnableStatsTelemetry = env.RegisterBoolVar(
+		"ENABLE_STATS_TELEMETRY",
+		false,
+		"If enabled, prometheus telemetry configuration will be enabled.",
+	).Get()
+
 	ScopeGatewayToNamespace = env.RegisterBoolVar(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,

@@ -522,9 +522,7 @@ spec:
                     local:
                       inline_string: "envoy.wasm.stats"
 ---
-
 {{- end }}
-
 {{- if .Values.telemetry.v2.stackdriver.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -644,7 +642,6 @@ spec:
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
 ---
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:

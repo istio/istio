@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/plugin/metadataexchange"
+	"istio.io/istio/pilot/pkg/networking/plugin/stats"
 )
 
 var availablePlugins = map[string]plugin.Plugin{
@@ -30,6 +31,7 @@ var availablePlugins = map[string]plugin.Plugin{
 	plugin.Authn:            authn.NewPlugin(),
 	plugin.Authz:            authz.NewPlugin(authz.Local),
 	plugin.MetadataExchange: metadataexchange.NewPlugin(),
+	plugin.PrometheusStats:  stats.NewPlugin(),
 }
 
 // NewPlugins returns a slice of default Plugins.

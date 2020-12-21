@@ -52,7 +52,8 @@ const (
 	TLSTransportProtocol       = "tls"
 	RawBufferTransportProtocol = "raw_buffer"
 
-	MxFilterName = "istio.metadata_exchange"
+	MxFilterName    = "istio.metadata_exchange"
+	StatsFilterName = "istio.stats"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -141,6 +142,8 @@ var (
 		},
 	}
 
+	HTTPMx = buildHTTPMxFilter()
+
 	TCPMx = &listener.Filter{
 		Name: MxFilterName,
 		// TODO: we need to publish this tcp proto: https://github.com/istio/proxy/blob/master/src/envoy/tcp/metadata_exchange/config/metadata_exchange.proto
@@ -155,8 +158,6 @@ var (
 			},
 		})},
 	}
-
-	HTTPMx = buildHTTPMxFilter()
 )
 
 var (

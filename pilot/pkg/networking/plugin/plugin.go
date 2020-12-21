@@ -28,8 +28,10 @@ const (
 	Authz = "authz"
 	// Health is the name of the health plugin passed through the command line
 	Health = "health"
-	// MetadataExchange is the name of the telemetry plugin passed through the command line
+	// MetadataExchange is the name of the HTTP/TCP metadata exchange telemetry plugin passed through the command line
 	MetadataExchange = "metadata_exchange"
+	// Prometheus is the name of the Prometheus telemetry plugin passed through the command line
+	PrometheusStats = "prometheus_stats"
 )
 
 // InputParams is a set of values passed to Plugin callback methods. Not all fields are guaranteed to
