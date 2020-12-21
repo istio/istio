@@ -598,6 +598,16 @@ allChainsLabel:
 			}
 		}
 		listenerOpts.needHTTPInspector = true
+	} else if pluginParams.ListenerProtocol == istionetworking.ListenerProtocolTCP {
+		// When we are in permissive mode, we need a third filter chain to handle how envoy treats filter
+		// chain matching
+		// There will be one mtls filter chain, then two identical filter chains with transport=raw and transport=tls.
+		// TODO(https://github.com/istio/istio/issues/29588) clean this up
+		if tlsInspectorEnabled {
+			allChains = append(allChains, istionetworking.FilterChain{
+				FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: xdsfilters.TLSTransportProtocol},
+			})
+		}
 	}
 
 	// name all the filter chains
@@ -611,10 +621,12 @@ allChainsLabel:
 		if chain.FilterChainMatch == nil {
 			chain.FilterChainMatch = &listener.FilterChainMatch{}
 		}
-		if chain.TLSContext == nil {
-			chain.FilterChainMatch.TransportProtocol = xdsfilters.RawBufferTransportProtocol
-		} else {
-			chain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
+		if chain.FilterChainMatch.TransportProtocol == "" {
+			if chain.TLSContext == nil {
+				chain.FilterChainMatch.TransportProtocol = xdsfilters.RawBufferTransportProtocol
+			} else {
+				chain.FilterChainMatch.TransportProtocol = xdsfilters.TLSTransportProtocol
+			}
 		}
 		switch pluginParams.ListenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:

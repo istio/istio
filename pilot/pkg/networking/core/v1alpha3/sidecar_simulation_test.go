@@ -882,9 +882,7 @@ spec:
 				ClusterMatched: "inbound|70||",
 			},
 			Permissive: simulation.Result{
-				// This breaks because we don't match the mtls rule (alpn) but we don't match the plaintext rule either
-				Error: simulation.ErrNoFilterChain,
-				Skip:  "https://github.com/istio/istio/issues/29538",
+				ClusterMatched: "inbound|70||",
 			},
 			Strict: simulation.Result{
 				// TLS, but not mTLS
@@ -903,9 +901,7 @@ spec:
 				ClusterMatched: "inbound|70||",
 			},
 			Permissive: simulation.Result{
-				// This breaks because we don't match the mtls rule (alpn) but we don't match the plaintext rule either
-				Error: simulation.ErrNoFilterChain,
-				Skip:  "https://github.com/istio/istio/issues/29538",
+				ClusterMatched: "inbound|70||",
 			},
 			Strict: simulation.Result{
 				// TLS, but not mTLS
@@ -946,8 +942,7 @@ spec:
 				ClusterMatched: "inbound|70||",
 			},
 			Permissive: simulation.Result{
-				Error: simulation.ErrNoFilterChain,
-				Skip:  "https://github.com/istio/istio/issues/29538#issuecomment-742890598",
+				ClusterMatched: "inbound|70||",
 			},
 			Strict: simulation.Result{
 				ClusterMatched: "inbound|70||",
@@ -977,7 +972,7 @@ spec:
 			Name: "tls to http",
 			Call: simulation.Call{
 				Port:     80,
-				Protocol: simulation.HTTP,
+				Protocol: simulation.TCP,
 				TLS:      simulation.TLS,
 				CallMode: simulation.CallModeInbound,
 			},
@@ -986,9 +981,10 @@ spec:
 				Error: simulation.ErrProtocolError,
 			},
 			Permissive: simulation.Result{
-				// Fails for the wrong reason, should be a protocol error instead
+				// This could also be a protocol error. In the current implementation, we choose not
+				// to create a match since if we did it would just be rejected in HCM; no match
+				// is more performant
 				Error: simulation.ErrNoFilterChain,
-				Skip:  "https://github.com/istio/istio/issues/29538",
 			},
 			Strict: simulation.Result{
 				// TLS, but not mTLS
@@ -1008,9 +1004,10 @@ spec:
 				Error: simulation.ErrProtocolError,
 			},
 			Permissive: simulation.Result{
-				// Fails for the wrong reason, should be a protocol error instead
+				// This could also be a protocol error. In the current implementation, we choose not
+				// to create a match since if we did it would just be rejected in HCM; no match
+				// is more performant
 				Error: simulation.ErrNoFilterChain,
-				Skip:  "https://github.com/istio/istio/issues/29538",
 			},
 			Strict: simulation.Result{
 				// TLS, but not mTLS
