@@ -116,6 +116,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	p := fakeProxy("1.2.3.4", wgA, "nw1")
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
+	p3 := fakeProxy("1.2.3.5", wgA, "nw1")
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
@@ -179,14 +180,14 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	})
 
 	t.Run("garbage collected if pilot and workload stops simultaneously before pilot can do anything", func(t *testing.T) {
-		// simulate p2 has been registered long before
-		c2.RegisterWorkload(p2, time.Now().Add(-2*maxConnAge))
+		// simulate p3 has been registered long before
+		c2.RegisterWorkload(p3, time.Now().Add(-2*maxConnAge))
 
 		// keep silent to simulate the scenario
 
 		// unfortunately, this retry at worst could be twice as long as the sweep interval
 		retry.UntilSuccessOrFail(t, func() error {
-			return checkNoEntry(store, wgA, p2)
+			return checkNoEntry(store, wgA, p3)
 		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
 
