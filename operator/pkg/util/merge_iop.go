@@ -74,7 +74,6 @@ type values struct {
 	Pilot                  *v1alpha12.PilotConfig           `json:"pilot" patchStrategy:"merge"`
 	Telemetry              *telemetryConfig                 `json:"telemetry" patchStrategy:"merge"`
 	SidecarInjectorWebhook *v1alpha12.SidecarInjectorConfig `json:"sidecarInjectorWebhook" patchStrategy:"merge"`
-	ClusterResources       *protobuf.BoolValue              `json:"clusterResources" patchStrategy:"merge"`
 	IstioCni               *v1alpha12.CNIConfig             `json:"istio_cni" patchStrategy:"merge"`
 	MeshConfig             *meshConfig                      `json:"meshConfig" patchStrategy:"merge"`
 	Base                   *v1alpha12.BaseConfig            `json:"base" patchStrategy:"merge"`

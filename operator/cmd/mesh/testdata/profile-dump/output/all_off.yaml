@@ -141,7 +141,6 @@ spec:
     base:
       enableCRDTemplates: false
       validationURL: ""
-    clusterResources: true
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
