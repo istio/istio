@@ -45,7 +45,7 @@ func TestProxyTracing(t *testing.T) {
 				cluster := cluster
 				ctx.NewSubTest(cluster.Name()).Run(func(ctx framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
-						err := tracing.SendTraffic(t, nil, cluster)
+						err := tracing.SendTraffic(ctx, nil, cluster)
 						if err != nil {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 						}
@@ -55,7 +55,7 @@ func TestProxyTracing(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
-						if !tracing.VerifyEchoTraces(t, appNsInst.Name(), cluster.Name(), traces) {
+						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
 							return errors.New("cannot find expected traces")
 						}
 						return nil
