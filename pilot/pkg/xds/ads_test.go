@@ -155,7 +155,7 @@ func testAdscTLS(t *testing.T, creds security.SecretManager) {
 			SecretManager: creds,
 			InitialDiscoveryRequests: []*discovery.DiscoveryRequest{
 				{TypeUrl: v3.ClusterType},
-				{TypeUrl: xds.TypeURLConnections},
+				{TypeUrl: xds.TypeURLConnect},
 				{TypeUrl: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},
 			},
 		})
@@ -165,7 +165,7 @@ func testAdscTLS(t *testing.T, creds security.SecretManager) {
 	defer ldsr.Close()
 }
 
-func TestInternalEvents(t *testing.T) {
+func TestStatusEvents(t *testing.T) {
 	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
@@ -175,18 +175,31 @@ func TestInternalEvents(t *testing.T) {
 				Generator: "event",
 			},
 		},
-		[]string{xds.TypeURLConnections},
+		[]string{xds.TypeURLConnect},
 		[]string{},
 	)
 	defer ads.Close()
 
-	dr, err := ads.WaitVersion(5*time.Second, xds.TypeURLConnections, "")
+	dr, err := ads.WaitVersion(5*time.Second, xds.TypeURLConnect, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if dr.Resources == nil || len(dr.Resources) == 0 {
-		t.Error("No data")
+		t.Error("Expected connections, but not found")
+	}
+
+	// Create a second connection - we should get an event.
+	ads2 := s.Connect(nil, nil, nil)
+	defer ads2.Close()
+
+	dr, err = ads.WaitVersion(5*time.Second, xds.TypeURLConnect,
+		dr.VersionInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dr.Resources == nil || len(dr.Resources) == 0 {
+		t.Error("Expected connections, but not found")
 	}
 }
 

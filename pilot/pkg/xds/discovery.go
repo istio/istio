@@ -115,8 +115,8 @@ type DiscoveryServer struct {
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
 	Authenticators []authenticate.Authenticator
 
-	// InternalGen is notified of connect/disconnect/nack on all connections
-	InternalGen             *InternalGen
+	// StatusGen is notified of connect/disconnect/nack on all connections
+	StatusGen               *StatusGen
 	WorkloadEntryController *workloadentry.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
@@ -471,7 +471,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 // initGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) initGenerators() {
 	edsGen := &EdsGenerator{Server: s}
-	s.InternalGen = NewInternalGen(s)
+	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
@@ -487,9 +487,9 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators["api"] = &apigen.APIGenerator{}
 	s.Generators["api/"+v3.EndpointType] = edsGen
 
-	s.Generators["api/"+TypeURLConnections] = s.InternalGen
+	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
-	s.Generators["event"] = s.InternalGen
+	s.Generators["event"] = s.StatusGen
 }
 
 // shutdown shutsdown DiscoveryServer components.
@@ -507,4 +507,37 @@ func (s *DiscoveryServer) Clients() []*Connection {
 		clients = append(clients, con)
 	}
 	return clients
+}
+
+// SendResponse will immediately send the response to all connections.
+// TODO: additional filters can be added, for example namespace.
+func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
+	pending := []*Connection{}
+	for _, v := range s.Clients() {
+		v.proxy.RLock()
+		if v.proxy.WatchedResources[res.TypeUrl] != nil {
+			pending = append(pending, v)
+		}
+		v.proxy.RUnlock()
+	}
+
+	// only marshal resources if there are connected clients
+	if len(pending) == 0 {
+		return
+	}
+
+	for _, p := range pending {
+		// p.send() waits for an ACK - which is reasonable for normal push,
+		// but in this case we want to sync fast and not bother with stuck connections.
+		// This is expecting a relatively small number of watchers - each other istiod
+		// plus few admin tools or bridges to real message brokers. The normal
+		// push expects 1000s of envoy connections.
+		con := p
+		go func() {
+			err := con.stream.Send(res)
+			if err != nil {
+				adsLog.Info("Failed to send internal event ", con.ConID, " ", err)
+			}
+		}()
+	}
 }
