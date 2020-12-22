@@ -1195,7 +1195,7 @@
         "y": 9
       },
       "hideTimeOverride": false,
-      "id": 73,
+      "id": 72,
       "links": [],
       "pageSize": null,
       "repeat": null,
@@ -1220,7 +1220,7 @@
           "link": false,
           "linkTargetBlank": false,
           "linkTooltip": "Workload dashboard",
-          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-namespace=${__cell_3:raw}&var-workload=${__cell_2:raw}",
+          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-workload=${__cell_2:raw}&var-namespace=${__cell_3:raw}",
           "pattern": "destination_workload",
           "preserveFormat": false,
           "sanitize": false,
@@ -1340,7 +1340,7 @@
           "unit": "short"
         },
         {
-          "alias": "Service",
+          "alias": "Canonical Service",
           "colorMode": null,
           "colors": [
             "rgba(245, 54, 54, 0.9)",
@@ -1351,8 +1351,8 @@
           "decimals": 2,
           "link": true,
           "linkTooltip": "$__cell dashboard",
-          "linkUrl": "/dashboard/db/istio-service-dashboard?var-service=${__cell_1:raw}",
-          "pattern": "destination_service",
+          "linkUrl": "/dashboard/db/istio-canonical-service-dashboard?var-service=${__cell_1:raw}",
+          "pattern": "destination_canonical_service",
           "thresholds": [],
           "type": "string",
           "unit": "short"
@@ -1375,7 +1375,7 @@
       ],
       "targets": [
         {
-          "expr": "label_join(sum(rate(istio_requests_total{reporter=\"source\", response_code=\"200\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(sum(rate(istio_requests_total{reporter=\"source\", response_code=\"200\"}[1m])) by (destination_workload, destination_workload_namespace, destination_canonical_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1422,7 +1422,7 @@
         }
       ],
       "timeFrom": null,
-      "title": "HTTP/GRPC Workloads",
+      "title": "HTTP/GRPC Canonical Services",
       "transform": "table",
       "type": "table"
     },
@@ -1437,7 +1437,7 @@
         "y": 30
       },
       "hideTimeOverride": false,
-      "id": 109,
+      "id": 108,
       "links": [],
       "pageSize": null,
       "repeatDirection": "v",
@@ -1550,7 +1550,7 @@
           "unit": "short"
         },
         {
-          "alias": "Service",
+          "alias": "Canonical Service",
           "colorMode": null,
           "colors": [
             "rgba(245, 54, 54, 0.9)",
@@ -1561,8 +1561,8 @@
           "decimals": 2,
           "link": true,
           "linkTooltip": "$__cell dashboard",
-          "linkUrl": "/dashboard/db/istio-service-dashboard?var-service=${__cell_1:raw}",
-          "pattern": "destination_service",
+          "linkUrl": "/dashboard/db/istio-canonical-service-dashboard?var-service=${__cell_1:raw}",
+          "pattern": "destination_canonical_service",
           "thresholds": [],
           "type": "number",
           "unit": "short"
@@ -1570,7 +1570,7 @@
       ],
       "targets": [
         {
-          "expr": "label_join(sum(rate(istio_tcp_received_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(sum(rate(istio_tcp_received_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_canonical_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1579,7 +1579,7 @@
           "refId": "A"
         },
         {
-          "expr": "label_join(sum(rate(istio_tcp_sent_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(sum(rate(istio_tcp_sent_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_canonical_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1589,7 +1589,7 @@
         }
       ],
       "timeFrom": null,
-      "title": "TCP Workloads",
+      "title": "TCP Canonical Services",
       "transform": "table",
       "type": "table"
     },
