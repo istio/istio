@@ -85,7 +85,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 		},
 	})
 	builder.BuildOrFail(t)
-	sendUpgradeInstanceTrafficOrFail(t, revisionedInstance)
+	sendSimpleTrafficOrFail(t, revisionedInstance)
 
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
 		t.Fatalf("could not relabel namespace to enable default injection: %v", err)
@@ -114,11 +114,11 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 
 		return nil
 	}, retry.Delay(time.Second*2), retry.Timeout(time.Second*30))
-	sendUpgradeInstanceTrafficOrFail(t, revisionedInstance)
+	sendSimpleTrafficOrFail(t, revisionedInstance)
 }
 
-// sendUpgradeInstanceTrafficOrFail sends an echo call to the upgrading echo instance
-func sendUpgradeInstanceTrafficOrFail(t *testing.T, i echo.Instance) {
+// sendSimpleTrafficOrFail sends an echo call to the upgrading echo instance
+func sendSimpleTrafficOrFail(t *testing.T, i echo.Instance) {
 	t.Helper()
 	resp, err := apps.PodA[0].Call(echo.CallOptions{
 		Target:   i,
