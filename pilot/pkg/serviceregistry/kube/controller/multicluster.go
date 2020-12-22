@@ -86,7 +86,7 @@ type Multicluster struct {
 	syncInterval     time.Duration
 
 	//MCS Settings - settings for behavior of controllers relating to MCS
-	mcsSettings MCSSettings
+	mcsSettings *MCSSettings
 }
 
 type MCSSettings struct {
