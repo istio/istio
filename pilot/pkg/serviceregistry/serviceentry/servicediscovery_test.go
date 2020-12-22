@@ -765,6 +765,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
+		InTransitState: true,
 	}
 
 	fi2 := &model.WorkloadInstance{
@@ -776,6 +777,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
+		InTransitState: true,
 	}
 
 	t.Run("service entry", func(t *testing.T) {
