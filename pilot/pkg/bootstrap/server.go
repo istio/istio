@@ -174,7 +174,7 @@ type Server struct {
 	// The SPIFFE based cert verifier
 	peerCertVerifier *spiffe.PeerCertVerifier
 	// RWConfigStore is the configstore which allows updates, particularly for status.
-	RWConfigStore    model.ConfigStoreCache
+	RWConfigStore model.ConfigStoreCache
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
