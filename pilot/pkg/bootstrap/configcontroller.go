@@ -141,6 +141,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
+	s.RWConfigStore = configController
 	s.XDSServer.WorkloadEntryController = workloadentry.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
 	return nil
 }
@@ -249,7 +250,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.XDSServer.StatusReporter = s.statusReporter
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			controller := status.NewController(*s.kubeRestConfig, args.Namespace)
+			controller := status.NewController(*s.kubeRestConfig, args.Namespace, s.RWConfigStore)
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {

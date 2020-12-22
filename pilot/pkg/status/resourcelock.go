@@ -17,91 +17,155 @@ package status
 import (
 	"context"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/pkg/log"
 )
 
-type ResourceMutex struct {
-	masterLock sync.RWMutex
-	cache      map[lockResource]*cacheEntry
+// Task to be performed.
+type Task func(entry *cacheEntry) error
+
+// Worker queue implements an expandable goroutine pool which executes at most one concurrent routine per target
+// resource.  Multiple calls to Push() will not schedule multiple executions per target resource, but will ensure that
+// the single execution uses the latest value.
+type WorkerQueue interface {
+	// Push a task.
+	Push(target lockResource, value *cacheEntry)
+	// Run the loop until a signal on the context
+	Run(ctx context.Context)
+	// Delete a task
+	Delete(target lockResource)
+}
+
+type queueImpl struct {
+	delay   time.Duration
+	tasks   []lockResource
+	cond    *sync.Cond
+	closing bool
+	work    Task
+
+	cacheLock   sync.Mutex
+	cache       map[lockResource]*cacheEntry
+	workerCount int
+	maxWorkers  int
+}
+
+// NewQueue instantiates a queue with a processing function
+func NewQueue(errorDelay time.Duration, work Task, ctx context.Context, maxWorkers int) WorkerQueue {
+	return &queueImpl{
+		delay:       errorDelay,
+		tasks:       make([]lockResource, 0),
+		closing:     false,
+		cond:        sync.NewCond(&sync.Mutex{}),
+		work:        work,
+		workerCount: 0,
+		maxWorkers:  maxWorkers,
+		cache:       make(map[lockResource]*cacheEntry),
+	}
+}
+
+func (q *queueImpl) Push(target lockResource, value *cacheEntry) {
+	q.cacheLock.Lock()
+	defer q.cacheLock.Unlock()
+	_, inqueue := q.cache[target]
+	q.cache[target] = value
+	if !inqueue {
+		q.enqueue(target)
+	}
+	q.maybeAddWorker()
+}
+
+func (q *queueImpl) Delete(target lockResource) {
+	q.cacheLock.Lock()
+	defer q.cacheLock.Unlock()
+	delete(q.cache, target)
+}
+
+func (q *queueImpl) enqueue(item lockResource) {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	if !q.closing {
+		q.tasks = append(q.tasks, item)
+	}
+	q.cond.Signal()
+}
+
+func (q *queueImpl) maybeAddWorker() {
+	q.cond.L.Lock()
+	if q.workerCount >= q.maxWorkers {
+		q.cond.L.Unlock()
+		return
+	}
+	q.workerCount++
+	q.cond.L.Unlock()
+	go func() {
+		for {
+			q.cond.L.Lock()
+			for !q.closing && len(q.tasks) == 0 {
+				if q.workerCount > 1 {
+					q.workerCount--
+					q.cond.L.Unlock()
+					return
+				}
+				q.cond.Wait()
+			}
+
+			if len(q.tasks) == 0 {
+				q.cond.L.Unlock()
+				// We must be shutting down.
+				return
+			}
+
+			var target lockResource
+			target, q.tasks = q.tasks[0], q.tasks[1:]
+			q.cond.L.Unlock()
+
+			var c *cacheEntry
+			q.cacheLock.Lock()
+			c, ok := q.cache[target]
+			if !ok {
+				// this element has been deleted, move along
+				q.cacheLock.Unlock()
+				continue
+			} else {
+				delete(q.cache, target)
+			}
+			q.cacheLock.Unlock()
+
+			if err := q.work(c); err != nil {
+				log.Infof("Work item handle failed (%v), retry after delay %v", err, q.delay)
+				time.AfterFunc(q.delay, func() {
+					q.Push(target, c)
+				})
+			}
+		}
+	}()
+}
+
+func (q *queueImpl) Run(ctx context.Context) {
+	go func() {
+		<-ctx.Done()
+		q.cond.L.Lock()
+		q.cond.Signal()
+		q.closing = true
+		q.cond.L.Unlock()
+	}()
+	q.maybeAddWorker()
 }
 
 type cacheEntry struct {
-	// the runlock ensures only one routine is writing status for a given resource at a time
-	runLock sync.Mutex
-	// the cachelock protects writes and reads to the cache values
-	cacheLock sync.Mutex
 	// the cacheVale represents the latest version of the resource, including ResourceVersion
 	cacheVal *Resource
 	// the cacheProgress represents the latest version of the Progress
 	cacheProgress *Progress
-	countLock     sync.RWMutex
-	// track how many routines are running for this resource.  always <= 2
-	routineCount int32
-	// track if this resource has been deleted, and if so, stop writing updates for it
-	deleted bool
 }
 
-func (ce *cacheEntry) shouldRun() (result bool) {
-	ce.countLock.RLock()
-	count := ce.routineCount
-	ce.countLock.RUnlock()
-	if count < 2 {
-		// increment and return true
-		ce.countLock.Lock()
-		if ce.routineCount < 2 {
-			ce.routineCount++
-			result = true
-		}
-		ce.countLock.Unlock()
-	}
-	return
-}
-
-func (ce *cacheEntry) decrementCount() {
-	ce.countLock.Lock()
-	ce.routineCount--
-	ce.countLock.Unlock()
-}
-
-func (rl *ResourceMutex) Delete(r Resource) {
-	f := rl.retrieveEntry(convert(r))
-	f.cacheLock.Lock()
-	defer f.cacheLock.Unlock()
-	f.deleted = true
-}
-
-// OncePerResource will run the target function at most once per resource, with up to one waiting routine per resource
-// we only want one update per resource running concurrently to prevent overwhelming the API server, but we also
-// don't want to stack up goroutines when the API server is overwhelmed.  This limits us to 2*resourceCount goroutines
-// while ensuring that when a goroutine begins, it gets the latest status values for the resource.
-func (rl *ResourceMutex) OncePerResource(ctx context.Context, r Resource, p Progress, target func(ctx context.Context, config Resource, state Progress)) {
-	lr := convert(r)
-	f := rl.retrieveEntry(lr)
-	// every call updates the cache, so whenever the standby routine fires, it runs with the latest values
-	f.cacheLock.Lock()
-	f.cacheVal = &r
-	f.cacheProgress = &p
-	f.cacheLock.Unlock()
-	if f.shouldRun() {
-		go func() {
-			f.runLock.Lock()
-			f.cacheLock.Lock()
-			if f.deleted {
-				f.decrementCount()
-				delete(rl.cache, lr)
-				f.cacheLock.Unlock()
-				f.runLock.Unlock()
-				return
-			}
-			finalResource := f.cacheVal
-			finalProgress := f.cacheProgress
-			f.cacheLock.Unlock()
-			target(ctx, *finalResource, *finalProgress)
-			f.decrementCount()
-			f.runLock.Unlock()
-		}()
-	}
+type lockResource struct {
+	schema.GroupVersionResource
+	Namespace string
+	Name      string
 }
 
 func convert(i Resource) lockResource {
@@ -110,40 +174,4 @@ func convert(i Resource) lockResource {
 		Namespace:            i.Namespace,
 		Name:                 i.Name,
 	}
-}
-
-// returns value indicating if init was necessary
-func (rl *ResourceMutex) init() bool {
-	if rl.cache == nil {
-		rl.masterLock.Lock()
-		defer rl.masterLock.Unlock()
-		// double check, per pattern
-		if rl.cache == nil {
-			rl.cache = make(map[lockResource]*cacheEntry)
-		}
-		return true
-	}
-	return false
-}
-
-func (rl *ResourceMutex) retrieveEntry(i lockResource) *cacheEntry {
-	if !rl.init() {
-		rl.masterLock.RLock()
-		if result, ok := rl.cache[i]; ok {
-			rl.masterLock.RUnlock()
-			return result
-		}
-		// transition to write lock
-		rl.masterLock.RUnlock()
-	}
-	rl.masterLock.Lock()
-	defer rl.masterLock.Unlock()
-	rl.cache[i] = &cacheEntry{}
-	return rl.cache[i]
-}
-
-type lockResource struct {
-	schema.GroupVersionResource
-	Namespace string
-	Name      string
 }
