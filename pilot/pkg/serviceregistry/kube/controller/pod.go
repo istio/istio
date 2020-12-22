@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/util/sets"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubemetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -41,7 +41,7 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
-	podTransitionTime map[string]metav1.Time
+	podTransitionTime map[string]kubemetav1.Time
 
 	// needResync is map of IP to endpoint names. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
@@ -60,7 +60,7 @@ func newPodCache(c *Controller, informer coreinformers.PodInformer, queueEndpoin
 		IPByPods:           make(map[string]string),
 		needResync:         make(map[string]sets.Set),
 		queueEndpointEvent: queueEndpointEvent,
-		podTransitionTime:  make(map[string]metav1.Time),
+		podTransitionTime:  make(map[string]kubemetav1.Time),
 	}
 
 	return out
