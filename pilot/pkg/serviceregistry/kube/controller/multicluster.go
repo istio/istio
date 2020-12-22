@@ -84,6 +84,14 @@ type Multicluster struct {
 	secretNamespace  string
 	secretController *secretcontroller.Controller
 	syncInterval     time.Duration
+
+	//MCS Settings - settings for behavior of controllers relating to MCS
+	mcsSettings MCSSettings
+}
+
+type MCSSettings struct {
+	EnableServiceExport bool
+	ClusterLocalHosts []string
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -99,6 +107,7 @@ func NewMulticluster(
 	revision string,
 	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
+	mcsSettings *MCSSettings,
 ) *Multicluster {
 	remoteKubeController := make(map[string]*kubeController)
 	if opts.ResyncPeriod == 0 {
@@ -120,6 +129,7 @@ func NewMulticluster(
 		secretNamespace:       secretNamespace,
 		syncInterval:          opts.GetSyncInterval(),
 		client:                kc,
+		mcsSettings: 		   mcsSettings,
 	}
 
 	return mc
@@ -224,6 +234,16 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 			}
 		}
 	}
+
+	//setting up the serviceexport controller if and only if it is turned on in the meshconfig.
+	if m.mcsSettings.EnableServiceExport { //no readon to set up a new watcher if it will never do anything
+		serviceExportController, err := NewServiceExportController(client, m.mcsSettings.ClusterLocalHosts)
+		if err != nil {
+			log.Error("Failed to start the service export controller. Err: %v", err)
+		}
+		serviceExportController.Run(stopCh)
+	}
+
 
 	client.RunAndWait(stopCh)
 	return nil

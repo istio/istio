@@ -82,6 +82,11 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
 	}
 
+	mcsSettings := kubecontroller.MCSSettings{
+		EnableServiceExport: args.RegistryOptions.MCSServiceExportEnabled,
+		ClusterLocalHosts: args.RegistryOptions.ClusterLocalHosts,
+	}
+
 	mc := kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
@@ -91,7 +96,8 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		caBundlePath,
 		args.Revision,
 		s.fetchCARoot,
-		s.environment)
+		s.environment,
+		&mcsSettings)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
 	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {

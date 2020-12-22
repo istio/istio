@@ -1865,3 +1865,13 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	// Fallback to discovery call.
 	return ps.InstancesByPort(svc, port, labels)
 }
+
+func (ps *PushContext) GetClusterLocalHosts(e *Environment) []string {
+	ps.initClusterLocalHosts(e)
+
+	toReturn := make([]string, len(ps.clusterLocalHosts))
+	for i, name := range ps.clusterLocalHosts {
+		toReturn[i] = string(name)
+	}
+	return toReturn
+}
