@@ -199,7 +199,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -254,7 +254,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -309,7 +309,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -542,7 +542,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -577,7 +577,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
@@ -611,7 +611,7 @@ spec:
             filter:
               name: "envoy.http_connection_manager"
               subFilter:
-                name: "envoy.router"
+                name: "envoy.filters.http.router"
       patch:
         operation: INSERT_BEFORE
         value:
