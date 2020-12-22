@@ -47,12 +47,12 @@ func TestResourceLock_Lock(t *testing.T) {
 	var runCount int32
 	workers := NewQueue(10*time.Second, func(_ *cacheEntry) error {
 		atomic.AddInt32(&runCount, 1)
-		time.Sleep(10*time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		return nil
 	}, context.Background(), 10)
 	workers.Push(r1, Progress{})
 	workers.Push(r1, Progress{})
 	workers.Push(r1a, Progress{})
-	time.Sleep(40*time.Millisecond)
+	time.Sleep(40 * time.Millisecond)
 	g.Expect(runCount).To(Equal(int32(1)))
 }
