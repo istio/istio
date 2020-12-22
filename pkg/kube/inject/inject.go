@@ -659,7 +659,8 @@ func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string,
 		ObjectMeta: *metadata,
 		Spec:       *podSpec,
 	}
-	if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+	filteredNamespaces := append(ignoredNamespaces, meshconfig.RootNamespace)
+	if !injectRequired(filteredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 		warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
 		return out, nil
 	}

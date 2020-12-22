@@ -37,10 +37,6 @@ webhooks:
     namespaceSelector:
 {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
       matchExpressions:
-      - key: name
-        operator: NotIn
-        values:
-        - {{ .Release.Namespace }}
       - key: istio-injection
         operator: NotIn
         values:
