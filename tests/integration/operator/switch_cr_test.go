@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,6 +53,7 @@ const (
 	OperatorNamespace = "istio-operator"
 	retryDelay        = time.Second
 	retryTimeOut      = 20 * time.Minute
+	nsDeletionTimeout = 5 * time.Minute
 )
 
 var (
@@ -100,7 +102,6 @@ func TestController(t *testing.T) {
 			}
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
-			installWithCRFile(t, ctx, cs, s, istioCtl, "demo", "")
 			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "")
 
 			initCmd = []string{
@@ -115,60 +116,49 @@ func TestController(t *testing.T) {
 			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "v2")
 
 			verifyInstallation(t, ctx, istioCtl, "default", "v2", cs)
-
-			t.Cleanup(func() {
-				scopes.Framework.Infof("cleaning up resources")
-				if err := cs.DeleteYAMLFiles(IstioNamespace, iopCRFile); err != nil {
-					t.Errorf("failed to delete test IstioOperator CR: %v", err)
-				}
-				if err := cs.AppsV1().Deployments(IstioNamespace).DeleteCollection(context.TODO(),
-					kube2.DeleteOptionsForeground(), kubeApiMeta.ListOptions{LabelSelector: "app=istiod"}); err != nil {
-					t.Errorf("failed to remove istiod deployments: %v", err)
-				}
-			})
-		})
-}
-
-func TestOperatorRemove(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			cs := ctx.Clusters().Default()
-			s, err := image.SettingsFromCommandLine()
-			if err != nil {
-				t.Fatal(err)
-			}
-			initCmd := []string{
-				"operator", "init",
-				"--hub=" + s.Hub,
-				"--tag=" + s.Tag,
-				"--manifests=" + ManifestPath,
-			}
-			istioCtl.InvokeOrFail(t, initCmd)
-
+			// test operator remove command
+			scopes.Framework.Infof("checking operator remove command")
+			cleanupInClusterCRs(t, cs)
 			removeCmd := []string{
 				"operator", "remove",
 			}
-			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, removeCmd)
-			retry.UntilSuccessOrFail(t, func() error {
-				if svc, _ := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator", kubeApiMeta.GetOptions{}); svc.Name != "" {
-					return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
-				}
 
-				if dp, _ := cs.AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), "istio-operator", kubeApiMeta.GetOptions{}); dp.Name != "" {
-					return fmt.Errorf("got operator deploymentL %s from cluster, expected to be removed", dp.Name)
+			retry.UntilSuccessOrFail(t, func() error {
+				for _, n := range []string{"istio-operator", "istio-operator-v2"} {
+					if svc, _ := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); svc.Name != "" {
+						return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
+					}
+					if dp, _ := cs.AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); dp.Name != "" {
+						return fmt.Errorf("got operator deployment %s from cluster, expected to be removed", dp.Name)
+					}
 				}
 				return nil
 			}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 
-			// cleanup created resources
 			t.Cleanup(func() {
 				scopes.Framework.Infof("cleaning up resources")
+				unInstallCmd := []string{
+					"x", "uninstall", "--purge", "--skip-confirmation",
+				}
+				out, _ := istioCtl.InvokeOrFail(t, unInstallCmd)
+				t.Logf("uninstall command output: %s", out)
+				// clean up operator namespace
 				if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
 					kube2.DeleteOptionsForeground()); err != nil {
 					t.Errorf("failed to delete operator namespace: %v", err)
+				}
+				if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
+					t.Errorf("wating for operator namespace to be deleted: %v", err)
+				}
+				// clean up dynamically created secret and configmaps
+				if e := cs.CoreV1().Secrets(IstioNamespace).DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
+				}
+				if e := cs.CoreV1().ConfigMaps(IstioNamespace).DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
 				}
 			})
 		})
@@ -233,15 +223,25 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 }
 
 func cleanupInClusterCRs(t *testing.T, cs resource.Cluster) {
-	// clean up hanging installed-state CR from previous tests
+	// clean up hanging installed-state CR from previous tests, failing for errors is not needed here.
+	scopes.Framework.Info("cleaning up in-cluster CRs")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
 		Version:  "v1alpha1",
 		Resource: "istiooperators",
 	}
-	if err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Delete(context.TODO(),
-		"installed-state", kubeApiMeta.DeleteOptions{}); err != nil {
-		t.Logf(err.Error())
+	crList, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).List(context.TODO(),
+		kubeApiMeta.ListOptions{})
+	if err == nil {
+		for _, obj := range crList.Items {
+			t.Logf("deleting CR %v", obj.GetName())
+			if err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Delete(context.TODO(), obj.GetName(),
+				kubeApiMeta.DeleteOptions{}); err != nil {
+				t.Logf("failed to delete existing CR: %v", err)
+			}
+		}
+	} else {
+		t.Logf("failed to list existing CR: %v", err.Error())
 	}
 }
 
@@ -260,7 +260,8 @@ spec:
 		metadataYAML += "  revision: " + revision + "\n"
 	}
 
-	metadataYAML += `  profile: %s
+	metadataYAML += `
+  profile: %s
   installPackagePath: %s
   hub: %s
   tag: %s
