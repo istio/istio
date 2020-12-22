@@ -514,11 +514,9 @@ func (s *DiscoveryServer) Clients() []*Connection {
 func (s *DiscoveryServer) SendResponse(res *discovery.DiscoveryResponse) {
 	pending := []*Connection{}
 	for _, v := range s.Clients() {
-		v.proxy.RLock()
-		if v.proxy.WatchedResources[res.TypeUrl] != nil {
+		if v.Watching(res.TypeUrl) {
 			pending = append(pending, v)
 		}
-		v.proxy.RUnlock()
 	}
 
 	// only marshal resources if there are connected clients
