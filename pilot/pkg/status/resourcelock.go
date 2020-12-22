@@ -32,7 +32,7 @@ type Task func(entry *cacheEntry) error
 // the single execution uses the latest value.
 type WorkerQueue interface {
 	// Push a task.
-	Push(target lockResource, value *cacheEntry)
+	Push(target Resource, progress Progress)
 	// Run the loop until a signal on the context
 	Run(ctx context.Context)
 	// Delete a task
@@ -66,13 +66,17 @@ func NewQueue(errorDelay time.Duration, work Task, ctx context.Context, maxWorke
 	}
 }
 
-func (q *queueImpl) Push(target lockResource, value *cacheEntry) {
+func (q *queueImpl) Push(target Resource, progress Progress) {
 	q.cacheLock.Lock()
 	defer q.cacheLock.Unlock()
-	_, inqueue := q.cache[target]
-	q.cache[target] = value
+	key := convert(target)
+	_, inqueue := q.cache[key]
+	q.cache[key] = &cacheEntry{
+		cacheVal:      &target,
+		cacheProgress: &progress,
+	}
 	if !inqueue {
-		q.enqueue(target)
+		q.enqueue(key)
 	}
 	q.maybeAddWorker()
 }
@@ -137,7 +141,7 @@ func (q *queueImpl) maybeAddWorker() {
 			if err := q.work(c); err != nil {
 				log.Infof("Work item handle failed (%v), retry after delay %v", err, q.delay)
 				time.AfterFunc(q.delay, func() {
-					q.Push(target, c)
+					q.Push(*c.cacheVal, *c.cacheProgress)
 				})
 			}
 		}

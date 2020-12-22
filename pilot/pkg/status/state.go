@@ -219,10 +219,7 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 }
 
 func (c *DistributionController) queueWriteStatus(ctx context.Context, config Resource, state Progress) {
-	c.workers.Push(convert(config), &cacheEntry{
-		cacheProgress: &state,
-		cacheVal:      &config,
-	})
+	c.workers.Push(config, state)
 }
 
 func (c *DistributionController) configDeleted(res config.Config) {
