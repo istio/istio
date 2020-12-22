@@ -16,8 +16,7 @@ package status
 
 import (
 	"context"
-	"fmt"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,45 +44,15 @@ func TestResourceLock_Lock(t *testing.T) {
 		Name:            "r1",
 		ResourceVersion: "r1.2",
 	}
-	rlock := ResourceMutex{}
-	m := sync.Mutex{}
-	callAssertions := map[string]bool{}
-	callActual := map[string]bool{}
-	printer := func(nth string, expect bool) func(_ context.Context, config Resource, _ Progress) {
-		if expect {
-			callAssertions[nth] = expect
-		}
-		return func(_ context.Context, config Resource, _ Progress) {
-			if !expect {
-				t.Errorf("did not expect %s call to occur", nth)
-			}
-			m.Lock()
-			callActual[nth] = true
-			m.Unlock()
-			fmt.Printf("starting %s %s\n", nth, config.ResourceVersion)
-			time.Sleep(1 * time.Second)
-			fmt.Printf("finishing %s %s\n", nth, config.ResourceVersion)
-		}
-	}
-	rlock.OncePerResource(context.TODO(), r1, Progress{}, printer("first", true))
-	time.Sleep(10 * time.Millisecond)
-	rlock.OncePerResource(context.TODO(), r1a, Progress{}, printer("second", true))
-	time.Sleep(10 * time.Millisecond)
-	r1.ResourceVersion = "r1.3"
-	for i := 0; i < 1000; i++ {
-		rlock.OncePerResource(context.TODO(), r1, Progress{}, printer("third", false))
-	}
-	time.Sleep(5 * time.Second)
-	rlock.OncePerResource(context.TODO(), r1, Progress{}, printer("fourth", true))
-	time.Sleep(1100 * time.Millisecond)
-
-	rlock.OncePerResource(context.TODO(), r1, Progress{}, printer("fifth", true))
-	time.Sleep(10 * time.Millisecond)
-	rlock.OncePerResource(context.TODO(), r1a, Progress{}, printer("sixth", false))
-	rlock.OncePerResource(context.TODO(), r1a, Progress{}, printer("seventh", false))
-	rlock.Delete(r1a)
-	time.Sleep(2200 * time.Millisecond)
-	m.Lock()
-	g.Expect(callAssertions).To(Equal(callActual))
-	m.Unlock()
+	var runCount int32
+	workers := NewQueue(10*time.Second, func(_ *cacheEntry) error {
+		atomic.AddInt32(&runCount, 1)
+		time.Sleep(10*time.Millisecond)
+		return nil
+	}, context.Background(), 10)
+	workers.Push(r1, Progress{})
+	workers.Push(r1, Progress{})
+	workers.Push(r1a, Progress{})
+	time.Sleep(40*time.Millisecond)
+	g.Expect(runCount).To(Equal(int32(1)))
 }
