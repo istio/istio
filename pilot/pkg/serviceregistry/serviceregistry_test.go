@@ -986,6 +986,15 @@ func jsonBytes(t *testing.T, v interface{}) []byte {
 	return data
 }
 
+func setPodReady(pod *v1.Pod) {
+	pod.Status.Conditions = []v1.PodCondition{
+		v1.PodCondition{
+			Type:   v1.PodReady,
+			Status: v1.ConditionTrue,
+		},
+	}
+}
+
 func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	t.Helper()
 	newPod, err := c.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
@@ -999,6 +1008,9 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	// events - since PodIP will be "".
 	newPod.Status.PodIP = pod.Status.PodIP
 	newPod.Status.Phase = v1.PodRunning
+
+	// Also need to sets the pod to be ready as now we only add pod into service entry endpoint when it's ready
+	setPodReady(newPod)
 	_, err = c.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatal(err)
