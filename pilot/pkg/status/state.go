@@ -110,7 +110,7 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	c.workers = NewQueue(10*time.Second, func(entry *cacheEntry) error {
 		c.writeStatus(*entry.cacheVal, *entry.cacheProgress)
 		return nil
-	}, ctx, features.StatusMaxWorkers.Get())
+	}, features.StatusMaxWorkers.Get())
 	c.workers.Run(ctx)
 
 	//  create Status Writer

@@ -53,7 +53,7 @@ type queueImpl struct {
 }
 
 // NewQueue instantiates a queue with a processing function
-func NewQueue(errorDelay time.Duration, work Task, ctx context.Context, maxWorkers int) WorkerQueue {
+func NewQueue(errorDelay time.Duration, work Task, maxWorkers int) WorkerQueue {
 	return &queueImpl{
 		delay:       errorDelay,
 		tasks:       make([]lockResource, 0),
