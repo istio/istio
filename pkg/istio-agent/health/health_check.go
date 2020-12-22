@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/log"
 )
 
 type WorkloadHealthChecker struct {
@@ -75,10 +75,7 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober) *WorkloadHealthChecker {
 	// if a config does not exist return a no-op prober
 	if cfg == nil {
-		return &WorkloadHealthChecker{
-			config: applicationHealthCheckConfig{},
-			prober: nil,
-		}
+		return nil
 	}
 	cfg = fillInDefaults(cfg)
 	var prober Prober
@@ -121,17 +118,13 @@ func orDefault(val int32, def int32) int32 {
 // Instead of a heartbeat-based health checks, we only send on a health state change, and this is
 // determined by the success & failure threshold provided by the user.
 func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*ProbeEvent), quit chan struct{}) {
-	// no-op
-	if w.prober == nil {
+	if w == nil {
 		return
 	}
-	healthCheckLog.SetOutputLevel(log.DebugLevel)
-	healthCheckLog.Infof("starting health check for %T in %v", w.prober, w.config.InitialDelay)
 
+	healthCheckLog.Infof("starting health check for %T in %v", w.prober, w.config.InitialDelay)
 	// delay before starting probes.
 	time.Sleep(w.config.InitialDelay)
-
-	healthCheckLog.Debugf("health check initial delay complete")
 
 	// tracks number of success & failures after last success/failure
 	numSuccess, numFail := 0, 0
@@ -152,7 +145,6 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 			if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 				healthCheckLog.Info("success threshold hit, marking as healthy")
 				callback(&ProbeEvent{Healthy: true})
-				numSuccess = 0
 				lastStateHealthy = true
 			}
 		} else {
@@ -169,7 +161,6 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 					UnhealthyStatus:  500,
 					UnhealthyMessage: err.Error(),
 				})
-				numFail = 0
 				lastStateHealthy = false
 			}
 		}

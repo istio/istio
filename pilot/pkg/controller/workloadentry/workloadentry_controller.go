@@ -32,6 +32,8 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	istiolog "istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
@@ -39,7 +41,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/queue"
-	istiolog "istio.io/pkg/log"
 )
 
 const (
@@ -61,6 +62,9 @@ const (
 	//
 	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
 	maxRetries = 15
+
+	// base retry interval
+	waitTime = 5 * time.Millisecond
 
 	workerNum = 5
 )
@@ -333,21 +337,31 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 		return
 	}
 
-	// get previous status
-	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
-	if cfg == nil {
-		log.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
+	condition := transformHealthEvent(event)
+	// backoff retry
+	// TODO(@hzxuzhonghu): handle race when reconnect happens and health status changed
+	for i := 0; i < maxRetries; i++ {
+		if i > 0 {
+			time.Sleep(waitTime << (i - 1))
+		}
+		// get previous status
+		cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+		if cfg == nil {
+			log.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
+			continue
+		}
+
+		// replace the updated status
+		wle := status.UpdateConfigCondition(*cfg, condition)
+		// update the status
+		_, err := c.store.UpdateStatus(wle)
+		if err != nil {
+			log.Errorf("error while updating WorkloadEntry status: %v for %v", err, proxy.ID)
+			continue
+		}
+		log.Debugf("updated health status of %v to %v", proxy.ID, event.Healthy)
 		return
 	}
-
-	// replace the updated status
-	wle := status.UpdateConfigCondition(*cfg, transformHealthEvent(event))
-	// update the status
-	_, err := c.store.UpdateStatus(wle)
-	if err != nil {
-		log.Errorf("error while updating WorkloadEntry status: %v for %v", err, proxy.ID)
-	}
-	log.Debugf("updated health status of %v to %v", proxy.ID, event.Healthy)
 }
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
