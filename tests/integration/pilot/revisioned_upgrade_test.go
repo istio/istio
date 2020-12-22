@@ -62,7 +62,7 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	})
 
 	// install control plane on the specified version and create namespace pointed to that control plane
-	installRevisionOrFail(ctx, t, fromVersion, configs)
+	installRevisionOrFail(ctx, fromVersion, configs)
 	revision := strings.ReplaceAll(fromVersion, ".", "-")
 	revisionedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix:   revision,
