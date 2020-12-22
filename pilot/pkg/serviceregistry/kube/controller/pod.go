@@ -119,6 +119,9 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			return fmt.Errorf("tombstone contained object that is not a pod %#v", curr)
 		}
 	}
+
+	// This variable is used to determine whether we need to trigger an eds update for its dependencies
+	// for example, when a running pod becomes unready, we should trigger an eds update to remove it from sidecar
 	inTransitState := false
 	ip := pod.Status.PodIP
 
