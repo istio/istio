@@ -42,12 +42,9 @@ import (
 )
 
 const (
-	OriginalSrcFilterName = "envoy.listener.original_src"
+	OriginalSrcFilterName = "envoy.filters.listener.original_src"
 	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
 	AlpnFilterName = "istio.alpn"
-
-	// DNSListenerFilterName is the name of UDP listener filter for resolving DNS queries
-	DNSListenerFilterName = "envoy.filters.udp.dns_filter"
 
 	TLSTransportProtocol       = "tls"
 	RawBufferTransportProtocol = "raw_buffer"

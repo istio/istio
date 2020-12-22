@@ -492,7 +492,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
-		// save packet mark set by envoy.listener.original_src as connection mark
+		// save packet mark set by envoy.filters.listener.original_src as connection mark
 		iptConfigurator.iptables.AppendRuleV4(constants.PREROUTING, constants.MANGLE,
 			"-p", constants.TCP, "-m", "mark", "--mark", iptConfigurator.cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
 		// mark outgoing packets from workload, match it to policy routing entry setup for TPROXY mode
