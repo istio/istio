@@ -16,11 +16,11 @@ package status
 
 import (
 	"encoding/json"
-	"istio.io/istio/pkg/config"
 	"reflect"
 	"testing"
 
 	"istio.io/api/meta/v1alpha1"
+	"istio.io/istio/pkg/config"
 )
 
 var statusStillPropagating = v1alpha1.IstioStatus{
