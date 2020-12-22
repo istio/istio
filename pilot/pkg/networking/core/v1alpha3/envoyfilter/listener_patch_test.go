@@ -1423,7 +1423,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 								AlwaysSetRequestIdInResponse: true,
 								HttpFilters: []*http_conn.HttpFilter{
 									{Name: "http-filter3"},
-									{Name: "envoy.filters.http.router"}, // Use deprecated name for test.
+									{Name: "envoy.router"}, // Use deprecated name for test.
 									{Name: "http-filter2"},
 								},
 							}),
