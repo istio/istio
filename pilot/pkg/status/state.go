@@ -15,7 +15,6 @@
 package status
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -123,7 +122,7 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 			case <-ctx.Done():
 				return
 			case <-t:
-				staleReporters := c.writeAllStatus(ctx)
+				staleReporters := c.writeAllStatus()
 				if len(staleReporters) > 0 {
 					c.removeStaleReporters(staleReporters)
 				}
@@ -145,7 +144,7 @@ func (c *DistributionController) handleReport(d DistributionReport) {
 	c.ObservationTime[d.Reporter] = c.clock.Now()
 }
 
-func (c *DistributionController) writeAllStatus(ctx context.Context) (staleReporters []string) {
+func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 	defer c.mu.RUnlock()
 	c.mu.RLock()
 	for config, fractions := range c.CurrentState {
@@ -161,7 +160,7 @@ func (c *DistributionController) writeAllStatus(ctx context.Context) (staleRepor
 			}
 		}
 		if distributionState.TotalInstances > 0 { // this is necessary when all reports are stale.
-			c.queueWriteStatus(ctx, config, distributionState)
+			c.queueWriteStatus(config, distributionState)
 		}
 	}
 	return
@@ -218,7 +217,7 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 	}
 }
 
-func (c *DistributionController) queueWriteStatus(ctx context.Context, config Resource, state Progress) {
+func (c *DistributionController) queueWriteStatus(config Resource, state Progress) {
 	c.workers.Push(config, state)
 }
 
