@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"io"
+	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
@@ -27,15 +28,21 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels2 "k8s.io/apimachinery/pkg/labels"
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/duration"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 )
 
 type revisionArgs struct {
@@ -49,6 +56,12 @@ var (
 		Group:    iopv1alpha1.SchemeGroupVersion.Group,
 		Version:  iopv1alpha1.SchemeGroupVersion.Version,
 		Resource: "istiooperators",
+	}
+
+	kubeConfigFlags = &genericclioptions.ConfigFlags{
+		Context: pointer.StringPtr(""),
+		Namespace: pointer.StringPtr(""),
+		KubeConfig: pointer.StringPtr(""),
 	}
 )
 
@@ -66,10 +79,23 @@ func revisionCommand() *cobra.Command {
 func revisionDescribeCommand() *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use: "describe",
+		Example: `    istioctl experimental revision describe canary`,
 		Short: "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.OutOrStderr().Write([]byte("called revision describe\n"))
+		Args: func (cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return fmt.Errorf("revision is not specified")
+			}
+			if len(args) > 1 {
+				return fmt.Errorf("exactly 1 revision should be specified")
+			}
 			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			revisionName := args[0]
+			if errs := validation.IsDNS1123Label(revisionName); len(errs) > 0 {
+				return fmt.Errorf(strings.Join(errs, "\n"))
+			}
+			return revisionDescription(cmd.OutOrStdout(), revisionName, kubeConfigFlags)
 		},
 	}
 	describeCmd.Flags().Bool("all", true, "show all related to a revision")
@@ -77,15 +103,11 @@ func revisionDescribeCommand() *cobra.Command {
 }
 
 func revisionListCommand() *cobra.Command {
-	kubeConfigFlags := &genericclioptions.ConfigFlags{
-		Context: pointer.StringPtr(""),
-		Namespace: pointer.StringPtr(""),
-		KubeConfig: pointer.StringPtr(""),
-	}
 	revArgs := revisionArgs{}
 	listCmd := &cobra.Command{
 		Use: "list",
 		Short: "Show list of control plane and gateway revisions that are currently installed in cluster",
+		Example: `   istioctl experimental revision list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
 			return revisionList(cmd.OutOrStdout(), &revArgs, kubeConfigFlags, logger)
@@ -106,6 +128,90 @@ func revisionList(writer io.Writer, revArgs *revisionArgs, restClientGetter gene
 		return err
 	}
 	return printIOPs(writer, iops, revArgs.verbose, revArgs.manifestsPath, logger)
+}
+
+// TODO: Refactor this to a function and wrap output in a struct so that we can
+// TODO: easily support printing in different formats and make it more testable
+func revisionDescription(w io.Writer, revision string, restClientGetter *genericclioptions.ConfigFlags) error {
+	restConfig, err := restClientGetter.ToRESTConfig()
+	if err != nil {
+		return err
+	}
+	iops, err := getIOPs(restConfig)
+	if err != nil {
+		return err
+	}
+	// It is not an efficient way. But for now, we live with this
+	// This can be refined by selecting by label, annotation etc.
+	filteredIOPs := []*iopv1alpha1.IstioOperator{}
+	for _, iop := range iops {
+		if iop.Spec == nil {
+			continue
+		}
+		if iop.Spec.Revision == revision || (revision == "default" && len(iop.Spec.Revision) == 0) {
+			filteredIOPs = append(filteredIOPs, iop)
+		}
+	}
+	if len(filteredIOPs) == 0 {
+		fmt.Fprintf(w, "No IstioOperator with revision: %s in %s\n", revision, istioNamespace)
+		return nil
+	}
+	// First we print all IOP for a given revision. This handles the
+	// case where gateways and istiod are installed separately.
+	fmt.Fprintf(w, "Revision: %s\n", revision)
+	for _, iop := range filteredIOPs {
+		fmt.Fprintf(w, "    %s/%s\n", iop.Namespace, iop.Name)
+	}
+	fmt.Fprintln(w)
+
+	// Next, show Istiod and gateways that are installed under this revision
+	istiodPods, err := getControlPlanePods(restConfig, revision)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "Control plane", &istiodPods); err != nil {
+		return err
+	}
+
+	// Next, list ingress gateways
+	ingressPods, err := getIngressGateways(restConfig, revision)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "Ingress Gateways", &ingressPods); err != nil {
+		return err
+	}
+
+	// Next, list egress gateways
+	egressPods, err := getEgressGateways(restConfig, revision)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "Egress Gateways", &egressPods); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func printPodTable(w io.Writer, header string, pods *[]v1.Pod) error {
+	if len(*pods) == 1 {
+		fmt.Fprintf(w, "%s: (1 pod)\n", header)
+	} else {
+		fmt.Fprintf(w, "%s: (%d pods)\n", header, len(*pods))
+	}
+	podTableW := new(tabwriter.Writer).Init(w, 0, 0, 1, ' ', 0)
+	fmt.Fprintln(podTableW, "NAMESPACE\tNAME\tIP\tSTATUS\tAGE")
+	for _, pod := range *pods {
+		fmt.Fprintf(podTableW, "%s\t%s\t%s\t%s\t%s\n",
+			pod.Namespace, pod.Name, pod.Status.PodIP,
+			pod.Status.Phase, translateTimestampSince(pod.CreationTimestamp))
+	}
+	if err := podTableW.Flush(); err != nil {
+		return nil
+	}
+	fmt.Fprintln(w)
+	return nil
 }
 
 // TODO(su225): Refactor - This function coule be ugly because of verbose/non-verbose paths
@@ -147,7 +253,7 @@ func printIOPs(writer io.Writer, iops []*iopv1alpha1.IstioOperator, verbose bool
 			for j := 0; j < numRows; j++ {
 				var outRevision string
 				if i == 0 && j == 0 {
-					outRevision = renderWithDefault(revision, "<default>")
+					outRevision = renderWithDefault(revision, "default")
 				}
 				var outIopName, outProfile string
 				if j == 0 {
@@ -226,6 +332,45 @@ func getIOPs(restConfig *rest.Config) ([]*iopv1alpha1.IstioOperator, error) {
 		iops = append(iops, iop)
 	}
 	return iops, nil
+}
+
+func getControlPlanePods(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
+	return getPodsForComponent(restConfig, "Pilot", revision)
+}
+
+func getIngressGateways(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
+	return getPodsForComponent(restConfig, "IngressGateways", revision)
+}
+
+func getEgressGateways(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
+	return getPodsForComponent(restConfig, "EgressGateways", revision)
+}
+
+func getPodsForComponent(restConfig *rest.Config, component, revision string) ([]v1.Pod, error) {
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return []v1.Pod{}, err
+	}
+	labelMap, err := meta_v1.LabelSelectorAsMap(&meta_v1.LabelSelector{
+		MatchLabels: map[string]string{
+			label.IstioRev: revision,
+			label.IstioOperatorComponent: component,
+		},
+	})
+	if err != nil {
+		return []v1.Pod{}, err
+	}
+	podList, err := client.CoreV1().Pods(istioNamespace).List(context.TODO(),
+		meta_v1.ListOptions{ LabelSelector: labels2.SelectorFromSet(labelMap).String() })
+	if err != nil {
+		return []v1.Pod{}, err
+	}
+
+	pods := []v1.Pod{}
+	for _, pod := range podList.Items {
+		pods = append(pods, pod)
+	}
+	return pods, err
 }
 
 func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile string, l clog.Logger) ([]string, error) {
@@ -316,6 +461,14 @@ func pathComponent(component string) string {
 		return component
 	}
 	return strings.ReplaceAll(component, util.PathSeparator, util.EscapedPathSeparator)
+}
+
+// Human-readable age.  (This is from kubectl pkg/describe/describe.go)
+func translateTimestampSince(timestamp meta_v1.Time) string {
+	if timestamp.IsZero() {
+		return "<unknown>"
+	}
+	return duration.HumanDuration(time.Since(timestamp.Time))
 }
 
 func max(x, y int) int {
