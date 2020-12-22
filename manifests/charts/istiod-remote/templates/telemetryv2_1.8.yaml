@@ -651,7 +651,6 @@ spec:
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
 ---
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:

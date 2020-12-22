@@ -524,7 +524,7 @@ spec:
                   code:
                     local:
                       filename: /etc/istio/extensions/stats-filter.compiled.wasm
-                  {{ - else }}
+                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -651,7 +651,6 @@ spec:
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
 ---
-
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
