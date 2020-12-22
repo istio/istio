@@ -69,7 +69,6 @@ type DistributionController struct {
 }
 
 func NewController(restConfig rest.Config, namespace string, cs model.ConfigStore) *DistributionController {
-	features.FooBar.Get()
 	c := &DistributionController{
 		CurrentState:    make(map[Resource]map[string]Progress),
 		ObservationTime: make(map[string]time.Time),
