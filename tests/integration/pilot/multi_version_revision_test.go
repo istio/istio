@@ -130,18 +130,18 @@ func testAllEchoCalls(ctx framework.TestContext, echoInstances []echo.Instance) 
 			}
 			for _, trafficType := range trafficTypes {
 				ctx.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, source.Config().Service, dest.Config().Service)).
-					Run(func (ctx framework.TestContext){
-					retry.UntilSuccessOrFail(ctx, func() error {
-						resp, err := source.Call(echo.CallOptions{
-							Target:   dest,
-							PortName: trafficType,
-						})
-						if err != nil {
-							return err
-						}
-						return resp.CheckOK()
-					}, retry.Delay(time.Millisecond*150))
-				})
+					Run(func(ctx framework.TestContext) {
+						retry.UntilSuccessOrFail(ctx, func() error {
+							resp, err := source.Call(echo.CallOptions{
+								Target:   dest,
+								PortName: trafficType,
+							})
+							if err != nil {
+								return err
+							}
+							return resp.CheckOK()
+						}, retry.Delay(time.Millisecond*150))
+					})
 			}
 		}
 	}
