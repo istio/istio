@@ -80,6 +80,7 @@ type Multicluster struct {
 	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
 	networksWatcher       mesh.NetworksWatcher
+	clusterLocal          model.ClusterLocalProvider
 
 	// fetchCaRoot maps the certificate name to the certificate
 	fetchCaRoot  func() map[string]string
@@ -105,6 +106,7 @@ func NewMulticluster(
 	revision string,
 	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
+	clusterLocal model.ClusterLocalProvider,
 	s server.Instance,
 ) *Multicluster {
 	remoteKubeController := make(map[string]*kubeController)
@@ -124,6 +126,7 @@ func NewMulticluster(
 		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
 		networksWatcher:       networksWatcher,
+		clusterLocal:          clusterLocal,
 		secretNamespace:       secretNamespace,
 		syncInterval:          opts.GetSyncInterval(),
 		client:                kc,
@@ -227,7 +230,8 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	if m.fetchCaRoot != nil && m.fetchCaRoot() != nil && (features.ExternalIstiod || localCluster) {
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
-			log.Infof("joining leader-election for %s in %s", leaderelection.NamespaceController, options.SystemNamespace)
+			log.Infof("joining leader-election for %s in %s on cluster %s",
+				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 			leaderelection.
 				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
@@ -269,6 +273,35 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 				go validationWebhookController.Start(clusterStopCh)
 			}
 		}
+	}
+
+	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
+	// TODO(nmittler): Need a better solution. Leader election doesn't take into account locality.
+	if features.EnableMCSServiceExport {
+		log.Infof("joining leader-election for %s in %s on cluster %s",
+			leaderelection.ServiceExportController, options.SystemNamespace, options.ClusterID)
+		// Block server exit on graceful termination of the leader controller.
+		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, client.Kube()).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("starting service export controller for cluster %s", clusterID)
+					serviceExportController := NewServiceExportController(ServiceExportOptions{
+						Client:       client,
+						ClusterID:    m.opts.ClusterID,
+						DomainSuffix: m.opts.DomainSuffix,
+						ClusterLocal: m.clusterLocal,
+					})
+					// Start informers again. This fixes the case where informers do not start,
+					// as we create them only after acquiring the leader lock
+					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+					// basically lazy loading the informer, if we stop it when we lose the lock we will never
+					// recreate it again.
+					client.RunAndWait(clusterStopCh)
+					serviceExportController.Run(leaderStop)
+				}).Run(clusterStopCh)
+			return nil
+		})
 	}
 
 	client.RunAndWait(clusterStopCh)
