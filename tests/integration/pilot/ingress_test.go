@@ -263,13 +263,13 @@ spec:
 				})
 			}
 
-			t.Run("status", func(t *testing.T) {
+			ctx.NewSubTest("status").Run(func (ctx framework.TestContext) {
 				if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 					t.Skip("ingress status not supported without load balancer")
 				}
 
 				ip := apps.Ingress.HTTPAddress().IP.String()
-				retry.UntilSuccessOrFail(t, func() error {
+				retry.UntilSuccessOrFail(ctx, func() error {
 					ing, err := ctx.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
