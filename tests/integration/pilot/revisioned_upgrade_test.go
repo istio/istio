@@ -56,7 +56,6 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	ctx.WhenDone(func() error {
 		var errs *multierror.Error
 		for _, config := range configs {
-			ctx.Config().DeleteYAML("istio-system", config)
 			multierror.Append(errs, ctx.Config().DeleteYAML("istio-system", config))
 		}
 		return errs.ErrorOrNil()
