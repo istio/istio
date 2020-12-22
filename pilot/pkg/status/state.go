@@ -23,7 +23,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,7 +35,9 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
 )
 
@@ -54,19 +55,21 @@ func (p *Progress) PlusEquals(p2 Progress) {
 }
 
 type DistributionController struct {
-	mu               sync.RWMutex
-	CurrentState     map[Resource]map[string]Progress
-	ObservationTime  map[string]time.Time
-	UpdateInterval   time.Duration
-	dynamicClient    dynamic.Interface
-	clock            clock.Clock
-	knownResources   map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
-	currentlyWriting ResourceMutex
-	StaleInterval    time.Duration
-	cmInformer       cache.SharedIndexInformer
+	configStore     model.ConfigStore
+	mu              sync.RWMutex
+	CurrentState    map[Resource]map[string]Progress
+	ObservationTime map[string]time.Time
+	UpdateInterval  time.Duration
+	dynamicClient   dynamic.Interface
+	clock           clock.Clock
+	knownResources  map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
+	workers         WorkerQueue
+	StaleInterval   time.Duration
+	cmInformer      cache.SharedIndexInformer
 }
 
-func NewController(restConfig rest.Config, namespace string) *DistributionController {
+func NewController(restConfig rest.Config, namespace string, cs model.ConfigStore) *DistributionController {
+	features.FooBar.Get()
 	c := &DistributionController{
 		CurrentState:    make(map[Resource]map[string]Progress),
 		ObservationTime: make(map[string]time.Time),
@@ -74,6 +77,7 @@ func NewController(restConfig rest.Config, namespace string) *DistributionContro
 		UpdateInterval:  200 * time.Millisecond,
 		StaleInterval:   time.Minute,
 		clock:           clock.RealClock{},
+		configStore:     cs,
 	}
 
 	// client-go defaults to 5 QPS, with 10 Boost, which is insufficient for updating status on all the config
@@ -104,6 +108,12 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	// this will list all existing configmaps, as well as updates, right?
 	ctx := NewIstioContext(stop)
 	go c.cmInformer.Run(ctx.Done())
+
+	c.workers = NewQueue(10*time.Second, func(entry *cacheEntry) error {
+		c.writeStatus(*entry.cacheVal, *entry.cacheProgress)
+		return nil
+	}, ctx, features.StatusMaxWorkers.Get())
+	c.workers.Run(ctx)
 
 	//  create Status Writer
 	t := c.clock.Tick(c.UpdateInterval)
@@ -163,39 +173,28 @@ func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource
 		return result
 	}
 	result = c.dynamicClient.Resource(gvr)
+	c.mu.Lock()
 	c.knownResources[gvr] = result
+	c.mu.Unlock()
 	return
 }
 
-func (c *DistributionController) writeStatus(ctx context.Context, config Resource, distributionState Progress) {
-	// Note: I'd like to use Pilot's ConfigStore here to avoid duplicate reads and writes, but
-	// the update() function is not implemented, and the Get() function returns the resource
-	// in a different format than is needed for k8s.updateStatus.
-	resourceInterface := c.initK8sResource(config.GroupVersionResource).
-		Namespace(config.Namespace)
-	// should this be moved to some sort of InformerCache for speed?
-	current, err := resourceInterface.Get(ctx, config.Name, metav1.GetOptions{ResourceVersion: config.ResourceVersion})
-	if err != nil {
-		if errors.IsGone(err) || errors.IsNotFound(err) {
-			// this resource has been deleted.  prune its state and move on.
-			c.pruneOldVersion(config)
-			return
-		}
-		scope.Errorf("Encountered unexpected error when retrieving status for %v: %s", config, err)
-		return
-
-	}
-	if config.ResourceVersion != current.GetResourceVersion() {
+func (c *DistributionController) writeStatus(config Resource, distributionState Progress) {
+	schema, _ := collections.All.FindByGroupVersionResource(config.GroupVersionResource)
+	current := c.configStore.Get(schema.Resource().GroupVersionKind(), config.Name, config.Namespace)
+	if config.ResourceVersion != current.ResourceVersion {
 		// this distribution report is for an old version of the object.  Prune and continue.
 		c.pruneOldVersion(config)
 		return
 	}
+
 	// check if status needs updating
-	if needsReconcile, desiredStatus := ReconcileStatuses(current.Object, distributionState, current.GetGeneration()); needsReconcile {
+	current.Key()
+	if needsReconcile, desiredStatus := ReconcileStatuses(current, distributionState, current.Generation); needsReconcile {
 		// technically, we should be updating probe time even when reconciling isn't needed, but
 		// I'm skipping that for efficiency.
-		current.Object["status"] = desiredStatus
-		_, err := resourceInterface.UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		current.Status = desiredStatus
+		_, err := c.configStore.UpdateStatus(*current)
 		if err != nil {
 			scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", config, err)
 			return
@@ -221,12 +220,15 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 }
 
 func (c *DistributionController) queueWriteStatus(ctx context.Context, config Resource, state Progress) {
-	c.currentlyWriting.OncePerResource(ctx, config, state, c.writeStatus)
-
+	c.workers.Push(convert(config), &cacheEntry{
+		cacheProgress: &state,
+		cacheVal:      &config,
+	})
 }
 
 func (c *DistributionController) configDeleted(res config.Config) {
-	c.currentlyWriting.Delete(*ResourceFromModelConfig(res))
+	r := ResourceFromModelConfig(res)
+	c.workers.Delete(convert(*r))
 }
 
 func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
@@ -244,9 +246,9 @@ func boolToConditionStatus(b bool) string {
 	return "False"
 }
 
-func ReconcileStatuses(current map[string]interface{}, desired Progress, generation int64) (bool, *v1alpha1.IstioStatus) {
+func ReconcileStatuses(current *config.Config, desired Progress, generation int64) (bool, *v1alpha1.IstioStatus) {
 	needsReconcile := false
-	currentStatus, err := GetTypedStatus(current["status"])
+	currentStatus, err := GetTypedStatus(current.Status)
 	desiredCondition := v1alpha1.IstioCondition{
 		Type:               "Reconciled",
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
@@ -257,7 +259,7 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, generat
 	if err != nil {
 		// the status field is in an unexpected state.
 		scope.Warn("Encountered unexpected status content.  Overwriting status.")
-		scope.Debugf("Encountered unexpected status content.  Overwriting status: %v", current["status"])
+		scope.Debugf("Encountered unexpected status content.  Overwriting status: %v", current.Status)
 		currentStatus = v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{&desiredCondition},
 		}

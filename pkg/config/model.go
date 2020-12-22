@@ -85,6 +85,8 @@ type Meta struct {
 
 	// OwnerReferences allows specifying in-namespace owning objects.
 	OwnerReferences []metav1.OwnerReference `json:"ownerReferences,omitempty"`
+
+	Generation int64
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
