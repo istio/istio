@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -36,11 +35,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/pkg/monitoring"
-)
-
-var (
-	defaultClusterLocalNamespaces = []string{"kube-system"}
-	defaultClusterLocalServices   = []string{"kubernetes.default.svc"}
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.
@@ -171,7 +165,7 @@ type PushContext struct {
 	gatewayIndex gatewayIndex
 
 	// clusterLocalHosts extracted from the MeshConfig
-	clusterLocalHosts host.Names
+	clusterLocalHosts ClusterLocalHosts
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
@@ -913,8 +907,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	_, ok := MostSpecificHostMatch(service.Hostname, nil, ps.clusterLocalHosts)
-	return ok
+	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
@@ -978,7 +971,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	// TODO: only do this when meshnetworks or gateway service changed
 	ps.initMeshNetworks(env.Networks())
 
-	ps.initClusterLocalHosts(env)
+	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.initDone.Store(true)
 	return nil
@@ -1743,61 +1736,6 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
 		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
 	}
-}
-
-func (ps *PushContext) initClusterLocalHosts(e *Environment) {
-	// Create the default list of cluster-local hosts.
-	domainSuffix := e.GetDomainSuffix()
-	defaultClusterLocalHosts := make([]host.Name, 0)
-	for _, n := range defaultClusterLocalNamespaces {
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
-	}
-	for _, s := range defaultClusterLocalServices {
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name(s+"."+domainSuffix))
-	}
-
-	if discoveryHost, _, err := e.GetDiscoveryAddress(); err != nil {
-		log.Errorf("failed to make discoveryAddress cluster-local: %v", err)
-	} else {
-		if !strings.HasSuffix(string(discoveryHost), domainSuffix) {
-			discoveryHost += host.Name("." + domainSuffix)
-		}
-		defaultClusterLocalHosts = append(defaultClusterLocalHosts, discoveryHost)
-	}
-
-	// Collect the cluster-local hosts.
-	clusterLocalHosts := make([]host.Name, 0)
-	for _, serviceSettings := range ps.Mesh.ServiceSettings {
-		if serviceSettings.Settings.ClusterLocal {
-			for _, h := range serviceSettings.Hosts {
-				clusterLocalHosts = append(clusterLocalHosts, host.Name(h))
-			}
-		} else {
-			// Remove defaults if specified to be non-cluster-local.
-			for _, h := range serviceSettings.Hosts {
-				for i, defaultClusterLocalHost := range defaultClusterLocalHosts {
-					if len(defaultClusterLocalHost) > 0 {
-						if h == string(defaultClusterLocalHost) ||
-							(defaultClusterLocalHost.IsWildCarded() &&
-								strings.HasSuffix(h, string(defaultClusterLocalHost[1:]))) {
-							// This default was explicitly overridden, so remove it.
-							defaultClusterLocalHosts[i] = ""
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Add any remaining defaults to the end of the list.
-	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
-		if len(defaultClusterLocalHost) > 0 {
-			clusterLocalHosts = append(clusterLocalHosts, defaultClusterLocalHost)
-		}
-	}
-
-	sort.Sort(host.Names(clusterLocalHosts))
-	ps.clusterLocalHosts = clusterLocalHosts
 }
 
 func (ps *PushContext) NetworkGateways() map[string][]*Gateway {

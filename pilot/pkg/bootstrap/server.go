@@ -238,6 +238,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
+	s.environment.Init()
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{

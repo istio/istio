@@ -82,6 +82,8 @@ type Environment struct {
 
 	// TrustBundle: List of Mesh TrustAnchors
 	TrustBundle *trustbundle.TrustBundle
+
+	clusterLocalServices ClusterLocalProvider
 }
 
 func (e *Environment) GetDomainSuffix() string {
@@ -144,6 +146,14 @@ func (e *Environment) Version() string {
 		return x.RootHash()
 	}
 	return ""
+}
+
+func (e *Environment) Init() {
+	e.clusterLocalServices = NewClusterLocalProvider(e)
+}
+
+func (e *Environment) ClusterLocal() ClusterLocalProvider {
+	return e.clusterLocalServices
 }
 
 func (e *Environment) GetLedger() ledger.Ledger {

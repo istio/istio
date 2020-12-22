@@ -274,6 +274,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	}
 
 	env.PushContext = model.NewPushContext()
+	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]config.Config{
 		{
@@ -333,6 +334,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	}
 
 	env.PushContext = model.NewPushContext()
+	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]config.Config{
 		{
