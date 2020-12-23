@@ -602,7 +602,7 @@ func (c *instance) Restart() error {
 		return err
 	}
 	// give the rollout a few seconds to get underway
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 	var pods []kubeCore.Pod
 	err = retry.UntilSuccess(func() error {
 		pods, err = kubeTest.CheckPodsAreReady(fetch)
@@ -631,6 +631,7 @@ func (c *instance) Restart() error {
 func (c *instance) restartNamespaceDeployments() error {
 	var errs error
 	for _, s := range c.cfg.Subsets {
+		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		deploymentName := fmt.Sprintf("%s-%s", c.cfg.Service, s.Version)
 		execCmd := fmt.Sprintf("kubectl rollout restart deployment/%s -n %s", deploymentName, c.cfg.Namespace.Name())
 		_, err := shell.Execute(true, execCmd)

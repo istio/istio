@@ -20,8 +20,6 @@ import (
 	"strings"
 	"testing"
 
-	kubetest "istio.io/istio/pkg/test/kube"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -29,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	kubetest "istio.io/istio/pkg/test/kube"
 )
 
 // TestRevisionedUpgrade tests a revision-based upgrade from the specified versions to current master
