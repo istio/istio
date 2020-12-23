@@ -1305,14 +1305,13 @@ func TestAuthorization_Custom(t *testing.T) {
 			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
-			var a, b, c, d, e, x echo.Instance
+			var b, c, d, e, x echo.Instance
 			echoConfig := func(name string, includeExtAuthz bool) echo.Config {
 				cfg := util.EchoConfig(name, ns, false, nil, nil)
 				cfg.IncludeExtAuthz = includeExtAuthz
 				return cfg
 			}
 			echoboot.NewBuilder(ctx).
-				With(&a, echoConfig("a", false)).
 				With(&b, echoConfig("b", false)).
 				With(&c, echoConfig("c", false)).
 				With(&d, echoConfig("d", true)).
