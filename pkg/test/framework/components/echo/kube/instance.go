@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -602,19 +603,14 @@ func (c *instance) Restart() error {
 		return err
 	}
 	// give the rollout a few seconds to get underway
-	time.Sleep(time.Second * 4)
 	var pods []kubeCore.Pod
 	err = retry.UntilSuccess(func() error {
 		pods, err = kubeTest.CheckPodsAreReady(fetch)
 		if err != nil {
 			return err
 		}
-		if len(pods) != len(origPods) {
-			return fmt.Errorf("wrong pod count, wanted %d got %d", len(origPods), len(pods))
-		}
-
-		return nil
-	}, retry.Delay(time.Second), retry.Timeout(time.Second*30))
+		return restartFinished(pods, origPods)
+	}, retry.Delay(time.Second*2), retry.Timeout(time.Second*30))
 	if err != nil {
 		return err
 	}
@@ -627,14 +623,36 @@ func (c *instance) Restart() error {
 	return nil
 }
 
+func restartFinished(pods, newPods []kubeCore.Pod) error {
+	if len(pods) != len(newPods) {
+		return fmt.Errorf("wrong pod count, wanted %d got %d", len(pods), len(newPods))
+	}
+	// ensure the pods returned are not the same pods retrieved before by sorting
+	// the pod lists and ensuring there are no identical pod names
+	sort.Slice(pods, func(i, j int) bool {
+		return pods[i].Name < pods[j].Name
+	})
+	sort.Slice(newPods, func(i, j int) bool {
+		return newPods[i].Name < newPods[j].Name
+	})
+	for i := range pods {
+		if pods[i].Name == newPods[i].Name {
+			// same pods as original, rollout not underway
+			return fmt.Errorf("%s same pod as %s, expected different", pods[i].Name, newPods[i].Name)
+		}
+	}
+
+	return nil
+}
+
 //restartEchoDeployments performs a `kubectl rollout restart` on the echo deployments.
 func (c *instance) restartEchoDeployments() error {
 	var errs error
 	for _, s := range c.cfg.Subsets {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		deploymentName := fmt.Sprintf("%s-%s", c.cfg.Service, s.Version)
-		execCmd := fmt.Sprintf("kubectl rollout restart deployment/%s -n %s", deploymentName, c.cfg.Namespace.Name())
-		_, err := shell.Execute(true, execCmd)
+		rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment/%s -n %s", deploymentName, c.cfg.Namespace.Name())
+		_, err := shell.Execute(true, rolloutCmd)
 		errs = multierror.Append(errs, err).ErrorOrNil()
 	}
 	return errs

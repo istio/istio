@@ -96,8 +96,8 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	}
 	for _, p := range pods {
 		for _, c := range p.Spec.Containers {
-			if !strings.Contains(c.Image, ":latest") {
-				ctx.Fatalf("expected post-upgrade container image with tag %q, got %s", "latest", c.Image)
+			if strings.Contains(c.Image, fromVersion) {
+				ctx.Fatalf("expected post-upgrade container image not to include %q, got %s", fromVersion, c.Image)
 			}
 		}
 	}
