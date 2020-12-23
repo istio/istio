@@ -3,34 +3,36 @@ package controller
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
+	"strings"
+	"time"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
-	"strings"
-	"time"
+
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/queue"
+	"istio.io/pkg/log"
 )
 
 type ServiceExportController struct {
-	client versioned.Interface
+	client        versioned.Interface
 	serviceClient corev1.CoreV1Interface
 
-	queue              queue.Instance
-	serviceInformer  cache.SharedInformer
+	queue           queue.Instance
+	serviceInformer cache.SharedInformer
 
 	clusterLocalHosts []string //hosts marked as cluster-local, which will not have serviceeexports generated
 }
 
 func NewServiceExportController(kubeClient kube.Client, clusterLocalHosts []string) (*ServiceExportController, error) {
 	serviceExportController := &ServiceExportController{
-		client: kubeClient.MCSApis(),
-		serviceClient: kubeClient.Kube().CoreV1(),
-		queue:   queue.NewQueue(time.Second),
+		client:            kubeClient.MCSApis(),
+		serviceClient:     kubeClient.Kube().CoreV1(),
+		queue:             queue.NewQueue(time.Second),
 		clusterLocalHosts: clusterLocalHosts,
 	}
 
@@ -67,7 +69,6 @@ func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
 	log.Infof("ServiceExport controller started")
 	go sc.queue.Run(stopCh)
 }
-
 
 func (sc *ServiceExportController) HandleNewService(obj *v1.Service) error {
 	if sc.isServiceClusterLocal(obj) {

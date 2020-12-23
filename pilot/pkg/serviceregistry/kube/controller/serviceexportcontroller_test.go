@@ -3,18 +3,18 @@ package controller
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/util/retry"
-	"k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"strings"
 	"testing"
 	"time"
 
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestServiceExportController(t *testing.T) {
@@ -23,7 +23,6 @@ func TestServiceExportController(t *testing.T) {
 	//create two services, one for export and one not
 	createSimpleService(t, client, "ns2", "foo")
 	createSimpleService(t, client, "ns1", "foo")
-
 
 	//start the controller
 	hosts := []string{"*.ns1.svc.cluster.local", "secretservice.*.svc.cluster.local", "service12.ns12.svc.cluster.local"}
@@ -39,7 +38,6 @@ func TestServiceExportController(t *testing.T) {
 	assertServiceExport(t, client.MCSApis(), "ns2", "foo", true)
 	assertServiceExport(t, client.MCSApis(), "ns1", "foo", false)
 
-
 	//add exportable service
 	createSimpleService(t, client, "ns3", "bar")
 
@@ -49,10 +47,8 @@ func TestServiceExportController(t *testing.T) {
 	//add un-exportable service
 	createSimpleService(t, client, "ns4", "secretservice")
 
-
 	//assert that the service export is not created
 	assertServiceExport(t, client.MCSApis(), "ns4", "secretservice", false)
-
 
 	//delete exportable service
 	deleteSimpleService(t, client, "ns2", "foo")
@@ -100,7 +96,6 @@ func TestServiceExportController(t *testing.T) {
 	deleteSimpleService(t, client, "ns3", "bar")
 
 }
-
 
 func createSimpleService(t *testing.T, client kubernetes.Interface, ns string, name string) {
 	t.Helper()

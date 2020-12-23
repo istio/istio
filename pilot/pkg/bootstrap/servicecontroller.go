@@ -84,7 +84,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 
 	mcsSettings := kubecontroller.MCSSettings{
 		EnableServiceExport: args.RegistryOptions.MCSServiceExportEnabled,
-		ClusterLocalHosts: args.RegistryOptions.ClusterLocalHosts,
+		ClusterLocalHosts:   args.RegistryOptions.ClusterLocalHosts,
 	}
 
 	mc := kubecontroller.NewMulticluster(args.PodName,

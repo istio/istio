@@ -72,6 +72,9 @@ import (
 	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapisfake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 	mcsapisInformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
+	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
+	serviceapisfake "sigs.k8s.io/service-apis/pkg/client/clientset/versioned/fake"
+	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -292,8 +295,8 @@ type client struct {
 	gatewayapi         gatewayapiclient.Interface
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
 
-	mcsapis 			mcsapisClient.Interface
-	mcsapisInformers 	mcsapisInformer.SharedInformerFactory
+	mcsapis          mcsapisClient.Interface
+	mcsapisInformers mcsapisInformer.SharedInformerFactory
 
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool

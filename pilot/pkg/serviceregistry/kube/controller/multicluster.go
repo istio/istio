@@ -91,7 +91,7 @@ type Multicluster struct {
 
 type MCSSettings struct {
 	EnableServiceExport bool
-	ClusterLocalHosts []string
+	ClusterLocalHosts   []string
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -129,7 +129,7 @@ func NewMulticluster(
 		secretNamespace:       secretNamespace,
 		syncInterval:          opts.GetSyncInterval(),
 		client:                kc,
-		mcsSettings: 		   mcsSettings,
+		mcsSettings:           mcsSettings,
 	}
 
 	return mc
@@ -243,7 +243,6 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		}
 		serviceExportController.Run(stopCh)
 	}
-
 
 	client.RunAndWait(stopCh)
 	return nil
