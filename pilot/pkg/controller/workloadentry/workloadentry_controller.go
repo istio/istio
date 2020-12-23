@@ -95,7 +95,7 @@ type Controller struct {
 	mutex sync.Mutex
 	// record the current adsConnections number
 	// note: this is to handle reconnect to the same istiod, but in rare case the disconnect event is later than the connect event
-	// keyed by ip+network
+	// keyed by proxy network+ip
 	adsConnections map[string]uint8
 
 	// maxConnectionAge is a duration that workload entry should be cleanedup if it does not reconnects.
