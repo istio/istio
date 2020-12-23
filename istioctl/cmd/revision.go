@@ -17,17 +17,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/spf13/cobra"
 	"io"
-	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/cmd/mesh"
-	operator_istio "istio.io/istio/operator/pkg/apis/istio"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/config"
+	"sort"
+	"strings"
+	"text/tabwriter"
+	"time"
+
+	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,10 +34,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
-	"sort"
-	"strings"
-	"text/tabwriter"
-	"time"
+
+	"istio.io/api/label"
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/cmd/mesh"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/config"
 )
 
 type revisionArgs struct {
@@ -213,6 +215,7 @@ func printIstioOperatorCRInfoForRevision(w io.Writer, args *revisionArgs, restCo
 	if err != nil {
 		return err
 	}
+
 	// It is not an efficient way. But for now, we live with this
 	// This can be refined by selecting by label, annotation etc.
 	filteredIOPs := getIOPWithRevision(iops, revision)
@@ -446,12 +449,7 @@ func getPodsWithSelector(restConfig *rest.Config, ns string, selector *meta_v1.L
 	if err != nil {
 		return []v1.Pod{}, err
 	}
-
-	pods := []v1.Pod{}
-	for _, pod := range podList.Items {
-		pods = append(pods, pod)
-	}
-	return pods, err
+	return podList.Items, nil
 }
 
 func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile string, l clog.Logger) ([]string, error) {
