@@ -40,7 +40,11 @@ const (
 func deploy(ctx resource.Context, cfg Config) (undeployFunc func(), err error) {
 	ns := cfg.Namespace
 	if ns == nil {
-		ns, err = namespace.Claim(ctx, "default", true)
+		nsCfg := namespace.Config{
+			Prefix: "default",
+			Inject: true,
+		}
+		ns, err = namespace.Claim(ctx, nsCfg)
 		if err != nil {
 			return nil, err
 		}

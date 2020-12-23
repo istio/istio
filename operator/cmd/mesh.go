@@ -18,9 +18,12 @@ import (
 	"os"
 
 	"istio.io/istio/operator/cmd/mesh"
+	binversion "istio.io/istio/operator/version"
+	"istio.io/pkg/version"
 )
 
 func main() {
+	version.Info.Version = binversion.OperatorVersionString
 	rootCmd := mesh.GetRootCmd(os.Args[1:])
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

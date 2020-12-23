@@ -1,0 +1,245 @@
+// Copyright Istio Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+	"path"
+	"strings"
+	"testing"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube"
+	testKube "istio.io/istio/pkg/test/kube"
+)
+
+var (
+	fakeCACert = []byte("fake-CA-cert")
+)
+
+var (
+	defaultYAML = `apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: foo
+  namespace: bar
+spec:
+  metadata:
+    annotations: {}
+    labels: {}
+  template:
+    ports: {}
+    serviceAccount: default
+`
+
+	customYAML = `apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: foo
+  namespace: bar
+spec:
+  metadata:
+    annotations:
+      annotation: foobar
+    labels:
+      app: foo
+      bar: baz
+  template:
+    ports:
+      grpc: 3550
+      http: 8080
+    serviceAccount: test
+`
+)
+
+func TestWorkloadGroupCreate(t *testing.T) {
+	cases := []testcase{
+		{
+			description:       "Invalid command args - missing service name and namespace",
+			args:              strings.Split("experimental workload group create", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a workload name\n",
+		},
+		{
+			description:       "Invalid command args - missing service name",
+			args:              strings.Split("experimental workload group create --namespace bar", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a workload name\n",
+		},
+		{
+			description:       "Invalid command args - missing service namespace",
+			args:              strings.Split("experimental workload group create --name foo", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a workload namespace\n",
+		},
+		{
+			description:       "valid case - minimal flags, infer defaults",
+			args:              strings.Split("experimental workload group create --name foo --namespace bar", " "),
+			expectedException: false,
+			expectedOutput:    defaultYAML,
+		},
+		{
+			description: "valid case - create full workload group",
+			args: strings.Split("experimental workload group create --name foo --namespace bar --labels app=foo,bar=baz "+
+				" --annotations annotation=foobar --ports grpc=3550,http=8080 --serviceAccount test", " "),
+			expectedException: false,
+			expectedOutput:    customYAML,
+		},
+		{
+			description: "valid case - create full workload group with shortnames",
+			args: strings.Split("experimental workload group create --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
+				" -a annotation=foobar --serviceAccount test", " "),
+			expectedException: false,
+			expectedOutput:    customYAML,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
+			verifyAddToMeshOutput(t, c)
+		})
+	}
+}
+
+func TestWorkloadEntryConfigureInvalidArgs(t *testing.T) {
+	cases := []testcase{
+		{
+			description:       "Invalid command args - missing valid input spec",
+			args:              strings.Split("experimental workload entry configure --name foo -o temp --clusterID cid", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup\n",
+		},
+		{
+			description:       "Invalid command args - missing valid input spec",
+			args:              strings.Split("experimental workload entry configure -n bar -o temp --clusterID cid", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup\n",
+		},
+		{
+			description:       "Invalid command args - valid filename input but missing output filename",
+			args:              strings.Split("experimental workload entry configure -f file --clusterID cid", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting an output directory\n",
+		},
+		{
+			description:       "Invalid command args - valid kubectl input but missing output filename",
+			args:              strings.Split("experimental workload entry configure --name foo -n bar --clusterID cid", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting an output directory\n",
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
+			verifyAddToMeshOutput(t, c)
+		})
+	}
+}
+
+const goldenSuffix = ".golden"
+
+// TestWorkloadEntryConfigure enumerates test cases based on subdirectories of testdata/vmconfig.
+// Each subdirectory contains two input files: workloadgroup.yaml and meshconfig.yaml that are used
+// to generate golden outputs from the VM command.
+func TestWorkloadEntryConfigure(t *testing.T) {
+	files, err := ioutil.ReadDir("testdata/vmconfig")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range files {
+		if !dir.IsDir() {
+			continue
+		}
+		t.Run(dir.Name(), func(t *testing.T) {
+			testdir := path.Join("testdata/vmconfig", dir.Name())
+			kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
+				return &testKube.MockClient{
+					Interface: fake.NewSimpleClientset(
+						&v1.ServiceAccount{
+							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+						},
+						&v1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
+							Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+						},
+						&v1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
+							Data: map[string]string{
+								"mesh": string(util.ReadFile(path.Join(testdir, "meshconfig.yaml"), t)),
+							},
+						},
+					),
+				}, nil
+			}
+
+			cmd := []string{
+				"x", "workload", "entry", "configure",
+				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
+				"-o", testdir,
+			}
+			if _, err := runTestCmd(t, cmd); err != nil {
+				t.Fatal(err)
+			}
+
+			checkFiles := map[string]bool{
+				// outputs to check
+				"mesh.yaml": true, "istio-token": true, "hosts": true, "root-cert.pem": true, "cluster.env": true,
+				// inputs that we allow to exist, if other files seep in unexpectedly we fail the test
+				".gitignore": false, "meshconfig.yaml": false, "workloadgroup.yaml": false,
+			}
+
+			outputFiles, err := ioutil.ReadDir(testdir)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, f := range outputFiles {
+				checkGolden, ok := checkFiles[f.Name()]
+				if !ok {
+					if checkGolden, ok := checkFiles[f.Name()[:len(f.Name())-len(goldenSuffix)]]; !(checkGolden && ok) {
+						t.Errorf("unexpected file in output dir: %s", f.Name())
+					}
+					continue
+				}
+				if checkGolden {
+					t.Run(f.Name(), func(t *testing.T) {
+						contents := util.ReadFile(path.Join(testdir, f.Name()), t)
+						goldenFile := path.Join(testdir, f.Name()+goldenSuffix)
+						util.RefreshGoldenFile(contents, goldenFile, t)
+						util.CompareContent(contents, goldenFile, t)
+					})
+				}
+			}
+		})
+	}
+}
+
+func runTestCmd(t *testing.T, args []string) (string, error) {
+	t.Helper()
+	// TODO there is already probably something else that does this
+	var out bytes.Buffer
+	rootCmd := GetRootCmd(args)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	err := rootCmd.Execute()
+	output := out.String()
+	return output, err
+}

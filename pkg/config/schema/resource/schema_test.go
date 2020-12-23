@@ -72,7 +72,7 @@ func TestValidate(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			err := c.b.BuildNoValidate().Validate()
 			if c.expectError {
@@ -134,7 +134,7 @@ func TestBuild(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			_, err := c.b.Build()
 			if c.expectError {
@@ -180,14 +180,14 @@ func TestCanonicalName(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			g.Expect(c.s.GroupVersionKind().String()).To(Equal(c.expected))
 		})
 	}
 }
 
 func TestNewProtoInstance(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := Builder{
 		Kind:         "Empty",
@@ -196,13 +196,13 @@ func TestNewProtoInstance(t *testing.T) {
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	p, err := s.NewProtoInstance()
+	p, err := s.NewInstance()
 	g.Expect(err).To(BeNil())
 	g.Expect(p).To(Equal(&types.Empty{}))
 }
 
 func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer func() {
 		r := recover()
 		g.Expect(r).NotTo(BeNil())
@@ -221,35 +221,11 @@ func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	_ = s.MustNewProtoInstance()
-}
-
-func TestNewProtoInstance_Panic_NonProto(t *testing.T) {
-	g := NewGomegaWithT(t)
-	defer func() {
-		r := recover()
-		g.Expect(r).NotTo(BeNil())
-	}()
-	old := protoMessageType
-	defer func() {
-		protoMessageType = old
-	}()
-	protoMessageType = func(name string) reflect.Type {
-		return reflect.TypeOf(&struct{}{})
-	}
-
-	s := Builder{
-		Kind:         "Empty",
-		Plural:       "empties",
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	}.MustBuild()
-
-	_ = s.MustNewProtoInstance()
+	_ = s.MustNewInstance()
 }
 
 func TestString(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := Builder{
 		Kind:         "Empty",

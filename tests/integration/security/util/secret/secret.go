@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,14 +19,13 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"istio.io/istio/pkg/test"
+	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 // ExamineDNSSecretOrFail calls ExamineDNSSecret and fails t if an error occurs.

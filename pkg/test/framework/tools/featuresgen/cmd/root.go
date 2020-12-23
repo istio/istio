@@ -93,11 +93,11 @@ func init() {
 	rootCmd.Flags().StringVarP(&output, "outputFile", "o", "features.gen.go", "output Go file with labels as string consts")
 }
 
-//Parses a map in the yaml file
+// Parses a map in the yaml file
 func readMap(m map[interface{}]interface{}, path []string) []string {
 	var labels []string
 	for k, v := range m {
-		//If we see "values," then the element is a root and we shouldn't put it in our label name
+		// If we see "values," then the element is a root and we shouldn't put it in our label name
 		if k == "values" {
 			labels = append(labels, readVal(v, path)...)
 		} else {
@@ -113,7 +113,7 @@ func readMap(m map[interface{}]interface{}, path []string) []string {
 	return labels
 }
 
-//Parses a slice in the yaml file
+// Parses a slice in the yaml file
 func readSlice(slc []interface{}, path []string) []string {
 	labels := make([]string, 0)
 	for _, v := range slc {
@@ -122,7 +122,7 @@ func readSlice(slc []interface{}, path []string) []string {
 	return labels
 }
 
-//Determines the type of a node in the yaml file and parses it accordingly
+// Determines the type of a node in the yaml file and parses it accordingly
 func readVal(v interface{}, path []string) []string {
 	typ := reflect.TypeOf(v).Kind()
 	if typ == reflect.Int || typ == reflect.String {
@@ -140,7 +140,7 @@ func removeDashAndTitle(s string) string {
 	return strings.Title(s[1:])
 }
 
-//Writes a label to the constants file
+// Writes a label to the constants file
 func createConstantString(path []string) string {
 	name := ""
 	value := ""
@@ -159,7 +159,7 @@ func createConstantString(path []string) string {
 	return fmt.Sprintf("\t%s\tFeature = \"%s\"", name, value)
 }
 
-//Reads the yaml file and generates a string constant for each leaf node
+// Reads the yaml file and generates a string constant for each leaf node
 func createLabelsFromYaml() string {
 	data, err := ioutil.ReadFile(input)
 	if err != nil {
@@ -188,7 +188,7 @@ func check(err error) {
 	}
 }
 
-//Main function that writes the new generated labels file
+// Main function that writes the new generated labels file
 func createLabelsFile() {
 	f, err := os.Create("./" + output)
 	if err != nil {

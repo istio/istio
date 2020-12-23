@@ -1,0 +1,71 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-audit
+  namespace: foo
+spec:
+  action: AUDIT
+  rules:
+  # rule[0] `from`: all fields, `to`: all fields, `when`: all fields.
+  - from:
+    - source:
+        principals: ["principal"]
+        requestPrincipals: ["requestPrincipals"]
+        namespaces: ["ns"]
+        ipBlocks: ["1.2.3.4"]
+        remoteIpBlocks: ["10.250.90.4"]
+        notPrincipals: ["not-principal"]
+        notRequestPrincipals: ["not-requestPrincipals"]
+        notNamespaces: ["not-ns"]
+        notIpBlocks: ["9.0.0.1"]
+        notRemoteIpBlocks: ["10.133.154.65"]
+    to:
+    - operation:
+        methods: ["method"]
+        hosts: ["exact.com"]
+        ports: ["80"]
+        paths: ["/exact"]
+        notMethods: ["not-method"]
+        notHosts: ["not-exact.com"]
+        notPorts: ["8000"]
+        notPaths: ["/not-exact"]
+    when:
+      - key: "request.headers[X-header]"
+        values: ["header"]
+        notValues: ["not-header"]
+      - key: "source.ip"
+        values: ["10.10.10.10"]
+        notValues: ["90.10.10.10"]
+      - key: "remote.ip"
+        values: ["192.168.7.7"]
+        notValues: ["192.168.10.9"]
+      - key: "source.namespace"
+        values: ["ns"]
+        notValues: ["not-ns"]
+      - key: "source.principal"
+        values: ["principal"]
+        notValues: ["not-principal"]
+      - key: "request.auth.principal"
+        values: ["requestPrincipals"]
+        notValues: ["not-requestPrincipals"]
+      - key: "request.auth.audiences"
+        values: ["audiences"]
+        notValues: ["not-audiences"]
+      - key: "request.auth.presenter"
+        values: ["presenter"]
+        notValues: ["not-presenter"]
+      - key: "request.auth.claims[iss]"
+        values: ["iss"]
+        notValues: ["not-iss"]
+      - key: "destination.ip"
+        values: ["10.10.10.10"]
+        notValues: ["90.10.10.10"]
+      - key: "destination.port"
+        values: ["91"]
+        notValues: ["9001"]
+      - key: "connection.sni"
+        values: ["exact.com"]
+        notValues: ["not-exact.com"]
+      - key: "experimental.envoy.filters.a.b[c]"
+        values: ["exact"]
+        notValues: ["not-exact"]

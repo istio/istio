@@ -24,7 +24,7 @@ import (
 )
 
 func TestMergeSources_Basic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s1 := &fixtures.Source{}
 	s2 := &fixtures.Source{}
@@ -47,7 +47,7 @@ func TestMergeSources_Basic(t *testing.T) {
 }
 
 func TestMergeSources_Composite(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s1 := &fixtures.Source{}
 	s2a := &fixtures.Source{}

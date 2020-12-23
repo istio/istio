@@ -14,6 +14,8 @@
 package deployment
 
 import (
+	"fmt"
+
 	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
@@ -86,9 +88,14 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 			for protocol := range protMap {
 				svcNames = append(svcNames, protMap[protocol]...)
 			}
+			m := msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames)
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
+				m.Line = line
+			}
 
 			// Reporting the message for the deployment, port and conflicting services.
-			c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
+			c.Report(collections.K8SAppsV1Deployments.Name(), m)
 		}
 	}
 }

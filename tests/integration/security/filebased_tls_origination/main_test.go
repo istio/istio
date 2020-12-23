@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,11 +18,11 @@ package filebasedtlsorigination
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/security/util/cert"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
@@ -35,14 +36,13 @@ func TestMain(m *testing.M) {
 
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
-		RequireSingleCluster().
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Run()
 
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
@@ -50,8 +50,7 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
-  ingressGateways:
-  - enabled: false
+    name: istio-egressgateway
 values:
    gateways:
       istio-egressgateway:

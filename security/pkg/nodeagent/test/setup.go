@@ -27,7 +27,6 @@ import (
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
 
 	"istio.io/istio/pkg/security"
-
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -39,7 +38,12 @@ import (
 
 const (
 	proxyTokenPath = "/tmp/sds-envoy-token.jwt"
-	jwtToken       = "thisisafakejwt"
+	jwtToken       = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcjVWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ." +
+		"eyJleHAiOjQ2ODU5ODk3MDAsImZvbyI6ImJhciIsImlhdCI6MTUzMjM4OTcwMCwiaXNzIjoidGVzdGluZ0BzZWN1cmUuaXN0aW8uaW8iLCJzdWIiOiJ0ZX" +
+		"N0aW5nQHNlY3VyZS5pc3Rpby5pbyJ9.CfNnxWP2tcnR9q0vxyxweaF3ovQYHYZl82hAUsn21bwQd9zP7c-LS9qd_vpdLG4Tn1A15NxfCjp5f7QNBUo-KC9" +
+		"PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde7G6dabliUosJvvKOPcKIWPccCgefSj_GNfw" +
+		"Iip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRnemRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0D" +
+		"CPb43W1tzIBxgm8NxUg"
 )
 
 var rotateCertInterval time.Duration
@@ -113,6 +117,7 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 	// Set up test environment for Proxy
 	proxySetup := istioEnv.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
+	proxySetup.EnvoyParams = []string{"--boostrap-version", "3"}
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
 	env.InboundListenerPort = int(proxySetup.Ports().ServerProxyPort)
@@ -157,12 +162,11 @@ func (e *Env) StartProxy(t *testing.T) {
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
 	serverOptions := &security.Options{
-		WorkloadUDSPath:   e.ProxySetup.SDSPath(),
-		UseLocalJWT:       true,
-		JWTPath:           proxyTokenPath,
-		CAEndpoint:        fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
-		EnableWorkloadSDS: true,
-		RecycleInterval:   5 * time.Minute,
+		WorkloadUDSPath: e.ProxySetup.SDSPath(),
+		UseLocalJWT:     true,
+		JWTPath:         proxyTokenPath,
+		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
+		RecycleInterval: 5 * time.Minute,
 	}
 
 	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "")
@@ -170,12 +174,11 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}
 	secretFetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    caClient,
+		CaClient: caClient,
 	}
 	opt := e.cacheOptions(t)
 	workloadSecretCache := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, opt)
-	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache, nil)
+	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache)
 	if err != nil {
 		t.Fatalf("failed to start SDS server: %+v", err)
 	}

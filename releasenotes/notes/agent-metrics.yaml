@@ -3,6 +3,8 @@ kind: feature
 area: telemetry
 issue:
 - 22825
-releaseNotes: |
-  *Added* Prometheus metrics to istio-agent.
-  *Fixed* Prometheus [metrics merging](/docs/ops/integrations/prometheus/#option-1-metrics-merging) to not drop Envoy metrics during application failures.
+releaseNotes:
+- |
+  **Added** Prometheus metrics to istio-agent.
+- |
+  **Fixed** Prometheus [metrics merging](/docs/ops/integrations/prometheus/#option-1-metrics-merging) to not drop Envoy metrics during application failures.

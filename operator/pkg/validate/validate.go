@@ -21,10 +21,10 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/api/operator/v1alpha1"
-
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
@@ -38,7 +38,7 @@ var (
 		"MeshConfig":                         validateMeshConfig,
 		"Hub":                                validateHub,
 		"Tag":                                validateTag,
-		"AddonComponents":                    validateAddonComponents,
+		"Revision":                           validateRevision,
 		"Components.IngressGateways[*].Name": validateGatewayName,
 		"Components.EgressGateways[*].Name":  validateGatewayName,
 	}
@@ -80,10 +80,12 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 		return nil
 	}
 	if !util.IsPtr(structPtr) {
+		metrics.CRValidationErrorTotal.Increment()
 		return util.NewErrs(fmt.Errorf("validate path %s, value: %v, expected ptr, got %T", path, structPtr, structPtr))
 	}
 	structElems := reflect.ValueOf(structPtr).Elem()
 	if !util.IsStruct(structElems) {
+		metrics.CRValidationErrorTotal.Increment()
 		return util.NewErrs(fmt.Errorf("validate path %s, value: %v, expected struct, got %T", path, structElems, structElems))
 	}
 
@@ -136,6 +138,9 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 			}
 		}
 	}
+	if len(errs) > 0 {
+		metrics.CRValidationErrorTotal.Increment()
+	}
 	return errs
 }
 
@@ -187,19 +192,11 @@ func validateTag(path util.Path, val interface{}) util.Errors {
 	return validateWithRegex(path, val, TagRegexp)
 }
 
-func validateAddonComponents(path util.Path, val interface{}) util.Errors {
-	valMap, ok := val.(map[string]*v1alpha1.ExternalComponentSpec)
-	if !ok {
-		return util.NewErrs(fmt.Errorf("validateAddonComponents(%s) bad type %T, want map[string]*ExternalComponentSpec", path, val))
+func validateRevision(_ util.Path, val interface{}) util.Errors {
+	if !labels.IsDNS1123Label(val.(string)) {
+		err := fmt.Errorf("invalid revision specified: %s", val.(string))
+		return util.Errors{err}
 	}
-
-	for key := range valMap {
-		cn := name.ComponentName(key)
-		if name.BundledAddonComponentNamesMap[cn] && (cn == name.TitleCase(cn)) {
-			return util.NewErrs(fmt.Errorf("invalid addon component name: %s, expect component name starting with lower-case character", key))
-		}
-	}
-
 	return nil
 }
 

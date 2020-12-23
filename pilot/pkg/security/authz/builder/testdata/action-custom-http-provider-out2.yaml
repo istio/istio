@@ -1,0 +1,31 @@
+name: envoy.filters.http.ext_authz
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+  failureModeAllow: true
+  filterEnabledMetadata:
+    filter: envoy.filters.http.rbac
+    path:
+    - key: shadow_effective_policy_id
+    value:
+      stringMatch:
+        prefix: istio-ext-authz
+  httpService:
+    authorizationRequest:
+      allowedHeaders:
+        patterns:
+        - exact: x-custom-id
+    authorizationResponse:
+      allowedClientHeaders:
+        patterns:
+        - exact: Set-cookie
+      allowedUpstreamHeaders:
+        patterns:
+        - exact: Authorization
+    pathPrefix: /check
+    serverUri:
+      cluster: outbound|9000||my-custom-ext-authz.foo.svc.cluster.local
+      timeout: 600s
+      uri: http://my-custom-ext-authz.foo.svc.cluster.local
+  statusOnError:
+    code: Forbidden
+  transportApiVersion: V3

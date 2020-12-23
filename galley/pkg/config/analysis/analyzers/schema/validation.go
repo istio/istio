@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -60,7 +61,13 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 		ns := r.Metadata.FullName.Namespace
 		name := r.Metadata.FullName.Name
 
-		err := a.s.Resource().ValidateProto(string(name), string(ns), r.Message)
+		warnings, err := a.s.Resource().ValidateConfig(config.Config{
+			Meta: config.Meta{
+				Name:      string(name),
+				Namespace: string(ns),
+			},
+			Spec: r.Message,
+		})
 		if err != nil {
 			if multiErr, ok := err.(*multierror.Error); ok {
 				for _, err := range multiErr.WrappedErrors() {
@@ -68,6 +75,15 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 				}
 			} else {
 				ctx.Report(c, msg.NewSchemaValidationError(r, err))
+			}
+		}
+		if warnings != nil {
+			if multiErr, ok := warnings.(*multierror.Error); ok {
+				for _, err := range multiErr.WrappedErrors() {
+					ctx.Report(c, msg.NewSchemaWarning(r, err))
+				}
+			} else {
+				ctx.Report(c, msg.NewSchemaWarning(r, warnings))
 			}
 		}
 

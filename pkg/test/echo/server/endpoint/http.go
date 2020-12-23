@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -65,6 +64,10 @@ func newHTTP(config Config) Instance {
 	}
 }
 
+func (s *httpInstance) GetConfig() Config {
+	return s.Config
+}
+
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	h2s := &http2.Server{}
 	s.server = &http.Server{
@@ -82,16 +85,16 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	} else if s.Port.TLS {
 		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
 		if cerr != nil {
-			return fmt.Errorf("could not load TLS keys: %v", err)
+			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
 		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
-		listener, port, err = listenOnPortTLS(s.Port.Port, config)
+		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
 	} else {
 		// Listen on the given port and update the port if it changed from what was passed in.
-		listener, port, err = listenOnPort(s.Port.Port)
+		listener, port, err = listenOnAddress(s.ListenerIP, s.Port.Port)
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
 	}
@@ -162,9 +165,9 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, port int) {
 	}, retry.Timeout(readyTimeout), retry.Delay(readyInterval))
 
 	if err != nil {
-		log.Errorf("readiness failed for endpoint %s: %v", url, err)
+		epLog.Errorf("readiness failed for endpoint %s: %v", url, err)
 	} else {
-		log.Infof("ready for HTTP endpoint %s", url)
+		epLog.Infof("ready for HTTP endpoint %s", url)
 	}
 }
 
@@ -188,12 +191,12 @@ type codeAndSlices struct {
 }
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v",
+	epLog.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v",
 		r.Method, r.URL, r.Host, r.Header)
 	defer common.Metrics.HTTPRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
 	if !h.IsServerReady() {
 		// Handle readiness probe failure.
-		log.Infof("HTTP service not ready, returning 503")
+		epLog.Infof("HTTP service not ready, returning 503")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
@@ -207,7 +210,7 @@ func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // nolint: interfacer
 func writeError(out *bytes.Buffer, msg string) {
-	log.Warn(msg)
+	epLog.Warn(msg)
 	_, _ = out.WriteString(msg + "\n")
 }
 
@@ -216,6 +219,12 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseForm(); err != nil {
 		writeError(&body, "ParseForm() error: "+err.Error())
+	}
+
+	// If the request has form ?delay=[:duration] wait for duration
+	// For example, ?delay=10s will cause the response to wait 10s before responding
+	if err := delayResponse(r); err != nil {
+		writeError(&body, "error delaying response error: "+err.Error())
 	}
 
 	// If the request has form ?headers=name:value[,name:value]* return those headers in response
@@ -234,9 +243,9 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/text")
 	if _, err := w.Write(body.Bytes()); err != nil {
-		log.Warna(err)
+		epLog.Warn(err)
 	}
-	log.Infof("Response Headers: %+v", w.Header())
+	epLog.Infof("Response Headers: %+v", w.Header())
 }
 
 func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
@@ -244,7 +253,7 @@ func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
 	// First send upgrade headers
 	c, err := webSocketUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Warn("websocket-echo upgrade failed: " + err.Error())
+		epLog.Warn("websocket-echo upgrade failed: " + err.Error())
 		return
 	}
 
@@ -253,7 +262,7 @@ func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
 	// ping
 	mt, message, err := c.ReadMessage()
 	if err != nil {
-		log.Warn("websocket-echo read failed: " + err.Error())
+		epLog.Warn("websocket-echo read failed: " + err.Error())
 		return
 	}
 
@@ -286,7 +295,8 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 
 	writeField(body, "Method", r.Method)
 	writeField(body, "Proto", r.Proto)
-	writeField(body, "RemoteAddr", r.RemoteAddr)
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	writeField(body, response.IPField, ip)
 
 	keys := []string{}
 	for k := range r.Header {
@@ -303,6 +313,19 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	if hostname, err := os.Hostname(); err == nil {
 		writeField(body, response.HostnameField, hostname)
 	}
+}
+func delayResponse(request *http.Request) error {
+	d := request.FormValue("delay")
+	if len(d) == 0 {
+		return nil
+	}
+
+	t, err := time.ParseDuration(d)
+	if err != nil {
+		return err
+	}
+	time.Sleep(t)
+	return nil
 }
 
 func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseWriter) error {
@@ -350,7 +373,7 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) e
 		position += flavor.slices
 	}
 
-	log.Infof("Response status code: %d", responseCode)
+	epLog.Infof("Response status code: %d", responseCode)
 	response.WriteHeader(responseCode)
 	return nil
 }

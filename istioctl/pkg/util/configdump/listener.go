@@ -33,16 +33,20 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 
 	dal := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	for _, l := range listenerDump.DynamicListeners {
+		// If a listener was reloaded, it would contain both the active and draining state
+		// delete the draining state for proper comparison
+		l.DrainingState = nil
 		if l.ActiveState != nil {
 			dal = append(dal, l)
 		}
 	}
 
+	// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+	for i := range dal {
+		dal[i].ActiveState.Listener.TypeUrl = v3.ListenerType
+	}
 	sort.Slice(dal, func(i, j int) bool {
 		l := &listener.Listener{}
-		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
-		dal[i].ActiveState.Listener.TypeUrl = v3.ListenerType
-		dal[j].ActiveState.Listener.TypeUrl = v3.ListenerType
 		err = ptypes.UnmarshalAny(dal[i].ActiveState.Listener, l)
 		if err != nil {
 			return false

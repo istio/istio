@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+releaseNotes:
+- |
+  **Enabled** DNS capture in istio-agent by default for VMs installed using `istioctl x workload entry configure`.

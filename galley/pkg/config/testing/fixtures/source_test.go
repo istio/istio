@@ -24,7 +24,7 @@ import (
 )
 
 func TestSource(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	s := &Source{}
 
@@ -36,7 +36,7 @@ func TestSource(t *testing.T) {
 }
 
 func TestSource_Dispatch(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	a := &Accumulator{}
 
@@ -48,7 +48,7 @@ func TestSource_Dispatch(t *testing.T) {
 }
 
 func TestSource_Handle(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	s := &Source{}
 

@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"istio.io/istio/pkg/security"
-
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -313,10 +312,6 @@ func (ms *mockIngressGatewaySecretStore) DeleteSecret(conID, resourceName string
 	ms.secrets.Delete(key)
 }
 
-func (ms *mockIngressGatewaySecretStore) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
-	return false
-}
-
 // StartStreamTest starts SDS server and checks SDS connectivity.
 func StartStreamTest(t *testing.T) *StreamSetup {
 	s := &StreamSetup{t: t}
@@ -348,15 +343,13 @@ func StartStreamTest(t *testing.T) *StreamSetup {
 
 func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGatewaySecretStore) {
 	arg := security.Options{
-		EnableGatewaySDS:  false,
-		EnableWorkloadSDS: true,
-		RecycleInterval:   100 * time.Second,
-		WorkloadUDSPath:   socket,
+		RecycleInterval: 100 * time.Second,
+		WorkloadUDSPath: socket,
 	}
 	st := &mockIngressGatewaySecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(&arg, st, nil)
+	server, err := NewServer(&arg, st)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}

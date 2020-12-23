@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+  - 28381
+
+releaseNotes:
+- |
+  **Improved** Automatic detection of [externalIPs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#servicespec-v1-core)
+  for multi-network gateways.

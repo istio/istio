@@ -1,5 +1,15 @@
-# The following policy allows access to path "/allow" on egress gateway.
-
+apiVersion: "security.istio.io/v1beta1"
+kind: "RequestAuthentication"
+metadata:
+  name: "default"
+  namespace: "{{ .RootNamespace }}"
+spec:
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  - issuer: "test-issuer-2@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -10,9 +20,29 @@ spec:
     matchLabels:
       app: istio-egressgateway
   rules:
-    - to:
+    - to: # only allow /allow for company.com
         - operation:
             paths: ["/allow"]
+            hosts: ["www.company.com"]
+    - to: # checks only a call 443 over istio mutual without JWT
+      - operation:
+          hosts: ["a-only.com"]
+      from:
+      - source:
+          principals: ["cluster.local/ns/{{ .Namespace }}/sa/a"]
+    - to: # checks a and c can call 443 over istio mutual with JWT
+      - operation:
+          hosts: ["jwt-only.com"]
+      from:
+      - source:
+          requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
+    - to: # checks only a can call 443 over istio mutual with JWT
+      - operation:
+          hosts: ["jwt-and-a-only.com"]
+      from:
+      - source:
+          requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
+          principals: ["cluster.local/ns/{{ .Namespace }}/sa/a"]
 ---
 
 # The following policy redirects the request through egress gateway.
@@ -32,6 +62,14 @@ spec:
         protocol: HTTP
       hosts:
         - "www.company.com"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+         mode: ISTIO_MUTUAL
+      hosts:
+        - "*"
 ---
 
 apiVersion: networking.istio.io/v1alpha3
@@ -70,4 +108,57 @@ spec:
         request:
           add:
             x-egress-test: "handled-by-egress-gateway"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway-2
+  namespace: {{ .Namespace }}
+spec:
+  hosts:
+  - "a-only.com"
+  - "jwt-only.com"
+  - "jwt-and-a-only.com"
+  gateways:
+  - test-egress
+  - mesh
+  http:
+    - match:
+      - gateways:
+        - mesh
+        port: 80
+      route:
+      - destination:
+          host: istio-egressgateway.{{ .RootNamespace }}.svc.cluster.local
+          port:
+            number: 443
+        weight: 100
+    - match:
+      - gateways:
+        - test-egress
+        port: 443
+      route:
+      - destination:
+          host: b.{{ .Namespace }}.svc.cluster.local
+          port:
+            number: 8090
+        weight: 100
+      headers:
+        request:
+          add:
+            x-egress-test: "handled-by-egress-gateway"
+---
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "test-egress"
+  namespace: {{ .Namespace }}
+spec:
+  host: "istio-egressgateway.{{ .RootNamespace }}.svc.cluster.local"
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: ISTIO_MUTUAL
 ---

@@ -72,7 +72,7 @@ func (r *router) Handle(e Event) {
 	if found {
 		h.handler.Handle(e)
 	} else {
-		scope.Processing.Warna("Router.Handle: No handler for event, dropping: ", e)
+		scope.Processing.Warn("Router.Handle: No handler for event, dropping: ", e)
 	}
 }
 

@@ -39,6 +39,7 @@ var (
 )
 
 func TestCertRotation(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/24220")
 	sdsTest.RotateCert(rotateInterval)
 	setup := sdsTest.SetupTest(t, env.SDSCertRotation)
 	defer setup.TearDown()

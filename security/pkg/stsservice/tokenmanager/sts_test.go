@@ -122,7 +122,7 @@ func TestStsTokenSource(t *testing.T) {
 			ts := NewTokenSource(mock.FakeTrustDomain, st, "https://www.googleapis.com/auth/cloud-platform")
 
 			// Override token manager in token source to use mock plugin
-			tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
+			tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(nil, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
 			tokenManager := CreateTokenManager(GoogleTokenExchange,
 				Config{TrustDomain: mock.FakeTrustDomain})
 			tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
@@ -267,13 +267,14 @@ func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *moc
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, setup.enableCache)
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(nil, mock.FakeTrustDomain, mock.FakeProjectNum,
+		mock.FakeGKEClusterURL, setup.enableCache)
 	federatedTokenTestingEndpoint := mockServer.URL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := mockServer.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
 	// Create token manager
 	tokenManager := CreateTokenManager(GoogleTokenExchange,
-		Config{TrustDomain: mock.FakeTrustDomain})
+		Config{CredFetcher: nil, TrustDomain: mock.FakeTrustDomain})
 	tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
 	// Create STS server
 	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: "127.0.0.1", LocalPort: 0}, tokenManager)

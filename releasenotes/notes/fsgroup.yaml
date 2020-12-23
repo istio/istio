@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 26882
+releaseNotes:
+- |
+  **Improved** sidecar injection to not modify the pod `securityPolicy.fsGroup` which could conflict with existing settings and secret mounts.
+   This option is enabled automatically on Kubernetes 1.19+ and is not supported on older versions.

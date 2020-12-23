@@ -65,7 +65,7 @@ type filenameOption struct {
 func (f *filenameOption) addFlags(flagset *pflag.FlagSet) {
 	if flagset.Lookup("filename") == nil {
 		flagset.StringVarP(&f.filename, "filename", "f", "",
-			"filename of the multicluster mesh description")
+			"Filename of the multicluster mesh description")
 	}
 }
 

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+- https://github.com/istio/istio/issues/25685
+releaseNotes:
+- |
+  **Added** support for backpressure on XDS pushes to avoid overloading Envoy during periods of high configuration
+  churn. This is disabled by default and can be enabled by setting the PILOT_ENABLE_FLOW_CONTROL environment variable in Istiod.
+

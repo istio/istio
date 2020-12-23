@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+- "22408"
+
+releaseNotes:
+- |
+  **Added** Update Istio Workload and Istio Service dashboards to improve loading time.
+- |
+  **Added** parameterise Grafana dashboards with datasource

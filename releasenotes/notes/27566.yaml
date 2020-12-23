@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 27566
+releaseNotes:
+  - |
+    **Fixed** istiod will no longer generate listeners for privileged gateway ports (<1024) if the gateway Pod does not have sufficient permissions

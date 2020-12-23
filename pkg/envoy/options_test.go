@@ -28,7 +28,7 @@ var (
 )
 
 func TestNewOptions(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	args := []string{"--config-path", testConfigPath, "--k2", "v2", "--k3"}
 	actuals, err := envoy.NewOptions(args...)
@@ -39,7 +39,7 @@ func TestNewOptions(t *testing.T) {
 }
 
 func TestNewOptionsWithoutConfigPathShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	args := []string{"--k2", "v2", "--k3"}
 	actuals, err := envoy.NewOptions(args...)
@@ -48,7 +48,7 @@ func TestNewOptionsWithoutConfigPathShouldFail(t *testing.T) {
 }
 
 func TestNewOptionsWithInvalidFlagShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	args := []string{"--config-path", testConfigPath, "--k1", "v1", "k2", "v2"}
 	_, err := envoy.NewOptions(args...)
@@ -56,7 +56,7 @@ func TestNewOptionsWithInvalidFlagShouldFail(t *testing.T) {
 }
 
 func TestNewOptionsWithDuplicateFlagShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	args := []string{"--config-path", testConfigPath, "--k1", "v1", "--k1", "v2"}
 	actuals, err := envoy.NewOptions(args...)
@@ -65,7 +65,7 @@ func TestNewOptionsWithDuplicateFlagShouldFail(t *testing.T) {
 }
 
 func TestDuplicateOptions(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	options := envoy.Options{envoy.ConfigYaml("{a:b}"), envoy.ConfigYaml("{a:b}")}
 	g.Expect(options.Validate()).ToNot(BeNil())
@@ -166,7 +166,7 @@ func TestGoodOptions(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			g.Expect(c.options.Validate()).To(BeNil())
 			g.Expect(c.options.ToArgs()).To(Equal(c.expectedArgs))
 		})
@@ -174,13 +174,13 @@ func TestGoodOptions(t *testing.T) {
 }
 
 func TestInvalidLogLevel(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	options := envoy.Options{envoy.ConfigYaml("{}"), envoy.LogLevel("bad")}
 	g.Expect(options.Validate()).ToNot(BeNil())
 }
 
 func TestInvalidComponentLogLevels(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	options := envoy.Options{envoy.ConfigYaml("{}"), envoy.ComponentLogLevels{
 		envoy.ComponentLogLevel{
 			Name:  "a",
@@ -191,54 +191,54 @@ func TestInvalidComponentLogLevels(t *testing.T) {
 }
 
 func TestInvalidLocalAddressIPVersion(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	options := envoy.Options{envoy.ConfigYaml("{}"), envoy.LocalAddressIPVersion("bad")}
 	g.Expect(options.Validate()).ToNot(BeNil())
 }
 
 func TestInvalidConfigPath(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	options := envoy.Options{envoy.ConfigPath("bad/file/path")}
 	g.Expect(options.Validate()).ToNot(BeNil())
 }
 
 func TestInvalidBaseID(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--base-id", "bad-int-value")
 	g.Expect(err).To(BeNil())
 	g.Expect(actuals.Validate()).ToNot(BeNil())
 }
 
 func TestInvalidConcurrency(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--concurrency", "bad-int-value")
 	g.Expect(err).To(BeNil())
 	g.Expect(actuals.Validate()).ToNot(BeNil())
 }
 
 func TestInvalidRestartEpoch(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--restart-epoch", "bad-int-value")
 	g.Expect(err).To(BeNil())
 	g.Expect(actuals.Validate()).ToNot(BeNil())
 }
 
 func TestInvalidDrainDuration(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--drain-time-s", "bad-int-value")
 	g.Expect(err).To(BeNil())
 	g.Expect(actuals.Validate()).ToNot(BeNil())
 }
 
 func TestInvalidParentShutdownDuration(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--parent-shutdown-time-s", "bad-int-value")
 	g.Expect(err).To(BeNil())
 	g.Expect(actuals.Validate()).ToNot(BeNil())
 }
 
 func TestGenerateBaseID(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	baseID := envoy.GenerateBaseID()
 	expected := []string{"--config-yaml", "{}", "--base-id", baseID.FlagValue()}
@@ -248,7 +248,7 @@ func TestGenerateBaseID(t *testing.T) {
 }
 
 func TestParseComponentLogLevels(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	expected := envoy.ComponentLogLevels{
 		envoy.ComponentLogLevel{
 			Name:  "a",

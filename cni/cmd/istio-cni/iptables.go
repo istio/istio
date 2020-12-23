@@ -19,8 +19,7 @@ package main
 import (
 	"fmt"
 	"os/exec"
-
-	"go.uber.org/zap"
+	"strings"
 
 	"istio.io/pkg/log"
 )
@@ -54,13 +53,10 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 		"-x", rdrct.excludeIPCidrs,
 		"-k", rdrct.kubevirtInterfaces,
 	}
-	log.Info("nsenter args",
-		zap.Reflect("nsenterArgs", nsenterArgs))
+	log.Infof("nsenter args: %s", strings.Join(nsenterArgs, " "))
 	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
 	if err != nil {
-		log.Error("nsenter failed",
-			zap.String("out", string(out)),
-			zap.Error(err))
+		log.WithLabels("err", err, "out", out).Errorf("nsenter failed ")
 		log.Infof("nsenter out: %s", out)
 	} else {
 		log.Infof("nsenter done: %s", out)

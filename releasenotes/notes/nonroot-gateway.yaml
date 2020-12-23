@@ -3,5 +3,6 @@ kind: feature
 area: installation
 issue:
 - 23379
-releaseNotes: |
-  *Improved* gateway deployments to run as non-root by default.
+releaseNotes:
+- |
+  **Improved** gateway deployments to run as non-root by default.

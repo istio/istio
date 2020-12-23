@@ -3,5 +3,6 @@ kind: feature
 area: installation
 issue:
 - 9117
-releaseNotes: |
-  *Added* RPM packages for running the Istio sidecar on a VM to the release.
+releaseNotes:
+- |
+  **Added** RPM packages for running the Istio sidecar on a VM to the release.

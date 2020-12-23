@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
@@ -49,7 +48,7 @@ type cmdType string
 const (
 	// istioctl manifest generate
 	cmdGenerate cmdType = "istioctl manifest generate"
-	// istioctl manifest apply or istioctl install
+	// istioctl install
 	cmdApply cmdType = "istioctl install"
 	// in-cluster controller
 	cmdController cmdType = "operator controller"
@@ -83,7 +82,7 @@ func init() {
 	if kubeBuilderInstalled() {
 		// TestMode is required to not wait in the go client for resources that will never be created in the test server.
 		helmreconciler.TestMode = true
-		// Add manifest apply and controller to the list of commands to run tests against.
+		// Add install and controller to the list of commands to run tests against.
 		testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
 	}
 }
@@ -170,10 +169,10 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map
 	return out, nil
 }
 
-// fakeApplyManifest runs manifest apply. It is assumed that
+// fakeApplyManifest runs istioctl install.
 func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*ObjectSet, error) {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
-	manifest, err := runManifestCommand("apply", []string{inPath}, flags, chartSource)
+	manifest, err := runManifestCommand("install", []string{inPath}, flags, chartSource)
 	if err != nil {
 		return nil, fmt.Errorf("error %s: %s", err, manifest)
 	}
@@ -197,7 +196,7 @@ func fakeApplyExtraResources(inFile string) error {
 
 func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	l := clog.NewDefaultLogger()
-	_, iops, err := manifest.GenerateConfig(
+	_, iop, err := manifest.GenerateConfig(
 		[]string{inFileAbsolutePath(inFile)},
 		[]string{"installPackagePath=" + string(chartSource)},
 		false, testRestConfig, l)
@@ -205,19 +204,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*Objec
 		return nil, err
 	}
 
-	crName := installedSpecCRPrefix
-	if iops.Revision != "" {
-		crName += "-" + iops.Revision
-	}
-	iop, err := translate.IOPStoIOP(iops, crName, v1alpha1.Namespace(iops))
-	if err != nil {
-		return nil, err
-	}
 	iop.Spec.InstallPackagePath = string(chartSource)
-
-	if err := createNamespace(testK8Interface, iop.Namespace); err != nil {
-		return nil, err
-	}
 
 	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, iop, nil)
 	if err != nil {
@@ -273,14 +260,19 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 		Name:    name.IstioOperatorComponentName,
 		Content: manifest,
 	}
-	_, _, err := reconciler.ApplyManifest(m)
+	_, _, err := reconciler.ApplyManifest(m, false)
 	return err
 }
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
 func runManifestCommand(command string, filenames []string, flags string, chartSource chartSourceType) (string, error) {
-	args := "manifest " + command
+	var args string
+	if command == "install" {
+		args = "install"
+	} else {
+		args = "manifest " + command
+	}
 	for _, f := range filenames {
 		args += " -f " + f
 	}

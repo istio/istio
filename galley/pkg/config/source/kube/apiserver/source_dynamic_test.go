@@ -18,9 +18,17 @@ import (
 	"sync/atomic"
 	"testing"
 
-	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
+	"github.com/gogo/protobuf/types"
+	. "github.com/onsi/gomega"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic/fake"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -35,15 +43,6 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
-
-	"github.com/gogo/protobuf/types"
-	. "github.com/onsi/gomega"
-	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic/fake"
-	k8sTesting "k8s.io/client-go/testing"
 )
 
 func TestNewSource(t *testing.T) {
@@ -74,7 +73,7 @@ func TestStartTwice(t *testing.T) {
 }
 
 func TestStartStop_WithStatusCtl(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Create the source
 	w, _, cl := createMocks()
@@ -106,7 +105,7 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 }
 
 func TestReport(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Create the source
 	w, _, cl := createMocks()
@@ -133,7 +132,7 @@ func TestReport(t *testing.T) {
 }
 
 func TestEvents(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -195,7 +194,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -300,7 +299,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 }
 
 func TestEvents_NonAddEvent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -326,7 +325,7 @@ func TestEvents_NonAddEvent(t *testing.T) {
 }
 
 func TestEvents_NoneForDisabled(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -369,7 +368,10 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	addCrdEvents(wcrd, r.All())
 
 	// Now start properly and get events
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
+	}
+	cl := fake.NewSimpleDynamicClientWithCustomListKinds(k8sRuntime.NewScheme(), gvrToListKind)
 	k.AddResponse(cl, nil)
 	w := mockWatch(cl)
 
@@ -399,7 +401,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 }
 
 func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	defer func() {
 		r := recover()
@@ -460,7 +462,10 @@ func addCrdEvents(w *mock.Watch, res []collection.Schema) {
 }
 
 func fakeClient(k *mock.Kube) *fake.FakeDynamicClient {
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
+	}
+	cl := fake.NewSimpleDynamicClientWithCustomListKinds(k8sRuntime.NewScheme(), gvrToListKind)
 	k.AddResponse(cl, nil)
 	return cl
 }
@@ -496,26 +501,26 @@ func toEntry(obj *unstructured.Unstructured, schema resource2.Schema) *resource.
 	}
 }
 
-func toCrd(schema collection.Schema) *apiextensionv1.CustomResourceDefinition {
+func toCrd(schema collection.Schema) *v1beta1.CustomResourceDefinition {
 	r := schema.Resource()
-	return &apiextensionv1.CustomResourceDefinition{
+	return &v1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            r.Plural() + "." + r.Group(),
 			ResourceVersion: "v1",
 		},
 
-		Spec: apiextensionv1.CustomResourceDefinitionSpec{
+		Spec: v1beta1.CustomResourceDefinitionSpec{
 			Group: r.Group(),
-			Names: apiextensionv1.CustomResourceDefinitionNames{
+			Names: v1beta1.CustomResourceDefinitionNames{
 				Plural: r.Plural(),
 				Kind:   r.Kind(),
 			},
-			Versions: []apiextensionv1.CustomResourceDefinitionVersion{
+			Versions: []v1beta1.CustomResourceDefinitionVersion{
 				{
 					Name: r.Version(),
 				},
 			},
-			Scope: apiextensionv1.NamespaceScoped,
+			Scope: v1beta1.NamespaceScoped,
 		},
 	}
 }

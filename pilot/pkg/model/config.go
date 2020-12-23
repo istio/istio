@@ -15,24 +15,19 @@
 package model
 
 import (
-	"fmt"
 	"hash/crc32"
+	"net"
 	"sort"
 	"strings"
-	"time"
-
-	"istio.io/pkg/ledger"
 
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
-	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
@@ -43,7 +38,7 @@ var (
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
-	Kind      resource.GroupVersionKind
+	Kind      config.GroupVersionKind
 	Name      string
 	Namespace string
 }
@@ -59,7 +54,7 @@ func (key ConfigKey) HashCode() uint32 {
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
-func ConfigsOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKind) map[ConfigKey]struct{} {
+func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[ConfigKey]struct{} {
 	ret := make(map[ConfigKey]struct{})
 
 	for conf := range configs {
@@ -72,7 +67,7 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKin
 }
 
 // ConfigNamesOfKind extracts config names of the specified kind.
-func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersionKind) map[string]struct{} {
+func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
 	ret := make(map[string]struct{})
 
 	for conf := range configs {
@@ -82,61 +77,6 @@ func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind resource.GroupVersio
 	}
 
 	return ret
-}
-
-// ConfigMeta is metadata attached to each configuration unit.
-// The revision is optional, and if provided, identifies the
-// last update operation on the object.
-type ConfigMeta struct {
-	// GroupVersionKind is a short configuration name that matches the content message type
-	// (e.g. "route-rule")
-	GroupVersionKind resource.GroupVersionKind `json:"type,omitempty"`
-
-	// Name is a unique immutable identifier in a namespace
-	Name string `json:"name,omitempty"`
-
-	// Namespace defines the space for names (optional for some types),
-	// applications may choose to use namespaces for a variety of purposes
-	// (security domains, fault domains, organizational domains)
-	Namespace string `json:"namespace,omitempty"`
-
-	// Domain defines the suffix of the fully qualified name past the namespace.
-	// Domain is not a part of the unique key unlike name and namespace.
-	Domain string `json:"domain,omitempty"`
-
-	// Map of string keys and values that can be used to organize and categorize
-	// (scope and select) objects.
-	Labels map[string]string `json:"labels,omitempty"`
-
-	// Annotations is an unstructured key value map stored with a resource that may be
-	// set by external tools to store and retrieve arbitrary metadata. They are not
-	// queryable and should be preserved when modifying objects.
-	Annotations map[string]string `json:"annotations,omitempty"`
-
-	// ResourceVersion is an opaque identifier for tracking updates to the config registry.
-	// The implementation may use a change index or a commit log for the revision.
-	// The config client should not make any assumptions about revisions and rely only on
-	// exact equality to implement optimistic concurrency of read-write operations.
-	//
-	// The lifetime of an object of a particular revision depends on the underlying data store.
-	// The data store may compactify old revisions in the interest of storage optimization.
-	//
-	// An empty revision carries a special meaning that the associated object has
-	// not been stored and assigned a revision.
-	ResourceVersion string `json:"resourceVersion,omitempty"`
-
-	// CreationTimestamp records the creation time
-	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
-}
-
-// Config is a configuration unit consisting of the type of configuration, the
-// key identifier that is unique per type, and the content represented as a
-// protobuf message.
-type Config struct {
-	ConfigMeta
-
-	// Spec holds the configuration object as a gogo protobuf message
-	Spec proto.Message
 }
 
 // ConfigStore describes a set of platform agnostic APIs that must be supported
@@ -173,45 +113,34 @@ type ConfigStore interface {
 	Schemas() collection.Schemas
 
 	// Get retrieves a configuration element by a type and a key
-	Get(typ resource.GroupVersionKind, name, namespace string) *Config
+	Get(typ config.GroupVersionKind, name, namespace string) *config.Config
 
 	// List returns objects by type and namespace.
 	// Use "" for the namespace to list across namespaces.
-	List(typ resource.GroupVersionKind, namespace string) ([]Config, error)
+	List(typ config.GroupVersionKind, namespace string) ([]config.Config, error)
 
 	// Create adds a new configuration object to the store. If an object with the
 	// same name and namespace for the type already exists, the operation fails
 	// with no side effects.
-	Create(config Config) (revision string, err error)
+	Create(config config.Config) (revision string, err error)
 
 	// Update modifies an existing configuration object in the store.  Update
 	// requires that the object has been created.  Resource version prevents
 	// overriding a value that has been changed between prior _Get_ and _Put_
 	// operation to achieve optimistic concurrency. This method returns a new
 	// revision if the operation succeeds.
-	Update(config Config) (newRevision string, err error)
+	Update(config config.Config) (newRevision string, err error)
+
+	UpdateStatus(config config.Config) (newRevision string, err error)
+
+	// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
+	// read-modify-write conflicts when there are many concurrent-writers to the same resource.
+	Patch(orig config.Config, patchFn config.PatchFunc) (string, error)
 
 	// Delete removes an object from the store by key
-	Delete(typ resource.GroupVersionKind, name, namespace string) error
-
-	Version() string
-
-	GetResourceAtVersion(version string, key string) (resourceVersion string, err error)
-
-	GetLedger() ledger.Ledger
-
-	SetLedger(ledger.Ledger) error
-}
-
-// Key function for the configuration objects
-func Key(typ, name, namespace string) string {
-	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
-}
-
-// Key is the unique identifier for a configuration object
-// TODO: this is *not* unique - needs the version and group
-func (meta *ConfigMeta) Key() string {
-	return Key(meta.GroupVersionKind.Kind, meta.Name, meta.Namespace)
+	// For k8s, resourceVersion must be fulfilled before a deletion is carried out.
+	// If not possible, a 409 Conflict status will be returned.
+	Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error
 }
 
 // ConfigStoreCache is a local fully-replicated cache of the config store.  The
@@ -232,7 +161,7 @@ type ConfigStoreCache interface {
 
 	// RegisterEventHandler adds a handler to receive config update events for a
 	// configuration type
-	RegisterEventHandler(kind resource.GroupVersionKind, handler func(Config, Config, Event))
+	RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, Event))
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
@@ -248,13 +177,13 @@ type IstioConfigStore interface {
 	ConfigStore
 
 	// ServiceEntries lists all service entries
-	ServiceEntries() []Config
+	ServiceEntries() []config.Config
 
 	// Gateways lists all gateways bound to the specified workload labels
-	Gateways(workloadLabels labels.Collection) []Config
+	Gateways(workloadLabels labels.Collection) []config.Config
 
 	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
-	AuthorizationPolicies(namespace string) []Config
+	AuthorizationPolicies(namespace string) []config.Config
 }
 
 const (
@@ -264,13 +193,19 @@ const (
 
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
-func ResolveShortnameToFQDN(hostname string, meta ConfigMeta) host.Name {
+func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 	out := hostname
 	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
 	if hostname == "*" {
 		return host.Name(out)
 	}
+
+	// if the hostname is a valid ipv4 or ipv6 address, do not append domain or namespace
+	if net.ParseIP(hostname) != nil {
+		return host.Name(out)
+	}
+
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(hostname, ".") {
 		if meta.Namespace != "" {
@@ -290,7 +225,7 @@ func ResolveShortnameToFQDN(hostname string, meta ConfigMeta) host.Name {
 
 // resolveGatewayName uses metadata information to resolve a reference
 // to shortname of the gateway to FQDN
-func resolveGatewayName(gwname string, meta ConfigMeta) string {
+func resolveGatewayName(gwname string, meta config.Meta) string {
 	out := gwname
 
 	// New way of binding to a gateway in remote namespace
@@ -301,8 +236,14 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 			out = meta.Namespace + "/" + gwname
 		} else {
 			// parse namespace from FQDN. This is very hacky, but meant for backward compatibility only
+			// This is a legacy FQDN format. Transform name.ns.svc.cluster.local -> ns/name
 			i := strings.Index(gwname, ".")
-			out = gwname[i+1:] + "/" + gwname[:i]
+			fqdn := strings.Index(gwname[i+1:], ".")
+			if fqdn == -1 {
+				out = gwname[i+1:] + "/" + gwname[:i]
+			} else {
+				out = gwname[i+1:i+1+fqdn] + "/" + gwname[:i]
+			}
 		}
 	} else {
 		// remove the . from ./gateway and substitute it with the namespace name
@@ -316,17 +257,47 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
 // matching the needle, or false if no element in the stack matches the needle.
-func MostSpecificHostMatch(needle host.Name, stack []host.Name) (host.Name, bool) {
+func MostSpecificHostMatch(needle host.Name, m map[host.Name]struct{}, stack []host.Name) (host.Name, bool) {
 	matches := []host.Name{}
-	for _, h := range stack {
-		if needle == h {
-			// exact match, return immediately
+
+	// exact match first
+	if m != nil {
+		if _, ok := m[needle]; ok {
 			return needle, true
 		}
-		if needle.SubsetOf(h) {
-			matches = append(matches, h)
+	} else {
+		for _, h := range stack {
+			if h == needle {
+				return needle, true
+			}
 		}
 	}
+
+	if needle.IsWildCarded() {
+		// slice has better loop performance than map, so use stack to range
+		// and stack is ordered before
+		for _, h := range stack {
+			// both needle and h are wildcards
+			if h.IsWildCarded() {
+				if len(needle) < len(h) {
+					continue
+				}
+				if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
+					matches = append(matches, h)
+				}
+			}
+		}
+	} else {
+		for _, h := range stack {
+			// only n is wildcard
+			if h.IsWildCarded() {
+				if strings.HasSuffix(string(needle), string(h[1:])) {
+					matches = append(matches, h)
+				}
+			}
+		}
+	}
+
 	if len(matches) > 0 {
 		// TODO: return closest match out of all non-exact matching hosts
 		return matches[0], true
@@ -347,7 +318,7 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 	return &istioConfigStore{store}
 }
 
-func (store *istioConfigStore) ServiceEntries() []Config {
+func (store *istioConfigStore) ServiceEntries() []config.Config {
 	serviceEntries, err := store.List(gvk.ServiceEntry, NamespaceAll)
 	if err != nil {
 		return nil
@@ -360,7 +331,7 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortConfigByCreationTime(configs []Config) {
+func sortConfigByCreationTime(configs []config.Config) {
 	sort.SliceStable(configs, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
@@ -374,14 +345,14 @@ func sortConfigByCreationTime(configs []Config) {
 	})
 }
 
-func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
+func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []config.Config {
 	configs, err := store.List(gvk.Gateway, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
 	sortConfigByCreationTime(configs)
-	out := make([]Config, 0)
+	out := make([]config.Config, 0)
 	for _, cfg := range configs {
 		gateway := cfg.Spec.(*networking.Gateway)
 		if gateway.GetSelector() == nil {
@@ -402,7 +373,7 @@ func key(name, namespace string) string {
 	return name + "/" + namespace
 }
 
-func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config {
+func (store *istioConfigStore) AuthorizationPolicies(namespace string) []config.Config {
 	authorizationPolicies, err := store.List(gvk.AuthorizationPolicy, namespace)
 	if err != nil {
 		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
@@ -410,11 +381,4 @@ func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config 
 	}
 
 	return authorizationPolicies
-}
-
-func (c Config) DeepCopy() Config {
-	var clone Config
-	clone.ConfigMeta = c.ConfigMeta
-	clone.Spec = proto.Clone(c.Spec)
-	return clone
 }

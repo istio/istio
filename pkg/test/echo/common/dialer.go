@@ -20,7 +20,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-
 	"google.golang.org/grpc"
 )
 

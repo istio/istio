@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue: []
+releaseNotes:
+- |
+  **Fixed** an issue causing the `targetPort` option to not take affect for `WorkloadEntry`s with multiple ports.
+
+

@@ -27,16 +27,14 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -46,12 +44,12 @@ type LdsEnv struct {
 
 func getDefaultLdsEnv() *LdsEnv {
 	listenerEnv := LdsEnv{
-		configgen: NewConfigGenerator([]plugin.Plugin{&fakePlugin{}}),
+		configgen: NewConfigGenerator([]plugin.Plugin{&fakePlugin{}}, &model.DisabledCache{}),
 	}
 	return &listenerEnv
 }
 
-func getDefaultProxy() model.Proxy {
+func getDefaultProxy() *model.Proxy {
 	proxy := model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
@@ -66,7 +64,7 @@ func getDefaultProxy() model.Proxy {
 	}
 
 	proxy.DiscoverIPVersions()
-	return proxy
+	return &proxy
 }
 
 func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {
@@ -96,9 +94,9 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	}
 	proxy := getDefaultProxy()
 	proxy.ServiceInstances = instances
-	setNilSidecarOnProxy(&proxy, env.PushContext)
+	setNilSidecarOnProxy(proxy, env.PushContext)
 
-	builder := NewListenerBuilder(&proxy, env.PushContext)
+	builder := NewListenerBuilder(proxy, env.PushContext)
 	listeners := builder.
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		getListeners()
@@ -143,10 +141,10 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 
 	proxy := getDefaultProxy()
 	proxy.ServiceInstances = instances
-	setInboundCaptureAllOnThisNode(&proxy, mode)
-	setNilSidecarOnProxy(&proxy, env.PushContext)
+	setInboundCaptureAllOnThisNode(proxy, mode)
+	setNilSidecarOnProxy(proxy, env.PushContext)
 
-	builder := NewListenerBuilder(&proxy, env.PushContext)
+	builder := NewListenerBuilder(proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
 		buildHTTPProxyListener(ldsEnv.configgen).
 		buildVirtualOutboundListener(ldsEnv.configgen).
@@ -397,17 +395,10 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			},
 		},
 	}
-	configStore := buildEnvoyFilterConfigStore(configPatches)
+	cg := NewConfigGenTest(t, TestOptions{Configs: getEnvoyFilterConfigs(configPatches)})
 
-	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
-
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-
-	gatewayProxy := getDefaultProxy()
-	gatewayProxy.Type = model.Router
-	gatewayProxy.SetGatewaysForProxy(env.PushContext)
-	sidecarProxy := getDefaultProxy()
-	sidecarProxy.SetSidecarScope(env.PushContext)
+	gatewayProxy := cg.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "not-default"})
+	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
 	type fields struct {
 		gatewayListeners        []*listener.Listener
 		inboundListeners        []*listener.Listener
@@ -417,17 +408,15 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 		virtualInboundListener  *listener.Listener
 	}
 	tests := []struct {
-		name        string
-		proxy       *model.Proxy
-		pushContext *model.PushContext
-		fields      fields
-		want        fields
+		name   string
+		proxy  *model.Proxy
+		fields fields
+		want   fields
 	}{
 
 		{
-			name:        "patch add inbound and outbound listener",
-			proxy:       &sidecarProxy,
-			pushContext: env.PushContext,
+			name:  "patch add inbound and outbound listener",
+			proxy: sidecarProxy,
 			fields: fields{
 				outboundListeners: []*listener.Listener{
 					{
@@ -453,9 +442,8 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			},
 		},
 		{
-			name:        "patch inbound and outbound listener",
-			proxy:       &sidecarProxy,
-			pushContext: env.PushContext,
+			name:  "patch inbound and outbound listener",
+			proxy: sidecarProxy,
 			fields: fields{
 				outboundListeners: []*listener.Listener{
 					{
@@ -493,9 +481,8 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			},
 		},
 		{
-			name:        "patch add gateway listener",
-			proxy:       &gatewayProxy,
-			pushContext: env.PushContext,
+			name:  "patch add gateway listener",
+			proxy: gatewayProxy,
 			fields: fields{
 				gatewayListeners: []*listener.Listener{
 					{
@@ -516,9 +503,8 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 		},
 
 		{
-			name:        "patch gateway listener",
-			proxy:       &gatewayProxy,
-			pushContext: env.PushContext,
+			name:  "patch gateway listener",
+			proxy: gatewayProxy,
 			fields: fields{
 				gatewayListeners: []*listener.Listener{
 					{
@@ -555,7 +541,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 
 			lb := &ListenerBuilder{
 				node:                    tt.proxy,
-				push:                    tt.pushContext,
+				push:                    cg.PushContext(),
 				gatewayListeners:        tt.fields.gatewayListeners,
 				inboundListeners:        tt.fields.inboundListeners,
 				outboundListeners:       tt.fields.outboundListeners,
@@ -587,20 +573,145 @@ func buildPatchStruct(config string) *types.Struct {
 	return val
 }
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
-	cs := model.MakeIstioStore(memory.Make(collections.Pilot))
+func getEnvoyFilterConfigs(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) []config.Config {
+	res := []config.Config{}
 	for i, cp := range configPatches {
-		if _, err := cs.Create(model.Config{
-			ConfigMeta: model.ConfigMeta{
+		res = append(res, config.Config{
+			Meta: config.Meta{
 				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
 				Namespace:        "not-default",
 				GroupVersionKind: gvk.EnvoyFilter,
 			},
 			Spec: &networking.EnvoyFilter{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
-			}}); err != nil {
-			panic(err.Error())
+			}})
+	}
+	return res
+}
+
+const strictMode = `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+`
+const disableMode = `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: DISABLE
+`
+
+func TestInboundListenerFilters(t *testing.T) {
+	services := []*model.Service{
+		buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow),
+		buildServiceWithPort("test2.com", 81, protocol.Unsupported, tnow),
+		buildServiceWithPort("test3.com", 82, protocol.TCP, tnow),
+	}
+	instances := make([]*model.ServiceInstance, 0, len(services))
+	for _, s := range services {
+		instances = append(instances, &model.ServiceInstance{
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: uint32(s.Ports[0].Port),
+				Address:      "1.1.1.1",
+			},
+			ServicePort: s.Ports[0],
+		})
+	}
+	cases := []struct {
+		name   string
+		config string
+		http   map[int]bool
+		tls    map[int]bool
+	}{
+		{
+			name:   "permissive",
+			config: "",
+			http: map[int]bool{
+				// Should not see HTTP inspector if we declare ports
+				80: true,
+				82: true,
+				// But should see for passthrough or unnamed ports
+				81:   false,
+				1000: false,
+			},
+			tls: map[int]bool{
+				// Permissive mode: inspector is set everywhere
+				80:   false,
+				82:   false,
+				81:   false,
+				1000: false,
+			},
+		},
+		{
+			name:   "disable",
+			config: disableMode,
+			http: map[int]bool{
+				// Should not see HTTP inspector if we declare ports
+				80: true,
+				82: true,
+				// But should see for passthrough or unnamed ports
+				81:   false,
+				1000: false,
+			},
+		},
+		{
+			name:   "strict",
+			config: strictMode,
+			http: map[int]bool{
+				// Should not see HTTP inspector if we declare ports
+				80: true,
+				82: true,
+				// But should see for passthrough or unnamed ports
+				81:   false,
+				1000: false,
+			},
+			tls: map[int]bool{
+				// strict mode: inspector is set everywhere.
+				80:   false,
+				82:   false,
+				81:   false,
+				1000: false,
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:     services,
+				Instances:    instances,
+				ConfigString: tt.config,
+			})
+			listeners := cg.Listeners(cg.SetupProxy(nil))
+			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
+			filters := xdstest.ExtractListenerFilters(virtualInbound)
+			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].FilterDisabled, tt.http)
+			if filters[wellknown.TlsInspector] == nil {
+				if len(tt.tls) > 0 {
+					t.Fatalf("Expected tls inspector, got none")
+				}
+			} else {
+				evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, tt.tls)
+			}
+		})
+	}
+}
+
+func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.ListenerFilterChainMatchPredicate, expected map[int]bool) {
+	t.Helper()
+	for port, expect := range expected {
+		got := xdstest.EvaluateListenerFilterPredicates(predicate, false, port)
+		if got != expect {
+			t.Errorf("expected port %v to have match=%v, got match=%v", port, expect, got)
 		}
 	}
-	return cs
 }

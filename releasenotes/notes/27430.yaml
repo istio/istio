@@ -1,0 +1,7 @@
+piVersion: release-notes/v2
+kind: feature
+area: istioctl
+
+releaseNotes:
+- |
+  **Added** `--type` for `istioctl experimental create-remote-secret` to allow user specify type for the created secret

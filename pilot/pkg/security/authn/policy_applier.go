@@ -17,6 +17,7 @@ package authn
 import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 )
@@ -27,7 +28,7 @@ type PolicyApplier interface {
 	// InboundFilterChain returns inbound filter chain(s) for the given endpoint (aka workload) port to
 	// enforce the underlying authentication policy.
 	InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
-		listenerProtocol networking.ListenerProtocol) []networking.FilterChain
+		listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
@@ -35,5 +36,8 @@ type PolicyApplier interface {
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
-	AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter
+	AuthNFilter(proxyType model.NodeType, port uint32, istioMutualGateway bool) *http_conn.HttpFilter
+
+	// PortLevelSetting returns port level mTLS settings.
+	PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS
 }

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue: []
+releaseNotes:
+- |
+  **Updated** XDS connections from Envoy will be proxied through the Istio sidecar agent. Doing so allows
+  for consolidation of multiple connections from a pod to Istiod into a single connection, in addition to
+  other planned future improvements. This feature (and change) is transparent to users and is enabled by default.
+  It can be disabled by setting the following in the Istio Operator: meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT="false".

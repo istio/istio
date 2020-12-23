@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 27425
+releaseNotes:
+  - |
+    **Added** `REPLACE` operation for EnvoyFilter. `REPLACE` operation can replace the contents of a named filter with new contents. It is only valid for `HTTP_FILTER` and `NETWORK_FILTER`.

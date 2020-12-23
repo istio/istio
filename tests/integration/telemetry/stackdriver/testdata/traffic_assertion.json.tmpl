@@ -1,9 +1,9 @@
 {
     "source": {
-        "owner_uid": "kubernetes://apis/apps/v1/namespaces/{{ .EchoNamespace }}/deployments/clt-v1",
-        "workload_name": "clt-v1",
+        "owner_uid": "kubernetes://apis/apps/v1/namespaces/{{ .EchoNamespace }}/deployments/clt-{{ .ClusterName }}-v1",
+        "workload_name": "clt-{{ .ClusterName }}-v1",
         "workload_namespace": "{{ .EchoNamespace }}",
-        "canonical_service": "clt",
+        "canonical_service": "clt-{{ .ClusterName }}",
         "canonical_revision": "v1"
     },
     "destination": {
@@ -13,7 +13,6 @@
         "canonical_service": "srv",
         "canonical_revision": "v1"
     },
-    "protocol": "PROTOCOL_GRPC",
     "destination_service_name": "srv",
     "destination_service_namespace": "{{ .EchoNamespace }}"
 }

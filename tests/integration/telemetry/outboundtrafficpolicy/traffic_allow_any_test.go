@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -89,7 +90,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Host:     "some-external-site.com",
 			Expected: Expected{
 				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`, // nolint: lll
+				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`, // nolint: lll
 				ResponseCode:    []string{"200"},
 				Metadata: map[string]string{
 					// We inject this header in the VirtualService
@@ -104,7 +105,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Host:     "some-external-site.com",
 			Expected: Expected{
 				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`, // nolint: lll
+				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`, // nolint: lll
 				ResponseCode:    []string{"200"},
 				Metadata: map[string]string{
 					// We inject this header in the VirtualService

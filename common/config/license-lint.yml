@@ -61,152 +61,43 @@ restricted_licenses:
   - Sleepycat
 
 allowlisted_modules:
-  - bitbucket.org/ww/goautoneg
-  - git.apache.org/thrift.git
-  - github.com/alicebob/gopher-json
-  - github.com/antlr/antlr4
-  - github.com/apache/thrift
-  - github.com/bazelbuild/buildtools
-  - github.com/bgentry/speakeasy
-  - github.com/bmizerany/assert
-  - github.com/BurntSushi/xgb
-  - github.com/DATA-DOG/go-sqlmock
-  - github.com/daviddengcn/go-colortext
-  - github.com/dchest/siphash
-  - github.com/dnaeon/go-vcr
-  - github.com/duosecurity/duo_api_golang
-  - github.com/dustin/go-humanize
-  - github.com/facebookgo/stack
-  - github.com/facebookgo/stackerr
-  - github.com/ghodss/yaml
-  - github.com/globalsign/mgo
-  - github.com/gogo/protobuf
-  - github.com/google/cadvisor
-  - github.com/google/pprof
-  - github.com/gophercloud/gophercloud
-  - github.com/gotestyourself/gotestyourself
-  - github.com/hashicorp/consul
-  - github.com/hashicorp/serf
-  - github.com/hashicorp/vault
-  - github.com/heketi/heketi
-  - github.com/heketi/utils
-  - github.com/inconshreveable/mousetrap
-  - github.com/JeffAshton/win_pdh
-  - github.com/jmespath/go-jmespath
-  - github.com/jteeuwen/go-bindata
-  - github.com/julienschmidt/httprouter
-  - github.com/koneu/natend
-  - github.com/kr/logfmt
-  - github.com/libopenstorage/openstorage
-  - github.com/logrusorgru/aurora
-  - github.com/magiconair/properties
+# MIT: https://github.com/ghodss/yaml/blob/master/LICENSE
+- github.com/ghodss/yaml
 
-  # MIT licenses but not correctly identified
-  - github.com/Masterminds/semver
-  - github.com/Masterminds/sprig
-  - github.com/Masterminds/squirrel
-  - github.com/Masterminds/vcs
+# BSD: https://github.com/gogo/protobuf/blob/master/LICENSE
+- github.com/gogo/protobuf
 
-  - github.com/mesos/mesos-go
-  - github.com/miekg/dns
-  - github.com/munnerz/goautoneg
-  - github.com/Nvveen/Gotty
-  - github.com/NYTimes/gziphandler
-  - github.com/opencontainers/runc
-  - github.com/openshift/origin
-  - github.com/pascaldekloe/goe
-  - github.com/pmezard/go-difflib
-  - github.com/projectcalico/go-yaml
-  - github.com/projectcalico/go-yaml-wrapper
-  - github.com/rcrowley/go-metrics
-  - github.com/yvasiyarov/go-metrics # fork of above with identical license
-  - github.com/russross/blackfriday
-  - github.com/russross/blackfriday/v2
-  - gopkg.in/russross/blackfriday.v2
-  - github.com/sean-/seed
-  - github.com/smartystreets/assertions
-  - github.com/smartystreets/goconvey
-  - github.com/storageos/go-api
-  - github.com/technosophos/moniker
-  - github.com/ulikunitz/xz
-  - github.com/xeipuuv/gojsonpointer
-  - github.com/xeipuuv/gojsonreference
-  - github.com/xi2/xz
+# BSD: https://github.com/magiconair/properties/blob/master/LICENSE.md
+- github.com/magiconair/properties
 
-  # BSD-3
-  #   fuse.go: ISC
-  #   fuse_kernel.go: BSD-2
-  - bazil.org/fuse
+# Apache 2.0
+- github.com/spf13/cobra
+- github.com/spf13/afero
 
-  # BSD-3
-  - github.com/DataDog/zstd
+# Public domain: https://github.com/xi2/xz/blob/master/LICENSE
+- github.com/xi2/xz
 
-  # BSD-2 / ISC
-  - github.com/emirpasic/gods
+# Helm is Apache 2.0: https://github.com/helm/helm/blob/master/LICENSE
+# However, it has a bunch of LICENSE test files that our linter fails to understand
+- helm.sh/helm/v3
 
-  # MIT / MIT
-  - github.com/kevinburke/ssh_config
+# https://github.com/xeipuuv/gojsonpointer/blob/master/LICENSE-APACHE-2.0.txt
+- github.com/xeipuuv/gojsonpointer
+# https://github.com/xeipuuv/gojsonreference/blob/master/LICENSE-APACHE-2.0.txt
+- github.com/xeipuuv/gojsonreference
+# Apache 2.0: https://github.com/xeipuuv/gojsonschema/blob/master/LICENSE-APACHE-2.0.txt
+- github.com/xeipuuv/gojsonschema
 
-  # Apache 2.0
-  #   github.com/ghodss/yaml: MIT / BSD-3
-  #   github.com/gogo/protobuf: BSD-3
-  #   github.com/jmespath/go-jmespath: Apache 2.0
-  #   sigs.k8s.io/yaml: MIT / BSD-3
-  - github.com/tektoncd/pipeline
+# Apache 2.0 (but missing appendix): https://github.com/garyburd/redigo/blob/master/LICENSE
+- github.com/garyburd/redigo
+- github.com/gomodule/redigo
 
-  # The core library is MIT licensed, but a submodule imports a BSD-3 license that licensee fails to correctly identify
-  - github.com/vektah/gqlparser
+# Apache 2.0
+#   github.com/ghodss/yaml: MIT / BSD-3
+#   github.com/gogo/protobuf: BSD-3
+#   github.com/jmespath/go-jmespath: Apache 2.0
+#   sigs.k8s.io/yaml: MIT / BSD-3
+- github.com/tektoncd/pipeline
 
-  # Apache 2.0
-  - github.com/spf13/cobra
-  - github.com/spf13/afero
-
-  # BSD-3 by pointer to another repo (github.com/gonum/license/blob/master/LICENSE)
-  - gonum.org/v1/plot
-
-  # FTL (https://github.com/golang/freetype/blob/master/licenses/ftl.txt)
-  - github.com/golang/freetype
-
-  # CC-BY-3
-  - github.com/ajstarks/svgo
-
-  # MIT
-  - github.com/dgryski/go-metro
-  - github.com/hhatto/gorst
-
-  - github.com/ziutek/mymysql
-  - gopkg.in/check.v1
-  - gopkg.in/mgo.v2
-  - gopkg.in/tomb.v1
-  - gopkg.in/yaml.v1
-  - gopkg.in/yaml.v3
-  - gotest.tools
-  - istio.io/tools
-
-  # Helm is Apache 2.0: https://github.com/helm/helm/blob/master/LICENSE
-  # However, it has a bunch of LICENSE test files that our linter fails to understand
-  - k8s.io/helm
-  - helm.sh/helm/v3
-
-  - k8s.io/kubernetes
-  - modernc.org/cc
-  - sigs.k8s.io/yaml
-
-  # BSD-3: https://github.com/phayes/freeport/blob/master/LICENSE.md
-  - github.com/phayes/freeport
-
-  # Apache 2.0: https://github.com/xeipuuv/gojsonschema/blob/master/LICENSE-APACHE-2.0.txt
-  - github.com/xeipuuv/gojsonschema
-
-  # Apache 2.0 (but missing appendix): https://github.com/garyburd/redigo/blob/master/LICENSE
-  - github.com/garyburd/redigo
-  - github.com/gomodule/redigo
-
-  # Apache 2.0: https://github.com/xdg/scram/blob/master/LICENSE
-  - github.com/xdg/scram
-
-  # Apache 2.0: https://github.com/xdg/stringprep/blob/master/LICENSE
-  - github.com/xdg/stringprep
-
-  # BSD-3: https://github.com/golang/tools/blob/master/LICENSE
-  - golang.org/x/tools
+# MIT: https://github.com/kubernetes-sigs/yaml/blob/master/LICENSE
+- sigs.k8s.io/yaml

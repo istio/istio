@@ -32,3 +32,4 @@ CHARTS_SNAPSHOT="${ROOTDIR}/operator/cmd/mesh/testdata/manifest-generate/data-sn
 rm -Rf "${CHARTS_SNAPSHOT:?}/"
 
 cp -Rf "${MANIFESTS_DIR}" "${CHARTS_SNAPSHOT}"/
+rm -f "${CHARTS_SNAPSHOT}"/**/*.md

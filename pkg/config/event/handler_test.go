@@ -25,7 +25,7 @@ import (
 )
 
 func TestHandlerFromFn(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	var received event.Event
 	h := event.HandlerFromFn(func(e event.Event) {
 		received = e
@@ -44,7 +44,7 @@ func TestHandlerFromFn(t *testing.T) {
 }
 
 func TestHandlers(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var received1 event.Event
 	h1 := event.HandlerFromFn(func(e event.Event) {
@@ -74,7 +74,7 @@ func TestHandlers(t *testing.T) {
 }
 
 func TestCombineHandlers(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var received1 event.Event
 	h1 := event.HandlerFromFn(func(e event.Event) {
@@ -102,7 +102,7 @@ func TestCombineHandlers(t *testing.T) {
 }
 
 func TestCombineHandlers_Nil1(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var received1 event.Event
 	h1 := event.HandlerFromFn(func(e event.Event) {
@@ -124,7 +124,7 @@ func TestCombineHandlers_Nil1(t *testing.T) {
 }
 
 func TestCombineHandlers_Nil2(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var received1 event.Event
 	h1 := event.HandlerFromFn(func(e event.Event) {
@@ -146,7 +146,7 @@ func TestCombineHandlers_Nil2(t *testing.T) {
 }
 
 func TestCombineHandlers_MultipleHandlers(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var received1 event.Event
 	h1 := event.HandlerFromFn(func(e event.Event) {

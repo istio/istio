@@ -1,0 +1,20 @@
+2020-06-29T23:37:27.287895Z	info	Effective config: binaryPath: /usr/local/bin/envoy
+configPath: ./etc/istio/proxy
+discoveryAddress: istiod.istio-system.svc:15012
+drainDuration: 45s
+envoyAccessLogService: {}
+envoyMetricsService: {}
+parentShutdownDuration: 60s
+proxyAdminPort: 15000
+proxyMetadata:
+  DNS_AGENT: ""
+serviceCluster: istio-ingressgateway
+statNameLength: 189
+statusPort: 15020
+tracing:
+  zipkin:
+    address: zipkin.istio-system:9411
+
+2020-06-29T23:37:27.287949Z	info	Proxy role: &model.Proxy{ClusterID:"", Type:"router", IPAddresses:[]string{"10.36.1.5"}, ID:"istio-ingressgateway-5855454469-5h8dq.istio-system", Locality:(*envoy_api_v2_core.Locality)(nil), DNSDomain:"istio-system.svc.cluster.local", ConfigNamespace:"", Metadata:(*model.NodeMetadata)(nil), SidecarScope:(*model.SidecarScope)(nil), PrevSidecarScope:(*model.SidecarScope)(nil), MergedGateway:(*model.MergedGateway)(nil), ServiceInstances:[]*model.ServiceInstance(nil), IstioVersion:(*model.IstioVersion)(nil), ipv6Support:false, ipv4Support:false, GlobalUnicastIP:"", XdsResourceGenerator:model.XdsResourceGenerator(nil), Active:map[string]*model.WatchedResource(nil)}
+2020-06-29T23:37:27.287957Z	info	JWT policy is third-party-jwt
+2020-06-29T23:37:27.287996Z	info	PilotSAN []string{"istiod.istio-system.svc"}

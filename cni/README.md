@@ -34,7 +34,7 @@ A complete set of instructions on how to use and install the Istio CNI is availa
 
 1. Create and apply Istio manifests with the Istio CNI plugin enabled using the `--set istio_cni.enabled=true` Helm variable
 
-For most Kubernetes environments the `istio-cni` [helm parameters' defaults](deployments/kubernetes/install/helm/istio-cni/values.yaml) will configure the Istio CNI plugin in a manner compatible with the Kubernetes installation.  Refer to
+For most Kubernetes environments the `istio-cni` [helm parameters' defaults](../manifests/charts/istio-cni/values.yaml) will configure the Istio CNI plugin in a manner compatible with the Kubernetes installation.  Refer to
 the [Hosted Kubernetes Usage](#hosted-kubernetes-usage) section for Kubernetes environment specific procedures.
 
 Helm chart parameters:
@@ -83,7 +83,7 @@ No special set up is required for IKS, as it currently uses the default `cni-con
 
 #### Red Hat OpenShift Setup
 
-Add the following section into [istio-cni.yaml](deployments/kubernetes/install/helm/istio-cni/templates/istio-cni.yaml#L109)
+Add the following section into [istio-cni.yaml](../manifests/charts/istio-cni/templates/daemonset.yaml)
 to run the `install-cni` DaemonSet container as privileged so that it has proper write permission in the host filesystem:
 
 ```yaml
@@ -128,14 +128,14 @@ $ GOOS=linux make docker.push
 The Helm package tarfile can be created via
 
 ```console
-$ helm package $GOPATH/src/istio.io/cni/deployments/kubernetes/install/helm/istio-cni
+$ helm package $GOPATH/src/istio.io/istio/manifests/charts/istio-cni
 ```
 
 #### Serve Helm Repo
 
 An example for hosting a test repo for the Helm istio-cni package:
 
-1. Create package tarfile with `helm package $GOPATH/src/istio.io/cni/deployments/kubernetes/install/helm/istio-cni`
+1. Create package tarfile with `helm package $GOPATH/src/istio.io/istio/manifests/charts/istio-cni`
 1. Copy tarfile to dir to serve the repo from
 1. Run `helm serve --repo-path <dir where helm tarfile is> &`
 
@@ -164,14 +164,14 @@ To make use of the `istio-cni` chart from another chart:
 
 1. Run `helm dependency update <chart>` on the chart that needs to depend on istio-cni.
 
-    1. NOTE: for [istio/istio](https://github.com/istio/istio/tree/master/install/kubernetes/helm/istio) the charts
+    1. NOTE: for [istio/istio](https://github.com/istio/istio/tree/master/manifests/charts/istio-cni) the charts
        need to be reorganized to make `helm dependency update` work.  The child charts (pilot, galley, etc) need to
        be made independent charts in the directorkefiy at the same level as the main `istio` chart
        (<https://github.com/istio/istio/pull/9306>).
 
 ## Testing
 
-The Istio CNI testing strategy and execution details are explained [here](test/README.md).
+The Istio CNI testing strategy and execution details are explained [here](./test/README.md).
 
 ## Troubleshooting
 
@@ -220,7 +220,7 @@ $ gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIF
 
 ### Overview
 
-- [istio-cni.yaml](deployments/kubernetes/install/helm/istio-cni/templates/istio-cni.yaml)
+- [istio-cni.yaml](../manifests/charts/istio-cni/templates/daemonset.yaml)
     - Helm chart manifest for deploying `install-cni` container as daemonset
     - `istio-cni-config` configmap with CNI plugin config to add to CNI plugin chained config
     - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
@@ -238,7 +238,7 @@ $ gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIF
     - on pod add, determines whether pod should have netns setup to redirect to Istio proxy
         - if so, calls `istio-iptables` with params to setup pod netns
 
-- [istio-iptables](tools/istio-cni-docker.mk)
+- `istio-iptables`
     - sets up iptables to redirect a list of ports to the port envoy will listen
 
 ### Background
@@ -266,13 +266,6 @@ The details for the deployment & installation of this plugin were pretty much li
 
 Specifically:
 
-- [CNI installation script](https://github.com/projectcalico/cni-plugin/blob/master/k8s-install/scripts/install-cni.sh)
-    - This does the following
-        - sets up CNI conf in /host/etc/cni/net.d/*
-        - copies calico CNI binaries to /host/opt/cni/bin
-        - builds kubeconfig for CNI plugin from service-account info mounted in the pod:
-          <https://github.com/projectcalico/cni-plugin/blob/master/k8s-install/scripts/install-cni.sh#L142>
-        - reference: <https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/>
 - The CNI installation script is containerized and deployed as a daemonset in k8s.  The relevant
   calico k8s manifests were used as the model for the istio-cni plugin's manifest:
     - [daemonset and configmap](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/hosted/calico.yaml)

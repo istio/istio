@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -33,12 +34,13 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/ledger"
+	"istio.io/pkg/monitoring"
 )
 
 var _ mesh.Holder = &Environment{}
@@ -72,6 +74,8 @@ type Environment struct {
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
+
+	ledger ledger.Ledger
 }
 
 func (e *Environment) GetDomainSuffix() string {
@@ -123,10 +127,25 @@ func (e *Environment) AddNetworksHandler(h func()) {
 	}
 }
 
-func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
 	if e != nil && e.PushContext != nil {
-		e.PushContext.AddMetric(metric, key, proxy, msg)
+		e.PushContext.AddMetric(metric, key, proxyID, msg)
 	}
+}
+
+func (e *Environment) Version() string {
+	if x := e.GetLedger(); x != nil {
+		return x.RootHash()
+	}
+	return ""
+}
+
+func (e *Environment) GetLedger() ledger.Ledger {
+	return e.ledger
+}
+
+func (e *Environment) SetLedger(l ledger.Ledger) {
+	e.ledger = l
 }
 
 // Request is an alias for array of marshaled resources.
@@ -141,7 +160,7 @@ type XdsUpdates = map[ConfigKey]struct{}
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates XdsUpdates) Resources
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) Resources
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -151,6 +170,7 @@ type XdsResourceGenerator interface {
 // In current Istio implementation nodes use a 4-parts '~' delimited ID.
 // Type~IPAddress~ID~Domain
 type Proxy struct {
+	sync.RWMutex
 
 	// Type specifies the node type. First part of the ID.
 	Type NodeType
@@ -161,7 +181,7 @@ type Proxy struct {
 	IPAddresses []string
 
 	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
-	// namespace.
+	// namespace <podName.namespace>.
 	ID string
 
 	// Locality is the location of where Envoy proxy runs. This is extracted from
@@ -196,13 +216,20 @@ type Proxy struct {
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
 
-	// Indicates wheteher proxy supports IPv6 addresses
+	// VerifiedIdentity determines whether a proxy had its identity verified. This
+	// generally occurs by JWT or mTLS authentication. This can be false when
+	// connecting over plaintext. If this is set to true, we can verify the proxy has
+	// access to ConfigNamespace namespace. However, other options such as node type
+	// are not part of an Istio identity and thus are not verified.
+	VerifiedIdentity *spiffe.Identity
+
+	// Indicates whether proxy supports IPv6 addresses
 	ipv6Support bool
 
-	// Indicates wheteher proxy supports IPv4 addresses
+	// Indicates whether proxy supports IPv4 addresses
 	ipv4Support bool
 
-	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
+	// GlobalUnicastIP stores the global unicast IP if available, otherwise nil
 	GlobalUnicastIP string
 
 	// XdsResourceGenerator is used to generate resources for the node, based on the PushContext.
@@ -211,25 +238,8 @@ type Proxy struct {
 	// of configuration.
 	XdsResourceGenerator XdsResourceGenerator
 
-	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest short type.
-	Active map[string]*WatchedResource
-
-	// ActiveExperimental contains the list of watched resources for the proxy, keyed by the canonical DiscoveryRequest type.
-	// Note that the key may not be equal to the proper TypeUrl. For example, Envoy types like Cluster will share a single
-	// key for multiple versions.
-	ActiveExperimental map[string]*WatchedResource
-
-	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
-	// only generate one version or the other, because the protos are wire compatible we can cast to the
-	// requested version. This struct keeps track of the types requested for each resource type.
-	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
-	// cluster response, but change the TypeUrl in the response to be v3.
-	RequestedTypes struct {
-		CDS string
-		EDS string
-		RDS string
-		LDS string
-	}
+	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
+	WatchedResources map[string]*WatchedResource
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -259,6 +269,9 @@ type WatchedResource struct {
 
 	// NonceAcked is the last acked message.
 	NonceAcked string
+
+	// NonceNacked is the last nacked message. This is reset following a successful ACK
+	NonceNacked string
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
@@ -391,9 +404,6 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 type BootstrapNodeMetadata struct {
 	NodeMetadata
 
-	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
-	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
-
 	// InstanceName is the short name for the workload instance (ex: pod name)
 	// replaces POD_NAME
 	InstanceName string `json:"NAME,omitempty"`
@@ -412,6 +422,10 @@ type BootstrapNodeMetadata struct {
 	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
 	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
 	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
+
+	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
+	StsPort string `json:"STS_PORT,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
@@ -456,7 +470,7 @@ type NodeMetadata struct {
 	ClusterID string `json:"CLUSTER_ID,omitempty"`
 
 	// Network defines the network the node belongs to. It is an optional metadata,
-	// set at injection time. When set, the Endpoints returned to a note and not on same network
+	// set at injection time. When set, the Endpoints returned to a node and not on same network
 	// will be replaced with the gateway defined in the settings.
 	Network string `json:"NETWORK,omitempty"`
 
@@ -465,11 +479,6 @@ type NodeMetadata struct {
 
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
-
-	PolicyCheck                  string `json:"policy.istio.io/check,omitempty"`
-	PolicyCheckRetries           string `json:"policy.istio.io/checkRetries,omitempty"`
-	PolicyCheckBaseRetryWaitTime string `json:"policy.istio.io/checkBaseRetryWaitTime,omitempty"`
-	PolicyCheckMaxRetryWaitTime  string `json:"policy.istio.io/checkMaxRetryWaitTime,omitempty"`
 
 	// TLSServerCertChain is the absolute path to server cert-chain file
 	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
@@ -485,15 +494,9 @@ type NodeMetadata struct {
 	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
 
 	CertBaseDir string `json:"BASE,omitempty"`
-	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
-	SdsEnabled StringBool `json:"SDS,omitempty"`
-
-	// StsPort specifies the port of security token exchange server (STS).
-	// Used by envoy filters
-	StsPort string `json:"STS_PORT,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
-	// If not set, no timeout is set.
+	// If not set, default timeout is 1 hour.
 	IdleTimeout string `json:"IDLE_TIMEOUT,omitempty"`
 
 	// HTTP10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
@@ -505,7 +508,18 @@ type NodeMetadata struct {
 	Generator string `json:"GENERATOR,omitempty"`
 
 	// DNSCapture indicates whether the workload has enabled dns capture
-	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
+	DNSCapture StringBool `json:"DNS_CAPTURE,omitempty"`
+
+	// DNSAutoAllocate indicates whether the workload should have auto allocated addresses for ServiceEntry
+	// This allows resolving ServiceEntries, which is especially useful for distinguishing TCP traffic
+	// This depends on DNSCapture.
+	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
+
+	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
+	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
+
+	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
+	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
@@ -689,12 +703,8 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.MergedGateway = ps.mergeGateways(node)
 }
 
-func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error {
-	instances, err := serviceDiscovery.GetProxyServiceInstances(node)
-	if err != nil {
-		log.Errorf("failed to get service proxy service instances: %v", err)
-		return err
-	}
+func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
+	instances := serviceDiscovery.GetProxyServiceInstances(node)
 
 	// Keep service instances in order of creation/hostname.
 	sort.SliceStable(instances, func(i, j int) bool {
@@ -709,26 +719,20 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error 
 	})
 
 	node.ServiceInstances = instances
-	return nil
 }
 
 // SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
-func (node *Proxy) SetWorkloadLabels(env *Environment) error {
+func (node *Proxy) SetWorkloadLabels(env *Environment) {
 	// First get the workload labels from node meta
 	if len(node.Metadata.Labels) > 0 {
-		return nil
+		return
 	}
 
 	// Fallback to calling GetProxyWorkloadLabels
-	l, err := env.GetProxyWorkloadLabels(node)
-	if err != nil {
-		log.Errorf("failed to get service proxy labels: %v", err)
-		return err
-	}
+	l := env.GetProxyWorkloadLabels(node)
 	if len(l) > 0 {
 		node.Metadata.Labels = l[0]
 	}
-	return nil
 }
 
 // DiscoverIPVersions discovers the IP Versions supported by Proxy based on its IP addresses.
@@ -740,7 +744,7 @@ func (node *Proxy) DiscoverIPVersions() {
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.IsGlobalUnicast() {
+		if node.GlobalUnicastIP == "" && addr.IsGlobalUnicast() {
 			node.GlobalUnicastIP = addr.String()
 		}
 		if addr.To4() != nil {
@@ -768,22 +772,18 @@ const UnnamedNetwork = ""
 // GetNetworkView returns the networks that the proxy requested.
 // When sending EDS/CDS-with-dns-endpoints, Pilot will only send
 // endpoints corresponding to the networks that the proxy wants to see.
-// If not set, we assume that the proxy wants to see endpoints from the default
-// unnamed network.
+// If not set, we assume that the proxy wants to see endpoints in any network.
 func GetNetworkView(node *Proxy) map[string]bool {
-	if node == nil {
-		return map[string]bool{UnnamedNetwork: true}
+	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
+		return nil
 	}
 
 	nmap := make(map[string]bool)
 	for _, n := range node.Metadata.RequestedNetworkView {
 		nmap[n] = true
 	}
+	nmap[UnnamedNetwork] = true
 
-	if len(nmap) == 0 {
-		// Proxy sees endpoints from the default unnamed network only
-		nmap[UnnamedNetwork] = true
-	}
 	return nmap
 }
 
@@ -826,7 +826,7 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 	if hasValidIPAddresses(metadata.InstanceIPs) {
 		out.IPAddresses = metadata.InstanceIPs
 	} else if isValidIPAddress(parts[1]) {
-		//Fall back, use IP from node id, it's only for backward-compatibility, IP should come from metadata
+		// Fall back, use IP from node id, it's only for backward-compatibility, IP should come from metadata
 		out.IPAddresses = append(out.IPAddresses, parts[1])
 	}
 
@@ -858,7 +858,8 @@ func ParseIstioVersion(ver string) *IstioVersion {
 	// we are guaranteed to have atleast major and minor based on the regex
 	major, _ := strconv.Atoi(parts[0])
 	minor, _ := strconv.Atoi(parts[1])
-	patch := 0
+	// Assume very large patch release if not set
+	patch := 65535
 	if len(parts) > 2 {
 		patch, _ = strconv.Atoi(parts[2])
 	}
@@ -904,7 +905,7 @@ const (
 func ParsePort(addr string) int {
 	port, err := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
 	if err != nil {
-		log.Warna(err)
+		log.Warn(err)
 	}
 
 	return port
@@ -965,6 +966,7 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	return InterceptionRedirect
 }
 
-// SidecarDNSListenerPort specifes the port at which the sidecar hosts a DNS resolver listener.
-// TODO: customize me. tools/istio-iptables package also has this hardcoded.
-const SidecarDNSListenerPort = 15013
+func (node *Proxy) IsVM() bool {
+	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
+	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
+}

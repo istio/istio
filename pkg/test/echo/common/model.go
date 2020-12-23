@@ -18,6 +18,7 @@ import "istio.io/istio/pkg/config/protocol"
 
 // TLSSettings defines TLS configuration for Echo server
 type TLSSettings struct {
+	// If not empty, RootCert supplies the extra root cert that will be appended to the system cert pool.
 	RootCert   string
 	ClientCert string
 	Key        string
@@ -45,7 +46,15 @@ type Port struct {
 
 	// TLS determines if the port will use TLS.
 	TLS bool
+
+	// ServerFirst if a port will be server first
+	ServerFirst bool
+
+	// InstanceIP determines if echo will listen on the instance IP, or wildcard
+	InstanceIP bool
 }
 
 // PortList is a set of ports
 type PortList []*Port
+
+var ServerFirstMagicString = "server-first-protocol\n"

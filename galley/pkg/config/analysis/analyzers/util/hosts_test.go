@@ -23,7 +23,7 @@ import (
 )
 
 func TestGetResourceNameFromHost(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// FQDN, same namespace
 	g.Expect(GetResourceNameFromHost("default", "foo.default.svc.cluster.local")).To(Equal(resource.NewFullName("default", "foo")))
@@ -36,7 +36,7 @@ func TestGetResourceNameFromHost(t *testing.T) {
 }
 
 func TestGetScopedFqdnHostname(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// FQDN, same namespace, local scope
 	g.Expect(NewScopedFqdn("default", "default", "foo.default.svc.cluster.local")).To(Equal(ScopedFqdn("default/foo.default.svc.cluster.local")))
@@ -68,7 +68,7 @@ func TestGetScopedFqdnHostname(t *testing.T) {
 }
 
 func TestScopedFqdn_GetScopeAndFqdn(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	ns, fqdn := ScopedFqdn("default/reviews.default.svc.cluster.local").GetScopeAndFqdn()
 	g.Expect(ns).To(Equal("default"))

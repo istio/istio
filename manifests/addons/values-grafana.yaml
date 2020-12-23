@@ -11,6 +11,9 @@ testFramework:
 podLabels:
   app: grafana
 
+podAnnotations:
+  sidecar.istio.io/inject: "false"
+
 # Demo only, so we will have no authentication
 admin:
   existingSecret: true
@@ -26,9 +29,6 @@ env:
 # Expose on port 3000 to match the Istio docs
 service:
   port: 3000
-
-image:
-  tag: 7.0.5
 
 # Set up out dashboards
 dashboardProviders:

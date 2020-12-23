@@ -24,12 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -85,7 +83,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	// Provision and manage the certificates for non-Pilot services.
 	// If services are empty, the certificate controller will do nothing.
 	s.certController, err = chiron.NewWebhookController(defaultCertGracePeriodRatio, defaultMinCertGracePeriod,
-		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1(), k8sClient.CertificatesV1beta1(),
+		k8sClient.CoreV1(), k8sClient.AdmissionregistrationV1beta1(), k8sClient.CertificatesV1beta1(),
 		defaultCACertPath, secretNames, dnsNames, namespaces)
 	if err != nil {
 		return fmt.Errorf("failed to create certificate controller: %v", err)
@@ -145,7 +143,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
 		log.Infof("Generating istiod-signed cert for %v", names)
-		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get())
+		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
 
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		// check if signing key file exists the cert dir
@@ -213,6 +211,6 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 	if err != nil {
 		return err
 	}
-	log.Infoa("DNS certificates created in ", dnsCertDir)
+	log.Info("DNS certificates created in ", dnsCertDir)
 	return nil
 }

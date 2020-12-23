@@ -20,8 +20,11 @@ spec:
     name: auto
     protocol: ""
   resolution: STATIC
+  location: MESH_INTERNAL
   endpoints:
   - address: 1.1.1.1
+    labels:
+      security.istio.io/tlsMode: istio
 ---
 # Set up .Services number of services. Each will have 4 ports (one for each protocol)
 {{- range $i := until .Services }}
@@ -45,7 +48,10 @@ spec:
   - number: 9090
     name: auto
   resolution: STATIC
+  location: MESH_INTERNAL
   endpoints:
   - address: 1.2.3.4
+    labels:
+      security.istio.io/tlsMode: istio
 ---
 {{- end }}

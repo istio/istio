@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 27726
+releaseNotes:
+- |
+  **Fixed** pilot agent app probe connection leak.

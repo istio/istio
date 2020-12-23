@@ -23,10 +23,12 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
 	gcapb "istio.io/istio/security/proto/providers/google"
 	"istio.io/pkg/env"
@@ -34,10 +36,11 @@ import (
 )
 
 const bearerTokenPrefix = "Bearer "
+const hubIDPPrefix = "https://gkehub.googleapis.com/"
 
 var (
 	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging", 0)
-	gkeClusterURL     = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	envGkeClusterURL  = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
 type googleCAClient struct {
@@ -77,10 +80,9 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 }
 
 // CSR Sign calls Google CA to sign a CSR.
-func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error) {
 	req := &gcapb.MeshCertificateRequest{
-		RequestId: reqID,
+		RequestId: uuid.New().String(),
 		Csr:       string(csrPEM),
 		Validity:  &duration.Duration{Seconds: certValidTTLInSec},
 	}
@@ -95,6 +97,10 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 	out = out.Copy()
 	out["authorization"] = []string{token}
 
+	gkeClusterURL := envGkeClusterURL
+	if envGkeClusterURL == "" && platform.IsGCP() {
+		gkeClusterURL = platform.NewGCP().Metadata()[platform.GCPClusterURL]
+	}
 	zone := parseZone(gkeClusterURL)
 	if zone != "" {
 		out["x-goog-request-params"] = []string{fmt.Sprintf("location=locations/%s", zone)}
@@ -104,6 +110,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 	resp, err := cl.client.CreateCertificate(ctx, req)
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to create certificate: %v", err)
+		googleCAClientLog.Debugf("Original request %v, resp %v", req, resp)
 		return nil, err
 	}
 
@@ -111,6 +118,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 		googleCAClientLog.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
 		return nil, errors.New("invalid response cert chain")
 	}
+	googleCAClientLog.Infof("Cert created with GoogleCA %s chain length %d", zone, len(resp.CertChain))
 
 	return resp.CertChain, nil
 }
@@ -127,6 +135,10 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 }
 
 func parseZone(clusterURL string) string {
+	// for Hub IDNS, the input is https://gkehub.googleapis.com/projects/HUB_PROJECT_ID/locations/global/memberships/MEMBERSHIP_ID which is global
+	if strings.HasPrefix(clusterURL, hubIDPPrefix) {
+		return ""
+	}
 	// input: https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1
 	// output: us-central1-c
 	var rgx = regexp.MustCompile(`.*/projects/(.*)/locations/(.*)/clusters/.*`)

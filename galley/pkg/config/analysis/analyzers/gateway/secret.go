@@ -15,12 +15,14 @@
 package gateway
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -54,12 +56,20 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 
 		// If we can't find a namespace for the gateway, it's because there's no matching selector. Exit early with a different message.
 		if gwNs == "" {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(),
-				msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String()))
+
+			gwSelector := labels.SelectorFromSet(gw.Selector)
+			m := msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String())
+
+			label := util.ExtractLabelFromSelectorString(gwSelector.String())
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
+				m.Line = line
+			}
+
+			ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 			return true
 		}
 
-		for _, srv := range gw.GetServers() {
+		for i, srv := range gw.GetServers() {
 			tls := srv.GetTls()
 			if tls == nil {
 				continue
@@ -71,7 +81,13 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			}
 
 			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "credentialName", cn))
+				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
+
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.CredentialName, i)); ok {
+					m.Line = line
+				}
+
+				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 			}
 		}
 		return true

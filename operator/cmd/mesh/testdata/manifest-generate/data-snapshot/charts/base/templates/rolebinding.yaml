@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: istiod-{{ .Values.global.istioNamespace }}
+  namespace: {{ .Values.global.istioNamespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: istiod-{{ .Values.global.istioNamespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istiod-service-account
+    namespace: {{ .Values.global.istioNamespace }}

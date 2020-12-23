@@ -24,7 +24,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/gogoprotomarshal"

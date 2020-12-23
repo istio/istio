@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -39,7 +40,8 @@ type Instance struct {
 // New creates a new echo client.Instance that is connected to the given server address.
 func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 	// Connect to the GRPC (command) endpoint of 'this' app.
-	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+	// TODO: make use of common.ConnectionTimeout once it increases
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	dialOptions := []grpc.DialOption{grpc.WithBlock()}
 	if tlsSettings == nil {
@@ -50,8 +52,13 @@ func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 			return nil, err
 		}
 
-		certPool := x509.NewCertPool()
-		if !certPool.AppendCertsFromPEM([]byte(tlsSettings.RootCert)) {
+		var certPool *x509.CertPool
+		certPool, err = x509.SystemCertPool()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch Cert from SystemCertPool: %v", err)
+		}
+
+		if tlsSettings.RootCert != "" && !certPool.AppendCertsFromPEM([]byte(tlsSettings.RootCert)) {
 			return nil, fmt.Errorf("failed to create cert pool")
 		}
 		cfg := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool})
@@ -91,5 +98,5 @@ func (c *Instance) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRe
 		return nil, err
 	}
 
-	return parseForwardedResponse(resp), nil
+	return ParseForwardedResponse(resp), nil
 }

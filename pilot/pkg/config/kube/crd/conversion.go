@@ -21,49 +21,62 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/istio/pkg/config/schema/resource"
-
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/log"
 )
 
 // FromJSON converts a canonical JSON to a proto message
-func FromJSON(s collection.Schema, js string) (proto.Message, error) {
-	pb, err := s.Resource().NewProtoInstance()
+func FromJSON(s collection.Schema, js string) (config.Spec, error) {
+	c, err := s.Resource().NewInstance()
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyJSON(js, pb); err != nil {
+	if err = config.ApplyJSON(c, js); err != nil {
 		return nil, err
 	}
-	return pb, nil
+	return c, nil
+}
+
+func IstioStatusJSONFromMap(jsonMap map[string]interface{}) (config.Status, error) {
+	if jsonMap == nil {
+		return nil, nil
+	}
+	js, err := json.Marshal(jsonMap)
+	if err != nil {
+		return nil, err
+	}
+	var status v1alpha1.IstioStatus
+	err = json.Unmarshal(js, &status)
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
 }
 
 // FromYAML converts a canonical YAML to a proto message
-func FromYAML(s collection.Schema, yml string) (proto.Message, error) {
-	pb, err := s.Resource().NewProtoInstance()
+func FromYAML(s collection.Schema, yml string) (config.Spec, error) {
+	c, err := s.Resource().NewInstance()
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyYAML(yml, pb); err != nil {
+	if err = config.ApplyYAML(c, yml); err != nil {
 		return nil, err
 	}
-	return pb, nil
+	return c, nil
 }
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func FromJSONMap(s collection.Schema, data interface{}) (proto.Message, error) {
+func FromJSONMap(s collection.Schema, data interface{}) (config.Spec, error) {
 	// Marshal to YAML bytes
 	str, err := yaml.Marshal(data)
 	if err != nil {
@@ -77,19 +90,23 @@ func FromJSONMap(s collection.Schema, data interface{}) (proto.Message, error) {
 }
 
 // ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
-func ConvertObject(schema collection.Schema, object IstioObject, domain string) (*model.Config, error) {
+func ConvertObject(schema collection.Schema, object IstioObject, domain string) (*config.Config, error) {
 	js, err := json.Marshal(object.GetSpec())
 	if err != nil {
 		return nil, err
 	}
-	data, err := FromJSON(schema, string(js))
+	spec, err := FromJSON(schema, string(js))
 	if err != nil {
 		return nil, err
 	}
+	status, err := IstioStatusJSONFromMap(object.GetStatus())
+	if err != nil {
+		log.Errorf("could not get istio status from map %v, err %v", object.GetStatus(), err)
+	}
 	meta := object.GetObjectMeta()
 
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	return &config.Config{
+		Meta: config.Meta{
 			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              meta.Name,
 			Namespace:         meta.Namespace,
@@ -99,13 +116,18 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 			ResourceVersion:   meta.ResourceVersion,
 			CreationTimestamp: meta.CreationTimestamp.Time,
 		},
-		Spec: data,
+		Spec:   spec,
+		Status: status,
 	}, nil
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(cfg model.Config) (IstioObject, error) {
-	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
+func ConvertConfig(cfg config.Config) (IstioObject, error) {
+	spec, err := config.ToMap(cfg.Spec)
+	if err != nil {
+		return nil, err
+	}
+	status, err := config.ToMap(cfg.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +148,8 @@ func ConvertConfig(cfg model.Config) (IstioObject, error) {
 			Annotations:       cfg.Annotations,
 			CreationTimestamp: meta_v1.NewTime(cfg.CreationTimestamp),
 		},
-		Spec: spec,
+		Spec:   spec,
+		Status: status,
 	}, nil
 }
 
@@ -135,8 +158,8 @@ func ConvertConfig(cfg model.Config) (IstioObject, error) {
 // information to the abstract model and/or elevating k8s
 // representation to first-class type to avoid extra conversions.
 
-func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioKind, error) {
-	var varr []model.Config
+func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []IstioKind, error) {
+	var varr []config.Config
 	var others []IstioKind
 	reader := bytes.NewReader([]byte(inputs))
 	var empty = IstioKind{}
@@ -166,11 +189,11 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 
 		cfg, err := ConvertObject(s, &obj, "")
 		if err != nil {
-			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
+			return nil, nil, fmt.Errorf("cannot parse proto message for %v: %v", obj.Name, err)
 		}
 
 		if withValidate {
-			if err := s.Resource().ValidateProto(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
+			if _, err := s.Resource().ValidateConfig(*cfg); err != nil {
 				return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 			}
 		}
@@ -186,14 +209,9 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 // response.
 //
 // NOTE: This function only decodes a subset of the complete k8s
-// ObjectMeta as identified by the fields in model.ConfigMeta. This
+// ObjectMeta as identified by the fields in model.Meta. This
 // would typically only be a problem if a user dumps an configuration
 // object with kubectl and then re-ingests it.
-func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
+func ParseInputs(inputs string) ([]config.Config, []IstioKind, error) {
 	return parseInputsImpl(inputs, true)
-}
-
-// ParseInputsWithoutValidation same as ParseInputs, but do not apply schema validation.
-func ParseInputsWithoutValidation(inputs string) ([]model.Config, []IstioKind, error) {
-	return parseInputsImpl(inputs, false)
 }

@@ -37,7 +37,7 @@ func TestGetFederatedToken(t *testing.T) {
 		SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	}()
 
-	token, _, _, err := r.ExchangeToken(context.Background(), mock.FakeTrustDomain, mock.FakeSubjectToken)
+	token, _, _, err := r.ExchangeToken(context.Background(), nil, mock.FakeTrustDomain, mock.FakeSubjectToken)
 	if err != nil {
 		t.Fatalf("failed to call exchange token %v", err)
 	}

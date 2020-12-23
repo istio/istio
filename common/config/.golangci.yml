@@ -11,7 +11,8 @@ service:
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
-
+  build-tags:
+  - integ
   # which dirs to skip: they won't be analyzed;
   # can use regexp here: generated.*, regexp is applied on full path;
   # default value is empty list, but next dirs are always skipped independently

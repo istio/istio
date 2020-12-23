@@ -19,18 +19,17 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/pkg/log"
 )
 
 func TestCollection_Start_Empty(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
@@ -44,7 +43,7 @@ func TestCollection_Start_Empty(t *testing.T) {
 }
 
 func TestCollection_Start_Element(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	old := scope.Source.GetOutputLevel()
 	defer func() {
@@ -65,7 +64,7 @@ func TestCollection_Start_Element(t *testing.T) {
 }
 
 func TestCollection_Update(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
@@ -86,7 +85,7 @@ func TestCollection_Update(t *testing.T) {
 }
 
 func TestCollection_Delete(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
@@ -107,7 +106,7 @@ func TestCollection_Delete(t *testing.T) {
 }
 
 func TestCollection_Delete_NoItem(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
@@ -127,7 +126,7 @@ func TestCollection_Delete_NoItem(t *testing.T) {
 }
 
 func TestCollection_Clear_BeforeStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
@@ -145,7 +144,7 @@ func TestCollection_Clear_BeforeStart(t *testing.T) {
 }
 
 func TestCollection_Clear_AfterStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
@@ -169,7 +168,7 @@ func TestCollection_Clear_AfterStart(t *testing.T) {
 }
 
 func TestCollection_StopStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col := NewCollection(basicmeta.K8SCollection1)
 	acc := &fixtures.Accumulator{}
@@ -192,7 +191,7 @@ func TestCollection_StopStart(t *testing.T) {
 }
 
 func TestCollection_AllSorted(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	col := NewCollection(basicmeta.K8SCollection1)
 

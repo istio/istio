@@ -1,25 +1,4 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: istiod-{{ .Values.global.istioNamespace }}
-  namespace: {{ .Values.global.istioNamespace }}
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-rules:
-# permissions to verify the webhook is ready and rejecting
-# invalid config. We use --server-dry-run so no config is persisted.
-- apiGroups: ["networking.istio.io"]
-  verbs: ["create"]
-  resources: ["gateways"]
-
-# For storing CA secret
-- apiGroups: [""]
-  resources: ["secrets"]
-  # TODO lock this down to istio-ca-cert if not using the DNS cert mesh config
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istiod-{{ .Values.global.istioNamespace }}
@@ -30,7 +9,7 @@ rules:
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
-    verbs: ["get", "list", "watch", "patch"]
+    verbs: ["get", "list", "watch", "update", "patch"]
 
   # configuration validation webhook controller
   - apiGroups: ["admissionregistration.k8s.io"]
@@ -47,6 +26,12 @@ rules:
     # TODO: should be on just */status but wildcard is not supported
     resources: ["*"]
 {{- end }}
+  - apiGroups: ["networking.istio.io"]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "workloadentries" ]
+  - apiGroups: ["networking.istio.io"]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "workloadentries/status" ]
 
   # auto-detect installed CRD definitions
   - apiGroups: ["apiextensions.k8s.io"]
@@ -101,6 +86,11 @@ rules:
     resources: ["tokenreviews"]
     verbs: ["create"]
 
+  # Used by Istiod to verify gateway SDS
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+
   # Use for Kubernetes Service APIs
   - apiGroups: ["networking.x-k8s.io"]
     resources: ["*"]
@@ -128,15 +118,21 @@ rules:
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces"]
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["replicasets"]
     verbs: ["get", "list", "watch"]
-{{- if .Values.global.centralIstiod }}
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
     verbs: ["create"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+{{- if or .Values.global.externalIstiod .Values.global.centralIstiod }}
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
@@ -148,4 +144,3 @@ rules:
     verbs: ["get", "list", "watch", "update"]
 {{- end}}
 ---
-

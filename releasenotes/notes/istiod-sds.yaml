@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+- |
+  **Improved** Gateway certificates to be read and distributed from Istiod, rather than in the gateway pods.
+  This reduces the permissions required in the gateways, improves performance, and will make certificate reading
+  more flexible in the future. This change is fully backwards compatible with the old method, and requires no changes
+  to your cluster. If required, it can be disabled by setting the `ISTIOD_ENABLE_SDS_SERVER=false`
+  environment variable in Istiod.

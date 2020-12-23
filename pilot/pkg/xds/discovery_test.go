@@ -26,9 +26,10 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pkg/test/util/retry"
-
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/util/leak"
 )
 
 func createProxies(n int) []*Connection {
@@ -58,9 +59,13 @@ func wgDoneOrTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 }
 
 func TestSendPushesManyPushes(t *testing.T) {
+	leak.Check(t)
 	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
+	defer queue.ShutDown()
 
 	proxies := createProxies(5)
 
@@ -72,11 +77,15 @@ func TestSendPushesManyPushes(t *testing.T) {
 		// Start receive thread
 		go func() {
 			for {
-				p := <-proxy.pushChannel
-				p.done()
-				pushesMu.Lock()
-				pushes[proxy.ConID]++
-				pushesMu.Unlock()
+				select {
+				case p := <-proxy.pushChannel:
+					p.done()
+					pushesMu.Lock()
+					pushes[proxy.ConID]++
+					pushesMu.Unlock()
+				case <-stopCh:
+					return
+				}
 			}
 		}()
 	}
@@ -101,9 +110,13 @@ func TestSendPushesManyPushes(t *testing.T) {
 }
 
 func TestSendPushesSinglePush(t *testing.T) {
+	leak.Check(t)
 	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
+	defer queue.ShutDown()
 
 	proxies := createProxies(5)
 
@@ -118,12 +131,16 @@ func TestSendPushesSinglePush(t *testing.T) {
 		// Start receive thread
 		go func() {
 			for {
-				p := <-proxy.pushChannel
-				p.done()
-				pushesMu.Lock()
-				pushes[proxy.ConID]++
-				pushesMu.Unlock()
-				wg.Done()
+				select {
+				case p := <-proxy.pushChannel:
+					p.done()
+					pushesMu.Lock()
+					pushes[proxy.ConID]++
+					pushesMu.Unlock()
+					wg.Done()
+				case <-stopCh:
+					return
+				}
 			}
 		}()
 	}
@@ -165,13 +182,15 @@ func (h *fakeStream) Context() context.Context {
 }
 
 func TestDebounce(t *testing.T) {
+	leak.Check(t)
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	debounceAfter = time.Millisecond * 50
-	debounceMax = debounceAfter * 2
-	syncPushTime := 2 * debounceMax
-	enableEDSDebounce = false
+	opts := debounceOptions{
+		debounceAfter:     time.Millisecond * 50,
+		debounceMax:       time.Millisecond * 100,
+		enableEDSDebounce: false,
+	}
 
 	tests := []struct {
 		name string
@@ -224,13 +243,13 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter / 2)
+				time.Sleep(opts.debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter / 2)
+				time.Sleep(opts.debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter / 2)
+				time.Sleep(opts.debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter / 2)
+				time.Sleep(opts.debounceAfter / 2)
 				expect(0, 1)
 			},
 		},
@@ -238,7 +257,7 @@ func TestDebounce(t *testing.T) {
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter + 10*time.Millisecond)
+				time.Sleep(opts.debounceAfter + 10*time.Millisecond)
 				updateCh <- &model.PushRequest{Full: true}
 				expect(0, 2)
 			},
@@ -266,7 +285,7 @@ func TestDebounce(t *testing.T) {
 						return
 					}
 					atomic.AddInt32(&fullPushes, 1)
-					time.Sleep(syncPushTime)
+					time.Sleep(opts.debounceMax * 2)
 					<-pushingCh
 				} else {
 					atomic.AddInt32(&partialPushes, 1)
@@ -275,7 +294,7 @@ func TestDebounce(t *testing.T) {
 
 			wg.Add(1)
 			go func() {
-				debounce(updateCh, stopCh, fakePush)
+				debounce(updateCh, stopCh, opts, fakePush)
 				wg.Done()
 			}()
 
@@ -294,7 +313,7 @@ func TestDebounce(t *testing.T) {
 						}
 						return nil
 					}
-				}, retry.Timeout(debounceAfter*8), retry.Delay(debounceAfter/2))
+				}, retry.Timeout(opts.debounceAfter*8), retry.Delay(opts.debounceAfter/2))
 				if err != nil {
 					t.Error(err)
 				}
@@ -305,6 +324,159 @@ func TestDebounce(t *testing.T) {
 
 			close(stopCh)
 			wg.Wait()
+		})
+	}
+}
+
+func TestShouldRespond(t *testing.T) {
+	leak.Check(t)
+	tests := []struct {
+		name       string
+		connection *Connection
+		request    *discovery.DiscoveryRequest
+		response   bool
+	}{
+		{
+			name: "initial request",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl: v3.ClusterType,
+			},
+			response: true,
+		},
+		{
+			name: "ack",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.ClusterType: {
+							VersionSent: "v1",
+							NonceSent:   "nonce",
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.ClusterType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+			},
+			response: false,
+		},
+		{
+			name: "nack",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.ClusterType: {
+							VersionSent: "v1",
+							NonceSent:   "nonce",
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.ClusterType,
+				VersionInfo:   "v1",
+				ResponseNonce: "stale nonce",
+			},
+			response: false,
+		},
+		{
+			name: "reconnect",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.ClusterType,
+				VersionInfo:   "v1",
+				ResponseNonce: "reconnect nonce",
+			},
+			response: true,
+		},
+		{
+			name: "resources change",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.EndpointType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"cluster1"},
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.EndpointType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{"cluster1", "cluster2"},
+			},
+			response: true,
+		},
+		{
+			name: "ack with same resources",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.EndpointType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"cluster2", "cluster1"},
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.EndpointType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{"cluster1", "cluster2"},
+			},
+			response: false,
+		},
+		{
+			name: "unsubscribe EDS",
+			connection: &Connection{
+				proxy: &model.Proxy{
+					WatchedResources: map[string]*model.WatchedResource{
+						v3.EndpointType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"cluster2", "cluster1"},
+						},
+					},
+				},
+			},
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.EndpointType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{},
+			},
+			response: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewFakeDiscoveryServer(t, FakeOptions{})
+			if response := s.Discovery.shouldRespond(tt.connection, tt.request); response != tt.response {
+				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
+			}
+			if tt.name != "reconnect" && tt.response {
+				if tt.connection.proxy.WatchedResources[tt.request.TypeUrl].VersionAcked != tt.request.VersionInfo &&
+					tt.connection.proxy.WatchedResources[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
+					t.Fatalf("Version & Nonce not updated properly")
+				}
+			}
 		})
 	}
 }

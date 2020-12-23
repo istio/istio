@@ -17,12 +17,14 @@ package util
 import (
 	"errors"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/pmezard/go-difflib/difflib"
 
+	"istio.io/istio/pkg/file"
 	"istio.io/pkg/env"
 )
 
@@ -110,7 +112,7 @@ func StripVersion(yaml []byte) []byte {
 func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 	if Refresh() {
 		t.Logf("Refreshing golden file %s", goldenFile)
-		if err := ioutil.WriteFile(goldenFile, content, 0644); err != nil {
+		if err := file.AtomicWrite(goldenFile, content, os.FileMode(0644)); err != nil {
 			t.Errorf(err.Error())
 		}
 	}

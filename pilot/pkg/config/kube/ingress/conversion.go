@@ -28,14 +28,13 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -75,26 +74,10 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
-// defaultSelector defines the default selector that will be used if one is not provided
-// This will select the default ingressgateway deployment provided by the standard installation
-// Configurable by meshConfig.ingressSelector.
-var defaultSelector = labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
-
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
-func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig, domainSuffix string) model.Config {
+func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig, domainSuffix string) config.Config {
 	gateway := &networking.Gateway{}
-	// Setup the selector for the gateway
-	if len(mesh.IngressSelector) > 0 {
-		// If explicitly defined, use this one
-		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressSelector}
-	} else if mesh.IngressService != "istio-ingressgateway" {
-		// Otherwise, we will use the ingress service as the default. It is common for the selector and service
-		// to be the same, so this removes the need for two configurations
-		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
-		gateway.Selector = labels.Instance{constants.IstioLabel: mesh.IngressService}
-	} else {
-		gateway.Selector = defaultSelector
-	}
+	gateway.Selector = getIngressGatewaySelector(mesh.IngressSelector, mesh.IngressService)
 
 	for i, tls := range ingress.Spec.TLS {
 		if tls.SecretName == "" {
@@ -129,8 +112,8 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 		Hosts: []string{"*"},
 	})
 
-	gatewayConfig := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	gatewayConfig := config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: gvk.Gateway,
 			Name:             ingress.Name + "-" + constants.IstioIngressGatewayName,
 			Namespace:        ingressNamespace,
@@ -143,7 +126,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 }
 
 // ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
-func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*model.Config, serviceLister listerv1.ServiceLister) {
+func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*config.Config, serviceLister listerv1.ServiceLister) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
@@ -208,8 +191,8 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		virtualService.Http = httpRoutes
 
-		virtualServiceConfig := model.Config{
-			ConfigMeta: model.ConfigMeta{
+		virtualServiceConfig := config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
 				Name:             namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
 				Namespace:        ingress.Namespace,
@@ -292,8 +275,9 @@ func resolveNamedPort(backend *v1beta1.IngressBackend, namespace string, service
 }
 
 // shouldProcessIngress determines whether the given ingress resource should be processed
-// by the controller, based on its ingress class annotation.
-// See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
+// by the controller, based on its ingress class annotation or, in more recent versions of
+// kubernetes (v1.18+), based on the Ingress's specified IngressClass
+// See https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class
 func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress, ingressClass *v1beta1.IngressClass) bool {
 	if class, exists := ingress.Annotations[kube.IngressClassAnnotation]; exists {
 		switch mesh.IngressControllerMode {
@@ -308,7 +292,6 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *v1beta1
 			return false
 		}
 	} else if ingressClass != nil {
-		// TODO support ingressclass.kubernetes.io/is-default-class annotation
 		return ingressClass.Spec.Controller == IstioIngressController
 	} else {
 		switch mesh.IngressControllerMode {
@@ -347,5 +330,22 @@ func createFallbackStringMatch(s string) *networking.StringMatch {
 	// Replace e.g. "foo" with a exact match
 	return &networking.StringMatch{
 		MatchType: &networking.StringMatch_Exact{Exact: s},
+	}
+}
+
+func getIngressGatewaySelector(ingressSelector, ingressService string) map[string]string {
+	// Setup the selector for the gateway
+	if ingressSelector != "" {
+		// If explicitly defined, use this one
+		return labels.Instance{constants.IstioLabel: ingressSelector}
+	} else if ingressService != "istio-ingressgateway" && ingressService != "" {
+		// Otherwise, we will use the ingress service as the default. It is common for the selector and service
+		// to be the same, so this removes the need for two configurations
+		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
+		return labels.Instance{constants.IstioLabel: ingressService}
+	} else {
+		// If we have neither an explicitly defined ingressSelector or ingressService then use a selector
+		// pointing to the ingressgateway from the default installation
+		return labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
 	}
 }

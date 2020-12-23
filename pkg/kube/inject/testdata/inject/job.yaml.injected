@@ -7,14 +7,17 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+        kubectl.kubernetes.io/default-logs-container: pi
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
-        istio.io/rev: ""
+        istio.io/rev: default
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: pi
+        service.istio.io/canonical-revision: latest
       name: pi
     spec:
       containers:
@@ -35,7 +38,6 @@ spec:
         - pi.default
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
         - --concurrency
         - "2"
         env:
@@ -43,6 +45,8 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -90,9 +94,9 @@ spec:
           value: kubernetes://apis/batch/v1/namespaces/default/jobs/pi
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         - name: DNS_AGENT
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
@@ -107,6 +111,7 @@ spec:
             port: 15021
           initialDelaySeconds: 1
           periodSeconds: 2
+          timeoutSeconds: 3
         resources:
           limits:
             cpu: "2"
@@ -164,8 +169,8 @@ spec:
             cpu: "2"
             memory: 1Gi
           requests:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -196,6 +201,16 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
+          - path: cpu-limit
+            resourceFieldRef:
+              containerName: istio-proxy
+              divisor: 1m
+              resource: limits.cpu
+          - path: cpu-request
+            resourceFieldRef:
+              containerName: istio-proxy
+              divisor: 1m
+              resource: requests.cpu
         name: istio-podinfo
       - name: istio-token
         projected:

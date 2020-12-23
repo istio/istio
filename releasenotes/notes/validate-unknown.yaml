@@ -3,5 +3,6 @@ kind: feature
 area: istioctl
 issue:
 - 24861
-releaseNotes: |
-  *Improve* `istioctl validate` to check for unknown fields in resources.
+releaseNotes:
+- |
+  **Improved** `istioctl validate` to check for unknown fields in resources.

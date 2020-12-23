@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+- |
+  **Improved** multi-network configuration so that labeling a service with `topology.istio.io/network=network-name` can
+  configure cross-network gateways without using meshNetworks [meshNetworks](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks).

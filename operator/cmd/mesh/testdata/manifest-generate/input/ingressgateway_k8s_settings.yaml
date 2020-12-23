@@ -11,9 +11,9 @@ spec:
       k8s:
         service:
           externalTrafficPolicy: Local
-          ports:
-          - name: foo
-            port: 1234
-            targetPort: 1234
         serviceAnnotations:
           manifest-generate: "testserviceAnnotation"
+        securityContext:
+          sysctls:
+          - name: "net.ipv4.ip_local_port_range"
+            value: "80 65535"

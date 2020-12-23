@@ -24,7 +24,7 @@ import (
 )
 
 func TestAccumulator(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	a := &Accumulator{}
 
@@ -40,7 +40,7 @@ func TestAccumulator(t *testing.T) {
 }
 
 func TestAccumulator_Clear(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	a := &Accumulator{}
 

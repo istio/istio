@@ -3,7 +3,6 @@ kind: IstioOperator
 spec:
   meshConfig:
     accessLogFile: /dev/stdout
-    disablePolicyChecks: false
   components:
     egressGateways:
     - name: istio-egressgateway

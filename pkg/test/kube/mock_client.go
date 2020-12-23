@@ -17,10 +17,13 @@ package kube
 import (
 	"context"
 	"fmt"
+	"net/http"
 
+	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
+	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
@@ -28,18 +31,38 @@ import (
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/rest/fake"
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
+	"k8s.io/kubectl/pkg/cmd/util"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-
-	"istio.io/pkg/version"
-
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/version"
 )
 
 var _ kube.ExtendedClient = MockClient{}
+
+type MockPortForwarder struct {
+}
+
+func (m MockPortForwarder) Start() error {
+	return nil
+}
+
+func (m MockPortForwarder) Address() string {
+	return "localhost:3456"
+}
+
+func (m MockPortForwarder) Close() {
+}
+
+func (m MockPortForwarder) WaitForStop() {
+}
+
+var _ kube.PortForwarder = MockPortForwarder{}
 
 // MockClient for tests that rely on kube.Client.
 type MockClient struct {
@@ -155,6 +178,12 @@ func (c MockClient) ApplyYAMLFilesDryRun(string, ...string) error {
 	panic("not implemented by mock")
 }
 
+// CreatePerRPCCredentials -- when implemented -- mocks per-RPC credentials (bearer token)
+func (c MockClient) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
+	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
+	panic("not implemented by mock")
+}
+
 func (c MockClient) DeleteYAMLFiles(string, ...string) error {
 	panic("not implemented by mock")
 }
@@ -172,7 +201,10 @@ func (c MockClient) Dynamic() dynamic.Interface {
 }
 
 func (c MockClient) GetKubernetesVersion() (*kubeVersion.Info, error) {
-	return nil, fmt.Errorf("TODO MockClient doesn't implement kubernetes version")
+	return &kubeVersion.Info{
+		Major: "1",
+		Minor: "16",
+	}, nil
 }
 
 func (c MockClient) GetIstioPods(_ context.Context, _ string, _ map[string]string) ([]v1.Pod, error) {
@@ -188,5 +220,21 @@ func (c MockClient) PodLogs(_ context.Context, _ string, _ string, _ string, _ b
 }
 
 func (c MockClient) NewPortForwarder(_, _, _ string, _, _ int) (kube.PortForwarder, error) {
-	return nil, fmt.Errorf("TODO MockClient doesn't implement port forwarding")
+	return MockPortForwarder{}, nil
+}
+
+// UtilFactory mock's kubectl's utility factory.  This code sets up a fake factory,
+// similar to the one in https://github.com/kubernetes/kubectl/blob/master/pkg/cmd/describe/describe_test.go
+func (c MockClient) UtilFactory() util.Factory {
+	tf := cmdtesting.NewTestFactory()
+	_, _, codec := cmdtesting.NewExternalScheme()
+	tf.UnstructuredClient = &fake.RESTClient{
+		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
+		Resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     cmdtesting.DefaultHeader(),
+			Body: cmdtesting.ObjBody(codec,
+				cmdtesting.NewInternalType("", "", "foo"))},
+	}
+	return tf
 }

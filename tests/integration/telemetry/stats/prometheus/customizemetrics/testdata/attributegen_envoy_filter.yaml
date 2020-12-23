@@ -1,0 +1,53 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-attributegen-filter
+spec:
+  workloadSelector:
+    labels:
+      app: server
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "istio.stats"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.attributegen
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                configuration:
+                  "@type": "type.googleapis.com/google.protobuf.StringValue"
+                  value: |
+                    {
+                      "attributes": [
+                      {
+                        "output_attribute": "istio_responseClass",
+                        "match": [
+                         {
+                             "value": "2xx",
+                             "condition": "response.code >= 200 && response.code <= 299"
+                         }]
+                      },
+                      {
+                        "output_attribute": "istio_operationId",
+                        "match": [
+                        {
+                            "value": "getoperation",
+                            "condition": "request.method == 'GET'"
+                        }]
+                      }]
+                    }
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local: { inline_string: "envoy.wasm.attributegen" }

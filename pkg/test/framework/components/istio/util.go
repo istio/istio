@@ -20,12 +20,16 @@ import (
 	"net"
 	"time"
 
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+)
+
+const (
+	istiodLabel = "pilot"
 )
 
 var (
@@ -51,11 +55,6 @@ spec:
 `
 )
 
-var (
-	igwServiceName = "istio-ingressgateway"
-	discoveryPort  = 15012
-)
-
 func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
 	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
@@ -76,48 +75,95 @@ func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cf
 	}, retry.Timeout(time.Minute))
 }
 
-func GetRemoteDiscoveryAddress(namespace string, cluster resource.Cluster, useNodePort bool) (net.TCPAddr, error) {
-	svc, err := cluster.CoreV1().Services(namespace).Get(context.TODO(), igwServiceName, kubeApiMeta.GetOptions{})
-	if err != nil {
-		return net.TCPAddr{}, err
-	}
-
-	// if useNodePort is set, we look for the node port service. This is generally used on kind or k8s without a LB
-	// and that do not have metallb installed
-	if useNodePort {
-		pods, err := cluster.PodsForSelector(context.TODO(), namespace, "istio=ingressgateway")
+func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
+	var addr net.TCPAddr
+	primary := cluster.Primary()
+	if !primary.IsConfig() {
+		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
+		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
+		address, err := retry.Do(func() (interface{}, bool, error) {
+			return getRemoteServiceAddress(i.environment.Settings(), primary, i.settings.SystemNamespace, istiodLabel,
+				istiodSvcName, discoveryPort)
+		}, getAddressTimeout, getAddressDelay)
 		if err != nil {
 			return net.TCPAddr{}, err
 		}
-		if len(pods.Items) == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no ingress pod found")
+		addr = address.(net.TCPAddr)
+	} else {
+		addr = i.CustomIngressFor(primary, eastWestIngressServiceName, eastWestIngressIstioLabel).DiscoveryAddress()
+	}
+	if addr.IP.String() == "<nil>" {
+		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
+	}
+	return addr, nil
+}
+
+func getRemoteServiceAddress(s *kube.Settings, cluster resource.Cluster, ns, label, svcName string,
+	port int) (interface{}, bool, error) {
+
+	if !s.LoadBalancerSupported {
+		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
+		if err != nil {
+			return nil, false, err
 		}
+
+		names := make([]string, 0, len(pods.Items))
+		for _, p := range pods.Items {
+			names = append(names, p.Name)
+		}
+		scopes.Framework.Debugf("Querying remote service, pods:\n%v\n", names)
+		if len(pods.Items) == 0 {
+			return nil, false, fmt.Errorf("no remote service pod found")
+		}
+
+		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0].Name)
 		ip := pods.Items[0].Status.HostIP
 		if ip == "" {
-			return net.TCPAddr{}, fmt.Errorf("no Host IP available on the ingress node yet")
+			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")
 		}
+
+		svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
+		if err != nil {
+			return nil, false, err
+		}
+
 		if len(svc.Spec.Ports) == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no ports found in service istio-ingressgateway")
+			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, svcName)
 		}
 
 		var nodePort int32
 		for _, svcPort := range svc.Spec.Ports {
-			if svcPort.Protocol == "TCP" && svcPort.Port == int32(discoveryPort) {
+			if svcPort.Protocol == "TCP" && svcPort.Port == int32(port) {
 				nodePort = svcPort.NodePort
 				break
 			}
 		}
 		if nodePort == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no port found in service: istio-ingressgateway")
+			return nil, false, fmt.Errorf("no port %d found in service: %s/%s", port, ns, svcName)
 		}
-		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, nil
+
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
 	}
 
-	// If running in KinD, MetalLB must be installed to enable LoadBalancer resources
+	// Otherwise, get the load balancer IP.
+	svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
+	if err != nil {
+		return nil, false, err
+	}
+
 	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-		return net.TCPAddr{}, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
+		return nil, false, fmt.Errorf("service %s is not available yet: %s/%s", svcName, svc.Namespace, svc.Name)
 	}
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: net.ParseIP(ip), Port: discoveryPort}, nil
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: port}, true, nil
+}
+
+func (i *operatorComponent) isExternalControlPlane() bool {
+	for _, cluster := range i.ctx.Clusters() {
+		if cluster.IsPrimary() && !cluster.IsConfig() {
+			return true
+		}
+	}
+	return false
 }

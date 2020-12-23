@@ -39,12 +39,13 @@ This folder contains Istio integration tests that use the test framework checked
 The goal of the framework is to make it as easy as possible to author and run tests. In its simplest
 case, just typing ```go test ./...``` should be sufficient to run tests.
 
+This guide walks through the basics of writing tests with the Istio test framework. For best
+practices, see [Writing Good Integration Tests](https://github.com/istio/istio/wiki/Writing-Good-Integration-Tests).
+
 ## Writing Tests
 
 The test framework is designed to work with standard go tooling and allows developers
-to write environment-agnostics tests in a high-level fashion. The quickest way to get started with authoring
-new tests is to checkout the code in the
-[framework](https://github.com/istio/istio/tree/master/tests/integration/framework) folder.
+to write environment-agnostics tests in a high-level fashion.
 
 ### Adding a Test Suite
 
@@ -353,13 +354,12 @@ the standard `go test` command-line.  For example, to run the tests under the `/
 using the default (native) environment, you can simply type:
 
 ```console
-$ go test ./tests/integration/mycomponent/...
+$ go test -tags=integ ./tests/integration/mycomponent/...
 ```
 
 Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.
 
-| WARNING: Many tests, including integration tests, assume that a [Helm](https://helm.sh/docs/using_helm/#installing-helm) client is installed and on the path.|
-| --- |
+Tests are tagged with the `integ` build target to avoid accidental invocation. If this is not set, no tests will be run.
 
 ### Test Parellelism and Kubernetes
 
@@ -512,11 +512,6 @@ pass command-line flags to the test while running under the debugger, you can us
 
 ## Reference
 
-### Helm Values Overrides
-
-If your tests require special Helm values flags, you can specify your Helm values via additional
-for Kubernetes environments. See [mtls_healthcheck_test.go](security/healthcheck/mtls_healthcheck_test.go) for example.
-
 ### Command-Line Flags
 
 The test framework supports the following command-line flags:
@@ -544,10 +539,13 @@ The test framework supports the following command-line flags:
         Common image pull policy to use when deploying container images
 
   -istio.test.kube.config string
-        A comma-seperated list of paths to kube config files for cluster environments. (default ~/.kube/config)
+        A comma-separated list of paths to kube config files for cluster environments. (default ~/.kube/config)
 
   -istio.test.kube.deploy
         Deploy Istio into the target Kubernetes environment. (default true)
+
+  -istio.test.kube.deployEastWestGW
+        Deploy Istio east west gateway into the target Kubernetes environment. (default true)
 
   -istio.test.kube.deployTimeout duration
         Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.
@@ -564,8 +562,14 @@ The test framework supports the following command-line flags:
   -istio.test.kube.helm.iopFile string
         IstioOperator spec file. This can be an absolute path or relative to the repository root. Defaults to "tests/integration/iop-integration-test-defaults.yaml".
 
-  -istio.test.kube.minikube
-        Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address. This also pertains to any environment that doesn't support a LoadBalancer type.
+  -istio.test.kube.loadbalancer bool
+        Used to obtain the right IP address for ingress gateway. This should be false for any environment that doesn't support a LoadBalancer type.
+
+  -istio.test.revision string
+        Overwrite the default namespace label (istio-enabled=true) with revision lable (istio.io/rev=XXX). (default is no overwrite)
+
+  -istio.test.skipVM bool
+        Skip all the VM related parts in all the tests. (default is "false")
 ```
 
 }
@@ -583,7 +587,7 @@ unable to locate an Envoy binary
 This is documented in this [PR](https://github.com/istio/istio/issues/13677). Once the Envoy binary is available for the Mac,
 these tests will hopefully succeed.
 
-* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.minikube` parameter. The solves an error like:
+* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.loadbalancer=false` parameter. The solves an error like:
 
 ```plain
 service ingress is not available yet

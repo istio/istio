@@ -22,9 +22,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/codes"
 
-	"istio.io/istio/pkg/mcp/status"
-
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/status"
 )
 
 type FakeTypeBase struct{ Info string }

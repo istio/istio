@@ -27,7 +27,7 @@ import (
 )
 
 func TestInMemorySource_Empty(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewInmemoryMeshCfg()
 
@@ -43,7 +43,7 @@ func TestInMemorySource_Empty(t *testing.T) {
 }
 
 func TestInMemorySource_SetBeforeStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewInmemoryMeshCfg()
 
@@ -80,7 +80,7 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 }
 
 func TestInMemorySource_SetAfterStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewInmemoryMeshCfg()
 
@@ -117,7 +117,7 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 }
 
 func TestInMemorySource_DoubleStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewInmemoryMeshCfg()
 
@@ -155,7 +155,7 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 }
 
 func TestInMemorySource_StartStop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewInmemoryMeshCfg()
 

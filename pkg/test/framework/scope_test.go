@@ -55,7 +55,7 @@ func TestGet_Struct(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			scope := tt.setup()
 			var got OtherInterface
 			err := scope.get(&got)
@@ -81,7 +81,7 @@ func TestGet_Slice(t *testing.T) {
 		},
 	}
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	parent := newScope("parent", nil)
 	parent.add(exp[1], &resourceID{id: exp[1].IDValue})
 	child := newScope("child", parent)

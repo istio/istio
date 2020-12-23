@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,10 +21,13 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 var (
 	inst istio.Instance
+	apps = &util.EchoDeployments{}
 )
 
 func TestMain(m *testing.M) {
@@ -32,12 +36,18 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig)).
+		Setup(func(ctx resource.Context) error {
+			// TODO: due to issue https://github.com/istio/istio/issues/25286,
+			// currently VM does not work in this test
+			return util.SetupApps(ctx, inst, apps, false)
+		}).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
 	cfg.Values["global.pilotCertProvider"] = "kubernetes"
+	cfg.DeployEastWestGW = false
 }

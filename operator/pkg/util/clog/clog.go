@@ -34,7 +34,7 @@ type Logger interface {
 	PrintErr(s string)
 }
 
-//ConsoleLogger is the struct used for mesh command
+// ConsoleLogger is the struct used for mesh command
 type ConsoleLogger struct {
 	stdOut io.Writer
 	stdErr io.Writer

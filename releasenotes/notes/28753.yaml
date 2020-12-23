@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 28753
+
+releaseNotes:
+- |
+  **Added** `istioctl apply` as an alias for `istioctl install`.

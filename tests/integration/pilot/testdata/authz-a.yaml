@@ -1,0 +1,25 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-policy
+spec:
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        methods: ["*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-policy
+spec:
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        methods: ["*"]
+  - to:
+    - operation:
+        methods: ["*"]
+---

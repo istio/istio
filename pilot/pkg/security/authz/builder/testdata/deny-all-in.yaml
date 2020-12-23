@@ -4,7 +4,10 @@ metadata:
   name: deny-all
   namespace: foo
 spec:
+  action: DENY
   selector:
     matchLabels:
       app: httpbin
       version: v1
+  rules:
+  - {}

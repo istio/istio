@@ -22,7 +22,7 @@ import (
 )
 
 func TestToProto_Success(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	data := map[string]interface{}{
 		"foo": "bar",
@@ -47,7 +47,7 @@ func TestToProto_Success(t *testing.T) {
 }
 
 func TestToProto_UnknownFields(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	data := map[string]interface{}{
 		"foo": "bar",
@@ -63,7 +63,7 @@ func TestToProto_UnknownFields(t *testing.T) {
 }
 
 func TestToProto_Error(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	data := map[string]interface{}{
 		"value": 23,

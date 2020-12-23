@@ -17,142 +17,287 @@ package builder
 import (
 	"fmt"
 
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pkg/config/labels"
-
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
+	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/istio/pkg/config/labels"
 )
 
 var (
-	authzLog = log.RegisterScope("authorization", "Istio Authorization Policy", 0)
+	rbacPolicyMatchNever = &rbacpb.Policy{
+		Permissions: []*rbacpb.Permission{{Rule: &rbacpb.Permission_NotRule{
+			NotRule: &rbacpb.Permission{Rule: &rbacpb.Permission_Any{Any: true}},
+		}}},
+		Principals: []*rbacpb.Principal{{Identifier: &rbacpb.Principal_NotId{
+			NotId: &rbacpb.Principal{Identifier: &rbacpb.Principal_Any{Any: true}},
+		}}},
+	}
 )
 
-// Builder builds Istio authorization policy to Envoy RBAC filter.
+// General setting to control behavior
+type Option struct {
+	IsCustomBuilder bool
+	Logger          *AuthzLogger
+}
+
+// Builder builds Istio authorization policy to Envoy filters.
 type Builder struct {
-	trustDomainBundle  trustdomain.Bundle
-	denyPolicies       []model.AuthorizationPolicy
-	allowPolicies      []model.AuthorizationPolicy
-	isIstioVersionGE15 bool
+	trustDomainBundle trustdomain.Bundle
+	option            Option
+
+	// populated when building for CUSTOM action.
+	customPolicies []model.AuthorizationPolicy
+	extensions     map[string]*builtExtAuthz
+
+	// populated when building for ALLOW/DENY/AUDIT action.
+	denyPolicies  []model.AuthorizationPolicy
+	allowPolicies []model.AuthorizationPolicy
+	auditPolicies []model.AuthorizationPolicy
 }
 
 // New returns a new builder for the given workload with the authorization policy.
 // Returns nil if none of the authorization policies are enabled for the workload.
-func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, namespace string,
-	policies *model.AuthorizationPolicies, isIstioVersionGE15 bool) *Builder {
-	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(namespace, workload)
-	if len(denyPolicies) == 0 && len(allowPolicies) == 0 {
+func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Option) *Builder {
+	policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, labels.Collection{in.Node.Metadata.Labels})
+	if option.IsCustomBuilder {
+		option.Logger.AppendDebugf("found %d CUSTOM actions", len(policies.Custom))
+		if len(policies.Custom) == 0 {
+			return nil
+		}
+		extAuthzExtensions, err := processExtensionProvider(in)
+		if err != nil {
+			option.Logger.AppendError(err)
+		}
+		return &Builder{
+			customPolicies:    policies.Custom,
+			extensions:        extAuthzExtensions,
+			trustDomainBundle: trustDomainBundle,
+			option:            option,
+		}
+	}
+
+	option.Logger.AppendDebugf("found %d DENY actions, %d ALLOW actions, %d AUDIT actions", len(policies.Deny), len(policies.Allow), len(policies.Audit))
+	if len(policies.Deny) == 0 && len(policies.Allow) == 0 && len(policies.Audit) == 0 {
 		return nil
 	}
 	return &Builder{
-		trustDomainBundle:  trustDomainBundle,
-		denyPolicies:       denyPolicies,
-		allowPolicies:      allowPolicies,
-		isIstioVersionGE15: isIstioVersionGE15,
+		denyPolicies:      policies.Deny,
+		allowPolicies:     policies.Allow,
+		auditPolicies:     policies.Audit,
+		trustDomainBundle: trustDomainBundle,
+		option:            option,
 	}
 }
 
-// BuilderHTTP returns the RBAC HTTP filters built from the authorization policy.
+// BuildHTTP returns the HTTP filters built from the authorization policy.
 func (b Builder) BuildHTTP() []*httppb.HttpFilter {
+	if b.option.IsCustomBuilder {
+		// Use the DENY action so that a HTTP rule is properly handled when generating for TCP filter chain.
+		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, false); configs != nil {
+			b.option.Logger.AppendDebugf("built %d HTTP filters for CUSTOM action", len(configs.http))
+			return configs.http
+		}
+		return nil
+	}
+
 	var filters []*httppb.HttpFilter
-
-	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
-		false /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
-		filters = append(filters, createHTTPFilter(denyConfig))
+	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, false); configs != nil {
+		b.option.Logger.AppendDebugf("built %d HTTP filters for AUDIT action", len(configs.http))
+		filters = append(filters, configs.http...)
 	}
-	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
-		false /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
-		filters = append(filters, createHTTPFilter(allowConfig))
+	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, false); configs != nil {
+		b.option.Logger.AppendDebugf("built %d HTTP filters for DENY action", len(configs.http))
+		filters = append(filters, configs.http...)
 	}
-
+	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, false); configs != nil {
+		b.option.Logger.AppendDebugf("built %d HTTP filters for ALLOW action", len(configs.http))
+		filters = append(filters, configs.http...)
+	}
 	return filters
 }
 
-// BuildTCP returns the RBAC TCP filters built from the authorization policy.
+// BuildTCP returns the TCP filters built from the authorization policy.
 func (b Builder) BuildTCP() []*tcppb.Filter {
+	if b.option.IsCustomBuilder {
+		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, true); configs != nil {
+			b.option.Logger.AppendDebugf("built %d TCP filters for CUSTOM action", len(configs.tcp))
+			return configs.tcp
+		}
+		return nil
+	}
+
 	var filters []*tcppb.Filter
-
-	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
-		true /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
-		filters = append(filters, createTCPFilter(denyConfig))
+	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true); configs != nil {
+		b.option.Logger.AppendDebugf("built %d TCP filters for AUDIT action", len(configs.tcp))
+		filters = append(filters, configs.tcp...)
 	}
-	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
-		true /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
-		filters = append(filters, createTCPFilter(allowConfig))
+	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, true); configs != nil {
+		b.option.Logger.AppendDebugf("built %d TCP filters for DENY action", len(configs.tcp))
+		filters = append(filters, configs.tcp...)
 	}
-
+	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, true); configs != nil {
+		b.option.Logger.AppendDebugf("built %d TCP filters for ALLOW action", len(configs.tcp))
+		filters = append(filters, configs.tcp...)
+	}
 	return filters
 }
 
-func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle, forTCP, forDeny, isIstioVersionGE15 bool) *rbachttppb.RBAC {
+type builtConfigs struct {
+	http []*httppb.HttpFilter
+	tcp  []*tcppb.Filter
+}
+
+func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_Action, forTCP bool) *builtConfigs {
 	if len(policies) == 0 {
 		return nil
 	}
 
 	rules := &rbacpb.RBAC{
-		Action:   rbacpb.RBAC_ALLOW,
+		Action:   action,
 		Policies: map[string]*rbacpb.Policy{},
 	}
-	if forDeny {
-		rules.Action = rbacpb.RBAC_DENY
+
+	var providers []string
+	filterType := "HTTP"
+	if forTCP {
+		filterType = "TCP"
 	}
 	for _, policy := range policies {
+		if b.option.IsCustomBuilder {
+			providers = append(providers, policy.Spec.GetProvider().GetName())
+		}
 		for i, rule := range policy.Spec.Rules {
-			name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", policy.Namespace, policy.Name, i)
+			// The name will later be used by ext_authz filter to get the evaluation result from dynamic metadata.
+			name := policyName(policy.Namespace, policy.Name, i, b.option)
 			if rule == nil {
-				authzLog.Errorf("skipped nil rule %s", name)
+				b.option.Logger.AppendError(fmt.Errorf("skipped nil rule %s", name))
 				continue
 			}
-			m, err := authzmodel.New(rule, isIstioVersionGE15)
+			m, err := authzmodel.New(rule)
 			if err != nil {
-				authzLog.Errorf("skipped rule %s: %v", name, err)
+				b.option.Logger.AppendError(multierror.Prefix(err, fmt.Sprintf("skipped invalid rule %s:", name)))
 				continue
 			}
-			m.MigrateTrustDomain(tdBundle)
-			generated, err := m.Generate(forTCP, forDeny)
+			m.MigrateTrustDomain(b.trustDomainBundle)
+			if len(b.trustDomainBundle.TrustDomains) > 1 {
+				b.option.Logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
+			}
+			generated, err := m.Generate(forTCP, action)
 			if err != nil {
-				authzLog.Errorf("skipped rule %s: %v", name, err)
+				b.option.Logger.AppendDebugf("skipped rule %s on TCP filter chain: %v", name, err)
 				continue
 			}
 			if generated != nil {
 				rules.Policies[name] = generated
-				authzLog.Debugf("rule %s generated policy: %+v", name, generated)
+				b.option.Logger.AppendDebugf("generated config from rule %s on %s filter chain successfully", name, filterType)
 			}
+		}
+		if len(policy.Spec.Rules) == 0 {
+			// Generate an explicit policy that never matches.
+			name := policyName(policy.Namespace, policy.Name, 0, b.option)
+			b.option.Logger.AppendDebugf("generated config from policy %s on %s filter chain successfully", name, filterType)
+			rules.Policies[name] = rbacPolicyMatchNever
 		}
 	}
 
-	return &rbachttppb.RBAC{Rules: rules}
+	if forTCP {
+		return &builtConfigs{tcp: b.buildTCP(rules, providers)}
+	}
+	return &builtConfigs{http: b.buildHTTP(rules, providers)}
 }
 
-// nolint: interfacer
-func createHTTPFilter(config *rbachttppb.RBAC) *httppb.HttpFilter {
-	if config == nil {
-		return nil
+func (b Builder) buildHTTP(rules *rbacpb.RBAC, providers []string) []*httppb.HttpFilter {
+	if !b.option.IsCustomBuilder {
+		rbac := &rbachttppb.RBAC{Rules: rules}
+		return []*httppb.HttpFilter{
+			{
+				Name:       authzmodel.RBACHTTPFilterName,
+				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+			},
+		}
 	}
-	return &httppb.HttpFilter{
-		Name:       authzmodel.RBACHTTPFilterName,
-		ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)},
+
+	extauthz, err := getExtAuthz(b.extensions, providers)
+	if err != nil {
+		b.option.Logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action:"))
+		rbac := &rbachttppb.RBAC{Rules: rbacDefaultDenyAll}
+		return []*httppb.HttpFilter{
+			{
+				Name:       authzmodel.RBACHTTPFilterName,
+				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+			},
+		}
+	}
+	// Add the RBAC filter in shadow mode so that it only evaluates the matching rules for CUSTOM action but not enforce it.
+	// The evaluation result is stored in the dynamic metadata keyed by the policy name. And then the ext_authz filter
+	// can utilize these metadata to trigger the enforcement conditionally.
+	// See https://docs.google.com/document/d/1V4mCQCw7mlGp0zSQQXYoBdbKMDnkPOjeyUb85U07iSI/edit#bookmark=kix.jdq8u0an2r6s
+	// for more details.
+	rbac := &rbachttppb.RBAC{ShadowRules: rules}
+	return []*httppb.HttpFilter{
+		{
+			Name:       authzmodel.RBACHTTPFilterName,
+			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+		},
+		{
+			Name:       wellknown.HTTPExternalAuthorization,
+			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(extauthz.http)},
+		},
 	}
 }
 
-func createTCPFilter(config *rbachttppb.RBAC) *tcppb.Filter {
-	if config == nil {
+func (b Builder) buildTCP(rules *rbacpb.RBAC, providers []string) []*tcppb.Filter {
+	if !b.option.IsCustomBuilder {
+		rbac := &rbactcppb.RBAC{Rules: rules, StatPrefix: authzmodel.RBACTCPFilterStatPrefix}
+		return []*tcppb.Filter{
+			{
+				Name:       authzmodel.RBACTCPFilterName,
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+			},
+		}
+	}
+
+	if extauthz, err := getExtAuthz(b.extensions, providers); err != nil {
+		b.option.Logger.AppendError(multierror.Prefix(err, "failed to parse CUSTOM action, will generate a deny all config:"))
+		rbac := &rbactcppb.RBAC{Rules: rbacDefaultDenyAll, StatPrefix: authzmodel.RBACTCPFilterStatPrefix}
+		return []*tcppb.Filter{
+			{
+				Name:       authzmodel.RBACTCPFilterName,
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+			},
+		}
+	} else if extauthz.tcp == nil {
+		b.option.Logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain")
 		return nil
+	} else {
+		rbac := &rbactcppb.RBAC{ShadowRules: rules, StatPrefix: authzmodel.RBACTCPFilterStatPrefix}
+		return []*tcppb.Filter{
+			{
+				Name:       authzmodel.RBACTCPFilterName,
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+			},
+			{
+				Name:       wellknown.ExternalAuthorization,
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(extauthz.tcp)},
+			},
+		}
 	}
-	rbacConfig := &rbactcppb.RBAC{
-		Rules:      config.Rules,
-		StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
+}
+
+func policyName(namespace, name string, rule int, option Option) string {
+	prefix := ""
+	if option.IsCustomBuilder {
+		prefix = extAuthzMatchPrefix + "-"
 	}
-	return &tcppb.Filter{
-		Name:       authzmodel.RBACTCPFilterName,
-		ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbacConfig)},
-	}
+	return fmt.Sprintf("%sns[%s]-policy[%s]-rule[%d]", prefix, namespace, name, rule)
 }

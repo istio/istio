@@ -1,0 +1,68 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: default
+spec:
+  gatewayClassName: istio
+  listeners:
+  - port: 34000
+    protocol: TCP
+    routes:
+      selector:
+        matchLabels:
+          selected: "yes"
+      kind: TCPRoute
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: TCPRoute
+metadata:
+  name: tcp
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  rules:
+  - forwardTo:
+    - serviceName: httpbin1
+      port: 7070
+    - serviceName: httpbin2
+      port: 9090
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: BackendPolicy
+metadata:
+  name: httpbin1
+  namespace: default
+spec:
+  backendRefs:
+    - name: httpbin1
+      group: core
+  tls:
+    certificateAuthorityRef:
+      name: ca-cert
+      group: core
+      kind: Secret
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: BackendPolicy
+metadata:
+  name: httpbin2
+  namespace: default
+spec:
+  backendRefs:
+    - name: httpbin
+      group: core
+      port: 80
+  tls:
+    certificateAuthorityRef:
+      name: ca-cert
+      group: core
+      kind: Secret

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 )
@@ -30,8 +31,12 @@ const (
 	statLdsSuccess     = "listener_manager.lds.update_success"
 	statServerState    = "server.state"
 	statWorkersStarted = "listener_manager.workers_started"
-	readyStatsRegex    = "^(server.state|listener_manager.workers_started)"
-	updateStatsRegex   = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$"
+	readyStatsRegex    = "^(server\\.state|listener_manager\\.workers_started)"
+	updateStatsRegex   = "^(cluster_manager\\.cds|listener_manager\\.lds)\\.(update_success|update_rejected)$"
+)
+
+var (
+	readinessTimeout = time.Second * 3 // Default Readiness timeout. It is set the same in helm charts.
 )
 
 type stat struct {
@@ -63,12 +68,13 @@ func (s *Stats) String() string {
 
 // GetReadinessStats returns the current Envoy state by checking the "server.state" stat.
 func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, error) {
-	// If the localHostAddr was not set, we use 'localhost' to void emppty host in URL.
+	// If the localHostAddr was not set, we use 'localhost' to void empty host in URL.
 	if localHostAddr == "" {
 		localHostAddr = "localhost"
 	}
 
-	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, readyStatsRegex))
+	readinessURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, readyStatsRegex)
+	stats, err := doHTTPGetWithTimeout(readinessURL, readinessTimeout)
 	if err != nil {
 		return nil, false, err
 	}
@@ -94,7 +100,7 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, e
 
 // GetUpdateStatusStats returns the version stats for CDS and LDS.
 func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error) {
-	// If the localHostAddr was not set, we use 'localhost' to void emppty host in URL.
+	// If the localHostAddr was not set, we use 'localhost' to void empty host in URL.
 	if localHostAddr == "" {
 		localHostAddr = "localhost"
 	}

@@ -16,9 +16,10 @@ package security
 
 import (
 	"context"
+	"strings"
 	"time"
 
-	"google.golang.org/grpc"
+	"istio.io/pkg/env"
 )
 
 const (
@@ -34,6 +35,27 @@ const (
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
+
+	// Credential fetcher type
+	GCE  = "GoogleComputeEngine"
+	Mock = "Mock" // testing only
+)
+
+// TODO: For 1.8, make sure MeshConfig is updated with those settings,
+// they should be dynamic to allow migrations without restart.
+// Both are critical.
+var (
+	// Require 3P TOKEN disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
+	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
+	// the Apiserver.
+	Require3PToken = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false,
+		"Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
+
+	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
+	// contain the JWTs intended for Citadel.
+	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
+		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
+			"The token is accepted if it matches with one of the audiences").Get(), ",")
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -41,21 +63,8 @@ const (
 // TODO: ProxyConfig should have most of those, and be passed to all components
 // (as source of truth)
 type Options struct {
-	// PluginNames is plugins' name for certain authentication provider.
-	PluginNames []string
-
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
-
-	// IngressGatewayUDSPath is the unix domain socket through which SDS server communicates with
-	// ingress gateway proxies.
-	GatewayUDSPath string
-
-	// CertFile is the path of Cert File for gRPC server TLS settings.
-	CertFile string
-
-	// KeyFile is the path of Key File for gRPC server TLS settings.
-	KeyFile string
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
@@ -67,38 +76,8 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
-	// The Vault CA address.
-	VaultAddress string
-
-	// The Vault auth path.
-	VaultAuthPath string
-
-	// The Vault role.
-	VaultRole string
-
-	// The Vault sign CSR path.
-	VaultSignCsrPath string
-
-	// The Vault TLS root certificate.
-	VaultTLSRootCert string
-
-	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
-	GrpcServer *grpc.Server
-
 	// Recycle job running interval (to clean up staled sds client connections).
 	RecycleInterval time.Duration
-
-	// Debug server port from which node_agent serves SDS configuration dumps
-	DebugPort int
-
-	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
-	EnableWorkloadSDS bool
-
-	// EnableGatewaySDS indicates whether node agent works as ingress gateway agent.
-	EnableGatewaySDS bool
-
-	// Set this flag to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
 
 	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
 	// from the UDS caller. Used when it runs in the same container with Envoy.
@@ -116,12 +95,6 @@ type Options struct {
 	// ProvCert is the directory for client to provide the key and certificate to server
 	// when do mtls
 	ProvCert string
-
-	// Existing certs, for VM or existing certificates
-	CertsDir string
-
-	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
-	TLSEnabled bool
 
 	// ClusterID is the cluster where the agent resides.
 	// Normally initialized from ISTIO_META_CLUSTER_ID - after a tortuous journey it
@@ -168,6 +141,22 @@ type Options struct {
 	// For example exchange long lived refresh with access tokens.
 	// Used by the secret fetcher when signing CSRs.
 	TokenExchangers []TokenExchanger
+
+	// CSR requires a token. This is a property of the CA.
+	// The default value is false because Istiod does not require a token in CSR.
+	UseTokenForCSR bool
+
+	// credential fetcher.
+	CredFetcher CredFetcher
+
+	// credential identity provider
+	CredIdentityProvider string
+
+	// Namespace corresponding to workload
+	WorkloadNamespace string
+
+	// Name of the Service Account
+	ServiceAccount string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -175,8 +164,7 @@ type Options struct {
 // interface to get back a signed certificate. There is no guarantee that the SAN
 // in the request will be returned - server may replace it.
 type Client interface {
-	CSRSign(ctx context.Context, reqID string, csrPEM []byte, subjectID string,
-		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
+	CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error)
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -186,9 +174,6 @@ type SecretManager interface {
 	// claim, expected to be in the K8S format. No other JWTs are currently supported
 	// due to client logic. If JWT is missing/invalid, the resourceName is used.
 	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*SecretItem, error)
-
-	// ShouldWaitForIngressGatewaySecret indicates whether a valid ingress gateway secret is expected.
-	ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
 
 	// SecretExist checks if secret already existed.
 	// This API is used for sds server to check if coming request is ack request.
@@ -200,7 +185,8 @@ type SecretManager interface {
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
-	ExchangeToken(context.Context, string, string) (string, time.Time, int, error)
+	ExchangeToken(ctx context.Context, credFetcher CredFetcher, trustDomain,
+		serviceAccountToken string) (string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.
@@ -209,11 +195,6 @@ type SecretItem struct {
 	PrivateKey       []byte
 
 	RootCert []byte
-
-	// RootCertOwnedByCompoundSecret is true if this SecretItem was created by a
-	// K8S secret having both server cert/key and client ca and should be deleted
-	// with the secret.
-	RootCertOwnedByCompoundSecret bool
 
 	// ResourceName passed from envoy SDS discovery request.
 	// "ROOTCA" for root cert request, "default" for key/cert request.
@@ -230,4 +211,15 @@ type SecretItem struct {
 	CreatedTime time.Time
 
 	ExpireTime time.Time
+}
+
+type CredFetcher interface {
+	// GetPlatformCredential fetches workload credential provided by the platform.
+	GetPlatformCredential() (string, error)
+
+	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
+	GetType() string
+
+	// The name of the IdentityProvider that can authenticate the workload credential.
+	GetIdentityProvider() string
 }

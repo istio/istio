@@ -19,7 +19,6 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
-	"istio.io/pkg/log"
 )
 
 // StartServer initializes and starts a web server that exposes liveness and readiness endpoints at port 8000.
@@ -28,7 +27,7 @@ func StartServer() *atomic.Value {
 	isReady := initRouter(router)
 
 	go func() {
-		log.Fatala(http.ListenAndServe(":"+constants.Port, router))
+		_ = http.ListenAndServe(":"+constants.Port, router)
 	}()
 
 	return isReady

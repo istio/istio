@@ -21,7 +21,7 @@ import (
 )
 
 func TestMetadata_Clone_NilMaps(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	m := Metadata{
 		FullName: NewFullName("ns1", "rs1"),
@@ -33,7 +33,7 @@ func TestMetadata_Clone_NilMaps(t *testing.T) {
 }
 
 func TestMetadata_Clone_NonNilMaps(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	m := Metadata{
 		FullName:    NewFullName("ns1", "rs1"),

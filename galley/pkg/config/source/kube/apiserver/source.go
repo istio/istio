@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -38,7 +38,7 @@ var (
 		Name: "k8s/crd",
 		Resource: resource.Builder{
 			Group:   "apiextensions.k8s.io",
-			Version: "v1",
+			Version: "v1beta1",
 			Plural:  "customresourcedefinitions",
 			Kind:    "CustomResourceDefinition",
 		}.BuildNoValidate(),
@@ -133,7 +133,7 @@ func (s *Source) Start() {
 }
 
 func (s *Source) onCrdEvent(e event.Event) {
-	scope.Source.Debuga("onCrdEvent: ", e)
+	scope.Source.Debug("onCrdEvent: ", e)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -151,7 +151,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 
 	switch e.Kind {
 	case event.Added:
-		crd := e.Resource.Message.(*v1.CustomResourceDefinitionSpec)
+		crd := e.Resource.Message.(*v1beta1.CustomResourceDefinitionSpec)
 		g := crd.Group
 		k := crd.Names.Kind
 		key := asKey(g, k)
@@ -209,7 +209,7 @@ func (s *Source) startWatchers() {
 		// Send a Full Sync event immediately for custom resources that were never found, or that are disabled.
 		// For everything else, create a watcher.
 		if (!a.IsBuiltIn() && !found) || r.IsDisabled() {
-			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Name())
+			scope.Source.Debug("Source.Start: sending immediate FullSync for: ", r.Name())
 			s.handlers.Handle(event.FullSyncFor(r))
 		} else {
 			col := newWatcher(r, a, s.statusCtl)
@@ -224,7 +224,7 @@ func (s *Source) startWatchers() {
 	}
 
 	for c, w := range s.watchers {
-		scope.Source.Debuga("Source.Start: starting watcher: ", c)
+		scope.Source.Debug("Source.Start: starting watcher: ", c)
 		w.start()
 	}
 }
@@ -260,7 +260,7 @@ func (s *Source) stop() {
 
 	if s.watchers != nil {
 		for c, w := range s.watchers {
-			scope.Source.Debuga("Source.Stop: stopping watcher: ", c)
+			scope.Source.Debug("Source.Stop: stopping watcher: ", c)
 			w.stop()
 		}
 		s.watchers = nil

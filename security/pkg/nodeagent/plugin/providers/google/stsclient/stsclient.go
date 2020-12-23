@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"time"
 
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -38,6 +39,7 @@ var (
 	// SecureTokenEndpoint is the Endpoint the STS client calls to.
 	SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
+	GCEProvider         = "GoogleComputeEngine"
 )
 
 const (
@@ -78,9 +80,9 @@ func NewPlugin() security.TokenExchanger {
 }
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
-func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string) (
+func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetcher, trustDomain, k8sSAjwt string) (
 	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
-	aud := constructAudience(trustDomain)
+	aud := constructAudience(credFetcher, trustDomain)
 	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
 	req, _ := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", contentType)
@@ -104,6 +106,8 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	body, _ := ioutil.ReadAll(resp.Body)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
+		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
+		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
 			"failed to unmarshal response data. HTTP status: %s. Error: %v. Body size: %d", resp.Status, err, len(body))
 	}
@@ -116,12 +120,22 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
 }
 
-func constructAudience(trustDomain string) string {
-	if GKEClusterURL == "" {
-		return trustDomain
+func constructAudience(credFetcher security.CredFetcher, trustDomain string) string {
+	provider := ""
+	if credFetcher != nil {
+		provider = credFetcher.GetIdentityProvider()
 	}
-
-	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)
+	// For GKE, we do not register IdentityProvider explicitly. The provider name
+	// is GKEClusterURL by default.
+	if provider == "" {
+		if GKEClusterURL != "" {
+			provider = GKEClusterURL
+		} else if platform.IsGCP() {
+			stsClientLog.Warn("GKE_CLUSTER_URL is not set, fallback to call metadata server to get identity provider")
+			provider = platform.NewGCP().Metadata()[platform.GCPClusterURL]
+		}
+	}
+	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }
 
 func constructFederatedTokenRequest(aud, jwt string) []byte {

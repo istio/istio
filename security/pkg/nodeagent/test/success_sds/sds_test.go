@@ -23,6 +23,7 @@ import (
 )
 
 func TestProxySDS(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/24680")
 	setup := sdsTest.SetupTest(t, env.SDSTest)
 	defer setup.TearDown()
 

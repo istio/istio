@@ -39,14 +39,14 @@ var (
 )
 
 func TestNewWithoutConfigShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	_, err := envoy.New(envoy.Config{})
 	g.Expect(err).ToNot(BeNil())
 }
 
 func TestNewWithDuplicateOptionsShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -61,7 +61,7 @@ func TestNewWithDuplicateOptionsShouldFail(t *testing.T) {
 }
 
 func TestNewWithInvalidOptionShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	_, err := envoy.New(envoy.Config{
 		BinaryPath: testEnvoy.FindBinaryOrFail(t),
@@ -71,7 +71,7 @@ func TestNewWithInvalidOptionShouldFail(t *testing.T) {
 }
 
 func TestNewWithoutAdminPortShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	_, err := envoy.New(envoy.Config{
 		BinaryPath: testEnvoy.FindBinaryOrFail(t),
@@ -81,7 +81,7 @@ func TestNewWithoutAdminPortShouldFail(t *testing.T) {
 }
 
 func TestNewWithoutBinaryPathShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -93,7 +93,7 @@ func TestNewWithoutBinaryPathShouldFail(t *testing.T) {
 }
 
 func TestNewWithConfigPathShouldSucceed(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -107,7 +107,7 @@ func TestNewWithConfigPathShouldSucceed(t *testing.T) {
 }
 
 func TestNewWithConfigYamlShouldSucceed(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -141,7 +141,7 @@ func TestStartWithBadBinaryShouldFail(t *testing.T) {
 func TestStartEnvoyShouldSucceed(t *testing.T) {
 	runLinuxOnly(t)
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -184,7 +184,7 @@ func TestStartTwiceShouldDoNothing(t *testing.T) {
 func TestHotRestartTwiceShouldFail(t *testing.T) {
 	runLinuxOnly(t)
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -209,7 +209,7 @@ func TestHotRestartTwiceShouldFail(t *testing.T) {
 func TestHotRestart(t *testing.T) {
 	runLinuxOnly(t)
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -250,7 +250,7 @@ func TestHotRestart(t *testing.T) {
 func TestCommandLineArgs(t *testing.T) {
 	runLinuxOnly(t)
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -315,7 +315,7 @@ func TestCommandLineArgs(t *testing.T) {
 func TestShutdown(t *testing.T) {
 	runLinuxOnly(t)
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -341,7 +341,7 @@ func TestShutdown(t *testing.T) {
 func TestKillEnvoy(t *testing.T) {
 	runLinuxOnly(t)
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()
@@ -391,7 +391,7 @@ func TestCancelContext(t *testing.T) {
 func TestConfigDump(t *testing.T) {
 	runLinuxOnly(t)
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h := newBootstrapHelper(t)
 	defer h.Close()

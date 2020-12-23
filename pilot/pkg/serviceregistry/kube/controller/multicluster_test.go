@@ -1,5 +1,3 @@
-// +build !race
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/kube"
@@ -41,7 +39,7 @@ const (
 
 var mockserviceController = &aggregate.Controller{}
 
-func createMultiClusterSecret(k8s *fake.Clientset) error {
+func createMultiClusterSecret(k8s kube.Client) error {
 	data := map[string][]byte{}
 	secret := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -60,7 +58,7 @@ func createMultiClusterSecret(k8s *fake.Clientset) error {
 	return err
 }
 
-func deleteMultiClusterSecret(k8s *fake.Clientset) error {
+func deleteMultiClusterSecret(k8s kube.Client) error {
 	var immediate int64
 
 	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
@@ -69,6 +67,7 @@ func deleteMultiClusterSecret(k8s *fake.Clientset) error {
 }
 
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
+	t.Helper()
 	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
 		m.m.Lock()
 		defer m.m.Unlock()
@@ -76,29 +75,32 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	})
 }
 
-// This test is skipped by the build tag !race due to https://github.com/istio/istio/issues/15610
 func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	clientset := fake.NewSimpleClientset()
-	mc, err := NewMulticluster(clientset,
+	clientset := kube.NewFakeClient()
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	mc := NewMulticluster(
+		"pilot-abc-123",
+		clientset,
 		testSecretNameSpace,
 		Options{
 			WatchedNamespaces: WatchedNamespaces,
 			DomainSuffix:      DomainSuffix,
 			ResyncPeriod:      ResyncPeriod,
-		},
-		mockserviceController, nil, nil)
-
-	if err != nil {
-		t.Fatalf("error creating Multicluster object and startign secret controller: %v", err)
-	}
-	time.Sleep(10 * time.Millisecond)
+			SyncInterval:      time.Microsecond,
+		}, mockserviceController, nil, "", "default", nil, nil)
+	mc.InitSecretController(stop)
+	cache.WaitForCacheSync(stop, mc.HasSynced)
+	clientset.RunAndWait(stop)
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
-	err = createMultiClusterSecret(clientset)
+	err := createMultiClusterSecret(clientset)
 	if err != nil {
 		t.Fatalf("Unexpected error on secret create: %v", err)
 	}

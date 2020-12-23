@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 26617
+releaseNotes:
+  - |
+    **Fixed** headless services endpoints update will not trigger any xds pushes for sidecar proxies

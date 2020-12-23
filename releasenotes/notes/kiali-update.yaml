@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+ - |
+   **Updated** Kiali addon has been upgraded to v1.26

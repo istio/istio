@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: pilot
+issue:
+  - 25339
+
+releaseNotes:
+- |
+  **Added** sets timeout to fetch workload certs to 0 because workload certs are guaranteed to exist, making a timeout irrelevant.

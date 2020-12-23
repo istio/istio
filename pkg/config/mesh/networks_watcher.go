@@ -21,15 +21,15 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
 
 // NetworksHolder is a holder of a mesh networks configuration.
 type NetworksHolder interface {
+	SetNetworks(*meshconfig.MeshNetworks)
 	Networks() *meshconfig.MeshNetworks
 }
 
@@ -79,25 +79,7 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 			log.Warnf("failed to read mesh networks configuration from %q: %v", filename, err)
 			return
 		}
-
-		var handlers []func()
-
-		w.mutex.Lock()
-		if !reflect.DeepEqual(meshNetworks, w.networks) {
-			ResolveHostsInNetworksConfig(meshNetworks)
-			networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "    ")
-			log.Infof("mesh networks configuration updated to: %s", networksdump)
-
-			// Store the new config.
-			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.networks)), unsafe.Pointer(meshNetworks))
-			handlers = append([]func(){}, w.handlers...)
-		}
-		w.mutex.Unlock()
-
-		// Notify the handlers of the change.
-		for _, h := range handlers {
-			h()
-		}
+		w.SetNetworks(meshNetworks)
 	})
 	return w, nil
 }
@@ -107,9 +89,33 @@ func (w *networksWatcher) Networks() *meshconfig.MeshNetworks {
 	return (*meshconfig.MeshNetworks)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.networks))))
 }
 
+// SetNetworks will use the given value for mesh networks and notify all handlers of the change
+func (w *networksWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetworks) {
+	var handlers []func()
+
+	w.mutex.Lock()
+	if !reflect.DeepEqual(meshNetworks, w.networks) {
+		ResolveHostsInNetworksConfig(meshNetworks)
+		networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "    ")
+		log.Infof("mesh networks configuration updated to: %s", networksdump)
+
+		// Store the new config.
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.networks)), unsafe.Pointer(meshNetworks))
+		handlers = append([]func(){}, w.handlers...)
+	}
+	w.mutex.Unlock()
+
+	// Notify the handlers of the change.
+	for _, h := range handlers {
+		h()
+	}
+}
+
 // AddMeshHandler registers a callback handler for changes to the mesh network config.
 func (w *networksWatcher) AddNetworksHandler(h func()) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	w.handlers = append(w.handlers, h)
+
+	// hack: prepend handlers; the last to be added will be run first and block other handlers
+	w.handlers = append([]func(){h}, w.handlers...)
 }

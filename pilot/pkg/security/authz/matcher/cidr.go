@@ -19,9 +19,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
-
 	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // CidrRange converts a CIDR or a single IP string to a corresponding CidrRange. For a single IP

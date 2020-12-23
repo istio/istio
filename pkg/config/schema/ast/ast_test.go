@@ -98,7 +98,7 @@ transforms:
 
 	for _, c := range cases {
 		t.Run("", func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			actual, err := Parse(c.input)
 			g.Expect(err).To(BeNil())
 			g.Expect(actual).To(Equal(c.expected))
@@ -135,7 +135,7 @@ transforms:
 
 	for _, c := range cases {
 		t.Run("", func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			_, err := Parse(c)
 			g.Expect(err).NotTo(BeNil())
 		})
@@ -171,7 +171,7 @@ transforms:
 	expectedCalls := 3
 	for i := 0; i < expectedCalls; i++ {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			var cur int
 			jsonUnmarshal = func(data []byte, v interface{}) error {

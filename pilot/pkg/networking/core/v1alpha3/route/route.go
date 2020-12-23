@@ -32,18 +32,17 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/util/gogo"
-
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy
@@ -63,14 +62,13 @@ const DefaultRouteName = "default"
 const maxRegExProgramSize = 1024
 
 var (
-	// TODO: remove deprecatedRegexEngine once all envoys have unlimited default.
-	deprecatedRegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
+
+	regexEngineWithMaxProgramSize = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(maxRegExProgramSize),
 		},
 	}}
-
-	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 )
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
@@ -99,12 +97,9 @@ type VirtualHostWrapper struct {
 // BuildSidecarVirtualHostsFromConfigAndRegistry creates virtual hosts from
 // the given set of virtual services and a list of services from the
 // service registry. Services are indexed by FQDN hostnames.
-func BuildSidecarVirtualHostsFromConfigAndRegistry(
-	node *model.Proxy,
-	push *model.PushContext,
-	serviceRegistry map[host.Name]*model.Service,
-	virtualServices []model.Config,
-	listenPort int) []VirtualHostWrapper {
+// The list of services is also passed to allow maintaining consistent ordering.
+func BuildSidecarVirtualHostsFromConfigAndRegistry(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
+	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
@@ -119,9 +114,9 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	}
 
 	// compute services missing virtual service configs
-	missing := make(map[host.Name]bool)
+	missing := make(map[host.Name]struct{})
 	for fqdn := range serviceRegistry {
-		missing[fqdn] = true
+		missing[fqdn] = struct{}{}
 	}
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
@@ -130,8 +125,8 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	}
 
 	// append default hosts for the service missing virtual services
-	for fqdn := range missing {
-		svc := serviceRegistry[fqdn]
+	for hn := range missing {
+		svc := serviceRegistry[hn]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
@@ -156,7 +151,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 
 // separateVSHostsAndServices splits the virtual service hosts into services (if they are found in the registry) and
 // plain non-registry hostnames
-func separateVSHostsAndServices(virtualService model.Config,
+func separateVSHostsAndServices(virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service) ([]string, []*model.Service) {
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
@@ -204,7 +199,7 @@ func separateVSHostsAndServices(virtualService model.Config,
 func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
-	virtualService model.Config,
+	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
@@ -280,7 +275,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
-	virtualService model.Config,
+	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int,
 	gatewayNames map[string]bool) ([]*route.Route, error) {
@@ -292,26 +287,23 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
+allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				out = append(out, r)
 			}
-			// We have a rule with catch all match prefix: /. Other rules are of no use.
+			// We have a rule with catch all match. Other rules are of no use.
 			break
 		} else {
-			if match := catchAllMatch(http); match != nil {
-				// We have a catch all match block in the route, check if it is valid - A catch all match block is not valid
-				// (translateRoute returns nil), if source or port match fails.
-				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-					// We have a valid catch all route. No point building other routes, with match conditions.
-					out = append(out, r)
-					break
-				}
-			}
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 					out = append(out, r)
+					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
+					// As an optimization, we can just top sending any more routes here.
+					if isCatchAllMatch(match) {
+						break allroutes
+					}
 				}
 			}
 		}
@@ -347,7 +339,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Coll
 // translateRoute translates HTTP routes
 func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
-	virtualService model.Config,
+	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	gatewayNames map[string]bool) *route.Route {
 
@@ -366,7 +358,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 	out := &route.Route{
 		Match:    translateRouteMatch(match, node),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
 	routeName := in.Name
@@ -424,8 +416,18 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 
 		action.Timeout = d
-		action.MaxGrpcTimeout = d
-
+		if util.IsIstioVersionGE18(node) {
+			if maxDuration := action.MaxStreamDuration; maxDuration != nil {
+				maxDuration.MaxStreamDuration = d
+			} else {
+				action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+					MaxStreamDuration: d,
+				}
+			}
+		} else {
+			// nolint: staticcheck
+			action.MaxGrpcTimeout = d
+		}
 		out.Action = &route.Route_Route{Route: action}
 
 		if rewrite := in.Rewrite; rewrite != nil {
@@ -743,6 +745,16 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	return out
 }
 
+func convertToExactEnvoyMatch(in []string) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, istioMatcher := range in {
+		res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: istioMatcher}})
+	}
+
+	return res
+}
+
 func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*matcher.StringMatcher {
 	res := make([]*matcher.StringMatcher, 0, len(in))
 
@@ -777,6 +789,8 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 	out := route.CorsPolicy{}
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins, node)
+	} else if in.AllowOrigin != nil {
+		out.AllowOriginStringMatch = convertToExactEnvoyMatch(in.AllowOrigin)
 	}
 
 	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
@@ -828,18 +842,27 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
 	notimeout := ptypes.DurationProto(0)
-
+	routeAction := &route.RouteAction{
+		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+		Timeout:          notimeout,
+	}
+	if util.IsIstioVersionGE18(node) {
+		routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+			// If not configured at all, the grpc-timeout header is not used and
+			// gRPC requests time out like any other requests using timeout or its default.
+			MaxStreamDuration: notimeout,
+		}
+	} else {
+		// nolint: staticcheck
+		routeAction.MaxGrpcTimeout = notimeout
+	}
 	val := &route.Route{
 		Match: translateRouteMatch(nil, node),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
 		Action: &route.Route_Route{
-			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-				Timeout:          notimeout,
-				MaxGrpcTimeout:   notimeout,
-			},
+			Route: routeAction,
 		},
 	}
 
@@ -1047,17 +1070,9 @@ func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.H
 	return consistentHashToHashPolicy(consistentHash)
 }
 
-// catchAllMatch returns a catch all match block if available in the route, otherwise returns nil.
-func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
-	for _, match := range http.Match {
-		if isCatchAllMatch(match) {
-			return match
-		}
-	}
-	return nil
-}
-
-// isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise false.
+// isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise
+// false. Note - this may not be exactly "catch all" as we don't know the full
+// class of possible inputs As such, this is used only for optimization.
 func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 	catchall := false
 	if m.Uri != nil {
@@ -1068,9 +1083,19 @@ func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 			catchall = m.Regex == "*"
 		}
 	}
-	// A Match is catch all if and only if it has no header/query param match
+	// A Match is catch all if and only if it has no match set
 	// and URI has a prefix / or regex *.
-	return catchall && len(m.Headers) == 0 && len(m.QueryParams) == 0
+	return catchall &&
+		len(m.Headers) == 0 &&
+		len(m.QueryParams) == 0 &&
+		len(m.SourceLabels) == 0 &&
+		len(m.WithoutHeaders) == 0 &&
+		len(m.Gateways) == 0 &&
+		m.Method == nil &&
+		m.Scheme == nil &&
+		m.Port == 0 &&
+		m.Authority == nil &&
+		m.SourceNamespace == ""
 }
 
 // CombineVHostRoutes semi concatenates Vhost's routes into a single route set.
@@ -1117,8 +1142,8 @@ func traceOperation(host string, port int) string {
 }
 
 func regexMatcher(node *model.Proxy) *matcher.RegexMatcher_GoogleRe2 {
-	if util.IsIstioVersionGE17(node) {
+	if util.IsIstioVersionGE18(node) {
 		return regexEngine
 	}
-	return deprecatedRegexEngine
+	return regexEngineWithMaxProgramSize
 }

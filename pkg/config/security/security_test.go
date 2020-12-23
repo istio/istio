@@ -117,6 +117,15 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
+			key:    "remote.ip",
+			values: []string{"1.2.3.4", "5.6.7.0/24"},
+		},
+		{
+			key:       "remote.ip",
+			values:    []string{"a.b.c.d"},
+			wantError: true,
+		},
+		{
 			key:    "source.namespace",
 			values: []string{"value"},
 		},

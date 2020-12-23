@@ -29,33 +29,21 @@ import (
 
 // ServiceController is a mock service controller
 type ServiceController struct {
-	svcHandlers  []func(*model.Service, model.Event)
-	instHandlers []func(*model.ServiceInstance, model.Event)
+	svcHandlers []func(*model.Service, model.Event)
 
 	sync.RWMutex
 }
 
-func (c *ServiceController) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
-	// Memory does not support workload handlers; everything is done in terms of instances
-	return nil
-}
-
 var _ model.Controller = &ServiceController{}
 
+// Memory does not support workload handlers; everything is done in terms of instances
+func (c *ServiceController) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {}
+
 // AppendServiceHandler appends a service handler to the controller
-func (c *ServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+func (c *ServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) {
 	c.Lock()
 	c.svcHandlers = append(c.svcHandlers, f)
 	c.Unlock()
-	return nil
-}
-
-// AppendInstanceHandler appends a service instance handler to the controller
-func (c *ServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.Lock()
-	c.instHandlers = append(c.instHandlers, f)
-	c.Unlock()
-	return nil
 }
 
 // Run will run the controller
@@ -66,7 +54,8 @@ func (c *ServiceController) HasSynced() bool { return true }
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
-	services map[host.Name]*model.Service
+	services        map[host.Name]*model.Service
+	networkGateways map[string][]*model.Gateway
 	// EndpointShards table. Key is the fqdn of the service, ':', port
 	instancesByPortNum  map[string][]*model.ServiceInstance
 	instancesByPortName map[string][]*model.ServiceInstance
@@ -107,6 +96,7 @@ func NewServiceDiscovery(services []*model.Service) *ServiceDiscovery {
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]*labels.Instance{},
+		networkGateways:     map[string][]*model.Gateway{},
 	}
 }
 
@@ -157,7 +147,7 @@ func (sd *ServiceDiscovery) AddInstance(service host.Name, instance *model.Servi
 		return
 	}
 	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
+	sd.ip2instance[instance.Endpoint.Address] = append(sd.ip2instance[instance.Endpoint.Address], instance)
 
 	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
 	instanceList := sd.instancesByPortNum[key]
@@ -190,9 +180,8 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpoints []*model.IstioEndpoint) {
 
 	sh := host.Name(service)
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
 
+	sd.mutex.Lock()
 	svc := sd.services[sh]
 	if svc == nil {
 		return
@@ -240,7 +229,9 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 		sd.instancesByPortName[key] = append(instanceList, instance)
 
 	}
-	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
+	sd.mutex.Unlock()
+
+	sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 
 // Services implements discovery interface
@@ -275,31 +266,30 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, erro
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
-func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int,
-	labels labels.Collection) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, _ labels.Collection) []*model.ServiceInstance {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
+		return nil
 	}
 	key := fmt.Sprintf("%s:%d", string(svc.Hostname), port)
 	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
-		return nil, nil
+		return nil
 	}
-	return instances, nil
+	return instances
 }
 
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
 // 'in' services.
-func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.GetProxyServiceInstancesError != nil {
-		return nil, sd.GetProxyServiceInstancesError
+		return nil
 	}
 	if sd.WantGetProxyServiceInstances != nil {
-		return sd.WantGetProxyServiceInstances, nil
+		return sd.WantGetProxyServiceInstances
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, ip := range node.IPAddresses {
@@ -308,10 +298,10 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 			out = append(out, si...)
 		}
 	}
-	return out, sd.GetProxyServiceInstancesError
+	return out
 }
 
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	out := make(labels.Collection, 0)
@@ -321,7 +311,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 			out = append(out, *l)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
@@ -335,4 +325,12 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 		}
 	}
 	return make([]string, 0)
+}
+
+func (sd *ServiceDiscovery) SetGatewaysForNetwork(nw string, gws ...*model.Gateway) {
+	sd.networkGateways[nw] = gws
+}
+
+func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
+	return sd.networkGateways
 }

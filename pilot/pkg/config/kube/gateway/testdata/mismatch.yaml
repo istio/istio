@@ -12,7 +12,10 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
-  class: something-else
-  listeners: []
-  routes:
-    namespaceSelector: {}
+  gatewayClassName: something-else
+  listeners:
+  - port: 80
+    protocol: HTTP
+    routes:
+      namespaces: {}
+      kind: HTTPRoute

@@ -5,6 +5,8 @@ metadata:
   namespace: istio-system
   labels:
     istio.io/rev: default
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
     release: istio
 data:
 
@@ -13,6 +15,10 @@ data:
     networks: {}
 
   mesh: |-
+    accessLogFormat: |
+      {
+        "key": "val"
+      }
     defaultConfig:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
@@ -23,9 +29,7 @@ data:
       tracing:
         zipkin:
           address: zipkin.istio-system:9411
-    disableMixerHttpReports: true
     enablePrometheusMerge: true
-    mixerCheckServer: foo:1234
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
     rootNamespace: istio-control

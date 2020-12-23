@@ -25,15 +25,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	cert "k8s.io/api/certificates/v1beta1"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	kt "k8s.io/client-go/testing"
+
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
@@ -132,7 +130,7 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -245,7 +243,7 @@ func TestReloadCACert(t *testing.T) {
 	for _, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -325,7 +323,7 @@ func TestSubmitCSR(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -363,8 +361,17 @@ func TestSubmitCSR(t *testing.T) {
 				continue
 			}
 		}
-
-		r, err := submitCSR(wc.certClient.CertificateSigningRequests(), csrName, []byte(csrPEM), numRetries)
+		csrSpec := &cert.CertificateSigningRequestSpec{
+			Request: []byte(csrPEM),
+			Groups:  []string{"system:authenticated"},
+			Usages: []cert.KeyUsage{
+				cert.UsageDigitalSignature,
+				cert.UsageKeyEncipherment,
+				cert.UsageServerAuth,
+				cert.UsageClientAuth,
+			},
+		}
+		r, err := submitCSR(wc.certClient.CertificateSigningRequests(), csrName, csrSpec, numRetries)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -439,7 +446,7 @@ func TestReadSignedCertificate(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 
 		if err != nil {
@@ -450,7 +457,7 @@ func TestReadSignedCertificate(t *testing.T) {
 		// 4. Read the signed certificate
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
 		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName,
-			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile)
+			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile, true)
 
 		if tc.expectFail {
 			if err == nil {

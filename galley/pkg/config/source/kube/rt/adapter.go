@@ -98,7 +98,7 @@ func (p *Adapter) JSONToEntry(s string) (*resource.Instance, error) {
 		return nil, err
 	}
 
-	return ToResource(obj, nil, item, nil), nil
+	return ToResource(obj, nil, item, nil, nil), nil
 
 }
 

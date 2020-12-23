@@ -38,7 +38,7 @@ var _ event.Source = &Collection{}
 
 // NewCollection returns a new in-memory collection.
 func NewCollection(s collection.Schema) *Collection {
-	scope.Source.Debuga("  Creating in-memory collection: ", s.Name())
+	scope.Source.Debug("  Creating in-memory collection: ", s.Name())
 
 	return &Collection{
 		schema:    s,

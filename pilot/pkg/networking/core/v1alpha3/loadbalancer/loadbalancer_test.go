@@ -26,10 +26,10 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -80,7 +80,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: all priorities", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
 		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
@@ -106,7 +106,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: priorities with gaps", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
 		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
@@ -132,7 +132,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: priorities with some nil localities", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallClusterWithNilLocalities()
 		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
@@ -159,7 +159,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: with locality lb disabled", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		cluster := buildSmallClusterWithNilLocalities()
 		lbsetting := &networking.LocalityLoadBalancerSetting{
 			Enabled: &types.BoolValue{Value: false},
@@ -267,8 +267,8 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]model.Config{
-		{ConfigMeta: model.ConfigMeta{
+	env.PushContext.SetDestinationRules([]config.Config{
+		{Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},
@@ -324,8 +324,8 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]model.Config{
-		{ConfigMeta: model.ConfigMeta{
+	env.PushContext.SetDestinationRules([]config.Config{
+		{Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},

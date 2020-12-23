@@ -9,4 +9,5 @@ spec:
     pilot:
       enabled: false
     ingressGateways:
-
+    - name: istio-ingressgateway
+      enabled: false

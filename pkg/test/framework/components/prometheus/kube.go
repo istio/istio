@@ -55,9 +55,9 @@ var (
 type kubeComponent struct {
 	id resource.ID
 
-	api       prometheusApiV1.API
-	forwarder istioKube.PortForwarder
-	cluster   resource.Cluster
+	api       map[string]prometheusApiV1.API
+	forwarder map[string]istioKube.PortForwarder
+	clusters  resource.Clusters
 	cleanup   func() error
 }
 
@@ -91,10 +91,11 @@ func removePrometheus(ctx resource.Context, ns string) error {
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: ctx.Clusters().GetOrDefault(cfgIn.Cluster),
+		clusters: ctx.Clusters(),
 	}
 	c.id = ctx.TrackResource(c)
-	// Find the Prometheus pod and service, and start forwarding a local port.
+	c.api = make(map[string]prometheusApiV1.API)
+	c.forwarder = make(map[string]istioKube.PortForwarder)
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -109,39 +110,42 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 			return removePrometheus(ctx, cfg.TelemetryNamespace)
 		}
 	}
-	fetchFn := testKube.NewSinglePodFetch(c.cluster, cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
-	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
-	if err != nil {
-		return nil, err
+	for _, cls := range ctx.Clusters() {
+		scopes.Framework.Debugf("Installing Prometheus on cluster: %s", cls.Name())
+		// Find the Prometheus pod and service, and start forwarding a local port.
+		fetchFn := testKube.NewSinglePodFetch(cls, cfg.TelemetryNamespace, fmt.Sprintf("app=%s", appName))
+		pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
+		if err != nil {
+			return nil, err
+		}
+		pod := pods[0]
+
+		svc, err := cls.CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		port := uint16(svc.Spec.Ports[0].Port)
+
+		forwarder, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
+		if err != nil {
+			return nil, err
+		}
+
+		if err := forwarder.Start(); err != nil {
+			return nil, err
+		}
+		c.forwarder[cls.Name()] = forwarder
+		scopes.Framework.Debugf("initialized Prometheus port forwarder: %v", forwarder.Address())
+
+		address := fmt.Sprintf("http://%s", forwarder.Address())
+		var client prometheusApi.Client
+		client, err = prometheusApi.NewClient(prometheusApi.Config{Address: address})
+		if err != nil {
+			return nil, err
+		}
+
+		c.api[cls.Name()] = prometheusApiV1.NewAPI(client)
 	}
-	pod := pods[0]
-
-	svc, err := c.cluster.CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	port := uint16(svc.Spec.Ports[0].Port)
-
-	forwarder, err := c.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
-	if err != nil {
-		return nil, err
-	}
-
-	if err := forwarder.Start(); err != nil {
-		return nil, err
-	}
-	c.forwarder = forwarder
-	scopes.Framework.Debugf("initialized Prometheus port forwarder: %v", forwarder.Address())
-
-	address := fmt.Sprintf("http://%s", forwarder.Address())
-	var client prometheusApi.Client
-	client, err = prometheusApi.NewClient(prometheusApi.Config{Address: address})
-	if err != nil {
-		return nil, err
-	}
-
-	c.api = prometheusApiV1.NewAPI(client)
-
 	return c, nil
 }
 
@@ -151,16 +155,22 @@ func (c *kubeComponent) ID() resource.ID {
 
 // API implements environment.DeployedPrometheus.
 func (c *kubeComponent) API() prometheusApiV1.API {
-	return c.api
+	return c.api[c.clusters.Default().Name()]
+}
+func (c *kubeComponent) APIForCluster(cluster resource.Cluster) prometheusApiV1.API {
+	return c.api[cluster.Name()]
 }
 
 func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (model.Value, error) {
+	return c.WaitForQuiesceForCluster(c.clusters.Default(), format, args...)
+}
+func (c *kubeComponent) WaitForQuiesceForCluster(cluster resource.Cluster, format string, args ...interface{}) (model.Value, error) {
 	var previous model.Value
 
 	time.Sleep(time.Second * 1)
 
 	value, err := retry.Do(func() (interface{}, bool, error) {
-
+		var err error
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {
 			return nil, true, err
@@ -168,7 +178,10 @@ func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (mode
 
 		scopes.Framework.Debugf("WaitForQuiesce running: %q", query)
 
-		v, _, err := c.api.Query(context.Background(), query, time.Now())
+		var v model.Value
+
+		v, _, err = c.api[cluster.Name()].Query(context.Background(), query, time.Now())
+
 		if err != nil {
 			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
 		}
@@ -196,7 +209,10 @@ func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (mode
 }
 
 func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args ...interface{}) model.Value {
-	v, err := c.WaitForQuiesce(format, args...)
+	return c.WaitForQuiesceOrFailForCluster(c.clusters.Default(), t, format, args...)
+}
+func (c *kubeComponent) WaitForQuiesceOrFailForCluster(cluster resource.Cluster, t test.Failer, format string, args ...interface{}) model.Value {
+	v, err := c.WaitForQuiesceForCluster(cluster, format, args...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,8 +220,12 @@ func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args 
 }
 
 func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (model.Value, error) {
+	return c.WaitForOneOrMoreForCluster(c.clusters.Default(), format, args...)
+}
+func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster resource.Cluster, format string, args ...interface{}) (model.Value, error) {
 
 	value, err := retry.Do(func() (interface{}, bool, error) {
+		var err error
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {
 			return nil, true, err
@@ -213,7 +233,8 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (mo
 
 		scopes.Framework.Debugf("WaitForOneOrMore running: %q", query)
 
-		v, _, err := c.api.Query(context.Background(), query, time.Now())
+		v, _, err := c.api[cluster.Name()].Query(context.Background(), query, time.Now())
+
 		if err != nil {
 			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
 		}
@@ -244,7 +265,10 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (mo
 }
 
 func (c *kubeComponent) WaitForOneOrMoreOrFail(t test.Failer, format string, args ...interface{}) model.Value {
-	val, err := c.WaitForOneOrMore(format, args...)
+	return c.WaitForOneOrMoreOrFailForCluster(c.clusters.Default(), t, format, args...)
+}
+func (c *kubeComponent) WaitForOneOrMoreOrFailForCluster(cluster resource.Cluster, t test.Failer, format string, args ...interface{}) model.Value {
+	val, err := c.WaitForOneOrMoreForCluster(cluster, format, args...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +326,9 @@ func (c *kubeComponent) SumOrFail(t test.Failer, val model.Value, labels map[str
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	c.forwarder.Close()
+	for _, forwarder := range c.forwarder {
+		forwarder.Close()
+	}
 	if c.cleanup != nil {
 		return c.cleanup()
 	}

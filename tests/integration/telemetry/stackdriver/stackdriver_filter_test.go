@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,16 +16,18 @@
 package stackdriver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/sync/errgroup"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
@@ -36,10 +39,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
+	telemetrypkg "istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/telemetry"
 )
 
 const (
@@ -57,8 +63,8 @@ var (
 	ist        istio.Instance
 	echoNsInst namespace.Instance
 	sdInst     stackdriver.Instance
-	srv        echo.Instance
-	clt        echo.Instance
+	srv        echo.Instances
+	clt        echo.Instances
 )
 
 func getIstioInstance() *istio.Instance {
@@ -69,13 +75,15 @@ func getEchoNamespaceInstance() namespace.Instance {
 	return echoNsInst
 }
 
-func unmarshalFromTemplateFile(file string, out proto.Message) error {
+func unmarshalFromTemplateFile(file string, out proto.Message, clName string) error {
 	templateFile, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
 	}
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
+		"ClusterName":   clName,
+		"OnGCE":         metadata.OnGCE(),
 	})
 	if err != nil {
 		return err
@@ -83,56 +91,86 @@ func unmarshalFromTemplateFile(file string, out proto.Message) error {
 	return jsonpb.UnmarshalString(resource, out)
 }
 
-// TODO: add test for log, trace and edge.
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
+		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := sendTraffic(t); err != nil {
-					return fmt.Errorf("could not generate traffic: %v", err)
-				}
-				if err := validateMetrics(t); err != nil {
-					return err
-				}
-				if err := validateLogs(t); err != nil {
-					return err
-				}
-				if err := validateTraces(t); err != nil {
-					return err
-				}
-				if err := validateEdges(t); err != nil {
-					return err
-				}
-				return nil
-			}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
+			g, _ := errgroup.WithContext(context.Background())
+			for _, cltInstance := range clt {
+				g.Go(func() error {
+					err := retry.UntilSuccess(func() error {
+						if err := sendTraffic(t, cltInstance); err != nil {
+							return err
+						}
+						clName := cltInstance.Config().Cluster.Name()
+						scopes.Framework.Infof("Validating for cluster %s", clName)
+
+						//Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.
+						if err := validateMetrics(t, serverRequestCount, clientRequestCount, clName); err != nil {
+							return err
+						}
+						t.Logf("Metrics validated")
+						if err := validateLogs(t, serverLogEntry, clName, stackdriver.ServerAccessLog); err != nil {
+							return err
+						}
+						t.Logf("logs validated")
+						if err := validateTraces(t); err != nil {
+							return err
+						}
+						t.Logf("Traces validated")
+						if err := validateEdges(t, clName); err != nil {
+							return err
+						}
+						t.Logf("Edges validated")
+
+						return nil
+
+					}, retry.Delay(telemetrypkg.RetryDelay), retry.Timeout(telemetrypkg.RetryTimeout))
+
+					if err != nil {
+						return err
+					}
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil {
+				t.Fatalf("test failed: %v", err)
+			}
 		})
 }
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
-		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(getIstioInstance(), setupConfig)).
 		Setup(testSetup).
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
 	cfg.ControlPlaneValues = `
 meshConfig:
   enableTracing: true
+values:
+  telemetry:
+    v2:
+      stackdriver:
+        configOverride:
+          meshEdgesReportingDuration: "5s"
+          enable_mesh_edges_reporting: true
 `
 	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
+	cfg.Values["telemetry.v2.stackdriver.configOverride.enable_audit_log"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
-	cfg.Values["telemetry.v2.stackdriver.configOverride"] = `{"enable_mesh_edges_reporting": true,"meshEdgesReportingDuration":"5s"}`
+	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {
@@ -153,8 +191,8 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
-		"StackdriverNamespace": sdInst.GetStackdriverNamespace(),
-		"EchoNamespace":        getEchoNamespaceInstance().Name(),
+		"StackdriverAddress": sdInst.Address(),
+		"EchoNamespace":      getEchoNamespaceInstance().Name(),
 	})
 	if err != nil {
 		return
@@ -164,84 +202,103 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = echoboot.NewBuilder(ctx).
-		With(&clt, echo.Config{
-			Service:   "clt",
-			Namespace: getEchoNamespaceInstance(),
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarBootstrapOverride: {
-							Value: sdBootstrapConfigMap,
+
+	builder := echoboot.NewBuilder(ctx)
+	for _, cls := range ctx.Clusters() {
+		clName := cls.Name()
+		builder.
+			With(nil, echo.Config{
+				Service:   fmt.Sprintf("clt-%s", clName),
+				Cluster:   cls,
+				Namespace: getEchoNamespaceInstance(),
+				Subsets: []echo.SubsetConfig{
+					{
+						Annotations: map[echo.Annotation]*echo.AnnotationValue{
+							echo.SidecarBootstrapOverride: {
+								Value: sdBootstrapConfigMap,
+							},
 						},
 					},
-				},
-			}}).
-		With(&srv, echo.Config{
-			Service:   "srv",
-			Namespace: getEchoNamespaceInstance(),
-			Ports: []echo.Port{
-				{
-					Name:     "grpc",
-					Protocol: protocol.GRPC,
-					// We use a port > 1024 to not require root
-					InstancePort: 7070,
-				},
-				{
-					Name:     "http",
-					Protocol: protocol.HTTP,
-					// We use a port > 1024 to not require root
-					InstancePort: 8888,
-				},
-			},
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarBootstrapOverride: {
-							Value: sdBootstrapConfigMap,
-						},
+				}}).
+			With(nil, echo.Config{
+				Service:   "srv",
+				Cluster:   cls,
+				Namespace: getEchoNamespaceInstance(),
+				Ports: []echo.Port{
+					{
+						Name:     "grpc",
+						Protocol: protocol.GRPC,
+						// We use a port > 1024 to not require root
+						InstancePort: 7070,
+					},
+					{
+						Name:     "http",
+						Protocol: protocol.HTTP,
+						// We use a port > 1024 to not require root
+						InstancePort: 8888,
+					},
+					{
+						Name:     "tcp",
+						Protocol: protocol.TCP,
+						// We use a port > 1024 to not require root
+						InstancePort: 9000,
 					},
 				},
-			}}).
-		Build()
+				Subsets: []echo.SubsetConfig{
+					{
+						Annotations: map[echo.Annotation]*echo.AnnotationValue{
+							echo.SidecarBootstrapOverride: {
+								Value: sdBootstrapConfigMap,
+							},
+						},
+					},
+				}}).
+			Build()
+	}
+	echos, err := builder.Build()
 	if err != nil {
 		return
 	}
+	clt = echos.Match(echo.ServicePrefix("clt"))
+	srv = echos.Match(echo.Service("srv"))
 	return nil
 }
 
 // send both a grpc and http requests (http with forced tracing).
-func sendTraffic(t *testing.T) error {
+func sendTraffic(t *testing.T, cltInstance echo.Instance) error {
 	t.Helper()
+	//  All server instance have same names, so setting target as srv[0].
+	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
 	grpcOpts := echo.CallOptions{
-		Target:   srv,
+		Target:   srv[0],
 		PortName: "grpc",
-		Count:    1,
+		Count:    telemetry.RequestCountMultipler * len(srv),
 	}
-	if _, err := clt.Call(grpcOpts); err != nil {
-		return err
-	}
-
 	// an HTTP request with forced tracing
 	hdr := http.Header{}
 	httpOpts := echo.CallOptions{
-		Target:   srv,
+		Target:   srv[0],
 		PortName: "http",
 		Headers:  hdr,
-		Count:    1,
+		Count:    telemetry.RequestCountMultipler * len(srv),
 	}
-	_, err := clt.Call(httpOpts)
-	return err
+	if _, err := cltInstance.Call(grpcOpts); err != nil {
+		return err
+	}
+	if _, err := cltInstance.Call(httpOpts); err != nil {
+		return err
+	}
+	return nil
 }
 
-func validateMetrics(t *testing.T) error {
+func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName string) error {
 	t.Helper()
 
 	var wantClient, wantServer monitoring.TimeSeries
-	if err := unmarshalFromTemplateFile(serverRequestCount, &wantServer); err != nil {
+	if err := unmarshalFromTemplateFile(serverReqCount, &wantServer, clName); err != nil {
 		return fmt.Errorf("metrics: error generating wanted server request: %v", err)
 	}
-	if err := unmarshalFromTemplateFile(clientRequestCount, &wantClient); err != nil {
+	if err := unmarshalFromTemplateFile(clientReqCount, &wantClient, clName); err != nil {
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
@@ -254,6 +311,9 @@ func validateMetrics(t *testing.T) error {
 	t.Logf("number of timeseries: %v", len(ts))
 	var gotServer, gotClient bool
 	for _, tt := range ts {
+		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
+			continue
+		}
 		if proto.Equal(tt, &wantServer) {
 			gotServer = true
 		}
@@ -262,36 +322,38 @@ func validateMetrics(t *testing.T) error {
 		}
 	}
 	if !(gotServer && gotClient) {
-		return fmt.Errorf("metrics: did not get expected metrics; server = %t, client = %t", gotServer, gotClient)
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; server = %t, client = %t", clName, gotServer, gotClient)
 	}
 	return nil
 }
 
-func validateLogs(t *testing.T) error {
+func validateLogs(t *testing.T, srvLogEntry, clName string, filter stackdriver.LogType) error {
 	t.Helper()
-
 	var wantLog loggingpb.LogEntry
-	if err := unmarshalFromTemplateFile(serverLogEntry, &wantLog); err != nil {
+	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
+
 	// Traverse all log entries received and compare with expected server log entry.
-	entries, err := sdInst.ListLogEntries()
+	entries, err := sdInst.ListLogEntries(filter)
 	if err != nil {
 		return fmt.Errorf("logs: failed to get received log entries: %v", err)
 	}
+
 	for _, l := range entries {
 		if proto.Equal(l, &wantLog) {
 			return nil
 		}
 	}
+
 	return errors.New("logs: did not get expected log entry")
 }
 
-func validateEdges(t *testing.T) error {
+func validateEdges(t *testing.T, clName string) error {
 	t.Helper()
 
 	var wantEdge edgespb.TrafficAssertion
-	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge); err != nil {
+	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge, clName); err != nil {
 		return fmt.Errorf("edges: failed to build wanted traffic assertion: %v", err)
 	}
 	edges, err := sdInst.ListTrafficAssertions()
@@ -305,6 +367,7 @@ func validateEdges(t *testing.T) error {
 		edge.Source.Uid = ""
 		edge.Source.ClusterName = ""
 		edge.Source.Location = ""
+		edge.Protocol = 0
 		t.Logf("edge: %v", edge)
 		if proto.Equal(edge, &wantEdge) {
 			return nil

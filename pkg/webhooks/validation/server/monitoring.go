@@ -17,9 +17,8 @@ package server
 import (
 	"strconv"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/monitoring"
-
-	kubeApiAdmission "k8s.io/api/admission/v1"
 )
 
 const (
@@ -73,7 +72,7 @@ func init() {
 	)
 }
 
-func reportValidationFailed(request *kubeApiAdmission.AdmissionRequest, reason string) {
+func reportValidationFailed(request *kube.AdmissionRequest, reason string) {
 	metricValidationFailed.
 		With(GroupTag.Value(request.Resource.Group)).
 		With(VersionTag.Value(request.Resource.Version)).
@@ -82,7 +81,7 @@ func reportValidationFailed(request *kubeApiAdmission.AdmissionRequest, reason s
 		Increment()
 }
 
-func reportValidationPass(request *kubeApiAdmission.AdmissionRequest) {
+func reportValidationPass(request *kube.AdmissionRequest) {
 	metricValidationPassed.
 		With(GroupTag.Value(request.Resource.Group)).
 		With(VersionTag.Value(request.Resource.Version)).

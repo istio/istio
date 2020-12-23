@@ -4,6 +4,7 @@ metadata:
   name: helloworld
   labels:
     app: helloworld
+    service: helloworld
 spec:
   ports:
   - port: 5000
@@ -16,6 +17,7 @@ kind: Deployment
 metadata:
   name: helloworld-v1
   labels:
+    app: helloworld
     version: v1
 spec:
   replicas: 1
@@ -44,6 +46,7 @@ kind: Deployment
 metadata:
   name: helloworld-v2
   labels:
+    app: helloworld
     version: v2
 spec:
   replicas: 1

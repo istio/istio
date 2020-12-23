@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+ - 26692
+
+releaseNotes:
+- |
+  **Added** support for `INSERT_FIRST`, `INSERT_BEFORE`, `INSERT_AFTER` insert operations for `HTTP_ROUTE` in EnvoyFilter

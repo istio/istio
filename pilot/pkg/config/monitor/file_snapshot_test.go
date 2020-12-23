@@ -23,7 +23,6 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -61,7 +60,7 @@ spec:
 `
 
 func TestFileSnapshotNoFilter(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{"gateway.yml": []byte(gatewayYAML)},
@@ -83,7 +82,7 @@ func TestFileSnapshotNoFilter(t *testing.T) {
 }
 
 func TestFileSnapshotWithFilter(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{
@@ -105,7 +104,7 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 }
 
 func TestFileSnapshotSorting(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{

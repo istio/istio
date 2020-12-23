@@ -20,110 +20,52 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
+
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/tests/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/tests/util/leak"
 )
 
 func TestSyncz(t *testing.T) {
+	leak.Check(t)
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
-		s, tearDown := initLocalPilotTestEnv(t)
-		defer tearDown()
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		ads := s.ConnectADS()
 
-		adsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer cancel()
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.EndpointType,
+			ResourceNames: []string{"outbound|9080||app2.default.svc.cluster.local"},
+		})
+		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.RouteType,
+			ResourceNames: []string{"80", "8080"},
+		})
 
-		// Need to send two of each so that the second sends an Ack that is picked up
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), "", "", adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), "", "", adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		for i := 0; i < 3; i++ {
-			_, err := adsReceive(adsstr, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv failed", err)
-			}
-		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, "", "", adsstr); err != nil {
-			t.Fatal(err)
-		}
-		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
-		if err != nil {
-			t.Fatal("Recv failed", err)
-		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, rdsResponse.VersionInfo, rdsResponse.Nonce, adsstr); err != nil {
-			t.Fatal(err)
-		}
-
-		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp"), &model.NodeMetadata{})
-		verifySyncStatus(t, s.EnvoyXdsServer, node.ID, true, true)
+		node, _ := model.ParseServiceNodeWithMetadata(ads.ID, &model.NodeMetadata{})
+		verifySyncStatus(t, s.Discovery, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
-		s, tearDown := initLocalPilotTestEnv(t)
-		defer tearDown()
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		ads := s.ConnectADS()
 
-		adsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer cancel()
-
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), "", "", adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendEDSNack([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendCDSReq(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendCDSNack(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSReq(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendLDSNack(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
-			t.Fatal(err)
-		}
-		for i := 0; i < 3; i++ {
-			_, err := adsReceive(adsstr, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv failed", err)
-			}
-		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, "", "", adsstr); err != nil {
-			t.Fatal(err)
-		}
-		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
-		if err != nil {
-			t.Fatal("Recv failed", err)
-		}
-		if err := sendRDSNack(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, rdsResponse.Nonce, adsstr); err != nil {
-			t.Fatal(err)
-		}
-		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp2"), &model.NodeMetadata{})
-		verifySyncStatus(t, s.EnvoyXdsServer, node.ID, true, false)
+		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+		ads.RequestResponseNack(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.EndpointType,
+			ResourceNames: []string{"outbound|9080||app2.default.svc.cluster.local"},
+		})
+		ads.RequestResponseNack(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.RouteType,
+			ResourceNames: []string{"80", "8080"},
+		})
+		node, _ := model.ParseServiceNodeWithMetadata(ads.ID, &model.NodeMetadata{})
+		verifySyncStatus(t, s.Discovery, node.ID, true, false)
 	})
 }
 
@@ -191,6 +133,7 @@ func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantS
 }
 
 func TestConfigDump(t *testing.T) {
+	leak.Check(t)
 	tests := []struct {
 		name     string
 		wantCode int
@@ -198,7 +141,7 @@ func TestConfigDump(t *testing.T) {
 	}{
 		{
 			name:     "dumps most recent proxy with 200",
-			proxyID:  "dumpApp-644fc65469-96dza.testns",
+			proxyID:  "test.default",
 			wantCode: 200,
 		},
 		{
@@ -214,39 +157,16 @@ func TestConfigDump(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, tearDown := initLocalPilotTestEnv(t)
-			defer tearDown()
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			ads := s.ConnectADS()
+			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+			ads.RequestResponseAck(&discovery.DiscoveryRequest{
+				TypeUrl:       v3.RouteType,
+				ResourceNames: []string{"80", "8080"},
+			})
 
-			envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer cancel()
-			if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
-				t.Fatal(err)
-			}
-			if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
-				t.Fatal(err)
-			}
-			// Only most recent proxy will have routes
-			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", "", envoy); err != nil {
-				t.Fatal(err)
-			}
-			// Expect CDS, LDS, then RDS
-			_, err = adsReceive(envoy, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv cds failed", err)
-			}
-			_, err = adsReceive(envoy, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv lds failed", err)
-			}
-			_, err = adsReceive(envoy, 5*time.Second)
-			if err != nil {
-				t.Fatal("Recv rds failed", err)
-			}
-
-			wrapper := getConfigDump(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)
+			wrapper := getConfigDump(t, s.Discovery, tt.proxyID, tt.wantCode)
 			if wrapper != nil {
 				if rs, err := wrapper.GetDynamicRouteDump(false); err != nil || len(rs.DynamicRouteConfigs) == 0 {
 					t.Errorf("routes were present, must have received an older connection's dump")
@@ -284,15 +204,14 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 }
 
 func TestDebugHandlers(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
+	leak.Check(t)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	req, err := http.NewRequest("GET", "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	debug := http.HandlerFunc(server.EnvoyXdsServer.Debug)
+	debug := http.HandlerFunc(s.Discovery.Debug)
 	debug.ServeHTTP(rr, req)
 	if rr.Code != 200 {
 		t.Errorf("Error in generatating debug endpoint list")

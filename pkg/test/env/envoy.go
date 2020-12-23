@@ -67,6 +67,7 @@ func (s *TestSetup) newEnvoy() (envoy.Instance, error) {
 		}
 		options = append(options, o...)
 	}
+
 	/* #nosec */
 	// Since we are possible running in a container, the OS may be different that what we are building (we build for host OS),
 	// we need to use the local container's OS bin found in LOCAL_OUT

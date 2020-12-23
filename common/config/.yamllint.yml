@@ -15,7 +15,7 @@ rules:
   document-end: disable
   document-start: disable
   empty-lines: disable
-  empty-values: enable
+  empty-values: disable
   hyphens: enable
   indentation: disable
   key-duplicates: enable
@@ -23,7 +23,7 @@ rules:
   line-length: disable
   new-line-at-end-of-file: disable
   new-lines: enable
-  octal-values: enable
+  octal-values: disable
   quoted-strings: disable
   trailing-spaces: disable
   truthy: disable

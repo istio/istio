@@ -4,6 +4,10 @@
 package basicmeta
 
 import (
+	"reflect"
+
+	githubcomgogoprotobuftypes "github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
@@ -22,6 +26,7 @@ var (
 			Plural:        "Kind1s",
 			Version:       "v1alpha1",
 			Proto:         "google.protobuf.Struct",
+			ReflectType:   reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -39,6 +44,7 @@ var (
 			Plural:        "Kind1s",
 			Version:       "v1alpha1",
 			Proto:         "google.protobuf.Struct",
+			ReflectType:   reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,

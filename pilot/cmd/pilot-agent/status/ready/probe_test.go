@@ -31,7 +31,7 @@ var (
 )
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(liveServerStats)
 	defer server.Close()
@@ -109,7 +109,7 @@ server.state: 0`,
 }
 
 func TestEnvoyInitializing(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(initServerStats)
 	defer server.Close()
@@ -121,7 +121,7 @@ func TestEnvoyInitializing(t *testing.T) {
 }
 
 func TestEnvoyNoClusterManagerStats(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(onlyServerStats)
 	defer server.Close()
@@ -133,7 +133,7 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 }
 
 func TestEnvoyNoServerStats(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(noServerStats)
 	defer server.Close()
@@ -142,6 +142,36 @@ func TestEnvoyNoServerStats(t *testing.T) {
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
+}
+
+func TestEnvoyReadinessCache(t *testing.T) {
+	g := NewWithT(t)
+
+	server := createAndStartServer(noServerStats)
+	probe := Probe{AdminPort: 1234}
+	err := probe.Check()
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	err = probe.Check()
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	server.Close()
+
+	server = createAndStartServer(liveServerStats)
+	err = probe.Check()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	server.Close()
+
+	server = createAndStartServer(noServerStats)
+	err = probe.Check()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	server.Close()
+
+	err = probe.Check()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeTrue())
 }
 
 func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {

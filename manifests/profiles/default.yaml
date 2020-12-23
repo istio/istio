@@ -21,125 +21,21 @@ spec:
       enabled: true
     pilot:
       enabled: true
-      k8s:
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 1
-          periodSeconds: 3
-          timeoutSeconds: 5
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
 
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
       enabled: true
-      k8s:
-        env:
-          - name: ISTIO_META_ROUTER_MODE
-            value: "sni-dnat"
-        service:
-          ports:
-            - port: 15021
-              targetPort: 15021
-              name: status-port
-            - port: 80
-              targetPort: 8080
-              name: http2
-            - port: 443
-              targetPort: 8443
-              name: https
-            - port: 15443
-              targetPort: 15443
-              name: tls
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-ingressgateway
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
     egressGateways:
     - name: istio-egressgateway
       enabled: false
-      k8s:
-        env:
-          - name: ISTIO_META_ROUTER_MODE
-            value: "sni-dnat"
-        service:
-          ports:
-            - port: 80
-              name: http2
-            - port: 443
-              name: https
-            - port: 15443
-              targetPort: 15443
-              name: tls
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-egressgateway
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
+
     # Istio CNI feature
     cni:
       enabled: false
     
     # istiod remote configuration wwhen istiod isn't installed on the cluster
     istiodRemote:
-      enabled: false
-
-  addonComponents:
-    istiocoredns:
       enabled: false
 
   # Global values passed through to helm global.yaml.
@@ -191,20 +87,11 @@ spec:
       # Default behavior: latest images will be Always else IfNotPresent.
       imagePullPolicy: ""
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: true
       tracer:
-        lightstep:
-          address: ""                # example: lightstep-satellite:443
-          accessToken: ""            # example: abcdefg1234567
-        zipkin:
-          address: ""
-        datadog:
-          address: "$(HOST_IP):8126"
-        stackdriver:
-          debug: false
-          maxNumberOfAttributes: 200
-          maxNumberOfAnnotations: 200
-          maxNumberOfMessageEvents: 200
+        lightstep: {}
+        zipkin: {}
+        datadog: {}
+        stackdriver: {}
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -228,14 +115,12 @@ spec:
         enabled: true
       priorityClassName: ""
       useMCP: false
-      trustDomain: "cluster.local"
       sds:
         token:
           aud: istio-ca
       sts:
         servicePort: 0
       meshNetworks: {}
-      enableHelmTest: false
       mountMtlsCerts: false
     base:
       enableCRDTemplates: false
@@ -247,31 +132,24 @@ spec:
       replicaCount: 1
       image: pilot
       traceSampling: 1.0
-      configNamespace: istio-config
-      appNamespaces: []
       env: {}
       cpu:
         targetAverageUtilization: 80
       nodeSelector: {}
-      tolerations: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
       keepaliveMaxServerConnectionAge: 30m
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
       configMap: true
-      policy:
-        enabled: false
 
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
         enabled: true
-        metadataExchange: {}
+        metadataExchange:
+          wasmEnabled: false
         prometheus:
+          wasmEnabled: false
           enabled: true
         stackdriver:
           enabled: false
@@ -300,20 +178,10 @@ spec:
 
       istio-ingressgateway:
         autoscaleEnabled: true
-        applicationPorts: ""
-        debug: info
-        domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
         zvpn: {}
         env: {}
-        meshExpansionPorts:
-        - port: 15012
-          targetPort: 15012
-          name: tcp-istiod
-        - port: 853
-          targetPort: 8853
-          name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs
@@ -321,20 +189,3 @@ spec:
           - name: ingressgateway-ca-certs
             secretName: istio-ingressgateway-ca-certs
             mountPath: /etc/istio/ingressgateway-ca-certs
-
-    sidecarInjectorWebhook:
-      enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: true
-      injectLabel: istio-injection
-      objectSelector:
-        enabled: false
-        autoInject: true
-
-    istiocoredns:
-      coreDNSImage: coredns/coredns
-      coreDNSTag: 1.6.2
-      coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
-
-    # TODO: derive from operator API
-    version: ""
-    clusterResources: true

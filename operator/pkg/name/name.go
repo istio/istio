@@ -17,7 +17,6 @@ package name
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -65,14 +64,13 @@ const (
 	MeshPolicyStr         = "MeshPolicy"
 	PeerAuthenticationStr = "PeerAuthentication"
 	VirtualServiceStr     = "VirtualService"
+	IstioOperatorStr      = "IstioOperator"
 )
 
 // Istio API Group Names
 const (
 	AuthenticationAPIGroupName = "authentication.istio.io"
-	CNIAPIGroupName            = "cni.istio.io"
 	ConfigAPIGroupName         = "config.istio.io"
-	InstallAPIGroupName        = "install.istio.io"
 	NetworkingAPIGroupName     = "networking.istio.io"
 	OperatorAPIGroupName       = "operator.istio.io"
 	SecurityAPIGroupName       = "security.istio.io"
@@ -85,6 +83,10 @@ const (
 
 	// DefaultProfileName is the name of the default profile.
 	DefaultProfileName = "default"
+
+	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
+	// in the last install operation.
+	InstalledSpecCRPrefix = "installed-state"
 )
 
 // ComponentName is a component name string, typed to constrain allowed values.
@@ -105,9 +107,6 @@ const (
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
 
-	// Addon root component
-	AddonComponentName ComponentName = "AddonComponents"
-
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
@@ -127,14 +126,10 @@ var (
 	}
 
 	// AllComponentNames is a list of all Istio components.
-	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName, AddonComponentName,
+	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName,
 		IstioOperatorComponentName, IstioOperatorCustomResourceName)
 
 	allCoreComponentNamesMap = map[ComponentName]bool{}
-
-	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
-	// and have built in path definitions beyond standard addons coming from external charts.
-	BundledAddonComponentNamesMap = make(map[ComponentName]bool)
 
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
@@ -151,12 +146,10 @@ var (
 		CNIComponentName:                "CNI",
 		IngressComponentName:            "Ingress gateways",
 		EgressComponentName:             "Egress gateways",
-		AddonComponentName:              "Addons",
 		IstioOperatorComponentName:      "Istio operator",
 		IstioOperatorCustomResourceName: "Istio operator CRDs",
 		IstiodRemoteComponentName:       "Istiod remote",
 	}
-	scanAddons sync.Once
 )
 
 // Manifest defines a manifest for a component.
@@ -204,19 +197,9 @@ func (mm ManifestMap) String() string {
 	return out
 }
 
-// IsCoreComponent reports whether cn is a core component.
-func (cn ComponentName) IsCoreComponent() bool {
-	return allCoreComponentNamesMap[cn]
-}
-
 // IsGateway reports whether cn is a gateway component.
 func (cn ComponentName) IsGateway() bool {
 	return cn == IngressComponentName || cn == EgressComponentName
-}
-
-// IsAddon reports whether cn is an addon component.
-func (cn ComponentName) IsAddon() bool {
-	return cn == AddonComponentName
 }
 
 // Namespace returns the namespace for the component. It follows these rules:
@@ -254,36 +237,6 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 func TitleCase(n ComponentName) ComponentName {
 	s := string(n)
 	return ComponentName(strings.ToUpper(s[0:1]) + s[1:])
-}
-
-// onceErr is used to report any error returned through once. It must be globally scoped.
-var onceErr error
-
-// ScanBundledAddonComponents scans the specified directory for addons distributed with Istio and dynamically creates
-// a map that can be used to refer to these component names through an API with dynamic values.
-func ScanBundledAddonComponents(chartsRootDir string) error {
-	scanAddons.Do(func() {
-		if chartsRootDir == "" {
-			if onceErr = helm.CheckCompiledInCharts(); onceErr != nil {
-				return
-			}
-		}
-
-		var addonComponentNames []string
-		addonComponentNames, onceErr = helm.GetAddonNamesFromCharts(chartsRootDir, true)
-		if onceErr != nil {
-			onceErr = fmt.Errorf("failed to scan bundled addon components: %v", onceErr)
-			return
-		}
-		for _, an := range addonComponentNames {
-			BundledAddonComponentNamesMap[ComponentName(an)] = true
-			enablementName := strings.ToLower(an[:1]) + an[1:]
-			valuePath := fmt.Sprintf("spec.values.%s.enabled", enablementName)
-			iopPath := fmt.Sprintf("spec.addonComponents.%s.enabled", enablementName)
-			ValuesEnablementPathMap[valuePath] = iopPath
-		}
-	})
-	return onceErr
 }
 
 // UserFacingComponentName returns the name of the given component that should be displayed to the user in high

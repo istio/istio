@@ -1,0 +1,206 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: sample-foo-cluster01
+  namespace: foo
+spec:
+  hosts:
+  - sample.foo.svc.cluster.local
+  http:
+  - fault:
+      delay:
+        fixedDelay: 5s
+        percentage:
+          value: 100
+    route:
+    - destination:
+        host: sample.foo.svc.cluster.local
+  - mirror:
+      host: sample.bar.svc.cluster.local
+    route:
+    - destination:
+        host: sample.bar.svc.cluster.local
+        subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: duplicate-match
+spec:
+  hosts:
+  - sample.baz.svc.cluster.local
+  http:
+  - name: send /api/v1/products to sample.foo
+    match:
+    - name: prefix /api/v1/products
+      uri:
+        prefix: /api/v1/products
+    route:
+    - destination:
+        host: sample.foo.svc.cluster.local
+  - name: send /api/v1/products to sample.bar
+    match:
+    - uri:
+        prefix: /api/v1/products
+    route:
+    - destination:
+        host: sample.bar.svc.cluster.local
+        subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: almost-duplicate-match
+spec:
+  hosts:
+  - sample.bar.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /api/v1/products
+    route:
+    - destination:
+        host: sample.foo.svc.cluster.local
+  - name: send /api/v1/products and /potato to sample.bar
+    match:
+    - name: prefix /api/v1/products
+      uri:
+        prefix: /api/v1/products
+    - name: prefix /potato
+      uri:
+        prefix: /potato
+    route:
+    - destination:
+        host: sample.bar.svc.cluster.local
+        subset: v1
+---
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: duplicate-tcp-match
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - tcp-echo-gateway
+  tcp:
+  - match:
+    - port: 31400
+    route:
+    - destination:
+        host: tcp-echo
+        port:
+          number: 9000
+        subset: v1
+  - match:
+    - port: 31400
+    route:
+    - destination:
+        host: tcp-echo
+        port:
+          number: 9000
+        subset: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: duplicate-empty-tcp
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - tcp-echo-gateway
+  tcp:
+  - route:
+    - destination:
+        host: tcp-echo
+        port:
+          number: 9000
+        subset: v1
+  - route:
+    - destination:
+        host: tcp-echo
+        port:
+          number: 9000
+        subset: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: almost-duplicate-tcp-match
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - tcp-echo-gateway
+  tcp:
+  - match:
+    - port: 31400
+    route:
+    - destination:
+        host: tcp-echo
+        port:
+          number: 9000
+        subset: v1
+  - match:
+    - port: 31400
+    - port: 31401
+    route:
+    - destination:
+        host: tcp-echo
+        port:
+          number: 9000
+        subset: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tls-routing
+  namespace: none
+spec:
+  hosts:
+  - www1.googleapis.com
+  - api1.facebook.com
+  tls:
+  - match:
+    - port: 2443
+      sniHosts:
+      - www1.googleapis.com
+    route:
+    - destination:
+        host: www1.googleapis.com
+  - match:
+    - port: 2443
+      sniHosts:
+      - www1.googleapis.com
+    route:
+    - destination:
+        host: api1.facebook.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tls-routing-almostmatch
+  namespace: none
+spec:
+  hosts:
+  - www1.example.com
+  tls:
+  - match:
+    - port: 2443
+      sniHosts:
+      - www1.example.com
+    route:
+    - destination:
+        host: www1.googleapis.com
+  - match:
+    - port: 2443
+      sniHosts:
+      - www1.example.com
+    - port: 8443
+      sniHosts:
+      - www1.example.com
+    route:
+    - destination:
+        host: api1.facebook.com

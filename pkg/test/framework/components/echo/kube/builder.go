@@ -21,6 +21,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -55,16 +56,12 @@ func (b *builder) Build() (echo.Instances, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build instance: %v", err)
 	}
+	scopes.Framework.Debugf("created echo deployments in %v", time.Since(t0))
 
 	if err := b.initializeInstances(instances); err != nil {
 		return nil, fmt.Errorf("initialize instances: %v", err)
 	}
 	scopes.Framework.Debugf("initialized echo deployments in %v", time.Since(t0))
-
-	if err := b.waitUntilAllCallable(instances); err != nil {
-		return nil, fmt.Errorf("wait until callable: %v", err)
-	}
-	scopes.Framework.Debugf("echo deployments ready in %v", time.Since(t0))
 
 	// Success... update the caller's references.
 	for i, inst := range instances {
@@ -85,6 +82,8 @@ func (b *builder) BuildOrFail(t test.Failer) echo.Instances {
 }
 
 func (b *builder) newInstances() ([]echo.Instance, error) {
+	// TODO consider making this parallel. This was attempted but had issues with concurrent writes
+	// it should be possible though.
 	instances := make([]echo.Instance, 0, len(b.configs))
 	for _, cfg := range b.configs {
 		inst, err := newInstance(b.ctx, cfg)
@@ -115,7 +114,7 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 			defer wg.Done()
 			selector := "app"
 			if inst.Config().DeployAsVM {
-				selector = "istio.io/test-vm"
+				selector = constants.TestVMLabel
 			}
 			// Wait until all the pods are ready for this service
 			fetch := kube.NewPodMustFetch(cluster, serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
@@ -128,7 +127,7 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 			}
 			if err := inst.(*instance).initialize(pods); err != nil {
 				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("initialize %v: %v", inst.ID(), err))
+				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("initialize %v/%v/%v: %v", inst.ID(), inst.Config().Service, inst.Address(), err))
 				aggregateErrMux.Unlock()
 			}
 		}()
@@ -141,28 +140,4 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 	}
 
 	return nil
-}
-
-func (b *builder) waitUntilAllCallable(instances []echo.Instance) error {
-	// Now wait for each endpoint to be callable from all others.
-	wg := sync.WaitGroup{}
-	aggregateErrMux := &sync.Mutex{}
-	var aggregateErr error
-	for _, inst := range instances {
-		wg.Add(1)
-
-		source := inst
-		go func() {
-			defer wg.Done()
-
-			if err := source.WaitUntilCallable(instances...); err != nil {
-				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, err)
-				aggregateErrMux.Unlock()
-			}
-		}()
-	}
-	wg.Wait()
-
-	return aggregateErr
 }

@@ -15,16 +15,20 @@
 package authn
 
 import (
-	"fmt"
-
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
+)
+
+var (
+	authnLog = log.RegisterScope("authn", "authn debugging", 0)
 )
 
 // Plugin implements Istio mTLS auth
@@ -38,23 +42,20 @@ func NewPlugin() plugin.Plugin {
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
-		in.ServiceInstance, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
+		in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
+		in.ServiceInstance.Endpoint.EndpointPort, constants.DefaultSdsUdsPath, in.Node,
+		in.ListenerProtocol, trustDomainsForValidation(in.Push.Mesh))
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	if in.ServiceInstance == nil || in.Node.Type != model.Router {
+	if in.Node.Type != model.Router {
 		// Only care about router.
 		return nil
 	}
 
-	return buildFilter(in, mutable)
-}
-
-func (Plugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	return nil
+	return buildFilter(in, mutable, false)
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
@@ -65,22 +66,29 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Muta
 		// Only care about sidecar.
 		return nil
 	}
-	return buildFilter(in, mutable)
+	return buildFilter(in, mutable, false)
 }
 
-func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isPassthrough bool) error {
 	ns := in.Node.Metadata.Namespace
-	applier := factory.NewPolicyApplier(in.Push, in.ServiceInstance, ns, labels.Collection{in.Node.Metadata.Labels})
-	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
-		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
+	applier := factory.NewPolicyApplier(in.Push, ns, labels.Collection{in.Node.Metadata.Labels})
+	endpointPort := uint32(0)
+	if in.ServiceInstance != nil {
+		endpointPort = in.ServiceInstance.Endpoint.EndpointPort
 	}
-	for i := range mutable.Listener.FilterChains {
+
+	for i := range mutable.FilterChains {
+		if isPassthrough {
+			// Get the real port from the filter chain match if this is generated for pass through filter chain.
+			endpointPort = mutable.FilterChains[i].FilterChainMatch.GetDestinationPort().GetValue()
+		}
 		if in.ListenerProtocol == networking.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := applier.AuthNFilter(in.Node.Type, in.ServiceInstance.Endpoint.EndpointPort); filter != nil {
+			istioMutualGateway := (in.Node.Type == model.Router) && mutable.FilterChains[i].IstioMutualGateway
+			if filter := applier.AuthNFilter(in.Node.Type, endpointPort, istioMutualGateway); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}
@@ -89,36 +97,63 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 	return nil
 }
 
-// OnVirtualListener implments the Plugin interface method.
-func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	return nil
-}
-
-// OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
-}
-
-// OnOutboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *route.RouteConfiguration) {
-}
-
-// OnInboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *route.RouteConfiguration) {
-}
-
-// OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
-}
-
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
 func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	return nil
+	if in.Node.Type != model.SidecarProxy {
+		// Only care about sidecar.
+		return nil
+	}
+
+	return buildFilter(in, mutable, true)
 }
 
 // OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
 func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
-	// Pass nil for ServiceInstance so that we never consider any alpha policy for the pass through filter chain.
-	applier := factory.NewPolicyApplier(in.Push, nil /* ServiceInstance */, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
-	// Pass 0 for endpointPort so that it never matches any port-level policy.
-	return applier.InboundFilterChain(0, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
+	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
+	trustDomains := trustDomainsForValidation(in.Push.Mesh)
+	// First generate the default passthrough filter chains, pass 0 for endpointPort so that it never matches any port-level policy.
+	filterChains := applier.InboundFilterChain(0, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, trustDomains)
+
+	// Then generate the per-port passthrough filter chains.
+	for port := range applier.PortLevelSetting() {
+		// Skip the per-port passthrough filterchain if the port is already handled by OnInboundFilterChains().
+		if !needPerPortPassthroughFilterChain(port, in.Node) {
+			continue
+		}
+
+		authnLog.Debugf("InboundPassthroughFilterChains: build extra pass through filter chain for %v:%d", in.Node.ID, port)
+		portLevelFilterChains := applier.InboundFilterChain(port, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, trustDomains)
+		for _, fc := range portLevelFilterChains {
+			// Set the port to distinguish from the default passthrough filter chain.
+			if fc.FilterChainMatch == nil {
+				fc.FilterChainMatch = &envoy_config_listener_v3.FilterChainMatch{}
+			}
+			fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: port}
+			filterChains = append(filterChains, fc)
+		}
+	}
+
+	return filterChains
+}
+
+func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
+	// If there is any Sidecar defined, check if the port is explicitly defined there.
+	// This means the Sidecar resource takes precedence over the service. A port defined in service but not in Sidecar
+	// means the port is going to be handled by the pass through filter chain.
+	if node.SidecarScope.HasCustomIngressListeners {
+		for _, ingressListener := range node.SidecarScope.Sidecar.Ingress {
+			if port == ingressListener.Port.Number {
+				return false
+			}
+		}
+		return true
+	}
+
+	// If there is no Sidecar, check if the port is appearing in any service.
+	for _, si := range node.ServiceInstances {
+		if port == si.Endpoint.EndpointPort {
+			return false
+		}
+	}
+	return true
 }

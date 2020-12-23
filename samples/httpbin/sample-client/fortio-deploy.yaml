@@ -4,6 +4,7 @@ metadata:
   name: fortio
   labels:
     app: fortio
+    service: fortio
 spec:
   ports:
   - port: 8080

@@ -21,14 +21,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/annotation"
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
-
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -405,25 +404,6 @@ func TestLBServiceConversion(t *testing.T) {
 			t.Fatalf("Expected address %s but got %s", want, got)
 		}
 	}
-}
-
-func TestSecureNamingSANCustomIdentity(t *testing.T) {
-
-	pod := &coreV1.Pod{}
-
-	identity := "foo"
-
-	pod.Annotations = make(map[string]string)
-	pod.Annotations[annotation.AlphaIdentity.Name] = identity
-
-	san := SecureNamingSAN(pod)
-
-	expectedSAN := fmt.Sprintf("spiffe://%v/%v", spiffe.GetTrustDomain(), identity)
-
-	if san != expectedSAN {
-		t.Fatalf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)
-	}
-
 }
 
 func TestSecureNamingSAN(t *testing.T) {

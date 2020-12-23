@@ -18,10 +18,9 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/api/annotation"
-
 	"github.com/ryanuber/go-glob"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"

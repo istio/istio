@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 27159
+
+releaseNotes:
+- |
+  **Added** `io` as shortname for Istio Operator resources in addition to `iop`.

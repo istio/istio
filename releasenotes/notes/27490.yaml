@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 27490
+
+releaseNotes:
+- |
+  **Updated** `istioctl proxy-config log` to allow filtering logs based on label.

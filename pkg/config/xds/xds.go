@@ -32,7 +32,7 @@ import (
 )
 
 // nolint: interfacer
-func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *types.Struct) (proto.Message, error) {
+func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *types.Struct, strict bool) (proto.Message, error) {
 	if value == nil {
 		// for remove ops
 		return nil, nil
@@ -59,13 +59,13 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: golint,stylecheck
 	}
 
-	if err := GogoStructToMessage(value, obj); err != nil {
+	if err := GogoStructToMessage(value, obj, strict); err != nil {
 		return nil, fmt.Errorf("Envoy filter: %v", err) // nolint: golint,stylecheck
 	}
 	return obj, nil
 }
 
-func GogoStructToMessage(pbst *types.Struct, out proto.Message) error {
+func GogoStructToMessage(pbst *types.Struct, out proto.Message, strict bool) error {
 	if pbst == nil {
 		return errors.New("nil struct")
 	}
@@ -75,6 +75,7 @@ func GogoStructToMessage(pbst *types.Struct, out proto.Message) error {
 		return err
 	}
 
-	// Ignore unknown fields as they may be sending versions of the proto we are not internally using
-	return (&jsonpb.Unmarshaler{AllowUnknownFields: true}).Unmarshal(buf, out)
+	// If strict is not set, ignore unknown fields as they may be sending versions of
+	// the proto we are not internally using
+	return (&jsonpb.Unmarshaler{AllowUnknownFields: !strict}).Unmarshal(buf, out)
 }

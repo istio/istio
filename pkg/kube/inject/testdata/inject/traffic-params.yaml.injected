@@ -12,17 +12,18 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
-        traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
-        traffic.sidecar.istio.io/includeInboundPorts: "80"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: 127.0.0.1/24,10.96.0.1/24
+        kubectl.kubernetes.io/default-logs-container: traffic
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: traffic
-        istio.io/rev: ""
+        istio.io/rev: default
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: traffic
+        service.istio.io/canonical-revision: latest
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0
@@ -40,7 +41,6 @@ spec:
         - traffic.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
         - --concurrency
         - "2"
         env:
@@ -48,6 +48,8 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -96,9 +98,9 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/traffic
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         - name: DNS_AGENT
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
@@ -163,8 +165,8 @@ spec:
             cpu: "2"
             memory: 1Gi
           requests:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -194,6 +196,16 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
+          - path: cpu-limit
+            resourceFieldRef:
+              containerName: istio-proxy
+              divisor: 1m
+              resource: limits.cpu
+          - path: cpu-request
+            resourceFieldRef:
+              containerName: istio-proxy
+              divisor: 1m
+              resource: requests.cpu
         name: istio-podinfo
       - name: istio-token
         projected:

@@ -5,10 +5,10 @@ ARG BASE_DISTRIBUTION=default
 ARG BASE_VERSION=latest
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
-FROM docker.io/istio/base:${BASE_VERSION} as default
+FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM docker.io/istio/distroless:${BASE_VERSION} as distroless
+FROM gcr.io/istio-release/distroless:${BASE_VERSION} as distroless
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006

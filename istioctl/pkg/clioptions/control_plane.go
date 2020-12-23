@@ -26,5 +26,5 @@ type ControlPlaneOptions struct {
 // (Currently just --revision)
 func (o *ControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&o.Revision, "revision", "",
-		"control plane revision")
+		"Control plane revision")
 }

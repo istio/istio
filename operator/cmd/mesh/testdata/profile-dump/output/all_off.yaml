@@ -1,9 +1,6 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  addonComponents:
-    istiocoredns:
-      enabled: false
   components:
     base:
       enabled: true
@@ -14,7 +11,7 @@ spec:
       k8s:
         env:
         - name: ISTIO_META_ROUTER_MODE
-          value: sni-dnat
+          value: standard
         hpaSpec:
           maxReplicas: 5
           metrics:
@@ -38,10 +35,15 @@ spec:
           ports:
           - name: http2
             port: 80
+            protocol: TCP
+            targetPort: 8080
           - name: https
             port: 443
+            protocol: TCP
+            targetPort: 8443
           - name: tls
             port: 15443
+            protocol: TCP
             targetPort: 15443
         strategy:
           rollingUpdate:
@@ -53,7 +55,7 @@ spec:
       k8s:
         env:
         - name: ISTIO_META_ROUTER_MODE
-          value: sni-dnat
+          value: standard
         hpaSpec:
           maxReplicas: 5
           metrics:
@@ -77,15 +79,23 @@ spec:
           ports:
           - name: status-port
             port: 15021
+            protocol: TCP
             targetPort: 15021
           - name: http2
             port: 80
+            protocol: TCP
             targetPort: 8080
           - name: https
             port: 443
+            protocol: TCP
             targetPort: 8443
+          - name: tcp-istiod
+            port: 15012
+            protocol: TCP
+            targetPort: 15012
           - name: tls
             port: 15443
+            protocol: TCP
             targetPort: 15443
         strategy:
           rollingUpdate:
@@ -119,10 +129,6 @@ spec:
           rollingUpdate:
             maxSurge: 100%
             maxUnavailable: 25%
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
   hub: gcr.io/istio-testing
 
   meshConfig:
@@ -135,7 +141,6 @@ spec:
     base:
       enableCRDTemplates: false
       validationURL: ""
-    clusterResources: true
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
@@ -151,18 +156,8 @@ spec:
         type: ClusterIP
         zvpn: {}
       istio-ingressgateway:
-        applicationPorts: ""
         autoscaleEnabled: true
-        debug: info
-        domain: ""
         env: {}
-        meshExpansionPorts:
-        - name: tcp-istiod
-          port: 15012
-          targetPort: 15012
-        - name: tcp-dns-tls
-          port: 853
-          targetPort: 8853
         name: istio-ingressgateway
         secretVolumes:
         - mountPath: /etc/istio/ingressgateway-certs
@@ -179,14 +174,12 @@ spec:
         ppc64le: 2
         s390x: 2
       configValidation: true
-      controlPlaneSecurityEnabled: true
       defaultNodeSelector: {}
       defaultPodDisruptionBudget:
         enabled: true
       defaultResources:
         requests:
           cpu: 10m
-      enableHelmTest: false
       imagePullPolicy: ""
       imagePullSecrets: []
       istioNamespace: istio-system
@@ -249,33 +242,18 @@ spec:
       sts:
         servicePort: 0
       tracer:
-        datadog:
-          address: $(HOST_IP):8126
-        lightstep:
-          accessToken: ""
-          address: ""
-        stackdriver:
-          debug: false
-          maxNumberOfAnnotations: 200
-          maxNumberOfAttributes: 200
-          maxNumberOfMessageEvents: 200
-        zipkin:
-          address: ""
-      trustDomain: cluster.local
+        datadog: {}
+        lightstep: {}
+        stackdriver: {}
+        zipkin: {}
       useMCP: false
-    istiocoredns:
-      coreDNSImage: coredns/coredns
-      coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
-      coreDNSTag: 1.6.2
     istiodRemote:
       injectionURL: ""
     pilot:
-      appNamespaces: []
       autoscaleEnabled: true
       autoscaleMax: 5
       autoscaleMin: 1
       configMap: true
-      configNamespace: istio-config
       cpu:
         targetAverageUtilization: 80
       enableProtocolSniffingForInbound: true
@@ -284,34 +262,27 @@ spec:
       image: pilot
       keepaliveMaxServerConnectionAge: 30m
       nodeSelector: {}
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      policy:
-        enabled: false
       replicaCount: 1
-      tolerations: []
       traceSampling: 1
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
-      injectLabel: istio-injection
       objectSelector:
         autoInject: true
         enabled: false
       rewriteAppHTTPProbe: true
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
         enabled: true
-        metadataExchange: {}
+        metadataExchange:
+          wasmEnabled: false
         prometheus:
           enabled: true
+          wasmEnabled: false
         stackdriver:
           configOverride: {}
           enabled: false
           logging: false
           monitoring: false
           topology: false
-    version: ""
 

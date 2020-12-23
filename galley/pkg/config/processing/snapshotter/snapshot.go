@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/scope"

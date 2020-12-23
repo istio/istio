@@ -29,7 +29,7 @@ func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...stri
 	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	externalCommand.Stdout = os.Stdout
-	//TODO Check naming and redirection logic
+	// TODO Check naming and redirection logic
 	if !redirectStdout {
 		externalCommand.Stderr = os.Stderr
 	}

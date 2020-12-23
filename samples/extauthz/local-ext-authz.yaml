@@ -1,0 +1,99 @@
+# Copyright Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+# Example configurations for deploying ext-authz server locally with the application container in the same pod.
+
+# Define the service entry for the local ext-authz service on port 8000.
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: httpbin-ext-authz-http
+spec:
+  hosts:
+  - "ext-authz-http.local"
+  endpoints:
+  - address: "127.0.0.1"
+  ports:
+  - name: http
+    number: 8000
+    protocol: HTTP
+  resolution: STATIC
+---
+# Define the service entry for the local ext-authz service on port 9000.
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: httpbin-ext-authz-grpc
+spec:
+  hosts:
+  - "ext-authz-grpc.local"
+  endpoints:
+  - address: "127.0.0.1"
+  ports:
+  - name: grpc
+    number: 9000
+    protocol: GRPC
+  resolution: STATIC
+---
+# Deploy the ext-authz server locally with the application container in the same pod.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        version: v1
+    spec:
+      serviceAccountName: httpbin
+      containers:
+      - image: docker.io/kennethreitz/httpbin
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        ports:
+        - containerPort: 80
+      - image: docker.io/istio/ext-authz:0.5
+        imagePullPolicy: IfNotPresent
+        name: ext-authz
+        ports:
+        - containerPort: 8000
+        - containerPort: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  labels:
+    app: httpbin
+    service: httpbin
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 80
+  selector:
+    app: httpbin
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: httpbin
+---

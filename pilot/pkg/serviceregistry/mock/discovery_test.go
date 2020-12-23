@@ -31,7 +31,7 @@ func TestMemoryServices(t *testing.T) {
 		}
 		instances := make([]*model.ServiceInstance, 0)
 		for _, port := range svc.Ports {
-			svcInstances, err := MockDiscovery.InstancesByPort(svc, port.Port, nil)
+			svcInstances := MockDiscovery.InstancesByPort(svc, port.Port, nil)
 			if err != nil {
 				t.Errorf("Discovery.InstancesByPort encountered error: %v", err)
 			}

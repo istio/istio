@@ -21,94 +21,112 @@ import (
 )
 
 type PushQueue struct {
-	mu   *sync.RWMutex
 	cond *sync.Cond
 
-	// eventsMap stores all connections in the queue. If the same connection is enqueued again, the
-	// PushEvents will be merged.
-	eventsMap map[*Connection]*model.PushRequest
+	// pending stores all connections in the queue. If the same connection is enqueued again,
+	// the PushRequest will be merged.
+	pending map[*Connection]*model.PushRequest
 
-	// connections maintains ordering of the queue
-	connections []*Connection
+	// queue maintains ordering of the queue
+	queue []*Connection
 
-	// inProgress stores all connections that have been Dequeue(), but not MarkDone().
+	// processing stores all connections that have been Dequeue(), but not MarkDone().
 	// The value stored will be initially be nil, but may be populated if the connection is Enqueue().
 	// If model.PushRequest is not nil, it will be Enqueued again once MarkDone has been called.
-	inProgress map[*Connection]*model.PushRequest
+	processing map[*Connection]*model.PushRequest
+
+	shuttingDown bool
 }
 
 func NewPushQueue() *PushQueue {
-	mu := &sync.RWMutex{}
 	return &PushQueue{
-		mu:         mu,
-		eventsMap:  make(map[*Connection]*model.PushRequest),
-		inProgress: make(map[*Connection]*model.PushRequest),
-		cond:       sync.NewCond(mu),
+		pending:    make(map[*Connection]*model.PushRequest),
+		processing: make(map[*Connection]*model.PushRequest),
+		cond:       sync.NewCond(&sync.Mutex{}),
 	}
 }
 
 // Enqueue will mark a proxy as pending a push. If it is already pending, pushInfo will be merged.
 // ServiceEntry updates will be added together, and full will be set if either were full
-func (p *PushQueue) Enqueue(proxy *Connection, pushInfo *model.PushRequest) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *PushQueue) Enqueue(con *Connection, pushRequest *model.PushRequest) {
+	p.cond.L.Lock()
+	defer p.cond.L.Unlock()
+
+	if p.shuttingDown {
+		return
+	}
 
 	// If its already in progress, merge the info and return
-	if event, f := p.inProgress[proxy]; f {
-		p.inProgress[proxy] = event.Merge(pushInfo)
+	if request, f := p.processing[con]; f {
+		p.processing[con] = request.Merge(pushRequest)
 		return
 	}
 
-	if event, f := p.eventsMap[proxy]; f {
-		p.eventsMap[proxy] = event.Merge(pushInfo)
+	if request, f := p.pending[con]; f {
+		p.pending[con] = request.Merge(pushRequest)
 		return
 	}
 
-	p.eventsMap[proxy] = pushInfo
-	p.connections = append(p.connections, proxy)
+	p.pending[con] = pushRequest
+	p.queue = append(p.queue, con)
 	// Signal waiters on Dequeue that a new item is available
 	p.cond.Signal()
 }
 
 // Remove a proxy from the queue. If there are no proxies ready to be removed, this will block
-func (p *PushQueue) Dequeue() (*Connection, *model.PushRequest) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *PushQueue) Dequeue() (con *Connection, request *model.PushRequest, shutdown bool) {
+	p.cond.L.Lock()
+	defer p.cond.L.Unlock()
 
 	// Block until there is one to remove. Enqueue will signal when one is added.
-	for len(p.connections) == 0 {
+	for len(p.queue) == 0 && !p.shuttingDown {
 		p.cond.Wait()
 	}
 
-	head := p.connections[0]
-	p.connections = p.connections[1:]
+	if len(p.queue) == 0 {
+		// We must be shutting down.
+		return nil, nil, true
+	}
 
-	info := p.eventsMap[head]
-	delete(p.eventsMap, head)
+	con, p.queue = p.queue[0], p.queue[1:]
+
+	request = p.pending[con]
+	delete(p.pending, con)
 
 	// Mark the connection as in progress
-	p.inProgress[head] = nil
+	p.processing[con] = nil
 
-	return head, info
+	return con, request, false
 }
 
 func (p *PushQueue) MarkDone(con *Connection) {
-	p.mu.Lock()
-
-	info := p.inProgress[con]
-	delete(p.inProgress, con)
-	p.mu.Unlock()
+	p.cond.L.Lock()
+	defer p.cond.L.Unlock()
+	request := p.processing[con]
+	delete(p.processing, con)
 
 	// If the info is present, that means Enqueue was called while connection was not yet marked done.
-	// This means we need to add it back to the queue
-	if info != nil {
-		p.Enqueue(con, info)
+	// This means we need to add it back to the queue.
+	if request != nil {
+		p.pending[con] = request
+		p.queue = append(p.queue, con)
+		p.cond.Signal()
 	}
 }
 
 // Get number of pending proxies
 func (p *PushQueue) Pending() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return len(p.connections)
+	p.cond.L.Lock()
+	defer p.cond.L.Unlock()
+	return len(p.queue)
+}
+
+// ShutDown will cause queue to ignore all new items added to it. As soon as the
+// worker goroutines have drained the existing items in the queue, they will be
+// instructed to exit.
+func (p *PushQueue) ShutDown() {
+	p.cond.L.Lock()
+	defer p.cond.L.Unlock()
+	p.shuttingDown = true
+	p.cond.Broadcast()
 }

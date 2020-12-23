@@ -22,7 +22,7 @@ import (
 )
 
 func TestInstance_IsEmpty_False(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	e := Instance{
 		Message: &types.Empty{},
@@ -32,14 +32,14 @@ func TestInstance_IsEmpty_False(t *testing.T) {
 }
 
 func TestInstance_IsEmpty_True(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	e := Instance{}
 
 	g.Expect(e.IsEmpty()).To(BeTrue())
 }
 
 func TestInstance_Clone_Empty(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	e := &Instance{}
 
 	c := e.Clone()
@@ -47,7 +47,7 @@ func TestInstance_Clone_Empty(t *testing.T) {
 }
 
 func TestInstance_Clone_NonEmpty(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	e := &Instance{
 		Message: &types.Empty{},

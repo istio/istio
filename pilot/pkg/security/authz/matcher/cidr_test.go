@@ -18,11 +18,10 @@ import (
 	"strings"
 	"testing"
 
+	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-
-	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 func TestCidrRange(t *testing.T) {

@@ -22,8 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/pkg/log"
 )
 
 func init() {
@@ -40,7 +39,7 @@ func init() {
 }
 
 func TestRuntime_Startup_NoMeshConfig(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 	f.rt.Start()
@@ -58,7 +57,7 @@ func TestRuntime_Startup_NoMeshConfig(t *testing.T) {
 }
 
 func TestRuntime_Startup_MeshConfig_Arrives_No_Resources(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 	f.rt.Start()
@@ -75,7 +74,7 @@ func TestRuntime_Startup_MeshConfig_Arrives_No_Resources(t *testing.T) {
 }
 
 func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 	f.rt.Start()
@@ -101,7 +100,7 @@ func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 }
 
 func TestRuntime_Startup_Stop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 	f.rt.Start()
@@ -122,7 +121,7 @@ func TestRuntime_Startup_Stop(t *testing.T) {
 }
 
 func TestRuntime_Start_Start_Stop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 	f.rt.Start()
@@ -143,7 +142,7 @@ func TestRuntime_Start_Start_Stop(t *testing.T) {
 }
 
 func TestRuntime_Start_Stop_Stop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 	f.rt.Start()
@@ -165,7 +164,7 @@ func TestRuntime_Start_Stop_Stop(t *testing.T) {
 }
 
 func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 	f.rt.Start()
@@ -210,7 +209,7 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 }
 
 func TestRuntime_Event_Before_Start(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 
@@ -226,7 +225,7 @@ func TestRuntime_Event_Before_Start(t *testing.T) {
 }
 
 func TestRuntime_Stop_WhileStarting(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := newFixture()
 	f.meshsrc = nil
@@ -253,7 +252,7 @@ func TestRuntime_Stop_WhileStarting(t *testing.T) {
 }
 
 func TestRuntime_Reset_WhileStarting(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := newFixture()
 	f.meshsrc = nil
@@ -283,7 +282,7 @@ func TestRuntime_Reset_WhileStarting(t *testing.T) {
 }
 
 func TestRuntime_MeshEvent_WhileBuffering(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := newFixture()
 	f.meshsrc = nil
@@ -305,7 +304,7 @@ func TestRuntime_MeshEvent_WhileBuffering(t *testing.T) {
 }
 
 func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	f := initFixture()
 	f.rt.Start()

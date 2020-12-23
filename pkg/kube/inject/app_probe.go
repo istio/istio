@@ -18,19 +18,19 @@ package inject
 
 import (
 	"encoding/json"
-	"fmt"
 	"strconv"
+
+	"github.com/gogo/protobuf/types"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/pkg/log"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
-func ShouldRewriteAppHTTPProbers(annotations map[string]string, spec *SidecarInjectionSpec) bool {
+func ShouldRewriteAppHTTPProbers(annotations map[string]string, specSetting *types.BoolValue) bool {
 	if annotations != nil {
 		if value, ok := annotations[annotation.SidecarRewriteAppHTTPProbers.Name]; ok {
 			if isSetInAnnotation, err := strconv.ParseBool(value); err == nil {
@@ -38,16 +38,21 @@ func ShouldRewriteAppHTTPProbers(annotations map[string]string, spec *SidecarInj
 			}
 		}
 	}
-	if spec == nil {
+	if specSetting == nil {
 		return false
 	}
-	return spec.RewriteAppHTTPProbe
+	return specSetting.GetValue()
 }
 
 // FindSidecar returns the pointer to the first container whose name matches the "istio-proxy".
 func FindSidecar(containers []corev1.Container) *corev1.Container {
+	return FindContainer(ProxyContainerName, containers)
+}
+
+// FindContainer returns the pointer to the first container whose name matches.
+func FindContainer(name string, containers []corev1.Container) *corev1.Container {
 	for i := range containers {
-		if containers[i].Name == ProxyContainerName {
+		if containers[i].Name == name {
 			return &containers[i]
 		}
 	}
@@ -72,11 +77,19 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	return p
 }
 
+type KubeAppProbers map[string]*Prober
+
+// Prober represents a single container prober
+type Prober struct {
+	HTTPGet        *corev1.HTTPGetAction `json:"httpGet"`
+	TimeoutSeconds int32                 `json:"timeoutSeconds,omitempty"`
+}
+
 // DumpAppProbers returns a json encoded string as `status.KubeAppProbers`.
 // Also update the probers so that all usages of named port will be resolved to integer.
-func DumpAppProbers(podspec *corev1.PodSpec) string {
-	out := status.KubeAppProbers{}
-	updateNamedPort := func(p *status.Prober, portMap map[string]int32) *status.Prober {
+func DumpAppProbers(podspec *corev1.PodSpec, targetPort int32) string {
+	out := KubeAppProbers{}
+	updateNamedPort := func(p *Prober, portMap map[string]int32) *Prober {
 		if p == nil || p.HTTPGet == nil {
 			return nil
 		}
@@ -86,6 +99,9 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 				return nil
 			}
 			p.HTTPGet.Port = intstr.FromInt(int(port))
+		} else if p.HTTPGet.Port.IntVal == targetPort {
+			// Already is rewritten
+			return nil
 		}
 		return p
 	}
@@ -111,6 +127,10 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 		}
 
 	}
+	// prevent generate '{}'
+	if len(out) == 0 {
+		return ""
+	}
 	b, err := json.Marshal(out)
 	if err != nil {
 		log.Errorf("failed to serialize the app prober config %v", err)
@@ -119,61 +139,11 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 	return string(b)
 }
 
-// rewriteAppHTTPProbes modifies the app probers in place for kube-inject.
-func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec, port int32) {
-
-	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
-		return
-	}
-	sidecar := FindSidecar(podSpec.Containers)
+// patchRewriteProbe generates the patch for webhook.
+func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPort int32) {
+	sidecar := FindSidecar(pod.Spec.Containers)
 	if sidecar == nil {
 		return
-	}
-
-	statusPort := int(port)
-	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
-		p, err := strconv.Atoi(v)
-		if err != nil {
-			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
-		}
-		statusPort = p
-	}
-	// Pilot agent statusPort is not defined, skip changing application http probe.
-	if statusPort == -1 {
-		return
-	}
-	if prober := DumpAppProbers(podSpec); prober != "" {
-		// We don't have to escape json encoding here when using golang libraries.
-		sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
-	}
-	// Now modify the container probers.
-	for _, c := range podSpec.Containers {
-		// Skip sidecar container.
-		if c.Name == ProxyContainerName {
-			continue
-		}
-		readyz, livez, startupz := status.FormatProberURL(c.Name)
-		if rp := convertAppProber(c.ReadinessProbe, readyz, statusPort); rp != nil {
-			*c.ReadinessProbe = *rp
-		}
-		if lp := convertAppProber(c.LivenessProbe, livez, statusPort); lp != nil {
-			*c.LivenessProbe = *lp
-		}
-		if sp := convertAppProber(c.StartupProbe, startupz, statusPort); sp != nil {
-			*c.StartupProbe = *sp
-		}
-	}
-}
-
-// createProbeRewritePatch generates the patch for webhook.
-func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec, defaultPort int32) []rfc6902PatchOperation {
-	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
-		return []rfc6902PatchOperation{}
-	}
-	podPatches := []rfc6902PatchOperation{}
-	sidecar := FindSidecar(spec.Containers)
-	if sidecar == nil {
-		return nil
 	}
 	statusPort := int(defaultPort)
 	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
@@ -183,7 +153,7 @@ func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodS
 		}
 		statusPort = p
 	}
-	for i, c := range podSpec.Containers {
+	for i, c := range pod.Spec.Containers {
 		// Skip sidecar container.
 		if c.Name == ProxyContainerName {
 			continue
@@ -194,32 +164,20 @@ func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodS
 		}
 		readyz, livez, startupz := status.FormatProberURL(c.Name)
 		if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
-			podPatches = append(podPatches, rfc6902PatchOperation{
-				Op:    "replace",
-				Path:  fmt.Sprintf("/spec/containers/%v/readinessProbe", i),
-				Value: *probePatch,
-			})
+			c.ReadinessProbe = probePatch
 		}
 		if probePatch := convertAppProber(c.LivenessProbe, livez, statusPort); probePatch != nil {
-			podPatches = append(podPatches, rfc6902PatchOperation{
-				Op:    "replace",
-				Path:  fmt.Sprintf("/spec/containers/%v/livenessProbe", i),
-				Value: *probePatch,
-			})
+			c.LivenessProbe = probePatch
 		}
 		if probePatch := convertAppProber(c.StartupProbe, startupz, statusPort); probePatch != nil {
-			podPatches = append(podPatches, rfc6902PatchOperation{
-				Op:    "replace",
-				Path:  fmt.Sprintf("/spec/containers/%v/startupProbe", i),
-				Value: *probePatch,
-			})
+			c.StartupProbe = probePatch
 		}
+		pod.Spec.Containers[i] = c
 	}
-	return podPatches
 }
 
 // kubeProbeToInternalProber converts a Kubernetes Probe to an Istio internal Prober
-func kubeProbeToInternalProber(probe *corev1.Probe) *status.Prober {
+func kubeProbeToInternalProber(probe *corev1.Probe) *Prober {
 	if probe == nil {
 		return nil
 	}
@@ -228,7 +186,7 @@ func kubeProbeToInternalProber(probe *corev1.Probe) *status.Prober {
 		return nil
 	}
 
-	return &status.Prober{
+	return &Prober{
 		HTTPGet:        probe.HTTPGet,
 		TimeoutSeconds: probe.TimeoutSeconds,
 	}

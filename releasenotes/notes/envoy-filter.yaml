@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+
+releaseNotes:
+  - |
+    **Updated** the Envoy filter names that control plane generates to meet the canonical naming standard. See [Envoy's deprecation policy](https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.14.0#deprecated)
+
+upgradeNotes:
+  - title: Use the new filter names for EnvoyFilter
+    content: |
+      If you are using EnvoyFilter API, it is recommended to change to the new filter names https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.14.0#deprecated.
+      The deprecated filter names will be supported in this release for backward compatibility but will be removed in future releases.

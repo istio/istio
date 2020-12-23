@@ -22,12 +22,11 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
 )
 
 type endpointsController struct {
@@ -71,8 +70,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	c.RUnlock()
 
 	if svc != nil {
-		podIP := proxy.IPAddresses[0]
-		pod := c.pods.getPodByIP(podIP)
+		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)
 
 		for _, ss := range endpoints.Subsets {
@@ -95,7 +93,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 
 					if hasProxyIP(ss.NotReadyAddresses, ip) {
 						if c.metrics != nil {
-							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
 						}
 					}
 				}
@@ -106,28 +104,28 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	return out
 }
 
-func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
-	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
 	item, exists, err := e.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil, nil
+		return nil
 	}
 	if !exists {
-		return nil, nil
+		return nil
 	}
 
 	// Locate all ports in the actual service
 	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
-		return nil, nil
+		return nil
 	}
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			pod := c.pods.getPodByIP(ea.IP)
+			// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
+			pod := c.getPod(ea.IP, &ep.ObjectMeta, ea.TargetRef)
 			if pod != nil {
 				podLabels = pod.Labels
 			}
@@ -154,7 +152,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 func (e *endpointsController) getInformer() cache.SharedIndexInformer {
@@ -194,8 +192,8 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 	ep := endpoint.(*v1.Endpoints)
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			pod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
-			if pod == nil {
+			pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
+			if pod == nil && expectedPod {
 				continue
 			}
 			builder := NewEndpointBuilder(e.c, pod)
@@ -208,6 +206,16 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 		}
 	}
 	return endpoints
+}
+
+func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+	ep, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(namespace).Get(name)
+	if err != nil || ep == nil {
+		log.Debugf("endpoints(%s, %s) not found => error %v", name, namespace, err)
+		return nil
+	}
+
+	return e.buildIstioEndpoints(ep, host)
 }
 
 func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {

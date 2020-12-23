@@ -14,7 +14,9 @@
 
 package diag
 
-import "sort"
+import (
+	"sort"
+)
 
 // Messages is a slice of Message items.
 type Messages []Message
@@ -61,4 +63,23 @@ func (ms *Messages) SortedDedupedCopy() Messages {
 		deduped = append(deduped, m)
 	}
 	return deduped
+}
+
+// SetDocRef sets the doc URL reference tracker for the messages
+func (ms *Messages) SetDocRef(docRef string) *Messages {
+	for i := range *ms {
+		(*ms)[i].DocRef = docRef
+	}
+	return ms
+}
+
+// FilterOutLowerThan only keeps messages at or above the specified output level
+func (ms *Messages) FilterOutLowerThan(outputLevel Level) Messages {
+	outputMessages := Messages{}
+	for _, m := range *ms {
+		if m.Type.Level().IsWorseThanOrEqualTo(outputLevel) {
+			outputMessages = append(outputMessages, m)
+		}
+	}
+	return outputMessages
 }

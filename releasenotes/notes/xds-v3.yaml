@@ -3,5 +3,6 @@ kind: feature
 area: networking
 issue:
 - 19885
-releaseNotes: |
-  *Updated* the XDS api to serve XDS v3 by default. v2 is still available for legacy sidecar connections.
+releaseNotes:
+- |
+  **Updated** the XDS api to serve XDS v3 by default. v2 is still available for legacy sidecar connections.

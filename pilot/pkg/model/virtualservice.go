@@ -20,13 +20,15 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 )
 
-func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta ConfigMeta) {
+func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
 	// resolve top level hosts
 	for i, h := range rule.Hosts {
 		rule.Hosts[i] = string(ResolveShortnameToFQDN(h, meta))
@@ -70,7 +72,7 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta Confi
 			}
 		}
 	}
-	//resolve host in tls route.destination
+	// resolve host in tls route.destination
 	for _, tls := range rule.Tls {
 		for _, m := range tls.Match {
 			for i, g := range m.Gateways {
@@ -87,12 +89,15 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta Confi
 	}
 }
 
-func mergeVirtualServicesIfNeeded(vServices []Config, defaultExportTo map[visibility.Instance]bool) (out []Config) {
-	out = make([]Config, 0, len(vServices))
-	delegatesMap := map[string]Config{}
+// Return merged virtual services and the root->delegate vs map
+func mergeVirtualServicesIfNeeded(
+	vServices []config.Config,
+	defaultExportTo map[visibility.Instance]bool) ([]config.Config, map[ConfigKey][]ConfigKey) {
+	out := make([]config.Config, 0, len(vServices))
+	delegatesMap := map[string]config.Config{}
 	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
 	// root virtualservices with delegate
-	var rootVses []Config
+	var rootVses []config.Config
 
 	// 1. classify virtualservices
 	for _, vs := range vServices {
@@ -130,33 +135,38 @@ func mergeVirtualServicesIfNeeded(vServices []Config, defaultExportTo map[visibi
 	// If `PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE` feature disabled,
 	// filter out invalid vs(root or delegate), this can happen after enable -> disable
 	if !features.EnableVirtualServiceDelegate {
-		return
+		return out, nil
 	}
+
+	delegatesByRoot := make(map[ConfigKey][]ConfigKey, len(rootVses))
 
 	// 2. merge delegates and root
 	for _, root := range rootVses {
+		rootConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: root.Name, Namespace: root.Namespace}
 		rootVs := root.Spec.(*networking.VirtualService)
 		mergedRoutes := []*networking.HTTPRoute{}
 		for _, route := range rootVs.Http {
 			// it is root vs with delegate
-			if route.Delegate != nil {
-				delegate, ok := delegatesMap[key(route.Delegate.Name, route.Delegate.Namespace)]
+			if delegate := route.Delegate; delegate != nil {
+				delegateConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: delegate.Name, Namespace: delegate.Namespace}
+				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
+				delegateVS, ok := delegatesMap[key(delegate.Name, delegate.Namespace)]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
-						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name)
+						delegate.Namespace, delegate.Name, root.Namespace, root.Name)
 					// delegate not found, ignore only the current HTTP route
 					continue
 				}
 				// make sure that the delegate is visible to root virtual service's namespace
-				exportTo := delegatesExportToMap[key(route.Delegate.Name, route.Delegate.Namespace)]
+				exportTo := delegatesExportToMap[key(delegate.Name, delegate.Namespace)]
 				if !exportTo[visibility.Public] && !exportTo[visibility.Instance(root.Namespace)] {
 					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
-						route.Delegate.Namespace, route.Delegate.Name, root.Namespace, root.Name, root.Namespace)
+						delegate.Namespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict
 				// when multiple routes delegate to one single VS.
-				copiedDelegate := delegate.DeepCopy()
+				copiedDelegate := delegateVS.DeepCopy()
 				vs := copiedDelegate.Spec.(*networking.VirtualService)
 				merged := mergeHTTPRoutes(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
@@ -173,7 +183,7 @@ func mergeVirtualServicesIfNeeded(vServices []Config, defaultExportTo map[visibi
 		out = append(out, root)
 	}
 
-	return
+	return out, delegatesByRoot
 }
 
 // merge root's route with delegate's and the merged route number equals the delegate's.
@@ -324,7 +334,24 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Port = root.Port
 	}
 
-	// SourceLabels, SourceNamespace and Gateways only apply to sidecar, ignore here
+	// SourceLabels
+	if len(root.SourceLabels) > 0 || len(delegate.SourceLabels) > 0 {
+		out.SourceLabels = make(map[string]string)
+	}
+	for k, v := range root.SourceLabels {
+		out.SourceLabels[k] = v
+	}
+	for k, v := range delegate.SourceLabels {
+		out.SourceLabels[k] = v
+	}
+
+	if out.SourceNamespace == "" {
+		out.SourceNamespace = root.SourceNamespace
+	}
+
+	if len(out.Gateways) == 0 {
+		out.Gateways = root.Gateways
+	}
 
 	return &out
 }
@@ -346,7 +373,7 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 
 	// without headers
 	for key, leafValue := range leaf.WithoutHeaders {
-		if stringMatchConflict(root.Headers[key], leafValue) {
+		if stringMatchConflict(root.WithoutHeaders[key], leafValue) {
 			return true
 		}
 	}
@@ -365,8 +392,30 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 		return true
 	}
 
-	// sourceLabels, sourceNamespace and gateways do not apply to delegate
-	// and are empty, so no conflict for them.
+	// sourceNamespace
+	if root.SourceNamespace != "" && leaf.SourceNamespace != root.SourceNamespace {
+		return true
+	}
+
+	// sourceLabels should not conflict, root should have superset of sourceLabels.
+	for key, leafValue := range leaf.SourceLabels {
+		if v, ok := root.SourceLabels[key]; ok && v != leafValue {
+			return true
+		}
+	}
+
+	// gateways should not conflict, root should have superset of gateways.
+	if len(root.Gateways) > 0 && len(leaf.Gateways) > 0 {
+		if len(root.Gateways) < len(leaf.Gateways) {
+			return true
+		}
+		rootGateway := sets.NewSet(root.Gateways...)
+		for _, gw := range leaf.Gateways {
+			if !rootGateway.Contains(gw) {
+				return true
+			}
+		}
+	}
 
 	return false
 }

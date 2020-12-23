@@ -1,0 +1,10 @@
+[
+  {
+    "cluster_name": "istio-testing",
+    "pod_subnet": "10.10.0.0/16",
+    "svc_subnet": "10.255.10.0/24",
+    "network_id": 0,
+    "control_plane_index": 0,
+    "config_index": 0
+  }
+]

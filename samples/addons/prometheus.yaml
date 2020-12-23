@@ -1,5 +1,5 @@
 ---
-# Source: prometheus/templates/server-serviceaccount.yaml
+# Source: prometheus/templates/server/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -7,14 +7,14 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.7.0
+    chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
   namespace: istio-system
   annotations:
     {}
 ---
-# Source: prometheus/templates/server-configmap.yaml
+# Source: prometheus/templates/server/cm.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,7 +22,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.7.0
+    chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -244,6 +244,10 @@ data:
         source_labels:
         - __meta_kubernetes_pod_name
         target_label: kubernetes_pod_name
+      - action: drop
+        regex: Pending|Succeeded|Failed
+        source_labels:
+        - __meta_kubernetes_pod_phase
     - job_name: kubernetes-pods-slow
       kubernetes_sd_configs:
       - role: pod
@@ -274,6 +278,10 @@ data:
         source_labels:
         - __meta_kubernetes_pod_name
         target_label: kubernetes_pod_name
+      - action: drop
+        regex: Pending|Succeeded|Failed
+        source_labels:
+        - __meta_kubernetes_pod_phase
       scrape_interval: 5m
       scrape_timeout: 30s
   recording_rules.yml: |
@@ -281,15 +289,15 @@ data:
   rules: |
     {}
 ---
-# Source: prometheus/templates/server-clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+# Source: prometheus/templates/server/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.7.0
+    chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
 rules:
@@ -323,15 +331,15 @@ rules:
     verbs:
       - get
 ---
-# Source: prometheus/templates/server-clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
+# Source: prometheus/templates/server/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.7.0
+    chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
 subjects:
@@ -343,7 +351,7 @@ roleRef:
   kind: ClusterRole
   name: prometheus
 ---
-# Source: prometheus/templates/server-service.yaml
+# Source: prometheus/templates/server/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -351,7 +359,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.7.0
+    chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -368,7 +376,7 @@ spec:
   sessionAffinity: None
   type: "ClusterIP"
 ---
-# Source: prometheus/templates/server-deployment.yaml
+# Source: prometheus/templates/server/deploy.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -376,7 +384,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.7.0
+    chart: prometheus-11.16.2
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -389,17 +397,20 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        
+        sidecar.istio.io/inject: "false"
       labels:
         component: "server"
         app: prometheus
         release: prometheus
-        chart: prometheus-11.7.0
+        chart: prometheus-11.16.2
         heritage: Helm
     spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus-server-configmap-reload
-          image: "jimmidyson/configmap-reload:v0.3.0"
+          image: "jimmidyson/configmap-reload:v0.4.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --volume-dir=/etc/config
@@ -412,7 +423,7 @@ spec:
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v2.19.0"
+          image: "prom/prometheus:v2.21.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d

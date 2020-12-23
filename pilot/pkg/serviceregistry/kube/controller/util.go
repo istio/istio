@@ -17,6 +17,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,11 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
 )
 
 func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
@@ -48,10 +48,6 @@ func getLabelValue(metadata metav1.Object, label string, fallBackLabel string) s
 	}
 
 	return labels[fallBackLabel]
-}
-
-func createUID(podName, namespace string) string {
-	return "kubernetes://" + podName + "." + namespace
 }
 
 // Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod
@@ -193,4 +189,14 @@ func nodeEquals(a, b kubernetesNode) bool {
 func isNodePortGatewayService(svc *v1.Service) bool {
 	_, ok := svc.Annotations[kube.NodeSelectorAnnotation]
 	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
+}
+
+// Get the pod key of the proxy which can be used to get pod from the informer cache
+func podKeyByProxy(proxy *model.Proxy) string {
+	parts := strings.Split(proxy.ID, ".")
+	if len(parts) == 2 && proxy.Metadata.Namespace == parts[1] {
+		return kube.KeyFunc(parts[0], parts[1])
+	}
+
+	return ""
 }

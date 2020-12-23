@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,20 +25,18 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio"
-
-	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/framework/resource"
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -265,6 +264,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 			Subsets: []echo.SubsetConfig{{
 				Version: "v1",
 			}},
+			Cluster: ctx.Clusters().Default(),
 		}).
 		With(&externalServer, echo.Config{
 			Service:   "server",
@@ -299,6 +299,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 				Version:     "v1",
 				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 			}},
+			Cluster: ctx.Clusters().Default(),
 		}).
 		BuildOrFail(t)
 

@@ -16,20 +16,26 @@ package webhooks
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
 	"strings"
 	"testing"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
+
+	"istio.io/api/label"
 )
 
 func TestMutatingWebhookPatch(t *testing.T) {
+	testRevision := "test-revision"
+	wrongRevision := "wrong-revision"
+	testRevisionLabel := map[string]string{label.IstioRev: testRevision}
+	wrongRevisionLabel := map[string]string{label.IstioRev: wrongRevision}
 	ts := []struct {
 		name        string
-		configs     admissionregistrationv1.MutatingWebhookConfigurationList
+		configs     admissionregistrationv1beta1.MutatingWebhookConfigurationList
+		revision    string
 		configName  string
 		webhookName string
 		pemData     []byte
@@ -37,7 +43,8 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	}{
 		{
 			"WebhookConfigNotFound",
-			admissionregistrationv1.MutatingWebhookConfigurationList{},
+			admissionregistrationv1beta1.MutatingWebhookConfigurationList{},
+			testRevision,
 			"config1",
 			"webhook1",
 			[]byte("fake CA"),
@@ -45,37 +52,116 @@ func TestMutatingWebhookPatch(t *testing.T) {
 		},
 		{
 			"WebhookEntryNotFound",
-			admissionregistrationv1.MutatingWebhookConfigurationList{
-				Items: []admissionregistrationv1.MutatingWebhookConfiguration{
+			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "config1",
+							Name:   "config1",
+							Labels: testRevisionLabel,
 						},
 					},
 				},
 			},
+			testRevision,
 			"config1",
 			"webhook1",
 			[]byte("fake CA"),
-			"webhook entry \"webhook1\" not found in config \"config1\"",
+			errNoWebhookWithName.Error(),
 		},
 		{
 			"SuccessfullyPatched",
-			admissionregistrationv1.MutatingWebhookConfigurationList{
-				Items: []admissionregistrationv1.MutatingWebhookConfiguration{
+			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "config1",
+							Name:   "config1",
+							Labels: testRevisionLabel,
 						},
-						Webhooks: []admissionregistrationv1.MutatingWebhook{
+						Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
 							{
 								Name:         "webhook1",
-								ClientConfig: admissionregistrationv1.WebhookClientConfig{},
+								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
 							},
 						},
 					},
 				},
 			},
+			testRevision,
+			"config1",
+			"webhook1",
+			[]byte("fake CA"),
+			"",
+		},
+		{
+			"NoRevisionWebhookNotUpdated",
+			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "config1",
+						},
+						Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
+							{
+								Name:         "webhook1",
+								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+							},
+						},
+					},
+				},
+			},
+			testRevision,
+			"config1",
+			"webhook1",
+			[]byte("fake CA"),
+			errWrongRevision.Error(),
+		},
+		{
+			"WrongRevisionWebhookNotUpdated",
+			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "config1",
+							Labels: wrongRevisionLabel,
+						},
+						Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
+							{
+								Name:         "webhook1",
+								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+							},
+						},
+					},
+				},
+			},
+			testRevision,
+			"config1",
+			"webhook1",
+			[]byte("fake CA"),
+			errWrongRevision.Error(),
+		},
+		{
+			"MultipleWebhooks",
+			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "config1",
+							Labels: testRevisionLabel,
+						},
+						Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
+							{
+								Name:         "webhook1",
+								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+							},
+							{
+								Name:         "should not be changed",
+								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+							},
+						},
+					},
+				},
+			},
+			testRevision,
 			"config1",
 			"webhook1",
 			[]byte("fake CA"),
@@ -85,8 +171,15 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-			err := patchMutatingWebhookConfig(client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
-				tc.configName, tc.webhookName, tc.pemData)
+			whPatcher := WebhookCertPatcher{
+				client:      client,
+				revision:    tc.revision,
+				webhookName: tc.webhookName,
+				caCertPem:   tc.pemData,
+			}
+
+			err := whPatcher.patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+				tc.configName)
 			if (err != nil) != (tc.err != "") {
 				t.Fatalf("Wrong error: got %v want %v", err, tc.err)
 			}
@@ -95,14 +188,21 @@ func TestMutatingWebhookPatch(t *testing.T) {
 					t.Fatalf("Got %q, want %q", err, tc.err)
 				}
 			} else {
-				config := admissionregistrationv1.MutatingWebhookConfiguration{}
-				patch := client.Actions()[1].(k8stesting.PatchAction).GetPatch()
-				err = json.Unmarshal(patch, &config)
+				obj, err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.Background(), tc.configName, metav1.GetOptions{})
 				if err != nil {
-					t.Fatalf("Fail to parse the patch: %s", err.Error())
+					t.Fatal(err)
 				}
-				if !bytes.Equal(config.Webhooks[0].ClientConfig.CABundle, tc.pemData) {
-					t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, config.Webhooks[0].ClientConfig.CABundle)
+				for _, w := range obj.Webhooks {
+					if w.Name == tc.webhookName {
+						if !bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
+							t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, w.ClientConfig.CABundle)
+						}
+					}
+					if w.Name != tc.webhookName {
+						if bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
+							t.Fatalf("Non-matching webhook \"%s\" CA bundle updated to %v", w.Name, w.ClientConfig.CABundle)
+						}
+					}
 				}
 			}
 		})

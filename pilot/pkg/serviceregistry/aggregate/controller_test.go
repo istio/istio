@@ -20,6 +20,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
@@ -27,20 +30,35 @@ import (
 	"istio.io/istio/pkg/config/labels"
 )
 
-var discovery1 *mock.ServiceDiscovery
-var discovery2 *mock.ServiceDiscovery
+type mockMeshConfigHolder struct {
+	trustDomainAliases []string
+}
+
+func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
+	return &meshconfig.MeshConfig{
+		TrustDomainAliases: mh.trustDomainAliases,
+	}
+}
+
+var (
+	meshHolder mockMeshConfigHolder
+	discovery1 *mock.ServiceDiscovery
+	discovery2 *mock.ServiceDiscovery
+)
 
 func buildMockController() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname:   mock.HelloService,
-			mock.ExtHTTPService.Hostname: mock.ExtHTTPService,
+			mock.ReplicatedFooServiceName: mock.ReplicatedFooServiceV1.DeepCopy(),
+			mock.HelloService.Hostname:    mock.HelloService.DeepCopy(),
+			mock.ExtHTTPService.Hostname:  mock.ExtHTTPService.DeepCopy(),
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.WorldService.Hostname:    mock.WorldService,
-			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService,
+			mock.ReplicatedFooServiceName: mock.ReplicatedFooServiceV2.DeepCopy(),
+			mock.WorldService.Hostname:    mock.WorldService.DeepCopy(),
+			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService.DeepCopy(),
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
@@ -55,7 +73,7 @@ func buildMockController() *Controller {
 		Controller:       &mock.Controller{},
 	}
 
-	ctls := NewController()
+	ctls := NewController(Options{&meshHolder})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -65,30 +83,30 @@ func buildMockController() *Controller {
 func buildMockControllerForMultiCluster() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0"),
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0", []string{}),
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0"),
-			mock.WorldService.Hostname: mock.WorldService,
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0", []string{}),
+			mock.WorldService.Hostname: mock.WorldService.DeepCopy(),
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.ProviderID("mockAdapter1"),
+		ProviderID:       serviceregistry.Kubernetes,
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
 		Controller:       &mock.Controller{},
 	}
 
 	registry2 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.ProviderID("mockAdapter2"),
+		ProviderID:       serviceregistry.Kubernetes,
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
 		Controller:       &mock.Controller{},
 	}
 
-	ctls := NewController()
+	ctls := NewController(Options{})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -231,9 +249,6 @@ func TestGetServiceError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if service is found")
 	}
-	if svc == nil {
-		t.Fatal("Fail to get service")
-	}
 	if svc.Hostname != mock.WorldService.Hostname {
 		t.Fatal("Returned service is incorrect")
 	}
@@ -243,10 +258,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
@@ -257,10 +269,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
@@ -276,10 +285,7 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	// This ensures callers can distinguish between no labels, and labels not found.
 	aggregateCtl := buildMockController()
 
-	instances, err := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err != nil {
-		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
-	}
+	instances := aggregateCtl.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if instances != nil {
 		t.Fatalf("expected nil workload labels, got: %v", instances)
 	}
@@ -291,20 +297,13 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	discovery1.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
-	if err == nil {
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no instances are found")
-	}
+	instances := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if len(instances) != 0 {
 		t.Fatal("GetProxyServiceInstances() should return no instances is client experiences error")
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
-	if err != nil {
-		t.Fatal("Aggregate controller should not return error if instances are found")
-	}
+	instances = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
@@ -319,12 +318,9 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.InstancesByPort(mock.HelloService,
+	instances := aggregateCtl.InstancesByPort(mock.HelloService,
 		80,
 		labels.Collection{})
-	if err != nil {
-		t.Fatalf("Instances() encountered unexpected error: %v", err)
-	}
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -338,49 +334,9 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.InstancesByPort(mock.WorldService,
+	instances = aggregateCtl.InstancesByPort(mock.WorldService,
 		80,
 		labels.Collection{})
-	if err != nil {
-		t.Fatalf("Instances() encountered unexpected error: %v", err)
-	}
-	if len(instances) != 2 {
-		t.Fatal("Returned wrong number of instances from controller")
-	}
-	for _, instance := range instances {
-		if instance.Service.Hostname != mock.WorldService.Hostname {
-			t.Fatal("Returned instance's hostname does not match desired value")
-		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
-			t.Fatal("Returned instance does not contain desired port")
-		}
-	}
-}
-
-func TestInstancesError(t *testing.T) {
-	aggregateCtl := buildMockController()
-
-	discovery1.InstancesError = errors.New("mock Instances() error")
-
-	// Get Instances from client with error
-	instances, err := aggregateCtl.InstancesByPort(mock.HelloService,
-		80,
-		labels.Collection{})
-	if err == nil {
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no instances are found")
-	}
-	if len(instances) != 0 {
-		t.Fatal("Returned wrong number of instances from controller")
-	}
-
-	// Get Instances from client without error
-	instances, err = aggregateCtl.InstancesByPort(mock.WorldService,
-		80,
-		labels.Collection{})
-	if err != nil {
-		t.Fatalf("Instances() should not return error is instances are found: %v", err)
-	}
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -396,36 +352,54 @@ func TestInstancesError(t *testing.T) {
 
 func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
-
-	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(mock.HelloService, []int{})
-	expected := make([]string, 0)
-
-	if len(accounts) != len(expected) {
-		t.Fatal("Incorrect account result returned")
+	testCases := []struct {
+		name               string
+		svc                *model.Service
+		trustDomainAliases []string
+		want               []string
+	}{
+		{
+			name: "HelloEmpty",
+			svc:  mock.HelloService,
+			want: []string{},
+		},
+		{
+			name: "World",
+			svc:  mock.WorldService,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/world1",
+				"spiffe://cluster.local/ns/default/sa/world2",
+			},
+		},
+		{
+			name: "ReplicatedFoo",
+			svc:  mock.ReplicatedFooServiceV1,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/foo-share",
+				"spiffe://cluster.local/ns/default/sa/foo1",
+				"spiffe://cluster.local/ns/default/sa/foo2",
+			},
+		},
+		{
+			name:               "ExpansionByTrustDomainAliases",
+			trustDomainAliases: []string{"cluster.local", "example.com"},
+			svc:                mock.WorldService,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/world1",
+				"spiffe://cluster.local/ns/default/sa/world2",
+				"spiffe://example.com/ns/default/sa/world1",
+				"spiffe://example.com/ns/default/sa/world2",
+			},
+		},
 	}
-
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one")
-		}
-	}
-
-	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(mock.WorldService, []int{})
-	expected = []string{
-		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-		"spiffe://cluster.local/ns/default/sa/serviceaccount2",
-	}
-
-	if len(accounts) != len(expected) {
-		t.Fatal("Incorrect account result returned")
-	}
-
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one", accounts[i], expected[i])
-		}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			meshHolder.trustDomainAliases = tc.trustDomainAliases
+			accounts := aggregateCtl.GetIstioServiceAccounts(tc.svc, []int{})
+			if diff := cmp.Diff(accounts, tc.want); diff != "" {
+				t.Errorf("unexpected service account, diff %v", diff)
+			}
+		})
 	}
 }
 
@@ -441,7 +415,7 @@ func TestAddRegistry(t *testing.T) {
 			ClusterID:  "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
@@ -450,7 +424,7 @@ func TestAddRegistry(t *testing.T) {
 	}
 }
 
-func TestDeleteRegistry(t *testing.T) {
+func TestGetDeleteRegistry(t *testing.T) {
 	registries := []serviceregistry.Simple{
 		{
 			ProviderID: "registry1",
@@ -460,69 +434,64 @@ func TestDeleteRegistry(t *testing.T) {
 			ProviderID: "registry2",
 			ClusterID:  "cluster2",
 		},
+		{
+			ProviderID: "registry3",
+			ClusterID:  "cluster3",
+		},
 	}
-	ctrl := NewController()
+	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
-	ctrl.DeleteRegistry(registries[0].ClusterID)
-	if l := len(ctrl.registries); l != 1 {
-		t.Fatalf("Expected length of the registries slice should be 1, got %d", l)
-	}
-}
 
-func TestGetRegistries(t *testing.T) {
-	registries := []serviceregistry.Simple{
-		{
-			ProviderID: "registry1",
-			ClusterID:  "cluster1",
-		},
-		{
-			ProviderID: "registry2",
-			ClusterID:  "cluster2",
-		},
-	}
-	ctrl := NewController()
-	for _, r := range registries {
-		ctrl.AddRegistry(r)
-	}
+	// Test Get
 	result := ctrl.GetRegistries()
-	if len(ctrl.registries) != len(result) {
-		t.Fatal("Length of the original registries slice does not match to returned by GetRegistries.")
+	if l := len(result); l != 3 {
+		t.Fatalf("Expected length of the registries slice should be 3, got %d", l)
 	}
 
-	for i := range result {
-		if !reflect.DeepEqual(result[i], ctrl.registries[i]) {
-			t.Fatal("The original registries slice and resulting slice supposed to be identical.")
-		}
+	// Test Delete cluster2
+	ctrl.DeleteRegistry(registries[1].ClusterID)
+	result = ctrl.GetRegistries()
+	if l := len(result); l != 2 {
+		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
+	}
+	// check left registries are orders as before
+	if !reflect.DeepEqual(result[0], registries[0]) || !reflect.DeepEqual(result[1], registries[2]) {
+		t.Fatalf("Expected registries order has been changed")
 	}
 }
 
 func TestSkipSearchingRegistryForProxy(t *testing.T) {
-	cases := []struct {
-		node     string
-		registry string
-		self     string
-		want     bool
-	}{
-		{"main", "remote", "main", true},
-		{"remote", "main", "main", true},
-		{"remote", "Kubernetes", "main", true},
+	cluster1 := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.Kubernetes}
+	cluster2 := serviceregistry.Simple{ClusterID: "cluster-2", ProviderID: serviceregistry.Kubernetes}
+	// external registries may eventually be associated with a cluster
+	external := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.External}
 
-		{"main", "Kubernetes", "main", false},
-		{"main", "main", "main", false},
-		{"remote", "remote", "main", false},
-		{"", "main", "main", false},
-		{"main", "", "main", false},
-		{"main", "Kubernetes", "", false},
-		{"", "", "", false},
+	cases := []struct {
+		nodeClusterID string
+		registry      serviceregistry.Instance
+		want          bool
+	}{
+		// matching kube registry
+		{"cluster-1", cluster1, false},
+		// unmatching kube registry
+		{"cluster-1", cluster2, true},
+		// always search external
+		{"cluster-1", external, false},
+		{"cluster-2", external, false},
+		{"", external, false},
+		// always search for empty node cluster id
+		{"", cluster1, false},
+		{"", cluster2, false},
+		{"", external, false},
 	}
 
 	for i, c := range cases {
-		got := skipSearchingRegistryForProxy(c.node, c.registry, c.self)
+		got := skipSearchingRegistryForProxy(c.nodeClusterID, c.registry)
 		if got != c.want {
 			t.Errorf("%s: got %v want %v",
-				fmt.Sprintf("[%v] registry=%v node=%v", i, c.registry, c.node),
+				fmt.Sprintf("[%v] registry=%v node=%v", i, c.registry, c.nodeClusterID),
 				got, c.want)
 		}
 	}

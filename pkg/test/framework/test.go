@@ -16,17 +16,14 @@ package framework
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 type Test interface {
@@ -148,24 +145,10 @@ func (t *testImpl) Label(labels ...label.Instance) Test {
 }
 
 func (t *testImpl) Features(feats ...features.Feature) Test {
-	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
-	if err != nil {
-		log.Errorf("Unable to build feature checker: %s", err)
-		t.goTest.FailNow()
-		return nil
+	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
+		// test runs shouldn't fail
+		log.Errorf(err)
 	}
-	for _, f := range feats {
-		check, scenario := c.Check(f)
-		if !check {
-			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
-			t.goTest.FailNow()
-			return nil
-		}
-		// feats actually contains feature and scenario.  split them here.
-		onlyFeature := features.Feature(strings.Replace(string(f), scenario, "", 1))
-		t.featureLabels[onlyFeature] = append(t.featureLabels[onlyFeature], scenario)
-	}
-
 	return t
 }
 

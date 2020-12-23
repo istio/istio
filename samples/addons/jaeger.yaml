@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: jaeger
-          image: "docker.io/jaegertracing/all-in-one:1.18"
+          image: "docker.io/jaegertracing/all-in-one:1.20"
           env:
             - name: BADGER_EPHEMERAL
               value: "false"
@@ -78,10 +78,32 @@ metadata:
   labels:
     name: zipkin
   name: zipkin
+  namespace: istio-system
 spec:
   ports:
     - port: 9411
       targetPort: 9411
       name: http-query
+  selector:
+    app: jaeger
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: istio-system
+  labels:
+    app: jaeger
+spec:
+  type: ClusterIP
+  ports:
+  - name: jaeger-collector-http
+    port: 14268
+    targetPort: 14268
+    protocol: TCP
+  - name: jaeger-collector-grpc
+    port: 14250
+    targetPort: 14250
+    protocol: TCP
   selector:
     app: jaeger

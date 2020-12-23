@@ -1,0 +1,42 @@
+[
+  {
+    "cluster_name": "cluster1",
+    "pod_subnet": "10.10.0.0/16",
+    "svc_subnet": "10.255.10.0/24",
+    "network_id": 0,
+    "control_plane_index": 0,
+    "config_index": 0
+  },
+  {
+    "cluster_name": "cluster2",
+    "pod_subnet": "10.20.0.0/16",
+    "svc_subnet": "10.255.20.0/24",
+    "network_id": 0,
+    "control_plane_index": 0,
+    "config_index": 0
+  },
+  {
+    "cluster_name": "cluster3",
+    "pod_subnet": "10.30.0.0/16",
+    "svc_subnet": "10.255.30.0/24",
+    "network_id": 0,
+    "control_plane_index": 2,
+    "config_index": 2
+  },
+  {
+    "cluster_name": "cluster4",
+    "pod_subnet": "10.40.0.0/16",
+    "svc_subnet": "10.255.40.0/24",
+    "network_id": 1,
+    "control_plane_index": 3,
+    "config_index": 3
+  },
+  {
+    "cluster_name": "cluster5",
+    "pod_subnet": "10.50.0.0/16",
+    "svc_subnet": "10.255.50.0/24",
+    "network_id": 1,
+    "control_plane_index": 0,
+    "config_index": 0
+  }
+]

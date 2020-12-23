@@ -1,0 +1,46 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-policy
+spec:
+  action: ALLOW
+  selector:
+    matchLabels:
+      "istio": "ingressgateway"
+  rules:
+  - to:
+    - operation:
+        notPorts: ["100"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-policy
+spec:
+  action: DENY
+  selector:
+    matchLabels:
+      "istio": "ingressgateway"
+  rules:
+  - to:
+    - operation:
+        ports: ["100"]
+  - to:
+    - operation:
+        ports: ["100"]
+---
+# Make sure listener has a least one listener, otherwise there may be no policies
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 18080
+      name: http
+      protocol: HTTP
+    hosts:
+    - "foo.bar"

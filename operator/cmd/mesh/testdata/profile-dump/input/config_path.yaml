@@ -5,9 +5,5 @@ spec:
   components:
     pilot:
       enabled: false
-    policy:
-      enabled: false
-    telemetry:
-      enabled: false
     cni:
       enabled: false

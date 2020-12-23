@@ -24,10 +24,9 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/pkg/log"
-
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/pkg/log"
+	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/snapshots"
+	"istio.io/pkg/log"
 )
 
 type context struct {
@@ -80,6 +81,7 @@ var _ resource.Reference = &reference{}
 func (o origin) Namespace() resource.Namespace { return "" }
 func (o origin) FriendlyName() string          { return o.friendlyName }
 func (o origin) Reference() resource.Reference { return reference{name: ""} }
+func (o origin) FieldMap() map[string]int      { return map[string]int{o.friendlyName: 0} }
 
 type reference struct {
 	name string
@@ -155,7 +157,7 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 					Schema:   s.Resource(),
 					FullName: name,
 				},
-				Message: s.Resource().MustNewProtoInstance(),
+				Message: s.Resource().MustNewInstance().(proto.Message),
 				Origin:  &origin{friendlyName: name.String()},
 			}
 			set.Collection(s.Name()).Set(r)

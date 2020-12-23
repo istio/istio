@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,34 +16,36 @@
 package pilot
 
 import (
-	"strconv"
+	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/pilot/common"
 )
 
 var (
 	i istio.Instance
 
-	// Namespace echo apps will be deployed
-	echoNamespace namespace.Instance
-
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
-	// Standard echo app to be used by tests
-	a echo.Instance
-	// Standard echo app to be used by tests
-	b echo.Instance
-	// Echo app to be used by tests, with no sidecar injected
-	naked echo.Instance
+	apps = &common.EchoDeployments{}
 )
+
+func supportsCRDv1(ctx resource.Context) bool {
+	ver, err := ctx.Clusters()[0].GetKubernetesVersion()
+	if err != nil {
+		return true
+	}
+	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+	return serverVersion >= "1.16"
+}
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
@@ -50,61 +53,19 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-values:
-  global:
-    meshExpansion:
-      enabled: true`
-		})).
-		Setup(func(ctx resource.Context) error {
-			var err error
-			// TODO: allow using an existing namespace to allow repeated runs with 0 setup
-			echoNamespace, err = namespace.New(ctx, namespace.Config{
-				Prefix: "echo",
-				Inject: true,
-			})
-			if err != nil {
-				return err
-			}
-			ports := []echo.Port{
-				{Name: "http", Protocol: protocol.HTTP},
-				{Name: "grpc", Protocol: protocol.GRPC},
-				{Name: "tcp", Protocol: protocol.TCP},
-				{Name: "auto-tcp", Protocol: protocol.TCP},
-				{Name: "auto-http", Protocol: protocol.HTTP},
-				{Name: "auto-grpc", Protocol: protocol.GRPC},
-			}
-			if _, err := echoboot.NewBuilder(ctx).
-				With(&a, echo.Config{
-					Service:   "a",
-					Namespace: echoNamespace,
-					Ports:     ports,
-					Subsets:   []echo.SubsetConfig{{}},
-				}).
-				With(&b, echo.Config{
-					Service:   "b",
-					Namespace: echoNamespace,
-					Ports:     ports,
-					Subsets:   []echo.SubsetConfig{{}},
-				}).
-				With(&naked, echo.Config{
-					Service:   "naked",
-					Namespace: echoNamespace,
-					Ports:     ports,
-					Subsets: []echo.SubsetConfig{
-						{
-							Annotations: map[echo.Annotation]*echo.AnnotationValue{
-								echo.SidecarInject: {
-									Value: strconv.FormatBool(false)},
-							},
-						},
-					},
-				}).
-				Build(); err != nil {
-				return err
+		Setup(func(ctx resource.Context) (err error) {
+			if supportsCRDv1(ctx) {
+				crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+				if err != nil {
+					return err
+				}
+				return ctx.Config().ApplyYAML("", string(crd))
 			}
 			return nil
+		}).
+		Setup(istio.Setup(&i, nil)).
+		Setup(func(ctx resource.Context) error {
+			return common.SetupApps(ctx, i, apps)
 		}).
 		Run()
 }

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - https://github.com/istio/enhancements/issues/11
+
+releaseNotes:
+- |
+  **Promoted** external control plane to alpha.

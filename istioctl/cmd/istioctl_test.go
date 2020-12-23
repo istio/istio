@@ -21,10 +21,8 @@ import (
 	"testing"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
-
-	"istio.io/istio/pkg/kube"
-
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube"
 )
 
 type testCase struct {

@@ -15,11 +15,13 @@
 package virtualservice
 
 import (
-	"istio.io/api/networking/v1alpha3"
+	"fmt"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -52,16 +54,64 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
 
 func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis.Context) {
 	vs := r.Message.(*v1alpha3.VirtualService)
-
 	vsNs := r.Metadata.FullName.Namespace
-	for _, gwName := range vs.Gateways {
+	vsName := r.Metadata.FullName
+
+	for i, gwName := range vs.Gateways {
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {
 			continue
 		}
 
-		if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways.Name(), resource.NewShortOrFullName(vsNs, gwName)) {
-			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), msg.NewReferencedResourceNotFound(r, "gateway", gwName))
+		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
+
+		if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways.Name(), gwFullName) {
+			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
+				m.Line = line
+			}
+
+			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+		}
+
+		if !vsHostInGateway(c, gwFullName, vs.Hosts) {
+			m := msg.NewVirtualServiceHostNotFoundInGateway(r, vs.Hosts, vsName.String(), gwFullName.String())
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
+				m.Line = line
+			}
+
+			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
 	}
+}
+
+func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []string) bool {
+	var gatewayHosts []string
+
+	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+		if r.Metadata.FullName == gateway {
+			s := r.Message.(*v1alpha3.Gateway)
+
+			for _, v := range s.Servers {
+				gatewayHosts = append(gatewayHosts, v.Hosts...)
+			}
+		}
+
+		return true
+	})
+
+	for _, gh := range gatewayHosts {
+		for _, vsh := range vsHosts {
+			gatewayHost := host.Name(gh)
+			vsHost := host.Name(vsh)
+
+			if gatewayHost.Matches(vsHost) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

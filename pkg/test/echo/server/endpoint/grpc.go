@@ -22,17 +22,19 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/reflection"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 var _ Instance = &grpcInstance{}
@@ -48,9 +50,13 @@ func newGRPC(config Config) Instance {
 	}
 }
 
+func (s *grpcInstance) GetConfig() Config {
+	return s.Config
+}
+
 func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	// Listen on the given port and update the port if it changed from what was passed in.
-	listener, p, err := listenOnPort(s.Port.Port)
+	listener, p, err := listenOnAddress(s.ListenerIP, s.Port.Port)
 	if err != nil {
 		return err
 	}
@@ -62,7 +68,7 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		// Create the TLS credentials
 		creds, errCreds := credentials.NewServerTLSFromFile(s.TLSCert, s.TLSKey)
 		if errCreds != nil {
-			log.Errorf("could not load TLS keys: %s", errCreds)
+			epLog.Errorf("could not load TLS keys: %s", errCreds)
 		}
 		s.server = grpc.NewServer(grpc.Creds(creds))
 	} else {
@@ -72,6 +78,7 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
 		Config: s.Config,
 	})
+	reflection.Register(s.server)
 
 	// Start serving GRPC traffic.
 	go func() {
@@ -106,9 +113,9 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 		return err
 	}, retry.Timeout(readyTimeout), retry.Delay(readyInterval))
 	if err != nil {
-		log.Errorf("readiness failed for GRPC endpoint %s: %v", listener.Addr().String(), err)
+		epLog.Errorf("readiness failed for GRPC endpoint %s: %v", listener.Addr().String(), err)
 	} else {
-		log.Infof("ready for GRPC endpoint %s", listener.Addr().String())
+		epLog.Infof("ready for GRPC endpoint %s", listener.Addr().String())
 	}
 }
 
@@ -144,17 +151,23 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 		}
 	}
 
-	log.Infof("GRPC Request:\n  Host: %s\n  Message: %s\n  Headers: %v\n", host, req.GetMessage(), md)
+	epLog.Infof("GRPC Request:\n  Host: %s\n  Message: %s\n  Headers: %v\n", host, req.GetMessage(), md)
 
 	portNumber := 0
 	if h.Port != nil {
 		portNumber = h.Port.Port
 	}
 
+	ip := "0.0.0.0"
+	if peerInfo, ok := peer.FromContext(ctx); ok {
+		ip, _, _ = net.SplitHostPort(peerInfo.Addr.String())
+	}
+
 	writeField(&body, response.StatusCodeField, response.StatusCodeOK)
 	writeField(&body, response.ServiceVersionField, h.Version)
 	writeField(&body, response.ServicePortField, strconv.Itoa(portNumber))
 	writeField(&body, response.ClusterField, h.Cluster)
+	writeField(&body, response.IPField, ip)
 	writeField(&body, "Echo", req.GetMessage())
 
 	if hostname, err := os.Hostname(); err == nil {
@@ -165,6 +178,8 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 }
 
 func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
+	epLog.Infof("ForwardEcho[%s] request", req.Url)
+	t0 := time.Now()
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
 		Dialer:  h.Dialer,
@@ -173,6 +188,9 @@ func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoReq
 	if err != nil {
 		return nil, err
 	}
+	defer instance.Close()
 
-	return instance.Run(ctx)
+	ret, err := instance.Run(ctx)
+	epLog.Infof("ForwardEcho[%s] response in %v: %v and error %v", req.Url, time.Since(t0), ret.GetOutput(), err)
+	return ret, err
 }

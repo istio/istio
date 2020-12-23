@@ -28,10 +28,9 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/bootstrap"
 )
 
 const (
@@ -51,15 +50,14 @@ type ProxyConfig struct {
 	ComponentLogLevel   string
 	PilotSubjectAltName []string
 	NodeIPs             []string
-	PodName             string
-	PodNamespace        string
-	PodIP               net.IP
 	STSPort             int
-	ControlPlaneAuth    bool
-	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
 	ProvCert            string
+	Sidecar             bool
+	ProxyViaAgent       bool
+	CallCredentials     bool
+	LogAsJSON           bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -98,7 +96,8 @@ func (e *envoy) IsLive() bool {
 
 func (e *envoy) Drain() error {
 	adminPort := uint32(e.Config.ProxyAdminPort)
-	err := DrainListeners(adminPort)
+
+	err := DrainListeners(adminPort, e.Sidecar)
 	if err != nil {
 		log.Infof("failed draining listeners for Envoy on port %d: %v", adminPort, err)
 	}
@@ -118,10 +117,16 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-node", e.Node,
 		"--local-address-ip-version", proxyLocalAddressType,
 		"--bootstrap-version", "3",
-		"--log-format-prefix-with-location", "0",
+	}
+	if e.ProxyConfig.LogAsJSON {
+		startupArgs = append(startupArgs,
+			"--log-format",
+			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"%n","msg":"%_"}`,
+		)
+	} else {
 		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
 		// this matches Istio log format
-		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
+		startupArgs = append(startupArgs, "--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v")
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
@@ -160,19 +165,16 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			PilotSubjectAltName: e.PilotSubjectAltName,
 			LocalEnv:            os.Environ(),
 			NodeIPs:             e.NodeIPs,
-			PodName:             e.PodName,
-			PodNamespace:        e.PodNamespace,
-			PodIP:               e.PodIP,
 			STSPort:             e.STSPort,
-			ControlPlaneAuth:    e.ControlPlaneAuth,
-			DisableReportCalls:  e.DisableReportCalls,
+			ProxyViaAgent:       e.ProxyViaAgent,
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,
+			CallCredentials:     e.CallCredentials,
 			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
-			log.Errora("Failed to generate bootstrap config: ", err)
+			log.Error("Failed to generate bootstrap config: ", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
 		}
 		fname = out

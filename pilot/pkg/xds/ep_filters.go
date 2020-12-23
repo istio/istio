@@ -22,7 +22,9 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
@@ -30,11 +32,11 @@ import (
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
+func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
-	for _, gateways := range push.NetworkGateways() {
+	for _, gateways := range b.push.NetworkGateways() {
 		if num := len(gateways); num > 0 {
 			multiples *= num
 		}
@@ -42,31 +44,43 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
-	filtered := make([]*endpoint.LocalityLbEndpoints, 0)
+	filtered := make([]*LocLbEndpointsAndOptions, 0)
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
 	for _, ep := range endpoints {
-		lbEndpoints := make([]*endpoint.LbEndpoint, 0)
+		lbEndpoints := &LocLbEndpointsAndOptions{
+			llbEndpoints: endpoint.LocalityLbEndpoints{
+				Locality: ep.llbEndpoints.Locality,
+				Priority: ep.llbEndpoints.Priority,
+				// Endpoints and weight will be reset below.
+			},
+		}
 
 		// Weight (number of endpoints) for the EDS cluster for each remote networks
 		remoteEps := map[string]uint32{}
-		// calculate remote network endpoints
-		for _, lbEp := range ep.LbEndpoints {
+		// Calculate remote network endpoints
+		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
 			epNetwork := istioMetadata(lbEp, "network")
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
-			if epNetwork == proxyNetwork ||
-				len(push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
-				// Clone the endpoint so subsequent updates to the shared cache of
-				// service endpoints doesn't overwrite endpoints already in-flight.
+			if epNetwork == b.network || len(b.push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
+				// Copy on write.
 				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
 				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 					Value: uint32(multiples),
 				}
-				lbEndpoints = append(lbEndpoints, clonedLbEp)
+				lbEndpoints.emplace(clonedLbEp, ep.tunnelMetadata[i])
 			} else {
+				if !b.canViewNetwork(epNetwork) {
+					continue
+				}
+				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
+					// dont allow cross-network endpoints for uninjected traffic
+					continue
+				}
+
 				// Remote network endpoint which can not be accessed directly from local network.
 				// Increase the weight counter
 				remoteEps[epNetwork]++
@@ -82,7 +96,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 		// we initiate mTLS automatically to this remote gateway. Split horizon to remote gateway cannot
 		// work with plaintext
 		for network, w := range remoteEps {
-			gateways := push.NetworkGatewaysByNetwork(network)
+			gateways := b.push.NetworkGatewaysByNetwork(network)
 
 			gatewayNum := len(gateways)
 			weight := w * uint32(multiples/gatewayNum)
@@ -105,15 +119,15 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 					},
 				}
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, push)
-				lbEndpoints = append(lbEndpoints, gwEp)
+				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, "", "", labels.Instance{})
+				// Currently gateway endpoint does not support tunnel.
+				lbEndpoints.append(gwEp, networking.MakeTunnelAbility())
 			}
 		}
 
-		// Found endpoint(s) that can be accessed from local network
-		// and then build a new LocalityLbEndpoints with them.
-		newEp := createLocalityLbEndpoints(ep, lbEndpoints)
-		filtered = append(filtered, newEp)
+		// Endpoint members could be stripped or aggregated by network. Adjust weight value here.
+		lbEndpoints.refreshWeight()
+		filtered = append(filtered, lbEndpoints)
 	}
 
 	return filtered
@@ -136,21 +150,12 @@ func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
 	return ""
 }
 
-func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints []*endpoint.LbEndpoint) *endpoint.LocalityLbEndpoints {
-	var weight *wrappers.UInt32Value
-	if len(lbEndpoints) == 0 {
-		weight = nil
-	} else {
-		weight = &wrappers.UInt32Value{}
-		for _, lbEp := range lbEndpoints {
-			weight.Value += lbEp.GetLoadBalancingWeight().Value
-		}
+func envoytransportSocketMetadata(ep *endpoint.LbEndpoint, key string) string {
+	if ep.Metadata != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] != nil {
+		return ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key].GetStringValue()
 	}
-	ep := &endpoint.LocalityLbEndpoints{
-		Locality:            base.Locality,
-		LbEndpoints:         lbEndpoints,
-		LoadBalancingWeight: weight,
-		Priority:            base.Priority,
-	}
-	return ep
+	return ""
 }

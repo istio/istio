@@ -135,5 +135,5 @@ func expectInt(t *testing.T, f func() int32, expected int32) {
 			return fmt.Errorf("unexpected count: %v, want %v", got, expected)
 		}
 		return nil
-	})
+	}, retry.Timeout(time.Second))
 }

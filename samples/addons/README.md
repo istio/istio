@@ -12,13 +12,13 @@ addon.
 To quickly deploy all addons:
 
 ```shell script
-kubectl apply -f samples/addons -n istio-system
+kubectl apply -f samples/addons
 ```
 
 Alternatively, you can deploy individual addons:
 
 ```shell script
-kubectl apply -f samples/addons/prometheus.yaml -n istio-system
+kubectl apply -f samples/addons/prometheus.yaml
 ```
 
 ## Addons
@@ -43,6 +43,7 @@ This sample provides the following dashboards:
 * [Workload Dashboard](https://grafana.com/grafana/dashboards/7630) provides a detailed breakdown of metrics for a workload.
 * [Performance Dashboard](https://grafana.com/grafana/dashboards/11829) monitors the resource usage of the mesh.
 * [Control Plane Dashboard](https://grafana.com/grafana/dashboards/7645) monitors the health and performance of the control plane.
+* [WASM Extension Dashboard](https://grafana.com/grafana/dashboards/13277) provides an overview of mesh wide WebAssembly extension runtime and loading state.
 
 For more information about integrating with Grafana, please see the [Grafana integration page](https://istio.io/docs/ops/integrations/grafana/).
 
@@ -53,7 +54,7 @@ It helps you to understand the structure of your service mesh by inferring the t
 Kiali provides detailed metrics, and a basic [Grafana](#grafana) integration is available for advanced queries.
 Distributed tracing is provided by integrating [Jaeger](#jaeger).
 
-For more information about using Kiali, see the [Visualizing Your Mesh](istio.io/docs/tasks/observability/kiali/) task.
+For more information about using Kiali, see the [Visualizing Your Mesh](https://istio.io/docs/tasks/observability/kiali/) task.
 
 ### Jaeger
 
@@ -73,8 +74,19 @@ For more information about integrating with Jaeger, please see the [Jaeger integ
 
 [Zipkin](https://zipkin.io/) is a distributed tracing system. It helps gather timing data needed to troubleshoot latency problems in service architectures. Features include both the collection and lookup of this data.
 
-Zipkin is an alternative to Jaeger and is not deployed by default. To replace Jaeger with Zipkin, run `kubectl apply -f samples/addons/extras/zipkin.yaml -n istio-system`.
+Zipkin is an alternative to Jaeger and is not deployed by default. To replace Jaeger with Zipkin, run `kubectl apply -f samples/addons/extras/zipkin.yaml`.
 You may also want to remove the Jaeger deployment, which will not be used, with `kubectl delete deployment jaeger`, or avoid installing it
 to begin with by following the selective install steps in [Getting Started](#getting-started).
 
 For more information about integrating with Zipkin, please see the [Zipkin integration page](https://istio.io/docs/tasks/observability/distributed-tracing/zipkin/).
+
+### Prometheus Operator
+
+The [Prometheus Operator](https://github.com/coreos/prometheus-operator) manages and operators a Prometheus instance.
+
+As an alternative to the standard Prometheus deployment, we provide a `ServiceMonitor` to monitor the Istio control plane and `PodMonitor`
+Envoy proxies. To use these, make sure you have the Prometheus operator deployed, then run `kubectl apply -f samples/addons/extras/prometheus-operator.yaml`.
+
+Note: The example `PodMonitor` requires [metrics merging](https://istio.io/latest/docs/ops/integrations/prometheus/#option-1-metrics-merging) to be enabled. This is enabled by default.
+
+Note: The configurations here are only for Istio deployments, and do not scrape metrics from the Kubernetes components. See the [Cluster Monitoring](https://coreos.com/operators/prometheus/docs/latest/user-guides/cluster-monitoring.html) documentation for configuring this.

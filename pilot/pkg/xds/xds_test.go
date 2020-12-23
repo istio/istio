@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -184,12 +184,12 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		endpoints := ExtractEndpoints(s.Endpoints(proxy))
-		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
+		endpoints := xdstest.ExtractLoadAssignments(s.Endpoints(proxy))
+		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1:80"}) {
 			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
 		}
 
-		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+		assertListEqual(t, xdstest.ExtractListenerNames(s.Listeners(proxy)), []string{
 			"0.0.0.0_80",
 			"5.5.5.5_443",
 			"virtualInbound",
@@ -211,13 +211,13 @@ func TestServiceScoping(t *testing.T) {
 		p.IPAddresses = []string{"100.100.100.100"}
 		proxy := s.SetupProxy(p)
 
-		endpoints := ExtractClusterEndpoints(s.Clusters(proxy))
-		eps := endpoints["inbound|9080|custom-http|sidecar.app"]
+		endpoints := xdstest.ExtractClusterEndpoints(s.Clusters(proxy))
+		eps := endpoints["inbound|9080||"]
 		if !listEqualUnordered(eps, []string{"/var/run/someuds.sock"}) {
 			t.Fatalf("expected /var/run/someuds.sock, got %v", eps)
 		}
 
-		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+		assertListEqual(t, xdstest.ExtractListenerNames(s.Listeners(proxy)), []string{
 			"0.0.0.0_80",
 			"5.5.5.5_443",
 			"virtualInbound",
@@ -235,7 +235,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com:80"})
 	})
 
 	t.Run("DNS no self import", func(t *testing.T) {
@@ -248,7 +248,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com:80"})
 	})
 }
 
@@ -259,14 +259,14 @@ func TestSidecarListeners(t *testing.T) {
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
 		})
-		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+		structpath.ForProto(xdstest.ToDiscoveryResponse(s.Listeners(proxy))).
 			Exists("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtualOutbound", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
-			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
-			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
+			Equals(wellknown.TCPProxy, "{.filterChains[1].filters[0].name}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.statPrefix}").
 			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
 			CheckOrFail(t)
 	})
@@ -279,7 +279,7 @@ func TestSidecarListeners(t *testing.T) {
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
 		})
-		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+		structpath.ForProto(xdstest.ToDiscoveryResponse(s.Listeners(proxy))).
 			Exists("{.resources[?(@.address.socketAddress.portValue==27018)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
@@ -296,77 +296,6 @@ func TestSidecarListeners(t *testing.T) {
 			Exists("{.statPrefix}").
 			CheckOrFail(t)
 	})
-}
-
-func TestMeshNetworking(t *testing.T) {
-	s := NewFakeDiscoveryServer(t, FakeOptions{
-		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: pod
-  namespace: pod
-spec:
-  hosts:
-  - pod.pod.svc.cluster.local
-  ports:
-  - number: 80
-    name: http
-    protocol: HTTP
-  resolution: STATIC
-  location: MESH_INTERNAL
-  endpoints:
-  - address: 10.10.10.20
-    labels:
-      app: pod
-    network: Kubernetes
----
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: vm
-spec:
-  hosts:
-  - httpbin.com
-  ports:
-  - number: 7070
-    name: http
-    protocol: HTTP
-  resolution: STATIC
-  location: MESH_INTERNAL
-  endpoints:
-  - address: 10.10.10.10
-    labels:
-      app: httpbin
-    network: vm
-`,
-		MeshNetworks: &meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
-			"Kubernetes": {
-				Endpoints: []*meshconfig.Network_NetworkEndpoints{{
-					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
-				}},
-				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
-					Gw:       &meshconfig.Network_IstioNetworkGateway_Address{Address: "2.2.2.2"},
-					Port:     15443,
-					Locality: "",
-				}},
-			},
-		}},
-	})
-	pod := s.SetupProxy(&model.Proxy{
-		Metadata: &model.NodeMetadata{Network: "Kubernetes"},
-	})
-	vm := s.SetupProxy(&model.Proxy{
-		IPAddresses:     []string{"10.10.10.10"},
-		ConfigNamespace: "default",
-		Metadata: &model.NodeMetadata{
-			Network:          "vm",
-			InterceptionMode: "NONE",
-		},
-	})
-
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|7070||httpbin.com"], []string{"10.10.10.10"})
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(vm))["outbound|80||pod.pod.svc.cluster.local"], []string{"2.2.2.2"})
 }
 
 func TestEgressProxy(t *testing.T) {
@@ -412,7 +341,7 @@ spec:
 	})
 
 	listeners := s.Listeners(proxy)
-	assertListEqual(t, ExtractListenerNames(listeners), []string{
+	assertListEqual(t, xdstest.ExtractListenerNames(listeners), []string{
 		"0.0.0.0_80",
 		"virtualInbound",
 		"virtualOutbound",
@@ -421,12 +350,12 @@ spec:
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
 
 	found := false
-	for _, f := range ExtractListener("virtualOutbound", listeners).FilterChains {
+	for _, f := range xdstest.ExtractListener("virtualOutbound", listeners).FilterChains {
 		// We want to check the match all filter chain, as this is testing the fallback logic
 		if f.FilterChainMatch != nil {
 			continue
 		}
-		tcp := ExtractTCPProxy(t, f)
+		tcp := xdstest.ExtractTCPProxy(t, f)
 		if tcp.GetCluster() != expectedEgressCluster {
 			t.Fatalf("got unexpected fallback destination: %v, want %v", tcp.GetCluster(), expectedEgressCluster)
 		}

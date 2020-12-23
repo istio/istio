@@ -1,39 +1,21 @@
-# Service entries for istio-policy and telemetry
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: istio-telemetry
+  name: BACKEND
   namespace: istio-system
 spec:
   hosts:
-  - istio-telemetry.istio-system.svc.cluster.local
-  addresses:
-  - 1.1.1.1
-  ports:
-  - number: 15004
-    name: mtls
-    protocol: TCP
-  location: MESH_INTERNAL
-  resolution: DNS
-  exportTo:
-  - '*'
----
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: istio-policy
-  namespace: istio-system
-spec:
-  hosts:
-  - istio-policy.istio-system.svc.cluster.local
+  - https.secure.com
   addresses:
   - 1.1.1.2
   ports:
   - number: 15004
-    name: mtls
-    protocol: TCP
+    name: HTTPS
+    protocol: https
   location: MESH_INTERNAL
-  resolution: DNS
+  resolution: STATIC
+  endpoints:
+  - address: 1.2.3.4
   exportTo:
   - '*'
 ---

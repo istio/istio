@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 26517
+releaseNotes:
+  - |
+    **Fixed** Remove unreachable endpoints for non-injected workloads across networks.

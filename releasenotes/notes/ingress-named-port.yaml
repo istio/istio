@@ -3,5 +3,6 @@ kind: feature
 area: networking
 issue:
 - 23052
-releaseNotes: |
-  *Improved* support for Ingress by allowing named port references.
+releaseNotes:
+- |
+  **Improved** support for Ingress by allowing named port references.

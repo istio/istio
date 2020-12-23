@@ -16,7 +16,6 @@ package gateway
 
 import (
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pkg/config/protocol"
 )
 

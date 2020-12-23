@@ -15,6 +15,7 @@
 package authz
 
 import (
+	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -22,11 +23,9 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -142,11 +141,22 @@ func hasMatchingPodsRunningIn(selector k8s_labels.Selector, setList []k8s_labels
 func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Instance, c analysis.Context) {
 	ap := r.Message.(*v1beta1.AuthorizationPolicy)
 
-	for _, rule := range ap.Rules {
-		for _, from := range rule.From {
-			for _, ns := range append(from.Source.Namespaces, from.Source.NotNamespaces...) {
+	for i, rule := range ap.Rules {
+		for j, from := range rule.From {
+			for k, ns := range append(from.Source.Namespaces, from.Source.NotNamespaces...) {
 				if !matchNamespace(ns, c) {
-					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewReferencedResourceNotFound(r, "namespace", ns))
+					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
+
+					nsIndex := k
+					if nsIndex >= len(from.Source.Namespaces) {
+						nsIndex -= len(from.Source.Namespaces)
+					}
+
+					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, nsIndex)); ok {
+						m.Line = line
+					}
+
+					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
 				}
 			}
 		}
@@ -165,18 +175,17 @@ func matchNamespace(exp string, c analysis.Context) bool {
 }
 
 func namespaceMatch(ns, exp string) bool {
-	match := false
 	if strings.EqualFold(exp, "*") {
-		match = true
-	} else if strings.HasPrefix(exp, "*") {
-		match = strings.HasSuffix(ns, strings.TrimPrefix(exp, "*"))
-	} else if strings.HasSuffix(exp, "*") {
-		match = strings.HasPrefix(ns, strings.TrimSuffix(exp, "*"))
-	} else {
-		match = strings.EqualFold(ns, exp)
+		return true
+	}
+	if strings.HasPrefix(exp, "*") {
+		return strings.HasSuffix(ns, strings.TrimPrefix(exp, "*"))
+	}
+	if strings.HasSuffix(exp, "*") {
+		return strings.HasPrefix(ns, strings.TrimSuffix(exp, "*"))
 	}
 
-	return match
+	return strings.EqualFold(ns, exp)
 }
 
 // Build a map indexed by namespace with in-mesh Pod's labels

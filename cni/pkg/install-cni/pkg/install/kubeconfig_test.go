@@ -21,12 +21,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/file"
 )
 
 const (
@@ -122,7 +122,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 				t.Fatalf("expected %s, got %s", expectedFilepath, resultFilepath)
 			}
 
-			if !fileutil.Exist(resultFilepath) {
+			if !file.Exists(resultFilepath) {
 				t.Fatalf("kubeconfig file does not exist: %s", resultFilepath)
 			}
 

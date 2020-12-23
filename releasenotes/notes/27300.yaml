@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 27300
+
+releaseNotes:
+  - |
+    **Added** ability to configure domain suffix for multicluster installation

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 28814
+releaseNotes:
+- |
+  **Added** Istio 1.8 supports kubernetes versions 1.16 to 1.19.

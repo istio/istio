@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 28970
+releaseNotes:
+- |
+  **Fixed** namespace shorthand flag missing in dashboard subcommand.

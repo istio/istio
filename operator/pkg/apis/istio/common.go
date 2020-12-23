@@ -41,7 +41,7 @@ func UnmarshalAndValidateIOPS(iopsYAML string) (*v1alpha1.IstioOperatorSpec, err
 func UnmarshalIstioOperator(iopYAML string, allowUnknownField bool) (*operator_v1alpha1.IstioOperator, error) {
 	iop := &operator_v1alpha1.IstioOperator{}
 	if err := util.UnmarshalWithJSONPB(iopYAML, iop, allowUnknownField); err != nil {
-		return nil, fmt.Errorf("could not unmarshal: %s\n\nYAML:\n%s", err, iopYAML)
+		return nil, fmt.Errorf("could not unmarshal: %v", err)
 	}
 	return iop, nil
 }

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 27911
+releaseNotes:
+  - |
+    **Fixed** interpretation of $(HOST_IP) in Zipkin and Datadog tracer address.

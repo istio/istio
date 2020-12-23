@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -69,8 +70,7 @@ func NewMockCAClient(errors uint64, certLifetime time.Duration) (*CAClient, erro
 }
 
 // CSRSign returns the certificate or errors depending on the settings.
-func (c *CAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, exchangedToken string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error) {
 	c.errorCountMutex.Lock()
 	if c.errorCount < c.errors {
 		c.errorCount++
@@ -120,7 +120,7 @@ func NewMockTokenExchangeServer(errors uint64) *TokenExchangeServer {
 }
 
 // ExchangeToken returns a dumb token or errors depending on the settings.
-func (s *TokenExchangeServer) ExchangeToken(context.Context, string, string) (string, time.Time, int, error) {
+func (s *TokenExchangeServer) ExchangeToken(context.Context, security.CredFetcher, string, string) (string, time.Time, int, error) {
 	s.errorCountMutex.Lock()
 	if s.errorCount < s.errors {
 		s.errorCount++

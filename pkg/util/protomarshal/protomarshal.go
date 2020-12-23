@@ -85,6 +85,13 @@ func ApplyJSON(js string, pb proto.Message) error {
 	return nil
 }
 
+// ApplyJSONStrict unmarshals a JSON string into a proto message.
+func ApplyJSONStrict(js string, pb proto.Message) error {
+	reader := strings.NewReader(js)
+	m := jsonpb.Unmarshaler{}
+	return m.Unmarshal(reader, pb)
+}
+
 // ApplyYAML unmarshals a YAML string into a proto message.
 // Unknown fields are allowed.
 func ApplyYAML(yml string, pb proto.Message) error {

@@ -23,10 +23,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
+
+	"istio.io/istio/pkg/kube"
 )
 
 var fakeKubeconfigData = `apiVersion: v1
@@ -95,7 +95,7 @@ func createFakeKubeconfigFileOrDie(t *testing.T) (string, *api.Config) {
 type fakeEnvironment struct {
 	KubeEnvironment
 
-	client                  *fake.Clientset
+	client                  kube.ExtendedClient
 	injectClientCreateError error
 	kubeconfig              string
 	wOut                    bytes.Buffer
@@ -114,7 +114,7 @@ func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.O
 			stderr:     &wErr,
 			kubeconfig: "unused",
 		},
-		client:     fake.NewSimpleClientset(objs...),
+		client:     kube.NewFakeClient(objs...),
 		kubeconfig: "unused",
 		wOut:       wOut,
 		wErr:       wErr,
@@ -123,16 +123,16 @@ func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.O
 	return f
 }
 
-func (f *fakeEnvironment) CreateClientSet(context string) (kubernetes.Interface, error) {
+func (f *fakeEnvironment) CreateClient(_ string) (kube.ExtendedClient, error) {
 	if f.injectClientCreateError != nil {
 		return nil, f.injectClientCreateError
 	}
 	return f.client, nil
 }
 
-func (f *fakeEnvironment) Poll(interval, timeout time.Duration, condition ConditionFunc) error {
+func (f *fakeEnvironment) Poll(_, _ time.Duration, condition ConditionFunc) error {
 	// TODO - add hooks to inject fake timeouts
-	condition()
+	_, _ = condition()
 	return nil
 }
 

@@ -16,6 +16,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -24,9 +25,8 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/compute/v1"
-	"google.golang.org/api/option"
 
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -36,6 +36,7 @@ const (
 	GCPProject           = "gcp_project"
 	GCPProjectNumber     = "gcp_project_number"
 	GCPCluster           = "gcp_gke_cluster_name"
+	GCPClusterURL        = "gcp_gke_cluster_url"
 	GCPLocation          = "gcp_location"
 	GCEInstance          = "gcp_gce_instance"
 	GCEInstanceID        = "gcp_gce_instance_id"
@@ -81,6 +82,23 @@ var (
 			return "", err
 		}
 		return cb, nil
+	}
+
+	constructGKEClusterURL = func(md map[string]string) (string, error) {
+		projectID, found := md[GCPProject]
+		if !found {
+			return "", fmt.Errorf("error constructing GKE cluster url: %s not found in GCP Metadata", GCPProject)
+		}
+		clusterLocation, found := md[GCPLocation]
+		if !found {
+			return "", fmt.Errorf("error constructing GKE cluster url: %s not found in GCP Metadata", GCPLocation)
+		}
+		clusterName, found := md[GCPCluster]
+		if !found {
+			return "", fmt.Errorf("error constructing GKE cluster url: %s not found in GCP Metadata", GCPCluster)
+		}
+		return fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
+			projectID, clusterLocation, clusterName), nil
 	}
 )
 
@@ -157,6 +175,9 @@ func (e *gcpEnv) Metadata() map[string]string {
 	if cb, err := createdByFn(); err == nil {
 		md[GCEInstanceCreatedBy] = cb
 	}
+	if clusterURL, err := constructGKEClusterURL(md); err == nil {
+		md[GCPClusterURL] = clusterURL
+	}
 	e.metadata = md
 	return md
 }
@@ -218,6 +239,8 @@ func (e *gcpEnv) Locality() *core.Locality {
 	return &l
 }
 
+const ComputeReadonlyScope = "https://www.googleapis.com/auth/compute.readonly"
+
 // Labels attempts to retrieve the GCE instance labels within the timeout
 // Requires read access to the Compute API (compute.instances.get)
 func (e *gcpEnv) Labels() map[string]string {
@@ -230,26 +253,28 @@ func (e *gcpEnv) Labels() map[string]string {
 	var instanceLabels map[string]string
 	go func() {
 		// use explicit credentials with compute.instances.get IAM permissions
-		creds, err := google.FindDefaultCredentials(ctx, compute.ComputeReadonlyScope)
+		creds, err := google.FindDefaultCredentials(ctx, ComputeReadonlyScope)
 		if err != nil {
 			log.Warnf("failed to find default credentials: %v", err)
 			success <- false
 			return
 		}
-		computeService, err := compute.NewService(ctx, option.WithCredentials(creds))
+		url := fmt.Sprintf("https://compute.googleapis.com/compute/v1/projects/%s/zones/%s/instances/%s", md[GCPProject], md[GCPLocation], md[GCEInstance])
+		resp, err := oauth2.NewClient(ctx, creds.TokenSource).Get(url)
 		if err != nil {
-			log.Warnf("failed to create new service: %v", err)
+			log.Warnf("unable to retrieve instance labels: %v", err)
+			success <- false
+			return
+
+		}
+		defer resp.Body.Close()
+		instance := &GcpInstance{}
+		if err := json.NewDecoder(resp.Body).Decode(instance); err != nil {
+			log.Warnf("failed to decode response: %v", err)
 			success <- false
 			return
 		}
-		// instance.Labels is nil if no labels are present
-		instanceObj, err := computeService.Instances.Get(md[GCPProject], md[GCPLocation], md[GCEInstance]).Do()
-		if err != nil {
-			log.Warnf("unable to retrieve instance: %v", err)
-			success <- false
-			return
-		}
-		instanceLabels = instanceObj.Labels
+		instanceLabels = instance.Labels
 		success <- true
 	}()
 	select {
@@ -261,6 +286,12 @@ func (e *gcpEnv) Labels() map[string]string {
 		}
 	}
 	return labels
+}
+
+// GcpInstance the instances response. Only contains fields we care about, rest are ignored
+type GcpInstance struct {
+	// Labels: Labels to apply to this instance.
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // Checks metadata to see if GKE metadata or Kubernetes env vars exist

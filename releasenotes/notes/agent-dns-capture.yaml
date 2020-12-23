@@ -1,0 +1,20 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+- 26826
+releaseNotes:
+- |
+  **Added** Experimental DNS resolution in the Istio agent to better support use cases like service entries
+  with TCP services without VIPs, multicluster DNS resolution, and DNS resolution of Kubernetes services
+  from VM sidecars. This feature is disabled by default and can be enabled by setting the following in the
+  Istio Operator: `meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE="true"`.
+
+upgradeNotes:
+- title: Istio CoreDNS Plugin Deprecation
+  content: |
+    In order to provide DNS resolution for ServiceEntries, Istio has provided an optional addon as part of the install to
+    deploy the third party [istio-coredns-plugin](https://github.com/istio-ecosystem/istio-coredns-plugin). In this release,
+    the Istio sidecar can now provide this functionality natively. This can be enabled with the `meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE="true"`.
+
+    As a result, the `istio-coredns-plugin` is now deprecated and will be removed in a future release.

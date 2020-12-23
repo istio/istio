@@ -15,53 +15,53 @@
 package xds
 
 import (
-	"time"
-
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, version string) error {
-	// TODO: Modify interface to take services, and config instead of making library query registry
-	pushStart := time.Now()
-	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
-
-	if s.DebugConfigs {
-		con.XdsListeners = rawListeners
-	}
-	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.node.RequestedTypes.LDS)
-	err := con.send(response)
-	ldsPushTime.Record(time.Since(pushStart).Seconds())
-	if err != nil {
-		recordSendError("LDS", con.ConID, ldsSendErrPushes, err)
-		return err
-	}
-	ldsPushes.Increment()
-
-	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.node.ID, len(rawListeners))
-	return nil
+type LdsGenerator struct {
+	Server *DiscoveryServer
 }
 
-// LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
-	resp := &discovery.DiscoveryResponse{
-		TypeUrl:     typeURL,
-		VersionInfo: version,
-		Nonce:       nonce(noncePrefix),
-	}
-	for _, ll := range ls {
-		if ll == nil {
-			adsLog.Errora("Nil listener ", ll)
-			totalXDSInternalErrors.Increment()
-			continue
-		}
-		lr := util.MessageToAny(ll)
-		lr.TypeUrl = typeURL
-		resp.Resources = append(resp.Resources, lr)
-	}
+var _ model.XdsResourceGenerator = &LdsGenerator{}
 
-	return resp
+// Map of all configs that do not impact LDS
+var skippedLdsConfigs = map[config.GroupVersionKind]struct{}{
+	gvk.DestinationRule: {},
+	gvk.WorkloadGroup:   {},
+	gvk.Secret:          {},
+}
+
+func ldsNeedsPush(req *model.PushRequest) bool {
+	if req == nil {
+		return true
+	}
+	if !req.Full {
+		// LDS only handles full push
+		return false
+	}
+	// If none set, we will always push
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for config := range req.ConfigsUpdated {
+		if _, f := skippedLdsConfigs[config.Kind]; !f {
+			return true
+		}
+	}
+	return false
+}
+
+func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if !ldsNeedsPush(req) {
+		return nil
+	}
+	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, push)
+	resources := model.Resources{}
+	for _, c := range listeners {
+		resources = append(resources, util.MessageToAny(c))
+	}
+	return resources
 }

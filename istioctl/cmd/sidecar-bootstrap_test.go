@@ -29,10 +29,9 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
-
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 type vmBootstrapTestcase struct {

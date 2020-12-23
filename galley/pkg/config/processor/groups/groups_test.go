@@ -23,7 +23,7 @@ import (
 )
 
 func TestDefault(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	actual := groups.IndexFunction("bogus", nil)
 	g.Expect(actual).To(Equal(groups.Default))
 }

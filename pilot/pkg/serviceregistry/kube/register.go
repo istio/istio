@@ -131,7 +131,7 @@ func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName str
 		addLabelsAndAnnotations(&svc.ObjectMeta, labels, annotations)
 		_, err = client.CoreV1().Services(namespace).Create(context.TODO(), &svc, meta_v1.CreateOptions{})
 		if err != nil {
-			log.Errora("Unable to create service: ", err)
+			log.Error("Unable to create service: ", err)
 			return err
 		}
 	}
@@ -144,7 +144,7 @@ func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName str
 		addLabelsAndAnnotations(&endP.ObjectMeta, labels, annotations)
 		eps, err = client.CoreV1().Endpoints(namespace).Create(context.TODO(), &endP, meta_v1.CreateOptions{})
 		if err != nil {
-			log.Errora("Unable to create endpoint: ", err)
+			log.Error("Unable to create endpoint: ", err)
 			return err
 		}
 	}
@@ -183,7 +183,7 @@ func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName str
 	}
 	eps, err = client.CoreV1().Endpoints(namespace).Update(context.TODO(), eps, meta_v1.UpdateOptions{})
 	if err != nil {
-		log.Errora("Update failed with: ", err)
+		log.Error("Update failed with: ", err)
 		return err
 	}
 	total := 0

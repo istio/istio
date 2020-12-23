@@ -47,6 +47,38 @@ func constructTestConfig() *config.Config {
 	}
 }
 
+func TestShortCircuitInternalIterface(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = ""
+	cfg.EnableInboundIPv6 = true
+	cfg.KubevirtInterfaces = "eth0,eth1"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.shortCircuitKubeInternalInterface()
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	expected := []string{
+		"ip6tables -t nat -I PREROUTING 1 -i eth0 -j RETURN",
+		"ip6tables -t nat -I PREROUTING 1 -i eth1 -j RETURN",
+	}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+
+	cfg.EnableInboundIPv6 = false
+	iptConfigurator = NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.shortCircuitKubeInternalInterface()
+	actual = FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	expected = []string{
+		"iptables -t nat -I PREROUTING 1 -i eth0 -j RETURN",
+		"iptables -t nat -I PREROUTING 1 -i eth1 -j RETURN",
+	}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+}
+
 func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.InboundPortsInclude = ""
@@ -87,8 +119,7 @@ func TestRulesWithIpRange(t *testing.T) {
 	cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 	cfg.DryRun = true
-	dnsCaptureByEnvoy.DefaultValue = "ALL"
-	dnsCaptureByAgent.DefaultValue = ""
+	dnsCaptureByAgent = true
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -101,11 +132,10 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -N ISTIO_IN_REDIRECT",
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp --dport 53 -j REDIRECT --to-ports 15053",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
-		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15013",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
@@ -123,7 +153,72 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:15053",
+		"iptables -t nat -A POSTROUTING -p udp --dport 15053 -j SNAT --to-source 127.0.0.1",
 	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
+	}
+}
+
+func TestRulesWithTproxy(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.InboundInterceptionMode = constants.TPROXY
+	cfg.InboundPortsInclude = "*"
+	cfg.OutboundIPRangesExclude = "1.1.0.0/16"
+	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
+	cfg.DryRun = true
+	dnsCaptureByAgent = true
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.cfg.EnableInboundIPv6 = false
+	iptConfigurator.cfg.ProxyGID = "1337"
+	iptConfigurator.cfg.ProxyUID = "1337"
+	iptConfigurator.run()
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	expected := []string{
+		"iptables -t nat -N ISTIO_INBOUND",
+		"iptables -t nat -N ISTIO_REDIRECT",
+		"iptables -t nat -N ISTIO_IN_REDIRECT",
+		"iptables -t mangle -N ISTIO_DIVERT",
+		"iptables -t mangle -N ISTIO_TPROXY",
+		"iptables -t mangle -N ISTIO_INBOUND",
+		"iptables -t nat -N ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp --dport 53 -j REDIRECT --to-ports 15053",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
+		"iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark 1337",
+		"iptables -t mangle -A ISTIO_DIVERT -j ACCEPT",
+		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006",
+		"iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY",
+		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:15053",
+		"iptables -t nat -A POSTROUTING -p udp --dport 15053 -j SNAT --to-source 127.0.0.1",
+		"iptables -t mangle -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark",
+		"iptables -t mangle -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restore-mark",
+		"iptables -t mangle -I ISTIO_INBOUND 1 -p tcp -m mark --mark 1337 -j RETURN",
+	}
+
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
 	}
@@ -538,7 +633,7 @@ func TestHandleInboundPortsIncludeWithInboundPortsAndTproxy(t *testing.T) {
 		"iptables -t mangle -N ISTIO_INBOUND",
 		"iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark 1337",
 		"iptables -t mangle -A ISTIO_DIVERT -j ACCEPT",
-		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15001",
+		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006",
 		"iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND",
 		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT",
 		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -j ISTIO_TPROXY",
@@ -569,7 +664,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 		"iptables -t mangle -N ISTIO_INBOUND",
 		"iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark 1337",
 		"iptables -t mangle -A ISTIO_DIVERT -j ACCEPT",
-		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15001",
+		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006",
 		"iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND",
 		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN",
 		"iptables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT",
@@ -583,8 +678,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 	cfg := constructConfig()
 	cfg.DryRun = true
-	dnsCaptureByEnvoy.DefaultValue = ""
-	dnsCaptureByAgent.DefaultValue = "ALL"
+	dnsCaptureByAgent = true
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -597,11 +691,10 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -N ISTIO_IN_REDIRECT",
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp --dport 53 -j REDIRECT --to-ports 15053",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
-		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15053",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
@@ -616,6 +709,12 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:15053",
+		"iptables -t nat -A POSTROUTING -p udp --dport 15053 -j SNAT --to-source 127.0.0.1",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -626,8 +725,7 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 func TestGenerateEmptyV6ConfigOnV4OnlyEnv(t *testing.T) {
 	cfg := constructConfig()
 	cfg.DryRun = true
-	dnsCaptureByEnvoy.DefaultValue = ""
-	dnsCaptureByAgent.DefaultValue = "ALL"
+	dnsCaptureByAgent = true
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -666,8 +764,7 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.OutboundIPRangesInclude = "127.1.2.3/32"
 	cfg.DryRun = true
-	dnsCaptureByEnvoy.DefaultValue = "ALL"
-	dnsCaptureByAgent.DefaultValue = ""
+	dnsCaptureByAgent = true
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -680,11 +777,10 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 		"iptables -t nat -N ISTIO_IN_REDIRECT",
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp --dport 53 -j REDIRECT --to-ports 15053",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
-		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15013",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 3 -j RETURN",
@@ -697,6 +793,12 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.1.2.3/32 -j ISTIO_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:15053",
+		"iptables -t nat -A POSTROUTING -p udp --dport 15053 -j SNAT --to-source 127.0.0.1",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)

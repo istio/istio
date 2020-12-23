@@ -15,6 +15,7 @@
 package zipkin
 
 import (
+	"net"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/resource"
@@ -32,6 +33,9 @@ type Instance interface {
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
+
+	// HTTP Address of ingress gateway of the cluster to be used to install zipkin in.
+	IngressAddr net.TCPAddr
 }
 
 // Span represents a single span, which includes span attributes for verification

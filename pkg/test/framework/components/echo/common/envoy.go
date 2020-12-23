@@ -23,9 +23,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 
-	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/structpath"
 )
 
 const (
@@ -88,70 +86,4 @@ func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...re
 		return fmt.Errorf("failed waiting for Envoy configuration: %v. Last config_dump:\n%s", err, configDumpStr)
 	}
 	return nil
-}
-
-// OutboundConfigAcceptFunc returns a function that accepts Envoy configuration if it contains
-// outbound configuration for all of the given instances.
-func OutboundConfigAcceptFunc(source echo.Instance, targets ...echo.Instance) ConfigAcceptFunc {
-	return func(cfg *envoyAdmin.ConfigDump) (bool, error) {
-		validator := structpath.ForProto(cfg)
-
-		for _, target := range targets {
-			for _, port := range target.Config().Ports {
-				// Ensure that we have an outbound configuration for the target port.
-				if err := CheckOutboundConfig(source, target, port, validator); err != nil {
-					return false, err
-				}
-			}
-		}
-
-		return true, nil
-	}
-}
-
-// CheckOutboundConfig checks the Envoy config dump for outbound configuration to the given target.
-func CheckOutboundConfig(source echo.Instance, target echo.Instance, port echo.Port, validator *structpath.Instance) error {
-	// Verify that we have an outbound cluster for the target.
-	clusterName := clusterName(target, port)
-	if err := validator.
-		Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", clusterName).
-		Check(); err != nil {
-		if err := validator.
-			Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.edsClusterConfig.serviceName == '%s')]}", clusterName).
-			Check(); err != nil {
-			return err
-		}
-	}
-
-	// For HTTP endpoints, verify that we have a route configured.
-	if port.Protocol.IsHTTP() {
-		rname := routeName(target, port)
-		return validator.
-			Select("{.configs[*].dynamicRouteConfigs[*].routeConfig.virtualHosts[?(@.name == '%s')]}", rname).
-			Exists("{.routes[?(@.route.cluster == '%s')]}", clusterName).
-			Check()
-	}
-
-	if !target.Config().Headless && source.Config().Cluster.Name() == target.Config().Cluster.Name() {
-		// TCP case: Make sure we have an outbound listener configured.
-		listenerName := listenerName(target.Address(), port)
-		return validator.
-			Exists("{.configs[*].dynamicListeners[?(@.name == '%s')]}", listenerName).
-			Check()
-	}
-	return nil
-}
-
-func clusterName(target echo.Instance, port echo.Port) string {
-	cfg := target.Config()
-	return fmt.Sprintf("outbound|%d||%s.%s.svc.%s", port.ServicePort, cfg.Service, cfg.Namespace.Name(), cfg.Domain)
-}
-
-func routeName(target echo.Instance, port echo.Port) string {
-	cfg := target.Config()
-	return fmt.Sprintf("%s:%d", cfg.FQDN(), port.ServicePort)
-}
-
-func listenerName(address string, port echo.Port) string {
-	return fmt.Sprintf("%s_%d", address, port.ServicePort)
 }

@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate sh -c "echo '// Copyright Istio Authors' > filter_types.gen.go"
+//go:generate sh -c "echo '// +build !agent' > filter_types.gen.go"
+//go:generate sh -c "echo '// Copyright Istio Authors' >> filter_types.gen.go"
 //go:generate sh -c "echo '//' >> filter_types.gen.go"
 //go:generate sh -c "echo '// Licensed under the Apache License, Version 2.0 (the \"License\");' >> filter_types.gen.go"
 //go:generate sh -c "echo '// you may not use this file except in compliance with the License.' >> filter_types.gen.go"

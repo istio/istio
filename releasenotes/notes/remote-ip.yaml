@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 22341
+
+releaseNotes:
+  - |
+    **Added** AuthorizationPolicy now supports a Source of type remoteIpBlocks/notRemoteIpBlocks that map to a new Condition attribute called "remote.ip" that can also be used in the "when" clause.  If using an http/https load balancer in front of the ingress gateway, the "remote.ip" attribute is set to the original client IP address determined by the X-Forwarded-For http header from the trusted proxy configured through the numTrustedProxies field of the gatewayTopology under the meshConfig when you install Istio or set it via an annotation on the ingress gateway.  See the documentation here: [Configuring Gateway Network Topology](https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/). If using a TCP load balancer with the Proxy Protocol in front of the ingress gateway, the "remote.ip" is set to the original client IP address as given by the Proxy Protocol.
+  - |
+    **Updated** The ipBlocks/notIpBlocks fields of an AuthorizationPolicy now strictly refer to the source IP address of the IP packet as it arrives to the sidecar.  Prior to this release, if using the Proxy Protocol, then the ipBlocks/notIpBlocks would refer to the IP address determined by the Proxy Protocol.  Now the remoteIpBlocks/notRemoteIpBlocks fields must be used to refer to the client IP address from the Proxy Protocol.
+
+upgradeNotes:
+  - title: Update AuthorizationPolicy resources to use remoteIpBlocks/notRemoteIpBlocks instead of ipBlocks/notIpBlocks if using the Proxy Protocol.
+    content: |
+      If using the Proxy Protocol on a load balancer in front an ingress gateway in conjunction with ipBlocks/notIpBlocks on an AuthorizationPolicy to perform IP-based access control, then please update the AuthorizationPolicy to use remoteIpBlocks/notRemoteIpBlocks instead after upgrading. The ipBlocks/notIpBlocks fields now strictly refer to the source IP address of the packet that arrives at the sidecar. 
+
+docs:
+  - '[reference] https://istio.io/latest/docs/reference/config/security/authorization-policy/'
+  - '[usage] https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/'
+  - '[usage] https://istio.io/latest/docs/tasks/security/authorization/authz-ingress/'

@@ -32,7 +32,7 @@ const (
 )
 
 // Internal constants
-const (
+var (
 	CNIBinDir             = "/opt/cni/bin"
 	HostCNIBinDir         = "/host/opt/cni/bin"
 	SecondaryBinDir       = "/host/secondary-bin-dir"

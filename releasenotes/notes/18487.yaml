@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 18487
+
+releaseNotes:
+- |
+  **Added** `istioctl install` will detect different Istio version installed (istioctl, control plan version) and display warning.

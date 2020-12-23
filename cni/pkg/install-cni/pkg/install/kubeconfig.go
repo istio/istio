@@ -22,11 +22,11 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/pkg/errors"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
+	"istio.io/istio/pkg/file"
 )
 
 const kubeconfigTemplate = `# Kubeconfig file for Istio CNI plugin.
@@ -88,7 +88,7 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepat
 	if cfg.SkipTLSVerify {
 		tlsConfig = "insecure-skip-tls-verify: true"
 	} else {
-		if !fileutil.Exist(caFile) {
+		if !file.Exists(caFile) {
 			return "", fmt.Errorf("file does not exist: %s", caFile)
 		}
 		var caContents []byte
@@ -114,7 +114,7 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepat
 		return
 	}
 	defer func() {
-		if fileutil.Exist(tmpFile.Name()) {
+		if file.Exists(tmpFile.Name()) {
 			if rmErr := os.Remove(tmpFile.Name()); rmErr != nil {
 				if err != nil {
 					err = errors.Wrap(err, rmErr.Error())

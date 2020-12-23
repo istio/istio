@@ -61,20 +61,12 @@ pilot:
   image: pilot
   env:
     GODEBUG: gctrace=1
-  podAntiAffinityLabelSelector:
-  - key: istio
-    operator: In
-    values: pilot
-    topologyKey: "kubernetes.io/hostname"
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
-  policyNamespace: istio-policy
   tag: 1.2.3
-  telemetryNamespace: istio-telemetry
   proxy:
     readinessInitialDelaySeconds: 2
-  controlPlaneSecurityEnabled: false
 `,
 			want: `
 hub: docker.io/istio
@@ -117,21 +109,13 @@ components:
            maxUnavailable: 25%
 values:
   global:
-    controlPlaneSecurityEnabled: false
     istioNamespace: istio-system
     proxy:
       readinessInitialDelaySeconds: 2
-    policyNamespace: istio-policy
-    telemetryNamespace: istio-telemetry
   pilot:
     image: pilot
     autoscaleEnabled: true
     traceSampling: 1
-    podAntiAffinityLabelSelector:
-    - key: istio
-      operator: In
-      values: pilot
-      topologyKey: "kubernetes.io/hostname"
 `,
 		},
 		{
@@ -140,12 +124,8 @@ values:
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
-  policyNamespace: istio-policy
   tag: 1.2.3
-  telemetryNamespace: istio-telemetry
 pilot:
-  enabled: true
-istiocoredns:
   enabled: true
 gateways:
   enabled: true
@@ -176,13 +156,8 @@ components:
         rollingUpdate:
           maxSurge: 4
           maxUnavailable: 1
-addonComponents:
-   istiocoredns:
-      enabled: true
 values:
   global:
-    policyNamespace: istio-policy
-    telemetryNamespace: istio-telemetry
     istioNamespace: istio-system
 `,
 		},
@@ -194,9 +169,7 @@ pilot:
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
-  policyNamespace: istio-policy
   tag: 1.2.3
-  telemetryNamespace: istio-telemetry
 `,
 			want: `
 hub: docker.io/istio
@@ -206,8 +179,6 @@ components:
      enabled: true
 values:
   global:
-    telemetryNamespace: istio-telemetry
-    policyNamespace: istio-policy
     istioNamespace: istio-system
 `,
 		},
@@ -217,7 +188,7 @@ values:
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			valueStruct := v1alpha1.Values{}
-			err := util.UnmarshalValuesWithJSONPB(tt.valueYAML, &valueStruct, false)
+			err := util.UnmarshalWithJSONPB(tt.valueYAML, &valueStruct, false)
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}

@@ -63,3 +63,11 @@ func init() {
 		totalSecretUpdateFailureCounts,
 	)
 }
+
+func resetEnvironments() {
+	totalPushCounts.Record(0)
+	totalPushErrorCounts.Record(0)
+	totalActiveConnCounts.Record(0)
+	totalStaleConnCounts.Record(0)
+	totalSecretUpdateFailureCounts.Record(0)
+}

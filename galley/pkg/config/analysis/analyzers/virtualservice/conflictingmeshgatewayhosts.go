@@ -15,10 +15,10 @@
 package virtualservice
 
 import (
+	"fmt"
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -52,8 +52,14 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 		if len(vsList) > 1 {
 			vsNames := combineResourceEntryNames(vsList)
 			for i := range vsList {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn)))
+
+				m := msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn))
+
+				if line, ok := util.ErrorLine(vsList[i], fmt.Sprintf(util.MetadataName)); ok {
+					m.Line = line
+				}
+
+				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			}
 		}
 	}

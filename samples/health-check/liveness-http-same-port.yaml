@@ -4,6 +4,7 @@ metadata:
   name: liveness-http
   labels:
     app: liveness-http
+    service: liveness-http
 spec:
   ports:
   - name: http

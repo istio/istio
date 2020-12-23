@@ -1,77 +1,47 @@
-# Instructions for building a multi-cluster multi-network mesh
+# Multicluster Samples
 
-These instructions assume a kubeconfig file already exists with the clusters to
-be added to the mesh.
+The samples in this directory help to support multicluster use cases for the
+following configurations:
 
-Pick the mesh specific parameters.
+* Primary-Remote
+* Multinetwork
 
-```bash
-# Organization name for root and intermediate certs.
-export ORG_NAME=jason.example.com
+All of these instructions here assume that Istio has already been deployed to your primary clusters.
 
-# Pick a unique ID for the mesh.b
-export MESH_ID=MyMesh
-```
+## Creating East-West Gateway
 
-Create a working directory for generated certs and configuration.
+All configurations rely on a separate gateway deployment that is dedicated to
+east-west traffic. This is done to avoid having east-west traffic flooding
+the default north-south ingress gateway.
 
-```bash
-export WORKDIR=mesh-workspace
-[ ! -d "${WORKDIR}" ] && mkdir ${WORKDIR}
-```
-
-Prepare the initial configuration for the mesh. This creates a root key and cert
-that will sign intermediate certs for each cluster.
+Run the following command to deploy the east-west gateway to a primary cluster:
 
 ```bash
-./setup-mesh.sh prep_mesh
+export MESH=mesh1
+export CLUSTER=cluster1
+export NETWORK=network1
+./samples/multicluster/gen-eastwest-gateway.sh | \
+    istioctl manifest generate -f - | \
+    kubectl apply -f -
 ```
 
-Add clusters to mesh and apply the configuration to build the multicluster
+The `CLUSTER` and `NETWORK` environment variables should match the values used to deploy the control plane
+in that cluster.
+
+## Primary-Remote Configuration
+
+In order to give a remote cluster access to the control plane (istiod) in a primary cluster,
+we need to expose the istiod service through the east-west gateway:
 
 ```bash
-# add clusters to the mesh following the example in the topology file.
-# Clusters are identified by the context name as defined by the kubeconfig
-# file.
-${EDITOR} ${WORKDIR}/topology.yaml
-
-# apply topology changes
-./setup-mesh.sh apply
+kubectl apply -f samples/multicluster/expose-istiod.yaml
 ```
 
-Install the sample bookinfo application in each cluster.
+## Multi-network Configuration
 
-```bash
-./setup-bookinfo.sh install
-```
+In order to enable cross-cluster load balancing between clusters that are in different
+networks, we need to expose the services through the east-west gateway in each cluster:
 
-Scale the bookinfo services in each cluster to simulate partial service
-availability. The application should continue to function when accessed through
-cluster's gateway.
-
-```bash
-# only serve review-v1 and ratings-v1
-for DEPLOYMENT in details-v1 productpage-v1 reviews-v2 reviews-v3; do
-    kubectl --kubeconfig=${CLUSTER0_KUBECONFIG} --context=${CLUSTER0_CONTEXT} \
-        scale deployment ${DEPLOYMENT} --replicas=0
-done
-
-# only serve review-v2 and productpage-v1
-for DEPLOYMENT in details-v1 reviews-v2 reviews-v3 ratings-v1; do
-    kubectl --kubeconfig=${CLUSTER1_KUBECONFIG} --context=${CLUSTER1_CONTEXT} \
-        scale deployment ${DEPLOYMENT} --replicas=0
-done
-
-# only serve review-v3 and details-v1
-for DEPLOYMENT in productpage-v1 reviews-v2 reviews-v1 ratings-v1; do
-    kubectl --kubeconfig=${CLUSTER2_KUBECONFIG} --context=${CLUSTER2_CONTEXT} \
-        scale deployment ${DEPLOYMENT} --replicas=0
-done
-```
-
-Teardown the mesh and remove the sample bookinfo application.
-
-```bash
-./setup-mesh.sh teardown
-./setup-bookinfo.sh uninstall
-```
+ ```bash
+ kubectl apply -f samples/multicluster/expose-services.yaml
+ ```

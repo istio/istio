@@ -21,11 +21,15 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
+	"istio.io/istio/pilot/pkg/networking/plugin/metadataexchange"
 )
 
 var availablePlugins = map[string]plugin.Plugin{
-	plugin.Authn: authn.NewPlugin(),
-	plugin.Authz: authz.NewPlugin(),
+	// TODO(yangminzhu): Probably better to refactor to use a single plugin for all security filters?
+	plugin.AuthzCustom:      authz.NewPlugin(authz.Custom),
+	plugin.Authn:            authn.NewPlugin(),
+	plugin.Authz:            authz.NewPlugin(authz.Local),
+	plugin.MetadataExchange: metadataexchange.NewPlugin(),
 }
 
 // NewPlugins returns a slice of default Plugins.

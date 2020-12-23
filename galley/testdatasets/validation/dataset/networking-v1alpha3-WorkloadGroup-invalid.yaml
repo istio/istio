@@ -1,0 +1,10 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: reviews
+spec:
+  metadata:
+    labels:
+      app.kubernetes.io/name: reviews
+      app.kubernetes.io/version: "1.3.4"
+      ".": "~"

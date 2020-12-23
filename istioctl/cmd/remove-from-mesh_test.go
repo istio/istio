@@ -140,6 +140,20 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedOutput:    "Error: expecting deployment name\n",
 		},
 		{
+			description:       "Invalid namespace - system namespace not allowed",
+			args:              strings.Split("experimental remove-from-mesh deployment local-path-storage", " "),
+			expectedException: true,
+			namespace:         "local-path-storage",
+			expectedOutput:    "Error: namespace local-path-storage is a system namespace and has no Istio sidecar injected\n",
+		},
+		{
+			description:       "Invalid namespace - system namespace not allowed",
+			args:              strings.Split("experimental remove-from-mesh service istio-ingressgateway", " "),
+			expectedException: true,
+			namespace:         "istio-system",
+			expectedOutput:    "Error: namespace istio-system is a system namespace and has no Istio sidecar injected\n",
+		},
+		{
 			description:       "valid case - remove service from mesh",
 			args:              strings.Split("experimental remove-from-mesh service details", " "),
 			expectedException: false,
@@ -170,6 +184,20 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedOutput:    "Error: deployment \"test\" does not exist\n",
 		},
 		{
+			description:       "service does not exist (with short syntax)",
+			args:              strings.Split("x rm svc test", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfig,
+			expectedOutput:    "Error: service \"test\" does not exist, skip\n",
+		},
+		{
+			description:       "deployment does not exist (with short syntax)",
+			args:              strings.Split("x rm deploy test", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfig,
+			expectedOutput:    "Error: deployment \"test\" does not exist\n",
+		},
+		{
 			description:       "service without deployment",
 			args:              strings.Split("experimental remove-from-mesh service dummyservice", " "),
 			expectedException: false,
@@ -194,6 +222,15 @@ func TestRemoveFromMesh(t *testing.T) {
 		{
 			description:       "ServiceEntry does not exist",
 			args:              strings.Split("experimental remove-from-mesh external-service dummyservice", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfig,
+			dynamicConfigs:    cannedDynamicConfig,
+			namespace:         "default",
+			expectedOutput:    "Error: service entry \"mesh-expansion-dummyservice\" does not exist, skip\n",
+		},
+		{
+			description:       "ServiceEntry does not exist (with short syntax)",
+			args:              strings.Split("x rm es dummyservice", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfig,
 			dynamicConfigs:    cannedDynamicConfig,

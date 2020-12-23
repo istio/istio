@@ -20,17 +20,18 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/clock"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config"
+	"istio.io/pkg/ledger"
 )
 
 func NewIstioContext(stop <-chan struct{}) context.Context {
@@ -63,7 +64,7 @@ type Reporter struct {
 	UpdateInterval         time.Duration
 	PodName                string
 	clock                  clock.Clock
-	store                  model.ConfigStore
+	ledger                 ledger.Ledger
 	distributionEventQueue chan distributionEvent
 }
 
@@ -72,14 +73,13 @@ var _ xds.DistributionStatusCache = &Reporter{}
 const labelKey = "internal.istio.io/distribution-report"
 const dataField = "distribution-report"
 
-// Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
-// with distribution information.  To run in read-only mode, (for supporting istioctl wait), set writeMode = false
-func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store model.ConfigStore, writeMode bool, stop <-chan struct{}) {
-	scope.Info("Starting status follower controller")
+// Init starts all the read only features of the reporter, used for nonce generation
+// and responding to istioctl wait.
+func (r *Reporter) Init(ledger ledger.Ledger) {
+	r.ledger = ledger
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
 	}
-	r.store = store
 	// default UpdateInterval
 	if r.UpdateInterval == 0 {
 		r.UpdateInterval = 500 * time.Millisecond
@@ -89,19 +89,33 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 	r.reverseStatus = make(map[string]map[string]struct{})
 	r.inProgressResources = make(map[string]*inProgressEntry)
 	go r.readFromEventQueue()
-	if !writeMode {
-		return
-	}
+}
+
+// Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
+// with distribution information.
+func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, stop <-chan struct{}) {
+	scope.Info("Starting status follower controller")
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   (r.PodName + "-distribution"),
+			Name:   r.PodName + "-distribution",
 			Labels: map[string]string{labelKey: "true"},
 		},
 		Data: make(map[string]string),
 	}
 	t := r.clock.Tick(r.UpdateInterval)
 	ctx := NewIstioContext(stop)
+	x, err := clientSet.CoreV1().Pods(namespace).Get(ctx, podname, metav1.GetOptions{})
+	if err != nil {
+		scope.Errorf("can't identify pod context: %s", err)
+	} else {
+		r.cm.OwnerReferences = []metav1.OwnerReference{
+			*metav1.NewControllerRef(x, schema.GroupVersionKind{
+				Version: "v1",
+				Kind:    "Pod",
+			}),
+		}
+	}
 	go func() {
 		for {
 			select {
@@ -141,7 +155,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
-			dpVersion, err := r.store.GetResourceAtVersion(nonce, res.ToModelKey())
+			dpVersion, err := r.ledger.GetPreviousValue(nonce, res.ToModelKey())
 			if err == nil && dpVersion == res.ResourceVersion {
 				if _, ok := out.InProgressResources[key]; !ok {
 					out.InProgressResources[key] = len(dataplanes)
@@ -151,7 +165,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 			} else if err != nil {
 				scope.Errorf("Encountered error retrieving version %s of key %s from Store: %v", nonce, key, err)
 				continue
-			} else if nonce == r.store.Version() {
+			} else if nonce == r.ledger.RootHash() {
 				scope.Warnf("Cache appears to be missing latest version of %s", key)
 			}
 			if out.InProgressResources[key] >= out.DataPlaneCount {
@@ -176,7 +190,8 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 		// TODO: handle cache miss
 		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
 		if int64(total) > (time.Minute.Milliseconds() / r.UpdateInterval.Milliseconds()) {
-			//remove from inProgressResources // TODO: cleanup completedResources
+			// remove from inProgressResources
+			// TODO: cleanup completedResources
 			toDelete = append(toDelete, item)
 		} else {
 			r.inProgressResources[item.ToModelKey()].completedIterations = total
@@ -189,7 +204,8 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 
 // This function must be called every time a resource change is detected by pilot.  This allows us to lookup
 // only the resources we expect to be in flight, not the ones that have already distributed
-func (r *Reporter) AddInProgressResource(res model.Config) {
+func (r *Reporter) AddInProgressResource(res config.Config) {
+	tryLedgerPut(r.ledger, res)
 	myRes := ResourceFromModelConfig(res)
 	if myRes == nil {
 		scope.Errorf("Unable to locate schema for %v, will not update status.", res)
@@ -203,7 +219,8 @@ func (r *Reporter) AddInProgressResource(res model.Config) {
 	}
 }
 
-func (r *Reporter) DeleteInProgressResource(res model.Config) {
+func (r *Reporter) DeleteInProgressResource(res config.Config) {
+	tryLedgerDelete(r.ledger, res)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.inProgressResources, res.Key())
@@ -213,7 +230,7 @@ func (r *Reporter) DeleteInProgressResource(res model.Config) {
 func (r *Reporter) writeReport(ctx context.Context) {
 	report, finishedResources := r.buildReport()
 	go r.removeCompletedResource(finishedResources)
-	//write to kubernetes here.
+	// write to kubernetes here.
 	reportbytes, err := yaml.Marshal(report)
 	if err != nil {
 		scope.Errorf("Error serializing Distribution Report: %v", err)
@@ -230,7 +247,7 @@ func (r *Reporter) writeReport(ctx context.Context) {
 // this is lifted with few modifications from kubeadm's apiclient
 func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v1.ConfigMapInterface) (res *corev1.ConfigMap, err error) {
 	if res, err = client.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
-		if !apierrors.IsAlreadyExists(err) && !apierrors.IsInvalid(err) {
+		if !apierrors.IsAlreadyExists(err) {
 			scope.Errorf("%v", err)
 			return nil, errors.Wrap(err, "unable to create ConfigMap")
 		}
@@ -249,7 +266,7 @@ type distributionEvent struct {
 }
 
 func (r *Reporter) QueryLastNonce(conID string, distributionType xds.EventType) (noncePrefix string) {
-	key := conID + string(distributionType)
+	key := conID + distributionType
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.status[key]
@@ -259,6 +276,12 @@ func (r *Reporter) QueryLastNonce(conID string, distributionType xds.EventType) 
 // Theoretically, we could use the ads connections themselves to harvest this data,
 // but the mutex there is pretty hot, and it seems best to trade memory for time.
 func (r *Reporter) RegisterEvent(conID string, distributionType xds.EventType, nonce string) {
+	// Skip unsupported event types. This ensures we do not leak memory for types
+	// which may not be handled properly. For example, a type not in AllEventTypes
+	// will not be properly unregistered.
+	if _, f := xds.AllEventTypes[distributionType]; !f {
+		return
+	}
 	d := distributionEvent{nonce: nonce, distributionType: distributionType, conID: conID}
 	select {
 	case r.distributionEventQueue <- d:
@@ -275,11 +298,12 @@ func (r *Reporter) readFromEventQueue() {
 	}
 
 }
+
 func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
-	key := conID + string(distributionType) // TODO: delimit?
+	key := conID + distributionType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string
 	if len(nonce) > 12 {
@@ -314,7 +338,7 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	defer r.mu.Unlock()
 	r.dirty = true
 	for _, xdsType := range types {
-		key := conID + string(xdsType) // TODO: delimit?
+		key := conID + xdsType // TODO: delimit?
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}

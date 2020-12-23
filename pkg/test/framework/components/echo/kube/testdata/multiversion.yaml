@@ -58,6 +58,8 @@ spec:
           - "3333"
           - --version
           - "v-istio"
+          - --crt=/cert.crt
+          - --key=/cert.key
         ports:
         - containerPort: 8090
         - containerPort: 9000
@@ -65,6 +67,11 @@ spec:
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /
@@ -76,6 +83,11 @@ spec:
           tcpSocket:
             port: tcp-health-port
           initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
           periodSeconds: 10
           failureThreshold: 10
 ---
@@ -119,6 +131,8 @@ spec:
           - "3333"
           - --version
           - "v-legacy"
+          - --crt=/cert.crt
+          - --key=/cert.key
         ports:
         - containerPort: 8090
         - containerPort: 9000
@@ -126,6 +140,11 @@ spec:
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         readinessProbe:
           httpGet:
             path: /
@@ -137,6 +156,11 @@ spec:
           tcpSocket:
             port: tcp-health-port
           initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
           periodSeconds: 10
           failureThreshold: 10
 ---

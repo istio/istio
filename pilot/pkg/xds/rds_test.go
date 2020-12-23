@@ -14,20 +14,15 @@
 package xds_test
 
 import (
-	"fmt"
-	"io/ioutil"
 	"testing"
 
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/istio/tests/util"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
+	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
-// TestRDS is running RDSv2 tests.
 func TestRDS(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
 	tests := []struct {
 		name   string
 		node   string
@@ -52,29 +47,11 @@ func TestRDS(t *testing.T) {
 		},
 	}
 
-	for idx, tt := range tests {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer cancel()
-
-			err = sendRDSReq(tt.node, tt.routes, "", "", rdsr)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			res, err := rdsr.Recv()
-			if err != nil {
-				t.Fatal("Failed to receive RDS", err)
-			}
-
-			strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
-			_ = ioutil.WriteFile(env.IstioOut+fmt.Sprintf("/rdsv2/%s_%d.json", tt.name, idx), []byte(strResponse), 0644)
-			if len(res.Resources) == 0 {
-				t.Fatal("No response")
-			}
+			ads := s.ConnectADS().WithType(v3.RouteType).WithID(tt.node)
+			ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: tt.routes})
 		})
 	}
 }

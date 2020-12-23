@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 25591
+releaseNotes:
+  - |
+    **Added** action 'AUDIT' to Authorization Policy that can be used to determine which requests should be audited.

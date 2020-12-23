@@ -60,4 +60,6 @@ spec:
             value: mongodb://mongodb:27017/test
         ports:
         - containerPort: 9080
+        securityContext:
+          runAsUser: 1000
 ---

@@ -19,6 +19,7 @@ import (
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 )
 
 func TestListenerFilter_Verify(t *testing.T) {
@@ -78,7 +79,7 @@ func TestListenerFilter_Verify(t *testing.T) {
 			inListener: &listener.Listener{
 				FilterChains: []*listener.FilterChain{{
 					Filters: []*listener.Filter{{
-						Name: "envoy.http_connection_manager",
+						Name: wellknown.HTTPConnectionManager,
 					},
 					},
 				},
@@ -94,13 +95,13 @@ func TestListenerFilter_Verify(t *testing.T) {
 			inListener: &listener.Listener{
 				FilterChains: []*listener.FilterChain{{
 					Filters: []*listener.Filter{{
-						Name: "envoy.tcp_proxy",
+						Name: wellknown.TCPProxy,
 					},
 						{
-							Name: "envoy.tcp_proxy",
+							Name: wellknown.TCPProxy,
 						},
 						{
-							Name: "envoy.http_connection_manager",
+							Name: wellknown.HTTPConnectionManager,
 						}},
 				}},
 			},
@@ -114,7 +115,7 @@ func TestListenerFilter_Verify(t *testing.T) {
 			inListener: &listener.Listener{
 				FilterChains: []*listener.FilterChain{{
 					Filters: []*listener.Filter{{
-						Name: "envoy.tcp_proxy",
+						Name: wellknown.TCPProxy,
 					}},
 				}},
 			},

@@ -71,7 +71,7 @@ func DeRegisterEndpoint(client kubernetes.Interface, namespace string, svcName s
 	var match bool
 	eps, err := client.CoreV1().Endpoints(namespace).Get(context.TODO(), svcName, getOpt)
 	if err != nil {
-		log.Errora("Endpoint not found for service ", svcName)
+		log.Error("Endpoint not found for service ", svcName)
 		return err
 	}
 	match = removeIPFromEndpoint(eps, ip)
@@ -81,12 +81,12 @@ func DeRegisterEndpoint(client kubernetes.Interface, namespace string, svcName s
 			before, report proper error message.
 		*/
 		err = fmt.Errorf("could not find ip %s in svc %s endpoints", ip, svcName)
-		log.Errora(err)
+		log.Error(err)
 		return err
 	}
 	eps, err = client.CoreV1().Endpoints(namespace).Update(context.TODO(), eps, meta_v1.UpdateOptions{})
 	if err != nil {
-		log.Errora("Update failed with: ", err)
+		log.Error("Update failed with: ", err)
 		return err
 	}
 	log.Infof("Endpoint updated %v", eps)

@@ -19,17 +19,25 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 // Probe for readiness.
 type Probe struct {
 	LocalHostAddr       string
-	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
+	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
+	atleastOnceReady bool
 }
+
+type Prober interface {
+	// Check executes the probe and returns an error if the probe fails.
+	Check() error
+}
+
+var _ Prober = &Probe{}
 
 // Check executes the probe and returns an error if the probe fails.
 func (p *Probe) Check() error {
@@ -63,7 +71,27 @@ func (p *Probe) checkConfigStatus() error {
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
 func (p *Probe) isEnvoyReady() error {
-	state, ws, err := util.GetReadinessStats(p.LocalHostAddr, p.AdminPort)
+	// If Envoy is ready atleast once i.e. server state is LIVE and workers
+	// have started, they will not go back in the life time of Envoy process.
+	// They will only change at hot restart or health check fails. Since Istio
+	// does not use both of them, it is safe to cache this value. Since the
+	// actual readiness probe goes via Envoy it ensures that Envoy is actively
+	// serving traffic and we can rely on that.
+	if p.atleastOnceReady {
+		return nil
+	}
+
+	err := checkEnvoyStats(p.LocalHostAddr, p.AdminPort)
+	if err == nil {
+		metrics.RecordStartupTime()
+		p.atleastOnceReady = true
+	}
+	return err
+}
+
+// checkEnvoyStats actually executes the Stats Query on Envoy admin endpoint.
+func checkEnvoyStats(host string, port uint16) error {
+	state, ws, err := util.GetReadinessStats(host, port)
 	if err != nil {
 		return fmt.Errorf("failed to get readiness stats: %v", err)
 	}

@@ -22,14 +22,13 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/istio/pkg/security"
-	"istio.io/pkg/env"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/security"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -44,6 +43,7 @@ var (
 	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
 	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
 	// with extra SAN (labels, etc) in data path.
+	// TODO: move to main, stop using directly - security.Options instead !
 	ProvCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
 )
@@ -77,8 +77,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 }
 
 // CSR Sign calls Citadel to sign a CSR.
-func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
-	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
@@ -88,6 +87,7 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		token = bearerTokenPrefix + token
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
 	} else {
+		// This may use the per call credentials, if enabled.
 		err := c.reconnect()
 		if err != nil {
 			citadelClientLog.Errorf("Failed to Reconnect: %v", err)
@@ -120,12 +120,14 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 		if err != nil {
 			return nil, err
 		}
+		citadelClientLog.Info("Citadel client using public DNS: ", c.caEndpoint)
 	} else {
 		certPool = x509.NewCertPool()
 		ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
 		if !ok {
 			return nil, fmt.Errorf("failed to append certificates")
 		}
+		citadelClientLog.Info("Citadel client using custom root cert: ", c.caEndpoint)
 	}
 	var certificate tls.Certificate
 	config := tls.Config{

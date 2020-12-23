@@ -18,8 +18,8 @@ spec:
 
       multiCluster:
         enabled: true
-
-      controlPlaneSecurityEnabled: true
+        globalDomainSuffix: global
+        includeEnvoyFilter: true
 
     gateways:
       istio-egressgateway:

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issues:
+- 26079
+releaseNotes:
+- |
+  **Fixed** an issue resulting in failure when sending external HTTPS traffic on an HTTP port.

@@ -16,34 +16,12 @@ package xds_test
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/tests/util"
 )
 
 func TestCDS(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
-	cdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = sendCDSReq(sidecarID(app3Ip, "app3"), cdsr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
-	res, err := cdsr.Recv()
-	if err != nil {
-		t.Fatal("Failed to receive CDS", err)
-		return
-	}
-
-	if len(res.Resources) == 0 {
-		t.Fatal("No response")
-	}
-	if res.Resources[0].GetTypeUrl() != v3.ClusterType {
-		t.Fatalf("Unexpected type url. want: %v, got: %v", v3.ClusterType, res.Resources[0].GetTypeUrl())
-	}
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ads := s.ConnectADS().WithType(v3.ClusterType)
+	ads.RequestResponseAck(nil)
 }

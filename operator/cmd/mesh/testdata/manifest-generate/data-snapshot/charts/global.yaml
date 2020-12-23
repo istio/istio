@@ -1,7 +1,7 @@
 # Global and common settings for installing Istio.
 
 # This file is configured for a small scale production cluster.
-# Use user-values-medium or custom settings to tune up the CPU and scaling.
+# Use custom settings to tune up the CPU and scaling.
 # Additional values overrides can be used.
 
 # Each individual component will use values from this file, with defaults and 'advanced' settings included in
@@ -13,22 +13,8 @@
 # This doesn't match istio defaults, which are more geared towards tests and bookinfo.
 
 global:
-  # Used to locate istio-pilot.
-  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
-  # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
-  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
-  # used (citadel generating the secrets).
+  # Used to locate istiod.
   istioNamespace: istio-system
-
-  # Telemetry namespace, including tracing.
-  telemetryNamespace: istio-system
-
-  prometheusNamespace: istio-system
-
-  policyNamespace: istio-system
-
-  ## End new settings
-  ## After this line we have the old Istio settings.
 
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
@@ -50,9 +36,11 @@ global:
   # Enabled by default in master for maximising testing.
   istiod:
     enableAnalysis: false
-
-  # One central istiod controls all remote clusters: disabled by default
+  # `centralIstiod` flag will be deprecated in favor of `externalIstiod` to better support external control plane model.
+  # central istiod controls all remote clusters: disabled by default
   centralIstiod: false
+  # external istiod controls all remote clusters: disabled by default
+  externalIstiod: false
 
   proxy:
     image: proxyv2
@@ -89,7 +77,7 @@ global:
     # The initial delay for readiness probes in seconds.
     readinessInitialDelaySeconds: 1
 
-    # The period between readiness probes.
+    # The period between readiness probes in seconds.
     readinessPeriodSeconds: 2
 
     # The number of successive failed probes before indicating readiness failure.
@@ -130,10 +118,6 @@ global:
   # Specify image pull policy if default behavior isn't desired.
   # Default behavior: latest images will be Always else IfNotPresent.
   imagePullPolicy: ""
-
-  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
-  # propagated, not recommended for tests.
-  controlPlaneSecurityEnabled: true
 
   # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
   mountMtlsCerts: false
@@ -233,6 +217,10 @@ global:
     # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
     # to properly label proxies
     clusterName: ""
+    # The suffix for global service names
+    globalDomainSuffix: "global"
+    # Enable envoy filter to translate `globalDomainSuffix` to cluster local suffix for cross cluster communication
+    includeEnvoyFilter: true
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
@@ -260,16 +248,8 @@ global:
   # for more detail.
   priorityClassName: ""
 
-  # Use the Mesh Control Protocol (MCP) for configuring Mixer and Pilot. Requires an MCP source.
+  # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
-
-  # The trust domain corresponds to the trust root of a system
-  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-  # Indicate the domain used in SPIFFE identity URL
-  # The default depends on the environment.
-  #   kubernetes: cluster.local
-  #   else:  default dns domain
-  trustDomain: "cluster.local"
 
   # Mesh ID means Mesh Identifier. It should be unique within the scope where
   # meshes will interact with each other, but it is not required to be
@@ -353,10 +333,6 @@ global:
   # corresponds to the networks in the map of mesh networks.
   network: ""
 
-  # Specifies whether helm test is enabled or not.
-  # This field is set to false by default, so 'helm template ...'
-  # will ignore the helm test yaml files when generating the template
-  enableHelmTest: false
   # Configure whether Operator manages webhook configurations. The current behavior
   # of Istiod is to manage its own webhook configurations.
   # When this option is set as true, Istio Operator, instead of webhooks, manages the
@@ -364,13 +340,8 @@ global:
   # own webhook configurations.
   operatorManageWebhooks: false
 
-  # Settings for remote cluster.
-  createRemoteSvcEndpoints: false
-  
   # configure remote pilot and istiod service and endpoint
-  remotePolicyAddress: ""
   remotePilotAddress: ""
-  remoteTelemetryAddress: ""
 
   # Configure the certificate provider for control plane communication.
   # Currently, two providers are supported: "kubernetes" and "istiod".
@@ -382,16 +353,8 @@ global:
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"
 
-# Internal setting - used when generating helm templates for kustomize.
-# clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.
-# For backward compat, it is set to 'true', resulting in the old-style installation.
-# When set to 'false', all cluster-wide resources will be omitted, and are expected to be installed
-# at the same time with the CRDs.
-clusterResources: true
-
-# Version is set as 'version' label and part of the resource names when installing.
-# It is used to support multiple version in same namespace, similar with normal app traffic shift.
-version: ""
+  # Deprecated, use meshConfig.trustDomain
+  trustDomain: ""
 
 meshConfig:
   enablePrometheusMerge: true

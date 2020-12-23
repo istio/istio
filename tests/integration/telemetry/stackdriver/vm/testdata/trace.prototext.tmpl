@@ -1,0 +1,35 @@
+project_id:"projects/test-project"
+spans:{ 
+    labels:{key:"OperationName"  value:"Ingress"}
+    labels:{key:"component"  value:"proxy"}
+    labels:{key:"downstream_cluster"  value:"-"}
+    labels:{key:"http.method"  value:"GET"} 
+    labels:{key:"http.protocol"  value:"HTTP/1.1"}
+    labels:{key:"http.status_code"  value:"200"}
+    labels:{key:"http.url"  value:"http://server.{{ .EchoNamespace }}.svc.cluster.local/"}
+    labels:{key:"istio.canonical_service"  value:"vm-server"}
+    labels:{key:"istio.canonical_revision"  value:"v1"}
+    labels:{key:"istio.mesh_id"  value:"proj-test-mesh"}
+    labels:{key:"istio.namespace"  value:"{{ .EchoNamespace }}"}
+    labels:{key:"request_size"  value:"0"}
+    labels:{key:"response_flags"  value:"-"}
+    labels:{key:"span"  value:"server.{{ .EchoNamespace }}.svc.cluster.local:8090/*"}
+    labels:{key:"upstream_cluster"  value:"inbound|8090||"}
+    labels:{key:"user_agent"  value:"Go-http-client/1.1"}}
+spans:{
+    labels:{key:"OperationName" value:"Egress"}
+    labels:{key:"component"  value:"proxy"}
+    labels:{key:"downstream_cluster"  value:"-"}
+    labels:{key:"http.method"  value:"GET"}
+    labels:{key:"http.protocol"  value:"HTTP/1.1"}
+    labels:{key:"http.status_code"  value:"200"}
+    labels:{key:"http.url"  value:"http://server.{{ .EchoNamespace }}.svc.cluster.local/"}
+    labels:{key:"istio.canonical_service"  value:"client"}
+    labels:{key:"istio.canonical_revision"  value:"v1"}
+    labels:{key:"istio.mesh_id"  value:"proj-test-mesh"}
+    labels:{key:"istio.namespace"  value:"{{ .EchoNamespace }}"}
+    labels:{key:"request_size"  value:"0"}
+    labels:{key:"response_flags"  value:"-"}
+    labels:{key:"span"  value:"server.{{ .EchoNamespace }}.svc.cluster.local:8090/*"}
+    labels:{key:"upstream_cluster"  value:"outbound|8090||server.{{ .EchoNamespace }}.svc.cluster.local"}
+    labels:{key:"user_agent"  value:"Go-http-client/1.1"}}

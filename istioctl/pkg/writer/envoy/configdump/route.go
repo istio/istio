@@ -70,6 +70,13 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 								describeManagement(r.GetMetadata()))
 						}
 					}
+					if len(vhosts.Routes) == 0 {
+						fmt.Fprintf(w, "%v\t%s\t%s\t%s\n",
+							route.Name,
+							describeRouteDomains(vhosts.GetDomains()),
+							"/*",
+							"404")
+					}
 				}
 			} else {
 				fmt.Fprintf(w, "%v\t%v\n", route.Name, len(route.GetVirtualHosts()))
@@ -137,7 +144,7 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 	if err != nil {
 		return err
 	}
-	filteredRoutes := protio.MessageSlice{}
+	filteredRoutes := make(protio.MessageSlice, 0, len(routes))
 	for _, route := range routes {
 		if filter.Verify(route) {
 			filteredRoutes = append(filteredRoutes, route)

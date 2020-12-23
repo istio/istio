@@ -1,0 +1,78 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: default
+spec:
+  gatewayClassName: istio
+  listeners:
+  - hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    routes:
+      namespaces:
+        from: All
+      kind: HTTPRoute
+  - port: 34000
+    protocol: TCP
+    routes:
+      namespaces:
+        from: All
+      kind: TCPRoute
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: default
+spec:
+  hostnames: ["first.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /get
+    forwardTo:
+      - serviceName: httpbin
+        port: 80
+        weight: 2
+      - serviceName: httpbin-other
+        port: 8080
+        weight: 3
+  - matches:
+    - path:
+        type: Prefix
+        value: /weighted-100
+    forwardTo:
+    - filters:
+      - requestHeaderModifier:
+          add:
+            foo: bar
+        type: RequestHeaderModifier
+      port: 8000
+      serviceName: foo-svc
+      weight: 100
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: TCPRoute
+metadata:
+  name: tcp
+  namespace: default
+  labels:
+    selected: "yes"
+spec:
+  rules:
+  - forwardTo:
+    - serviceName: httpbin
+      port: 9090
+      weight: 1
+    - serviceName: httpbin-alt
+      port: 9090
+      weight: 2

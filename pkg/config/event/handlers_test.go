@@ -25,7 +25,7 @@ import (
 )
 
 func TestHandlers_Handle_Zero(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	hs := &event.Handlers{}
 	g.Expect(hs.Size()).To(Equal(0))
 
@@ -33,7 +33,7 @@ func TestHandlers_Handle_Zero(t *testing.T) {
 }
 
 func TestHandlers_Handle_One(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	hs := &event.Handlers{}
 
@@ -48,7 +48,7 @@ func TestHandlers_Handle_One(t *testing.T) {
 }
 
 func TestHandlers_Handle_Multiple(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	hs := &event.Handlers{}
 
@@ -69,7 +69,7 @@ func TestHandlers_Handle_Multiple(t *testing.T) {
 }
 
 func TestHandlers_Handle_Multiple_MultipleEvents(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	hs := &event.Handlers{}
 
@@ -89,7 +89,7 @@ func TestHandlers_Handle_Multiple_MultipleEvents(t *testing.T) {
 }
 
 func TestHandlers_CombineHandlers_SentinelFirst(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h1 := event.SentinelHandler()
 	h2 := &fixtures.Accumulator{}
@@ -106,7 +106,7 @@ func TestHandlers_CombineHandlers_SentinelFirst(t *testing.T) {
 }
 
 func TestHandlers_CombineHandlers_SentinelSecond(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	h1 := &fixtures.Accumulator{}
 	h2 := event.SentinelHandler()
