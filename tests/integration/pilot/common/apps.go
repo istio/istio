@@ -216,7 +216,8 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 			})
 	}
 	if !ctx.Settings().SkipVM {
-		for _, c := range ctx.Clusters().ByNetwork() {
+		// It only makes sense to deploy echo VMs on a primary cluster.
+		for _, cluster := range ctx.Clusters().Primaries() {
 			builder.With(nil, echo.Config{
 				Service:           VMSvc,
 				Namespace:         apps.Namespace,
@@ -224,7 +225,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments) er
 				DeployAsVM:        true,
 				AutoRegisterVM:    !ctx.Clusters().IsMulticluster(), // TODO support auto-registration with multi-primary
 				Subsets:           []echo.SubsetConfig{{}},
-				Cluster:           c[0],
+				Cluster:           cluster,
 				WorkloadOnlyPorts: WorkloadPorts,
 			})
 		}
