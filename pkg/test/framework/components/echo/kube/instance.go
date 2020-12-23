@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/shell"
+
 	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
+	kubeTest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -583,4 +586,56 @@ func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
 		t.Fatal(err)
 	}
 	return r
+}
+
+func (c *instance) Rollout() error {
+	if err := c.Close(); err != nil {
+		return err
+	}
+
+	// fetch original pod count so we can know when the rollout is complete
+	fetch := kubeTest.NewPodMustFetch(c.cluster, c.Config().Namespace.Name(), fmt.Sprintf("%s=%s", "app", c.Config().Service))
+	origPods, err := fetch()
+	if err != nil {
+		return err
+	}
+	if err := c.restartNamespaceDeployments(); err != nil {
+		return err
+	}
+	// give the rollout a few seconds to get underway
+	time.Sleep(time.Second * 3)
+	var pods []kubeCore.Pod
+	err = retry.UntilSuccess(func() error {
+		pods, err = kubeTest.CheckPodsAreReady(fetch)
+		if err != nil {
+			return err
+		}
+		if len(pods) != len(origPods) {
+			return fmt.Errorf("wrong pod count, wanted %d got %d", len(origPods), len(pods))
+		}
+
+		return nil
+	}, retry.Delay(time.Second), retry.Timeout(time.Second*30))
+	if err != nil {
+		return err
+	}
+
+	// nil out the workloads and reinitialize
+	c.workloads = nil
+	if err := c.initialize(pods); err != nil {
+		return err
+	}
+	return nil
+}
+
+//restartNamespaceDeployments performs a `kubectl rollout restart` on the instance namespace.
+func (c *instance) restartNamespaceDeployments() error {
+	var errs error
+	for _, s := range c.cfg.Subsets {
+		deploymentName := fmt.Sprintf("%s-%s", c.cfg.Service, s.Version)
+		execCmd := fmt.Sprintf("kubectl rollout restart deployment/%s -n %s", deploymentName, c.cfg.Namespace.Name())
+		_, err := shell.Execute(true, execCmd)
+		errs = multierror.Append(errs, err).ErrorOrNil()
+	}
+	return errs
 }

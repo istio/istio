@@ -120,6 +120,10 @@ func (*testConfig) ForwardEcho(_ context.Context, _ *proto.ForwardEchoRequest) (
 	panic("not implemented")
 }
 
+func (*testConfig) Rollout() error {
+	panic("not implemented")
+}
+
 type fakeNamespace struct {
 	name string
 }

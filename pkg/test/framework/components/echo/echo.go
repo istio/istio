@@ -76,6 +76,9 @@ type Instance interface {
 	// options. If no options are provided, uses defaults.
 	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
 	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) client.ParsedResponses
+
+	// Rollout restarts the workloads associated with this echo instance
+	Rollout() error
 }
 
 // Workload port exposed by an Echo instance

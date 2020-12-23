@@ -49,7 +49,6 @@ func TestMultiVersionRevision(t *testing.T) {
 			skipIfK8sVersionUnsupported(ctx)
 
 			// keep these at the latest patch version of each minor version
-			// TODO(samnaser) add 1.7.4 once we flag-protection for reading service-api CRDs (https://github.com/istio/istio/issues/29054)
 			installVersions := []string{"1.6.11", "1.7.6", "1.8.0"}
 
 			// keep track of applied configurations and clean up after the test
