@@ -17,7 +17,9 @@ package v1beta1
 import (
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -32,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	security_utils "istio.io/istio/pilot/pkg/security"
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -55,6 +58,8 @@ type v1beta1PolicyApplier struct {
 	processedJwtRules []*v1beta1.JWTRule
 
 	consolidatedPeerPolicy *v1beta1.PeerAuthentication
+
+	push *model.PushContext
 }
 
 func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
@@ -62,7 +67,7 @@ func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 		return nil
 	}
 
-	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules)
+	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push)
 
 	if filterConfigProto == nil {
 		return nil
@@ -193,7 +198,8 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPat
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(rootNamespace string,
 	jwtPolicies []*config.Config,
-	peerPolicies []*config.Config) authn.PolicyApplier {
+	peerPolicies []*config.Config,
+	push *model.PushContext) authn.PolicyApplier {
 	processedJwtRules := []*v1beta1.JWTRule{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
@@ -215,6 +221,7 @@ func NewPolicyApplier(rootNamespace string,
 		peerPolices:            peerPolicies,
 		processedJwtRules:      processedJwtRules,
 		consolidatedPeerPolicy: composePeerAuthentication(rootNamespace, peerPolicies),
+		push:                   push,
 	}
 }
 
@@ -228,7 +235,7 @@ func createFakeJwks(jwksURI string) string {
 // Each rule is expected corresponding to one JWT issuer (provider).
 // The behavior of the filter should reject all requests with invalid token. On the other hand,
 // if no token provided, the request is allowed.
-func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthentication {
+func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}
@@ -260,9 +267,19 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		}
 		provider.FromParams = jwtRule.FromParams
 		jwtPubKey := jwtRule.Jwks
+		u, _ := url.Parse(jwtRule.JwksUri)
+		hostAndPort := strings.Split(u.Host, ":")
+		host := hostAndPort[0]
+		port := 80
+		if len(hostAndPort) == 2 {
+			var err error
+			if port, err = strconv.Atoi(hostAndPort[1]); err != nil {
+				port = 80 // If port is not specified or there is an error in parsing default to 80.
+			}
+		}
+		_, cluster, err := security_utils.LookupCluster(push, host, port)
 		isMeshCluster := false
-		direction, _, host, port := model.ParseSubsetKey(jwtRule.Issuer)
-		if direction == model.TrafficDirectionOutbound && len(host) > 0 && port > 0 {
+		if err == nil && len(cluster) > 0 {
 			isMeshCluster = true
 		}
 		if len(jwtPubKey) > 0 {
@@ -275,13 +292,13 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 				},
 			}
 		} else if isMeshCluster && features.EnableRemoteJwks {
-			// If Issuer is a mesh cluster configure Remote Jwks.
+			// If uri is a mesh cluster configure Remote Jwks.
 			provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
 				RemoteJwks: &envoy_jwt.RemoteJwks{
 					HttpUri: &core.HttpUri{
 						Uri: jwtRule.JwksUri,
 						HttpUpstreamType: &core.HttpUri_Cluster{
-							Cluster: jwtRule.Issuer,
+							Cluster: cluster,
 						},
 					},
 					CacheDuration: &duration.Duration{Seconds: 5 * 60}, // TODO: Make this configurable if needed.

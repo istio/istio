@@ -32,10 +32,9 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/security"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pkg/config/host"
 )
 
 const (
@@ -195,40 +194,7 @@ func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 }
 
 func parseService(in *plugin.InputParams, service string, port int) (hostname string, cluster string, err error) {
-	if service == "" {
-		err = fmt.Errorf("service must not be empty")
-		return
-	}
-
-	// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
-	if parts := strings.Split(service, "/"); len(parts) == 2 {
-		namespace, name := parts[0], parts[1]
-		if svc := in.Push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
-			hostname = string(svc.Hostname)
-			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
-			return
-		}
-	} else {
-		namespaceToServices := in.Push.ServiceIndex.HostnameAndNamespace[host.Name(service)]
-		var namespaces []string
-		for k := range namespaceToServices {
-			namespaces = append(namespaces, k)
-		}
-		// If namespace is omitted, return successfully if there is only one such host name in the service index.
-		if len(namespaces) == 1 {
-			svc := namespaceToServices[namespaces[0]]
-			hostname = string(svc.Hostname)
-			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
-			return
-		} else if len(namespaces) > 1 {
-			err = fmt.Errorf("found %s in multiple namespaces %v, specify the namespace explicitly in "+
-				"the format of <Namespace>/<Hostname>", service, namespaces)
-			return
-		}
-	}
-
-	err = fmt.Errorf("could not find service %s in Istio service registry", service)
-	return
+	return security.LookupCluster(in.Push, service, port)
 }
 
 func parsePort(port uint32) (int, error) {

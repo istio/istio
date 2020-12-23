@@ -39,6 +39,7 @@ import (
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
 	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 	protovalue "istio.io/istio/pkg/proto"
@@ -143,7 +144,7 @@ func TestJwtFilter(t *testing.T) {
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
 							{
-								Issuer:  "outbound|7443||jwt-token-issueer.mesh.svc.cluster.local",
+								Issuer:  "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
 								JwksUri: jwksURI,
 							},
 						},
@@ -184,7 +185,7 @@ func TestJwtFilter(t *testing.T) {
 							},
 							Providers: map[string]*envoy_jwt.JwtProvider{
 								"origins-0": {
-									Issuer: "outbound|7443||jwt-token-issueer.mesh.svc.cluster.local",
+									Issuer: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
@@ -193,7 +194,7 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "outbound|7443||jwt-token-issueer.mesh.svc.cluster.local",
+									PayloadInMetadata: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
 								},
 							},
 						}),
@@ -207,8 +208,8 @@ func TestJwtFilter(t *testing.T) {
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
 							{
-								Issuer:  "outbound|7443||jwt-token-issueer.mesh.svc.cluster.local",
-								JwksUri: jwksURI,
+								Issuer:  "mesh cluster",
+								JwksUri: "http://jwt-token-issuer.mesh:7443/jwks",
 							},
 						},
 					},
@@ -249,20 +250,20 @@ func TestJwtFilter(t *testing.T) {
 							},
 							Providers: map[string]*envoy_jwt.JwtProvider{
 								"origins-0": {
-									Issuer: "outbound|7443||jwt-token-issueer.mesh.svc.cluster.local",
+									Issuer: "mesh cluster",
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_RemoteJwks{
 										RemoteJwks: &envoy_jwt.RemoteJwks{
 											HttpUri: &core.HttpUri{
-												Uri: jwksURI,
+												Uri: "http://jwt-token-issuer.mesh:7443/jwks",
 												HttpUpstreamType: &core.HttpUri_Cluster{
-													Cluster: "outbound|7443||jwt-token-issueer.mesh.svc.cluster.local",
+													Cluster: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
 												},
 											},
 											CacheDuration: &duration.Duration{Seconds: 5 * 60},
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "outbound|7443||jwt-token-issueer.mesh.svc.cluster.local",
+									PayloadInMetadata: "mesh cluster",
 								},
 							},
 						}),
@@ -730,11 +731,15 @@ func TestJwtFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		push := model.NewPushContext()
+		push.ServiceIndex.Hostname[host.Name("jwt-token-issuer.mesh")] = &model.Service{}
+		push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
+		push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{Hostname: host.Name("jwt-token-issuer.mesh.svc.cluster.local")}
 		t.Run(c.name, func(t *testing.T) {
 			defaultValue := features.EnableRemoteJwks
 			features.EnableRemoteJwks = c.enableRemoteJwks
 			defer func() { features.EnableRemoteJwks = defaultValue }()
-			if got := NewPolicyApplier("root-namespace", c.in, nil).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
+			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -1030,7 +1035,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := convertToEnvoyJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
+			if got := convertToEnvoyJwtConfig(c.in, &model.PushContext{}); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -1462,7 +1467,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			if c.isGateway {
 				proxyType = model.Router
 			}
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, 80, c.gatewayServerUsesIstioMutual)
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn, &model.PushContext{}).AuthNFilter(proxyType, 80, c.gatewayServerUsesIstioMutual)
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}
@@ -1739,7 +1744,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies).InboundFilterChain(
+			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies, &model.PushContext{}).InboundFilterChain(
 				8080,
 				tc.sdsUdsPath,
 				testNode,
