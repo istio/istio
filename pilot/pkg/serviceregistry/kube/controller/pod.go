@@ -41,6 +41,9 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
+	// This is used to track the transit time of the pods. When pods events arrive, we will compare
+	// it with the previous time and decide whether should send an eds update
+	// We send the updates with types of readiness 1) pods are becoming ready 2) pods are becoming unready
 	podTransitionTime map[string]kubemetav1.Time
 
 	// needResync is map of IP to endpoint names. This is used to requeue endpoint
