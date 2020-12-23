@@ -101,7 +101,7 @@ spec:
       containers:
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
-        image: docker.io/istio/ext-authz:0.5
+        image: docker.io/istio/ext-authz:0.6
         imagePullPolicy: {{ $.PullPolicy }}
         ports:
         - containerPort: 8000
