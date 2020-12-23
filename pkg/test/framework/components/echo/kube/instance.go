@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/shell"
-
 	"github.com/hashicorp/go-multierror"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -48,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kubeTest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
