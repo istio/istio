@@ -120,7 +120,7 @@ func (*testConfig) ForwardEcho(_ context.Context, _ *proto.ForwardEchoRequest) (
 	panic("not implemented")
 }
 
-func (*testConfig) Rollout() error {
+func (*testConfig) Restart() error {
 	panic("not implemented")
 }
 

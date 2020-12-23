@@ -588,7 +588,7 @@ func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
 	return r
 }
 
-func (c *instance) Rollout() error {
+func (c *instance) Restart() error {
 	if err := c.Close(); err != nil {
 		return err
 	}
