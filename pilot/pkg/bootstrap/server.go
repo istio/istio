@@ -803,7 +803,10 @@ func (s *Server) initRegistryEventHandlers() {
 	s.ServiceController().AppendServiceHandler(serviceHandler)
 
 	if s.configController != nil {
-		configHandler := func(_, curr config.Config, event model.Event) {
+		configHandler := func(old config.Config, curr config.Config, event model.Event) {
+			if old.ResourceVersion == curr.ResourceVersion && curr.GroupVersionKind.Kind != "WorkloadEntry" {
+				return
+			}
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
