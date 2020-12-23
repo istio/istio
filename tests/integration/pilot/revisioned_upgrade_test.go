@@ -106,14 +106,14 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 }
 
 // sendSimpleTrafficOrFail sends an echo call to the upgrading echo instance
-func sendSimpleTrafficOrFail(t *testing.T, i echo.Instance) {
-	t.Helper()
+func sendSimpleTrafficOrFail(ctx *testing.T, i echo.Instance) {
+	ctx.Helper()
 	resp, err := apps.PodA[0].Call(echo.CallOptions{
 		Target:   i,
 		PortName: "http",
 	})
 	if resp.CheckOK() != nil {
-		t.Fatalf("error in call: %v", err)
+		ctx.Fatalf("error in call: %v", err)
 	}
 }
 

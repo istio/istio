@@ -23,7 +23,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"sort"
 	"strings"
 	"time"
 
@@ -593,7 +592,7 @@ func (c *instance) Restart() error {
 		return err
 	}
 
-	// fetch original pod count so we can know when the rollout is complete
+	// fetch the original pods so we can know when the rollout is complete
 	fetch := kubeTest.NewPodMustFetch(c.cluster, c.Config().Namespace.Name(), fmt.Sprintf("%s=%s", "app", c.Config().Service))
 	origPods, err := fetch()
 	if err != nil {
@@ -602,17 +601,21 @@ func (c *instance) Restart() error {
 	if err := c.restartEchoDeployments(); err != nil {
 		return err
 	}
-	// give the rollout a few seconds to get underway
+
+	// wait until we have the same number of pods as before in ready state
 	var pods []kubeCore.Pod
 	err = retry.UntilSuccess(func() error {
 		pods, err = kubeTest.CheckPodsAreReady(fetch)
 		if err != nil {
 			return err
 		}
-		return restartFinished(pods, origPods)
+		if len(pods) != len(origPods) {
+			return fmt.Errorf("expected %d pods, got %d", len(origPods), len(pods))
+		}
+		return nil
 	}, retry.Delay(time.Second*2), retry.Timeout(time.Second*30))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed waiting for rollout pods ready")
 	}
 
 	// nil out the workloads and reinitialize
@@ -623,36 +626,24 @@ func (c *instance) Restart() error {
 	return nil
 }
 
-func restartFinished(pods, newPods []kubeCore.Pod) error {
-	if len(pods) != len(newPods) {
-		return fmt.Errorf("wrong pod count, wanted %d got %d", len(pods), len(newPods))
-	}
-	// ensure the pods returned are not the same pods retrieved before by sorting
-	// the pod lists and ensuring there are no identical pod names
-	sort.Slice(pods, func(i, j int) bool {
-		return pods[i].Name < pods[j].Name
-	})
-	sort.Slice(newPods, func(i, j int) bool {
-		return newPods[i].Name < newPods[j].Name
-	})
-	for i := range pods {
-		if pods[i].Name == newPods[i].Name {
-			// same pods as original, rollout not underway
-			return fmt.Errorf("%s same pod as %s, expected different", pods[i].Name, newPods[i].Name)
-		}
-	}
-
-	return nil
-}
-
-//restartEchoDeployments performs a `kubectl rollout restart` on the echo deployments.
+//restartEchoDeployments performs a `kubectl rollout restart` on the echo deployments and waits for
+// `kubectl rollout status` to complete before returning.
 func (c *instance) restartEchoDeployments() error {
 	var errs error
+	var echoDeployments []string
 	for _, s := range c.cfg.Subsets {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
-		deploymentName := fmt.Sprintf("%s-%s", c.cfg.Service, s.Version)
-		rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment/%s -n %s", deploymentName, c.cfg.Namespace.Name())
+		echoDeployments = append(echoDeployments, fmt.Sprintf("%s-%s", c.cfg.Service, s.Version))
+	}
+	for _, d := range echoDeployments {
+		rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment/%s -n %s", d, c.cfg.Namespace.Name())
 		_, err := shell.Execute(true, rolloutCmd)
+		errs = multierror.Append(errs, err).ErrorOrNil()
+		if err != nil {
+			continue
+		}
+		waitCmd := fmt.Sprintf("kubectl rollout status deployment/%s -n %s", d, c.cfg.Namespace.Name())
+		_, err = shell.Execute(true, waitCmd)
 		errs = multierror.Append(errs, err).ErrorOrNil()
 	}
 	return errs
