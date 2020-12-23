@@ -9,16 +9,15 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/scheme"
+	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	"strings"
 	"time"
 )
 
 type ServiceExportController struct {
-	client rest.Interface
+	client versioned.Interface
 	serviceClient corev1.CoreV1Interface
 
 	queue              queue.Instance
@@ -29,6 +28,8 @@ type ServiceExportController struct {
 
 func NewServiceExportController(kubeClient kube.Client, clusterLocalHosts []string) (*ServiceExportController, error) {
 	serviceExportController := &ServiceExportController{
+		client: kubeClient.MCSApis(),
+		serviceClient: kubeClient.Kube().CoreV1(),
 		queue:   queue.NewQueue(time.Second),
 		clusterLocalHosts: clusterLocalHosts,
 	}
@@ -59,8 +60,9 @@ func NewServiceExportController(kubeClient kube.Client, clusterLocalHosts []stri
 }
 
 func (sc *ServiceExportController) Run(stopCh <-chan struct{}) {
+	log.Infof("Syncing existing services and serviceexports...")
 	sc.doInitialFullSync()
-
+	log.Infof("serviceexport sync complete")
 	cache.WaitForCacheSync(stopCh, sc.serviceInformer.HasSynced)
 	log.Infof("ServiceExport controller started")
 	go sc.queue.Run(stopCh)
@@ -97,20 +99,11 @@ func (sc *ServiceExportController) isServiceClusterLocal(service *v1.Service) bo
 	for _, host := range sc.clusterLocalHosts {
 		hostComponents := strings.Split(host, ".")
 		//name match
-		if hostComponents[0] == "*" || hostComponents[0] == service.Name {
-			//names match, continue
-		} else {
-			return false
-		}
-
-		// namespace match
-		if hostComponents[1] == "*" || hostComponents[1] == service.Namespace {
-			//namespaces match, continue
-		} else {
-			return false
+		if (hostComponents[0] == "*" || hostComponents[0] == service.Name) && (hostComponents[1] == "*" || hostComponents[1] == service.Namespace) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.Service) error {
@@ -118,16 +111,9 @@ func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.S
 	serviceExport.Namespace = service.Namespace
 	serviceExport.Name = service.Name
 
-	result := &v1alpha1.ServiceExport{}
-	err := sc.client.Post().
-		Namespace(service.Namespace).
-		Resource("serviceexports").
-		VersionedParams(&metav1.CreateOptions{}, scheme.ParameterCodec).
-		Body(serviceExport).
-		Do(context.TODO()).
-		Into(result)
+	_, err := sc.client.MulticlusterV1alpha1().ServiceExports(service.Namespace).Create(context.TODO(), &serviceExport, metav1.CreateOptions{})
 
-	if strings.Contains(err.Error(), "") {
+	if err != nil && strings.Contains(err.Error(), "whatever") {
 		err = nil //This is the error thrown by the client if there is already an object with the name in the namespace. If that's true, we do nothing
 	}
 	return err
@@ -135,9 +121,9 @@ func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.S
 
 func (sc *ServiceExportController) deleteServiceExportIfPresent(service *v1.Service) error {
 	//cannot use the auto-generated client as it hardcodes the namespace in the client struct, and we can't have one client per watched ns
-	err := sc.client.Delete().Namespace(service.Namespace).Resource("serviceexports").Name(service.Name).Body(metav1.DeleteOptions{}).Do(context.TODO()).Error()
+	err := sc.client.MulticlusterV1alpha1().ServiceExports(service.Namespace).Delete(context.TODO(), service.Name, metav1.DeleteOptions{})
 
-	if strings.Contains(err.Error(), "not found") {
+	if err != nil && strings.Contains(err.Error(), "not found") {
 		err = nil //If it's already gone, then we're happy
 	}
 	return err
@@ -149,7 +135,7 @@ func (sc *ServiceExportController) doInitialFullSync() {
 		log.Errorf("Failed getting services for serviceexport sync. Err=%v", err)
 	}
 	for _, service := range allServices.Items {
-		err = sc.createServiceExportIfNotPresent(&service)
+		err = sc.HandleNewService(&service)
 		if err != nil {
 			log.Errorf("Failed to create serviceexport for service %v in namespace %v Err=%v", service.Name, service.Namespace, err)
 		}
