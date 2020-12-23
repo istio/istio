@@ -78,7 +78,7 @@ type ServiceEntryStore struct { // nolint:golint
 	// Stores a map of workload instance name/namespace to address
 	workloadInstancesIPsByName map[string]string
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
-	seWithSelectorByNamespace map[string][]servicesWithEntry
+	seWithSelectorByNamespace map[string]map[string]servicesWithEntry
 	refreshIndexes            *atomic.Bool
 	workloadHandlers          []func(*model.WorkloadInstance, model.Event)
 }
@@ -329,6 +329,53 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	keys := map[instancesKey]struct{}{}
 	for _, svc := range nonDNSServices {
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
+	}
+
+	di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+	dip := map[string][]*model.ServiceInstance{}
+	serviceEntry := curr.Spec.(*networking.ServiceEntry)
+	s.storeMutex.Lock()
+	var workloadEntryConfigs []config.Config
+	if serviceEntry.WorkloadSelector != nil && serviceEntry.WorkloadSelector.Labels != nil {
+		workloadEntryConfigs = s.store.WorkloadEntries(curr.Namespace, labels.Collection{serviceEntry.WorkloadSelector.Labels})
+	} else {
+		workloadEntryConfigs = s.store.WorkloadEntries(curr.Namespace, nil)
+	}
+	if len(workloadEntryConfigs) > 0 {
+		for _, workloadEntryCfg := range workloadEntryConfigs {
+			workloadEntry := workloadEntryCfg.Spec.(*networking.WorkloadEntry)
+			workLoadEntryKey := configKey{
+				kind:      workloadEntryConfigType,
+				name:      workloadEntryCfg.Name,
+				namespace: workloadEntryCfg.Namespace,
+			}
+			updateInstances(workLoadEntryKey, convertWorkloadEntryToServiceInstances(workloadEntry, convertServices(curr), serviceEntry, &workLoadEntryKey), di, dip)
+		}
+		for key := range di {
+			s.instances[key] = di[key]
+		}
+		for key := range dip {
+			s.ip2instance[key] = dip[key]
+		}
+	} else {
+		services := convertServices(curr)
+		for _, instance := range services {
+			delete(s.instances, instancesKey{instance.Hostname, instance.Attributes.Namespace})
+		}
+	}
+
+	if event == model.EventDelete {
+		delete(s.seWithSelectorByNamespace[curr.Namespace], curr.Name)
+	} else {
+		services := convertServices(curr)
+		se := curr.Spec.(*networking.ServiceEntry)
+		// If we have a workload selector, we will add all instances from WorkloadEntries. Otherwise, we continue
+		if se.WorkloadSelector != nil {
+			if _, found := s.seWithSelectorByNamespace[curr.Namespace]; !found {
+				s.seWithSelectorByNamespace[curr.Namespace] = make(map[string]servicesWithEntry)
+			}
+			s.seWithSelectorByNamespace[curr.Namespace][curr.Name] = servicesWithEntry{se, services}
+		}
 	}
 	// update eds endpoint shards
 	s.edsUpdateByKeys(keys, false)
@@ -607,92 +654,6 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 // maybeRefreshIndexes will iterate all ServiceEntries, convert to ServiceInstance (expensive),
 // and populate the 'by host' and 'by ip' maps, if needed.
 func (s *ServiceEntryStore) maybeRefreshIndexes() {
-	// Without this pilot becomes very unstable even with few 100 ServiceEntry objects
-	// - the N_clusters * N_update generates too much garbage ( yaml to proto)
-	// This is reset on any change in ServiceEntries that needs index recomputation.
-	if !s.refreshIndexes.Load() {
-		return
-	}
-	defer s.refreshIndexes.Store(false)
-
-	instanceMap := map[instancesKey]map[configKey][]*model.ServiceInstance{}
-	ip2instances := map[string][]*model.ServiceInstance{}
-
-	// First refresh service entry
-	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
-	for _, cfg := range s.store.ServiceEntries() {
-		key := configKey{
-			kind:      serviceEntryConfigType,
-			name:      cfg.Name,
-			namespace: cfg.Namespace,
-		}
-		updateInstances(key, convertServiceEntryToInstances(cfg, nil), instanceMap, ip2instances)
-		services := convertServices(cfg)
-
-		se := cfg.Spec.(*networking.ServiceEntry)
-		// If we have a workload selector, we will add all instances from WorkloadEntries. Otherwise, we continue
-		if se.WorkloadSelector != nil {
-			seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace], servicesWithEntry{se, services})
-		}
-	}
-
-	// We need to take a full lock here, rather than just a read lock and then later updating s.instances
-	// otherwise, what may happen is both the refresh thread and workload entry/pod handler both generate their own
-	// view of s.instances and then write them, leading to inconsistent state. This lock ensures that both threads do
-	// a full R+W before the other can start, rather than R,R,W,W.
-	s.storeMutex.Lock()
-	// Second, refresh workload instances(pods)
-	for _, workloadInstance := range s.workloadInstancesByIP {
-		key := configKey{
-			kind:      workloadInstanceConfigType,
-			name:      workloadInstance.Name,
-			namespace: workloadInstance.Namespace,
-		}
-
-		instances := []*model.ServiceInstance{}
-		// We will only select entries in the same namespace
-		entries := seWithSelectorByNamespace[workloadInstance.Namespace]
-		for _, se := range entries {
-			workloadLabels := labels.Collection{workloadInstance.Endpoint.Labels}
-			if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-				// Not a match, skip this one
-				continue
-			}
-			instance := convertWorkloadInstanceToServiceInstance(workloadInstance.Endpoint, se.services, se.entry)
-			instances = append(instances, instance...)
-		}
-		updateInstances(key, instances, instanceMap, ip2instances)
-	}
-
-	// Third, refresh workload entry
-	wles, err := s.store.List(gvk.WorkloadEntry, model.NamespaceAll)
-	if err != nil {
-		log.Errorf("Error listing workload entries: %v", err)
-	}
-
-	for _, wcfg := range wles {
-		wle := wcfg.Spec.(*networking.WorkloadEntry)
-		key := configKey{
-			kind:      workloadEntryConfigType,
-			name:      wcfg.Name,
-			namespace: wcfg.Namespace,
-		}
-		// We will only select entries in the same namespace
-		entries := seWithSelectorByNamespace[wcfg.Namespace]
-		for _, se := range entries {
-			workloadLabels := labels.Collection{wle.Labels}
-			if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-				// Not a match, skip this one
-				continue
-			}
-			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key), instanceMap, ip2instances)
-		}
-	}
-
-	s.seWithSelectorByNamespace = seWithSelectorByNamespace
-	s.instances = instanceMap
-	s.ip2instance = ip2instances
-	s.storeMutex.Unlock()
 }
 
 func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []*model.ServiceInstance) {

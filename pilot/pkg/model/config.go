@@ -179,6 +179,9 @@ type IstioConfigStore interface {
 	// ServiceEntries lists all service entries
 	ServiceEntries() []config.Config
 
+	// WorkloadEntries list all workload entries to the specified workload labels
+	WorkloadEntries(namespace string, workloadLabels labels.Collection) []config.Config
+
 	// Gateways lists all gateways bound to the specified workload labels
 	Gateways(workloadLabels labels.Collection) []config.Config
 
@@ -328,6 +331,26 @@ func (store *istioConfigStore) ServiceEntries() []config.Config {
 	// allocates the same IP to a service entry.
 	sortConfigByCreationTime(serviceEntries)
 	return serviceEntries
+}
+
+func (store *istioConfigStore) WorkloadEntries(namespace string, workloadLabels labels.Collection) []config.Config {
+	configs, err := store.List(gvk.WorkloadEntry, namespace)
+	if err != nil {
+		return nil
+	}
+	sortConfigByCreationTime(configs)
+	if workloadLabels == nil {
+		return configs
+	}
+	out := make([]config.Config, 0)
+	for _, cfg := range configs {
+		workLoadEntry := cfg.Spec.(*networking.WorkloadEntry)
+		wleLabel := labels.Instance(workLoadEntry.Labels)
+		if workloadLabels.HasSubsetOf(wleLabel) {
+			out = append(out, cfg)
+		}
+	}
+	return out
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
