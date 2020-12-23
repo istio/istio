@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      annotations:
+        # There is no real purpose of setting this multiple times; this just makes sure it doesn't blow
+        # up if a user does happen to configure this
+        inject.istio.io/templates: sidecar,sidecar,sidecar
+      labels:
+        app: hello
+    spec:
+      containers:
+      - name: hello
+        image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+      - name: istio-proxy
+        image: foo/bar

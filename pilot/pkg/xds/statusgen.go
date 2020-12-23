@@ -18,7 +18,9 @@ import (
 	"fmt"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -28,27 +30,36 @@ import (
 )
 
 const (
-	TypeURLConnections = "istio.io/connections"
+	// TypeURLConnect generate connect event.
+	TypeURLConnect = "istio.io/connect"
 
-	// TODO: TypeURLReady - readiness events for endpoints, agent can propagate
+	// TypeURLDisconnect generate disconnect event.
+	TypeURLDisconnect = "istio.io/disconnect"
+
+	// TypeURLNACK will receive messages of type DiscoveryRequest, containing
+	// the 'NACK' from envoy on rejected configs. Only ID is set in metadata.
+	// This includes all the info that envoy (client) provides.
+	TypeURLNACK = "istio.io/nack"
 
 	// TypeDebugSyncronization requests Envoy CSDS for proxy sync status
 	TypeDebugSyncronization = "istio.io/debug/syncz"
 
 	// TypeDebugConfigDump requests Envoy configuration for a proxy without creating one
 	TypeDebugConfigDump = "istio.io/debug/config_dump"
+
+	// TODO: TypeURLReady - readiness events for endpoints, agent can propagate
 )
 
-// InternalGen is a Generator for XDS status: connections, syncz, configdump
-type InternalGen struct {
+// StatusGen is a Generator for XDS status: connections, syncz, configdump
+type StatusGen struct {
 	Server *DiscoveryServer
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
 	// On new connect, use version to send recent events since last update.
 }
 
-func NewInternalGen(s *DiscoveryServer) *InternalGen {
-	return &InternalGen{
+func NewStatusGen(s *DiscoveryServer) *StatusGen {
+	return &StatusGen{
 		Server: s,
 	}
 }
@@ -56,13 +67,12 @@ func NewInternalGen(s *DiscoveryServer) *InternalGen {
 // Generate XDS responses about internal events:
 // - connection status
 // - NACKs
-//
 // We can also expose ACKS.
-func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
 	res := []*any.Any{}
 
 	switch w.TypeUrl {
-	case TypeURLConnections:
+	case TypeURLConnect:
 		for _, v := range sg.Server.Clients() {
 			res = append(res, util.MessageToAny(v.node))
 		}
@@ -92,7 +102,7 @@ func isProxy(con *Connection) bool {
 		con.proxy.Metadata.ProxyConfig != nil
 }
 
-func (sg *InternalGen) debugSyncz() []*any.Any {
+func (sg *StatusGen) debugSyncz() []*any.Any {
 	res := []*any.Any{}
 
 	stypes := []string{
@@ -150,7 +160,7 @@ func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
 	return status.ConfigStatus_STALE
 }
 
-func (sg *InternalGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
+func (sg *StatusGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
 	conn := sg.Server.getProxyConnection(proxyID)
 	if conn == nil {
 		// This is "like" a 404.  The error is the client's.  However, this endpoint
@@ -164,4 +174,39 @@ func (sg *InternalGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
 	}
 
 	return dump.Configs, nil
+}
+
+func (sg *StatusGen) OnConnect(con *Connection) {
+	sg.pushStatusEvent(TypeURLConnect, []proto.Message{con.node})
+}
+
+func (sg *StatusGen) OnDisconnect(con *Connection) {
+	sg.pushStatusEvent(TypeURLDisconnect, []proto.Message{con.node})
+}
+
+func (sg *StatusGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
+	// Make sure we include the ID - the DR may not include metadata
+	if dr.Node == nil {
+		dr.Node = &core.Node{}
+	}
+	dr.Node.Id = node.ID
+	sg.pushStatusEvent(TypeURLNACK, []proto.Message{dr})
+}
+
+// pushStatusEvent is similar with DiscoveryServer.pushStatusEvent() - but called directly,
+// since status discovery is not driven by config change events.
+// We also want connection events to be dispatched as soon as possible,
+// they may be consumed by other instances of Istiod to update internal state.
+func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
+
+	resources := make([]*any.Any, 0, len(data))
+	for _, v := range data {
+		resources = append(resources, util.MessageToAny(v))
+	}
+	dr := &discovery.DiscoveryResponse{
+		TypeUrl:   typeURL,
+		Resources: resources,
+	}
+
+	sg.Server.SendResponse(dr)
 }

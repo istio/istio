@@ -1069,8 +1069,6 @@ message Values {
 
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
 
-  google.protobuf.BoolValue clusterResources = 17;
-
   CNIConfig istio_cni = 19;
 
   string revision = 21;

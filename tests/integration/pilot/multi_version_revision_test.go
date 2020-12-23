@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -52,15 +54,17 @@ func TestMultiVersionRevision(t *testing.T) {
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
-			defer func() {
+			ctx.WhenDone(func() error {
+				var errs *multierror.Error
 				for _, config := range configs {
-					ctx.Config().DeleteYAML("istio-system", config)
+					multierror.Append(errs, ctx.Config().DeleteYAML("istio-system", config))
 				}
-			}()
+				return errs.ErrorOrNil()
+			})
 
 			revisionedNamespaces := []revisionedNamespace{}
 			for _, v := range installVersions {
-				installRevisionOrFail(ctx, t, v, configs)
+				installRevisionOrFail(ctx, v, configs)
 
 				// create a namespace pointed to the revisioned control plane we just installed
 				rev := strings.ReplaceAll(v, ".", "-")
@@ -70,7 +74,7 @@ func TestMultiVersionRevision(t *testing.T) {
 					Revision: rev,
 				})
 				if err != nil {
-					t.Fatalf("failed to created revisioned namespace: %v", err)
+					ctx.Fatalf("failed to created revisioned namespace: %v", err)
 				}
 				revisionedNamespaces = append(revisionedNamespaces, revisionedNamespace{
 					revision:  rev,
@@ -95,69 +99,66 @@ func TestMultiVersionRevision(t *testing.T) {
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8080,
+							InstancePort: 8000,
 						},
 						{
 							Name:         "tcp",
 							Protocol:     protocol.TCP,
 							InstancePort: 9000,
 						},
+						{
+							Name:         "grpc",
+							Protocol:     protocol.GRPC,
+							InstancePort: 9090,
+						},
 					},
 				})
 			}
-			builder.BuildOrFail(t)
-			testAllEchoCalls(t, instances)
+			builder.BuildOrFail(ctx)
+			testAllEchoCalls(ctx, instances)
 		})
 }
 
 // testAllEchoCalls takes list of revisioned namespaces and generates list of echo calls covering
 // communication between every pair of namespaces
-func testAllEchoCalls(t *testing.T, echoInstances []echo.Instance) {
+func testAllEchoCalls(ctx framework.TestContext, echoInstances []echo.Instance) {
+	trafficTypes := []string{"http", "tcp", "grpc"}
 	for _, source := range echoInstances {
 		for _, dest := range echoInstances {
 			if source == dest {
 				continue
 			}
-			t.Run(fmt.Sprintf("http-%s->%s", source.Config().Service, dest.Config().Service), func(t *testing.T) {
-				retry.UntilSuccessOrFail(t, func() error {
-					resp, err := source.Call(echo.CallOptions{
-						Target:   dest,
-						PortName: "http",
+			for _, trafficType := range trafficTypes {
+				ctx.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, source.Config().Service, dest.Config().Service)).
+					Run(func(ctx framework.TestContext) {
+						retry.UntilSuccessOrFail(ctx, func() error {
+							resp, err := source.Call(echo.CallOptions{
+								Target:   dest,
+								PortName: trafficType,
+							})
+							if err != nil {
+								return err
+							}
+							return resp.CheckOK()
+						}, retry.Delay(time.Millisecond*150))
 					})
-					if err != nil {
-						return err
-					}
-					return resp.CheckOK()
-				}, retry.Delay(time.Millisecond*150))
-			})
-			t.Run(fmt.Sprintf("tcp-%s->%s", source.Config().Service, dest.Config().Service), func(t *testing.T) {
-				retry.UntilSuccessOrFail(t, func() error {
-					resp, err := source.Call(echo.CallOptions{
-						Target:   dest,
-						PortName: "tcp",
-					})
-					if err != nil {
-						return err
-					}
-					return resp.CheckOK()
-				}, retry.Delay(time.Millisecond*150))
-			})
+			}
 		}
 	}
 }
 
 // installRevisionOrFail takes an Istio version and installs a revisioned control plane running that version
 // provided istio version must be present in tests/integration/pilot/testdata/upgrade for the installation to succeed
-func installRevisionOrFail(ctx framework.TestContext, t *testing.T, version string, configs map[string]string) {
+func installRevisionOrFail(ctx framework.TestContext, version string, configs map[string]string) {
 	installationTestdataDir := filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade")
 	installationConfigPath := filepath.Join(installationTestdataDir, fmt.Sprintf("%s-install.yaml", version))
 	configBytes, err := ioutil.ReadFile(installationConfigPath)
 	if err != nil {
-		t.Fatalf("could not read installation config at path %s: %v", installationConfigPath, err)
+		ctx.Fatalf("could not read installation config at path %s: %v", installationConfigPath, err)
 	}
 
 	configs[version] = string(configBytes)
-	ctx.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, string(configBytes))
+	ctx.Config().ApplyYAMLOrFail(ctx, i.Settings().SystemNamespace, string(configBytes))
 }
 
 // skipIfK8sVersionUnsupported skips the test if we're running on a k8s version that is not expected to work

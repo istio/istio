@@ -385,6 +385,8 @@ func cname(host string, targetHost string) []dns.RR {
 	answer.Hdr = dns.RR_Header{
 		Name:   host,
 		Rrtype: dns.TypeCNAME,
+		Class:  dns.ClassINET,
+		Ttl:    defaultTTLInSeconds,
 	}
 	answer.Target = targetHost
 	return []dns.RR{answer}

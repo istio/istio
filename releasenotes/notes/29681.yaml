@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 29681
+releaseNotes:
+- |
+  **Fixed** a bug where DNS agent preview produces malformed DNS responses
