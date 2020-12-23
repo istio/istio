@@ -27,5 +27,5 @@ func NewPolicyApplier(push *model.PushContext, namespace string, labels labels.C
 	return v1beta1.NewPolicyApplier(
 		push.AuthnBetaPolicies.GetRootNamespace(),
 		push.AuthnBetaPolicies.GetJwtPoliciesForWorkload(namespace, labels),
-		push.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(namespace, labels))
+		push.AuthnBetaPolicies.GetPeerAuthenticationsForWorkload(namespace, labels), push)
 }
