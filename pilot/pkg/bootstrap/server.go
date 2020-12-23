@@ -238,8 +238,11 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
+
+	e.PushContext.Mesh = e.Mesh()
 	args.RegistryOptions.ClusterLocalHosts = e.PushContext.GetClusterLocalHosts(e)
-	args.RegistryOptions.MCSServiceExportEnabled = false //todo change this to e.Mesh().EnableMcsServiceExport once https://github.com/istio/api/pull/1785 is merged
+	//todo change false (belot) to e.Mesh().EnableMcsServiceExport once https://github.com/istio/api/pull/1785 is merged
+	args.RegistryOptions.MCSServiceExportEnabled = false
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{

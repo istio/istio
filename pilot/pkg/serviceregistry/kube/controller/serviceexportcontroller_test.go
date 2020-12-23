@@ -133,11 +133,11 @@ func assertServiceExport(t *testing.T, client versioned.Interface, ns, name stri
 		got, err := client.MulticlusterV1alpha1().ServiceExports(ns).Get(context.TODO(), name, metav1.GetOptions{})
 
 		if err != nil && !strings.Contains(err.Error(), "not found") {
-			return fmt.Errorf("Unexpected error %v", err)
+			return fmt.Errorf("unexpected error %v", err)
 		}
 		isPresent := got != nil
 		if isPresent != shouldBePresent {
-			return fmt.Errorf("Unexpected serviceexport state. IsPresent: %v, ShouldBePresent: %v, name: %v, namespace: %v", isPresent, shouldBePresent, name, ns)
+			return fmt.Errorf("unexpected serviceexport state. IsPresent: %v, ShouldBePresent: %v, name: %v, namespace: %v", isPresent, shouldBePresent, name, ns)
 		}
 		return nil
 	}, retry.Timeout(time.Second*2))
@@ -149,11 +149,11 @@ func assertServiceExportHasCondition(t *testing.T, client versioned.Interface, n
 		got, err := client.MulticlusterV1alpha1().ServiceExports(ns).Get(context.TODO(), name, metav1.GetOptions{})
 
 		if err != nil {
-			return fmt.Errorf("Unexpected error %v", err)
+			return fmt.Errorf("unexpected error %v", err)
 		}
 
 		if got.Status.Conditions == nil || len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {
-			return fmt.Errorf("Condition incorrect or not found")
+			return fmt.Errorf("condition incorrect or not found")
 		}
 
 		return nil
