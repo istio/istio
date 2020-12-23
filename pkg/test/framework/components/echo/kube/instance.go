@@ -598,7 +598,7 @@ func (c *instance) Restart() error {
 	if err != nil {
 		return err
 	}
-	if err := c.restartNamespaceDeployments(); err != nil {
+	if err := c.restartEchoDeployments(); err != nil {
 		return err
 	}
 	// give the rollout a few seconds to get underway
@@ -627,8 +627,8 @@ func (c *instance) Restart() error {
 	return nil
 }
 
-//restartNamespaceDeployments performs a `kubectl rollout restart` on the instance namespace.
-func (c *instance) restartNamespaceDeployments() error {
+//restartEchoDeployments performs a `kubectl rollout restart` on the echo deployments.
+func (c *instance) restartEchoDeployments() error {
 	var errs error
 	for _, s := range c.cfg.Subsets {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
