@@ -488,6 +488,21 @@ func TestValidateProxyConfig(t *testing.T) {
 			isValid: true,
 		},
 		{
+			name: "zipkin address with $(HOST_IP) is valid",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Zipkin_{
+							Zipkin: &meshconfig.Tracing_Zipkin{
+								Address: "$(HOST_IP):9411",
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
 			name: "zipkin config invalid",
 			in: modify(valid,
 				func(c *meshconfig.ProxyConfig) {
