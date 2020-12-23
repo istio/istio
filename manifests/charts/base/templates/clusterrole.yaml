@@ -103,6 +103,11 @@ rules:
     resources: ["secrets"]
     verbs: ["get", "watch", "list"]
 
+  #Used for MCS serviceexport management
+  - apiGroups: [""]
+    resources: ["serviceexports"]
+    verbs: ["create", "delete"]
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -151,5 +156,6 @@ rules:
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
+
 {{- end}}
 ---
