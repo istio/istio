@@ -602,7 +602,7 @@ func (c *instance) Restart() error {
 		return err
 	}
 	// give the rollout a few seconds to get underway
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 4)
 	var pods []kubeCore.Pod
 	err = retry.UntilSuccess(func() error {
 		pods, err = kubeTest.CheckPodsAreReady(fetch)

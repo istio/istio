@@ -84,10 +84,10 @@ func testUpgradeFromVersion(ctx framework.TestContext, t *testing.T, fromVersion
 	sendSimpleTrafficOrFail(t, revisionedInstance)
 
 	if err := enableDefaultInjection(revisionedNamespace); err != nil {
-		t.Fatalf("could not relabel namespace to enable default injection: %v", err)
+		ctx.Fatalf("could not relabel namespace to enable default injection: %v", err)
 	}
 	if err := revisionedInstance.Restart(); err != nil {
-		t.Fatalf("revisioned instance rollout failed with: %v", err)
+		ctx.Fatalf("revisioned instance rollout failed with: %v", err)
 	}
 	fetch := kubetest.NewPodMustFetch(ctx.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) // nolint: lll
 	pods, err := kubetest.CheckPodsAreReady(fetch)
