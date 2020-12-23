@@ -1305,7 +1305,7 @@ func TestAuthorization_Custom(t *testing.T) {
 			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
-			var a, b, c, d, e echo.Instance
+			var a, b, c, d, e, x echo.Instance
 			echoConfig := func(name string, includeExtAuthz bool) echo.Config {
 				cfg := util.EchoConfig(name, ns, false, nil, nil)
 				cfg.IncludeExtAuthz = includeExtAuthz
@@ -1317,12 +1317,13 @@ func TestAuthorization_Custom(t *testing.T) {
 				With(&c, echoConfig("c", false)).
 				With(&d, echoConfig("d", true)).
 				With(&e, echoConfig("e", true)).
+				With(&x, echoConfig("x", true)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, header string, expectAllowed bool) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
-						From: a,
+						From: x,
 						Options: echo.CallOptions{
 							Target:   target,
 							PortName: "http",
