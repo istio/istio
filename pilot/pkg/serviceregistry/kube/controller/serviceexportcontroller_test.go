@@ -7,6 +7,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"strings"
 	"testing"
 	"time"
@@ -59,13 +60,37 @@ func TestServiceExportController(t *testing.T) {
 	//ensure serviceexport is deleted
 	assertServiceExport(t, client.MCSApis(), "ns2", "foo", false)
 
+	//manually create serviceexport
+	export := v1alpha1.ServiceExport{
+		Status: v1alpha1.ServiceExportStatus{
+			Conditions: []v1alpha1.ServiceExportCondition{
+				{
+					Type: v1alpha1.ServiceExportValid,
+				},
+			},
+		},
+	}
+
+	export.Name = "another-export"
+	export.Namespace = "ns5"
+	_, err := client.MCSApis().MulticlusterV1alpha1().ServiceExports("ns5").Create(context.TODO(), &export, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Unexpected error %v", err)
+	}
+
+	//create the associated service
+	//no need for assertions, just trying to ensure no errors
+	createSimpleService(t, client, "ns5", "another-export")
+
+	//assert that we didn't wipe out the pre-existing serviceexport status
+	assertServiceExportHasCondition(t, client.MCSApis(), "ns5", "another-export", v1alpha1.ServiceExportValid)
 
 	//delete un-exportable service
-	//no need for assertions, just trying to ensure no errors
+	//trying to ensure no errors
 	deleteSimpleService(t, client, "ns1", "foo")
 
 	//manually delete arbitrary serviceexport
-	err := client.MCSApis().MulticlusterV1alpha1().ServiceExports("ns3").Delete(context.TODO(), "bar", metav1.DeleteOptions{})
+	err = client.MCSApis().MulticlusterV1alpha1().ServiceExports("ns3").Delete(context.TODO(), "bar", metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error %v", err)
 	}
@@ -105,6 +130,23 @@ func assertServiceExport(t *testing.T, client versioned.Interface, ns, name stri
 		if isPresent != shouldBePresent {
 			return fmt.Errorf("Unexpected serviceexport state. IsPresent: %v, ShouldBePresent: %v, name: %v, namespace: %v", isPresent, shouldBePresent, name, ns)
 		}
+		return nil
+	}, retry.Timeout(time.Second*2))
+}
+
+func assertServiceExportHasCondition(t *testing.T, client versioned.Interface, ns, name string, condition v1alpha1.ServiceExportConditionType) {
+	t.Helper()
+	retry.UntilSuccessOrFail(t, func() error {
+		got, err := client.MulticlusterV1alpha1().ServiceExports(ns).Get(context.TODO(), name, metav1.GetOptions{})
+
+		if err != nil {
+			return fmt.Errorf("Unexpected error %v", err)
+		}
+
+		if got.Status.Conditions == nil || len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {
+			return fmt.Errorf("Condition incorrect or not found")
+		}
+
 		return nil
 	}, retry.Timeout(time.Second*2))
 }

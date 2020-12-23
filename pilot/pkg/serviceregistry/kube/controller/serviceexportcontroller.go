@@ -113,7 +113,7 @@ func (sc *ServiceExportController) createServiceExportIfNotPresent(service *v1.S
 
 	_, err := sc.client.MulticlusterV1alpha1().ServiceExports(service.Namespace).Create(context.TODO(), &serviceExport, metav1.CreateOptions{})
 
-	if err != nil && strings.Contains(err.Error(), "whatever") {
+	if err != nil && strings.Contains(err.Error(), "already exists") {
 		err = nil //This is the error thrown by the client if there is already an object with the name in the namespace. If that's true, we do nothing
 	}
 	return err

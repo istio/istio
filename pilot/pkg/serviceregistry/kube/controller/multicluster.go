@@ -236,7 +236,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 	}
 
 	//setting up the serviceexport controller if and only if it is turned on in the meshconfig.
-	if m.mcsSettings.EnableServiceExport { //no readon to set up a new watcher if it will never do anything
+	if m.mcsSettings.EnableServiceExport { //no reason to set up a new watcher if it will never do anything
 		serviceExportController, err := NewServiceExportController(client, m.mcsSettings.ClusterLocalHosts)
 		if err != nil {
 			log.Errorf("Failed to start the service export controller. Err: %v", err)

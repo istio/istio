@@ -114,7 +114,7 @@ type Client interface {
 	// GatewayApi returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
-	// MCSApids returns the mcs-apis kube client.
+	// MCSApis returns the mcs-apis kube client.
 	MCSApis() mcsapisClient.Interface
 
 	// KubeInformer returns an informer for core kube client
@@ -132,7 +132,7 @@ type Client interface {
 	// GatewayApiInformer returns an informer for the gateway-api client
 	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
 
-	// ServiceApisInformer returns an informer for the service-apis client
+	// MCSApisInformer returns an informer for the mcs-apis client
 	MCSApisInformer() mcsapisInformer.SharedInformerFactory
 
 	// RunAndWait starts all informers and waits for their caches to sync.
