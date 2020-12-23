@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels2 "k8s.io/apimachinery/pkg/labels"
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -59,18 +58,23 @@ var (
 	}
 
 	kubeConfigFlags = &genericclioptions.ConfigFlags{
-		Context: pointer.StringPtr(""),
-		Namespace: pointer.StringPtr(""),
+		Context:    pointer.StringPtr(""),
+		Namespace:  pointer.StringPtr(""),
 		KubeConfig: pointer.StringPtr(""),
 	}
+
+	revArgs = revisionArgs{}
 )
 
 func revisionCommand() *cobra.Command {
 	revisionCmd := &cobra.Command{
-		Use: "revision",
-		Short: "Revision centric view of Istio deployment",
+		Use:     "revision",
+		Short:   "Revision centric view of Istio deployment",
 		Aliases: []string{"rev"},
 	}
+	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	revisionCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "print customizations")
+
 	revisionCmd.AddCommand(revisionListCommand())
 	revisionCmd.AddCommand(revisionDescribeCommand())
 	return revisionCmd
@@ -78,10 +82,10 @@ func revisionCommand() *cobra.Command {
 
 func revisionDescribeCommand() *cobra.Command {
 	describeCmd := &cobra.Command{
-		Use: "describe",
+		Use:     "describe",
 		Example: `    istioctl experimental revision describe canary`,
-		Short: "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
-		Args: func (cmd *cobra.Command, args []string) error {
+		Short:   "Show details of a revision - customizations, number of pods pointing to it, istiod, gateways etc",
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("revision is not specified")
 			}
@@ -91,11 +95,12 @@ func revisionDescribeCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			revisionName := args[0]
-			if errs := validation.IsDNS1123Label(revisionName); len(errs) > 0 {
+			revArgs.name = args[0]
+			if errs := validation.IsDNS1123Label(revArgs.name); len(errs) > 0 {
 				return fmt.Errorf(strings.Join(errs, "\n"))
 			}
-			return revisionDescription(cmd.OutOrStdout(), revisionName, kubeConfigFlags)
+			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
+			return revisionDescription(cmd.OutOrStdout(), &revArgs, kubeConfigFlags, logger)
 		},
 	}
 	describeCmd.Flags().Bool("all", true, "show all related to a revision")
@@ -103,22 +108,19 @@ func revisionDescribeCommand() *cobra.Command {
 }
 
 func revisionListCommand() *cobra.Command {
-	revArgs := revisionArgs{}
 	listCmd := &cobra.Command{
-		Use: "list",
-		Short: "Show list of control plane and gateway revisions that are currently installed in cluster",
+		Use:     "list",
+		Short:   "Show list of control plane and gateway revisions that are currently installed in cluster",
 		Example: `   istioctl experimental revision list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
 			return revisionList(cmd.OutOrStdout(), &revArgs, kubeConfigFlags, logger)
 		},
 	}
-	listCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
-	listCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "print customizations")
 	return listCmd
 }
 
-func revisionList(writer io.Writer, revArgs *revisionArgs, restClientGetter genericclioptions.RESTClientGetter, logger clog.Logger) error {
+func revisionList(writer io.Writer, args *revisionArgs, restClientGetter genericclioptions.RESTClientGetter, logger clog.Logger) error {
 	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return err
@@ -127,22 +129,124 @@ func revisionList(writer io.Writer, revArgs *revisionArgs, restClientGetter gene
 	if err != nil {
 		return err
 	}
-	return printIOPs(writer, iops, revArgs.verbose, revArgs.manifestsPath, logger)
+	return printIOPs(writer, iops, args.verbose, args.manifestsPath, logger)
 }
 
 // TODO: Refactor this to a function and wrap output in a struct so that we can
 // TODO: easily support printing in different formats and make it more testable
-func revisionDescription(w io.Writer, revision string, restClientGetter *genericclioptions.ConfigFlags) error {
+func revisionDescription(w io.Writer, args *revisionArgs, restClientGetter *genericclioptions.ConfigFlags, logger *clog.ConsoleLogger) error {
 	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return err
 	}
+
+	revision := args.name
+	fmt.Fprintf(w, "Revision: %s\n", revision)
+	err = printIstioOperatorCRInfoForRevision(w, args, restConfig, revision, logger)
+	if err != nil {
+		return err
+	}
+
+	// show Istiod and gateways that are installed under this revision
+	istiodPods, err := getControlPlanePods(restConfig, revision)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "CONTROL-PLANE", &istiodPods); err != nil {
+		return err
+	}
+
+	// list ingress gateways
+	ingressPods, err := getIngressGateways(restConfig, revision)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "INGRESS-GATEWAYS", &ingressPods); err != nil {
+		return err
+	}
+
+	// list egress gateways
+	egressPods, err := getEgressGateways(restConfig, revision)
+	if err != nil {
+		return err
+	}
+	if err = printPodTable(w, "EGRESS-GATEWAYS", &egressPods); err != nil {
+		return err
+	}
+
+	// print namespace summary
+	pods, err := printNamespaceSummaryForRevision(w, restConfig, revision)
+	if err != nil {
+		return err
+	}
+	if args.verbose {
+		return printPodTable(w, "PODS", &pods)
+	}
+	return nil
+}
+
+func printNamespaceSummaryForRevision(w io.Writer, restConfig *rest.Config, revision string) ([]v1.Pod, error) {
+	pods, err := getPodsWithRevision(restConfig, revision)
+	if err != nil {
+		return nil, err
+	}
+	podPerNsCount := map[string]int{}
+	for _, pod := range pods {
+		podPerNsCount[pod.Namespace]++
+	}
+
+	fmt.Println("NAMESPACE-SUMMARY")
+	nsSummaryWriter := new(tabwriter.Writer).Init(w, 0, 0, 1, ' ', 0)
+	fmt.Fprintln(nsSummaryWriter, "NAMESPACE\tPOD-COUNT")
+	for ns, podCount := range podPerNsCount {
+		fmt.Fprintf(nsSummaryWriter, "%s\t%d\n", ns, podCount)
+	}
+	if err = nsSummaryWriter.Flush(); err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(w, "")
+	return pods, nil
+}
+
+func printIstioOperatorCRInfoForRevision(w io.Writer, args *revisionArgs, restConfig *rest.Config, revision string, logger *clog.ConsoleLogger) error {
 	iops, err := getIOPs(restConfig)
 	if err != nil {
 		return err
 	}
 	// It is not an efficient way. But for now, we live with this
 	// This can be refined by selecting by label, annotation etc.
+	filteredIOPs := getIOPWithRevision(iops, revision)
+	if len(filteredIOPs) == 0 {
+		fmt.Fprintf(w, "ISTIO-OPERATOR: (No CRDs found)\n")
+	} else if len(filteredIOPs) == 1 {
+		fmt.Fprintf(w, "ISTIO-OPERATOR: (1 CRD found)\n")
+	} else {
+		fmt.Fprintf(w, "ISTIO-OPERATOR: (%d CRDs found)\n", len(filteredIOPs))
+	}
+
+	for i, iop := range filteredIOPs {
+		fmt.Fprintf(w, "%d. %s/%s\n", i+1, iop.Namespace, iop.Name)
+		enabledComponents := getEnabledComponents(iop.Spec)
+		fmt.Fprintf(w, "  COMPONENTS:\n")
+		for _, c := range enabledComponents {
+			fmt.Fprintf(w, "  - %s\n", c)
+		}
+
+		// For each IOP, print all customizations for it
+		fmt.Fprintf(w, "  CUSTOMIZATIONS:\n")
+		iopCustomizations, err := getDiffs(iop, args.manifestsPath, iop.Spec.GetProfile(), logger)
+		if err != nil {
+			return fmt.Errorf("<Error> Cannot fetch customizations for %s: %s", iop.Name, err.Error())
+		}
+		for _, customization := range iopCustomizations {
+			fmt.Fprintf(w, "  - %s\n", customization)
+		}
+		fmt.Fprintln(w)
+	}
+	return nil
+}
+
+func getIOPWithRevision(iops []*iopv1alpha1.IstioOperator, revision string) []*iopv1alpha1.IstioOperator {
 	filteredIOPs := []*iopv1alpha1.IstioOperator{}
 	for _, iop := range iops {
 		if iop.Spec == nil {
@@ -152,56 +256,20 @@ func revisionDescription(w io.Writer, revision string, restClientGetter *generic
 			filteredIOPs = append(filteredIOPs, iop)
 		}
 	}
-	if len(filteredIOPs) == 0 {
-		fmt.Fprintf(w, "No IstioOperator with revision: %s in %s\n", revision, istioNamespace)
-		return nil
-	}
-	// First we print all IOP for a given revision. This handles the
-	// case where gateways and istiod are installed separately.
-	fmt.Fprintf(w, "Revision: %s\n", revision)
-	for _, iop := range filteredIOPs {
-		fmt.Fprintf(w, "    %s/%s\n", iop.Namespace, iop.Name)
-	}
-	fmt.Fprintln(w)
-
-	// Next, show Istiod and gateways that are installed under this revision
-	istiodPods, err := getControlPlanePods(restConfig, revision)
-	if err != nil {
-		return err
-	}
-	if err = printPodTable(w, "Control plane", &istiodPods); err != nil {
-		return err
-	}
-
-	// Next, list ingress gateways
-	ingressPods, err := getIngressGateways(restConfig, revision)
-	if err != nil {
-		return err
-	}
-	if err = printPodTable(w, "Ingress Gateways", &ingressPods); err != nil {
-		return err
-	}
-
-	// Next, list egress gateways
-	egressPods, err := getEgressGateways(restConfig, revision)
-	if err != nil {
-		return err
-	}
-	if err = printPodTable(w, "Egress Gateways", &egressPods); err != nil {
-		return err
-	}
-
-	return err
+	return filteredIOPs
 }
 
 func printPodTable(w io.Writer, header string, pods *[]v1.Pod) error {
-	if len(*pods) == 1 {
+	if len(*pods) == 0 {
+		fmt.Fprintf(w, "%s: No pod(s) found\n\n", header)
+		return nil
+	} else if len(*pods) == 1 {
 		fmt.Fprintf(w, "%s: (1 pod)\n", header)
 	} else {
 		fmt.Fprintf(w, "%s: (%d pods)\n", header, len(*pods))
 	}
 	podTableW := new(tabwriter.Writer).Init(w, 0, 0, 1, ' ', 0)
-	fmt.Fprintln(podTableW, "NAMESPACE\tNAME\tIP\tSTATUS\tAGE")
+	fmt.Fprintln(podTableW, "NAMESPACE\tNAME\tADDRESS\tSTATUS\tAGE")
 	for _, pod := range *pods {
 		fmt.Fprintf(podTableW, "%s\t%s\t%s\t%s\t%s\n",
 			pod.Namespace, pod.Name, pod.Status.PodIP,
@@ -238,8 +306,8 @@ func printIOPs(writer io.Writer, iops []*iopv1alpha1.IstioOperator, verbose bool
 	}
 	for revision, iopWithRev := range revToIOP {
 		for i, iop := range iopWithRev {
-			iops := iop.Spec
-			components := getEnabledComponents(iops)
+			iopSpec := iop.Spec
+			components := getEnabledComponents(iopSpec)
 			customizations := []string{}
 			if verbose {
 				var err error
@@ -258,7 +326,7 @@ func printIOPs(writer io.Writer, iops []*iopv1alpha1.IstioOperator, verbose bool
 				var outIopName, outProfile string
 				if j == 0 {
 					outIopName = fmt.Sprintf("%s/%s", iop.Namespace, iop.Name)
-					outProfile = renderWithDefault(iops.GetProfile(), "default")
+					outProfile = renderWithDefault(iopSpec.GetProfile(), "default")
 				}
 				outCompName := ""
 				if j < len(components) {
@@ -334,6 +402,7 @@ func getIOPs(restConfig *rest.Config) ([]*iopv1alpha1.IstioOperator, error) {
 	return iops, nil
 }
 
+// TODO: Get Rid of magic strings or get rid of these methods altogether
 func getControlPlanePods(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
 	return getPodsForComponent(restConfig, "Pilot", revision)
 }
@@ -347,21 +416,33 @@ func getEgressGateways(restConfig *rest.Config, revision string) ([]v1.Pod, erro
 }
 
 func getPodsForComponent(restConfig *rest.Config, component, revision string) ([]v1.Pod, error) {
+	return getPodsWithSelector(restConfig, istioNamespace, &meta_v1.LabelSelector{
+		MatchLabels: map[string]string{
+			label.IstioRev:               revision,
+			label.IstioOperatorComponent: component,
+		},
+	})
+}
+
+func getPodsWithRevision(restConfig *rest.Config, revision string) ([]v1.Pod, error) {
+	return getPodsWithSelector(restConfig, "", &meta_v1.LabelSelector{
+		MatchLabels: map[string]string{
+			label.IstioRev: revision,
+		},
+	})
+}
+
+func getPodsWithSelector(restConfig *rest.Config, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
 	client, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return []v1.Pod{}, err
 	}
-	labelMap, err := meta_v1.LabelSelectorAsMap(&meta_v1.LabelSelector{
-		MatchLabels: map[string]string{
-			label.IstioRev: revision,
-			label.IstioOperatorComponent: component,
-		},
-	})
+	labelSelector, err := meta_v1.LabelSelectorAsSelector(selector)
 	if err != nil {
 		return []v1.Pod{}, err
 	}
-	podList, err := client.CoreV1().Pods(istioNamespace).List(context.TODO(),
-		meta_v1.ListOptions{ LabelSelector: labels2.SelectorFromSet(labelMap).String() })
+	podList, err := client.CoreV1().Pods(ns).List(context.TODO(),
+		meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		return []v1.Pod{}, err
 	}
