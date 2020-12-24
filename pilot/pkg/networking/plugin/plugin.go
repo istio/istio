@@ -26,8 +26,6 @@ const (
 	Authn = "authn"
 	// Authz is the name of the authorization plugin (ALLOW/DENY/AUDIT action) passed through the command line
 	Authz = "authz"
-	// Health is the name of the health plugin passed through the command line
-	Health = "health"
 	// MetadataExchange is the name of the telemetry plugin passed through the command line
 	MetadataExchange = "metadata_exchange"
 )
