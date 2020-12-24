@@ -138,70 +138,6 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 		{
-			name: "JWT policy with Mesh cluster as issuer",
-			in: []*config.Config{
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer:  "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
-								JwksUri: jwksURI,
-							},
-						},
-					},
-				},
-			},
-			expected: &http_conn.HttpFilter{
-				Name: "envoy.filters.http.jwt_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(
-						&envoy_jwt.JwtAuthentication{
-							Rules: []*envoy_jwt.RequirementRule{
-								{
-									Match: &route.RouteMatch{
-										PathSpecifier: &route.RouteMatch_Prefix{
-											Prefix: "/",
-										},
-									},
-									Requires: &envoy_jwt.JwtRequirement{
-										RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-											RequiresAny: &envoy_jwt.JwtRequirementOrList{
-												Requirements: []*envoy_jwt.JwtRequirement{
-													{
-														RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-															ProviderName: "origins-0",
-														},
-													},
-													{
-														RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
-															AllowMissing: &empty.Empty{},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-							Providers: map[string]*envoy_jwt.JwtProvider{
-								"origins-0": {
-									Issuer: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
-									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
-										LocalJwks: &core.DataSource{
-											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
-											},
-										},
-									},
-									Forward:           false,
-									PayloadInMetadata: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
-								},
-							},
-						}),
-				},
-			},
-		},
-		{
 			name: "JWT policy with Mesh cluster as issuer and remote jwks enabled",
 			in: []*config.Config{
 				{
@@ -730,13 +666,13 @@ func TestJwtFilter(t *testing.T) {
 		},
 	}
 
+	push := model.NewPushContext()
+	push.ServiceIndex.Hostname[host.Name("jwt-token-issuer.mesh")] = &model.Service{}
+	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
+	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
+		Hostname: host.Name("jwt-token-issuer.mesh.svc.cluster.local"),
+	}
 	for _, c := range cases {
-		push := model.NewPushContext()
-		push.ServiceIndex.Hostname[host.Name("jwt-token-issuer.mesh")] = &model.Service{}
-		push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
-		push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
-			Hostname: host.Name("jwt-token-issuer.mesh.svc.cluster.local"),
-		}
 		t.Run(c.name, func(t *testing.T) {
 			defaultValue := features.EnableRemoteJwks
 			features.EnableRemoteJwks = c.enableRemoteJwks

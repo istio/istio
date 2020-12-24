@@ -267,52 +267,67 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		}
 		provider.FromParams = jwtRule.FromParams
 		jwtPubKey := jwtRule.Jwks
-		u, _ := url.Parse(jwtRule.JwksUri)
-		hostAndPort := strings.Split(u.Host, ":")
-		host := hostAndPort[0]
-		port := 80
-		if len(hostAndPort) == 2 {
-			var err error
-			if port, err = strconv.Atoi(hostAndPort[1]); err != nil {
-				port = 80 // If port is not specified or there is an error in parsing default to 80.
+
+		if features.EnableRemoteJwks && jwtRule.JwksUri != "" {
+			// Use remote jwks if jwksUri is non empty. Parse the jwksUri to get the cluster name,
+			// generate the jwt filter config using remoteJwks.
+			// If failed to parse the cluster name, fallback to let istiod to fetch the jwksUri.
+			// TODO: Implement the logic to auto-generate the cluster so that when the flag is enabled,
+			// it will always let envoy to fetch the jwks for consistent behavior.
+			u, _ := url.Parse(jwtRule.JwksUri)
+			hostAndPort := strings.Split(u.Host, ":")
+			host := hostAndPort[0]
+			// TODO: Default port based on scheme ?
+			port := 80
+			if len(hostAndPort) == 2 {
+				var err error
+				if port, err = strconv.Atoi(hostAndPort[1]); err != nil {
+					port = 80 // If port is not specified or there is an error in parsing default to 80.
+				}
 			}
-		}
-		_, cluster, err := security_utils.LookupCluster(push, host, port)
-		isMeshCluster := false
-		if err == nil && len(cluster) > 0 {
-			isMeshCluster = true
-		}
-		if len(jwtPubKey) > 0 {
-			// Inline Jwks
-			provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
-				LocalJwks: &core.DataSource{
-					Specifier: &core.DataSource_InlineString{
-						InlineString: jwtPubKey,
+			_, cluster, err := security_utils.LookupCluster(push, host, port)
+			if err == nil && len(cluster) > 0 {
+				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
+				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
+					RemoteJwks: &envoy_jwt.RemoteJwks{
+						HttpUri: &core.HttpUri{
+							Uri: jwtRule.JwksUri,
+							HttpUpstreamType: &core.HttpUri_Cluster{
+								Cluster: cluster,
+							},
+						},
+						CacheDuration: &duration.Duration{Seconds: 5 * 60}, // TODO: Make this configurable if needed.
 					},
-				},
-			}
-		} else if isMeshCluster && features.EnableRemoteJwks {
-			// If uri is a mesh cluster configure Remote Jwks.
-			provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
-				RemoteJwks: &envoy_jwt.RemoteJwks{
-					HttpUri: &core.HttpUri{
-						Uri: jwtRule.JwksUri,
-						HttpUpstreamType: &core.HttpUri_Cluster{
-							Cluster: cluster,
+				}
+			} else {
+				// Fetch keys from JwksUri and setup as inline key.
+				var err error
+				jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
+				if err != nil {
+					log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
+					// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
+					// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
+					jwtPubKey = createFakeJwks(jwtRule.JwksUri)
+				}
+				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
+					LocalJwks: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							InlineString: jwtPubKey,
 						},
 					},
-					CacheDuration: &duration.Duration{Seconds: 5 * 60}, // TODO: Make this configurable if needed.
-				},
+				}
 			}
 		} else {
-			// Fetch from URI
-			var err error
-			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
-			if err != nil {
-				log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
-				// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
-				// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-				jwtPubKey = createFakeJwks(jwtRule.JwksUri)
+			// Use inline jwks as existing flow, either jwtRule.jwks is non empty or let istiod to fetch the jwtRule.jwksUri
+			if jwtPubKey == "" {
+				var err error
+				jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
+				if err != nil {
+					log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
+					// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
+					// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
+					jwtPubKey = createFakeJwks(jwtRule.JwksUri)
+				}
 			}
 			provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{
 				LocalJwks: &core.DataSource{

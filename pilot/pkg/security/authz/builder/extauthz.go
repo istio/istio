@@ -178,7 +178,7 @@ func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	_, cluster, err := parseService(in, config.Service, port)
+	_, cluster, err := security.LookupCluster(in.Push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -191,10 +191,6 @@ func buildExtAuthzGRPC(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	}
 
 	return generateGRPCConfig(cluster, config.FailOpen, status), nil
-}
-
-func parseService(in *plugin.InputParams, service string, port int) (hostname string, cluster string, err error) {
-	return security.LookupCluster(in.Push, service, port)
 }
 
 func parsePort(port uint32) (int, error) {

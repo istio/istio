@@ -203,7 +203,8 @@ var (
 	EnableRemoteJwks = env.RegisterBoolVar(
 		"PILOT_JWT_ENABLE_REMOTE_JWKS",
 		false,
-		"If enabled, treats the Issuer in RequestAuthentication as a mesh cluster and configures Remote Jwks in Envoy",
+		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
+			"and configures Remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
 	).Get()
 
 	EnableEDSForHeadless = env.RegisterBoolVar(
