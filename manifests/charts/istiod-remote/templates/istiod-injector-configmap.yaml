@@ -32,7 +32,8 @@ data:
       {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
       "{{ $key }}": "{{ $val }}"
       {{- end }}
-
-{{ .Files.Get "files/injection-template.yaml" | trim | indent 4 }}
+    templates:
+      sidecar: |
+{{ .Files.Get "files/injection-template.yaml" | trim | indent 8 }}
 
 {{- end }}
