@@ -149,7 +149,7 @@ func buildExtAuthzHTTP(in *plugin.InputParams, config *meshconfig.MeshConfig_Ext
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	hostname, cluster, err := parseService(in, config.Service, port)
+	hostname, cluster, err := security.LookupCluster(in.Push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
