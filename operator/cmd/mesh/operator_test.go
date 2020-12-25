@@ -77,9 +77,10 @@ func TestOperatorInit(t *testing.T) {
 		},
 	}
 
-	cmd := "operator dump --hub " + oiArgs.common.hub
+	cmd := "operator init --hub " + oiArgs.common.hub
 	cmd += " --tag " + oiArgs.common.tag
 	cmd += " --operatorNamespace " + oiArgs.common.operatorNamespace
+	cmd += " --watchedNamespaces " + oiArgs.common.watchedNamespaces
 	cmd += " --manifests=" + string(snapshotCharts)
 
 	gotYAML, err := runCommand(cmd)
