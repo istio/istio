@@ -40,7 +40,6 @@ var (
 	serviceRegistries = []serviceregistry.ProviderID{
 		serviceregistry.Mock,
 		serviceregistry.Kubernetes,
-		serviceregistry.MCP,
 		serviceregistry.External,
 	}
 )
