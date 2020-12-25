@@ -335,32 +335,64 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	dip := map[string][]*model.ServiceInstance{}
 	serviceEntry := curr.Spec.(*networking.ServiceEntry)
 	s.storeMutex.Lock()
-	var workloadEntryConfigs []config.Config
-	if serviceEntry.WorkloadSelector != nil && serviceEntry.WorkloadSelector.Labels != nil {
-		workloadEntryConfigs = s.store.WorkloadEntries(curr.Namespace, labels.Collection{serviceEntry.WorkloadSelector.Labels})
-	} else {
-		workloadEntryConfigs = s.store.WorkloadEntries(curr.Namespace, nil)
-	}
-	if len(workloadEntryConfigs) > 0 {
-		for _, workloadEntryCfg := range workloadEntryConfigs {
-			workloadEntry := workloadEntryCfg.Spec.(*networking.WorkloadEntry)
-			workLoadEntryKey := configKey{
-				kind:      workloadEntryConfigType,
-				name:      workloadEntryCfg.Name,
-				namespace: workloadEntryCfg.Namespace,
+	if serviceEntry.WorkloadSelector == nil {
+		key := configKey{
+			kind:      serviceEntryConfigType,
+			name:      curr.Name,
+			namespace: curr.Namespace,
+		}
+		updateInstances(key, convertServiceEntryToInstances(curr, nil), di, dip)
+		if event == model.EventDelete {
+			for ikey := range di {
+				if _, f := s.instances[ikey]; !f {
+					s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
+					continue
+				}
+				s.instances[ikey][key] = []*model.ServiceInstance{}
 			}
-			updateInstances(workLoadEntryKey, convertWorkloadEntryToServiceInstances(workloadEntry, convertServices(curr), serviceEntry, &workLoadEntryKey), di, dip)
+			for key := range dip {
+				s.ip2instance[key] = []*model.ServiceInstance{}
+			}
+		} else {
+			for ikey := range di {
+				if _, f := s.instances[ikey]; !f {
+					s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
+				}
+				s.instances[ikey][key] = append(s.instances[ikey][key], di[ikey][key]...)
+			}
+			for key := range dip {
+				s.ip2instance[key] = dip[key]
+			}
 		}
-		for key := range di {
-			s.instances[key] = di[key]
-		}
-		for key := range dip {
-			s.ip2instance[key] = dip[key]
-		}
+
 	} else {
-		services := convertServices(curr)
-		for _, instance := range services {
-			delete(s.instances, instancesKey{instance.Hostname, instance.Attributes.Namespace})
+		var workloadEntryConfigs []config.Config
+		if serviceEntry.WorkloadSelector != nil && serviceEntry.WorkloadSelector.Labels != nil {
+			workloadEntryConfigs = s.store.WorkloadEntries(curr.Namespace, labels.Collection{serviceEntry.WorkloadSelector.Labels})
+		} else {
+			workloadEntryConfigs = s.store.WorkloadEntries(curr.Namespace, nil)
+		}
+		if len(workloadEntryConfigs) > 0 {
+			for _, workloadEntryCfg := range workloadEntryConfigs {
+				workloadEntry := workloadEntryCfg.Spec.(*networking.WorkloadEntry)
+				workLoadEntryKey := configKey{
+					kind:      workloadEntryConfigType,
+					name:      workloadEntryCfg.Name,
+					namespace: workloadEntryCfg.Namespace,
+				}
+				updateInstances(workLoadEntryKey, convertWorkloadEntryToServiceInstances(workloadEntry, convertServices(curr), serviceEntry, &workLoadEntryKey), di, dip)
+			}
+			for key := range di {
+				s.instances[key] = di[key]
+			}
+			for key := range dip {
+				s.ip2instance[key] = dip[key]
+			}
+		} else {
+			services := convertServices(curr)
+			for _, instance := range services {
+				delete(s.instances, instancesKey{instance.Hostname, instance.Attributes.Namespace})
+			}
 		}
 	}
 
@@ -371,12 +403,16 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		se := curr.Spec.(*networking.ServiceEntry)
 		// If we have a workload selector, we will add all instances from WorkloadEntries. Otherwise, we continue
 		if se.WorkloadSelector != nil {
+			if s.seWithSelectorByNamespace == nil {
+				s.seWithSelectorByNamespace = make(map[string]map[string]servicesWithEntry)
+			}
 			if _, found := s.seWithSelectorByNamespace[curr.Namespace]; !found {
 				s.seWithSelectorByNamespace[curr.Namespace] = make(map[string]servicesWithEntry)
 			}
 			s.seWithSelectorByNamespace[curr.Namespace][curr.Name] = servicesWithEntry{se, services}
 		}
 	}
+	s.storeMutex.Unlock()
 	// update eds endpoint shards
 	s.edsUpdateByKeys(keys, false)
 
