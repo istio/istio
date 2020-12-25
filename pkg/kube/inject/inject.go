@@ -93,6 +93,7 @@ type SidecarTemplateData struct {
 	MeshConfig     *meshconfig.MeshConfig
 	Values         map[string]interface{}
 	Revision       string
+	InjectEnvs     map[string]string
 }
 
 type Template *corev1.Pod
@@ -303,11 +304,11 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	// TODO allow overriding the values.global network in injection with the system namespace label
 	network := valuesStruct.GetGlobal().GetNetwork()
 	// params may be set from webhook URL, take priority over values yaml
-	if params.proxyEnvs["ISTIO_META_CLUSTER_ID"] != "" {
-		cluster = params.proxyEnvs["ISTIO_META_CLUSTER_ID"]
+	if params.injectEnvs["ISTIO_META_CLUSTER_ID"] != "" {
+		cluster = params.injectEnvs["ISTIO_META_CLUSTER_ID"]
 	}
-	if params.proxyEnvs["ISTIO_META_NETWORK"] != "" {
-		network = params.proxyEnvs["ISTIO_META_NETWORK"]
+	if params.injectEnvs["ISTIO_META_NETWORK"] != "" {
+		network = params.injectEnvs["ISTIO_META_NETWORK"]
 	}
 	// explicit label takes highest precedence
 	if n, ok := metadata.Labels[label.IstioNetwork]; ok {
@@ -316,10 +317,10 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 
 	// use network in values for template, and proxy env variables
 	if cluster != "" {
-		params.proxyEnvs["ISTIO_META_CLUSTER_ID"] = cluster
+		params.injectEnvs["ISTIO_META_CLUSTER_ID"] = cluster
 	}
 	if network != "" {
-		params.proxyEnvs["ISTIO_META_NETWORK"] = network
+		params.injectEnvs["ISTIO_META_NETWORK"] = network
 	}
 
 	values := map[string]interface{}{}
@@ -339,6 +340,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		MeshConfig:     meshConfig,
 		Values:         values,
 		Revision:       params.revision,
+		InjectEnvs:     params.injectEnvs,
 	}
 	funcMap := CreateInjectionFuncmap()
 
@@ -673,7 +675,7 @@ func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string,
 		meshConfig:          meshconfig,
 		valuesConfig:        valuesConfig,
 		revision:            revision,
-		proxyEnvs:           map[string]string{},
+		injectEnvs:          map[string]string{},
 		injectedAnnotations: nil,
 	}
 	patchBytes, err := injectPod(params)
@@ -735,11 +737,11 @@ func potentialPodName(metadata metav1.ObjectMeta) string {
 // overwriteClusterInfo updates cluster name and network from url path
 // This is needed when webconfig config runs on a different cluster than webhook
 func overwriteClusterInfo(containers []corev1.Container, params InjectionParameters) {
-	if len(params.proxyEnvs) > 0 {
-		log.Debugf("Updating cluster envs based on inject url: %s\n", params.proxyEnvs)
+	if len(params.injectEnvs) > 0 {
+		log.Debugf("Updating cluster envs based on inject url: %s\n", params.injectEnvs)
 		for i, c := range containers {
 			if c.Name == ProxyContainerName {
-				updateClusterEnvs(&containers[i], params.proxyEnvs)
+				updateClusterEnvs(&containers[i], params.injectEnvs)
 				break
 			}
 		}

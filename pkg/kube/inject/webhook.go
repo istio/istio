@@ -331,7 +331,7 @@ type InjectionParameters struct {
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
-	proxyEnvs           map[string]string
+	injectEnvs          map[string]string
 	injectedAnnotations map[string]string
 }
 
@@ -766,7 +766,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
-		proxyEnvs:           parseInjectEnvs(path),
+		injectEnvs:          parseInjectEnvs(path),
 	}
 	wh.mu.RUnlock()
 
