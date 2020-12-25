@@ -16,17 +16,14 @@ package mesh
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/env"
 )
 
-// TODO: rewrite this with running the actual top level command.
 func TestOperatorDump(t *testing.T) {
 	goldenFilepath := filepath.Join(env.IstioSrc, "operator/cmd/mesh/testdata/operator/output/operator-dump.yaml")
 
@@ -68,10 +65,8 @@ func TestOperatorDump(t *testing.T) {
 	}
 }
 
-// TODO: rewrite this with running the actual top level command.
 func TestOperatorInit(t *testing.T) {
 	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
-	rootArgs := &rootArgs{}
 	oiArgs := &operatorInitArgs{
 		common: operatorCommonArgs{
 			hub:               "foo.io/istio",
@@ -82,10 +77,14 @@ func TestOperatorInit(t *testing.T) {
 		},
 	}
 
-	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
-	_, gotYAML, err := renderOperatorManifest(rootArgs, &oiArgs.common)
+	cmd := "operator dump --hub " + oiArgs.common.hub
+	cmd += " --tag " + oiArgs.common.tag
+	cmd += " --operatorNamespace " + oiArgs.common.operatorNamespace
+	cmd += " --manifests=" + string(snapshotCharts)
+
+	gotYAML, err := runCommand(cmd)
 	if err != nil {
-		l.LogAndFatal(err)
+		t.Fatal(err)
 	}
 
 	if refreshGoldenFiles() {
