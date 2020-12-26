@@ -125,4 +125,7 @@ const (
 	LocalPathStorageNamespace string = "local-path-storage"
 
 	TestVMLabel = "istio.io/test-vm"
+
+	// TrustworthyJWTPath is the defaut 3P token to authenticate with google services
+	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
 )
