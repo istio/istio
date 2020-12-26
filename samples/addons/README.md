@@ -40,6 +40,7 @@ This sample provides the following dashboards:
 
 * [Mesh Dashboard](https://grafana.com/grafana/dashboards/7639) provides an overview of all services in the mesh.
 * [Service Dashboard](https://grafana.com/grafana/dashboards/7636) provides a detailed breakdown of metrics for a service.
+* [Canonical Service Dashboard](https://grafana.com/grafana/dashboards/7637) provides a detailed breakdown of metrics for an Istio canonical service.
 * [Workload Dashboard](https://grafana.com/grafana/dashboards/7630) provides a detailed breakdown of metrics for a workload.
 * [Performance Dashboard](https://grafana.com/grafana/dashboards/11829) monitors the resource usage of the mesh.
 * [Control Plane Dashboard](https://grafana.com/grafana/dashboards/7645) monitors the health and performance of the control plane.
