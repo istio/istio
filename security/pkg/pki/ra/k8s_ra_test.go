@@ -55,6 +55,7 @@ e+5z6MTAO6ktvHdQlSuH6ARn47bJrZOlkttAhg==
 var (
 	testCsrHostName string = spiffe.Identity{TrustDomain: "cluster.local", Namespace: "default", ServiceAccount: "bookinfo-productpage"}.String()
 	TestCACertFile  string = "../testdata/example-ca-cert.pem"
+	testOrg         string = "testOrg"
 )
 
 func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
@@ -66,6 +67,22 @@ func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
 func createFakeCsr(t *testing.T) []byte {
 	options := pkiutil.CertOptions{
 		Host:       testCsrHostName,
+		RSAKeySize: 2048,
+		PKCS8Key:   false,
+		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms("ECDSA"),
+	}
+	csrPEM, _, err := pkiutil.GenCSR(options)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+		return nil
+	}
+	return csrPEM
+}
+
+func createFakeCsrWithOrg(t *testing.T) []byte {
+	options := pkiutil.CertOptions{
+		Host:       testCsrHostName,
+		Org:        testOrg,
 		RSAKeySize: 2048,
 		PKCS8Key:   false,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms("ECDSA"),
@@ -139,13 +156,18 @@ func TestValidateCSR(t *testing.T) {
 	// Test Case 1
 	testSubjectIDs = []string{testCsrHostName, "Random-Host-Name"}
 	if !ValidateCSR(csrPEM, testSubjectIDs) {
-		t.Errorf("Test 1: CSR Validation failed")
+		t.Errorf("Test 1: CSR Validation Test failed")
 	}
-
 	// Test Case 2
 	testSubjectIDs = []string{"Random-Host-Name"}
 	if ValidateCSR(csrPEM, testSubjectIDs) {
-		t.Errorf("Test 2: CSR Validation failed")
+		t.Errorf("Test 2: CSR Validation Test failed")
 	}
 
+	csrPEM = createFakeCsrWithOrg(t)
+	// Test Case 3
+	testSubjectIDs = []string{testCsrHostName, "Random-Host-Name"}
+	if ValidateCSR(csrPEM, testSubjectIDs) {
+		t.Errorf("Test 3: CSR Validation Test failed")
+	}
 }
