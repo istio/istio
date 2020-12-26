@@ -63,17 +63,27 @@ const (
 	DefaultExtCACertDir string = "./etc/external-ca-cert"
 )
 
-// ValidateCSR : Validate all SAN extensions in csrPEM match authenticated identities
+// ValidateCSR : Validate contents of the CSR Request
 func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 	var match bool
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
 		return false
 	}
+
+	// Detect Invalid CSR Extentions
+	if !util.WorkloadCSRValidateExt(csr.Extensions) {
+		return false
+	}
+
+	// Extract SANS
 	csrIDs, err := util.ExtractIDs(csr.Extensions)
 	if err != nil {
 		return false
 	}
+
+	// Only URI SAN extentions that can be authenticated through connection token/certs
+	// can be included in the CSR Request
 	for _, s1 := range csrIDs {
 		match = false
 		for _, s2 := range subjectIDs {
@@ -86,6 +96,14 @@ func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 			return false
 		}
 	}
+
+	// Istio Workload Certificates do not rely on a CN
+	if csr.Subject.CommonName != "" ||
+		len(csr.Subject.Names) != 0 ||
+		len(csr.Subject.ExtraNames) != 0 {
+		return false
+	}
+
 	return true
 }
 
