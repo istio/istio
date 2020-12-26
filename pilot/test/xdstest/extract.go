@@ -122,9 +122,9 @@ func ExtractHTTPConnectionManager(t test.Failer, fcs *listener.FilterChain) *hcm
 	return nil
 }
 
-func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]string {
+func ExtractLoadAssignments(clas []*endpoint.ClusterLoadAssignment) map[string][]string {
 	got := map[string][]string{}
-	for _, cla := range cla {
+	for _, cla := range clas {
 		if cla == nil {
 			continue
 		}

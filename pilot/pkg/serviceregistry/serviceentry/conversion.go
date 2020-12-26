@@ -285,18 +285,19 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
 func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
-	se *networking.ServiceEntry, wleck *configKey) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+	se *networking.ServiceEntry, wleck *configKey) map[ipKey]*model.ServiceInstance {
+	out := make(map[ipKey]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
-			out = append(out, convertEndpoint(service, port, wle, wleck))
+			serviceInstance := convertEndpoint(service, port, wle, wleck)
+			out[makeIpKey(serviceInstance)] = serviceInstance
 		}
 	}
 	return out
 }
 
-func convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+func convertServiceEntryToInstances(cfg config.Config, services []*model.Service) map[ipKey]*model.ServiceInstance {
+	out := make(map[ipKey]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if services == nil {
 		services = convertServices(cfg)
@@ -314,7 +315,7 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 				if serviceEntryPort.TargetPort > 0 {
 					endpointPort = serviceEntryPort.TargetPort
 				}
-				out = append(out, &model.ServiceInstance{
+				serviceInstance := &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
 						Address:         string(service.Hostname),
 						EndpointPort:    endpointPort,
@@ -324,10 +325,12 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 					},
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),
-				})
+				}
+				out[makeIpKey(serviceInstance)] = serviceInstance
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}))
+					serviceInstance := convertEndpoint(service, serviceEntryPort, endpoint, &configKey{})
+					out[makeIpKey(serviceInstance)] = serviceInstance
 				}
 			}
 		}
@@ -351,8 +354,8 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 // The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
 func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
-	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+	serviceEntry *networking.ServiceEntry) map[ipKey]*model.ServiceInstance {
+	out := make(map[ipKey]*model.ServiceInstance, 0)
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			ep := *workloadInstance
@@ -365,11 +368,12 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 				ep.EndpointPort = serviceEntryPort.Number
 			}
 			ep.EnvoyEndpoint = nil
-			out = append(out, &model.ServiceInstance{
+			serviceInstance := &model.ServiceInstance{
 				Endpoint:    &ep,
 				Service:     service,
 				ServicePort: convertPort(serviceEntryPort),
-			})
+			}
+			out[makeIpKey(serviceInstance)] = serviceInstance
 		}
 	}
 	return out

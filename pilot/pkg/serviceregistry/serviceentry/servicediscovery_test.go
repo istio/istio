@@ -1213,6 +1213,13 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 		return instances[i].Service.Hostname < instances[j].Service.Hostname
 	})
 }
+func convertInstanceMapToList(instancesMap map[ipKey]*model.ServiceInstance) []*model.ServiceInstance {
+	instances := make([]*model.ServiceInstance, 0)
+	for _, v := range instancesMap {
+		instances = append(instances, v)
+	}
+	return instances
+}
 
 func sortPorts(ports []*model.Port) {
 	sort.Slice(ports, func(i, j int) bool {
