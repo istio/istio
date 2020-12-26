@@ -2984,7 +2984,7 @@
     ]
   },
   "timezone": "",
-  "title": "Istio Service Dashboard",
+  "title": "Istio K8s Service Dashboard (Deprecated)",
   "uid": "LJ_uJAvmk",
   "version": 1
 }

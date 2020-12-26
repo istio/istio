@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 28288
+releaseNotes:
+  - |
+    **Deprecated** Istio K8s Service Grafana Dashboard.
