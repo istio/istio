@@ -15,6 +15,7 @@
 package serviceentry
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -53,10 +54,15 @@ type ipKey struct {
 	service   string
 	namespace string
 	port      int
+	labels    string
 }
 
 func makeIPKey(i *model.ServiceInstance) ipKey {
-	return ipKey{i.Endpoint.Address, string(i.Service.Hostname), i.Service.Attributes.Namespace, i.ServicePort.Port}
+	labelBytes, err := json.Marshal(i.Endpoint.Labels)
+	if err != nil {
+		labelBytes = []byte{}
+	}
+	return ipKey{i.Endpoint.Address, string(i.Service.Hostname), i.Service.Attributes.Namespace, i.ServicePort.Port, string(labelBytes)}
 }
 
 type externalConfigType int
