@@ -359,9 +359,9 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	}
 
 	serviceEntry := curr.Spec.(*networking.ServiceEntry)
-	portChanged := false
+	serviceDataChanged := false
 	if event == model.EventUpdate && len(addedSvcs)+len(updatedSvcs) > 0 {
-		portChanged = true
+		serviceDataChanged = true
 	}
 	s.storeMutex.Lock()
 	if serviceEntry.WorkloadSelector == nil {
@@ -408,11 +408,11 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 					}
 				}
 			}
-			if portChanged {
+			if serviceDataChanged {
 				// delete all
 				delDi := map[instancesKey]map[configKey][]*model.ServiceInstance{}
 				delDip := map[string]map[ipKey]*model.ServiceInstance{}
-				updateInstances(key, convertServiceEntryToInstances(old, append(allServices)), delDi, delDip)
+				updateInstances(key, convertServiceEntryToInstances(old, allServices), delDi, delDip)
 				for ikey := range delDi {
 					if _, f := s.instances[ikey]; !f {
 						s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
@@ -495,7 +495,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	} else {
 		//1. process pods
 		workloadInstanceCount := 0
-		if portChanged {
+		if serviceDataChanged {
 			oldServiceEntry := old.Spec.(*networking.ServiceEntry)
 			di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
 			dip := map[string]map[ipKey]*model.ServiceInstance{}
