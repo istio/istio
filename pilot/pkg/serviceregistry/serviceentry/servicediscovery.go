@@ -391,7 +391,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 				s.instances[ikey][key] = []*model.ServiceInstance{}
 			}
 			for key := range dip {
-				for instanceKey, _ := range dip[key] {
+				for instanceKey := range dip[key] {
 					if _, exists := s.ip2instance[key]; exists {
 						delete(s.ip2instance[key], instanceKey)
 					}
@@ -408,7 +408,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 					s.instances[ikey][key] = []*model.ServiceInstance{}
 				}
 				for key := range dip {
-					for instanceKey, _ := range dip[key] {
+					for instanceKey := range dip[key] {
 						if _, exists := s.ip2instance[key]; exists {
 							delete(s.ip2instance[key], instanceKey)
 						}
@@ -428,7 +428,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 					s.instances[ikey][key] = []*model.ServiceInstance{}
 				}
 				for key := range delDip {
-					for instanceKey, _ := range dip[key] {
+					for instanceKey := range dip[key] {
 						if _, exists := s.ip2instance[key]; exists {
 							delete(s.ip2instance[key], instanceKey)
 						}
