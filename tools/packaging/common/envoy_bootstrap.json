@@ -192,13 +192,12 @@
   "static_resources": {
     "clusters": [
       {
-        "name": "prometheus",
-        "alt_stat_name": "prometheus_stats",
+        "name": "prometheus_stats",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
-          "cluster_name": "prometheus",
+          "cluster_name": "prometheus_stats",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
@@ -216,7 +215,6 @@
       },
       {
         "name": "agent",
-        "alt_stat_name": "agent_stats",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
