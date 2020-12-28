@@ -232,7 +232,7 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 		return "", errors.New("unknown type")
 	}
 
-	cfg := patchFn(orig)
+	cfg, _ := patchFn(orig)
 	if _, err := s.Resource().ValidateConfig(cfg); err != nil {
 		return "", err
 	}
