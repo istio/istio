@@ -290,7 +290,7 @@ func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, servi
 	for _, service := range services {
 		for _, port := range se.Ports {
 			serviceInstance := convertEndpoint(service, port, wle, wleck)
-			out[makeIpKey(serviceInstance)] = serviceInstance
+			out[makeIPKey(serviceInstance)] = serviceInstance
 		}
 	}
 	return out
@@ -326,11 +326,11 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),
 				}
-				out[makeIpKey(serviceInstance)] = serviceInstance
+				out[makeIPKey(serviceInstance)] = serviceInstance
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
 					serviceInstance := convertEndpoint(service, serviceEntryPort, endpoint, &configKey{})
-					out[makeIpKey(serviceInstance)] = serviceInstance
+					out[makeIPKey(serviceInstance)] = serviceInstance
 				}
 			}
 		}
@@ -373,7 +373,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 				Service:     service,
 				ServicePort: convertPort(serviceEntryPort),
 			}
-			out[makeIpKey(serviceInstance)] = serviceInstance
+			out[makeIPKey(serviceInstance)] = serviceInstance
 		}
 	}
 	return out

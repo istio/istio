@@ -56,7 +56,7 @@ type ipKey struct {
 	labels    string
 }
 
-func makeIpKey(i *model.ServiceInstance) ipKey {
+func makeIPKey(i *model.ServiceInstance) ipKey {
 	labelStr, err := json.Marshal(i.Endpoint.Labels)
 	if err != nil {
 		labelStr = []byte{}
@@ -177,7 +177,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 					selected = true
 					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry, &key)
 					for _, ins := range instance {
-						instancesDeleted[makeIpKey(ins)] = ins
+						instancesDeleted[makeIPKey(ins)] = ins
 					}
 				}
 			}
@@ -185,7 +185,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 			selected = true
 			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key)
 			for _, ins := range instance {
-				instancesUpdated[makeIpKey(ins)] = ins
+				instancesUpdated[makeIPKey(ins)] = ins
 			}
 		}
 
@@ -636,13 +636,13 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		}
 		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, se.services, se.entry)
 		for _, ins := range instance {
-			instances[makeIpKey(ins)] = ins
+			instances[makeIPKey(ins)] = ins
 		}
 		if addressToDelete != "" {
 			for _, i := range instance {
 				di := i.DeepCopy()
 				di.Endpoint.Address = addressToDelete
-				instancesDeleted[makeIpKey(di)] = di
+				instancesDeleted[makeIPKey(di)] = di
 			}
 		}
 	}
@@ -758,7 +758,7 @@ func (s *ServiceEntryStore) ResyncEDS() {
 	for _, imap := range s.instances {
 		for _, i := range imap {
 			for _, ins := range i {
-				allInstances[makeIpKey(ins)] = ins
+				allInstances[makeIPKey(ins)] = ins
 			}
 		}
 	}
@@ -879,7 +879,7 @@ func updateInstances(key configKey, instances map[ipKey]*model.ServiceInstance,
 		if _, f := instanceMap[ikey]; !f {
 			instanceMap[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
-		jkey := makeIpKey(instance)
+		jkey := makeIPKey(instance)
 		instanceMap[ikey][key] = append(instanceMap[ikey][key], instance)
 		if ip2instance[instance.Endpoint.Address] == nil {
 			ip2instance[instance.Endpoint.Address] = make(map[ipKey]*model.ServiceInstance)
