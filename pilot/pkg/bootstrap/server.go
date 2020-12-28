@@ -79,7 +79,6 @@ var (
 		plugin.AuthzCustom,
 		plugin.Authn,
 		plugin.Authz,
-		plugin.Health,
 	}
 )
 
@@ -109,8 +108,6 @@ type readinessProbe func() (bool, error)
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	MonitorListeningAddr net.Addr
-
 	XDSServer *xds.DiscoveryServer
 
 	clusterID   string
