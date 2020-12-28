@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -68,7 +69,7 @@ var (
 
 func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
-	c := NewController(store, "")
+	c := NewController(store, "", keepalive.Infinity)
 	createOrFail(t, store, wgA)
 	stop := make(chan struct{})
 	go c.Run(stop)
@@ -98,7 +99,9 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 }
 
 func TestAutoregistrationLifecycle(t *testing.T) {
+	var maxConnAge = time.Hour
 	c1, c2, store := setup(t)
+	c2.maxConnectionAge = maxConnAge
 	stopped1 := false
 	stop1, stop2 := make(chan struct{}), make(chan struct{})
 	defer func() {
@@ -113,6 +116,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	p := fakeProxy("1.2.3.4", wgA, "nw1")
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
+	p3 := fakeProxy("1.2.3.5", wgA, "nw1")
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
@@ -133,6 +137,14 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the same instance id
 			c1.RegisterWorkload(p, time.Now())
+			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
+		})
+		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
+			// reconnect, ensure entry is there with the same instance id
+			c1.RegisterWorkload(p, time.Now())
+			// disconnect, make sure entry is still there with disconnect meta
+			c1.QueueUnregisterWorkload(p)
+			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 		})
 		t.Run("different instance", func(t *testing.T) {
@@ -166,6 +178,19 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			return checkNoEntry(store, wgA, p)
 		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
+
+	t.Run("garbage collected if pilot and workload stops simultaneously before pilot can do anything", func(t *testing.T) {
+		// simulate p3 has been registered long before
+		c2.RegisterWorkload(p3, time.Now().Add(-2*maxConnAge))
+
+		// keep silent to simulate the scenario
+
+		// unfortunately, this retry at worst could be twice as long as the sweep interval
+		retry.UntilSuccessOrFail(t, func() error {
+			return checkNoEntry(store, wgA, p3)
+		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
+	})
+
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
@@ -257,8 +282,8 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 
 func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreCache) {
 	store := memory.NewController(memory.Make(collections.All))
-	c1 := NewController(store, "pilot-1")
-	c2 := NewController(store, "pilot-2")
+	c1 := NewController(store, "pilot-1", keepalive.Infinity)
+	c2 := NewController(store, "pilot-2", keepalive.Infinity)
 	createOrFail(t, store, wgA)
 	return c1, c2, store
 }
