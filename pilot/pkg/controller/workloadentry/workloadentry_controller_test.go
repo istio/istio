@@ -118,6 +118,9 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
 	p3 := fakeProxy("1.2.3.5", wgA, "nw1")
 
+	// allows associating a Register call with Unregister
+	var origConnTime time.Time
+
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
 		c1.RegisterWorkload(p, time.Now())
@@ -132,44 +135,48 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	t.Run("fast reconnect", func(t *testing.T) {
 		t.Run("same instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect meta
-			c1.QueueUnregisterWorkload(p)
+			c1.QueueUnregisterWorkload(p, time.Now())
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the same instance id
-			c1.RegisterWorkload(p, time.Now())
+			origConnTime = time.Now()
+			c1.RegisterWorkload(p, origConnTime)
 			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 		})
 		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
 			// reconnect, ensure entry is there with the same instance id
-			c1.RegisterWorkload(p, time.Now())
-			// disconnect, make sure entry is still there with disconnect meta
-			c1.QueueUnregisterWorkload(p)
+			c1.RegisterWorkload(p, origConnTime.Add(10*time.Millisecond))
+			// disconnect (associated with original connect, not the reconnect)
+			// make sure entry is still there with disconnect meta
+			c1.QueueUnregisterWorkload(p, origConnTime)
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 		})
 		t.Run("different instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect metadata
-			c1.QueueUnregisterWorkload(p)
+			c1.QueueUnregisterWorkload(p, time.Now())
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
 			checkEntryOrFail(t, store, wgA, p, "")
 			// reconnect, ensure entry is there with the new instance id
-			c2.RegisterWorkload(p, time.Now())
+			origConnTime = time.Now()
+			c2.RegisterWorkload(p, origConnTime)
 			checkEntryOrFail(t, store, wgA, p, c2.instanceID)
 		})
 	})
 	t.Run("slow reconnect", func(t *testing.T) {
 		// disconnect, wait and make sure entry is gone
-		c2.QueueUnregisterWorkload(p)
+		c2.QueueUnregisterWorkload(p, origConnTime)
 		retry.UntilSuccessOrFail(t, func() error {
 			return checkNoEntry(store, wgA, p)
 		})
 		// reconnect
-		c1.RegisterWorkload(p, time.Now())
+		origConnTime = time.Now()
+		c1.RegisterWorkload(p, origConnTime)
 		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
 		// disconnect, kill the cleanup queue from the first controller
-		c1.QueueUnregisterWorkload(p)
+		c1.QueueUnregisterWorkload(p, origConnTime)
 		// stop processing the delayed close queue in c1, forces using periodic cleanup
 		close(stop1)
 		stopped1 = true

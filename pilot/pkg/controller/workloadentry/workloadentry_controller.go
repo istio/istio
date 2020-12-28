@@ -142,10 +142,12 @@ func (c *Controller) worker() {
 	}
 }
 
+// workItem contains the state of a "disconnect" event used to unregister a workload.
 type workItem struct {
-	entryName  string
-	proxy      *model.Proxy
-	disConTime time.Time
+	entryName   string
+	proxy       *model.Proxy
+	disConTime  time.Time
+	origConTime time.Time
 }
 
 func (c *Controller) processNextWorkItem() bool {
@@ -160,7 +162,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return true
 	}
 
-	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime)
+	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime, workItem.origConTime)
 	c.handleErr(err, item)
 	return true
 }
@@ -201,9 +203,9 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 			return nil
 		}
 		// Try to patch, if it fails then try to create
-		_, err := c.store.Patch(*wle, func(cfg config.Config) config.Config {
+		_, err := c.store.Patch(*wle, func(cfg config.Config) (config.Config, kubetypes.PatchType) {
 			setConnectMeta(&cfg, c.instanceID, conTime)
-			return cfg
+			return cfg, kubetypes.MergePatchType
 		})
 		if err != nil {
 			return fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
@@ -232,7 +234,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	return nil
 }
 
-func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy) {
+func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect time.Time) {
 	if !features.WorkloadEntryAutoRegistration || c == nil {
 		return
 	}
@@ -254,17 +256,18 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy) {
 	c.mutex.Unlock()
 
 	disconTime := time.Now()
-	if err := c.unregisterWorkload(entryName, proxy, disconTime); err != nil {
+	if err := c.unregisterWorkload(entryName, proxy, disconTime, origConnect); err != nil {
 		log.Errorf(err)
 		c.queue.AddRateLimited(&workItem{
-			entryName:  entryName,
-			proxy:      proxy,
-			disConTime: disconTime,
+			entryName:   entryName,
+			proxy:       proxy,
+			disConTime:  disconTime,
+			origConTime: origConnect,
 		})
 	}
 }
 
-func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime time.Time) error {
+func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time) error {
 	// unset controller, set disconnect time
 	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
@@ -273,6 +276,13 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 		return fmt.Errorf("workloadentry %s/%s is not found, maybe deleted or because of propagate latency", proxy.Metadata.Namespace, entryName)
 	}
 
+	// only queue a delete if this disconnect event is associated with the last connect event written to the worload entry
+	if mostRecentConn, err := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation]); err == nil {
+		if mostRecentConn.After(origConnTime) {
+			// this disconnect event wasn't processed until after we successfully reconnected
+			return nil
+		}
+	}
 	// The wle has reconnected to another istiod and controlled by it.
 	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
 		return nil
