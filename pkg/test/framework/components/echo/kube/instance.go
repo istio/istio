@@ -45,7 +45,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
+	kubeTest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
@@ -613,4 +615,66 @@ func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
 		t.Fatal(err)
 	}
 	return r
+}
+
+func (c *instance) Restart() error {
+	if err := c.Close(); err != nil {
+		return err
+	}
+
+	// fetch the original pods so we can know when the rollout is complete
+	fetch := kubeTest.NewPodMustFetch(c.cluster, c.Config().Namespace.Name(), fmt.Sprintf("%s=%s", "app", c.Config().Service))
+	origPods, err := fetch()
+	if err != nil {
+		return err
+	}
+	if err := c.restartEchoDeployments(); err != nil {
+		return err
+	}
+
+	// wait until we have the same number of pods as before in ready state
+	var pods []kubeCore.Pod
+	err = retry.UntilSuccess(func() error {
+		pods, err = kubeTest.CheckPodsAreReady(fetch)
+		if err != nil {
+			return err
+		}
+		if len(pods) != len(origPods) {
+			return fmt.Errorf("expected %d pods, got %d", len(origPods), len(pods))
+		}
+		return nil
+	}, retry.Delay(time.Second*2), retry.Timeout(time.Second*30))
+	if err != nil {
+		return fmt.Errorf("failed waiting for rollout pods ready")
+	}
+
+	// nil out the workloads and reinitialize
+	c.workloads = nil
+	if err := c.initialize(pods); err != nil {
+		return err
+	}
+	return nil
+}
+
+//restartEchoDeployments performs a `kubectl rollout restart` on the echo deployments and waits for
+// `kubectl rollout status` to complete before returning.
+func (c *instance) restartEchoDeployments() error {
+	var errs error
+	var echoDeployments []string
+	for _, s := range c.cfg.Subsets {
+		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
+		echoDeployments = append(echoDeployments, fmt.Sprintf("%s-%s", c.cfg.Service, s.Version))
+	}
+	for _, d := range echoDeployments {
+		rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment/%s -n %s", d, c.cfg.Namespace.Name())
+		_, err := shell.Execute(true, rolloutCmd)
+		errs = multierror.Append(errs, err).ErrorOrNil()
+		if err != nil {
+			continue
+		}
+		waitCmd := fmt.Sprintf("kubectl rollout status deployment/%s -n %s", d, c.cfg.Namespace.Name())
+		_, err = shell.Execute(true, waitCmd)
+		errs = multierror.Append(errs, err).ErrorOrNil()
+	}
+	return errs
 }
