@@ -15,7 +15,6 @@
 package serviceentry
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -51,21 +50,13 @@ func makeInstanceKey(i *model.ServiceInstance) instancesKey {
 
 type ipKey struct {
 	ipAddr    string
+	service   string
 	namespace string
-	port      string
-	labels    string
+	port      int
 }
 
 func makeIPKey(i *model.ServiceInstance) ipKey {
-	labelStr, err := json.Marshal(i.Endpoint.Labels)
-	if err != nil {
-		labelStr = []byte{}
-	}
-	portStr, err := json.Marshal(i.ServicePort)
-	if err != nil {
-		portStr = []byte{}
-	}
-	return ipKey{i.Endpoint.Address, i.Service.Attributes.Namespace, string(portStr), string(labelStr)}
+	return ipKey{i.Endpoint.Address, string(i.Service.Hostname), i.Service.Attributes.Namespace, i.ServicePort.Port}
 }
 
 type externalConfigType int
@@ -367,8 +358,6 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
 
-	di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
-	dip := map[string]map[ipKey]*model.ServiceInstance{}
 	serviceEntry := curr.Spec.(*networking.ServiceEntry)
 	portChanged := false
 	if event == model.EventUpdate && len(addedSvcs)+len(updatedSvcs) > 0 {
@@ -382,6 +371,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 			namespace: curr.Namespace,
 		}
 		if event == model.EventDelete {
+			di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+			dip := map[string]map[ipKey]*model.ServiceInstance{}
 			updateInstances(key, convertServiceEntryToInstances(curr, nil), di, dip)
 			for ikey := range di {
 				if _, f := s.instances[ikey]; !f {
@@ -390,15 +381,17 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 				}
 				s.instances[ikey][key] = []*model.ServiceInstance{}
 			}
-			for key := range dip {
-				for instanceKey := range dip[key] {
-					if _, exists := s.ip2instance[key]; exists {
-						delete(s.ip2instance[key], instanceKey)
+			for ikey := range dip {
+				for instanceKey := range dip[ikey] {
+					if _, exists := s.ip2instance[ikey]; exists {
+						delete(s.ip2instance[ikey], instanceKey)
 					}
 				}
 			}
 		} else {
 			if len(deletedSvcs) > 0 {
+				di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+				dip := map[string]map[ipKey]*model.ServiceInstance{}
 				updateInstances(key, convertServiceEntryToInstances(curr, deletedSvcs), di, dip)
 				for ikey := range di {
 					if _, f := s.instances[ikey]; !f {
@@ -407,10 +400,10 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 					}
 					s.instances[ikey][key] = []*model.ServiceInstance{}
 				}
-				for key := range dip {
-					for instanceKey := range dip[key] {
-						if _, exists := s.ip2instance[key]; exists {
-							delete(s.ip2instance[key], instanceKey)
+				for ikey := range dip {
+					for instanceKey := range dip[ikey] {
+						if _, exists := s.ip2instance[ikey]; exists {
+							delete(s.ip2instance[ikey], instanceKey)
 						}
 					}
 				}
@@ -419,7 +412,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 				// delete all
 				delDi := map[instancesKey]map[configKey][]*model.ServiceInstance{}
 				delDip := map[string]map[ipKey]*model.ServiceInstance{}
-				updateInstances(key, convertServiceEntryToInstances(curr, append(updatedSvcs, addedSvcs...)), delDi, delDip)
+				updateInstances(key, convertServiceEntryToInstances(old, append(allServices)), delDi, delDip)
 				for ikey := range delDi {
 					if _, f := s.instances[ikey]; !f {
 						s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
@@ -427,10 +420,29 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 					}
 					s.instances[ikey][key] = []*model.ServiceInstance{}
 				}
-				for key := range delDip {
-					for instanceKey := range dip[key] {
-						if _, exists := s.ip2instance[key]; exists {
-							delete(s.ip2instance[key], instanceKey)
+				for ikey := range delDip {
+					for instanceKey := range delDip[ikey] {
+						if _, exists := s.ip2instance[ikey]; exists {
+							delete(s.ip2instance[ikey], instanceKey)
+						}
+					}
+				}
+				di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+				dip := map[string]map[ipKey]*model.ServiceInstance{}
+				updateInstances(key, convertServiceEntryToInstances(curr, unchangedSvcs), di, dip)
+				for ikey := range di {
+					if _, f := s.instances[ikey]; !f {
+						s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
+					}
+					s.instances[ikey][key] = append(s.instances[ikey][key], di[ikey][key]...)
+				}
+				for ikey := range dip {
+					for instanceKey, serviceInstance := range dip[ikey] {
+						if _, exists := s.ip2instance[ikey]; exists {
+							s.ip2instance[ikey][instanceKey] = serviceInstance
+						} else {
+							s.ip2instance[ikey] = make(map[ipKey]*model.ServiceInstance)
+							s.ip2instance[ikey][instanceKey] = serviceInstance
 						}
 					}
 				}
@@ -438,6 +450,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 
 			//update instance
 			if len(updatedSvcs) > 0 {
+				di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+				dip := map[string]map[ipKey]*model.ServiceInstance{}
 				updateInstances(key, convertServiceEntryToInstances(curr, updatedSvcs), di, dip)
 				for ikey := range di {
 					if _, f := s.instances[ikey]; !f {
@@ -445,18 +459,20 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 					}
 					s.instances[ikey][key] = append(s.instances[ikey][key], di[ikey][key]...)
 				}
-				for key := range dip {
-					for instanceKey, serviceInstance := range dip[key] {
-						if _, exists := s.ip2instance[key]; exists {
-							s.ip2instance[key][instanceKey] = serviceInstance
+				for ikey := range dip {
+					for instanceKey, serviceInstance := range dip[ikey] {
+						if _, exists := s.ip2instance[ikey]; exists {
+							s.ip2instance[ikey][instanceKey] = serviceInstance
 						} else {
-							s.ip2instance[key] = make(map[ipKey]*model.ServiceInstance)
-							s.ip2instance[key][instanceKey] = serviceInstance
+							s.ip2instance[ikey] = make(map[ipKey]*model.ServiceInstance)
+							s.ip2instance[ikey][instanceKey] = serviceInstance
 						}
 					}
 				}
 			}
 			if len(addedSvcs) > 0 {
+				di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+				dip := map[string]map[ipKey]*model.ServiceInstance{}
 				updateInstances(key, convertServiceEntryToInstances(curr, addedSvcs), di, dip)
 				for ikey := range di {
 					if _, f := s.instances[ikey]; !f {
@@ -464,13 +480,13 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 					}
 					s.instances[ikey][key] = append(s.instances[ikey][key], di[ikey][key]...)
 				}
-				for key := range dip {
-					for instanceKey, serviceInstance := range dip[key] {
-						if _, exists := s.ip2instance[key]; exists {
-							s.ip2instance[key][instanceKey] = serviceInstance
+				for ikey := range dip {
+					for instanceKey, serviceInstance := range dip[ikey] {
+						if _, exists := s.ip2instance[ikey]; exists {
+							s.ip2instance[ikey][instanceKey] = serviceInstance
 						} else {
-							s.ip2instance[key] = make(map[ipKey]*model.ServiceInstance)
-							s.ip2instance[key][instanceKey] = serviceInstance
+							s.ip2instance[ikey] = make(map[ipKey]*model.ServiceInstance)
+							s.ip2instance[ikey][instanceKey] = serviceInstance
 						}
 					}
 				}
@@ -481,6 +497,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		workloadInstanceCount := 0
 		if portChanged {
 			oldServiceEntry := old.Spec.(*networking.ServiceEntry)
+			di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+			dip := map[string]map[ipKey]*model.ServiceInstance{}
 			for _, workloadInstance := range s.workloadInstancesByIP {
 				workloadLabels := labels.Collection{workloadInstance.Endpoint.Labels}
 				if workloadLabels.IsSupersetOf(oldServiceEntry.WorkloadSelector.Labels) {
@@ -493,6 +511,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 				}
 			}
 		}
+		di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+		dip := map[string]map[ipKey]*model.ServiceInstance{}
 		for _, workloadInstance := range s.workloadInstancesByIP {
 			workloadLabels := labels.Collection{workloadInstance.Endpoint.Labels}
 			if workloadLabels.IsSupersetOf(serviceEntry.WorkloadSelector.Labels) {
@@ -519,6 +539,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 			workloadEntryConfigs = s.store.WorkloadEntries(curr.Namespace, nil)
 		}
 		if len(workloadEntryConfigs) > 0 {
+			di = map[instancesKey]map[configKey][]*model.ServiceInstance{}
+			dip = map[string]map[ipKey]*model.ServiceInstance{}
 			for _, workloadEntryCfg := range workloadEntryConfigs {
 				workloadEntry := workloadEntryCfg.Spec.(*networking.WorkloadEntry)
 				workLoadEntryKey := configKey{
