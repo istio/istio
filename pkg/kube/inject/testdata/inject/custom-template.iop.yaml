@@ -10,6 +10,9 @@ spec:
         custom: |
           metadata:
             annotations:
+              # Disable the built-in transformations. In the future we may want a template-level API
+              prometheus.istio.io/merge-metrics: "false"
+              sidecar.istio.io/rewriteAppHTTPProbers: "false"
               foo: bar
           spec:
             containers:

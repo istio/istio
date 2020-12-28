@@ -16,3 +16,6 @@ spec:
       containers:
       - name: hello
         image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+        readinessProbe:
+          httpGet:
+            port: 80

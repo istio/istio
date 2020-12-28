@@ -13,10 +13,9 @@ spec:
       annotations:
         foo: bar
         inject.istio.io/templates: custom
-        prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15020"
-        prometheus.io/scrape: "true"
-        proxy.istio.io/overrides: '{"containers":[{"name":"hello","image":"fake.docker.io/google-samples/hello-go-gke:1.0","resources":{}}]}'
+        prometheus.istio.io/merge-metrics: "false"
+        proxy.istio.io/overrides: '{"containers":[{"name":"hello","image":"fake.docker.io/google-samples/hello-go-gke:1.0","resources":{},"readinessProbe":{"httpGet":{"port":80}}}]}'
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
         sidecar.istio.io/status: '{"initContainers":null,"containers":["hello"],"volumes":["some-injected-file"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
@@ -30,6 +29,9 @@ spec:
           value: /var/lib/data/foo.json
         image: fake.docker.io/google-samples/hello-go-gke:1.0
         name: hello
+        readinessProbe:
+          httpGet:
+            port: 80
         resources: {}
         volumeMounts:
         - mountPath: /var/lib/data/foo.json
