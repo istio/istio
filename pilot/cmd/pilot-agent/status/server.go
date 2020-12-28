@@ -294,7 +294,18 @@ func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
 	pprof.Trace(w, r)
 }
 
+const (
+	ReadinessTimeout = time.Second * 3 // Default Readiness probe timeout. It is set the same in helm charts.
+)
+
 func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
+	t0 := time.Now()
+	defer func() {
+		if time.Since(t0) > ReadinessTimeout {
+			log.Warnf("handleReadyProbe timed out")
+		}
+	}()
+
 	err := s.ready.Check()
 
 	s.mutex.Lock()
