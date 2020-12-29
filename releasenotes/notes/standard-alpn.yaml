@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
-kind: feature
+kind: bug-fix
 area: networking
+issue:
+- 24619
 releaseNotes:
 - |
-  **Added** support for virtual service delegate for sidecar proxies.
+  **Fixed** an issue causing only internal ALPN values to be set during external TLS origination.

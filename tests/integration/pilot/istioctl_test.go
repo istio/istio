@@ -47,11 +47,13 @@ var (
    Port: http 80/HTTP targets pod port 18080
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
+   Port: https 443/HTTPS targets pod port 18443
    Port: tcp-server 9091/TCP targets pod port 16060
    Port: auto-tcp 9092/UnsupportedProtocol targets pod port 19091
    Port: auto-tcp-server 9093/UnsupportedProtocol targets pod port 16061
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
+   Port: auto-https 9443/UnsupportedProtocol targets pod port 19443
    Port: http-instance 82/HTTP targets pod port 18082
 80 DestinationRule: a\..* for "a"
    Matching subsets: v1
@@ -96,6 +98,11 @@ var (
    Matching subsets: v1
    No Traffic Policy
 7071 VirtualService: a\..*
+   when headers are end-user=jason
+9443 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+9443 VirtualService: a\..*
    when headers are end-user=jason
 82 DestinationRule: a\..* for "a"
    Matching subsets: v1
