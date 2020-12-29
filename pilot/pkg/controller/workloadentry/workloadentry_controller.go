@@ -332,7 +332,7 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 	// update the status
 	_, err := c.store.UpdateStatus(wle)
 	if err != nil {
-		return fmt.Errorf("failed pdating WorkloadEntry status for %s: %v", proxy.ID, err)
+		return fmt.Errorf("failed updating WorkloadEntry status for %s: %v", proxy.ID, err)
 	}
 	log.Debugf("updated health status of %v to %v", proxy.ID, event.Healthy)
 	return nil
