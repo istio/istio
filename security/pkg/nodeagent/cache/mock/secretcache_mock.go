@@ -26,7 +26,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -103,31 +102,15 @@ func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, cer
 }
 
 // TokenExchangeServer is the mocked token exchange server for testing.
-type TokenExchangeServer struct {
-	errorCount      uint64
-	errorCountMutex *sync.Mutex
-	errors          uint64
-}
+type TokenExchangeServer struct{}
 
-// NewMockTokenExchangeServer creates an instance of TokenExchangeServer. errors is used to
-// specify the number of errors before ExchangeToken returns a dumb token.
-func NewMockTokenExchangeServer(errors uint64) *TokenExchangeServer {
-	return &TokenExchangeServer{
-		errorCount:      0,
-		errorCountMutex: &sync.Mutex{},
-		errors:          errors,
-	}
+// NewMockTokenExchangeServer creates an instance of TokenExchangeServer.
+func NewMockTokenExchangeServer() *TokenExchangeServer {
+	return &TokenExchangeServer{}
 }
 
 // ExchangeToken returns a dumb token or errors depending on the settings.
-func (s *TokenExchangeServer) ExchangeToken(context.Context, security.CredFetcher, string, string) (string, time.Time, int, error) {
-	s.errorCountMutex.Lock()
-	if s.errorCount < s.errors {
-		s.errorCount++
-		s.errorCountMutex.Unlock()
-		return "", time.Time{}, 503, fmt.Errorf("service unavailable")
-	}
-	s.errorCountMutex.Unlock()
+func (s *TokenExchangeServer) ExchangeToken(string, string) (string, error) {
 	// Since the secret cache uses the k8s token in the stored secret, we can just return anything here.
-	return "some-token", time.Now(), 200, nil
+	return "some-token", nil
 }

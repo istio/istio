@@ -56,6 +56,29 @@ func GetMetricsCounterValue(metricName string) (float64, error) {
 	return rows[0].Data.(*view.SumData).Value, nil
 }
 
+//GetMetricsCounterValue returns counter value in float64. For test purpose only.
+func GetMetricsCounterValueWithTags(metricName string, tags map[string]string) (float64, error) {
+	rows, err := view.RetrieveData(metricName)
+	if err != nil {
+		return float64(0), err
+	}
+	if len(rows) == 0 {
+		return 0, nil
+	}
+	for _, row := range rows {
+		need := len(tags)
+		for _, t := range row.Tags {
+			if tags[t.Key.Name()] == t.Value {
+				need--
+			}
+		}
+		if need == 0 {
+			return rows[0].Data.(*view.SumData).Value, nil
+		}
+	}
+	return float64(0), fmt.Errorf("no metrics matched tags %s: %d", metricName, len(rows))
+}
+
 // Output the key and certificate to the given directory.
 // If directory is empty, return nil.
 func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) error {
