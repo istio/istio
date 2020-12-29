@@ -295,7 +295,7 @@ func setupDashboardTest(done <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			times += 1
+			times++
 			scopes.Framework.Infof("sending traffic %v", times)
 			for _, ing := range common.GetIngressInstance() {
 				tcpAddr := ing.TCPAddress()
