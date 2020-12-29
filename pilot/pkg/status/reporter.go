@@ -38,9 +38,7 @@ import (
 func NewIstioContext(stop <-chan struct{}) context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		log.Errorf("howardjohn: wait done!!")
 		<-stop
-		log.Errorf("howardjohn: done!")
 		cancel()
 	}()
 	return ctx
@@ -129,7 +127,6 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 						scope.Errorf("failed to properly clean up distribution report: %v", err)
 					}
 				}
-				log.Errorf("howardjohn: done!!")
 				close(r.distributionEventQueue)
 				return
 			case <-t:
