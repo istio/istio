@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/log"
 )
 
 type WorkloadHealthChecker struct {
@@ -121,11 +121,9 @@ func orDefault(val int32, def int32) int32 {
 // Instead of a heartbeat-based health checks, we only send on a health state change, and this is
 // determined by the success & failure threshold provided by the user.
 func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*ProbeEvent), quit chan struct{}) {
-	// no-op
-	if w.prober == nil {
+	if w == nil {
 		return
 	}
-	healthCheckLog.SetOutputLevel(log.DebugLevel)
 	healthCheckLog.Infof("starting health check for %T in %v", w.prober, w.config.InitialDelay)
 
 	// delay before starting probes.

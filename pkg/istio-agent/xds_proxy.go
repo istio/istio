@@ -85,9 +85,9 @@ type XdsProxy struct {
 	xdsHeaders           map[string]string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
-	connected      *ProxyConnection
-	initialRequest *discovery.DiscoveryRequest
-	connectedMutex sync.RWMutex
+	connected                 *ProxyConnection
+	initialHealthCheckRequest *discovery.DiscoveryRequest
+	connectedMutex            sync.RWMutex
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -145,21 +145,21 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				},
 			}
 		}
-		proxy.PersistRequest(req)
+		proxy.PersistHealthCheckRequest(req)
 	}, proxy.stopChan)
 	return proxy, nil
 }
 
-// PersistRequest sends a request to the currently connected proxy. Additionally, on any reconnection
+// PersistHealthCheckRequest sends a request to the currently connected proxy. Additionally, on any reconnection
 // to the upstream XDS request we will resend this request.
-func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
+func (p *XdsProxy) PersistHealthCheckRequest(req *discovery.DiscoveryRequest) {
 	var ch chan *discovery.DiscoveryRequest
 
 	p.connectedMutex.Lock()
 	if p.connected != nil {
 		ch = p.connected.requestsChan
 	}
-	p.initialRequest = req
+	p.initialHealthCheckRequest = req
 	p.connectedMutex.Unlock()
 
 	// Immediately send if we are currently connect
@@ -216,7 +216,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	go func() {
 		// Send initial request
 		p.connectedMutex.RLock()
-		initialRequest := p.initialRequest
+		initialRequest := p.initialHealthCheckRequest
 		p.connectedMutex.RUnlock()
 
 		for {
@@ -362,6 +362,15 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					VersionInfo:   resp.VersionInfo,
 					TypeUrl:       v3.NameTableType,
 					ResponseNonce: resp.Nonce,
+				}
+			case v3.HealthInfoType:
+				if len(resp.Resources) > 0 && len(resp.Resources[0].Value) > 0 {
+					proxyLog.Infof("response for healthcheck with error %s", resp.TypeUrl, string(resp.Resources[0].Value))
+					// resend the last healthcheck info when istiod NACKed
+					p.connectedMutex.RLock()
+					initialRequest := p.initialHealthCheckRequest
+					p.connectedMutex.RUnlock()
+					con.requestsChan <- initialRequest
 				}
 			default:
 				// TODO: Validate the known type urls before forwarding them to Envoy.

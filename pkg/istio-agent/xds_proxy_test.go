@@ -128,11 +128,11 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition("")
 
 	// Flip status back and forth, ensure we update
-	proxy.PersistRequest(healthy)
+	proxy.PersistHealthCheckRequest(healthy)
 	expectCondition(status.StatusTrue)
-	proxy.PersistRequest(unhealthy)
+	proxy.PersistHealthCheckRequest(unhealthy)
 	expectCondition(status.StatusFalse)
-	proxy.PersistRequest(healthy)
+	proxy.PersistHealthCheckRequest(healthy)
 	expectCondition(status.StatusTrue)
 
 	// Completely disconnect
@@ -146,14 +146,14 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	// Old status should remain
 	expectCondition(status.StatusTrue)
 	// And still update when we send new requests
-	proxy.PersistRequest(unhealthy)
+	proxy.PersistHealthCheckRequest(unhealthy)
 	expectCondition(status.StatusFalse)
 
 	// Send a new update while we are disconnected
 	conn.Close()
 	downstream.CloseSend()
 	waitDisconnect()
-	proxy.PersistRequest(healthy)
+	proxy.PersistHealthCheckRequest(healthy)
 	conn = setupDownstreamConnection(t)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
@@ -162,9 +162,9 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition(status.StatusTrue)
 
 	// Confirm more updates are honored
-	proxy.PersistRequest(healthy)
+	proxy.PersistHealthCheckRequest(healthy)
 	expectCondition(status.StatusTrue)
-	proxy.PersistRequest(unhealthy)
+	proxy.PersistHealthCheckRequest(unhealthy)
 	expectCondition(status.StatusFalse)
 
 	// Disconnect and remove workload entry. This could happen if there is an outage and istiod cleans up
@@ -173,7 +173,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	downstream.CloseSend()
 	waitDisconnect()
 	f.Store().Delete(gvk.WorkloadEntry, "group-1.1.1.1", "default", nil)
-	proxy.PersistRequest(healthy)
+	proxy.PersistHealthCheckRequest(healthy)
 	conn = setupDownstreamConnection(t)
 	downstream = stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
@@ -182,9 +182,9 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	expectCondition(status.StatusTrue)
 
 	// Confirm more updates are honored
-	proxy.PersistRequest(unhealthy)
+	proxy.PersistHealthCheckRequest(unhealthy)
 	expectCondition(status.StatusFalse)
-	proxy.PersistRequest(healthy)
+	proxy.PersistHealthCheckRequest(healthy)
 	expectCondition(status.StatusTrue)
 }
 

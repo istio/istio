@@ -24,6 +24,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -178,8 +179,8 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-	if !s.preProcessRequest(con.proxy, req) {
-		return nil
+	if shouldContinue, err := s.preProcessRequest(req, con); !shouldContinue {
+		return err
 	}
 
 	if s.StatusReporter != nil {
@@ -568,7 +569,7 @@ func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushCont
 }
 
 // pre-process request. returns whether or not to continue.
-func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) bool {
+func (s *DiscoveryServer) preProcessRequest(req *discovery.DiscoveryRequest, con *Connection) (bool, error) {
 	if req.TypeUrl == v3.HealthInfoType {
 		if features.WorkloadEntryHealthChecks {
 			event := workloadentry.HealthEvent{}
@@ -578,11 +579,21 @@ func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.D
 				event.Healthy = false
 				event.Message = req.ErrorDetail.Message
 			}
-			s.WorkloadEntryController.UpdateWorkloadEntryHealth(proxy, event)
+			err := s.WorkloadEntryController.UpdateWorkloadEntryHealth(con.proxy, event)
+			resp := &discovery.DiscoveryResponse{
+				TypeUrl:   req.TypeUrl,
+				Resources: []*any.Any{{TypeUrl: req.TypeUrl, Value: []byte(err.Error())}},
+			}
+
+			err = con.send(resp)
+			if err != nil {
+				recordSendError(resp.TypeUrl, con.ConID, err)
+				return false, err
+			}
 		}
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 // DeltaAggregatedResources is not implemented.

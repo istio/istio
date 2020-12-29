@@ -311,21 +311,20 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 
 // UpdateWorkloadEntryHealth updates the associated WorkloadEntries health status
 // based on the corresponding health check performed by istio-agent.
-func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {
+func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) error {
 	// we assume that the workload entry exists
 	// if auto registration does not exist, try looking
 	// up in NodeMetadata
 	entryName := autoregisteredWorkloadEntryName(proxy)
 	if entryName == "" {
 		log.Errorf("unable to derive WorkloadEntry for health update for %v", proxy.ID)
-		return
+		return nil
 	}
 
 	// get previous status
 	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
-		log.Errorf("config was nil when getting WorkloadEntry %v for %v", entryName, proxy.ID)
-		return
+		return fmt.Errorf("WorkloadEntry %v for %v is not found", entryName, proxy.ID)
 	}
 
 	// replace the updated status
@@ -333,9 +332,10 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 	// update the status
 	_, err := c.store.UpdateStatus(wle)
 	if err != nil {
-		log.Errorf("error while updating WorkloadEntry status: %v for %v", err, proxy.ID)
+		return fmt.Errorf("failed pdating WorkloadEntry status for %s: %v", proxy.ID, err)
 	}
 	log.Debugf("updated health status of %v to %v", proxy.ID, event.Healthy)
+	return nil
 }
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
