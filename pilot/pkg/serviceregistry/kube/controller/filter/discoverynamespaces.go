@@ -30,6 +30,8 @@ const (
 	PilotDiscoveryLabelValue = "true"
 )
 
+var PilotDiscoverySelector = labels.Set(map[string]string{PilotDiscoveryLabelName: PilotDiscoveryLabelValue}).AsSelector()
+
 func DiscoveryNamespacesFilterFunc(lister v1.NamespaceLister, enableDiscoveryNamespaces bool) func(obj interface{}) bool {
 	return func(obj interface{}) bool {
 		// permit all objects if discovery namespaces is disabled
@@ -38,8 +40,7 @@ func DiscoveryNamespacesFilterFunc(lister v1.NamespaceLister, enableDiscoveryNam
 		}
 
 		// filter out objects that don't reside in any discovery namespace
-		selector := labels.Set(map[string]string{PilotDiscoveryLabelName: PilotDiscoveryLabelValue}).AsSelector()
-		namespaceList, err := lister.List(selector)
+		namespaceList, err := lister.List(PilotDiscoverySelector)
 		if err != nil {
 			log.Errorf("failed to get namespaces: %v", err)
 			return true
