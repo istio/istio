@@ -1019,7 +1019,7 @@ func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
 				return servicesEqual(svcList, expectedSvcList)
 			})
 
-			// test updating namespace with removing discovery label
+			// test updating namespace by removing discovery label
 			updateNamespace(t, controller.client, nsA, map[string]string{filter.PilotDiscoveryLabelName: "false"})
 			// service event handlers should trigger for svc1 and svc2
 			if ev := fx.Wait("service"); ev == nil {

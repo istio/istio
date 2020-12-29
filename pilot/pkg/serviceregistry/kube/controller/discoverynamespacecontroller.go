@@ -32,7 +32,16 @@ import (
 func (c *Controller) initDiscoveryNamespaceHandlers(kubeClient kubelib.Client, endpointMode EndpointMode) {
 	otype := "Namespaces"
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// no need to handle namespace creation, any relevant objects created in the namespace will trigger create events
+		AddFunc: func(obj interface{}) {
+			incrementEvent(otype, "add")
+			ns := obj.(*v1.Namespace)
+			if ns.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
+				c.queue.Push(func() error {
+					c.handleLabeledNamespace(endpointMode, ns.Name)
+					return nil
+				})
+			}
+		},
 		UpdateFunc: func(old, new interface{}) {
 			incrementEvent(otype, "update")
 			oldNs := old.(*v1.Namespace)
