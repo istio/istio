@@ -32,24 +32,34 @@ const (
 
 var PilotDiscoverySelector = labels.Set(map[string]string{PilotDiscoveryLabelName: PilotDiscoveryLabelValue}).AsSelector()
 
-func DiscoveryNamespacesFilterFunc(lister v1.NamespaceLister, enableDiscoveryNamespaces bool) func(obj interface{}) bool {
-	return func(obj interface{}) bool {
-		// permit all objects if discovery namespaces is disabled
-		if !enableDiscoveryNamespaces {
-			return true
-		}
+type Func func(obj interface{}) bool
 
+var permitAll = func(_ interface{}) bool {
+	return true
+}
+
+func DiscoveryNamespacesFilterFactory(lister v1.NamespaceLister, enableDiscoveryNamespaces bool) func() Func {
+	// permit all objects if discovery namespaces is disabled
+	if !enableDiscoveryNamespaces {
+		return func() Func {
+			return permitAll
+		}
+	}
+
+	return func() Func {
 		// filter out objects that don't reside in any discovery namespace
 		namespaceList, err := lister.List(PilotDiscoverySelector)
 		if err != nil {
-			log.Errorf("failed to get namespaces: %v", err)
-			return true
+			log.Errorf("error constructing namespace filter function, failed to get namespaces: %v", err)
+			return permitAll
 		}
 		discoveryNamespaces := sets.NewString()
 		for _, ns := range namespaceList {
 			discoveryNamespaces.Insert(ns.Name)
 		}
 
-		return discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
+		return func(obj interface{}) bool {
+			return discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
+		}
 	}
 }
