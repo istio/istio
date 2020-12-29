@@ -1210,6 +1210,14 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
+						AddressSuffix: "0.0.0.0",
+					},
+					Filters: []*listener.Filter{
+						{Name: "network-filter-should-not-be-replaced"},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
 						DestinationPort: &wrappers.UInt32Value{
 							Value: 6380,
 						},
@@ -1262,6 +1270,14 @@ func TestApplyListenerPatches(t *testing.T) {
 								}),
 							},
 						},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						AddressSuffix: "0.0.0.0",
+					},
+					Filters: []*listener.Filter{
+						{Name: "network-filter-should-not-be-replaced"},
 					},
 				},
 				{
