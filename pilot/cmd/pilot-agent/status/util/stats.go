@@ -35,8 +35,8 @@ const (
 	updateStatsRegex   = "^(cluster_manager\\.cds|listener_manager\\.lds)\\.(update_success|update_rejected)$"
 )
 
-var (
-	readinessTimeout = time.Second * 3 // Default Readiness timeout. It is set the same in helm charts.
+const (
+	timeout = time.Second * 15 // the timeout for calling envoy admin api.
 )
 
 type stat struct {
@@ -74,7 +74,7 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, e
 	}
 
 	readinessURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, readyStatsRegex)
-	stats, err := doHTTPGetWithTimeout(readinessURL, readinessTimeout)
+	stats, err := doHTTPGetWithTimeout(readinessURL, timeout)
 	if err != nil {
 		return nil, false, err
 	}
@@ -105,7 +105,8 @@ func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error
 		localHostAddr = "localhost"
 	}
 
-	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, updateStatsRegex))
+	url := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, updateStatsRegex)
+	stats, err := doHTTPGetWithTimeout(url, timeout)
 	if err != nil {
 		return nil, err
 	}

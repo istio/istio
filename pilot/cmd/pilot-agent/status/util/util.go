@@ -22,8 +22,6 @@ import (
 	"time"
 )
 
-const requestTimeout = time.Second * 1 // Default timeout.
-
 func doHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
 	httpClient := &http.Client{
 		Timeout: t,
@@ -44,8 +42,4 @@ func doHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, er
 		return nil, err
 	}
 	return &b, nil
-}
-
-func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
-	return doHTTPGetWithTimeout(requestURL, requestTimeout)
 }
