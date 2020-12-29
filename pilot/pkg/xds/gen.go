@@ -101,13 +101,13 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	t0 := time.Now()
 
-	res := gen.Generate(con.proxy, push, w, req)
-	if res == nil {
+	res, err := gen.Generate(con.proxy, push, w, req)
+	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
 			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, push.Version)
 		}
-		return nil // No push needed.
+		return err
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 

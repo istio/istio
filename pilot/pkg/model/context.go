@@ -159,8 +159,10 @@ type XdsUpdates = map[ConfigKey]struct{}
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
+// Note: any errors returned will completely close the XDS stream. Use with caution; typically and empty
+// or no response is preferred.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) Resources
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
