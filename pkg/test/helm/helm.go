@@ -42,7 +42,7 @@ func New(kubeConfig, baseWorkDir string) *Helm {
 func (h *Helm) InstallChartWithValues(name, relpath, namespace string, values []string, timeout time.Duration) error {
 	p := filepath.Join(h.baseDir, relpath)
 
-	command := fmt.Sprintf("helm install %s %s --namespace %s --kubeconfig %s --timeout %s %s",
+	command := fmt.Sprintf("helm upgrade %s %s --install --namespace %s --kubeconfig %s --timeout %s %s",
 		name, p, namespace, h.kubeConfig, timeout, strings.Join(values, " "))
 	return execCommand(command)
 }
