@@ -156,7 +156,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				if s.InternalGen != nil {
 					s.InternalGen.OnDisconnect(con)
 				}
-				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy)
+				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
 			}()
 		}
 

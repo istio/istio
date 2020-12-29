@@ -30,6 +30,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -323,4 +324,4 @@ func (g GroupVersionKind) GroupVersion() string {
 
 // PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
 // parameter and the returned Config will be applied.
-type PatchFunc func(cfg Config) Config
+type PatchFunc func(cfg Config) (Config, kubetypes.PatchType)
