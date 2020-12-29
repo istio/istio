@@ -29,7 +29,6 @@ import (
 
 type monitor struct {
 	monitoringServer *http.Server
-	shutdown         chan struct{}
 }
 
 const (
@@ -57,9 +56,7 @@ func addMonitor(mux *http.ServeMux) error {
 // Deprecated: we shouldn't have 2 http ports. Will be removed after code using
 // this port is removed.
 func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
-	m := &monitor{
-		shutdown: make(chan struct{}),
-	}
+	m := &monitor{}
 
 	// get the network stuff setup
 	var listener net.Listener
@@ -89,16 +86,12 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 		go func() {
 			_ = m.monitoringServer.Serve(listener)
 		}()
-		<-m.shutdown
 	}
 
 	return m, nil
 }
 
 func (m *monitor) Close() error {
-	defer func() {
-		close(m.shutdown)
-	}()
 	if m.monitoringServer != nil {
 		return m.monitoringServer.Close()
 	}
