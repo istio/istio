@@ -88,13 +88,13 @@ func (r *Reporter) Init(ledger ledger.Ledger) {
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string]map[string]struct{})
 	r.inProgressResources = make(map[string]*inProgressEntry)
+	go r.readFromEventQueue()
 }
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
 // with distribution information.
 func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
-	go r.readFromEventQueue()
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
