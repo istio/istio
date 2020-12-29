@@ -36,7 +36,12 @@ import (
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/util/leak"
 )
+
+func TestMain(m *testing.M) {
+	leak.CheckMain(m)
+}
 
 func init() {
 	features.WorkloadEntryAutoRegistration = true
@@ -195,7 +200,13 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 }
 
 func TestUpdateHealthCondition(t *testing.T) {
-	ig, _, store := setup(t)
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	ig, ig2, store := setup(t)
+	go ig.Run(stop)
+	go ig2.Run(stop)
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
 	ig.RegisterWorkload(p, time.Now())
 	t.Run("auto registered healthy health", func(t *testing.T) {
