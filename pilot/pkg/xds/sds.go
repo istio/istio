@@ -94,7 +94,7 @@ func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResour
 	return nil
 }
 
-func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if proxy.VerifiedIdentity == nil {
 		adsLog.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, nil

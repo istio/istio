@@ -65,7 +65,8 @@ const (
 type GrpcConfigGenerator struct {
 }
 
-func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
+	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
 	// TODO: Eventhough grpc-go supports v3 at the transport layer, it still sends v2 types
 	// in the requests. Fix this when it starts sending v3 types.
 	switch w.TypeUrl {

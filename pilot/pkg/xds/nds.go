@@ -65,7 +65,7 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if !ndsNeedsPush(req) {
 		return nil, nil
 	}
