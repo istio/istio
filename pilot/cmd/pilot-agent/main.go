@@ -83,7 +83,6 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	serviceAccountVar    = env.RegisterStringVar("SERVICE_ACCOUNT", "", "Name of service account")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
-	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
 	// Provider for XDS auth, e.g., gcp. By default, it is empty, meaning no auth provider.
 	xdsAuthProvider = env.RegisterStringVar("XDS_AUTH_PROVIDER", "", "Provider for XDS auth")
 
@@ -310,7 +309,6 @@ var (
 				ProvCert:            sa.FindRootCAForXDS(),
 				Sidecar:             role.Type == model.SidecarProxy,
 				ProxyViaAgent:       agentConfig.ProxyXDSViaAgent,
-				CallCredentials:     callCredentials.Get(),
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
