@@ -580,15 +580,17 @@ func (s *DiscoveryServer) preProcessRequest(req *discovery.DiscoveryRequest, con
 				event.Message = req.ErrorDetail.Message
 			}
 			err := s.WorkloadEntryController.UpdateWorkloadEntryHealth(con.proxy, event)
-			resp := &discovery.DiscoveryResponse{
-				TypeUrl:   req.TypeUrl,
-				Resources: []*any.Any{{TypeUrl: req.TypeUrl, Value: []byte(err.Error())}},
-			}
-
-			err = con.send(resp)
 			if err != nil {
-				recordSendError(resp.TypeUrl, con.ConID, err)
-				return false, err
+				resp := &discovery.DiscoveryResponse{
+					TypeUrl:   req.TypeUrl,
+					Resources: []*any.Any{{TypeUrl: req.TypeUrl, Value: []byte(err.Error())}},
+				}
+
+				err = con.send(resp)
+				if err != nil {
+					recordSendError(resp.TypeUrl, con.ConID, err)
+					return false, err
+				}
 			}
 		}
 		return false, nil
