@@ -372,7 +372,7 @@ func (sa *Agent) newWorkloadSecretCache() *cache.SecretCache {
 	// This has to be called after pluginNames is set. Otherwise,
 	// TokenExchanger will contain an empty plugin, causing cert provisioning to fail.
 	if sa.secOpts.TokenExchangers == nil {
-		sa.secOpts.TokenExchangers = sds.NewPlugins(pluginNames)
+		sa.secOpts.TokenExchangers = sds.NewPlugins(pluginNames, sa.secOpts)
 	}
 
 	if err != nil {

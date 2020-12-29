@@ -56,8 +56,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 
 	if isUsingPluginProvider {
-		// The mocked token exchanger server returns 3 errors before returning a valid response.
-		fakePlugin := mock.NewMockTokenExchangeServer(3)
+		fakePlugin := mock.NewMockTokenExchangeServer()
 		opt.TokenExchangers = []security.TokenExchanger{fakePlugin}
 	}
 
