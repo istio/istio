@@ -17,6 +17,7 @@ package monitoring
 import "istio.io/pkg/monitoring"
 
 var (
+	// RequestType specifies the type of request we are monitoring. Current supported are CSR and TokenExchange
 	RequestType = monitoring.MustCreateLabel("request_type")
 )
 
