@@ -87,13 +87,8 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 
 	if addr != "" {
 		go func() {
-			m.shutdown <- struct{}{}
 			_ = m.monitoringServer.Serve(listener)
-			m.shutdown <- struct{}{}
 		}()
-		// This is here to work around (mostly) a race condition in the Serve
-		// function. If the Close method is called before or during the execution of
-		// Serve, the call may be ignored and Serve never returns.
 		<-m.shutdown
 	}
 
@@ -101,13 +96,13 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 }
 
 func (m *monitor) Close() error {
-	if m.monitoringServer == nil {
-		<-m.shutdown
-		return nil
+	defer func() {
+		close(m.shutdown)
+	}()
+	if m.monitoringServer != nil {
+		return m.monitoringServer.Close()
 	}
-	err := m.monitoringServer.Close()
-	<-m.shutdown
-	return err
+	return nil
 }
 
 // initMonitor initializes the configuration for the pilot monitoring server.

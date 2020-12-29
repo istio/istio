@@ -302,6 +302,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 	}
 	adscConn, err := adsc.New("buffcon", &adsc.Config{
 		IP:                       p.IPAddresses[0],
+		NodeType:                 string(p.Type),
 		Meta:                     p.Metadata.ToStruct(),
 		Locality:                 p.Locality,
 		Namespace:                p.ConfigNamespace,
