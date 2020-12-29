@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/tests/util"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
@@ -169,6 +168,21 @@ func TestEds(t *testing.T) {
 		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
 	})
+}
+
+// newEndpointWithAccount is a helper for IstioEndpoint creation. Creates endpoints with
+// port name "http", with the given IP, service account and a 'version' label.
+// nolint: unparam
+func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint {
+	return []*model.IstioEndpoint{
+		{
+			Address:         ip,
+			ServicePortName: "http-main",
+			EndpointPort:    80,
+			Labels:          map[string]string{"version": version},
+			ServiceAccount:  account,
+		},
+	}
 }
 
 func TestTunnelServerEndpointEds(t *testing.T) {
@@ -417,26 +431,6 @@ func TestDeleteService(t *testing.T) {
 
 func fullPush(s *xds.FakeDiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
-}
-
-func adsConnectAndWait(t *testing.T) *adsc.ADSC {
-	adscConn, err := adsc.New(util.MockPilotGrpcAddr, &adsc.Config{})
-	if err != nil {
-		t.Fatal("Error connecting ", err)
-	}
-	if err := adscConn.Run(); err != nil {
-		t.Fatal("ADSC: failed running ", err)
-	}
-	adscConn.Watch()
-	_, err = adscConn.Wait(10*time.Second, watchAll...)
-	if err != nil {
-		t.Fatal("Error getting initial config ", err)
-	}
-
-	if len(adscConn.GetEndpoints()) == 0 {
-		t.Fatal("No endpoints")
-	}
-	return adscConn
 }
 
 func addTestClientEndpoints(server *xds.FakeDiscoveryServer) {
