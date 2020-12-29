@@ -433,7 +433,11 @@ func (a *AdsTest) adsReceiveChannel() {
 		if err != nil {
 			return
 		}
-		a.responses <- resp
+		select {
+		case a.responses <- resp:
+		case <-a.context.Done():
+		}
+
 	}
 }
 
