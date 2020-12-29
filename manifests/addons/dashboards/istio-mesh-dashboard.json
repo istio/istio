@@ -112,7 +112,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "round(sum(irate(istio_requests_total{reporter=\"source\"}[1m])), 0.001)",
+          "expr": "round(sum(irate(istio_requests_total{reporter=\"source\"}[1m])), 0.001) or round(sum(irate(istio_request_messages_total{reporter=\"source\"}[1m])), 0.001)",
           "intervalFactor": 1,
           "refId": "A",
           "step": 4
@@ -206,7 +206,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(rate(istio_requests_total{reporter=\"source\", response_code!~\"5.*\"}[1m])) / sum(rate(istio_requests_total{reporter=\"source\"}[1m]))",
+          "expr": "sum(rate(istio_requests_total{reporter=\"source\", response_code!~\"5.*\"}[1m])) / sum(rate(istio_requests_total{reporter=\"source\"}[1m])) or sum(rate(istio_request_messages_total{reporter=\"source\", response_code!~\"5.*\"}[1m])) / sum(rate(istio_request_messages_total{reporter=\"source\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -301,7 +301,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{reporter=\"source\", response_code=~\"4.*\"}[1m]))",
+          "expr": "sum(irate(istio_requests_total{reporter=\"source\", response_code=~\"4.*\"}[1m])) or sum(irate(istio_request_messages_total{reporter=\"source\", response_code=~\"4.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -396,7 +396,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{reporter=\"source\", response_code=~\"5.*\"}[1m]))",
+          "expr": "sum(irate(istio_requests_total{reporter=\"source\", response_code=~\"5.*\"}[1m])) or sum(irate(istio_request_messages_total{reporter=\"source\", response_code=~\"5.*\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -1375,7 +1375,7 @@
       ],
       "targets": [
         {
-          "expr": "label_join(sum(rate(istio_requests_total{reporter=\"source\", response_code=\"200\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "expr": "label_join(sum(rate(istio_requests_total{reporter=\"source\", response_code=\"200\"}[1m]) or sum(rate(istio_request_messages_total{reporter=\"source\", response_code=\"200\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
           "format": "table",
           "hide": false,
           "instant": true,
