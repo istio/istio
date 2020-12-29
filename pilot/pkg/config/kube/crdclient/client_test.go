@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/meta/v1alpha1"
@@ -193,10 +194,10 @@ func TestClient(t *testing.T) {
 
 			// check we can patch items
 			var patchedCfg config.Config
-			if _, err := store.(*Client).Patch(*cfg, func(cfg config.Config) config.Config {
+			if _, err := store.(*Client).Patch(*cfg, func(cfg config.Config) (config.Config, types.PatchType) {
 				cfg.Annotations["fizz"] = "buzz"
 				patchedCfg = cfg
-				return cfg
+				return cfg, types.JSONPatchType
 			}); err != nil {
 				t.Errorf("unexpected err in Patch: %v", err)
 			}

@@ -16,6 +16,9 @@ package memory
 
 import (
 	"errors"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -103,7 +106,13 @@ func (c *controller) UpdateStatus(config config.Config) (newRevision string, err
 }
 
 func (c *controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRevision string, err error) {
-	cfg := patchFn(orig.DeepCopy())
+	cfg, typ := patchFn(orig.DeepCopy())
+	switch typ {
+	case types.MergePatchType:
+	case types.JSONPatchType:
+	default:
+		return "", fmt.Errorf("unsupported merge type: %s", typ)
+	}
 	if newRevision, err = c.configStore.Update(cfg); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    orig,
