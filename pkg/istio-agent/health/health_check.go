@@ -72,12 +72,8 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 }
 
 func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober) *WorkloadHealthChecker {
-	// if a config does not exist return a no-op prober
 	if cfg == nil {
-		return &WorkloadHealthChecker{
-			config: applicationHealthCheckConfig{},
-			prober: nil,
-		}
+		return nil
 	}
 	cfg = fillInDefaults(cfg)
 	var prober Prober

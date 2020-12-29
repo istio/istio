@@ -324,7 +324,7 @@ func (c *Controller) UpdateWorkloadEntryHealth(proxy *model.Proxy, event HealthE
 	// get previous status
 	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
-		return fmt.Errorf("WorkloadEntry %v for %v is not found", entryName, proxy.ID)
+		return fmt.Errorf("workloadEntry %v for %v is not found", entryName, proxy.ID)
 	}
 
 	// replace the updated status
