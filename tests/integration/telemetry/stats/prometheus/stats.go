@@ -189,6 +189,7 @@ func TestSetup(ctx resource.Context) (err error) {
 						Protocol: protocol.TCP,
 						// We use a port > 1024 to not require root
 						InstancePort: 9000,
+						ServicePort:  9000,
 					},
 				},
 			}).
