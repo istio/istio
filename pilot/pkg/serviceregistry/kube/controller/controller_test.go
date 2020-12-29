@@ -960,18 +960,37 @@ func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode, EnableDiscoveryNamespaces: true})
 			defer controller.Stop()
-			// Use a timeout to keep the test from hanging.
 
 			nsA := "nsA"
 			nsB := "nsB"
 
-			// no events should be received since these occur in non discovery namespaces
+			// event handlers should only be triggered for services in namespaces with the discovery label
+			createNamespace(t, controller.client, nsA, map[string]string{filter.PilotDiscoveryLabelName: filter.PilotDiscoveryLabelValue})
+			createNamespace(t, controller.client, nsB, map[string]string{})
+
+			// wait for namespaces to be created
+			eventually(t, func() bool {
+				list, err := controller.client.CoreV1().Namespaces().List(context.TODO(), metaV1.ListOptions{})
+				if err != nil {
+					t.Fatalf("error listing namespaces: %v", err)
+				}
+				return len(list.Items) == 2
+			})
+
+			// service event handlers should trigger for svc1 and svc2
 			createService(controller, "svc1", nsA,
 				map[string]string{},
 				[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
 			createService(controller, "svc2", nsA,
 				map[string]string{},
 				[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
+			if ev := fx.Wait("service"); ev == nil {
+				t.Fatal("Timeout creating service")
+			}
+			// service event handlers should not trigger for svc3 and svc4
 			createService(controller, "svc3", nsB,
 				map[string]string{},
 				[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
@@ -979,16 +998,6 @@ func TestController_ServiceWithDiscoveryNamespaces(t *testing.T) {
 				map[string]string{},
 				[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
-			// test creating namespaces, event handlers should only be triggered for namespaces with the discovery label
-			createNamespace(t, controller.client, nsA, map[string]string{filter.PilotDiscoveryLabelName: filter.PilotDiscoveryLabelValue})
-			// service event handlers should trigger for svc1 and svc2
-			if ev := fx.Wait("service"); ev == nil {
-				t.Fatal("Timeout creating service")
-			}
-			if ev := fx.Wait("service"); ev == nil {
-				t.Fatal("Timeout creating service")
-			}
-			createNamespace(t, controller.client, nsB, map[string]string{})
 			expectedSvcList := []*model.Service{svc1, svc2}
 			eventually(t, func() bool {
 				svcList, _ := controller.Services()

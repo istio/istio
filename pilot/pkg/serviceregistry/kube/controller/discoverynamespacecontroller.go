@@ -18,6 +18,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -30,19 +32,7 @@ import (
 func (c *Controller) initDiscoveryNamespaceHandlers(kubeClient kubelib.Client, endpointMode EndpointMode) {
 	otype := "Namespaces"
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			incrementEvent(otype, "add")
-			ns := obj.(*v1.Namespace)
-			if ns.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
-				c.queue.Push(func() error {
-					// labeled namespace was newly created, issue creates for all services, pods, and endpoints in namespace
-					if err := c.SyncAll(); err != nil {
-						return err
-					}
-					return nil
-				})
-			}
-		},
+		// no need to handle namespace creation, any relevant objects created in the namespace will trigger create events
 		UpdateFunc: func(old, new interface{}) {
 			incrementEvent(otype, "update")
 			oldNs := old.(*v1.Namespace)
@@ -57,7 +47,10 @@ func (c *Controller) initDiscoveryNamespaceHandlers(kubeClient kubelib.Client, e
 					}
 				} else {
 					// namespace was newly labeled, issue creates for all services, pods, and endpoints in namespace
-					handleFunc = c.SyncAll
+					handleFunc = func() error {
+						c.handleLabeledNamespace(endpointMode, newNs.Name)
+						return nil
+					}
 				}
 				c.queue.Push(handleFunc)
 			}
@@ -66,7 +59,58 @@ func (c *Controller) initDiscoveryNamespaceHandlers(kubeClient kubelib.Client, e
 	})
 }
 
+// issue create events for all services, pods, and endpoints in the newly labeled namespace
+func (c *Controller) handleLabeledNamespace(endpointMode EndpointMode, ns string) {
+	var errs *multierror.Error
+
+	// for each resource type, issue create events for objects in the labeled namespace
+
+	services, err := c.serviceLister.Services(ns).List(labels.Everything())
+	if err != nil {
+		log.Errorf("error listing services: %v", err)
+		return
+	}
+	for _, svc := range services {
+		errs = multierror.Append(errs, c.onServiceEvent(svc, model.EventAdd))
+	}
+
+	pods, err := listerv1.NewPodLister(c.pods.informer.GetIndexer()).Pods(ns).List(labels.Everything())
+	if err != nil {
+		log.Errorf("error listing pods: %v", err)
+		return
+	}
+	for _, pod := range pods {
+		errs = multierror.Append(errs, c.pods.onEvent(pod, model.EventAdd))
+	}
+
+	switch endpointMode {
+	case EndpointsOnly:
+		endpoints, err := listerv1.NewEndpointsLister(c.endpoints.getInformer().GetIndexer()).Endpoints(ns).List(labels.Everything())
+		if err != nil {
+			log.Errorf("error listing endpoints: %v", err)
+			return
+		}
+		for _, ep := range endpoints {
+			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+		}
+	case EndpointSliceOnly:
+		endpointSlices, err := v1beta1.NewEndpointSliceLister(c.endpoints.getInformer().GetIndexer()).EndpointSlices(ns).List(labels.Everything())
+		if err != nil {
+			log.Errorf("error listing endpoint slices: %v", err)
+			return
+		}
+		for _, ep := range endpointSlices {
+			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+		}
+	}
+
+	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
+		log.Errorf("one or more errors while handling newly labeled discovery namespace %s: %v", ns, err)
+	}
+}
+
 // issue delete events for all services, pods, and endpoints in the delabled namespace
+// use kubeClient to bypass filter in order to list resources from non-labeled namespace
 func (c *Controller) handleDelabledNamespace(kubeClient kubelib.Client, endpointMode EndpointMode, ns string) {
 	var errs *multierror.Error
 
@@ -112,6 +156,6 @@ func (c *Controller) handleDelabledNamespace(kubeClient kubelib.Client, endpoint
 	}
 
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
-		log.Errorf("one or more errors while handling delabeled discovery namespace: %v", err)
+		log.Errorf("one or more errors while handling delabeled discovery namespace %s: %v", ns, err)
 	}
 }
