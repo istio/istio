@@ -125,6 +125,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	for i := 0; i < workerNum; i++ {
 		go wait.Until(c.worker, time.Second, stop)
 	}
+	<-stop
+	c.queue.ShutDown()
 }
 
 func (c *Controller) worker() {
