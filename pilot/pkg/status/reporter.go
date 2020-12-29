@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/pkg/ledger"
-	"istio.io/pkg/log"
 )
 
 func NewIstioContext(stop <-chan struct{}) context.Context {
