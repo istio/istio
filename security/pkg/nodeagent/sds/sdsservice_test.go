@@ -16,6 +16,7 @@ package sds
 import (
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -181,6 +182,41 @@ func TestSDS(t *testing.T) {
 		cert.ExpectNoResponse()
 		root.ExpectNoResponse()
 	})
+	t.Run("unknown", func(t *testing.T) {
+		s := setupSDS(t)
+		s.UpdateSecret(testResourceName, nil)
+		cert := s.Connect()
+
+		// When we connect, we get get an error
+		cert.Request(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
+		if err := cert.ExpectError(); !strings.Contains(fmt.Sprint(err), "failed to generate secret") {
+			t.Fatalf("didn't get expected error; got %v", err)
+		}
+		cert.Cleanup()
+
+		s.UpdateSecret(testResourceName, pushSecret)
+		// If the secret is added later, new connections will succeed
+		cert = s.Connect()
+		s.Verify(cert.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), Expectation{
+			ResourceName: testResourceName,
+			CertChain:    fakePushCertificateChain,
+			Key:          fakePushPrivateKey,
+		})
+	})
+	t.Run("update empty", func(t *testing.T) {
+		s := setupSDS(t)
+		cert := s.Connect()
+
+		s.Verify(cert.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+
+		// Remove secret and trigger push. This simulates CA outage. We should get an error, which
+		// would force the client to retry
+		s.UpdateSecret(testResourceName, nil)
+		cert.Request(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
+		if err := cert.ExpectError(); !strings.Contains(fmt.Sprint(err), "failed to generate secret") {
+			t.Fatalf("didn't get expected error; got %v", err)
+		}
+	})
 	t.Run("serial", func(t *testing.T) {
 		s := setupSDS(t)
 		cert := s.Connect()
@@ -243,7 +279,6 @@ func TestSDS(t *testing.T) {
 		c.RequestResponseNack(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
 		c.ExpectNoResponse()
 	})
-	// TODO higher level e2e tests exercise the cache as well
 }
 
 func setupConnection(socket string) (*grpc.ClientConn, error) {

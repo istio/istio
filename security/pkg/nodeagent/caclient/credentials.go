@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/security"
 )
 
+// TokenProvider is a grpc PerRPCCredentials that can be used to attach a JWT token to each gRPC call.
 type TokenProvider struct {
 	opts security.Options
 	// TokenProvider can be used for both XDS and CA connection. Because CA is often used with
@@ -62,12 +63,17 @@ func (t *TokenProvider) GetRequestMetadata(ctx context.Context, uri ...string) (
 	}, nil
 }
 
+// Allow the token provider to be used regardless of transport security; callers can determine whether
+// this is safe themselves.
 func (t *TokenProvider) RequireTransportSecurity() bool {
 	return false
 }
 
+// GetToken fetches a token to attach to a request.
+// Returning "", nil will cause no header to be added; while a non-nil error will block the request
 func (t *TokenProvider) GetToken() (string, error) {
 	if !t.forCA {
+		// When not using a CA, we only support reading from file
 		if t.opts.JWTPath == "" {
 			return "", nil
 		}
@@ -77,6 +83,7 @@ func (t *TokenProvider) GetToken() (string, error) {
 		}
 		return strings.TrimSpace(string(tok)), nil
 	}
+	// For CA, we have two modes, using the newer CredentialFetcher or just reading directly from file
 	var token string
 	if t.opts.CredFetcher != nil {
 		var err error
@@ -95,9 +102,13 @@ func (t *TokenProvider) GetToken() (string, error) {
 		token = strings.TrimSpace(string(tok))
 	}
 
+	// Regardless of where the token came from, we (optionally) can exchange the token for a different
+	// one using the configured TokenExchanger.
 	return t.exchangeToken(token)
 }
 
+// exchangeToken exchanges the provided token using TokenExchanger, if configured. If not, the
+// original token is returned.
 func (t *TokenProvider) exchangeToken(token string) (string, error) {
 	if t.opts.TokenExchanger == nil {
 		return token, nil

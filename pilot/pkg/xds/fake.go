@@ -416,6 +416,7 @@ func NewXdsTest(t test.Failer, conn *grpc.ClientConn, getClient func(conn *grpc.
 		timeout:       time.Second,
 		Type:          v3.ClusterType,
 		responses:     make(chan *discovery.DiscoveryResponse),
+		error:         make(chan error),
 	}
 	t.Cleanup(resp.Cleanup)
 
@@ -427,6 +428,7 @@ func NewXdsTest(t test.Failer, conn *grpc.ClientConn, getClient func(conn *grpc.
 type AdsTest struct {
 	client    DiscoveryClient
 	responses chan *discovery.DiscoveryResponse
+	error     chan error
 	t         test.Failer
 	conn      *grpc.ClientConn
 	metadata  model.NodeMetadata
@@ -462,11 +464,16 @@ func (a *AdsTest) adsReceiveChannel() {
 			if isUnexpectedError(err) {
 				log.Warnf("ads received error: %v", err)
 			}
+			select {
+			case a.error <- err:
+			case <-a.context.Done():
+			}
 			return
 		}
 		select {
 		case a.responses <- resp:
 		case <-a.context.Done():
+			return
 		}
 	}
 }
@@ -494,6 +501,18 @@ func (a *AdsTest) ExpectResponse() *discovery.DiscoveryResponse {
 			a.t.Fatalf("got empty response")
 		}
 		return resp
+	}
+	return nil
+}
+
+// ExpectError waits until an error is received and returns it
+func (a *AdsTest) ExpectError() error {
+	a.t.Helper()
+	select {
+	case <-time.After(a.timeout):
+		a.t.Fatalf("did not get error in time")
+	case err := <-a.error:
+		return err
 	}
 	return nil
 }
