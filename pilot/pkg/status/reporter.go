@@ -157,7 +157,7 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 			// check to see if this version of the config contains this version of the resource
 			// it might be more optimal to provide for a full dump of the config at a certain version?
 			dpVersion, err := r.ledger.GetPreviousValue(nonce, res.ToModelKey())
-			if err == nil && dpVersion == res.ResourceVersion {
+			if err == nil && dpVersion == res.Generation {
 				if _, ok := out.InProgressResources[key]; !ok {
 					out.InProgressResources[key] = len(dataplanes)
 				} else {
