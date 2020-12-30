@@ -168,9 +168,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	go c.informer.Run(stopCh)
 
 	// Wait for the caches to be synced before starting workers
-	log.Info("Waiting for informer caches to sync")
 	if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
-		utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
 		return
 	}
 	// all secret events before this signal must be processed before we're marked "ready"
