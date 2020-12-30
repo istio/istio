@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/util/leak"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -801,7 +801,6 @@ func TestBlockedPush(t *testing.T) {
 		ads.ExpectResponse()
 	})
 	t.Run("flow control enabled NACK", func(t *testing.T) {
-		log.FindScope("ads").SetOutputLevel(log.DebugLevel)
 		features.EnableFlowControl = true
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
@@ -869,7 +868,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	expectRoutes(resp, routeA)
 }
 
-func TestXdsCache(t *testing.T) {
+func TestEdsCache(t *testing.T) {
 	makeEndpoint := func(addr []*networking.WorkloadEntry) config.Config {
 		return config.Config{
 			Meta: config.Meta{
@@ -891,12 +890,15 @@ func TestXdsCache(t *testing.T) {
 	}
 	assertEndpoints := func(a *adsc.ADSC, addr ...string) {
 		t.Helper()
-		got := sets.NewSet(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
-		want := sets.NewSet(addr...)
+		retry.UntilSuccessOrFail(t, func() error {
+			got := sets.NewSet(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
+			want := sets.NewSet(addr...)
 
-		if !got.Equals(want) {
-			t.Fatalf("invalid endpoints, got %v want %v", got, addr)
-		}
+			if !got.Equals(want) {
+				return fmt.Errorf("invalid endpoints, got %v want %v", got, addr)
+			}
+			return nil
+		}, retry.Timeout(time.Second*5))
 	}
 
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
@@ -910,7 +912,7 @@ func TestXdsCache(t *testing.T) {
 	ads := s.Connect(&model.Proxy{Locality: &core.Locality{Region: "region"}}, nil, watchAll)
 
 	assertEndpoints(ads, "1.2.3.4:80", "1.2.3.5:80")
-	t.Logf("endpoints: %+v", ads.GetEndpoints())
+	t.Logf("endpoints: %+v", xdstest.ExtractEndpoints(ads.GetEndpoints()["outbound|80||foo.com"]))
 
 	if _, err := s.Store().Update(makeEndpoint([]*networking.WorkloadEntry{
 		{Address: "1.2.3.6", Locality: "region/zone"},
@@ -922,7 +924,7 @@ func TestXdsCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertEndpoints(ads, "1.2.3.6:80", "1.2.3.5:80")
-	t.Logf("endpoints: %+v", ads.GetEndpoints())
+	t.Logf("endpoints: %+v", xdstest.ExtractEndpoints(ads.GetEndpoints()["outbound|80||foo.com"]))
 
 	ads.WaitClear()
 	if _, err := s.Store().Create(config.Config{
@@ -944,16 +946,19 @@ func TestXdsCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertEndpoints(ads, "1.2.3.6:80", "1.2.3.5:80")
-	found := false
-	for _, ep := range ads.GetEndpoints()["outbound|80||foo.com"].Endpoints {
-		if ep.Priority == 1 {
-			found = true
+	retry.UntilSuccessOrFail(t, func() error {
+		found := false
+		for _, ep := range ads.GetEndpoints()["outbound|80||foo.com"].Endpoints {
+			if ep.Priority == 1 {
+				found = true
+			}
 		}
-	}
-	if !found {
-		t.Fatalf("locality did not update")
-	}
-	t.Logf("endpoints: %+v", ads.GetEndpoints())
+		if !found {
+			return fmt.Errorf("locality did not update")
+		}
+		return nil
+	}, retry.Timeout(time.Second*5))
+
 	ads.WaitClear()
 
 	ep := makeEndpoint([]*networking.WorkloadEntry{{Address: "1.2.3.6", Locality: "region/zone"}, {Address: "1.2.3.5", Locality: "notmatch"}})
