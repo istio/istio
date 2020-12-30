@@ -137,6 +137,9 @@ type AgentConfig struct {
 
 	// Is the proxy an IPv6 proxy
 	IsIPv6 bool
+
+	// Path to local UDS to communicate with Envoy
+	XdsUdsPath string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is

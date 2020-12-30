@@ -285,6 +285,7 @@ var (
 				XDSRootCerts: xdsRootCA,
 				CARootCerts:  caRootCA,
 				XDSHeaders:   map[string]string{},
+				XdsUdsPath:   constants.DefaultXdsUdsPath,
 				IsIPv6:       proxyIPv6,
 			}
 			extractXDSHeadersFromEnv(agentConfig)
