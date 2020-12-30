@@ -84,7 +84,8 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "plaintext-to-permissive.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						// Exclude calls from naked->VM.
+						return !(apps.IsNaked(src) && apps.VM.Contains(opts.Target))
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true

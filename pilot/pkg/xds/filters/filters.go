@@ -134,7 +134,10 @@ var (
 	// These ALPNs are injected in the client side by the ALPN filter.
 	// "istio" is added for each upstream protocol in order to make it
 	// backward compatible. e.g., 1.4 proxy -> 1.3 proxy.
-	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio"}
-	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio"}
-	mtlsHTTP2ALPN  = []string{"istio-h2", "istio"}
+	// Non istio-* variants are added to ensure that traffic sent out of the mesh has a valid ALPN;
+	// ideally this would not be added, but because the override filter is in the HCM, rather than cluster,
+	// we do not yet know the upstream so we cannot determine if its in or out of the mesh
+	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio", "http/1.0"}
+	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio", "http/1.1"}
+	mtlsHTTP2ALPN  = []string{"istio-h2", "istio", "h2"}
 )
