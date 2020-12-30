@@ -54,14 +54,14 @@ func ldsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if !ldsNeedsPush(req) {
-		return nil
+		return nil, nil
 	}
 	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, push)
 	resources := model.Resources{}
 	for _, c := range listeners {
 		resources = append(resources, util.MessageToAny(c))
 	}
-	return resources
+	return resources, nil
 }
