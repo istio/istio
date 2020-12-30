@@ -41,13 +41,13 @@ func TestMain(m *testing.M) {
 		})).
 		Setup(istio.Setup(&NMinusOne, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployHelm = true
-			cfg.Version = "1.8.1"
-			cfg.Revision = "1-8-1"
+			cfg.Version = "1.7.6"
+			cfg.Revision = "1-7-6"
 		})).
 		Setup(istio.Setup(&NMinusTwo, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployHelm = true
 			cfg.Version = "1.8.1"
-			cfg.Revision = "1-8-1-test"
+			cfg.Revision = "1-8-1"
 		})).
 		Setup(func(ctx resource.Context) error {
 			fmt.Println("-=-=-=-SETTING UP APPS-=-=-=-")
