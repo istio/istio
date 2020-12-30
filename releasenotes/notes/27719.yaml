@@ -5,4 +5,4 @@ issue:
 - 27719
 releaseNotes:
  - |
-  **Fixed** in-cluster operator can't fetch remote URL of installPackagePath.
+  **Fixed** in-cluster operator can't fetch remote chart.
