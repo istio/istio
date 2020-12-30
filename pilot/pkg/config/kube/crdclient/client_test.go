@@ -66,12 +66,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache
 func TestClientNoCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
 	store := makeClient(t, schema)
-	retry.UntilSuccessOrFail(t, func() error {
-		if !store.HasSynced() {
-			return fmt.Errorf("store has not synced yet")
-		}
-		return nil
-	}, retry.Timeout(time.Second))
+	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	configMeta := config.Meta{
 		Name:             "name",
@@ -101,13 +96,9 @@ func TestClientNoCRDs(t *testing.T) {
 		}
 		return nil
 	}, retry.Timeout(time.Second*5), retry.Converge(5))
-	retry.UntilSuccessOrFail(t, func() error {
-		l := store.Get(r.GroupVersionKind(), configMeta.Name, configMeta.Namespace)
-		if l != nil {
-			return fmt.Errorf("expected no items returned for unknown CRD, got %v", l)
-		}
-		return nil
-	}, retry.Timeout(time.Second*5), retry.Converge(5))
+	retry.UntilOrFail(t, func() bool {
+		return store.Get(r.GroupVersionKind(), configMeta.Name, configMeta.Namespace) == nil
+	}, retry.Message("expected no items returned for unknown CRD"), retry.Timeout(time.Second*5), retry.Converge(5))
 }
 
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
