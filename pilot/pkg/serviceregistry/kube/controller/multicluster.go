@@ -137,6 +137,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		Controller: kubeRegistry,
 		stopCh:     stopCh,
 	}
+	// localCluster may also be the "config" cluster, in an external-istiod setup.
 	localCluster := m.opts.ClusterID == clusterID
 
 	m.m.Unlock()
@@ -161,6 +162,7 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	if m.serviceController.Running() {
+		// if serviceController isn't running, it will start its members when it is started
 		go kubeRegistry.Run(stopCh)
 	}
 	if m.fetchCaRoot != nil && m.fetchCaRoot() != nil && (features.ExternalIstioD || features.CentralIstioD || localCluster) {
@@ -180,23 +182,29 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 			}).Run(stopCh)
 	}
 
-	// Patch cert if a webhook config name is provided.
-	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
-	// operator or CI/CD
-	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
-	if features.InjectionWebhookConfigName.Get() != "" && m.caBundlePath != "" && !localCluster && (features.ExternalIstioD || features.CentralIstioD) {
-		// TODO remove the patch loop init from initSidecarInjector (does this need leader elect? how well does it work with multi-primary?)
-		log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-		patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundlePath)
-		if err != nil {
-			log.Errorf("could not initialize webhook cert patcher")
-		} else {
-			patcher.Run(stopCh)
+	// The local cluster has this patching set-up elsewhere. We may eventually want to move it here.
+	if (features.ExternalIstioD || features.CentralIstioD) && !localCluster {
+		// Patch injection webhook cert
+		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+		// operator or CI/CD
+		if features.InjectionWebhookConfigName.Get() != "" && m.caBundlePath != "" {
+			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
+			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
+			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundlePath)
+			if err != nil {
+				log.Errorf("could not initialize webhook cert patcher: %v", err)
+			} else {
+				patcher.Run(stopCh)
+			}
 		}
-		validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
-			m.secretNamespace, m.caBundlePath, true)
-		if validationWebhookController != nil {
-			go validationWebhookController.Start(stopCh)
+		// Patch validation webhook cert
+		if m.caBundlePath != "" {
+			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
+			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
+				m.secretNamespace, m.caBundlePath, true)
+			if validationWebhookController != nil {
+				go validationWebhookController.Start(stopCh)
+			}
 		}
 	}
 
