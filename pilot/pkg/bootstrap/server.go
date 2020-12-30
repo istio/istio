@@ -804,9 +804,10 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(old config.Config, curr config.Config, event model.Event) {
-			if old.ResourceVersion == curr.ResourceVersion && curr.GroupVersionKind.Kind != "WorkloadEntry" {
+			if old.Generation == curr.Generation && curr.GroupVersionKind.Kind != "WorkloadEntry" {
 				return
 			}
+
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{

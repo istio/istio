@@ -17,6 +17,7 @@ package status
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -180,7 +181,7 @@ func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource
 func (c *DistributionController) writeStatus(config Resource, distributionState Progress) {
 	schema, _ := collections.All.FindByGroupVersionResource(config.GroupVersionResource)
 	current := c.configStore.Get(schema.Resource().GroupVersionKind(), config.Name, config.Namespace)
-	if config.ResourceVersion != current.ResourceVersion {
+	if config.Generation != strconv.FormatInt(current.Generation, 10) {
 		// this distribution report is for an old version of the object.  Prune and continue.
 		c.pruneOldVersion(config)
 		return

@@ -32,7 +32,7 @@ func TestResourceLock_Lock(t *testing.T) {
 		},
 		Namespace:       "r1",
 		Name:            "r1",
-		ResourceVersion: "r1.1",
+		Generation: "11",
 	}
 	r1a := Resource{
 		GroupVersionResource: schema.GroupVersionResource{
@@ -41,7 +41,7 @@ func TestResourceLock_Lock(t *testing.T) {
 		},
 		Namespace:       "r1",
 		Name:            "r1",
-		ResourceVersion: "r1.2",
+		Generation: "12",
 	}
 	var runCount int32
 	workers := NewQueue(10*time.Second, func(_ *cacheEntry) error {

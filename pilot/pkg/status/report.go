@@ -15,6 +15,7 @@
 package status
 
 import (
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -50,7 +51,7 @@ func ResourceFromString(s string) *Resource {
 		},
 		Namespace:       pieces[3],
 		Name:            pieces[4],
-		ResourceVersion: pieces[5],
+		Generation:      pieces[5],
 	}
 }
 
@@ -59,11 +60,11 @@ type Resource struct {
 	schema.GroupVersionResource
 	Namespace       string
 	Name            string
-	ResourceVersion string
+	Generation      string
 }
 
 func (r Resource) String() string {
-	return strings.Join([]string{r.Group, r.Version, r.Resource, r.Namespace, r.Name, r.ResourceVersion}, "/")
+	return strings.Join([]string{r.Group, r.Version, r.Resource, r.Namespace, r.Name, r.Generation}, "/")
 }
 
 func (r *Resource) ToModelKey() string {
@@ -81,7 +82,7 @@ func ResourceFromModelConfig(c config.Config) *Resource {
 		GroupVersionResource: *gvr,
 		Namespace:            c.Namespace,
 		Name:                 c.Name,
-		ResourceVersion:      c.ResourceVersion,
+		Generation:           strconv.FormatInt(c.Generation, 10),
 	}
 }
 
