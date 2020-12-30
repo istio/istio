@@ -166,9 +166,9 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		return
 	}
 
-	// Expect 6 listeners : 2 orig_dst, 4 outbound (http, tcp1, istio-policy and istio-telemetry)
-	if (len(adsc.GetHTTPListeners()) + len(adsc.GetTCPListeners())) != 6 {
-		t.Fatalf("Expected 7 listeners, got %d\n", len(adsc.GetHTTPListeners())+len(adsc.GetTCPListeners()))
+	// Expect 6 listeners : 2 orig_dst, 4 outbound (http, tcp1)
+	if (len(adsc.GetHTTPListeners()) + len(adsc.GetTCPListeners())) != 4 {
+		t.Fatalf("Expected 4 listeners, got %d\n", len(adsc.GetHTTPListeners())+len(adsc.GetTCPListeners()))
 	}
 
 	// Expect 11 CDS clusters:
