@@ -67,6 +67,7 @@ features:
       trust-domain-validation:
       trust-domain-alias-secure-naming:
       file-mounted-certs:
+      ecc-signature-algorithm:
     user:
     ingress:
       mtls:
