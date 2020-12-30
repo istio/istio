@@ -49,9 +49,9 @@ spec:
             - name: REVISION
               value: {{.Values.revision | quote}}
           volumeMounts:
-          - mountPath: /tmp
-            name: tmp-dir
+          - mountPath: /tmp/istio-install-packages
+            name: istio-install-packages
       volumes:
-      - name: tmp-dir
+      - name: istio-install-packages
         emptyDir: {}
 ---
