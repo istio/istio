@@ -15,6 +15,7 @@
 package retry
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -41,12 +42,13 @@ var (
 )
 
 type config struct {
+	error    string
 	timeout  time.Duration
 	delay    time.Duration
 	converge int
 }
 
-// Option for a retry opteration.
+// Option for a retry operation.
 type Option func(cfg *config)
 
 // Timeout sets the timeout for the entire retry operation.
@@ -69,6 +71,13 @@ func Delay(delay time.Duration) Option {
 func Converge(successes int) Option {
 	return func(cfg *config) {
 		cfg.converge = successes
+	}
+}
+
+// Message defines a more detailed error message to use when failing
+func Message(errorMessage string) Option {
+	return func(cfg *config) {
+		cfg.error = errorMessage
 	}
 }
 
@@ -96,6 +105,38 @@ func UntilSuccessOrFail(t test.Failer, fn func() error, options ...Option) {
 	if err != nil {
 		t.Fatalf("retry.UntilSuccessOrFail: %v", err)
 	}
+}
+
+var ErrConditionNotMet = errors.New("expected condition not met")
+
+// Until retries the given function until it returns true or hits the timeout timeout
+func Until(fn func() bool, options ...Option) error {
+	return UntilSuccess(func() error {
+		if !fn() {
+			return getErrorMessage(options)
+		}
+		return nil
+	}, options...)
+}
+
+// UntilOrFail calls Until, and fails t with Fatalf if it ends up returning an error
+func UntilOrFail(t test.Failer, fn func() bool, options ...Option) {
+	t.Helper()
+	err := Until(fn, options...)
+	if err != nil {
+		t.Fatalf("retry.UntilOrFail: %v", err)
+	}
+}
+
+func getErrorMessage(options []Option) error {
+	cfg := defaultConfig
+	for _, option := range options {
+		option(&cfg)
+	}
+	if cfg.error == "" {
+		return ErrConditionNotMet
+	}
+	return errors.New(cfg.error)
 }
 
 // Do retries the given function, until there is a timeout, or until the function indicates that it has completed.

@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -244,12 +243,7 @@ func TestAggregateStoreCache(t *testing.T) {
 				Name:             "another",
 			},
 		})
-		retry.UntilSuccessOrFail(t, func() error {
-			if !handled.Load() {
-				return fmt.Errorf("not handled")
-			}
-			return nil
-		}, retry.Timeout(time.Second))
+		retry.UntilOrFail(t, handled.Load, retry.Timeout(time.Second))
 	})
 }
 
