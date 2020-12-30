@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"istio.io/istio/istioctl/pkg/multicluster"
 	"sync"
 	"time"
 
@@ -45,8 +46,8 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string, s
 	// Add the local cluster
 	m.addMemberCluster(client, localCluster)
 	sc := secretcontroller.StartSecretController(client,
-		func(c kube.Client, k string) error { m.addMemberCluster(c, k); return nil },
-		func(c kube.Client, k string) error { m.updateMemberCluster(c, k); return nil },
+		func(c kube.Client, k string, _ multicluster.SecretType) error { m.addMemberCluster(c, k); return nil },
+		func(c kube.Client, k string, _ multicluster.SecretType) error { m.updateMemberCluster(c, k); return nil },
 		func(k string) error { m.deleteMemberCluster(k); return nil },
 		secretNamespace,
 		time.Millisecond*100,

@@ -417,6 +417,9 @@ const (
 	// Secret generated from remote cluster
 	SecretTypeRemote SecretType = "remote"
 
+	// Secret generated from primary cluster
+	SecretTypePrimary SecretType = "primary"
+
 	// Secret generated from config cluster
 	SecretTypeConfig SecretType = "config"
 )
@@ -453,9 +456,8 @@ type RemoteSecretOptions struct {
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 	flagset.StringVar(&o.ServiceAccountName, "service-account", "",
-		"Create a secret with this service account's credentials. Use \""+
-			constants.DefaultServiceAccountName+"\" as default value if --type is \"remote\", use \""+
-			constants.DefaultConfigServiceAccountName+"\" as default value if --type is \"config\".")
+		"Create a secret with this service account's credentials. Defaults to "+constants.DefaultServiceAccountName+
+			"\" unless --type is \"config\" is specified, which will use "+constants.DefaultConfigServiceAccountName+".")
 	flagset.BoolVar(&o.CreateServiceAccount, "create-service-account", true,
 		"If true, the service account needed for creating the remote secret will be created "+
 			"if it doesn't exist.")
@@ -506,10 +508,11 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env
 		}
 		opt.ClusterName = string(uid)
 	}
-
 	var secretName string
 	switch opt.Type {
 	case SecretTypeRemote:
+		fallthrough // same as primary
+	case SecretTypePrimary:
 		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
 		if opt.ServiceAccountName == "" {
 			opt.ServiceAccountName = constants.DefaultServiceAccountName
@@ -550,6 +553,7 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env
 		return nil, err
 	}
 
+	remoteSecret.Annotations["topology.istio.io/clusterType"] = opt.Type.String()
 	remoteSecret.Namespace = opt.Namespace
 	return remoteSecret, nil
 }

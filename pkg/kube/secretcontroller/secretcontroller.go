@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"istio.io/istio/istioctl/pkg/multicluster"
 	"reflect"
 	"time"
 
@@ -46,10 +47,10 @@ const (
 )
 
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clients kube.Client, dataKey string) error
+type addSecretCallback func(clients kube.Client, dataKey string, clusterType multicluster.SecretType) error
 
 // updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clients kube.Client, dataKey string) error
+type updateSecretCallback func(clients kube.Client, dataKey string, clusterType multicluster.SecretType) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -287,6 +288,7 @@ func createRemoteCluster(kubeConfig []byte, secretName string) (*RemoteCluster, 
 }
 
 func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
+	clusterType := getClusterType(s)
 	for clusterID, kubeConfig := range s.Data {
 		// clusterID must be unique even across multiple secrets
 		if prev, ok := c.cs.remoteClusters[clusterID]; !ok {
@@ -300,7 +302,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			}
 
 			c.cs.remoteClusters[clusterID] = remoteCluster
-			if err := c.addCallback(remoteCluster.clients, clusterID); err != nil {
+			if err := c.addCallback(remoteCluster.clients, clusterID, clusterType); err != nil {
 				log.Errorf("Error creating cluster_id=%s from secret %v: %v",
 					clusterID, secretName, err)
 			}
@@ -324,7 +326,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 					continue
 				}
 				c.cs.remoteClusters[clusterID] = remoteCluster
-				if err := c.updateCallback(remoteCluster.clients, clusterID); err != nil {
+				if err := c.updateCallback(remoteCluster.clients, clusterID, clusterType); err != nil {
 					log.Errorf("Error updating cluster_id from secret=%v: %s %v",
 						clusterID, secretName, err)
 				}
@@ -348,4 +350,12 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 		}
 	}
 	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
+}
+
+func getClusterType(s *corev1.Secret) multicluster.SecretType {
+	clusterTypeStr, ok := s.Annotations["topology.istio.io/clusterType"]
+	if !ok {
+		return multicluster.SecretTypeRemote
+	}
+	return multicluster.SecretType(clusterTypeStr)
 }

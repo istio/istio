@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"istio.io/istio/istioctl/pkg/multicluster"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -93,7 +94,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.environment)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
-	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID); err != nil {
+	if err := mc.AddMemberCluster(s.kubeClient, args.RegistryOptions.KubeOptions.ClusterID, multicluster.SecretTypeConfig); err != nil {
 		log.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
 		return err
 	}
