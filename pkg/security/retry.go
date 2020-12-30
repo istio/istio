@@ -35,10 +35,15 @@ var CARetryOptions = []retry.CallOption{
 	retry.WithCodes(codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable),
 }
 
+// CARetryInterceptor is a grpc UnaryInterceptor that adds retry options, as a convenience wrapper
+// around CARetryOptions. If needed to chain with other interceptors, the CARetryOptions can be used
+// directly.
 func CARetryInterceptor() grpc.DialOption {
 	return grpc.WithUnaryInterceptor(retry.UnaryClientInterceptor(CARetryOptions...))
 }
 
+// grpcretry has no hooks to trigger logic on failure (https://github.com/grpc-ecosystem/go-grpc-middleware/issues/375)
+// Instead, we can wrap the backoff hook to log/increment metrics before returning the backoff result.
 func wrapBackoffWithMetrics(bf retry.BackoffFunc) retry.BackoffFunc {
 	return func(attempt uint) time.Duration {
 		wait := bf(attempt)
