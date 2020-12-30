@@ -48,4 +48,10 @@ spec:
               value: {{.Values.waitForResourcesTimeout | quote}}
             - name: REVISION
               value: {{.Values.revision | quote}}
+          volumeMounts:
+          - mountPath: /tmp/istio-install-packages
+            name: istio-install-packages
+      volumes:
+      - name: istio-install-packages
+        emptyDir: {}
 ---
