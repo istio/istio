@@ -57,14 +57,14 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if !rdsNeedsPush(req) {
-		return nil
+		return nil, nil
 	}
 	rawRoutes := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, push, w.ResourceNames)
 	resources := model.Resources{}
 	for _, c := range rawRoutes {
 		resources = append(resources, util.MessageToAny(c))
 	}
-	return resources
+	return resources, nil
 }
