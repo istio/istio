@@ -59,6 +59,7 @@ features:
     peer:
       secure-naming:
       trust-domain-validation:
+      ecc-signature-algorithm:
     user:
     ingress:
       mtls:
