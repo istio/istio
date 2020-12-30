@@ -24,10 +24,15 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/security/pkg/monitoring"
+	"istio.io/istio/security/pkg/nodeagent/util"
+	"istio.io/istio/tests/util/leak"
 )
 
 const (
@@ -58,6 +63,7 @@ func TestCitadelClient(t *testing.T) {
 		server       mockCAServer
 		expectedCert []string
 		expectedErr  string
+		expectRetry  bool
 	}{
 		"Valid certs": {
 			server:       mockCAServer{Certs: fakeCert, Err: nil},
@@ -74,44 +80,66 @@ func TestCitadelClient(t *testing.T) {
 			expectedCert: nil,
 			expectedErr:  "invalid response cert chain",
 		},
+		"retry": {
+			server:       mockCAServer{Certs: nil, Err: status.Error(codes.Unavailable, "test failure")},
+			expectedCert: nil,
+			expectedErr:  "rpc error: code = Unavailable desc = test failure",
+			expectRetry:  true,
+		},
 	}
 
 	for id, tc := range testCases {
-		// create a local grpc server
-		s := grpc.NewServer()
-		defer s.Stop()
-		lis, err := net.Listen("tcp", mockServerAddress)
-		if err != nil {
-			t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
-		}
-
-		go func() {
-			pb.RegisterIstioCertificateServiceServer(s, &tc.server)
-			if err := s.Serve(lis); err != nil {
-				t.Logf("Test case [%s]: failed to serve: %v", id, err)
+		t.Run(id, func(t *testing.T) {
+			monitoring.Reset()
+			// create a local grpc server
+			s := grpc.NewServer()
+			t.Cleanup(s.Stop)
+			lis, err := net.Listen("tcp", mockServerAddress)
+			if err != nil {
+				t.Fatalf("failed to listen: %v", err)
 			}
-		}()
 
-		// The goroutine starting the server may not be ready, results in flakiness.
-		time.Sleep(1 * time.Second)
+			go func() {
+				pb.RegisterIstioCertificateServiceServer(s, &tc.server)
+				if err := s.Serve(lis); err != nil {
+					t.Logf("failed to serve: %v", err)
+				}
+			}()
 
-		cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "")
-		if err != nil {
-			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
-		}
-
-		resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
-		if err != nil {
-			if err.Error() != tc.expectedErr {
-				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+			cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "")
+			if err != nil {
+				t.Errorf("failed to create ca client: %v", err)
 			}
-		} else {
-			if tc.expectedErr != "" {
-				t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
-			} else if !reflect.DeepEqual(resp, tc.expectedCert) {
-				t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+			t.Cleanup(cli.Close)
+
+			resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
+			if err != nil {
+				if err.Error() != tc.expectedErr {
+					t.Errorf("error (%s) does not match expected error (%s)", err.Error(), tc.expectedErr)
+				}
+			} else {
+				if tc.expectedErr != "" {
+					t.Errorf("expect error: %s but got no error", tc.expectedErr)
+				} else if !reflect.DeepEqual(resp, tc.expectedCert) {
+					t.Errorf("resp: got %+v, expected %v", resp, tc.expectedCert)
+				}
 			}
-		}
+
+			if tc.expectRetry {
+				retry.UntilSuccessOrFail(t, func() error {
+					g, err := util.GetMetricsCounterValueWithTags("num_outgoing_retries", map[string]string{
+						"request_type": monitoring.CSR,
+					})
+					if err != nil {
+						return err
+					}
+					if g <= 0 {
+						return fmt.Errorf("expected retries, got %v", g)
+					}
+					return nil
+				}, retry.Timeout(time.Second*5))
+			}
+		})
 	}
 }
 
@@ -199,6 +227,7 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("test case [%s]: failed to create ca client: %v", id, err)
 				}
+				t.Cleanup(cli.Close)
 				resp, err := cli.CSRSign(context.Background(), []byte{01}, tc.token, 1)
 				if err != nil {
 					if err.Error() != tc.expectedErr {
@@ -218,4 +247,8 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	leak.CheckMain(m)
 }
