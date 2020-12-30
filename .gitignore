@@ -52,3 +52,5 @@ out/
 etc/
 var/
 .idea/
+# Go compiled tests
+*.test
