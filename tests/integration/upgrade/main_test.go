@@ -42,13 +42,11 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&NMinusOne, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployHelm = true
 			cfg.Version = "1.8.1"
-			cfg.Values["revision"] = "1-8-1"
 			cfg.Revision = "1-8-1"
 		})).
 		Setup(istio.Setup(&NMinusTwo, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployHelm = true
 			cfg.Version = "1.8.1"
-			cfg.Values["revision"] = "1-8-1-test"
 			cfg.Revision = "1-8-1-test"
 		})).
 		Setup(func(ctx resource.Context) error {

@@ -101,7 +101,7 @@ func (h *helmComponent) Settings() Config {
 func (h *helmComponent) Close() error {
 	scopes.Framework.Infof("cleaning up resources")
 	// TODO remove ingress and egress charts
-	istiodRelease := IstiodReleaseName + h.settings.Values["revision"]
+	istiodRelease := IstiodReleaseName + h.settings.Revision
 	if err := h.helmCmd.DeleteChart(istiodRelease, h.settings.IstioNamespace); err != nil {
 		return fmt.Errorf("failed to delete %s release", istiodRelease)
 	}
@@ -205,7 +205,7 @@ func helmInstall(h *helmComponent) error {
 	}
 
 	// Install discovery chart
-	err = h.helmCmd.InstallChartWithValues(IstiodReleaseName+h.settings.Values["revision"], filepath.Join(ControlChartsDir, DiscoveryChart),
+	err = h.helmCmd.InstallChartWithValues(IstiodReleaseName+h.settings.Revision, filepath.Join(ControlChartsDir, DiscoveryChart),
 		h.settings.IstioNamespace, overridesArgs, helmTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to install istio %s chart", DiscoveryChart)
@@ -232,6 +232,11 @@ func generateCommonInstallSettings(cfg Config) ([]string, error) {
 			}
 		}
 		installSettings = append(installSettings, "--set", fmt.Sprintf("%s=%s", k, v))
+	}
+
+	if cfg.Revision != "" {
+		installSettings = append(installSettings,
+			"--set", fmt.Sprintf("%s=%s", "revision", cfg.Revision))
 	}
 
 	// set the tag and hub to custom values if version specified
