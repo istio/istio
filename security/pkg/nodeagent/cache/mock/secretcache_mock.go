@@ -19,12 +19,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"path"
-	"sync"
 	"sync/atomic"
 	"time"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -40,9 +36,6 @@ var (
 // CAClient is the mocked CAClient for testing.
 type CAClient struct {
 	SignInvokeCount uint64
-	errorCount      uint64
-	errorCountMutex *sync.Mutex
-	errors          uint64
 	bundle          util.KeyCertBundle
 	certLifetime    time.Duration
 	GeneratedCerts  [][]string // Cache the generated certificates for verification purpose.
@@ -50,12 +43,9 @@ type CAClient struct {
 
 // NewMockCAClient creates an instance of CAClient. errors is used to specify the number of errors
 // before CSRSign returns a valid response. certLifetime specifies the TTL for the newly issued workload cert.
-func NewMockCAClient(errors uint64, certLifetime time.Duration) (*CAClient, error) {
+func NewMockCAClient(certLifetime time.Duration) (*CAClient, error) {
 	cl := CAClient{
 		SignInvokeCount: 0,
-		errorCount:      0,
-		errorCountMutex: &sync.Mutex{},
-		errors:          errors,
 		certLifetime:    certLifetime,
 	}
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath)
@@ -70,14 +60,6 @@ func NewMockCAClient(errors uint64, certLifetime time.Duration) (*CAClient, erro
 
 // CSRSign returns the certificate or errors depending on the settings.
 func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, token string, certValidTTLInSec int64) ([]string, error) {
-	c.errorCountMutex.Lock()
-	if c.errorCount < c.errors {
-		c.errorCount++
-		c.errorCountMutex.Unlock()
-		return nil, status.Error(codes.Unavailable, "CA is unavailable")
-	}
-	c.errorCountMutex.Unlock()
-
 	atomic.AddUint64(&c.SignInvokeCount, 1)
 	signingCert, signingKey, certChain, rootCert := c.bundle.GetAll()
 	csr, err := util.ParsePemEncodedCSR(csrPEM)

@@ -67,9 +67,7 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 		opts = grpc.WithInsecure()
 	}
 
-	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
-	//  need a way to reconnect.
-	conn, err := grpc.Dial(endpoint, opts)
+	conn, err := grpc.Dial(endpoint, opts, security.CARetryInterceptor())
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
