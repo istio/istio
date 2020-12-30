@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"istio.io/istio/istioctl/pkg/multicluster"
 	"reflect"
 	"time"
 
@@ -47,10 +46,10 @@ const (
 )
 
 // addSecretCallback prototype for the add secret callback function.
-type addSecretCallback func(clients kube.Client, dataKey string, clusterType multicluster.SecretType) error
+type addSecretCallback func(clients kube.Client, dataKey string, clusterType SecretType) error
 
 // updateSecretCallback prototype for the update secret callback function.
-type updateSecretCallback func(clients kube.Client, dataKey string, clusterType multicluster.SecretType) error
+type updateSecretCallback func(clients kube.Client, dataKey string, clusterType SecretType) error
 
 // removeSecretCallback prototype for the remove secret callback function.
 type removeSecretCallback func(dataKey string) error
@@ -352,10 +351,26 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 	log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
 }
 
-func getClusterType(s *corev1.Secret) multicluster.SecretType {
+
+type SecretType string
+
+func (at *SecretType) String() string { return string(*at) }
+func (at *SecretType) Type() string   { return "SecretType" }
+func (at *SecretType) Set(in string) error {
+	*at = SecretType(in)
+	return nil
+}
+
+const SecretTypeRemote SecretType = "remote"
+
+const SecretTypePrimary SecretType = "primary"
+
+const SecretTypeConfig SecretType = "config"
+
+func getClusterType(s *corev1.Secret) SecretType {
 	clusterTypeStr, ok := s.Annotations["topology.istio.io/clusterType"]
 	if !ok {
-		return multicluster.SecretTypeRemote
+		return SecretTypeRemote
 	}
-	return multicluster.SecretType(clusterTypeStr)
+	return SecretType(clusterTypeStr)
 }

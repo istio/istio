@@ -18,11 +18,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"io"
+	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -82,7 +81,7 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 	opts := RemoteSecretOptions{
 		AuthType:         RemoteSecretAuthTypeBearerToken,
 		AuthPluginConfig: make(map[string]string),
-		Type:             SecretTypeRemote,
+		Type:             secretcontroller.SecretTypeRemote,
 	}
 	c := &cobra.Command{
 		Use:   "create-remote-secret",
@@ -389,7 +388,6 @@ var makeOutputWriterTestHook = makeOutputWriter
 
 // RemoteSecretAuthType is a strongly typed authentication type suitable for use with pflags.Var().
 type RemoteSecretAuthType string
-type SecretType string
 
 var _ pflag.Value = (*RemoteSecretAuthType)(nil)
 
@@ -400,28 +398,12 @@ func (at *RemoteSecretAuthType) Set(in string) error {
 	return nil
 }
 
-func (at *SecretType) String() string { return string(*at) }
-func (at *SecretType) Type() string   { return "SecretType" }
-func (at *SecretType) Set(in string) error {
-	*at = SecretType(in)
-	return nil
-}
-
 const (
 	// Use a bearer token for authentication to the remote kubernetes cluster.
 	RemoteSecretAuthTypeBearerToken RemoteSecretAuthType = "bearer-token"
 
 	// User a custom custom authentication plugin for the remote kubernetes cluster.
 	RemoteSecretAuthTypePlugin RemoteSecretAuthType = "plugin"
-
-	// Secret generated from remote cluster
-	SecretTypeRemote SecretType = "remote"
-
-	// Secret generated from primary cluster
-	SecretTypePrimary SecretType = "primary"
-
-	// Secret generated from config cluster
-	SecretTypeConfig SecretType = "config"
 )
 
 // RemoteSecretOptions contains the options for creating a remote secret.
@@ -446,7 +428,7 @@ type RemoteSecretOptions struct {
 	AuthPluginConfig map[string]string
 
 	// Type of the generated secret
-	Type SecretType
+	Type secretcontroller.SecretType
 
 	// ManifestsPath is a path to a manifestsPath and profiles directory in the local filesystem,
 	// or URL with a release tgz. This is only used when no reader service account exists and has
@@ -470,7 +452,7 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 		supportedAuthType = append(supportedAuthType, string(at))
 	}
 	var supportedSecretType []string
-	for _, at := range []SecretType{SecretTypeRemote, SecretTypeConfig} {
+	for _, at := range []secretcontroller.SecretType{secretcontroller.SecretTypeRemote, secretcontroller.SecretTypeConfig} {
 		supportedSecretType = append(supportedSecretType, string(at))
 	}
 
@@ -510,14 +492,14 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env
 	}
 	var secretName string
 	switch opt.Type {
-	case SecretTypeRemote:
+	case secretcontroller.SecretTypeRemote:
 		fallthrough // same as primary
-	case SecretTypePrimary:
+	case secretcontroller.SecretTypePrimary:
 		secretName = remoteSecretNameFromClusterName(opt.ClusterName)
 		if opt.ServiceAccountName == "" {
 			opt.ServiceAccountName = constants.DefaultServiceAccountName
 		}
-	case SecretTypeConfig:
+	case secretcontroller.SecretTypeConfig:
 		secretName = configSecretName
 		if opt.ServiceAccountName == "" {
 			opt.ServiceAccountName = constants.DefaultConfigServiceAccountName

@@ -119,7 +119,7 @@ func TestCreateRemoteSecrets(t *testing.T) {
 		config  *api.Config
 		objs    []runtime.Object
 		name    string
-		secType SecretType
+		secType secretcontroller.SecretType
 
 		// inject errors
 		badStartingConfig bool
@@ -217,8 +217,8 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			makeOutputWriterTestHook = func() writer {
 				return &fakeOutputWriter{injectError: c.outputWriterError}
 			}
-			if c.secType != SecretTypeConfig {
-				c.secType = SecretTypeRemote
+			if c.secType != secretcontroller.SecretTypeConfig {
+				c.secType = secretcontroller.SecretTypeRemote
 			}
 			opts := RemoteSecretOptions{
 				ServiceAccountName: testServiceAccountName,
@@ -246,7 +246,7 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			} else if c.want != "" {
 				var secretName, key string
 				switch c.secType {
-				case SecretTypeConfig:
+				case secretcontroller.SecretTypeConfig:
 					secretName = configSecretName
 					key = configSecretKey
 				default:
