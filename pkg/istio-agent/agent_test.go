@@ -246,7 +246,6 @@ func TestAgent(t *testing.T) {
 		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
 	})
 	t.Run("Token exchange with credential fetcher", func(t *testing.T) {
-		log.FindScope("ads").SetOutputLevel(log.DebugLevel)
 		// This is used with platform credentials, where the platform provides some underlying
 		// identity (typically for VMs, not Kubernetes), which is exchanged with TokenExchanger
 		// before sending to the CA.
@@ -261,6 +260,38 @@ func TestAgent(t *testing.T) {
 			a.AgentConfig.XDSRootCerts = filepath.Join(certDir, "root-cert.pem")
 			return a
 		})
+
+		a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+	})
+	t.Run("Token exchange with credential fetcher downtime", func(t *testing.T) {
+		// This ensures our pre-warming is resilient to temporary downtime of the CA
+		dir := t.TempDir()
+		a := Setup(t, func(a AgentTest) AgentTest {
+			// Make CA deny all requests to simulate downtime
+			a.CaAuthenticator.Set("", "")
+			a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
+			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
+			a.Security.OutputKeyCertToDir = dir
+			a.Security.ProvCert = dir
+			a.AgentConfig.XDSRootCerts = filepath.Join(certDir, "root-cert.pem")
+			return a
+		})
+
+		go func() {
+			// Wait until we get a failure
+			if err := retry.UntilSuccess(func() error {
+				if a.CaAuthenticator.Failures.Load() < 2 {
+					return fmt.Errorf("not enough failures yet")
+				}
+				return nil
+			}); err != nil {
+				log.Error(err)
+				return
+			}
+			// Bring the CA back up
+			a.CaAuthenticator.Set("some-token", "")
+		}()
 
 		a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
 	})
@@ -280,8 +311,8 @@ type AgentTest struct {
 func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp := AgentTest{
 		t:                t,
-		XdsAuthenticator: &security.FakeAuthenticator{AllowedToken: "fake", Name: "xds"},
-		CaAuthenticator:  &security.FakeAuthenticator{AllowedToken: "fake", Name: "ca"},
+		XdsAuthenticator: security.NewFakeAuthenticator("xds").Set("fake", ""),
+		CaAuthenticator:  security.NewFakeAuthenticator("ca").Set("fake", ""),
 	}
 	// Run through opts one time just to get the authenticators.
 	for _, opt := range opts {

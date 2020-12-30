@@ -18,7 +18,9 @@ package sds
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -34,6 +36,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
 )
 
@@ -88,10 +91,26 @@ func newSDSService(st security.SecretManager) *sdsservice {
 
 	// Pre-generate workload certificates to improve startup latency and ensure that for OUTPUT_CERTS
 	// case we always write a certificate. A workload can technically run without any mTLS/CA
-	// configured, in which case this will fail, but this shouldn't be a concern here since we drop
-	// errors. If it becomes noisy we should disable the entire SDS server in these cases.
+	// configured, in which case this will fail; if it becomes noisy we should disable the entire SDS
+	// server in these cases.
 	go func() {
-		_, _ = ret.generate([]string{"default", "ROOTCA"})
+		b := backoff.NewExponentialBackOff()
+		for {
+			_, err := st.GenerateSecret(cache.WorkloadKeyCertResourceName)
+			if err == nil {
+				break
+			}
+			sdsServiceLog.Warnf("failed to warm certificate: %v", err)
+			time.Sleep(b.NextBackOff())
+		}
+		for {
+			_, err := st.GenerateSecret(cache.RootCertReqResourceName)
+			if err == nil {
+				break
+			}
+			sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
+			time.Sleep(b.NextBackOff())
+		}
 	}()
 
 	return ret

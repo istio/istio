@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"sync"
 
+	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
@@ -68,7 +69,18 @@ type FakeAuthenticator struct {
 	AllowedCert  string
 	Name         string
 
+	Successes *atomic.Int32
+	Failures  *atomic.Int32
+
 	mu sync.Mutex
+}
+
+func NewFakeAuthenticator(name string) *FakeAuthenticator {
+	return &FakeAuthenticator{
+		Name:      name,
+		Successes: atomic.NewInt32(0),
+		Failures:  atomic.NewInt32(0),
+	}
 }
 
 func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
@@ -81,17 +93,20 @@ func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*authenticate.Cal
 	}.String()}
 	log.WithLabels("name", f.Name, "cert", cert, "token", token).Infof("authentication complete")
 	if cert == nil {
+		f.Successes.Inc()
 		return &authenticate.Caller{
 			AuthSource: authenticate.AuthSourceClientCertificate,
 			Identities: id,
 		}, nil
 	}
 	if token == nil {
+		f.Successes.Inc()
 		return &authenticate.Caller{
 			AuthSource: authenticate.AuthSourceIDToken,
 			Identities: id,
 		}, nil
 	}
+	f.Failures.Inc()
 	return nil, fmt.Errorf("neither token (%v) nor cert (%v) succeeded", token, cert)
 }
 

@@ -127,7 +127,7 @@ func TestCitadelClientRotation(t *testing.T) {
 	}
 	certDir := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot")
 	t.Run("cert always present", func(t *testing.T) {
-		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: &security.FakeAuthenticator{}}
+		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
 		opts := security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: certDir}
 		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
@@ -143,7 +143,7 @@ func TestCitadelClientRotation(t *testing.T) {
 		checkSign(t, cli, false)
 	})
 	t.Run("cert never present", func(t *testing.T) {
-		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: &security.FakeAuthenticator{}}
+		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
 		opts := security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: "."}
 		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
@@ -158,7 +158,7 @@ func TestCitadelClientRotation(t *testing.T) {
 	})
 	t.Run("cert present later", func(t *testing.T) {
 		dir := t.TempDir()
-		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: &security.FakeAuthenticator{}}
+		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
 		opts := security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: dir}
 		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
