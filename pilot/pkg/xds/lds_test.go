@@ -166,14 +166,14 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		return
 	}
 
-	// Expect 6 listeners : 2 orig_dst, 4 outbound (http, tcp1)
+	// Expect 2 listeners : 2 orig_dst, 2 outbound (http, tcp1)
 	if (len(adsc.GetHTTPListeners()) + len(adsc.GetTCPListeners())) != 4 {
 		t.Fatalf("Expected 4 listeners, got %d\n", len(adsc.GetHTTPListeners())+len(adsc.GetTCPListeners()))
 	}
 
-	// Expect 11 CDS clusters:
+	// Expect 9 CDS clusters:
 	// 2 inbound(http, inbound passthroughipv4) notes: no passthroughipv6
-	// 9 outbound (2 http services, 1 tcp service, 2 istio-system services,
+	// 9 outbound (2 http services, 1 tcp service,
 	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
 	if (len(adsc.GetClusters()) + len(adsc.GetEdsClusters())) != 11 {
 		t.Fatalf("Expected 12 clusters in CDS output. Got %d", len(adsc.GetClusters())+len(adsc.GetEdsClusters()))
