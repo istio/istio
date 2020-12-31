@@ -37,9 +37,11 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -58,6 +60,8 @@ type HelmReconciler struct {
 	// dependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
 	// dependencyWaitCh[ch1]...dependencyWaitCh[chN] when it's completely installed.
 	dependencyWaitCh map[name.ComponentName]chan struct{}
+
+	istiocp *controlplane.IstioControlPlane
 
 	// The fields below are for metrics and reporting
 	countLock     *sync.Mutex
@@ -114,8 +118,12 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	var cs *kubernetes.Clientset
 	var err error
 	if restConfig != nil {
-		cs, err = kubernetes.NewForConfig(restConfig)
+		if cs, err = kubernetes.NewForConfig(restConfig); err != nil {
+			return nil, err
+		}
 	}
+
+	cp, err := controlplane.NewIstioControlPlane(iop.Spec, translate.NewTranslator())
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +133,7 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		clientSet:        cs,
 		iop:              iop,
 		opts:             opts,
+		istiocp:          cp,
 		dependencyWaitCh: initDependencies(),
 		countLock:        &sync.Mutex{},
 		prunedKindSet:    make(map[schema.GroupKind]struct{}),

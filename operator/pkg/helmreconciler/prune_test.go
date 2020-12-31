@@ -28,8 +28,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -56,6 +58,11 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 		iop.Spec.Revision = testRevision
 		iop.Spec.InstallPackagePath = filepath.Join(env.IstioSrc, "manifests")
 
+		cp, err := controlplane.NewIstioControlPlane(iop.Spec, translate.NewTranslator())
+		if err != nil {
+			t.Fatalf("failed to create istio installation control plane: %v", err)
+		}
+
 		h := &HelmReconciler{
 			client: cl,
 			opts: &Options{
@@ -63,6 +70,7 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 				Log:         clog.NewDefaultLogger(),
 			},
 			iop:           iop,
+			istiocp:       cp,
 			countLock:     &sync.Mutex{},
 			prunedKindSet: map[schema.GroupKind]struct{}{},
 		}

@@ -83,6 +83,8 @@ type CommonComponentFields struct {
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
+	// commonValues for shared helm values translated from istiooperator API for all components.
+	commonValues string
 }
 
 // NewCoreComponent creates a new IstioComponent with the given componentName and options.
@@ -398,6 +400,16 @@ func runComponent(c *CommonComponentFields) error {
 	}
 	c.renderer = r
 	c.started = true
+
+	if c.commonValues == "" {
+		mergedYAML, err := c.Translator.TranslateHelmValues(c.InstallSpec)
+		if err != nil {
+			return err
+		}
+		scope.Debugf("Merged values:\n%s\n", mergedYAML)
+		c.commonValues = mergedYAML
+	}
+
 	return nil
 }
 
@@ -412,15 +424,14 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 		return disabledYAMLStr(cf.ComponentName, cf.ResourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.ComponentName)
-	if err != nil {
-		metrics.CountManifestRenderError(c.ComponentName(), metrics.HelmTranslateIOPToValuesError)
-		return "", err
+	var err error
+	if cf.ComponentName.IsGateway() {
+		cf.commonValues, err = translate.ApplyGatewayTranslations(cf.commonValues, cf.ComponentName, cf.componentSpec)
+		if err != nil {
+			return "", fmt.Errorf("failed to apply gateway translation for component %s", cf.ComponentName)
+		}
 	}
-
-	scope.Debugf("Merged values:\n%s\n", mergedYAML)
-
-	my, err := cf.renderer.RenderManifest(mergedYAML)
+	my, err := cf.renderer.RenderManifest(cf.commonValues)
 	if err != nil {
 		log.Errorf("Error rendering the manifest: %s", err)
 		metrics.CountManifestRenderError(c.ComponentName(), metrics.HelmChartRenderError)
