@@ -50,6 +50,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/test/util/retry"
+	sutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 
 const yamlSeparator = "\n---"
@@ -1012,41 +1014,27 @@ func TestRunAndServe(t *testing.T) {
 		})
 	}
 	// Now Validate that metrics are created.
-	testSideCarInjectorMetrics(t, wh)
+	testSideCarInjectorMetrics(t)
 }
 
-func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
-	srv := httptest.NewServer(wh.mon.exporter)
-	defer srv.Close()
-	resp, err := http.Get(srv.URL)
-	if err != nil {
-		t.Fatalf("failed to get /metrics: %v", err)
+func testSideCarInjectorMetrics(t *testing.T) {
+	expected := []string{
+		"sidecar_injection_requests_total",
+		"sidecar_injection_success_total",
+		"sidecar_injection_skip_total",
+		"sidecar_injection_failure_total",
 	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("failed to read body: %v", err)
-	}
-	if err := resp.Body.Close(); err != nil {
-		t.Fatalf("failed to close: %v", err)
-	}
-
-	output := string(body)
-
-	if !strings.Contains(output, "sidecar_injection_requests_total") {
-		t.Fatalf("metric sidecar_injection_requests_total not found")
-	}
-
-	if !strings.Contains(output, "sidecar_injection_success_total") {
-		t.Fatalf("metric sidecar_injection_success_total not found")
-	}
-
-	if !strings.Contains(output, "sidecar_injection_skip_total") {
-		t.Fatalf("metric sidecar_injection_skip_total not found")
-	}
-
-	if !strings.Contains(output, "sidecar_injection_failure_total") {
-		t.Fatalf("incorrect value for metric sidecar_injection_failure_total")
+	for _, e := range expected {
+		retry.UntilSuccessOrFail(t, func() error {
+			got, err := sutil.GetMetricsCounterValue(e)
+			if err != nil {
+				return err
+			}
+			if got <= 0 {
+				return fmt.Errorf("metric empty")
+			}
+			return nil
+		})
 	}
 }
 
