@@ -398,14 +398,14 @@ func TestEndpointFlipFlops(t *testing.T) {
 				EndpointPort:    8080,
 			}})
 
-	upd, _ = adscConn.Wait(5 * time.Second)
+	upd, _ = adscConn.Wait(5*time.Second, v3.EndpointType)
 
-	if contains(upd, "cds") {
-		t.Fatal("Expecting only EDS update as part of a partial push. But received CDS also +v", upd)
+	if contains(upd, v3.ClusterType) {
+		t.Fatalf("expecting only EDS update as part of a partial push. But received CDS also %+v", upd)
 	}
 
 	if len(upd) > 0 && !contains(upd, v3.EndpointType) {
-		t.Fatal("Expecting EDS push as part of a partial push. But did not receive +v", upd)
+		t.Fatalf("expecting EDS push as part of a partial push. But did not receive %+v", upd)
 	}
 
 	testEndpoints("10.10.1.1", "outbound|8080||flipflop.com", adscConn, t)
