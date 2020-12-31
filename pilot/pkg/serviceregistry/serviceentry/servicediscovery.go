@@ -363,8 +363,9 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	for _, svc := range nonDNSServices {
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
-
+	// update instances and ip2instance associated with the ServiceEntry, instead of building the whole map
 	serviceEntry := curr.Spec.(*networking.ServiceEntry)
+	// if serviceDataChanged == true (the port of ServiceEntry has been updated), remove old instances and ip2instance,then re-add
 	serviceDataChanged := false
 	if event == model.EventUpdate && len(addedSvcs)+len(updatedSvcs) > 0 {
 		serviceDataChanged = true
@@ -376,6 +377,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 			name:      curr.Name,
 			namespace: curr.Namespace,
 		}
+		// 1. if ServiceEntry event is  EventDelete,remove instances
 		if event == model.EventDelete {
 			di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
 			dip := map[string]map[ipKey]*model.ServiceInstance{}
@@ -907,8 +909,8 @@ func updateInstances(key configKey, instances map[ipKey]*model.ServiceInstance,
 		if _, f := instanceMap[ikey]; !f {
 			instanceMap[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
-		jkey := makeIPKey(instance)
 		instanceMap[ikey][key] = append(instanceMap[ikey][key], instance)
+		jkey := makeIPKey(instance)
 		if ip2instance[instance.Endpoint.Address] == nil {
 			ip2instance[instance.Endpoint.Address] = make(map[ipKey]*model.ServiceInstance)
 		}
