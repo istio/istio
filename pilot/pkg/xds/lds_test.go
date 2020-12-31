@@ -175,8 +175,8 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	// 2 inbound(http, inbound passthroughipv4) notes: no passthroughipv6
 	// 9 outbound (2 http services, 1 tcp service,
 	//   and 2 subsets of http1, 1 blackhole, 1 passthrough)
-	if (len(adsc.GetClusters()) + len(adsc.GetEdsClusters())) != 11 {
-		t.Fatalf("Expected 12 clusters in CDS output. Got %d", len(adsc.GetClusters())+len(adsc.GetEdsClusters()))
+	if (len(adsc.GetClusters()) + len(adsc.GetEdsClusters())) != 9 {
+		t.Fatalf("Expected 9 clusters in CDS output. Got %d", len(adsc.GetClusters())+len(adsc.GetEdsClusters()))
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)
