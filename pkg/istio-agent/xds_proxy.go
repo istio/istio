@@ -62,10 +62,6 @@ const (
 	sendTimeout                        = 5 * time.Second // default upstream send timeout.
 )
 
-const (
-	xdsUdsPath = "./etc/istio/proxy/XDS"
-)
-
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
@@ -83,6 +79,7 @@ type XdsProxy struct {
 	localDNSServer       *dns.LocalDNSServer
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
+	xdsUdsPath           string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
@@ -114,9 +111,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		stopChan:       make(chan struct{}),
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
 		xdsHeaders:     ia.cfg.XDSHeaders,
+		xdsUdsPath:     ia.cfg.XdsUdsPath,
 	}
 
-	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
+	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
 
 	if err = proxy.initDownstreamServer(); err != nil {
 		return nil, err
@@ -168,10 +166,11 @@ func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
 	}
 }
 
-func (p *XdsProxy) UnregisterStream() {
+func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
-	if p.connected != nil {
+	if p.connected != nil && p.connected == c {
+		proxyLog.Warnf("unregister stream")
 		close(p.connected.stopChan)
 	}
 	p.connected = nil
@@ -180,6 +179,10 @@ func (p *XdsProxy) UnregisterStream() {
 func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
+	if p.connected != nil {
+		proxyLog.Warnf("registered overlapping stream; closing previous")
+		close(p.connected.stopChan)
+	}
 	p.connected = c
 }
 
@@ -209,7 +212,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}
 
 	p.RegisterStream(con)
-	defer p.UnregisterStream()
+	defer p.UnregisterStream(con)
 
 	// Handle downstream xds
 	initialRequestsSent := false
@@ -315,6 +318,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
+			proxyLog.Debugf("stream stopped")
 			return nil
 		}
 	}
@@ -435,7 +439,7 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
-	l, err := uds.NewListener(xdsUdsPath)
+	l, err := uds.NewListener(p.xdsUdsPath)
 	if err != nil {
 		return err
 	}

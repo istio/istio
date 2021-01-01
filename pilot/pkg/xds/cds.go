@@ -69,14 +69,14 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	return false
 }
 
-func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if !cdsNeedsPush(req, proxy) {
-		return nil
+		return nil, nil
 	}
 	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)
 	resources := model.Resources{}
 	for _, c := range rawClusters {
 		resources = append(resources, util.MessageToAny(c))
 	}
-	return resources
+	return resources, nil
 }

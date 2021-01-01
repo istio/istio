@@ -161,7 +161,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				if s.StatusGen != nil {
 					s.StatusGen.OnDisconnect(con)
 				}
-				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy)
+				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
 			}()
 		}
 

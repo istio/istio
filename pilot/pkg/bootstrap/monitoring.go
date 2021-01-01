@@ -29,7 +29,6 @@ import (
 
 type monitor struct {
 	monitoringServer *http.Server
-	shutdown         chan struct{}
 }
 
 const (
@@ -57,9 +56,7 @@ func addMonitor(mux *http.ServeMux) error {
 // Deprecated: we shouldn't have 2 http ports. Will be removed after code using
 // this port is removed.
 func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
-	m := &monitor{
-		shutdown: make(chan struct{}),
-	}
+	m := &monitor{}
 
 	// get the network stuff setup
 	var listener net.Listener
@@ -87,27 +84,18 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 
 	if addr != "" {
 		go func() {
-			m.shutdown <- struct{}{}
 			_ = m.monitoringServer.Serve(listener)
-			m.shutdown <- struct{}{}
 		}()
-		// This is here to work around (mostly) a race condition in the Serve
-		// function. If the Close method is called before or during the execution of
-		// Serve, the call may be ignored and Serve never returns.
-		<-m.shutdown
 	}
 
 	return m, nil
 }
 
 func (m *monitor) Close() error {
-	if m.monitoringServer == nil {
-		<-m.shutdown
-		return nil
+	if m.monitoringServer != nil {
+		return m.monitoringServer.Close()
 	}
-	err := m.monitoringServer.Close()
-	<-m.shutdown
-	return err
+	return nil
 }
 
 // initMonitor initializes the configuration for the pilot monitoring server.

@@ -178,9 +178,8 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	workloadSdsCacheOptions := &security.Options{}
 	workloadSdsCacheOptions.TrustDomain = "FakeTrustDomain"
 	workloadSdsCacheOptions.Pkcs8Keys = false
-	workloadSdsCacheOptions.TokenExchangers = NewPlugins([]string{"GoogleTokenExchange"})
+	workloadSdsCacheOptions.TokenExchangers = NewPlugins([]string{"GoogleTokenExchange"}, workloadSdsCacheOptions)
 	workloadSdsCacheOptions.RotationInterval = 10 * time.Minute
-	workloadSdsCacheOptions.InitialBackoffInMilliSec = 10
 	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, workloadSdsCacheOptions)
 
 	server, err := NewServer(&arg, workloadSecretCache)

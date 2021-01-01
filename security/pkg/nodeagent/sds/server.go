@@ -80,9 +80,9 @@ func (s *Server) Stop() {
 }
 
 // NewPlugins returns a slice of default Plugins.
-func NewPlugins(in []string) []ca2.TokenExchanger {
+func NewPlugins(in []string, opts *ca2.Options) []ca2.TokenExchanger {
 	var availablePlugins = map[string]ca2.TokenExchanger{
-		plugin.GoogleTokenExchange: stsclient.NewPlugin(),
+		plugin.GoogleTokenExchange: stsclient.NewPlugin(opts.CredFetcher),
 	}
 	var plugins []ca2.TokenExchanger
 	for _, pl := range in {

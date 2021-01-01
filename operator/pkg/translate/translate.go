@@ -353,7 +353,7 @@ func applyGatewayTranslations(iop []byte, componentName name.ComponentName, comp
 		if len(gwSpec.Label) != 0 {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.labels"), gwSpec.Label)
 		}
-		if k8s != nil && k8s.Service != nil {
+		if k8s != nil && k8s.Service != nil && k8s.Service.Ports != nil {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-ingressgateway.ports"), k8s.Service.Ports)
 		}
 	case name.EgressComponentName:
@@ -361,7 +361,7 @@ func applyGatewayTranslations(iop []byte, componentName name.ComponentName, comp
 		if len(gwSpec.Label) != 0 {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.labels"), gwSpec.Label)
 		}
-		if k8s != nil && k8s.Service != nil {
+		if k8s != nil && k8s.Service != nil && k8s.Service.Ports != nil {
 			setYAMLNodeByMapPath(iopt, util.PathFromString("gateways.istio-egressgateway.ports"), k8s.Service.Ports)
 		}
 	}

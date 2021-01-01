@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 )
@@ -213,7 +214,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler)
 		k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler)
 	}
-	s.WorkloadEntryController = workloadentry.NewController(cg.Store(), "test")
+	s.WorkloadEntryController = workloadentry.NewController(cg.Store(), "test", keepalive.Infinity)
 
 	// Start in memory gRPC listener
 	buffer := 1024 * 1024
@@ -301,6 +302,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 	}
 	adscConn, err := adsc.New("buffcon", &adsc.Config{
 		IP:                       p.IPAddresses[0],
+		NodeType:                 string(p.Type),
 		Meta:                     p.Metadata.ToStruct(),
 		Locality:                 p.Locality,
 		Namespace:                p.ConfigNamespace,
@@ -432,7 +434,11 @@ func (a *AdsTest) adsReceiveChannel() {
 		if err != nil {
 			return
 		}
-		a.responses <- resp
+		select {
+		case a.responses <- resp:
+		case <-a.context.Done():
+		}
+
 	}
 }
 

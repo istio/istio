@@ -65,14 +65,14 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if !ndsNeedsPush(req) {
-		return nil
+		return nil, nil
 	}
 	nt := n.Server.ConfigGenerator.BuildNameTable(proxy, push)
 	if nt == nil {
-		return nil
+		return nil, nil
 	}
 	resources := model.Resources{util.MessageToAny(nt)}
-	return resources
+	return resources, nil
 }

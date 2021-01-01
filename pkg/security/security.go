@@ -124,9 +124,6 @@ type Options struct {
 	// secret TTL.
 	SecretTTL time.Duration
 
-	// The initial backoff time in millisecond to avoid the thundering herd problem.
-	InitialBackoffInMilliSec int64
-
 	// secret should be rotated if:
 	// time.Now.After(<secret ExpireTime> - <secret TTL> * SecretRotationGracePeriodRatio)
 	SecretRotationGracePeriodRatio float64
@@ -185,8 +182,7 @@ type SecretManager interface {
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
-	ExchangeToken(ctx context.Context, credFetcher CredFetcher, trustDomain,
-		serviceAccountToken string) (string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error)
+	ExchangeToken(trustDomain, serviceAccountToken string) (string, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.

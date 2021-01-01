@@ -94,22 +94,22 @@ func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResour
 	return nil
 }
 
-func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if proxy.VerifiedIdentity == nil {
 		adsLog.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
-		return nil
+		return nil, nil
 	}
 	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
 		adsLog.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
-		return nil
+		return nil, nil
 	}
 	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
 		adsLog.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
-		return nil
+		return nil, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
-		return nil
+		return nil, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
 	if !req.Full {
@@ -161,7 +161,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, _ *model.PushContext, w *model.
 			}
 		}
 	}
-	return results
+	return results, nil
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *any.Any {

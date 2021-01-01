@@ -15,7 +15,6 @@
 package mock
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -208,7 +207,7 @@ func (ms *AuthorizationServer) Start(port int) error {
 	mux.HandleFunc("/v1/identitybindingtoken", ms.getFederatedToken)
 	mux.HandleFunc(atEndpoint, ms.getAccessToken)
 	ms.t.Logf("Registered handler for endpoints:\n%s\n%s", atEndpoint, "/v1/identitybindingtoken")
-	server := &http.Server{
+	ms.server = &http.Server{
 		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
 		Handler: mux,
 	}
@@ -224,7 +223,7 @@ func (ms *AuthorizationServer) Start(port int) error {
 	ms.URL = fmt.Sprintf("http://localhost:%d", port)
 
 	go func() {
-		if err := server.Serve(ln); err != nil {
+		if err := ms.server.Serve(ln); err != nil {
 			log.Errorf("Server failed to serve in %q: %v", ms.URL, err)
 		}
 	}()
@@ -240,7 +239,7 @@ func (ms *AuthorizationServer) Stop() error {
 	if ms.server == nil {
 		return nil
 	}
-	return ms.server.Shutdown(context.TODO())
+	return ms.server.Close()
 }
 
 func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *http.Request) {

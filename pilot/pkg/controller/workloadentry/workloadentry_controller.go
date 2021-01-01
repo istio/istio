@@ -17,7 +17,9 @@ package workloadentry
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -89,16 +91,33 @@ type Controller struct {
 	cleanupLimit *rate.Limiter
 	// cleanupQueue delays the cleanup of autoregsitered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
+
+	mutex sync.Mutex
+	// record the current adsConnections number
+	// note: this is to handle reconnect to the same istiod, but in rare case the disconnect event is later than the connect event
+	// keyed by proxy network+ip
+	adsConnections map[string]uint8
+
+	// maxConnectionAge is a duration that workload entry should be cleanedup if it does not reconnects.
+	maxConnectionAge time.Duration
 }
 
-func NewController(store model.ConfigStoreCache, instanceID string) *Controller {
+// NewController create a controller which manages workload lifecycle and health status.
+func NewController(store model.ConfigStoreCache, instanceID string, maxConnAge time.Duration) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
+		maxConnAge := maxConnAge + maxConnAge/2
+		// if overflow, set it to max int64
+		if maxConnAge < 0 {
+			maxConnAge = time.Duration(math.MaxInt64)
+		}
 		return &Controller{
-			instanceID:   instanceID,
-			store:        store,
-			cleanupLimit: rate.NewLimiter(rate.Limit(20), 1),
-			cleanupQueue: queue.NewDelayed(),
-			queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "register"),
+			instanceID:       instanceID,
+			store:            store,
+			cleanupLimit:     rate.NewLimiter(rate.Limit(20), 1),
+			cleanupQueue:     queue.NewDelayed(),
+			queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+			adsConnections:   map[string]uint8{},
+			maxConnectionAge: maxConnAge,
 		}
 	}
 	return nil
@@ -116,6 +135,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	for i := 0; i < workerNum; i++ {
 		go wait.Until(c.worker, time.Second, stop)
 	}
+	<-stop
+	c.queue.ShutDown()
 }
 
 func (c *Controller) worker() {
@@ -123,10 +144,12 @@ func (c *Controller) worker() {
 	}
 }
 
+// workItem contains the state of a "disconnect" event used to unregister a workload.
 type workItem struct {
-	entryName  string
-	proxy      *model.Proxy
-	disConTime time.Time
+	entryName   string
+	proxy       *model.Proxy
+	disConTime  time.Time
+	origConTime time.Time
 }
 
 func (c *Controller) processNextWorkItem() bool {
@@ -141,7 +164,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return true
 	}
 
-	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime)
+	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime, workItem.origConTime)
 	c.handleErr(err, item)
 	return true
 }
@@ -162,6 +185,10 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 		return nil
 	}
 
+	c.mutex.Lock()
+	c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]]++
+	c.mutex.Unlock()
+
 	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
 		log.Errorf(err)
 		return err
@@ -178,9 +205,9 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 			return nil
 		}
 		// Try to patch, if it fails then try to create
-		_, err := c.store.Patch(*wle, func(cfg config.Config) config.Config {
+		_, err := c.store.Patch(*wle, func(cfg config.Config) (config.Config, kubetypes.PatchType) {
 			setConnectMeta(&cfg, c.instanceID, conTime)
-			return cfg
+			return cfg, kubetypes.MergePatchType
 		})
 		if err != nil {
 			return fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
@@ -209,7 +236,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	return nil
 }
 
-func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy) {
+func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect time.Time) {
 	if !features.WorkloadEntryAutoRegistration || c == nil {
 		return
 	}
@@ -219,18 +246,30 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy) {
 		return
 	}
 
+	c.mutex.Lock()
+	num := c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]]
+	// if there is still ads connection, do not unregister.
+	if num > 1 {
+		c.adsConnections[proxy.Metadata.Network+proxy.IPAddresses[0]] = num - 1
+		c.mutex.Unlock()
+		return
+	}
+	delete(c.adsConnections, proxy.Metadata.Network+proxy.IPAddresses[0])
+	c.mutex.Unlock()
+
 	disconTime := time.Now()
-	if err := c.unregisterWorkload(entryName, proxy, disconTime); err != nil {
+	if err := c.unregisterWorkload(entryName, proxy, disconTime, origConnect); err != nil {
 		log.Errorf(err)
 		c.queue.AddRateLimited(&workItem{
-			entryName:  entryName,
-			proxy:      proxy,
-			disConTime: disconTime,
+			entryName:   entryName,
+			proxy:       proxy,
+			disConTime:  disconTime,
+			origConTime: origConnect,
 		})
 	}
 }
 
-func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime time.Time) error {
+func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time) error {
 	// unset controller, set disconnect time
 	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if cfg == nil {
@@ -239,10 +278,25 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 		return fmt.Errorf("workloadentry %s/%s is not found, maybe deleted or because of propagate latency", proxy.Metadata.Namespace, entryName)
 	}
 
+	// only queue a delete if this disconnect event is associated with the last connect event written to the worload entry
+	if mostRecentConn, err := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation]); err == nil {
+		if mostRecentConn.After(origConnTime) {
+			// this disconnect event wasn't processed until after we successfully reconnected
+			return nil
+		}
+	}
 	// The wle has reconnected to another istiod and controlled by it.
 	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
 		return nil
 	}
+
+	conTime, _ := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation])
+	// The wle has reconnected to this istiod,
+	// this may happen when the unregister fails retry
+	if disconTime.Before(conTime) {
+		return nil
+	}
+
 	wle := cfg.DeepCopy()
 	delete(wle.Annotations, ConnectedAtAnnotation)
 	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
@@ -329,6 +383,22 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	// don't clean-up if connected or non-autoregistered WorkloadEntries
 	if wle.Annotations[AutoRegistrationGroupAnnotation] == "" {
+		return false
+	}
+
+	// If there is ConnectedAtAnnotation set, don't cleanup this workload entry.
+	// This may happen when the workload fast reconnects to the same istiod.
+	// 1. disconnect: the workload entry has been updated
+	// 2. connect: but the patch is based on the old workloadentry because of the propagation latency.
+	// So in this case the `DisconnectedAtAnnotation` is still there and the cleanup procedure will go on.
+	connTime := wle.Annotations[ConnectedAtAnnotation]
+	if connTime != "" {
+		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
+		connAt, err := time.Parse(timeFormat, connTime)
+		// if it has been 1.5*maxConnectionAge since workload connected, should delete it.
+		if err == nil && uint64(time.Since(connAt)) > uint64(c.maxConnectionAge)+uint64(c.maxConnectionAge/2) {
+			return true
+		}
 		return false
 	}
 
