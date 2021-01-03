@@ -647,7 +647,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
@@ -742,7 +742,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 					},
 				},
 				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{&defaultCircuitBreakerThresholds},
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
