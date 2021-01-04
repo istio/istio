@@ -76,7 +76,9 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 		DeleteFunc: func(obj interface{}) {
 			incrementEvent(otype, "delete")
 			ns := obj.(*v1.Namespace)
-			discoveryNamespacesFilter.RemoveNamespace(ns.Name)
+			if ns.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
+				discoveryNamespacesFilter.RemoveNamespace(ns.Name)
+			}
 			// no need to invoke object handlers since objects within the namespace will trigger delete events
 		},
 	})
