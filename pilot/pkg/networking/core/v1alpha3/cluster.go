@@ -51,20 +51,6 @@ const (
 )
 
 var (
-	// This disables circuit breaking by default by setting highest possible values.
-	// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
-	defaultCircuitBreakerThresholds = cluster.CircuitBreakers_Thresholds{
-		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
-		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
-		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
-		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
-		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-	}
-
 	// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
 	// or those whose label value does not match "istio"
 	defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
@@ -112,8 +98,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{envoyFilterPatches, networking.EnvoyFilter_SIDECAR_INBOUND}
-		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
+		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
