@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/pkg/log"
 )
 
 // TokenProvider is a grpc PerRPCCredentials that can be used to attach a JWT token to each gRPC call.
@@ -69,8 +70,12 @@ func (t *TokenProvider) RequireTransportSecurity() bool {
 	return false
 }
 
-// GetToken fetches a token to attach to a request.
-// Returning "", nil will cause no header to be added; while a non-nil error will block the request
+// GetToken fetches a token to attach to a request. Returning "", nil will cause no header to be
+// added; while a non-nil error will block the request If the token selected is not found, no error
+// will be returned, causing no authorization header to be set. This ensures that even if the JWT
+// token is missing (for example, on a VM that has rebooted, causing the token to be removed from
+// volatile memory), we can still proceed and allow other authentication methods to potentially
+// handle the request, such as mTLS.
 func (t *TokenProvider) GetToken() (string, error) {
 	if !t.forCA {
 		// When not using a CA, we only support reading from file
@@ -79,7 +84,8 @@ func (t *TokenProvider) GetToken() (string, error) {
 		}
 		tok, err := ioutil.ReadFile(t.opts.JWTPath)
 		if err != nil {
-			return "", fmt.Errorf("fetch token from file: %v", err)
+			log.Warnf("failed to fetch token from file: %v", err)
+			return "", nil
 		}
 		return strings.TrimSpace(string(tok)), nil
 	}
@@ -97,7 +103,8 @@ func (t *TokenProvider) GetToken() (string, error) {
 		}
 		tok, err := ioutil.ReadFile(t.opts.JWTPath)
 		if err != nil {
-			return "", fmt.Errorf("fetch token from file: %v", err)
+			log.Warnf("failed to fetch token from file: %v", err)
+			return "", nil
 		}
 		token = strings.TrimSpace(string(tok))
 	}

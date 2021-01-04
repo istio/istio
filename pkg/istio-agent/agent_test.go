@@ -148,23 +148,39 @@ func TestAgent(t *testing.T) {
 		// a certificate and write it to disk. This will be used (by mTLS authenticator) for future
 		// requests to both the CA and XDS.
 		dir := t.TempDir()
-		a := Setup(t, func(a AgentTest) AgentTest {
-			a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
-			a.Security.OutputKeyCertToDir = dir
-			a.Security.ProvCert = dir
-			return a
+		t.Run("initial run", func(t *testing.T) {
+			a := Setup(t, func(a AgentTest) AgentTest {
+				a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+				a.Security.OutputKeyCertToDir = dir
+				a.Security.ProvCert = dir
+				return a
+			})
+			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+
+			// Ensure we output the certs
+			if names := filenames(t, dir); !reflect.DeepEqual(names, []string{"cert-chain.pem", "key.pem", "root-cert.pem"}) {
+				t.Fatalf("expected certs to be output, but got %v", names)
+			}
+
+			// Switch out our auth to only allow mTLS. In practice, the real server would allow JWT, but we
+			// don't have a good way to expire JWTs here. Instead, we just deny all JWTs to ensure mTLS is used
+			a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
 		})
-		a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
-
-		// Ensure we output the certs
-		if names := filenames(t, dir); !reflect.DeepEqual(names, []string{"cert-chain.pem", "key.pem", "root-cert.pem"}) {
-			t.Fatalf("expected certs to be output, but got %v", names)
-		}
-
-		// Switch out our auth to only allow mTLS. In practice, the real server would allow JWT, but we
-		// don't have a good way to expire JWTs here. Instead, we just deny all JWTs to ensure mTLS is used
-		a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
-		a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		t.Run("reboot", func(t *testing.T) {
+			// Switch the JWT to a bogus path, to simulate the VM being rebooted
+			a := Setup(t, func(a AgentTest) AgentTest {
+				a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+				a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+				a.Security.OutputKeyCertToDir = dir
+				a.Security.ProvCert = dir
+				a.Security.JWTPath = "bogus"
+				return a
+			})
+			// Ensure we can still make requests
+			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
+		})
 	})
 	t.Run("VMs to etc/certs", func(t *testing.T) {
 		// Handle special edge case where we output certs to /etc/certs, which has magic implicit
