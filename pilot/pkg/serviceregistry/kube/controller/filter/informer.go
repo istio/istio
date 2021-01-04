@@ -26,7 +26,7 @@ type FilteredSharedIndexInformer interface {
 }
 
 type filteredSharedIndexInformer struct {
-	filterFuncFactory func() Func
+	discoveryNamespacesFilter DiscoveryNamespacesFilter
 	cache.SharedIndexInformer
 	filteredIndexer *filteredIndexer
 }
@@ -34,33 +34,34 @@ type filteredSharedIndexInformer struct {
 // wrap a SharedIndexInformer's handlers and indexer with a filter predicate,
 // which scopes the processed objects to only those that satisfy the predicate
 func NewFilteredSharedIndexInformer(
-	filterFuncFactory func() Func,
+	discoveryNamespacesFilter DiscoveryNamespacesFilter,
 	sharedIndexInformer cache.SharedIndexInformer,
 ) FilteredSharedIndexInformer {
 	return &filteredSharedIndexInformer{
-		filterFuncFactory:   filterFuncFactory,
-		SharedIndexInformer: sharedIndexInformer,
-		filteredIndexer:     newFilteredIndexer(filterFuncFactory, sharedIndexInformer.GetIndexer()),
+		discoveryNamespacesFilter: discoveryNamespacesFilter,
+		SharedIndexInformer:       sharedIndexInformer,
+		filteredIndexer:           newFilteredIndexer(discoveryNamespacesFilter, sharedIndexInformer.GetIndexer()),
 	}
 }
 
 // filter incoming objects before forwarding to event handler
 func (w *filteredSharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) {
+	filterFunc := w.discoveryNamespacesFilter.GetFilter()
 	w.SharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			if !w.filterFuncFactory()(obj) {
+			if !filterFunc(obj) {
 				return
 			}
 			handler.OnAdd(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			if !w.filterFuncFactory()(new) {
+			if !filterFunc(new) {
 				return
 			}
 			handler.OnUpdate(old, new)
 		},
 		DeleteFunc: func(obj interface{}) {
-			if !w.filterFuncFactory()(obj) {
+			if !filterFunc(obj) {
 				return
 			}
 			handler.OnDelete(obj)
@@ -82,23 +83,22 @@ func (w *filteredSharedIndexInformer) GetIndexer() cache.Indexer {
 }
 
 type filteredIndexer struct {
-	filterFuncFactory func() Func
+	discoveryNamespacesFilter DiscoveryNamespacesFilter
 	cache.Indexer
 }
 
 func newFilteredIndexer(
-	filterFuncFactory func() Func,
+	discoveryNamespacesFilter DiscoveryNamespacesFilter,
 	indexer cache.Indexer,
 ) *filteredIndexer {
 	return &filteredIndexer{
-		filterFuncFactory: filterFuncFactory,
-		Indexer:           indexer,
+		discoveryNamespacesFilter: discoveryNamespacesFilter,
+		Indexer:                   indexer,
 	}
 }
 
 func (w filteredIndexer) List() []interface{} {
-	// initialize filterFunc once to avoid listing/iterating all namespaces for each listed object
-	filterFunc := w.filterFuncFactory()
+	filterFunc := w.discoveryNamespacesFilter.GetFilter()
 	unfiltered := w.Indexer.List()
 	var filtered []interface{}
 	for _, obj := range unfiltered {
@@ -114,7 +114,7 @@ func (w filteredIndexer) GetByKey(key string) (item interface{}, exists bool, er
 	if !exists || err != nil {
 		return nil, exists, err
 	}
-	if w.filterFuncFactory()(item) {
+	if w.discoveryNamespacesFilter.GetFilter()(item) {
 		return item, true, nil
 	}
 	return nil, false, nil

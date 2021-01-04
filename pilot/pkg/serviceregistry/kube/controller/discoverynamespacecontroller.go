@@ -28,14 +28,21 @@ import (
 	"istio.io/pkg/log"
 )
 
-// On namespace membership change, request a full xDS update since services need to be recomputed
-func (c *Controller) initDiscoveryNamespaceHandlers(kubeClient kubelib.Client, endpointMode EndpointMode) {
+// Handle discovery namespace membership changes, which entails triggering create/delete event handlers for services, pods, and endpoints,
+// and adding/removing discovery namespaces from the DiscoveryNamespacesFilter.
+func (c *Controller) initDiscoveryNamespaceHandlers(
+	kubeClient kubelib.Client,
+	endpointMode EndpointMode,
+	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
+) {
 	otype := "Namespaces"
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			incrementEvent(otype, "add")
 			ns := obj.(*v1.Namespace)
+			// handle creation of labeled namespace
 			if ns.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
+				discoveryNamespacesFilter.AddNamespace(ns.Name)
 				c.queue.Push(func() error {
 					c.handleLabeledNamespace(endpointMode, ns.Name)
 					return nil
@@ -50,12 +57,14 @@ func (c *Controller) initDiscoveryNamespaceHandlers(kubeClient kubelib.Client, e
 				var handleFunc func() error
 				if oldNs.Labels[filter.PilotDiscoveryLabelName] == filter.PilotDiscoveryLabelValue {
 					// namespace was delabeled, issue deletes for all services, pods, and endpoints in namespace
+					discoveryNamespacesFilter.RemoveNamespace(newNs.Name)
 					handleFunc = func() error {
 						c.handleDelabledNamespace(kubeClient, endpointMode, newNs.Name)
 						return nil
 					}
 				} else {
 					// namespace was newly labeled, issue creates for all services, pods, and endpoints in namespace
+					discoveryNamespacesFilter.AddNamespace(newNs.Name)
 					handleFunc = func() error {
 						c.handleLabeledNamespace(endpointMode, newNs.Name)
 						return nil
@@ -64,7 +73,12 @@ func (c *Controller) initDiscoveryNamespaceHandlers(kubeClient kubelib.Client, e
 				c.queue.Push(handleFunc)
 			}
 		},
-		// no need to handle namespace deletion since all objects within the namespace will trigger delete events
+		DeleteFunc: func(obj interface{}) {
+			incrementEvent(otype, "delete")
+			ns := obj.(*v1.Namespace)
+			discoveryNamespacesFilter.RemoveNamespace(ns.Name)
+			// no need to invoke object handlers since objects within the namespace will trigger delete events
+		},
 	})
 }
 

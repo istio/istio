@@ -15,10 +15,12 @@
 package filter
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	v1 "k8s.io/client-go/listers/core/v1"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/pkg/log"
 )
@@ -32,34 +34,62 @@ const (
 
 var PilotDiscoverySelector = labels.Set(map[string]string{PilotDiscoveryLabelName: PilotDiscoveryLabelValue}).AsSelector()
 
-type Func func(obj interface{}) bool
-
-var permitAll = func(_ interface{}) bool {
-	return true
+// DiscoveryNamespacesFilter tracks the set of namespaces labeled for discovery, which are updated by an external namespace controller.
+// It returns a filter function used for filtering out objects that don't reside in namespaces labeled for discovery.
+type DiscoveryNamespacesFilter interface {
+	GetFilter() func(obj interface{}) bool
+	AddNamespace(ns string)
+	RemoveNamespace(ns string)
 }
 
-func DiscoveryNamespacesFilterFactory(lister v1.NamespaceLister, enableDiscoveryNamespaces bool) func() Func {
+type discoveryNamespacesFilter struct {
+	lock                      sync.RWMutex
+	enableDiscoveryNamespaces bool
+	discoveryNamespaces       sets.String
+}
+
+func NewDiscoveryNamespacesFilter(enableDiscoveryNamespaces bool, nsLister listerv1.NamespaceLister) DiscoveryNamespacesFilter {
+	discoveryNamespaces := sets.NewString()
+	namespaceList, err := nsLister.List(PilotDiscoverySelector)
+
+	if err != nil {
+		log.Errorf("error initializing discovery namespaces filter, failed to list namespaces: %v", err)
+	}
+
+	for _, ns := range namespaceList {
+		discoveryNamespaces.Insert(ns.Name)
+	}
+
+	return &discoveryNamespacesFilter{
+		enableDiscoveryNamespaces: enableDiscoveryNamespaces,
+		discoveryNamespaces:       discoveryNamespaces,
+	}
+}
+
+func (d *discoveryNamespacesFilter) GetFilter() func(obj interface{}) bool {
 	// permit all objects if discovery namespaces is disabled
-	if !enableDiscoveryNamespaces {
-		return func() Func {
-			return permitAll
+	if !d.enableDiscoveryNamespaces {
+		return func(_ interface{}) bool {
+			return true
 		}
 	}
 
-	return func() Func {
-		// filter out objects that don't reside in any discovery namespace
-		namespaceList, err := lister.List(PilotDiscoverySelector)
-		if err != nil {
-			log.Errorf("error constructing namespace filter function, failed to get namespaces: %v", err)
-			return permitAll
-		}
-		discoveryNamespaces := sets.NewString()
-		for _, ns := range namespaceList {
-			discoveryNamespaces.Insert(ns.Name)
-		}
-
-		return func(obj interface{}) bool {
-			return discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
-		}
+	// return true if object resides in a namespace labeled for discovery
+	return func(obj interface{}) bool {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+		return d.discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
 	}
+}
+
+func (d *discoveryNamespacesFilter) AddNamespace(ns string) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.discoveryNamespaces.Insert(ns)
+}
+
+func (d *discoveryNamespacesFilter) RemoveNamespace(ns string) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.discoveryNamespaces.Delete(ns)
 }

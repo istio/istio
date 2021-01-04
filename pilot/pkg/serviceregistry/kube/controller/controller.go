@@ -295,15 +295,15 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		registerHandlers(c.systemNsInformer, c.queue, "Namespaces", c.onSystemNamespaceEvent, nil)
 	}
 
-	// namespace informer should not be filtered because we need access to all namespaces
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
+
+	discoveryNamespaceFilter := filter.NewDiscoveryNamespacesFilter(options.EnableDiscoveryNamespaces, c.nsInformer.Lister())
+
 	if options.EnableDiscoveryNamespaces {
-		c.initDiscoveryNamespaceHandlers(kubeClient, options.EndpointMode)
+		c.initDiscoveryNamespaceHandlers(kubeClient, options.EndpointMode, discoveryNamespaceFilter)
 	}
 
-	discoveryNamespaceFilterFactory := filter.DiscoveryNamespacesFilterFactory(c.nsInformer.Lister(), options.EnableDiscoveryNamespaces)
-
-	c.serviceInformer = filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilterFactory, kubeClient.KubeInformer().Core().V1().Services().Informer())
+	c.serviceInformer = filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter, kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
 
 	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
@@ -311,13 +311,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	switch options.EndpointMode {
 	case EndpointsOnly:
 		endpointsInformer := filter.NewFilteredSharedIndexInformer(
-			discoveryNamespaceFilterFactory,
+			discoveryNamespaceFilter,
 			kubeClient.KubeInformer().Core().V1().Endpoints().Informer(),
 		)
 		c.endpoints = newEndpointsController(c, endpointsInformer)
 	case EndpointSliceOnly:
 		endpointSliceInformer := filter.NewFilteredSharedIndexInformer(
-			discoveryNamespaceFilterFactory,
+			discoveryNamespaceFilter,
 			kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer(),
 		)
 		c.endpoints = newEndpointSliceController(c, endpointSliceInformer)
@@ -328,7 +328,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	registerHandlers(c.nodeInformer, c.queue, "Nodes", c.onNodeEvent, nil)
 
-	podInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilterFactory, kubeClient.KubeInformer().Core().V1().Pods().Informer())
+	podInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
 		if err != nil {
