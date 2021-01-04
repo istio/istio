@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	admit_v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,6 +116,16 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	}
 	iop, err := v.operatorFromCluster(v.controlPlaneOpts.Revision)
 	if err != nil {
+		// At this point we know there is no IstioOperator defining a control plane.  This may
+		// be the case in a Istio cluster with external control plane.
+		injector, err2 := v.injectorFromCluster(v.controlPlaneOpts.Revision)
+		if err2 == nil && injector != nil {
+			// The cluster *is* configured for Istio, but no IOP is present.  This could mean
+			// - the user followed our remote control plane instructions
+			// - helm was used
+			// - user did `istioctl manifest generate | kubectl apply ...`
+			return fmt.Errorf("cluster configured for Istio injection.  Supply flag --filename <yaml>")
+		}
 		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
 	}
 	if v.manifestsPath != "" {
@@ -144,7 +155,7 @@ func (v *StatusVerifier) getRevision() (string, error) {
 		}
 		revision = rev
 	}
-	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %s only", revCount, revision)
+	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %q only", revCount, revision)
 	return revision, nil
 }
 
@@ -341,6 +352,39 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		return nil
 	})
 	return crdCount, istioDeploymentCount, err
+}
+
+// Find Istio injector matching revision.  ("" matches any revision.)
+func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
+	kubeClient, err := v.createClient()
+	if err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	hooks, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	revCount := 0
+	var hookmatch *admit_v1.MutatingWebhookConfiguration
+	for _, hook := range hooks.Items {
+		rev := hook.ObjectMeta.GetLabels()[label.IstioRev]
+		if rev != "" {
+			revCount++
+			revision = rev
+			if revision == "" || revision == rev {
+				hookmatch = &hook
+			}
+		}
+	}
+
+	v.logger.LogAndPrintf("%d Istio injectors detected", revCount)
+	if hookmatch != nil {
+		return hookmatch, nil
+	}
+
+	return nil, fmt.Errorf("Istio injector revision %q not found", revision) // nolint: golint,stylecheck
 }
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
