@@ -49,4 +49,5 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.Values["global.pilotCertProvider"] = "kubernetes"
+	cfg.DeployEastWestGW = false
 }

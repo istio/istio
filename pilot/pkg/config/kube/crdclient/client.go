@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"time"
 
+	jsonmerge "github.com/evanphx/json-patch/v5"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -246,17 +247,10 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 
 // Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
 // read-modify-write conflicts when there are many concurrent-writers to the same resource.
-func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
-	// it is okay if orig is stale - we just care about the diff
-	orig := cl.Get(typ, name, namespace)
-	if orig == nil {
-		// TODO error from Get
-		return "", fmt.Errorf("item not found")
-	}
-	modified := patchFn(orig.DeepCopy())
+func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
+	modified, patchType := patchFn(orig.DeepCopy())
 
-	oo := *orig
-	meta, err := patch(cl.istioClient, cl.serviceApisClient, oo, getObjectMetadata(oo), modified, getObjectMetadata(modified))
+	meta, err := patch(cl.istioClient, cl.serviceApisClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
 	if err != nil {
 		return "", err
 	}
@@ -264,8 +258,9 @@ func (cl *Client) Patch(typ config.GroupVersionKind, name, namespace string, pat
 }
 
 // Delete implements store interface
-func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string) error {
-	return delete(cl.istioClient, cl.serviceApisClient, typ, name, namespace)
+// `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
+func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
+	return delete(cl.istioClient, cl.serviceApisClient, typ, name, namespace, resourceVersion)
 }
 
 // List implements store interface
@@ -360,20 +355,25 @@ func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 	}
 }
 
-func genPatchBytes(oldRes, modRes runtime.Object) ([]byte, error) {
+func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]byte, error) {
 	oldJSON, err := json.Marshal(oldRes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed marhsalling original resource: %v", err)
 	}
 	newJSON, err := json.Marshal(modRes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed marhsalling modified resource: %v", err)
 	}
-	// TODO apply requires a "merge" style patch; see CreateTwoWayMerge patch or CreateMergePatch
-	ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
-	if err != nil {
-		return nil, err
+	switch patchType {
+	case types.JSONPatchType:
+		ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(ops)
+	case types.MergePatchType:
+		return jsonmerge.CreateMergePatch(oldJSON, newJSON)
+	default:
+		return nil, fmt.Errorf("unsupported patch type: %v. must be one of JSONPatchType or MergePatchType", patchType)
 	}
-	// TODO apply may require setting gvk ourselves on the patch payload
-	return json.Marshal(ops)
 }

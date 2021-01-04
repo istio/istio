@@ -88,6 +88,7 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 				scopes.Framework.Info("=== SUCCESS: context setup function ===")
 			}
 		}
+
 		ins, err := Deploy(ctx, &cfg)
 		if err != nil {
 			return err
@@ -120,6 +121,10 @@ func Deploy(ctx resource.Context, cfg *Config) (i Instance, err error) {
 		}
 	}()
 
-	i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+	if cfg.DeployHelm {
+		i, err = deployWithHelm(ctx, ctx.Environment().(*kube.Environment), *cfg)
+	} else {
+		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+	}
 	return
 }

@@ -62,10 +62,6 @@ const (
 	sendTimeout                        = 5 * time.Second // default upstream send timeout.
 )
 
-const (
-	xdsUdsPath = "./etc/istio/proxy/XDS"
-)
-
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
@@ -83,9 +79,11 @@ type XdsProxy struct {
 	localDNSServer       *dns.LocalDNSServer
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
+	xdsUdsPath           string
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected      *ProxyConnection
+	initialRequest *discovery.DiscoveryRequest
 	connectedMutex sync.RWMutex
 }
 
@@ -113,9 +111,10 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		stopChan:       make(chan struct{}),
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
 		xdsHeaders:     ia.cfg.XDSHeaders,
+		xdsUdsPath:     ia.cfg.XdsUdsPath,
 	}
 
-	proxyLog.Infof("Initializing with upstream address %s and cluster %s", proxy.istiodAddress, proxy.clusterID)
+	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
 
 	if err = proxy.initDownstreamServer(); err != nil {
 		return nil, err
@@ -144,26 +143,44 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 				},
 			}
 		}
-		proxy.SendRequest(req)
+		proxy.PersistRequest(req)
 	}, proxy.stopChan)
 	return proxy, nil
 }
 
-// SendRequest sends a request to the currently connected proxy
-func (p *XdsProxy) SendRequest(req *discovery.DiscoveryRequest) {
-	p.connectedMutex.RLock()
-	defer p.connectedMutex.RUnlock()
-	// TODO especially for health check purposes, we need a way to ensure the send succeeded. Otherwise,
-	// requests send to a disconnecting proxy will be permanently dropped.
+// PersistRequest sends a request to the currently connected proxy. Additionally, on any reconnection
+// to the upstream XDS request we will resend this request.
+func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
+	var ch chan *discovery.DiscoveryRequest
+
+	p.connectedMutex.Lock()
 	if p.connected != nil {
-		p.connected.requestsChan <- req
+		ch = p.connected.requestsChan
 	}
+	p.initialRequest = req
+	p.connectedMutex.Unlock()
+
+	// Immediately send if we are currently connect
+	if ch != nil {
+		ch <- req
+	}
+}
+
+func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
+	p.connectedMutex.Lock()
+	defer p.connectedMutex.Unlock()
+	if p.connected != nil && p.connected == c {
+		proxyLog.Warnf("unregister stream")
+		close(p.connected.stopChan)
+	}
+	p.connected = nil
 }
 
 func (p *XdsProxy) RegisterStream(c *ProxyConnection) {
 	p.connectedMutex.Lock()
 	defer p.connectedMutex.Unlock()
 	if p.connected != nil {
+		proxyLog.Warnf("registered overlapping stream; closing previous")
 		close(p.connected.stopChan)
 	}
 	p.connected = c
@@ -195,10 +212,16 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	}
 
 	p.RegisterStream(con)
+	defer p.UnregisterStream(con)
 
 	// Handle downstream xds
-	firstNDSSent := false
+	initialRequestsSent := false
 	go func() {
+		// Send initial request
+		p.connectedMutex.RLock()
+		initialRequest := p.initialRequest
+		p.connectedMutex.RUnlock()
+
 		for {
 			// From Envoy
 			req, err := downstream.Recv()
@@ -208,12 +231,18 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			}
 			// forward to istiod
 			con.requestsChan <- req
-			if p.localDNSServer != nil && !firstNDSSent && req.TypeUrl == v3.ListenerType {
+			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
-				con.requestsChan <- &discovery.DiscoveryRequest{
-					TypeUrl: v3.NameTableType,
+				if p.localDNSServer != nil {
+					con.requestsChan <- &discovery.DiscoveryRequest{
+						TypeUrl: v3.NameTableType,
+					}
 				}
-				firstNDSSent = true
+				// Fire of a configured initial request, if there is one
+				if initialRequest != nil {
+					con.requestsChan <- initialRequest
+				}
+				initialRequestsSent = true
 			}
 		}
 	}()
@@ -289,6 +318,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
+			proxyLog.Debugf("stream stopped")
 			return nil
 		}
 	}
@@ -409,7 +439,7 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
-	l, err := uds.NewListener(xdsUdsPath)
+	l, err := uds.NewListener(p.xdsUdsPath)
 	if err != nil {
 		return err
 	}

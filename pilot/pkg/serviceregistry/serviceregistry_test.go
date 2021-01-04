@@ -673,7 +673,7 @@ func TestWorkloadInstances(t *testing.T) {
 
 		_ = kube.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 		_ = kube.CoreV1().Endpoints(pod.Namespace).Delete(context.TODO(), "service", metav1.DeleteOptions{})
-		_ = store.Delete(gvk.WorkloadEntry, workloadEntry.Name, workloadEntry.Namespace)
+		_ = store.Delete(gvk.WorkloadEntry, workloadEntry.Name, workloadEntry.Namespace, nil)
 		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
 		expectServiceInstances(t, kc, expectedSvc, 80, []ServiceInstanceResponse{})
 	})
@@ -712,7 +712,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, s.Store(), newWE)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"3.4.5.6:80"})
 
-		if err := s.Store().Delete(gvk.WorkloadEntry, newWE.Name, newWE.Namespace); err != nil {
+		if err := s.Store().Delete(gvk.WorkloadEntry, newWE.Name, newWE.Namespace, nil); err != nil {
 			t.Fatal(err)
 		}
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
@@ -745,7 +745,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 		expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", []string{"1.2.3.4:9091"})
 
-		if err := s.Store().Delete(gvk.ServiceEntry, newSE.Name, newSE.Namespace); err != nil {
+		if err := s.Store().Delete(gvk.ServiceEntry, newSE.Name, newSE.Namespace, nil); err != nil {
 			t.Fatal(err)
 		}
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)

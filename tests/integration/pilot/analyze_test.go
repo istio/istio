@@ -408,7 +408,7 @@ func expectJSONMessages(t *testing.T, g *GomegaWithT, output string, expected ..
 // istioctlSafe calls istioctl analyze with certain flags set. Stdout and Stderr are merged
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, useKube bool, extraArgs ...string) ([]string, error) {
 	output, stderr, err := istioctlWithStderr(t, i, ns, useKube, extraArgs...)
-	return strings.Split(strings.TrimSpace(output+"\n"+stderr), "\n"), err
+	return strings.Split(strings.TrimSpace(output+stderr), "\n"), err
 }
 
 func istioctlWithStderr(t *testing.T, i istioctl.Instance, ns string, useKube bool, extraArgs ...string) (string, string, error) {

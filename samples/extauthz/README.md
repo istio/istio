@@ -4,7 +4,8 @@
 as an example of integrating custom authorization system into Istio.
 
 The Ext Authz server supports authorization check request using either HTTP (port 8000) or gRPC v2/v3 (port 9000) API and
-will allow the request if it includes the header `x-ext-authz: allow`.
+will allow the request if it includes the header `x-ext-authz: allow` or if the service account of the source workload is `a`.
+Note that `a` is just a default value for testing. It can be changed with the flag `-allow_service_account` when running the ext authz server.
 
 ## Usage
 

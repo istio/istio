@@ -60,6 +60,10 @@ func (i rootNS) SetLabel(key, value string) error {
 	return nil
 }
 
+func (i rootNS) RemoveLabel(key string) error {
+	return nil
+}
+
 func newRootNS(ctx framework.TestContext) rootNS {
 	return rootNS{
 		rootNamespace: istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,

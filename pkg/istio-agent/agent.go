@@ -17,13 +17,10 @@ package istioagent
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"strings"
 	"time"
-
-	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/dns"
@@ -102,9 +99,6 @@ type Agent struct {
 	cfg     *AgentConfig
 	secOpts *security.Options
 
-	// used for local XDS generator portion, to download all configs and generate xds locally.
-	localXDSGenerator *localXDSGenerator
-
 	// Used when proxying envoy xds via istio-agent is enabled.
 	xdsProxy *XdsProxy
 
@@ -130,14 +124,6 @@ type AgentConfig struct {
 	// to include the namespace as well) (for local dns resolution)
 	ProxyDomain string
 
-	// LocalXDSGeneratorListenAddress is the address where the agent will listen for XDS connections and generate all
-	// xds configurations locally. If not set, the env variable LOCAL_XDS_GENERATOR will be used.
-	// Set for tests to 127.0.0.1:0.
-	LocalXDSGeneratorListenAddress string
-
-	// Grpc dial options. Used for testing
-	GrpcOptions []grpc.DialOption
-
 	// XDSRootCerts is the location of the root CA for the XDS connection. Used for setting platform certs or
 	// using custom roots.
 	XDSRootCerts string
@@ -151,6 +137,9 @@ type AgentConfig struct {
 
 	// Is the proxy an IPv6 proxy
 	IsIPv6 bool
+
+	// Path to local UDS to communicate with Envoy
+	XdsUdsPath string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -204,9 +193,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	// If proxy is using file mounted certs, JWT token is not needed.
 	sa.secOpts.UseLocalJWT = !sa.secOpts.FileMountedCerts
 
-	// Init the XDS proxy part of the agent.
-	sa.initXDSGenerator()
-
 	return sa
 }
 
@@ -231,14 +217,6 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets)
 	if err != nil {
 		return nil, err
-	}
-
-	// Start the local XDS generator.
-	if sa.localXDSGenerator != nil {
-		err = sa.startXDSGenerator(sa.proxyConfig, sa.WorkloadSecrets, podNamespace)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start local xds generator: %v", err)
-		}
 	}
 
 	if err = sa.initLocalDNSServer(isSidecar); err != nil {
@@ -271,14 +249,6 @@ func (sa *Agent) Close() {
 	if sa.localDNSServer != nil {
 		sa.localDNSServer.Close()
 	}
-	sa.closeLocalXDSGenerator()
-}
-
-func (sa *Agent) GetLocalXDSGeneratorListener() net.Listener {
-	if sa.localXDSGenerator != nil {
-		return sa.localXDSGenerator.listener
-	}
-	return nil
 }
 
 // explicit code to determine the root CA to be configured in bootstrap file.
@@ -405,7 +375,7 @@ func (sa *Agent) newWorkloadSecretCache() *cache.SecretCache {
 	// This has to be called after pluginNames is set. Otherwise,
 	// TokenExchanger will contain an empty plugin, causing cert provisioning to fail.
 	if sa.secOpts.TokenExchangers == nil {
-		sa.secOpts.TokenExchangers = sds.NewPlugins(pluginNames)
+		sa.secOpts.TokenExchangers = sds.NewPlugins(pluginNames, sa.secOpts)
 	}
 
 	if err != nil {

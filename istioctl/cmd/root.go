@@ -242,7 +242,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(manifestCmd)
 
 	operatorCmd := mesh.OperatorCmd()
-	hideInheritedFlags(operatorCmd, "charts")
+	hideInheritedFlags(operatorCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(operatorCmd)
 
 	installCmd := mesh.InstallCmd(loggingOptions)
@@ -262,9 +262,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(bugReportCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
-	multiclusterCmd := multicluster.NewMulticlusterCommand()
-	deprecate(multiclusterCmd)
-	experimentalCmd.AddCommand(multiclusterCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",

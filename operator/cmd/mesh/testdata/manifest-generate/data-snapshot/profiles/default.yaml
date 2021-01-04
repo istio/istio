@@ -309,5 +309,3 @@ spec:
       objectSelector:
         enabled: false
         autoInject: true
-
-    clusterResources: true

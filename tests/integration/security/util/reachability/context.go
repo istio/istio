@@ -78,6 +78,10 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 			PortName: "grpc",
 			Scheme:   scheme.GRPC,
 		},
+		{
+			PortName: "https",
+			Scheme:   scheme.HTTPS,
+		},
 	}
 
 	for _, c := range testCases {
@@ -148,6 +152,7 @@ func Run(testCases []TestCase, ctx framework.TestContext, apps *util.EchoDeploym
 							}
 							if (apps.IsHeadless(client) || apps.IsHeadless(destination) || apps.IsNaked(client)) && len(destClusters) > 1 {
 								// TODO(landow) fix DNS issues with multicluster/VMs/headless
+								ctx.SkipNow()
 								continue
 							}
 							if isNakedToVM(apps, client, destination) {

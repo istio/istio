@@ -127,6 +127,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 
 func (v *StatusVerifier) getRevision() (string, error) {
 	var revision string
+	revCount := 0
 	kubeClient, err := v.createClient()
 	if err != nil {
 		return "", err
@@ -137,11 +138,13 @@ func (v *StatusVerifier) getRevision() (string, error) {
 	}
 	for _, pod := range pods.Items {
 		rev := pod.ObjectMeta.GetLabels()[label.IstioRev]
+		revCount++
 		if rev == "default" {
 			continue
 		}
 		revision = rev
 	}
+	v.logger.LogAndPrintf("%d Istio control planes detected, checking --revision %s only", revCount, revision)
 	return revision, nil
 }
 
@@ -239,7 +242,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			kinds = strings.ToLower(kind) + "s"
 		}
 		if namespace == "" {
-			namespace = "default"
+			namespace = v.istioNamespace
 		}
 		switch kind {
 		case "Deployment":
@@ -301,12 +304,15 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			if v.manifestsPath != "" {
 				iop.Spec.InstallPackagePath = v.manifestsPath
 			}
+			if v1alpha1.Namespace(iop.Spec) == "" {
+				v1alpha1.SetNamespace(iop.Spec, v.istioNamespace)
+			}
 			generatedCrds, generatedDeployments, err := v.verifyPostInstallIstioOperator(iop, filename)
+			crdCount += generatedCrds
+			istioDeploymentCount += generatedDeployments
 			if err != nil {
 				return err
 			}
-			crdCount += generatedCrds
-			istioDeploymentCount += generatedDeployments
 		default:
 			result := info.Client.
 				Get().
@@ -364,11 +370,15 @@ func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err er
 	v.logger.LogAndPrintf("Checked %v custom resource definitions", crdCount)
 	v.logger.LogAndPrintf("Checked %v Istio Deployments", istioDeploymentCount)
 	if istioDeploymentCount == 0 {
-		v.logger.LogAndPrintf("! No Istio installation found")
+		if err != nil {
+			v.logger.LogAndPrintf("! No Istio installation found: %v", err)
+		} else {
+			v.logger.LogAndPrintf("! No Istio installation found")
+		}
 		return fmt.Errorf("no Istio installation found")
 	}
 	if err != nil {
-		// Don't return full error; it is usually an unwielded aggregate
+		// Don't return full error; it is usually an unwieldy aggregate
 		return fmt.Errorf("Istio installation failed") // nolint
 	}
 	v.logger.LogAndPrintf("%s Istio is installed and verified successfully", v.successMarker)

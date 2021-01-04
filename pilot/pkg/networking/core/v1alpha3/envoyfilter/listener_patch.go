@@ -585,10 +585,12 @@ func filterChainMatch(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPa
 	}
 
 	// check match for destination port within the FilterChainMatch
-	if cMatch.PortNumber > 0 &&
-		fc.FilterChainMatch != nil && fc.FilterChainMatch.DestinationPort != nil &&
-		fc.FilterChainMatch.DestinationPort.Value != cMatch.PortNumber {
-		return false
+	if match.DestinationPort > 0 {
+		if fc.FilterChainMatch == nil || fc.FilterChainMatch.DestinationPort == nil {
+			return false
+		} else if fc.FilterChainMatch.DestinationPort.Value != match.DestinationPort {
+			return false
+		}
 	}
 
 	return true

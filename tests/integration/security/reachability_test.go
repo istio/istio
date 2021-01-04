@@ -78,6 +78,17 @@ func TestReachability(t *testing.T) {
 					SkippedForMulticluster: true,
 				},
 				{
+					ConfigFile: "plaintext-to-permissive.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						return true
+					},
+					SkippedForMulticluster: true,
+				},
+				{
 					ConfigFile: "beta-per-port-mtls.yaml",
 					Namespace:  apps.Namespace1,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {

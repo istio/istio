@@ -25,10 +25,10 @@ helm install istio-base -n istio-system manifests/charts/base
  helm install -n istio-system istio-17 manifests/charts/istio-control/istio-discovery
 
  helm install -n istio-system istio-canary manifests/charts/istio-control/istio-discovery \
-    -f manifests/charts/global.yaml  --set revision=canary --set clusterResources=false
+    --set revision=canary
 
  helm install -n istio-system istio-mytest manifests/charts/istio-control/istio-discovery \
-    -f manifests/charts/global.yaml  --set revision=mytest --set clusterResources=false
+    --set revision=mytest
 ```
 
 - `gateways` install a load balancer with `ingress` and `egress`. You can install it multiple times with different revisions but they must be installed in separate namespaces.
@@ -36,27 +36,27 @@ helm install istio-base -n istio-system manifests/charts/base
 Ingress secrets and access should be separated from the control plane.
 
 ```console
-helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress -f manifests/charts/global.yaml
+helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress
 
 kubectl create ns istio-ingress-canary
 helm install -n istio-ingress-canary istio-ingress-canary manifests/charts/gateways/istio-ingress \
--f manifests/charts/global.yaml --set revision=canary
+    --set revision=canary
 ```
 
 Egress secrets and access should be separated from the control plane.
 
 ```console
-helm install -n istio-system istio-egress manifests/charts/gateways/istio-egress -f manifests/charts/global.yaml
+helm install -n istio-system istio-egress manifests/charts/gateways/istio-egress
 
 kubectl create ns istio-egress-canary
 helm install -n istio-egress-canary istio-egress-canary manifests/charts/gateways/istio-egress \
--f manifests/charts/global.yaml --set revision=canary
+    --set revision=canary
 ```
 
 - 'istio-cni' installs the CNI plugin. This should be installed after the 'base' chart and prior to `istiod`. Need to add `--set istio_cni.enabled=true` to the `istiod` install to enable its usage.
 
 ```console
-helm install istio-cni -n istio-system manifests/charts/istio-cni -f manifests/charts/global.yaml
+helm install istio-cni -n istio-system manifests/charts/istio-cni
 ```
 
 ## Namespaces

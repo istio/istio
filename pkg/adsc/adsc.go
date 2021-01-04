@@ -1162,7 +1162,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	// remove deleted resources from cache
 	for _, config := range existingConfigs {
 		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
-			err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace)
+			err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace, nil)
 			if err != nil {
 				adscLog.Warnf("Error deleting an outdated resource from the store %v", err)
 			}

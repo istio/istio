@@ -305,11 +305,11 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string) (*
 		if err != nil {
 			return nil, err
 		}
-		injectConfig, err := inject.UnmarshalConfig(injectionConfig)
+		injectConfig, err := readInjectConfigFile(injectionConfig)
 		if err != nil {
 			return nil, multierror.Append(err, fmt.Errorf("loading --injectConfigFile"))
 		}
-		*sidecarTemplate = injectConfig.Templates
+		*sidecarTemplate = injectConfig
 	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
 		return nil, err
 	}

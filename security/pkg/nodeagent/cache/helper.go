@@ -16,22 +16,7 @@ package cache
 
 import (
 	"fmt"
-
-	"google.golang.org/grpc/codes"
 )
-
-// isRetryableErr checks if a failed request should be retry based on gRPC resp code or http status code.
-func isRetryableErr(c codes.Code, httpRespCode int, isGrpc bool) bool {
-	if isGrpc {
-		switch c {
-		case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
-			return true
-		}
-	} else if httpRespCode >= 500 && !(httpRespCode == 501 || httpRespCode == 505 || httpRespCode == 511) {
-		return true
-	}
-	return false
-}
 
 // cacheLogPrefix returns a unified log prefix.
 func cacheLogPrefix(resourceName string) string {

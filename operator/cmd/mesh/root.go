@@ -82,6 +82,7 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
 	rootCmd.AddCommand(ManifestCmd(log.DefaultOptions()))
+	rootCmd.AddCommand(InstallCmd(log.DefaultOptions()))
 	rootCmd.AddCommand(ProfileCmd())
 	rootCmd.AddCommand(OperatorCmd())
 	rootCmd.AddCommand(version.CobraCommand())

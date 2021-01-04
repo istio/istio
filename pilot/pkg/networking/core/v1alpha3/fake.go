@@ -17,7 +17,6 @@ package v1alpha3
 
 import (
 	"bytes"
-	"errors"
 	"sync"
 	"text/template"
 	"time"
@@ -176,12 +175,7 @@ func (f *ConfigGenTest) Run() {
 
 	// TODO allow passing event handlers for controller
 
-	retry.UntilSuccessOrFail(f.t, func() error {
-		if !f.Registry.HasSynced() {
-			return errors.New("not synced")
-		}
-		return nil
-	})
+	retry.UntilOrFail(f.t, f.Registry.HasSynced)
 
 	f.ServiceEntryRegistry.ResyncEDS()
 	if err := f.PushContext().InitContext(f.env, nil, nil); err != nil {

@@ -639,7 +639,7 @@ func (c *Controller) syncPods() error {
 func (c *Controller) syncEndpoints() error {
 	var err *multierror.Error
 	endpoints := c.endpoints.getInformer().GetIndexer().List()
-	log.Debugf("initializing%d endpoints", len(endpoints))
+	log.Debugf("initializing %d endpoints", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
 	}

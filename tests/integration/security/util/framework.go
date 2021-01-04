@@ -89,9 +89,16 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Name:     "grpc",
 				Protocol: protocol.GRPC,
 			},
+			{
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				InstancePort: 8443,
+				TLS:          true,
+			},
 		},
 		// Workload Ports needed by TestPassThroughFilterChain
-		// The port 8085,8086,8087,8088 will be defined only in the workload and not in the k8s service.
+		// The port 8085,8086,8087,8088,8089 will be defined only in the workload and not in the k8s service.
 		WorkloadOnlyPorts: []echo.WorkloadPort{
 			{
 				Port:     8085,
@@ -109,6 +116,10 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Port:     8088,
 				Protocol: protocol.TCP,
 			},
+			{
+				Port:     8089,
+				Protocol: protocol.HTTPS,
+			},
 		},
 		Cluster: cluster,
 	}
@@ -116,7 +127,9 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 	// for headless service with selector, the port and target port must be equal
 	// Ref: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
 	if headless {
-		out.Ports[0].ServicePort = 8090
+		for i := range out.Ports {
+			out.Ports[i].ServicePort = out.Ports[i].InstancePort
+		}
 	}
 	return out
 }
@@ -147,8 +160,8 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	builder := echoboot.NewBuilder(ctx)
 	for _, cluster := range ctx.Clusters() {
 		// Multi-version specific setup
-		cfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil, cluster)
-		cfg.Subsets = []echo.SubsetConfig{
+		multiVersionCfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil, cluster)
+		multiVersionCfg.Subsets = []echo.SubsetConfig{
 			// Istio deployment, with sidecar.
 			{
 				Version: "vistio",
@@ -167,25 +180,22 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			With(nil, EchoConfig(ESvc, apps.Namespace1, false, nil, cluster)).
 			With(nil, EchoConfig(FSvc, apps.Namespace1, false, nil, cluster)).
 			With(nil, EchoConfig(GSvc, apps.Namespace1, false, nil, cluster)).
-			With(nil, cfg).
+			With(nil, multiVersionCfg).
 			With(nil, EchoConfig(NakedSvc, apps.Namespace1, false, echo.NewAnnotations().
-				SetBool(echo.SidecarInject, false), cluster))
-	}
-	for _, c := range ctx.Clusters().ByNetwork() {
-		// VM specific setup
-		vmCfg := EchoConfig(VMSvc, apps.Namespace1, false, nil, c[0])
-		// for test cases that have `buildVM` off, vm will function like a regular pod
-		vmCfg.DeployAsVM = buildVM
-		builder.With(nil, vmCfg)
-		builder.With(nil, EchoConfig(HeadlessSvc, apps.Namespace1, true, nil, c[0]))
-		builder.With(nil, EchoConfig(HeadlessNakedSvc, apps.Namespace1, true, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), c[0]))
-	}
-	for _, cluster := range ctx.Clusters() {
-		builder.
+				SetBool(echo.SidecarInject, false), cluster)).
 			With(nil, EchoConfig(BSvc, apps.Namespace2, false, nil, cluster)).
 			With(nil, EchoConfig(CSvc, apps.Namespace2, false, nil, cluster)).
 			With(nil, EchoConfig(XSvc, apps.Namespace2, false, nil, cluster))
+	}
+	for _, cluster := range ctx.Clusters().Primaries() {
+		// VM specific setup
+		vmCfg := EchoConfig(VMSvc, apps.Namespace1, false, nil, cluster)
+		// for test cases that have `buildVM` off, vm will function like a regular pod
+		vmCfg.DeployAsVM = buildVM
+		builder.With(nil, vmCfg)
+		builder.With(nil, EchoConfig(HeadlessSvc, apps.Namespace1, true, nil, cluster))
+		builder.With(nil, EchoConfig(HeadlessNakedSvc, apps.Namespace1, true, echo.NewAnnotations().
+			SetBool(echo.SidecarInject, false), cluster))
 	}
 	portC := 8090
 	for _, cluster := range ctx.Clusters() {

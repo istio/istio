@@ -88,7 +88,7 @@ while (( "$#" )); do
       shift 2
     ;;
     --topology-config)
-      CLUSTER_TOPOLOGY_CONFIG_FILE=$2
+      CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/${2}"
       shift 2
     ;;
     -*)
@@ -134,10 +134,10 @@ fi
 export T="${T:-"-v -count=1"}"
 export CI="true"
 
+export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
   export DEFAULT_CLUSTER_YAML="./prow/config/trustworthy-jwt.yaml"
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 

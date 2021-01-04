@@ -44,7 +44,6 @@ func TestOperatorDump(t *testing.T) {
 	cmd += " --tag " + odArgs.common.tag
 	cmd += " --imagePullSecrets " + strings.Join(odArgs.common.imagePullSecrets, ",")
 	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
-	cmd += " --istioNamespace " + odArgs.common.istioNamespace
 	cmd += " --manifests=" + string(snapshotCharts)
 
 	gotYAML, err := runCommand(cmd)

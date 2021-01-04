@@ -109,7 +109,7 @@ func (cr *store) List(kind config.GroupVersionKind, namespace string) ([]config.
 	return out, nil
 }
 
-func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string) error {
+func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
 	data, ok := cr.data[kind]
@@ -222,31 +222,28 @@ func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
 	return rev, nil
 }
 
-func (cr *store) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
 
-	s, ok := cr.schemas.FindByGroupVersionKind(typ)
+	gvk := orig.GroupVersionKind
+	s, ok := cr.schemas.FindByGroupVersionKind(gvk)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
 
-	_, ok = cr.data[typ]
+	cfg, _ := patchFn(orig)
+	if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+		return "", err
+	}
+
+	_, ok = cr.data[gvk]
 	if !ok {
 		return "", errNotFound
 	}
-	ns, exists := cr.data[typ][namespace]
+	ns, exists := cr.data[gvk][orig.Namespace]
 	if !exists {
 		return "", errNotFound
-	}
-	old, exists := ns.Load(name)
-	if !exists || old == nil {
-		return "", errNotFound
-	}
-
-	cfg := patchFn(old.(config.Config))
-	if _, err := s.Resource().ValidateConfig(cfg); err != nil {
-		return "", err
 	}
 
 	rev := time.Now().String()

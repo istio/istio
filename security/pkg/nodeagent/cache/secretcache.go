@@ -30,9 +30,9 @@ import (
 	"time"
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -669,13 +669,13 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*security.SecretItem, error) {
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
-	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
+	numOutgoingRequests.With(RequestType.Value(monitoring.TokenExchange)).Increment()
 	timeBeforeTokenExchange := time.Now()
-	exchangedToken, err := sc.getExchangedToken(ctx, token, connKey)
+	exchangedToken, err := sc.getExchangedToken(token, connKey)
 	tokenExchangeLatency := float64(time.Since(timeBeforeTokenExchange).Nanoseconds()) / float64(time.Millisecond)
-	outgoingLatency.With(RequestType.Value(TokenExchange)).Record(tokenExchangeLatency)
+	outgoingLatency.With(RequestType.Value(monitoring.TokenExchange)).Record(tokenExchangeLatency)
 	if err != nil {
-		numFailedOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
+		numFailedOutgoingRequests.With(RequestType.Value(monitoring.TokenExchange)).Increment()
 		return nil, err
 	}
 	csrHostName := &spiffe.Identity{
@@ -699,13 +699,17 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		return nil, err
 	}
 
-	numOutgoingRequests.With(RequestType.Value(CSR)).Increment()
+	numOutgoingRequests.With(RequestType.Value(monitoring.CSR)).Increment()
 	timeBeforeCSR := time.Now()
-	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, connKey, true)
+	if sc.useCertToRotate() {
+		// if CSR request is without token, set the token to empty
+		exchangedToken = ""
+	}
+	certChainPEM, err := sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
-	outgoingLatency.With(RequestType.Value(CSR)).Record(csrLatency)
+	outgoingLatency.With(RequestType.Value(monitoring.CSR)).Record(csrLatency)
 	if err != nil {
-		numFailedOutgoingRequests.With(RequestType.Value(CSR)).Increment()
+		numFailedOutgoingRequests.With(RequestType.Value(monitoring.CSR)).Increment()
 		return nil, err
 	}
 
@@ -764,82 +768,9 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	return rotate
 }
 
-// sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
-// Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
-func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
-	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
-
-	if sc.configOptions.InitialBackoffInMilliSec > 0 {
-		sc.randMutex.Lock()
-		randomizedInitialBackOffInMS := sc.rand.Int63n(sc.configOptions.InitialBackoffInMilliSec)
-		sc.randMutex.Unlock()
-		cacheLog.Debugf("Wait for %d millisec for jitter", randomizedInitialBackOffInMS)
-		// Add a jitter to initial CSR to avoid thundering herd problem.
-		time.Sleep(time.Duration(randomizedInitialBackOffInMS) * time.Millisecond)
-	}
-	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
-
-	logPrefix := cacheLogPrefix(connKey.ResourceName)
-	startTime := time.Now()
-	var certChainPEM []string
-	exchangedToken := providedExchangedToken
-	var requestErrorString string
-	var err error
-
-	// Keep trying until no error or timeout.
-	for {
-		var httpRespCode int
-		if isCSR {
-			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
-			// Check if we can use cert instead of the token to do CSR Sign request.
-			if sc.useCertToRotate() {
-				// if CSR request is without token, set the token to empty
-				exchangedToken = ""
-			}
-			certChainPEM, err = sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
-		} else {
-			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
-			p := sc.configOptions.TokenExchangers[0]
-			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.CredFetcher, sc.configOptions.TrustDomain, exchangedToken)
-		}
-		cacheLog.Debugf("%s", requestErrorString)
-
-		if err == nil {
-			break
-		}
-
-		// If non-retryable error, fail the request by returning err
-		if !isRetryableErr(status.Code(err), httpRespCode, isCSR) {
-			cacheLog.Errorf("%s hit non-retryable error (HTTP code: %d). Error: %v", requestErrorString, httpRespCode, err)
-			return nil, err
-		}
-
-		// If reach envoy timeout, fail the request by returning err
-		if startTime.Add(totalTimeout).Before(time.Now()) {
-			cacheLog.Errorf("%s retrial timed out: %v", requestErrorString, err)
-			return nil, err
-		}
-		time.Sleep(time.Duration(retryBackoffInMS) * time.Millisecond)
-		cacheLog.Warnf("%s failed with error: %v, retry in %d millisec", requestErrorString, err, retryBackoffInMS)
-		retryBackoffInMS *= 2 // Exponentially increase the retry backoff time.
-
-		// Record retry metrics.
-		if isCSR {
-			numOutgoingRetries.With(RequestType.Value(CSR)).Increment()
-		} else {
-			numOutgoingRetries.With(RequestType.Value(TokenExchange)).Increment()
-		}
-	}
-
-	if isCSR {
-		return certChainPEM, nil
-	}
-	return []string{exchangedToken}, nil
-}
-
 // getExchangedToken gets the exchanged token for the CSR. The token is either the k8s jwt token of the
 // workload or another token from a plug in provider.
-func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string, connKey ConnKey) (string, error) {
+func (sc *SecretCache) getExchangedToken(k8sJwtToken string, connKey ConnKey) (string, error) {
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	cacheLog.Debugf("Start token exchange process for %s", logPrefix)
 	if sc.configOptions.TokenExchangers == nil || len(sc.configOptions.TokenExchangers) == 0 {
@@ -850,14 +781,14 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 		cacheLog.Errorf("Found more than one plugin for %s", logPrefix)
 		return "", fmt.Errorf("found more than one plugin")
 	}
-	exchangedTokens, err := sc.sendRetriableRequest(ctx, nil, k8sJwtToken,
-		ConnKey{ConnectionID: "", ResourceName: ""}, false)
-	if err != nil || len(exchangedTokens) == 0 {
+	p := sc.configOptions.TokenExchangers[0]
+	exchangedToken, err := p.ExchangeToken(sc.configOptions.TrustDomain, k8sJwtToken)
+	if err != nil || len(exchangedToken) == 0 {
 		cacheLog.Errorf("Failed to exchange token for %s: %v", logPrefix, err)
 		return "", err
 	}
 	cacheLog.Debugf("Token exchange succeeded for %s", logPrefix)
-	return exchangedTokens[0], nil
+	return exchangedToken, nil
 }
 
 // useCertToRotate checks if we can use cert instead of token to do CSR.

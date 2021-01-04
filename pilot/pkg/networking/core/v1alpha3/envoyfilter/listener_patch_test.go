@@ -575,6 +575,37 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value:     buildPatchStruct(`{"name": "http-filter-replaced-should-not-be-applied"}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						Name: VirtualInboundListenerName,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							DestinationPort: 6380,
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name: "network-filter-to-be-replaced",
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REPLACE,
+				Value: buildPatchStruct(`
+{"name": "envoy.redis_proxy",
+ "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.redis_proxy.v3.RedisProxy",
+         "stat_prefix": "redis_stats",
+         "prefix_routes": {
+             "catch_all_route": {
+                 "cluster": "custom-redis-cluster"
+             }
+         }
+ }
+}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*listener.Listener{
@@ -1177,6 +1208,24 @@ func TestApplyListenerPatches(t *testing.T) {
 						},
 					},
 				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						AddressSuffix: "0.0.0.0",
+					},
+					Filters: []*listener.Filter{
+						{Name: "network-filter-should-not-be-replaced"},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 6380,
+						},
+					},
+					Filters: []*listener.Filter{
+						{Name: "network-filter-to-be-replaced"},
+					},
+				},
 			},
 		},
 	}
@@ -1217,6 +1266,35 @@ func TestApplyListenerPatches(t *testing.T) {
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
 										{Name: "http-filter4"},
+									},
+								}),
+							},
+						},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						AddressSuffix: "0.0.0.0",
+					},
+					Filters: []*listener.Filter{
+						{Name: "network-filter-should-not-be-replaced"},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 6380,
+						},
+					},
+					Filters: []*listener.Filter{
+						{Name: "envoy.redis_proxy",
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&redis_proxy.RedisProxy{
+									StatPrefix: "redis_stats",
+									PrefixRoutes: &redis_proxy.RedisProxy_PrefixRoutes{
+										CatchAllRoute: &redis_proxy.RedisProxy_PrefixRoutes_Route{
+											Cluster: "custom-redis-cluster",
+										},
 									},
 								}),
 							},

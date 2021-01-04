@@ -178,6 +178,7 @@ values:
       #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
 `
+	cfg.DeployEastWestGW = false
 }
 
 func CreateCustomIstiodSecret(ctx resource.Context) error {
