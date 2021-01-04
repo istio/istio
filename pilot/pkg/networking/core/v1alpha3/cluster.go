@@ -60,15 +60,6 @@ var (
 			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
-
-	passThroughUpstreamBindConfig = &core.BindConfig{
-		SourceAddress: &core.SocketAddress{
-			Address: util.InboundPassthroughBindIpv4,
-			PortSpecifier: &core.SocketAddress_PortValue{
-				PortValue: uint32(0),
-			},
-		},
-	}
 )
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
@@ -358,7 +349,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			// IPTables will redirect our own traffic back to us if we do not use the "magic" upstream bind
 			// config which will be skipped. This mirrors the "passthrough" clusters.
 			// TODO: consider moving all clusters to use this for consistency.
-			localCluster.UpstreamBindConfig = passThroughUpstreamBindConfig
+			localCluster.UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: util.InboundPassthroughBindIpv4,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
+				},
+			}
 		}
 		clusters = cp.conditionallyAppend(clusters, localCluster)
 	}
