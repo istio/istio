@@ -12,41 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
+
 package validation
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
 	"syscall"
-	"unsafe"
+
+	"golang.org/x/sys/unix"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
-
-var nativeByteOrder binary.ByteOrder
-
-func init() {
-	var x uint16 = 0x0102
-	var lowerByte = *(*byte)(unsafe.Pointer(&x))
-	switch lowerByte {
-	case 0x01:
-		nativeByteOrder = binary.BigEndian
-	case 0x02:
-		nativeByteOrder = binary.LittleEndian
-	default:
-		panic("Could not determine native byte order.")
-	}
-}
-
-// <arpa/inet.h>
-func ntohs(n16 uint16) uint16 {
-	if nativeByteOrder == binary.BigEndian {
-		return n16
-	}
-	return (n16&0xff00)>>8 | (n16&0xff)<<8
-}
 
 // Recover the original address from redirect socket. Supposed to work for tcp over ipv4 and ipv6.
 func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err error) {
@@ -79,12 +58,12 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	// IPv6MTUInfo is chosen because
 	// 1. it is no smaller than sockaddr_storage,
 	// 2. it is provide the port field value
-	var addr *syscall.IPv6MTUInfo
+	var addr *unix.IPv6MTUInfo
 	if isIpv4 {
 		addr, err =
-			syscall.GetsockoptIPv6MTUInfo(
+			unix.GetsockoptIPv6MTUInfo(
 				int(fd),
-				syscall.IPPROTO_IP,
+				unix.IPPROTO_IP,
 				constants.SoOriginalDst)
 		if err != nil {
 			fmt.Println("error ipv4 getsockopt")
@@ -94,8 +73,8 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 		daddr = net.IPv4(
 			addr.Addr.Addr[0], addr.Addr.Addr[1], addr.Addr.Addr[2], addr.Addr.Addr[3])
 	} else {
-		addr, err = syscall.GetsockoptIPv6MTUInfo(
-			int(fd), syscall.IPPROTO_IPV6,
+		addr, err = unix.GetsockoptIPv6MTUInfo(
+			int(fd), unix.IPPROTO_IPV6,
 			constants.SoOriginalDst)
 
 		if err != nil {
@@ -116,11 +95,11 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 // Setup reuse address to run the validation server more robustly
 func reuseAddr(network, address string, conn syscall.RawConn) error {
 	return conn.Control(func(descriptor uintptr) {
-		err := syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, 2 /*syscall.SO_REUSEADDR*/, 1)
+		err := unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
 		if err != nil {
 			fmt.Printf("fail to set fd %d SO_REUSEADDR with error %v\n", descriptor, err)
 		}
-		err = syscall.SetsockoptInt(int(descriptor), syscall.SOL_SOCKET, 15 /*syscall.SO_REUSEPORT*/, 1)
+		err = unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 		if err != nil {
 			fmt.Printf("fail to set fd %d SO_REUSEPORT with error %v\n", descriptor, err)
 		}
