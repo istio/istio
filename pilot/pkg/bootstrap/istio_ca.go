@@ -426,7 +426,7 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		CaSigner:       opts.ExternalCASigner,
 		CaCertFile:     caCertFile,
 		VerifyAppendCA: true,
-		K8sClient:      client.CertificatesV1beta1(),
+		K8sClient:      client.CertificatesV1(),
 		TrustDomain:    opts.TrustDomain,
 	}
 	return ra.NewIstioRA(raOpts)

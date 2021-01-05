@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
-	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -85,7 +85,7 @@ type WebhookController struct {
 	CACert     []byte
 	core       corev1.CoreV1Interface
 	admission  admissionv1beta1.AdmissionregistrationV1beta1Interface
-	certClient certclient.CertificatesV1beta1Interface
+	certClient certclient.CertificatesV1Interface
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
@@ -101,7 +101,7 @@ type WebhookController struct {
 // NewWebhookController returns a pointer to a newly constructed WebhookController instance.
 func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration,
 	core corev1.CoreV1Interface, admission admissionv1beta1.AdmissionregistrationV1beta1Interface,
-	certClient certclient.CertificatesV1beta1Interface, k8sCaCertFile string,
+	certClient certclient.CertificatesV1Interface, k8sCaCertFile string,
 	secretNames, dnsNames, serviceNamespaces []string) (*WebhookController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)

@@ -24,12 +24,12 @@ import (
 	"net"
 	"time"
 
-	cert "k8s.io/api/certificates/v1beta1"
+	cert "k8s.io/api/certificates/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	rand "k8s.io/apimachinery/pkg/util/rand"
-	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1"
 
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
@@ -131,7 +131,7 @@ func SignCSRK8s(certClient certclient.CertificateSigningRequestInterface,
 		Reason:  csrMsg,
 		Message: csrMsg,
 	})
-	reqApproval, err := certClient.UpdateApproval(context.TODO(), r, metav1.UpdateOptions{})
+	reqApproval, err := certClient.UpdateApproval(context.TODO(), csrName, r, metav1.UpdateOptions{})
 	if err != nil {
 		log.Errorf("failed to approve CSR (%v): %v", csrName, err)
 		errCsr := cleanUpCertGen(certClient, csrName)

@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"time"
 
-	cert "k8s.io/api/certificates/v1beta1"
-	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	cert "k8s.io/api/certificates/v1"
+	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1"
 
 	"istio.io/istio/security/pkg/k8s/chiron"
 	raerror "istio.io/istio/security/pkg/pki/error"
@@ -28,7 +28,7 @@ import (
 
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
 type KubernetesRA struct {
-	csrInterface  certclient.CertificatesV1beta1Interface
+	csrInterface  certclient.CertificatesV1Interface
 	keyCertBundle util.KeyCertBundle
 	raOpts        *IstioRAOptions
 }
@@ -47,7 +47,7 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 
 func (r *KubernetesRA) kubernetesSign(csrPEM []byte, csrName string, caCertFile string) ([]byte, error) {
 	csrSpec := &cert.CertificateSigningRequestSpec{
-		SignerName: &r.raOpts.CaSigner,
+		SignerName: r.raOpts.CaSigner,
 		Request:    csrPEM,
 		Groups:     []string{"system:authenticated"},
 		Usages: []cert.KeyUsage{

@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	cert "k8s.io/api/certificates/v1beta1"
+	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -104,7 +104,7 @@ func createFakeK8sRA(client *fake.Clientset) (*KubernetesRA, error) {
 		CaSigner:       caSigner,
 		CaCertFile:     caCertFile,
 		VerifyAppendCA: true,
-		K8sClient:      client.CertificatesV1beta1(),
+		K8sClient:      client.CertificatesV1(),
 	}
 	return NewKubernetesRA(raOpts)
 }
