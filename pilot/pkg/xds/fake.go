@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type FakeOptions struct {
@@ -122,6 +123,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	var defaultKubeClient kubelib.Client
 	var defaultKubeController *kube.FakeController
 	var registries []serviceregistry.Instance
+	if opts.NetworksWatcher != nil {
+		opts.NetworksWatcher.AddNetworksHandler(func() {
+			s.ConfigUpdate(&model.PushRequest{
+				Full:   true,
+				Reason: []model.TriggerReason{model.GlobalUpdate},
+			})
+		})
+	}
 	for cluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClient(objs...)
 		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
@@ -235,11 +244,23 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cache.WaitForCacheSync(stop,
 		cg.Registry.HasSynced,
 		cg.Store().HasSynced)
-	s.CachesSynced()
 	cg.ServiceEntryRegistry.ResyncEDS()
+
+	// Send an update. This ensures that even if there are no configs provided, the push context is
+	// initialized.
+	s.ConfigUpdate(&model.PushRequest{Full: true})
 
 	// Now that handlers are added, get everything started
 	cg.Run()
+
+	// Wait until initial updates are committed
+	c := s.InboundUpdates.Load()
+	retry.UntilOrFail(t, func() bool {
+		return s.CommittedUpdates.Load() >= c
+	}, retry.Delay(time.Millisecond))
+
+	// Mark ourselves ready
+	s.CachesSynced()
 
 	fake := &FakeDiscoveryServer{
 		t:             t,
@@ -249,10 +270,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
 	}
-
-	// currently meshNetworks gateways are stored on the push context
-	fake.refreshPushContext()
-	cg.Env().AddNetworksHandler(fake.refreshPushContext)
 
 	return fake
 }
@@ -337,16 +354,6 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(NewEndpointBuilder(c, p, f.PushContext())))
 	}
 	return loadAssignments
-}
-
-func (f *FakeDiscoveryServer) refreshPushContext() {
-	_, err := f.Discovery.initPushContext(&model.PushRequest{
-		Full:   true,
-		Reason: []model.TriggerReason{model.GlobalUpdate},
-	}, nil)
-	if err != nil {
-		f.t.Fatal(err)
-	}
 }
 
 func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.Object {

@@ -760,6 +760,18 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
+	// At this point, we know that all update events of the initial state-of-the-world have been
+	// received. Capture how many updates there are
+	expected := s.XDSServer.InboundUpdates.Load()
+	// Now, we wait to ensure we have committed at least this many updates. This avoids a race
+	// condition where we are marked ready prior to updating the push context, leading to incomplete
+	// pushes.
+	if !cache.WaitForCacheSync(stop, func() bool {
+		return s.XDSServer.CommittedUpdates.Load() > expected
+	}) {
+		log.Errorf("Failed waiting for push context initialization")
+		return false
+	}
 
 	return true
 }

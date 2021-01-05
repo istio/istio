@@ -133,13 +133,12 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	env := &model.Environment{}
-	env.PushContext = model.NewPushContext()
-	env.ServiceDiscovery = serviceDiscovery
-	env.IstioConfigStore = model.MakeIstioStore(configController)
 	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
+	env.ServiceDiscovery = serviceDiscovery
+	env.IstioConfigStore = model.MakeIstioStore(configController)
 	env.NetworksWatcher = opts.NetworksWatcher
 
 	if opts.Plugins == nil {
@@ -160,6 +159,10 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	if !opts.SkipRun {
 		fake.Run()
+		env.PushContext = model.NewPushContext()
+		if err := env.PushContext.InitContext(env, nil, nil); err != nil {
+			t.Fatalf("Failed to initialize push context: %v", err)
+		}
 	}
 	return fake
 }
@@ -175,12 +178,10 @@ func (f *ConfigGenTest) Run() {
 
 	// TODO allow passing event handlers for controller
 
-	retry.UntilOrFail(f.t, f.Registry.HasSynced)
+	retry.UntilOrFail(f.t, f.store.HasSynced, retry.Delay(time.Millisecond))
+	retry.UntilOrFail(f.t, f.Registry.HasSynced, retry.Delay(time.Millisecond))
 
 	f.ServiceEntryRegistry.ResyncEDS()
-	if err := f.PushContext().InitContext(f.env, nil, nil); err != nil {
-		f.t.Fatalf("Failed to initialize push context: %v", err)
-	}
 }
 
 // SetupProxy initializes a proxy for the current environment. This should generally be used when creating
