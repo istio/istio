@@ -55,17 +55,19 @@ type federatedTokenResponse struct {
 type SecureTokenServiceExchanger struct {
 	httpClient  *http.Client
 	credFetcher security.CredFetcher
+	trustDomain string
 	backoff     time.Duration
 }
 
 // NewSecureTokenServiceExchanger returns an instance of secure token service client plugin
-func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher) *SecureTokenServiceExchanger {
+func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomain string) *SecureTokenServiceExchanger {
 	return &SecureTokenServiceExchanger{
 		httpClient: &http.Client{
 			Timeout: httpTimeout,
 		},
 		backoff:     time.Millisecond * 50,
 		credFetcher: credFetcher,
+		trustDomain: trustDomain,
 	}
 }
 
@@ -111,8 +113,8 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 }
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
-func (p *SecureTokenServiceExchanger) ExchangeToken(trustDomain, k8sSAjwt string) (string, error) {
-	aud := constructAudience(p.credFetcher, trustDomain)
+func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, error) {
+	aud := constructAudience(p.credFetcher, p.trustDomain)
 	jsonStr := constructFederatedTokenRequest(aud, k8sSAjwt)
 
 	body, err := p.requestWithRetry(jsonStr)

@@ -99,7 +99,7 @@ func NewMockTokenExchangeServer(exchangeMap map[string]string) *TokenExchangeSer
 var _ security.TokenExchanger = &TokenExchangeServer{}
 
 // ExchangeToken returns a dumb token or errors depending on the settings.
-func (s *TokenExchangeServer) ExchangeToken(_ string, token string) (string, error) {
+func (s *TokenExchangeServer) ExchangeToken(token string) (string, error) {
 	if len(s.exchangeMap) == 0 {
 		return "some-token", nil
 	}

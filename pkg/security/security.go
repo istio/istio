@@ -165,7 +165,7 @@ type SecretManager interface {
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
 	// ExchangeToken provides a common interface to exchange an existing token for a new one.
-	ExchangeToken(trustDomain, serviceAccountToken string) (string, error)
+	ExchangeToken(serviceAccountToken string) (string, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.

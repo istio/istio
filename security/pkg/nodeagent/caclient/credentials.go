@@ -120,5 +120,5 @@ func (t *TokenProvider) exchangeToken(token string) (string, error) {
 	if t.opts.TokenExchanger == nil {
 		return token, nil
 	}
-	return t.opts.TokenExchanger.ExchangeToken(t.opts.TrustDomain, token)
+	return t.opts.TokenExchanger.ExchangeToken(token)
 }

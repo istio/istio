@@ -375,7 +375,7 @@ func setupSecurityOptions(proxyConfig meshconfig.ProxyConfig) (security.Options,
 	}
 	// TODO extract this logic out to a plugin
 	if o.CAProviderName == "GoogleCA" || strings.Contains(o.CAEndpoint, "googleapis.com") {
-		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher)
+		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
 	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {
