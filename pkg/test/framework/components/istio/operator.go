@@ -178,7 +178,9 @@ func (i *operatorComponent) Close() error {
 		scopes.Framework.Infof("=== SUCCEEDED: Cleanup Istio in %v [Suite=%s] ===", delta, i.ctx.Settings().TestID)
 	}()
 
-	i.dumpGeneratedManifests()
+	if i.settings.DumpKubernetesManifests {
+		i.dumpGeneratedManifests()
+	}
 
 	if i.settings.DeployIstio {
 		errG := multierror.Group{}
