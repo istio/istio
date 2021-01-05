@@ -49,7 +49,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			skipIfK8sVersionUnsupported(ctx)
 
 			// keep these at the latest patch version of each minor version
-			installVersions := []string{"1.6.11", "1.7.6", "1.8.0"}
+			installVersions := []string{"1.6.11", "1.7.6", "1.8.1"}
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)

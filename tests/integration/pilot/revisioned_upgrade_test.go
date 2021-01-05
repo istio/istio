@@ -36,7 +36,7 @@ func TestRevisionedUpgrade(t *testing.T) {
 		RequiresSingleCluster().
 		Features("installation.upgrade").
 		Run(func(ctx framework.TestContext) {
-			versions := []string{"1.8.0"}
+			versions := []string{"1.7.6", "1.8.0", "1.8.1"}
 			for _, v := range versions {
 				t.Run(fmt.Sprintf("%s->master", v), func(t *testing.T) {
 					testUpgradeFromVersion(ctx, t, v)
