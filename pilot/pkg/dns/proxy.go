@@ -46,9 +46,9 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	p.downstreamMux.Handle(".", p)
 	p.downstreamServer.Handler = p.downstreamMux
 	if protocol == "udp" {
-		p.downstreamServer.PacketConn, err = net.ListenPacket("udp", ":15053")
+		p.downstreamServer.PacketConn, err = net.ListenPacket("udp", "localhost:15053")
 	} else {
-		p.downstreamServer.Listener, err = net.Listen("tcp", ":15053")
+		p.downstreamServer.Listener, err = net.Listen("tcp", "localhost:15053")
 	}
 	if err != nil {
 		log.Errorf("Failed to listen on %s port 15053: %v", protocol, err)
@@ -58,7 +58,7 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 }
 
 func (p *dnsProxy) start() {
-	log.Infof("Starting local %s DNS server at 0.0.0.0:15053", p.protocol)
+	log.Infof("Starting local %s DNS server at localhost:15053", p.protocol)
 	err := p.downstreamServer.ActivateAndServe()
 	if err != nil {
 		log.Errorf("Local %s DNS server terminated: %v", p.protocol, err)
