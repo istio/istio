@@ -189,25 +189,17 @@ func (s *SecretsController) GetKeyAndCert(name, namespace string) (key []byte, c
 
 func (s *SecretsController) GetCaCert(name, namespace string) (cert []byte) {
 	strippedName := strings.TrimSuffix(name, GatewaySdsCaSuffix)
-	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(strippedName)
+	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(name)
 	var rootCert []byte
 	if err != nil {
-		// Could not fetch cert, look for legacy secret with -cacert suffix
-		k8sSecret, caCertErr := s.secrets.Lister().Secrets(namespace).Get(name)
+		// Could not fetch cert, look for secret without -cacert suffix
+		k8sSecret, caCertErr := s.secrets.Lister().Secrets(namespace).Get(strippedName)
 		if caCertErr != nil {
 			return nil
 		}
 		rootCert = extractRoot(k8sSecret)
 	} else {
-		rootCert = extractRoot(k8sSecret)
-		// Secret exists, but does not have the ca cert. Fall back to -cacert secret
-		if rootCert == nil {
-			k8sSecret, caCertErr := s.secrets.Lister().Secrets(namespace).Get(name)
-			if caCertErr != nil {
-				return nil
-			}
-			rootCert = extractRoot(k8sSecret)
-		}
+		return extractRoot(k8sSecret)
 	}
 	return rootCert
 }
