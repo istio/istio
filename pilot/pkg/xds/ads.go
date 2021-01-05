@@ -456,32 +456,34 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	con.ConID = connectionID(node.Id)
 	con.node = node
 
-	var id *spiffe.Identity
-	if features.EnableXDSIdentityCheck && con.Identities != nil {
-		// TODO: allow locking down, rejecting unauthenticated requests.
-		var err error
-		id, err = checkConnectionIdentity(con)
-		if err != nil {
-			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
-			return fmt.Errorf("authorization failed: %v", err)
-		}
-	}
-
-	// Register the connection; this allows pushes to be triggered for the proxy. Note: the timing of
-	// this an initProxy is important. While registering for pushes *after* initialization is
-	// complete seems like a better choice, it introduces a race condition; If we complete
-	// initialization of a new push context between initProxy and addCon, we would not get any pushes
-	// triggered for the new push context, leading the proxy to have a stale state until the next
-	// full push.
-	s.addCon(con.ConID, con)
-
-	// Initialize the proxy struct
-	proxy, err := s.initProxy(node, con)
+	// Setup the initial proxy metadata
+	proxy, err := s.initProxyMetadata(node)
 	if err != nil {
 		return err
 	}
 	con.proxy = proxy
-	con.proxy.VerifiedIdentity = id
+	if features.EnableXDSIdentityCheck && con.Identities != nil {
+		// TODO: allow locking down, rejecting unauthenticated requests.
+		id, err := checkConnectionIdentity(con)
+		if err != nil {
+			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
+			return fmt.Errorf("authorization failed: %v", err)
+		}
+		con.proxy.VerifiedIdentity = id
+	}
+
+	// Register the connection; this allows pushes to be triggered for the proxy. Note: the timing of
+	// this an initProxyState is important. While registering for pushes *after* initialization is
+	// complete seems like a better choice, it introduces a race condition; If we complete
+	// initialization of a new push context between initProxyState and addCon, we would not get any pushes
+	// triggered for the new push context, leading the proxy to have a stale state until the next
+	// full push.
+	s.addCon(con.ConID, con)
+
+	// Complete full initialization of the proxy
+	if err := s.initProxyState(node, con); err != nil {
+		return err
+	}
 
 	// Register that initialization is complete. This triggers to calls that it is safe to access the
 	// proxy.
@@ -515,8 +517,10 @@ func connectionID(node string) string {
 	return node + "-" + strconv.FormatInt(id, 10)
 }
 
-// initProxy initializes the Proxy from node.
-func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Proxy, error) {
+// initProxyMetadata initializes just the basic metadata of a proxy. This is decoupled from
+// initProxyState such that we can perform authorization before attempting expensive computations to
+// fully initialize the proxy.
+func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
 		return nil, err
@@ -527,11 +531,17 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
+	return proxy, nil
+}
 
+// initProxyState completes the initialization of a proxy. It is expected to be called only after
+// initProxyMetadata.
+func (s *DiscoveryServer) initProxyState(node *core.Node, con *Connection) error {
+	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
-		return nil, err
+		return err
 	}
 	s.setProxyState(proxy, s.globalPushContext())
 
@@ -563,7 +573,7 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 	}
 
 	recordXDSClients(proxy.Metadata.IstioVersion, 1)
-	return proxy, nil
+	return nil
 }
 
 func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) {
