@@ -58,6 +58,7 @@ import (
 func TestAgent(t *testing.T) {
 	leak.Check(t)
 	certDir := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot")
+	os.RemoveAll("./etc/certs") // ensure we cleaned up; tests should do it but can crash, etc
 
 	t.Run("Kubernetes defaults", func(t *testing.T) {
 		// XDS and CA are both using JWT authentication and TLS. Root certificates distributed in
@@ -298,6 +299,8 @@ func TestAgent(t *testing.T) {
 				}
 				return nil
 			}); err != nil {
+				// never got failures, we cannot fail in goroutine so just log it and the outer
+				// function will fail
 				log.Error(err)
 				return
 			}
@@ -321,6 +324,7 @@ type AgentTest struct {
 }
 
 func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
+	d := t.TempDir()
 	resp := AgentTest{
 		t:                t,
 		XdsAuthenticator: security.NewFakeAuthenticator("xds").Set("fake", ""),
@@ -332,7 +336,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	}
 	ca := setupCa(t, resp.CaAuthenticator)
 	resp.Security = security.Options{
-		WorkloadUDSPath:   security.DefaultLocalSDSPath,
+		WorkloadUDSPath:   filepath.Join(d, "SDS"),
 		CAEndpoint:        ca.URL,
 		CAProviderName:    "Citadel",
 		TrustDomain:       "cluster.local",
@@ -347,7 +351,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		ProxyXDSViaAgent: true,
 		CARootCerts:      rootCert,
 		XDSRootCerts:     rootCert,
-		XdsUdsPath:       filepath.Join(t.TempDir(), "XDS"),
+		XdsUdsPath:       filepath.Join(d, "XDS"),
 	}
 	// Run through opts again to apply settings
 	for _, opt := range opts {
@@ -383,7 +387,7 @@ func (a *AgentTest) Check(expectedSDS ...string) map[string]*xds.AdsTest {
 		var sds *xds.AdsTest
 		retry.UntilSuccessOrFail(a.t, func() error {
 			return test.Wrap(func(t test.Failer) {
-				sds = xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, security.DefaultLocalSDSPath)).
+				sds = xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, a.Security.WorkloadUDSPath)).
 					WithMetadata(meta).
 					WithTimeout(time.Second * 5) // CSR can be pretty slow with race detection enabled
 				sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
@@ -430,7 +434,7 @@ func expectFileChanged(t *testing.T, files ...string) {
 			}
 		}
 		return nil
-	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*2))
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 }
 
 func expectFileUnchanged(t *testing.T, files ...string) {

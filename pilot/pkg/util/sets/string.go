@@ -31,7 +31,7 @@ func (s Set) Insert(items ...string) Set {
 	return s
 }
 
-// Delete removes items to the set.
+// Delete removes items from the set.
 func (s Set) Delete(items ...string) Set {
 	for _, item := range items {
 		delete(s, item)
