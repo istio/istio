@@ -643,7 +643,7 @@ func (c *instance) Restart() error {
 			return fmt.Errorf("expected %d pods, got %d", len(origPods), len(pods))
 		}
 		return nil
-	}, retry.Delay(time.Second*2), retry.Timeout(time.Second*30))
+	}, retry.Delay(time.Second*2), retry.Timeout(time.Minute))
 	if err != nil {
 		return fmt.Errorf("failed waiting for rollout pods ready")
 	}
