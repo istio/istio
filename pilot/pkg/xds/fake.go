@@ -485,7 +485,8 @@ func (a *AdsTest) DrainResponses() {
 		select {
 		case <-a.context.Done():
 			return
-		case <-a.responses:
+		case r := <-a.responses:
+			log.Infof("drained response %v", r.TypeUrl)
 		}
 	}
 }
@@ -501,6 +502,8 @@ func (a *AdsTest) ExpectResponse() *discovery.DiscoveryResponse {
 			a.t.Fatalf("got empty response")
 		}
 		return resp
+	case err := <-a.error:
+		a.t.Fatalf("got error: %v", err)
 	}
 	return nil
 }

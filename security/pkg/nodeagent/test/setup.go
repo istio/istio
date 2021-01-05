@@ -175,8 +175,8 @@ func (e *Env) StartSDSServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &sds.Server{}
-	if err = sds.FillServer(s, serverOptions, workloadSecretCache); err != nil {
+	s, err := sds.NewServer(serverOptions, workloadSecretCache)
+	if err != nil {
 		t.Fatalf("failed to start SDS server: %+v", err)
 	}
 	workloadSecretCache.SetUpdateCallback(s.UpdateCallback)

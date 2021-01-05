@@ -156,8 +156,8 @@ func (sa *Agent) Start() error {
 		return err
 	}
 
-	sa.sdsServer = &sds.Server{}
-	if err := sds.FillServer(sa.sdsServer, sa.secOpts, sa.secretCache); err != nil {
+	sa.sdsServer, err = sds.NewServer(sa.secOpts, sa.secretCache)
+	if err != nil {
 		return err
 	}
 	sa.secretCache.SetUpdateCallback(sa.sdsServer.UpdateCallback)
@@ -262,7 +262,7 @@ func (sa *Agent) FindRootCAForCA() string {
 	}
 }
 
-// newSecretManager creates the cache for workload secrets
+// newSecretManager creates the SecretManager for workload secrets
 func (sa *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	// If proxy is using file mounted certs, we do not have to connect to CA.
 	if sa.secOpts.FileMountedCerts {

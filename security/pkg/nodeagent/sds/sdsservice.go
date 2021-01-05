@@ -56,6 +56,9 @@ type sdsservice struct {
 	stop      chan struct{}
 }
 
+// Assert we implement the generator interface
+var _ model.XdsResourceGenerator = &sdsservice{}
+
 func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.DiscoveryServer {
 	s := xds.NewXDS(stop)
 	s.DiscoveryServer.Generators = map[string]model.XdsResourceGenerator{
@@ -101,7 +104,11 @@ func newSDSService(st security.SecretManager) *sdsservice {
 				break
 			}
 			sdsServiceLog.Warnf("failed to warm certificate: %v", err)
-			time.Sleep(b.NextBackOff())
+			select {
+			case <-ret.stop:
+				return
+			case <-time.After(b.NextBackOff()):
+			}
 		}
 		for {
 			_, err := st.GenerateSecret(cache.RootCertReqResourceName)
@@ -109,7 +116,11 @@ func newSDSService(st security.SecretManager) *sdsservice {
 				break
 			}
 			sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
-			time.Sleep(b.NextBackOff())
+			select {
+			case <-ret.stop:
+				return
+			case <-time.After(b.NextBackOff()):
+			}
 		}
 	}()
 
@@ -136,7 +147,12 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 	return resources, nil
 }
 
+// Generate implements the XDS Generator interface. This allows the XDS server to dispatch requests
+// for SecretTypeV3 to our server to generate the Envoy response.
 func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+	// updates.Full indicates we should do a complete push of all updated resources
+	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
+	// all file certs).
 	if updates.Full {
 		resp, err := s.generate(w.ResourceNames)
 		pushLog(w.ResourceNames, err)

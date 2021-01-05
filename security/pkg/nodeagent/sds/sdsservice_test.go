@@ -261,6 +261,23 @@ func TestSDS(t *testing.T) {
 			VersionInfo:   res.VersionInfo,
 		}), expectCert)
 	})
+	t.Run("concurrent reconnect", func(t *testing.T) {
+		s := setupSDS(t)
+		c := s.Connect()
+		res := s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		// Reconnect with the same resources, without closing the original connection
+		c = s.Connect()
+		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{
+			ResourceNames: []string{testResourceName},
+			ResponseNonce: res.Nonce,
+			VersionInfo:   res.VersionInfo,
+		}), expectCert)
+	})
+	t.Run("concurrent connections", func(t *testing.T) {
+		s := setupSDS(t)
+		s.Verify(s.Connect().RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		s.Verify(s.Connect().RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+	})
 	t.Run("unsubscribe", func(t *testing.T) {
 		s := setupSDS(t)
 		c := s.Connect()

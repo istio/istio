@@ -81,8 +81,7 @@ func TestAgent(t *testing.T) {
 
 		// We rotate immediately, so we expect these files to be constantly updated
 		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
-		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"))
-		expectFileChanged(t, filepath.Join(dir, "key.pem"))
+		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("Kubernetes defaults - output key and cert without SDS", func(t *testing.T) {
 		dir := t.TempDir()
@@ -208,8 +207,7 @@ func TestAgent(t *testing.T) {
 
 		// The provisioning certificates should not be touched
 		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
-		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"))
-		expectFileChanged(t, filepath.Join(dir, "key.pem"))
+		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("VMs provisioned certificates - short lived", func(t *testing.T) {
 		// User has certificates pre-provisioned on the VM by some sort of tooling, pointed to by
@@ -229,8 +227,7 @@ func TestAgent(t *testing.T) {
 
 		// The provisioning certificates should not be touched
 		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
-		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"))
-		expectFileChanged(t, filepath.Join(dir, "key.pem"))
+		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("VMs provisioned certificates - long lived", func(t *testing.T) {
 		// User has certificates pre-provisioned on the VM by some sort of tooling, pointed to by
@@ -249,8 +246,7 @@ func TestAgent(t *testing.T) {
 
 		// The provisioning certificates should not be touched
 		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
-		expectFileUnchanged(t, filepath.Join(dir, "cert-chain.pem"))
-		expectFileUnchanged(t, filepath.Join(dir, "key.pem"))
+		expectFileUnchanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("Token exchange", func(t *testing.T) {
 		// This is used in environments where the CA expects a different token type than K8s jwt, and
@@ -384,10 +380,15 @@ func (a *AgentTest) Check(expectedSDS ...string) map[string]*xds.AdsTest {
 	sdsStreams := map[string]*xds.AdsTest{}
 	gotKeys := []string{}
 	for _, res := range xdstest.ExtractSecretResources(a.t, resp.Resources) {
-		sds := xds.NewSdsTest(a.t, setupDownstreamConnectionUDS(a.t, security.DefaultLocalSDSPath)).
-			WithMetadata(meta).
-			WithTimeout(time.Second * 5) // CSR can be pretty slow with race detection enabled
-		sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
+		var sds *xds.AdsTest
+		retry.UntilSuccessOrFail(a.t, func() error {
+			return test.Wrap(func(t test.Failer) {
+				sds = xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, security.DefaultLocalSDSPath)).
+					WithMetadata(meta).
+					WithTimeout(time.Second * 5) // CSR can be pretty slow with race detection enabled
+				sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
+			})
+		})
 		sdsStreams[res] = sds
 		gotKeys = append(gotKeys, res)
 	}
@@ -412,28 +413,39 @@ func copyCerts(t *testing.T, dir string) {
 	}
 }
 
-func expectFileChanged(t *testing.T, f string) {
+func expectFileChanged(t *testing.T, files ...string) {
 	t.Helper()
-	initial := testutil.ReadFile(f, t)
+	initials := [][]byte{}
+	for _, f := range files {
+		initials = append(initials, testutil.ReadFile(f, t))
+	}
 	retry.UntilSuccessOrFail(t, func() error {
-		now, err := ioutil.ReadFile(f)
-		if err != nil {
-			return err
-		}
-		if reflect.DeepEqual(initial, now) {
-			return fmt.Errorf("file is unchanged")
+		for i, f := range files {
+			now, err := ioutil.ReadFile(f)
+			if err != nil {
+				return err
+			}
+			if reflect.DeepEqual(initials[i], now) {
+				return fmt.Errorf("file is unchanged")
+			}
 		}
 		return nil
 	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*2))
 }
 
-func expectFileUnchanged(t *testing.T, f string) {
-	initial := testutil.ReadFile(f, t)
+func expectFileUnchanged(t *testing.T, files ...string) {
+	t.Helper()
+	initials := [][]byte{}
+	for _, f := range files {
+		initials = append(initials, testutil.ReadFile(f, t))
+	}
 	for attempt := 0; attempt < 10; attempt++ {
 		time.Sleep(time.Millisecond * 10)
-		now := testutil.ReadFile(f, t)
-		if !reflect.DeepEqual(initial, now) {
-			t.Fatalf("file is changed!")
+		for i, f := range files {
+			now := testutil.ReadFile(f, t)
+			if !reflect.DeepEqual(initials[i], now) {
+				t.Fatalf("file is changed!")
+			}
 		}
 	}
 }

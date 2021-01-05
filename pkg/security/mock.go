@@ -84,8 +84,12 @@ func NewFakeAuthenticator(name string) *FakeAuthenticator {
 }
 
 func (f *FakeAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
-	token := checkToken(ctx, f.AllowedToken)
-	cert := checkCert(ctx, f.AllowedCert)
+	f.mu.Lock()
+	at := f.AllowedToken
+	ac := f.AllowedCert
+	f.mu.Unlock()
+	token := checkToken(ctx, at)
+	cert := checkCert(ctx, ac)
 	id := []string{spiffe.Identity{
 		TrustDomain:    "cluster.local",
 		Namespace:      "fake-namespace",

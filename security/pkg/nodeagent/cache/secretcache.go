@@ -86,15 +86,13 @@ const (
 // * On demand CSRs. This is used only for the `default` certificate. When this resource is
 //   requested, a CSR will be sent to the configured caClient.
 //
-// SecretManagerClient does not cache certificates at all (which is really only relevant for
-// `default`, as a file lookup is ~free). Instead, callers are expected to only call GenerateSecret
-// when a new certificate is required. Generally, this should be done a single time at startup, then
-// repeatedly when the certificate is near expiration. To help users handle certificate expiration,
-// any certificates created by the caClient will be monitored; when they are near expiration the
-// notifyCallback function is triggered, prompting the client to call GenerateSecret again, if they
-// still care about the certificate. For files, this callback is instead triggered on any change to
-// the file (triggering on expiration would not be helpful, as all we can do is re-read the same
-// file).
+// Callers are expected to only call GenerateSecret when a new certificate is required. Generally,
+// this should be done a single time at startup, then repeatedly when the certificate is near
+// expiration. To help users handle certificate expiration, any certificates created by the caClient
+// will be monitored; when they are near expiration the notifyCallback function is triggered,
+// prompting the client to call GenerateSecret again, if they still care about the certificate. For
+// files, this callback is instead triggered on any change to the file (triggering on expiration
+// would not be helpful, as all we can do is re-read the same file).
 type SecretManagerClient struct {
 	caClient security.Client
 
@@ -104,8 +102,8 @@ type SecretManagerClient struct {
 	// callback function to invoke when detecting secret change.
 	notifyCallback func(resourceName string)
 
-	// Cache of workload certificate and root certificate
-	// File based certs are never cached, as lookup is cheap
+	// Cache of workload certificate and root certificate. File based certs are never cached, as
+	// lookup is cheap.
 	cache secretCache
 
 	// The paths for an existing certificate chain, key and root cert files. Istio agent will
@@ -148,7 +146,10 @@ func (s *secretCache) SetRoot(rootCert []byte, rootCertExpr time.Time) {
 func (s *secretCache) GetWorkload() *security.SecretItem {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.workload
+	if s.workload == nil {
+		return nil
+	}
+	return &(*s.workload)
 }
 
 func (s *secretCache) SetWorkload(value *security.SecretItem) {
