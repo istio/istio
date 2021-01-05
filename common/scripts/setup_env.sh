@@ -38,6 +38,8 @@ elif [[ ${LOCAL_ARCH} == armv* ]]; then
     export TARGET_ARCH=arm
 elif [[ ${LOCAL_ARCH} == s390x ]]; then
 ￼    export TARGET_ARCH=s390x
+elif [[ ${LOCAL_ARCH} == ppc64le ]]; then
+    export TARGET_ARCH=ppc64le
 else
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
     exit 1
