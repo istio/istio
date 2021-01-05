@@ -24,6 +24,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -214,6 +215,19 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 		return
 	}
 	kube2.DumpPods(ctx, d, ns)
+	for clusterName, manifests := range i.installManifest {
+		d, err := ioutil.TempDir(d, "manifests")
+		scopes.Framework.Errorf("Unable to create directory for dumping %s install manifests: %v", clusterName, err)
+		if err != nil {
+			return
+		}
+		for i, manifest := range manifests {
+			err := ioutil.WriteFile(path.Join(d, strconv.Itoa(i)), []byte(manifest), 0644)
+			if err != nil {
+				scopes.Framework.Errorf("Failed writing manifest %d/%d in %s: %v", i, len(manifests)-1, clusterName, err)
+			}
+		}
+	}
 }
 
 // saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
