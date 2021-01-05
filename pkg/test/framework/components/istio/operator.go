@@ -206,6 +206,27 @@ func (i *operatorComponent) Close() error {
 	return nil
 }
 
+func (i *operatorComponent) dumpGeneratedManifests() {
+	manifestsDir := path.Join(i.workDir, "manifests")
+	if err := os.Mkdir(manifestsDir, 0700); err != nil {
+		scopes.Framework.Errorf("Unable to create directory for dumping install manifests: %v", err)
+		return
+	}
+	for clusterName, manifests := range i.installManifest {
+		clusterDir := path.Join(manifestsDir, clusterName)
+		if err := os.Mkdir(manifestsDir, 0700); err != nil {
+			scopes.Framework.Errorf("Unable to create directory for dumping %s install manifests: %v", clusterName, err)
+			return
+		}
+		for i, manifest := range manifests {
+			err := ioutil.WriteFile(path.Join(clusterDir, "manifest-"+strconv.Itoa(i)+".yaml"), []byte(manifest), 0644)
+			if err != nil {
+				scopes.Framework.Errorf("Failed writing manifest %d/%d in %s: %v", i, len(manifests)-1, clusterName, err)
+			}
+		}
+	}
+}
+
 func (i *operatorComponent) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
 	ns := i.settings.SystemNamespace
@@ -215,19 +236,6 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 		return
 	}
 	kube2.DumpPods(ctx, d, ns)
-	for clusterName, manifests := range i.installManifest {
-		d, err := ioutil.TempDir(d, "manifests")
-		scopes.Framework.Errorf("Unable to create directory for dumping %s install manifests: %v", clusterName, err)
-		if err != nil {
-			return
-		}
-		for i, manifest := range manifests {
-			err := ioutil.WriteFile(path.Join(d, strconv.Itoa(i)), []byte(manifest), 0644)
-			if err != nil {
-				scopes.Framework.Errorf("Failed writing manifest %d/%d in %s: %v", i, len(manifests)-1, clusterName, err)
-			}
-		}
-	}
 }
 
 // saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
