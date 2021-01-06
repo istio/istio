@@ -511,6 +511,44 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 	return finalPod, nil
 }
 
+// reinsertOverrides applies the containers listed in OverrideAnnotation to a pod. This is to achieve
+// idempotency by handling an edge case where an injection template is modifying a container already
+// present in the pod spec. In these cases, the logic to strip injected containers would remove the
+// original injected parts as well, leading to the templating logic being different (for example,
+// reading the .Spec.Containers field would be empty).
+func reinsertOverrides(pod *corev1.Pod) (*corev1.Pod, error) {
+	type podOverrides struct {
+		Containers     []corev1.Container `json:"containers,omitempty"`
+		InitContainers []corev1.Container `json:"initContainers,omitempty"`
+	}
+
+	existingOverrides := podOverrides{}
+	if annotationOverrides, f := pod.Annotations[OverrideAnnotation]; f {
+		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
+			return nil, err
+		}
+	}
+
+	pod = pod.DeepCopy()
+	for _, c := range existingOverrides.Containers {
+		match := FindContainer(c.Name, pod.Spec.Containers)
+		if match != nil {
+			continue
+		}
+		pod.Spec.Containers = append(pod.Spec.Containers, c)
+	}
+
+	for _, c := range existingOverrides.InitContainers {
+		match := FindContainer(c.Name, pod.Spec.InitContainers)
+		if match != nil {
+			continue
+		}
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, c)
+	}
+
+	return pod, nil
+}
+
 func createPatch(pod *corev1.Pod, original []byte) ([]byte, error) {
 	reinjected, err := json.Marshal(pod)
 	if err != nil {

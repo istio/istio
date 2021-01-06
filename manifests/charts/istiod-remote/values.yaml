@@ -77,6 +77,18 @@ sidecarInjectorWebhook:
     enabled: true
     autoInject: true
   rewriteAppHTTPProbe: true
+  # Templates defines a set of custom injection templates that can be used. For example, defining:
+  #
+  # templates:
+  #   hello:
+  #    metadata
+  #      labels:
+  #        hello: world
+  #
+  # Then starting a pod with the `inject.istio.io/templates: hello` annotation, will result in the pod
+  # being injected with the hello=world labels.
+  # This is intended for advanced configuration only; most users should use the built in template
+  templates: {}
 istiodRemote:
   # Sidecar injector mutating webhook configuration url
   # For example: https://$remotePilotAddress:15017/inject
