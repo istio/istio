@@ -15,6 +15,9 @@
 package controller
 
 import (
+	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"strings"
 	"sync"
 	"time"
@@ -48,7 +51,8 @@ var (
 
 type kubeController struct {
 	*Controller
-	stopCh chan struct{}
+	stopCh             chan struct{}
+	workloadEntryStore *serviceentry.ServiceEntryStore
 }
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -152,11 +156,21 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler)
 	}
 
-	if localCluster {
-		// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
-		if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
+	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
+	if m.serviceEntryStore != nil && features.EnableK8SServiceSelectWorkloadEntries {
+		if localCluster {
 			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
 			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+		} else {
+			store, err := createConfigStore(client, m.revision, options)
+			if err == nil {
+				store.Run(stopCh)
+				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
+					store, model.MakeIstioStore(store), options.XDSUpdater, serviceentry.ProcessServiceEntry(false))
+				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
+			} else {
+				log.Errorf("failed creating config store for cluster %s: %v", clusterID, err)
+			}
 		}
 	}
 
@@ -226,7 +240,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 
 	m.m.Lock()
 	defer m.m.Unlock()
-	m.serviceController.DeleteRegistry(clusterID)
+	m.serviceController.DeleteRegistry(clusterID, serviceregistry.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
@@ -235,6 +249,9 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	if err := kc.Cleanup(); err != nil {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
+	if kc.workloadEntryStore != nil {
+		m.serviceController.DeleteRegistry(clusterID, serviceregistry.External)
+	}
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
@@ -242,6 +259,18 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	}
 
 	return nil
+}
+
+func createConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreCache, error) {
+	configController, err := crdclient.New(client, revision, opts)
+	if err != nil {
+		return nil, err
+	}
+	aggregateStore, err := configaggregate.MakeCache([]model.ConfigStoreCache{configController})
+	if err != nil {
+		return nil, err
+	}
+	return aggregateStore, nil
 }
 
 func (m *Multicluster) updateHandler(svc *model.Service) {
