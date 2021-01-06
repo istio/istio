@@ -349,46 +349,37 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			return err
 		}
 	}
+	if !s.waitForCacheSync(stop) {
+		return fmt.Errorf("failed to sync cache")
+	}
+	// Inform Discovery Server so that it can start accepting connections.
+	s.XDSServer.CachesSynced()
+
 	// Race condition - if waitForCache is too fast and we run this as a startup function,
 	// the grpc server would be started before CA is registered. Listening should be last.
 	if s.SecureGrpcListener != nil {
 		go func() {
-			if !s.waitForCacheSync(stop) {
-				return
-			}
 			log.Infof("starting secure gRPC discovery service at %s", s.SecureGrpcListener.Addr())
 			if err := s.secureGrpcServer.Serve(s.SecureGrpcListener); err != nil {
-				log.Errorf("error from GRPC server: %v", err)
+				log.Errorf("error serving secure GRPC server: %v", err)
 			}
 		}()
 	}
 
-	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
-	go func() {
-		if s.GRPCListener == nil {
-			return // listener is off - using handler
-		}
-		if !s.waitForCacheSync(stop) {
-			return
-		}
-		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
-		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
-			log.Warn(err)
-		}
-	}()
-
-	if !s.waitForCacheSync(stop) {
-		return fmt.Errorf("failed to sync cache")
+	if s.GRPCListener != nil {
+		go func() {
+			log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
+			if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
+				log.Errorf("error serving GRPC server: %v", err)
+			}
+		}()
 	}
-
-	// Inform Discovery Server so that it can start accepting connections.
-	s.XDSServer.CachesSynced()
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
 		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
-		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
-			log.Warn(err)
+		if err := s.httpServer.Serve(s.HTTPListener); err != nil && err != http.ErrServerClosed {
+			log.Errorf("error serving http server: %v", err)
 		}
 	}()
 
@@ -396,7 +387,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		go func() {
 			log.Infof("starting webhook service at %s", s.HTTPListener.Addr())
 			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-				log.Warn(err)
+				log.Errorf("error serving https server: %v", err)
 			}
 		}()
 	}
@@ -663,9 +654,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
-
-	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
-	// TODO(ramaraochavali): clean up istio-agent startup to remove the dependency of "15012" port.
 
 	// create secure grpc listener
 	l, err := net.Listen("tcp", args.ServerOptions.SecureGRPCAddr)
