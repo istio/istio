@@ -46,22 +46,21 @@ func NewFilteredSharedIndexInformer(
 
 // filter incoming objects before forwarding to event handler
 func (w *filteredSharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) {
-	filterFunc := w.discoveryNamespacesFilter.GetFilter()
 	w.SharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			if !filterFunc(obj) {
+			if !w.discoveryNamespacesFilter.Filter(obj) {
 				return
 			}
 			handler.OnAdd(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			if !filterFunc(new) {
+			if !w.discoveryNamespacesFilter.Filter(new) {
 				return
 			}
 			handler.OnUpdate(old, new)
 		},
 		DeleteFunc: func(obj interface{}) {
-			if !filterFunc(obj) {
+			if !w.discoveryNamespacesFilter.Filter(obj) {
 				return
 			}
 			handler.OnDelete(obj)
@@ -98,11 +97,10 @@ func newFilteredIndexer(
 }
 
 func (w filteredIndexer) List() []interface{} {
-	filterFunc := w.discoveryNamespacesFilter.GetFilter()
 	unfiltered := w.Indexer.List()
 	var filtered []interface{}
 	for _, obj := range unfiltered {
-		if filterFunc(obj) {
+		if w.discoveryNamespacesFilter.Filter(obj) {
 			filtered = append(filtered, obj)
 		}
 	}
@@ -114,7 +112,7 @@ func (w filteredIndexer) GetByKey(key string) (item interface{}, exists bool, er
 	if !exists || err != nil {
 		return nil, exists, err
 	}
-	if w.discoveryNamespacesFilter.GetFilter()(item) {
+	if w.discoveryNamespacesFilter.Filter(item) {
 		return item, true, nil
 	}
 	return nil, false, nil

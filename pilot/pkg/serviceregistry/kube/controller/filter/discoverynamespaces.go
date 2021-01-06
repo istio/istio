@@ -35,9 +35,9 @@ const (
 var PilotDiscoverySelector = labels.Set(map[string]string{PilotDiscoveryLabelName: PilotDiscoveryLabelValue}).AsSelector()
 
 // DiscoveryNamespacesFilter tracks the set of namespaces labeled for discovery, which are updated by an external namespace controller.
-// It returns a filter function used for filtering out objects that don't reside in namespaces labeled for discovery.
+// It exposes a filter function used for filtering out objects that don't reside in namespaces labeled for discovery.
 type DiscoveryNamespacesFilter interface {
-	GetFilter() func(obj interface{}) bool
+	Filter(obj interface{}) bool
 	AddNamespace(ns string)
 	RemoveNamespace(ns string)
 }
@@ -66,20 +66,16 @@ func NewDiscoveryNamespacesFilter(enableDiscoveryNamespaces bool, nsLister liste
 	}
 }
 
-func (d *discoveryNamespacesFilter) GetFilter() func(obj interface{}) bool {
+func (d *discoveryNamespacesFilter) Filter(obj interface{}) bool {
 	// permit all objects if discovery namespaces is disabled
 	if !d.enableDiscoveryNamespaces {
-		return func(_ interface{}) bool {
-			return true
-		}
+		return true
 	}
 
-	// return true if object resides in a namespace labeled for discovery
-	return func(obj interface{}) bool {
-		d.lock.Lock()
-		defer d.lock.Unlock()
-		return d.discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
-	}
+	// permit if object resides in a namespace labeled for discovery
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	return d.discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
 }
 
 func (d *discoveryNamespacesFilter) AddNamespace(ns string) {
