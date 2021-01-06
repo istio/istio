@@ -130,6 +130,10 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 		proto := &httpProtocol{
 			client: &http.Client{
+				// Do not follow redirects
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
 				Transport: &http.Transport{
 					// We are creating a Transport on each ForwardEcho request. Transport is what holds connections,
 					// so this means every ForwardEcho request will create a new connection. Without setting an idle timeout,

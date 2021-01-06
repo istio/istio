@@ -533,6 +533,93 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 			Validator: echo.ExpectCode("404"),
 		},
 	})
+	cases = append(cases, TrafficTestCase{
+		name: "https redirect",
+		config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+`,
+		call: apps.Ingress.CallEchoWithRetryOrFail,
+		opts: echo.CallOptions{
+			Port: &echo.Port{
+				Protocol: protocol.HTTP,
+			},
+			Validator: echo.ExpectCode("301"),
+		},
+	})
+	cases = append(cases, TrafficTestCase{
+		// See https://github.com/istio/istio/issues/27315
+		name: "https with x-forwarded-proto",
+		config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ingressgateway-redirect-config
+  namespace: istio-system
+spec:
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          xff_num_trusted_hops: 1
+          normalize_path: true
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+---
+` + httpVirtualService("gateway", apps.PodA[0].Config().FQDN(), apps.PodA[0].Config().PortByName("http").ServicePort),
+		call: apps.Ingress.CallEchoWithRetryOrFail,
+		opts: echo.CallOptions{
+			Port: &echo.Port{
+				Protocol: protocol.HTTP,
+			},
+			Headers: map[string][]string{
+				// In real world, this may be set by a downstream LB that terminates the TLS
+				"X-Forwarded-Proto": {"https"},
+				"Host":              {apps.PodA[0].Config().FQDN()},
+			},
+			Validator: echo.ExpectOK(),
+		},
+	})
 	return cases
 }
 
