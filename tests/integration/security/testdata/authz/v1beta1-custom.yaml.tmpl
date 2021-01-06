@@ -78,6 +78,26 @@ spec:
         paths: ["/custom"]
 ---
 
+# The following policy applies the CUSTOM action with the ext-authz-tcp provider on workload f for port 8092.
+
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-f-tcp
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "f"
+  action: CUSTOM
+  provider:
+    name: ext-authz-grpc
+  rules:
+  - to:
+    - operation:
+        ports: ["8092"]
+---
+
 # Define the service entry for the local ext-authz service on port 8000.
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry

@@ -1305,28 +1305,49 @@ func TestAuthorization_Custom(t *testing.T) {
 			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
-			var b, c, d, e, x echo.Instance
+			ports := []echo.Port{
+				{
+					Name:         "tcp-8092",
+					Protocol:     protocol.TCP,
+					InstancePort: 8092,
+				},
+				{
+					Name:         "tcp-8093",
+					Protocol:     protocol.TCP,
+					InstancePort: 8093,
+				},
+				{
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					InstancePort: 8090,
+				},
+			}
+
+			var a, b, c, d, e, f, x echo.Instance
 			echoConfig := func(name string, includeExtAuthz bool) echo.Config {
 				cfg := util.EchoConfig(name, ns, false, nil, nil)
 				cfg.IncludeExtAuthz = includeExtAuthz
+				cfg.Ports = ports
 				return cfg
 			}
 			echoboot.NewBuilder(ctx).
+				With(&a, echoConfig("a", false)).
 				With(&b, echoConfig("b", false)).
 				With(&c, echoConfig("c", false)).
 				With(&d, echoConfig("d", true)).
 				With(&e, echoConfig("e", true)).
-				With(&x, echoConfig("x", true)).
+				With(&f, echoConfig("f", false)).
+				With(&x, echoConfig("x", false)).
 				BuildOrFail(t)
 
-			newTestCase := func(target echo.Instance, path string, header string, expectAllowed bool) rbacUtil.TestCase {
+			newTestCase := func(from, target echo.Instance, path, port string, header string, expectAllowed bool, scheme scheme.Instance) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
-						From: x,
+						From: from,
 						Options: echo.CallOptions{
 							Target:   target,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+							PortName: port,
+							Scheme:   scheme,
 							Path:     path,
 						},
 					},
@@ -1338,28 +1359,34 @@ func TestAuthorization_Custom(t *testing.T) {
 			// Path "/health" is not protected and is accessible to public.
 			cases := []rbacUtil.TestCase{
 				// workload b is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(b, "/custom", "allow", true),
-				newTestCase(b, "/custom", "deny", false),
-				newTestCase(b, "/health", "allow", true),
-				newTestCase(b, "/health", "deny", true),
+				newTestCase(x, b, "/custom", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "deny", false, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "deny", true, scheme.HTTP),
 
 				// workload c is using an ext-authz service in its own pod of gRPC API.
-				newTestCase(c, "/custom", "allow", true),
-				newTestCase(c, "/custom", "deny", false),
-				newTestCase(c, "/health", "allow", true),
-				newTestCase(c, "/health", "deny", true),
+				newTestCase(x, c, "/custom", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "deny", false, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "deny", true, scheme.HTTP),
 
 				// workload d is using an local ext-authz service in the same pod as the application of HTTP API.
-				newTestCase(d, "/custom", "allow", true),
-				newTestCase(d, "/custom", "deny", false),
-				newTestCase(d, "/health", "allow", true),
-				newTestCase(d, "/health", "deny", true),
+				newTestCase(x, d, "/custom", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "deny", false, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "deny", true, scheme.HTTP),
 
 				// workload e is using an local ext-authz service in the same pod as the application of gRPC API.
-				newTestCase(e, "/custom", "allow", true),
-				newTestCase(e, "/custom", "deny", false),
-				newTestCase(e, "/health", "allow", true),
-				newTestCase(e, "/health", "deny", true),
+				newTestCase(x, e, "/custom", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "deny", false, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "allow", true, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "deny", true, scheme.HTTP),
+
+				// workload f is using an ext-authz service in its own pod of TCP API.
+				newTestCase(a, f, "", "tcp-8092", "", true, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8092", "", false, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8093", "", true, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8093", "", true, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(ctx, cases)
