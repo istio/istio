@@ -51,7 +51,6 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -134,13 +133,13 @@ func (cl *Client) HasSynced() bool {
 	return true
 }
 
-func New(client kube.Client, revision string, options controller2.Options) (model.ConfigStoreCache, error) {
+func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
 	schemas := collections.Pilot
 	if features.EnableServiceApis {
 		schemas = collections.PilotServiceApi
 	}
 	out := &Client{
-		domainSuffix:      options.DomainSuffix,
+		domainSuffix:      domainSuffix,
 		schemas:           schemas,
 		revision:          revision,
 		queue:             queue.NewQueue(1 * time.Second),
