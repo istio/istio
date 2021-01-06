@@ -232,6 +232,8 @@ func TestApplyDestinationRule(t *testing.T) {
 	}
 
 	for _, tt := range cases {
+		// TODO(https://github.com/istio/istio/issues/29735) remove nolint
+		// nolint: staticcheck
 		t.Run(tt.name, func(t *testing.T) {
 			instances := []*model.ServiceInstance{
 				{

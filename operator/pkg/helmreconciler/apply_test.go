@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,8 +56,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := loadData(t, tt.input)
-			cl := &fakeClientWrapper{fake.NewFakeClientWithScheme(runtime.NewScheme(),
-				loadData(t, tt.input).UnstructuredObject())}
+			cl := &fakeClientWrapper{fake.NewClientBuilder().WithRuntimeObjects(loadData(t, tt.input).UnstructuredObject()).Build()}
 			h := &HelmReconciler{
 				client: cl,
 				opts:   &Options{},
@@ -77,7 +75,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 			}
 
 			manifest := loadData(t, tt.want)
-			key, _ := client.ObjectKeyFromObject(manifest.UnstructuredObject())
+			key := client.ObjectKeyFromObject(manifest.UnstructuredObject())
 			got, want := obj.UnstructuredObject(), manifest.UnstructuredObject()
 
 			if err := cl.Get(context.Background(), key, got); err != nil {
@@ -103,7 +101,7 @@ type fakeClientWrapper struct {
 }
 
 // Patch converts apply patches to merge patches because fakeclient does not support apply patch.
-func (c *fakeClientWrapper) Patch(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
+func (c *fakeClientWrapper) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 	patch, opts = convertApplyToMergePatch(patch, opts...)
 	return c.Client.Patch(ctx, obj, patch, opts...)
 }
