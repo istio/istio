@@ -1290,30 +1290,27 @@ func TestAuthorization_Custom(t *testing.T) {
 				"RootNamespace": istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
 			}
 
-			t.Logf("Namespace is %v", args["Namespace"])
-			t.Logf("RootNamespace is %v", args["RootNamespace"])
-
-			applyYAML := func(filename string, ns string) []string {
+			applyYAML := func(filename string, ns namespace.Instance) []string {
+				name := ""
+				if ns != nil {
+					name = ns.Name()
+				}
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.Config().ApplyYAMLOrFail(t, ns, policy...)
+				ctx.Config().ApplyYAMLOrFail(t, name, policy...)
 				return policy
 			}
-			t.Logf("yaml applied")
+
 			// Deploy and wait for the ext-authz server to be ready.
 			if extAuthzServiceNamespace == nil {
 				ctx.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
 			}
-			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace.Name())
+			extAuthzServer := applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace)
 			defer ctx.Config().DeleteYAMLOrFail(t, extAuthzServiceNamespace.Name(), extAuthzServer...)
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(ctx.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
 				ctx.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
-
-			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", ns.Name())
-			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
-
-			ingressPolicies := applyYAML("\"testdata/authz/v1beta1-custom-ingress.yaml.tmpl", "")
-			defer ctx.Config().DeleteYAMLOrFail(t, "", ingressPolicies...)
+			policy := applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", nil)
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policy...)
 
 			ports := []echo.Port{
 				{
@@ -1401,8 +1398,6 @@ func TestAuthorization_Custom(t *testing.T) {
 			}
 
 			rbacUtil.RunRBACTest(ctx, cases)
-
-			t.Logf("starting verify ingress gateway")
 
 			ingr := ist.IngressFor(ctx.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
