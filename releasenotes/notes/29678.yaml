@@ -5,4 +5,4 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** a bug that `istioctl x wait` can't works with resourceVersion length longer than 8.
+    **Fixed** an issue where `istioctl x wait` times out when the resourceVersion length is longer than 8.
