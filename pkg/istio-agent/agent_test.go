@@ -57,11 +57,12 @@ import (
 
 func TestAgent(t *testing.T) {
 	wd := t.TempDir()
-	mktemp := func() string { return t.TempDir() }
+	mktemp := t.TempDir
 	// Normally we call leak checker first. Here we call it after TempDir to avoid the (extremely
 	// rare) race condition of a certificate being written at the same time the cleanup occurs, which
 	// causes the test to fail. By checking for the leak first, we ensure all of our activities have
 	// fully cleanup up.
+	// https://github.com/golang/go/issues/43547
 	leak.Check(t)
 	// We run in the temp dir to ensure that when we are writing to the hardcoded ./etc/certs we
 	// don't collide with other tests
