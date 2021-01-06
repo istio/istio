@@ -68,9 +68,9 @@ func TestAgent(t *testing.T) {
 		t.Fatal(err)
 	}
 	certDir := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot")
-	fakeSpiffeId := "spiffe://cluster.local/ns/fake-namespace/sa/fake-sa"
+	fakeSpiffeID := "spiffe://cluster.local/ns/fake-namespace/sa/fake-sa"
 	// As a hack, we are using the serving sets as client cert, so the identity here is istiod not a spiffe
-	preProvisionId := "istiod.istio-system.svc"
+	preProvisionID := "istiod.istio-system.svc"
 
 	checkCertsWritten := func(t *testing.T, dir string) {
 		retry.UntilSuccessOrFail(t, func() error {
@@ -133,7 +133,7 @@ func TestAgent(t *testing.T) {
 		}
 		Setup(t, func(a AgentTest) AgentTest {
 			// Ensure we use the mTLS certs for XDS
-			a.XdsAuthenticator.Set("", preProvisionId)
+			a.XdsAuthenticator.Set("", preProvisionID)
 			// Ensure we don't try to connect to CA
 			a.CaAuthenticator.Set("", "")
 			a.ProxyConfig.ProxyMetadata = map[string]string{}
@@ -166,7 +166,7 @@ func TestAgent(t *testing.T) {
 		dir := t.TempDir()
 		t.Run("initial run", func(t *testing.T) {
 			a := Setup(t, func(a AgentTest) AgentTest {
-				a.XdsAuthenticator.Set("", fakeSpiffeId)
+				a.XdsAuthenticator.Set("", fakeSpiffeID)
 				a.Security.OutputKeyCertToDir = dir
 				a.Security.ProvCert = dir
 				return a
@@ -181,8 +181,8 @@ func TestAgent(t *testing.T) {
 		t.Run("reboot", func(t *testing.T) {
 			// Switch the JWT to a bogus path, to simulate the VM being rebooted
 			a := Setup(t, func(a AgentTest) AgentTest {
-				a.XdsAuthenticator.Set("", fakeSpiffeId)
-				a.CaAuthenticator.Set("", fakeSpiffeId)
+				a.XdsAuthenticator.Set("", fakeSpiffeID)
+				a.CaAuthenticator.Set("", fakeSpiffeID)
 				a.Security.OutputKeyCertToDir = dir
 				a.Security.ProvCert = dir
 				a.Security.JWTPath = "bogus"
@@ -204,7 +204,7 @@ func TestAgent(t *testing.T) {
 			_ = os.RemoveAll(dir)
 		})
 		a := Setup(t, func(a AgentTest) AgentTest {
-			a.XdsAuthenticator.Set("", fakeSpiffeId)
+			a.XdsAuthenticator.Set("", fakeSpiffeID)
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
@@ -228,8 +228,8 @@ func TestAgent(t *testing.T) {
 		copyCerts(t, dir)
 
 		sds := Setup(t, func(a AgentTest) AgentTest {
-			a.CaAuthenticator.Set("", preProvisionId)
-			a.XdsAuthenticator.Set("", fakeSpiffeId)
+			a.CaAuthenticator.Set("", preProvisionID)
+			a.XdsAuthenticator.Set("", fakeSpiffeID)
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
@@ -249,8 +249,8 @@ func TestAgent(t *testing.T) {
 		copyCerts(t, dir)
 
 		sds := Setup(t, func(a AgentTest) AgentTest {
-			a.CaAuthenticator.Set("", preProvisionId)
-			a.XdsAuthenticator.Set("", preProvisionId)
+			a.CaAuthenticator.Set("", preProvisionID)
+			a.XdsAuthenticator.Set("", preProvisionID)
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
@@ -276,7 +276,7 @@ func TestAgent(t *testing.T) {
 		dir := t.TempDir()
 		a := Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("some-token", "")
-			a.XdsAuthenticator.Set("", fakeSpiffeId)
+			a.XdsAuthenticator.Set("", fakeSpiffeID)
 			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
 			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
 			a.Security.OutputKeyCertToDir = dir
@@ -293,7 +293,7 @@ func TestAgent(t *testing.T) {
 		a := Setup(t, func(a AgentTest) AgentTest {
 			// Make CA deny all requests to simulate downtime
 			a.CaAuthenticator.Set("", "")
-			a.XdsAuthenticator.Set("", fakeSpiffeId)
+			a.XdsAuthenticator.Set("", fakeSpiffeID)
 			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
 			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
 			a.Security.OutputKeyCertToDir = dir
