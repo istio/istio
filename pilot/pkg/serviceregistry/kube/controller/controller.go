@@ -308,7 +308,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		c.initDiscoveryNamespaceHandlers(kubeClient, options.EndpointMode, discoveryNamespaceFilter)
 	}
 
-	c.serviceInformer = filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter, kubeClient.KubeInformer().Core().V1().Services().Informer())
+	c.serviceInformer = filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter.Filter, kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
 
 	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
@@ -316,13 +316,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	switch options.EndpointMode {
 	case EndpointsOnly:
 		endpointsInformer := filter.NewFilteredSharedIndexInformer(
-			discoveryNamespaceFilter,
+			discoveryNamespaceFilter.Filter,
 			kubeClient.KubeInformer().Core().V1().Endpoints().Informer(),
 		)
 		c.endpoints = newEndpointsController(c, endpointsInformer)
 	case EndpointSliceOnly:
 		endpointSliceInformer := filter.NewFilteredSharedIndexInformer(
-			discoveryNamespaceFilter,
+			discoveryNamespaceFilter.Filter,
 			kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer(),
 		)
 		c.endpoints = newEndpointSliceController(c, endpointSliceInformer)
@@ -333,7 +333,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	registerHandlers(c.nodeInformer, c.queue, "Nodes", c.onNodeEvent, nil)
 
-	podInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
+	podInformer := filter.NewFilteredSharedIndexInformer(discoveryNamespaceFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
 		if err != nil {
