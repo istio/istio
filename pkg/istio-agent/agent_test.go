@@ -57,6 +57,7 @@ import (
 
 func TestAgent(t *testing.T) {
 	wd := t.TempDir()
+	mktemp := func() string { return t.TempDir() }
 	// Normally we call leak checker first. Here we call it after TempDir to avoid the (extremely
 	// rare) race condition of a certificate being written at the same time the cleanup occurs, which
 	// causes the test to fail. By checking for the leak first, we ensure all of our activities have
@@ -90,7 +91,7 @@ func TestAgent(t *testing.T) {
 	t.Run("Kubernetes defaults output key and cert", func(t *testing.T) {
 		// same as "Kubernetes defaults", but also output the key and cert. This can be used for tools
 		// that expect certs as files, like Prometheus.
-		dir := t.TempDir()
+		dir := mktemp()
 		sds := Setup(t, func(a AgentTest) AgentTest {
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
@@ -105,7 +106,7 @@ func TestAgent(t *testing.T) {
 		expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
 	t.Run("Kubernetes defaults - output key and cert without SDS", func(t *testing.T) {
-		dir := t.TempDir()
+		dir := mktemp()
 		Setup(t, func(a AgentTest) AgentTest {
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
@@ -123,7 +124,7 @@ func TestAgent(t *testing.T) {
 		// User sets FileMountedCerts. They also need to set ISTIO_META_TLS_CLIENT* to specify the
 		// file paths. CA communication is disabled. mTLS is always used for authentication with
 		// Istiod, never JWT.
-		dir := t.TempDir()
+		dir := mktemp()
 		copyCerts(t, dir)
 
 		cfg := model.SdsCertificateConfig{
@@ -163,7 +164,7 @@ func TestAgent(t *testing.T) {
 		// Bootstrap sets up a short lived JWT token and root certificate. The initial run will fetch
 		// a certificate and write it to disk. This will be used (by mTLS authenticator) for future
 		// requests to both the CA and XDS.
-		dir := t.TempDir()
+		dir := mktemp()
 		t.Run("initial run", func(t *testing.T) {
 			a := Setup(t, func(a AgentTest) AgentTest {
 				a.XdsAuthenticator.Set("", fakeSpiffeID)
@@ -224,7 +225,7 @@ func TestAgent(t *testing.T) {
 		// PROV_CERT. These are used for mTLS auth with XDS and CA. Certificates are short lived,
 		// OUTPUT_CERT = PROV_CERT. This is the same as "VMs", just skipping the initial
 		// JWT exchange.
-		dir := t.TempDir()
+		dir := mktemp()
 		copyCerts(t, dir)
 
 		sds := Setup(t, func(a AgentTest) AgentTest {
@@ -245,7 +246,7 @@ func TestAgent(t *testing.T) {
 		// PROV_CERT. These are used for mTLS auth with XDS and CA. Certificates are long lived, we
 		// always use the same certificate for control plane authentication and the short lived
 		// certificates returned from the CA for workload authentication
-		dir := t.TempDir()
+		dir := mktemp()
 		copyCerts(t, dir)
 
 		sds := Setup(t, func(a AgentTest) AgentTest {
@@ -273,7 +274,7 @@ func TestAgent(t *testing.T) {
 		// This is used with platform credentials, where the platform provides some underlying
 		// identity (typically for VMs, not Kubernetes), which is exchanged with TokenExchanger
 		// before sending to the CA.
-		dir := t.TempDir()
+		dir := mktemp()
 		a := Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("some-token", "")
 			a.XdsAuthenticator.Set("", fakeSpiffeID)
@@ -289,7 +290,7 @@ func TestAgent(t *testing.T) {
 	})
 	t.Run("Token exchange with credential fetcher downtime", func(t *testing.T) {
 		// This ensures our pre-warming is resilient to temporary downtime of the CA
-		dir := t.TempDir()
+		dir := mktemp()
 		a := Setup(t, func(a AgentTest) AgentTest {
 			// Make CA deny all requests to simulate downtime
 			a.CaAuthenticator.Set("", "")
