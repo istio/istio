@@ -328,7 +328,10 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		return nil, nil, multierror.Prefix(err, "could not parse configuration values:")
 	}
 
-	strippedPod := stripPod(params)
+	strippedPod, err := reinsertOverrides(stripPod(params))
+	if err != nil {
+		return nil, nil, err
+	}
 
 	data := SidecarTemplateData{
 		TypeMeta:       params.typeMeta,

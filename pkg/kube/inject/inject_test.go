@@ -266,6 +266,11 @@ func TestInjection(t *testing.T) {
 			in:   "proxy-override-args.yaml",
 			want: "proxy-override-args.yaml.injected",
 		},
+		{
+			in:         "custom-template.yaml",
+			want:       "custom-template.yaml.injected",
+			inFilePath: "custom-template.iop.yaml",
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones

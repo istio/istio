@@ -3257,6 +3257,27 @@ No
 No
 </td>
 </tr>
+<tr id="SidecarInjectorConfig-templates">
+<td><code>templates</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Templates defines a set of custom injection templates that can be used. For example, defining:</p>
+
+<p>templates:
+  hello:
+   metadata
+     labels:
+       hello: world</p>
+
+<p>Then starting a pod with the <code>inject.istio.io/templates: hello</code> annotation, will result in the pod
+being injected with the hello=world labels.
+This is intended for advanced configuration only; most users should use the built in template</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
