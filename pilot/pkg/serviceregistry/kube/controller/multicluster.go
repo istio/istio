@@ -164,10 +164,12 @@ func (m *Multicluster) AddMemberCluster(client kubelib.Client, clusterID string)
 		} else {
 			store, err := createConfigStore(client, m.revision, options)
 			if err == nil {
-				store.Run(stopCh)
 				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
 					store, model.MakeIstioStore(store), options.XDSUpdater, serviceentry.ProcessServiceEntry(false))
 				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
+				// Services can select WorkloadEntry from the same cluster.
+				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+				go store.Run(stopCh)
 			} else {
 				log.Errorf("failed creating config store for cluster %s: %v", clusterID, err)
 			}
