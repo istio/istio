@@ -262,7 +262,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 }
 
 func createConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreCache, error) {
-	configController, err := crdclient.New(client, revision, opts)
+	configController, err := crdclient.New(client, revision, opts.DomainSuffix)
 	if err != nil {
 		return nil, err
 	}
