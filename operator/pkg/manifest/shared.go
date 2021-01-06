@@ -127,7 +127,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	if err != nil {
 		return "", nil, err
 	}
-	if sfp := getValueForSetFlag(setFlags, "installPackagePath"); sfp != "" {
+	if sfp := GetValueForSetFlag(setFlags, "installPackagePath"); sfp != "" {
 		// set flag installPackagePath has the highest precedence, if set.
 		installPackagePath = sfp
 	}
@@ -209,7 +209,7 @@ func ReadYamlProfile(inFilenames []string, setFlags []string, force bool, l clog
 		profile = fp
 	}
 	// The profile coming from --set flag has the highest precedence.
-	psf := getValueForSetFlag(setFlags, "profile")
+	psf := GetValueForSetFlag(setFlags, "profile")
 	if psf != "" {
 		profile = psf
 	}
@@ -489,9 +489,9 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 	return string(out), nil
 }
 
-// getValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,
+// GetValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,
 // returns the corresponding value, otherwise returns the empty string. setFlags must have valid format.
-func getValueForSetFlag(setFlags []string, path string) string {
+func GetValueForSetFlag(setFlags []string, path string) string {
 	ret := ""
 	for _, sf := range setFlags {
 		p, v := getPV(sf)
