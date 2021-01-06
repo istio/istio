@@ -11,7 +11,7 @@ issue:
 # release notes.
 releaseNotes:
 - |
-  **Added** An option for dynamically restricting the set of namespaces that istiod processes when pushing xDS updates to improve performance on the data plane.
+  **Added** An option for dynamically restricting the set of namespaces for Services, Pods, and Endpoints that istiod processes when pushing xDS updates to improve performance on the data plane.
 
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes.

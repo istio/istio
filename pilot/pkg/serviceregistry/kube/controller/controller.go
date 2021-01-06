@@ -139,7 +139,7 @@ type Options struct {
 	// Duration to wait for cache syncs
 	SyncInterval time.Duration
 
-	// If enabled, only send xDS pertaining to Services and ServiceEntries that exist namespaces labeled with model.PilotDiscoveryLabelName
+	// If enabled, dynamically restrict by namespace the set of Services, Pods, and Endpoints that istio processes when pushing xDS updates
 	EnableDiscoveryNamespaces bool
 }
 
