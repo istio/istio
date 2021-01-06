@@ -643,7 +643,7 @@ func (c *instance) Restart() error {
 			return fmt.Errorf("expected %d pods, got %d", len(origPods), len(pods))
 		}
 		return nil
-	}, retry.Delay(time.Second*2), retry.Timeout(time.Minute))
+	}, retry.Delay(time.Second*2), retry.Timeout(c.Config().ReadinessTimeout))
 	if err != nil {
 		return fmt.Errorf("failed waiting for rollout pods ready")
 	}
@@ -656,7 +656,7 @@ func (c *instance) Restart() error {
 	return nil
 }
 
-//restartEchoDeployments performs a `kubectl rollout restart` on the echo deployments and waits for
+//restartEchoDeployments performs a `kubectl rollout restart` on the echo deployment and waits for
 // `kubectl rollout status` to complete before returning.
 func (c *instance) restartEchoDeployments() error {
 	var errs error
