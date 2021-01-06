@@ -36,7 +36,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -486,7 +486,7 @@ defaultConfig:
 
 func deriveSSHMethod() error {
 	if sshKeyLocation == "" {
-		term := terminal.NewTerminal(os.Stdin, "")
+		term := term.NewTerminal(os.Stdin, "")
 		var err error
 		sshPassword, err := term.ReadPassword("Please enter the SSH password: ")
 		if err != nil {
@@ -505,7 +505,7 @@ func deriveSSHMethod() error {
 		key, err := ssh.ParsePrivateKey(rawKey)
 		if err != nil {
 			if err, ok := err.(*ssh.PassphraseMissingError); ok {
-				term := terminal.NewTerminal(os.Stdin, "")
+				term := term.NewTerminal(os.Stdin, "")
 				sshKeyPassword, err := term.ReadPassword("Please enter the password for the SSH key: ")
 				if err != nil {
 					return err
