@@ -81,7 +81,7 @@ func (q *pq) Peek() interface{} {
 	return (*q)[0]
 }
 
-// Delayed ipmlements queue such that tasks are executed after a specified delay.
+// Delayed implements queue such that tasks are executed after a specified delay.
 type Delayed interface {
 	Instance
 	PushDelayed(t Task, delay time.Duration)
@@ -217,7 +217,9 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 			// no items, wait for Push or stop
 			select {
 			case t := <-d.enqueue:
+				d.mu.Lock()
 				d.queue.Push(t)
+				d.mu.Unlock()
 			case <-stop:
 				return
 			}
