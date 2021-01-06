@@ -44,10 +44,7 @@ type Server struct {
 func NewServer(options security.Options, workloadSecretCache security.SecretManager) (*Server, error) {
 	s := &Server{}
 	s.workloadSds = newSDSService(workloadSecretCache)
-	if err := s.initWorkloadSdsService(options); err != nil {
-		sdsServiceLog.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
-		return nil, err
-	}
+	s.initWorkloadSdsService(options)
 	sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", options.WorkloadUDSPath)
 	return s, nil
 }
@@ -81,7 +78,7 @@ func (s *Server) Stop() {
 	}
 }
 
-func (s *Server) initWorkloadSdsService(options security.Options) error {
+func (s *Server) initWorkloadSdsService(options security.Options) {
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 
@@ -117,8 +114,6 @@ func (s *Server) initWorkloadSdsService(options security.Options) error {
 			waitTime *= 2
 		}
 	}()
-
-	return nil
 }
 
 func (s *Server) grpcServerOptions() []grpc.ServerOption {

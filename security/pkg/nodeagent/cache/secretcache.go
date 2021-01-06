@@ -149,7 +149,7 @@ func (s *secretCache) GetWorkload() *security.SecretItem {
 	if s.workload == nil {
 		return nil
 	}
-	return &(*s.workload)
+	return s.workload
 }
 
 func (s *secretCache) SetWorkload(value *security.SecretItem) {
@@ -227,7 +227,9 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		if resourceName == RootCertReqResourceName || resourceName == WorkloadKeyCertResourceName {
 			if err := nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
-				cacheLog.Errorf("error when output the key and cert: %v", err)
+				cacheLog.Errorf("error when output the resource: %v", err)
+			} else {
+				resourceLog(resourceName).Debugf("output the resource to %v", sc.configOptions.OutputKeyCertToDir)
 			}
 		}
 	}()

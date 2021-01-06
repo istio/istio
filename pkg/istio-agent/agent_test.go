@@ -56,9 +56,31 @@ import (
 )
 
 func TestAgent(t *testing.T) {
+	wd := t.TempDir()
+	// Normally we call leak checker first. Here we call it after TempDir to avoid the (extremely
+	// rare) race condition of a certificate being written at the same time the cleanup occurs, which
+	// causes the test to fail. By checking for the leak first, we ensure all of our activities have
+	// fully cleanup up.
 	leak.Check(t)
+	// We run in the temp dir to ensure that when we are writing to the hardcoded ./etc/certs we
+	// don't collide with other tests
+	if err := os.Chdir(wd); err != nil {
+		t.Fatal(err)
+	}
 	certDir := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot")
-	os.RemoveAll("./etc/certs") // ensure we cleaned up; tests should do it but can crash, etc
+	fakeSpiffeId := "spiffe://cluster.local/ns/fake-namespace/sa/fake-sa"
+	// As a hack, we are using the serving sets as client cert, so the identity here is istiod not a spiffe
+	preProvisionId := "istiod.istio-system.svc"
+
+	checkCertsWritten := func(t *testing.T, dir string) {
+		retry.UntilSuccessOrFail(t, func() error {
+			// Ensure we output the certs
+			if names := filenames(t, dir); !reflect.DeepEqual(names, []string{"cert-chain.pem", "key.pem", "root-cert.pem"}) {
+				return fmt.Errorf("expected certs to be output, but got %v", names)
+			}
+			return nil
+		}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
+	}
 
 	t.Run("Kubernetes defaults", func(t *testing.T) {
 		// XDS and CA are both using JWT authentication and TLS. Root certificates distributed in
@@ -76,9 +98,7 @@ func TestAgent(t *testing.T) {
 		}).Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
 
 		// Ensure we output the certs
-		if names := filenames(t, dir); !reflect.DeepEqual(names, []string{"cert-chain.pem", "key.pem", "root-cert.pem"}) {
-			t.Fatalf("expected certs to be output, but got %v", names)
-		}
+		checkCertsWritten(t, dir)
 
 		// We rotate immediately, so we expect these files to be constantly updated
 		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
@@ -93,12 +113,8 @@ func TestAgent(t *testing.T) {
 		})
 		// We start the agent, but never send a single SDS request
 		// This behavior is useful for supporting writing the certs to disk without Envoy
-		retry.UntilSuccessOrFail(t, func() error {
-			if names := filenames(t, dir); !reflect.DeepEqual(names, []string{"cert-chain.pem", "key.pem", "root-cert.pem"}) {
-				return fmt.Errorf("expected certs to be output, but got %v", names)
-			}
-			return nil
-		})
+		checkCertsWritten(t, dir)
+
 		// TODO: this does not actually work, rotation is tied to SDS currently
 		//expectFileChanged(t, filepath.Join(dir, "cert-chain.pem"))
 		//expectFileChanged(t, filepath.Join(dir, "key.pem"))
@@ -117,7 +133,7 @@ func TestAgent(t *testing.T) {
 		}
 		Setup(t, func(a AgentTest) AgentTest {
 			// Ensure we use the mTLS certs for XDS
-			a.XdsAuthenticator.Set("", filepath.Join(certDir, "cert-chain.pem"))
+			a.XdsAuthenticator.Set("", preProvisionId)
 			// Ensure we don't try to connect to CA
 			a.CaAuthenticator.Set("", "")
 			a.ProxyConfig.ProxyMetadata = map[string]string{}
@@ -150,17 +166,12 @@ func TestAgent(t *testing.T) {
 		dir := t.TempDir()
 		t.Run("initial run", func(t *testing.T) {
 			a := Setup(t, func(a AgentTest) AgentTest {
-				a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+				a.XdsAuthenticator.Set("", fakeSpiffeId)
 				a.Security.OutputKeyCertToDir = dir
 				a.Security.ProvCert = dir
 				return a
 			})
 			a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
-
-			// Ensure we output the certs
-			if names := filenames(t, dir); !reflect.DeepEqual(names, []string{"cert-chain.pem", "key.pem", "root-cert.pem"}) {
-				t.Fatalf("expected certs to be output, but got %v", names)
-			}
 
 			// Switch out our auth to only allow mTLS. In practice, the real server would allow JWT, but we
 			// don't have a good way to expire JWTs here. Instead, we just deny all JWTs to ensure mTLS is used
@@ -170,8 +181,8 @@ func TestAgent(t *testing.T) {
 		t.Run("reboot", func(t *testing.T) {
 			// Switch the JWT to a bogus path, to simulate the VM being rebooted
 			a := Setup(t, func(a AgentTest) AgentTest {
-				a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
-				a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+				a.XdsAuthenticator.Set("", fakeSpiffeId)
+				a.CaAuthenticator.Set("", fakeSpiffeId)
 				a.Security.OutputKeyCertToDir = dir
 				a.Security.ProvCert = dir
 				a.Security.JWTPath = "bogus"
@@ -193,7 +204,7 @@ func TestAgent(t *testing.T) {
 			_ = os.RemoveAll(dir)
 		})
 		a := Setup(t, func(a AgentTest) AgentTest {
-			a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+			a.XdsAuthenticator.Set("", fakeSpiffeId)
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
@@ -202,9 +213,7 @@ func TestAgent(t *testing.T) {
 		sds := a.Check(cache.WorkloadKeyCertResourceName, cache.RootCertReqResourceName)
 
 		// Ensure we output the certs
-		if names := filenames(t, dir); !reflect.DeepEqual(names, []string{"cert-chain.pem", "key.pem", "root-cert.pem"}) {
-			t.Fatalf("expected certs to be output, but got %v", names)
-		}
+		checkCertsWritten(t, dir)
 
 		// The provisioning certificates should not be touched
 		go sds[cache.WorkloadKeyCertResourceName].DrainResponses()
@@ -219,7 +228,8 @@ func TestAgent(t *testing.T) {
 		copyCerts(t, dir)
 
 		sds := Setup(t, func(a AgentTest) AgentTest {
-			a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+			a.CaAuthenticator.Set("", preProvisionId)
+			a.XdsAuthenticator.Set("", fakeSpiffeId)
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
@@ -239,7 +249,8 @@ func TestAgent(t *testing.T) {
 		copyCerts(t, dir)
 
 		sds := Setup(t, func(a AgentTest) AgentTest {
-			a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+			a.CaAuthenticator.Set("", preProvisionId)
+			a.XdsAuthenticator.Set("", preProvisionId)
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
@@ -265,7 +276,7 @@ func TestAgent(t *testing.T) {
 		dir := t.TempDir()
 		a := Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("some-token", "")
-			a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+			a.XdsAuthenticator.Set("", fakeSpiffeId)
 			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
 			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
 			a.Security.OutputKeyCertToDir = dir
@@ -282,7 +293,7 @@ func TestAgent(t *testing.T) {
 		a := Setup(t, func(a AgentTest) AgentTest {
 			// Make CA deny all requests to simulate downtime
 			a.CaAuthenticator.Set("", "")
-			a.XdsAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
+			a.XdsAuthenticator.Set("", fakeSpiffeId)
 			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
 			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
 			a.Security.OutputKeyCertToDir = dir
@@ -340,7 +351,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		CAEndpoint:        ca.URL,
 		CAProviderName:    "Citadel",
 		TrustDomain:       "cluster.local",
-		JWTPath:           "testdata/token",
+		JWTPath:           filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"),
 		WorkloadNamespace: "namespace",
 		ServiceAccount:    "sa",
 	}
@@ -384,15 +395,10 @@ func (a *AgentTest) Check(expectedSDS ...string) map[string]*xds.AdsTest {
 	sdsStreams := map[string]*xds.AdsTest{}
 	gotKeys := []string{}
 	for _, res := range xdstest.ExtractSecretResources(a.t, resp.Resources) {
-		var sds *xds.AdsTest
-		retry.UntilSuccessOrFail(a.t, func() error {
-			return test.Wrap(func(t test.Failer) {
-				sds = xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, a.Security.WorkloadUDSPath)).
-					WithMetadata(meta).
-					WithTimeout(time.Second * 5) // CSR can be pretty slow with race detection enabled
-				sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
-			})
-		})
+		sds := xds.NewSdsTest(a.t, setupDownstreamConnectionUDS(a.t, a.Security.WorkloadUDSPath)).
+			WithMetadata(meta).
+			WithTimeout(time.Second * 5) // CSR can be pretty slow with race detection enabled
+		sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
 		sdsStreams[res] = sds
 		gotKeys = append(gotKeys, res)
 	}

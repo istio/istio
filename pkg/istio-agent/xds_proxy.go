@@ -172,8 +172,8 @@ func (p *XdsProxy) UnregisterStream(c *ProxyConnection) {
 	if p.connected != nil && p.connected == c {
 		proxyLog.Warnf("unregister stream")
 		close(p.connected.stopChan)
+		p.connected = nil
 	}
-	p.connected = nil
 }
 
 func (p *XdsProxy) RegisterStream(c *ProxyConnection) {

@@ -16,17 +16,16 @@ package security
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"sync"
 
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/log"
 )
@@ -118,11 +117,11 @@ func (f *FakeAuthenticator) AuthenticatorType() string {
 	return "fake"
 }
 
-func (f *FakeAuthenticator) Set(token string, certFile string) *FakeAuthenticator {
+func (f *FakeAuthenticator) Set(token string, identity string) *FakeAuthenticator {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.AllowedToken = token
-	f.AllowedCert = certFile
+	f.AllowedCert = identity
 	return f
 }
 
@@ -146,21 +145,7 @@ func checkCert(ctx context.Context, expected string) error {
 	if expected == "" {
 		return fmt.Errorf("cert authentication not allowed")
 	}
-	pemCerts, err := ioutil.ReadFile(expected)
-	if err != nil {
-		return err
-	}
-	var block *pem.Block
-	block, _ = pem.Decode(pemCerts)
-	if block == nil {
-		return fmt.Errorf("invalid expected cert")
-	}
 
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return err
-	}
-	sn := cert.SerialNumber.String()
 	p, ok := peer.FromContext(ctx)
 	if !ok || p.AuthInfo == nil {
 		return fmt.Errorf("no client certificate is presented")
@@ -176,8 +161,12 @@ func checkCert(ctx context.Context, expected string) error {
 		return fmt.Errorf("no verified chain is found")
 	}
 
-	if chains[0][0].SerialNumber.String() != sn {
-		return fmt.Errorf("expected SN %q, got %q", sn, chains[0][0].SerialNumber.String())
+	ids, err := util.ExtractIDs(chains[0][0].Extensions)
+	if err != nil {
+		return fmt.Errorf("failed to extract IDs")
+	}
+	if !sets.NewSet(ids...).Contains(expected) {
+		return fmt.Errorf("expected identity %q, got %v", expected, ids)
 	}
 
 	return nil
