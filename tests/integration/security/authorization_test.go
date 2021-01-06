@@ -1397,8 +1397,6 @@ func TestAuthorization_Custom(t *testing.T) {
 				newTestCase(x, f, "", "tcp-8093", "", true, scheme.TCP),
 			}
 
-			rbacUtil.RunRBACTest(ctx, cases)
-
 			ingr := ist.IngressFor(ctx.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
 				// workload b is using an ext-authz service in its own pod of HTTP API.
@@ -1423,5 +1421,7 @@ func TestAuthorization_Custom(t *testing.T) {
 					authn.CheckIngressOrFail(ctx, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
 				})
 			}
+			
+			rbacUtil.RunRBACTest(ctx, cases)
 		})
 }
