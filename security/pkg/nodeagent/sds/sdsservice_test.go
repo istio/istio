@@ -212,7 +212,6 @@ func TestSDS(t *testing.T) {
 		// Remove secret and trigger push. This simulates CA outage. We should get an error, which
 		// would force the client to retry
 		s.UpdateSecret(testResourceName, nil)
-		cert.Request(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
 		if err := cert.ExpectError(); !strings.Contains(fmt.Sprint(err), "failed to generate secret") {
 			t.Fatalf("didn't get expected error; got %v", err)
 		}

@@ -354,7 +354,7 @@ func (sc *SecretManagerClient) keyCertificateExist(certPath, keyPath string) boo
 
 // Generate a root certificate item from the passed in rootCertPath
 func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, resourceName string, workload bool) (*security.SecretItem, error) {
-	rootCert, err := readFileWithTimeout(rootCertPath)
+	rootCert, err := sc.readFileWithTimeout(rootCertPath)
 	if err != nil {
 		return nil, err
 	}
@@ -380,11 +380,11 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
-	certChain, err := readFileWithTimeout(certChainPath)
+	certChain, err := sc.readFileWithTimeout(certChainPath)
 	if err != nil {
 		return nil, err
 	}
-	keyPEM, err := readFileWithTimeout(keyPath)
+	keyPEM, err := sc.readFileWithTimeout(keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +407,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 
 // readFileWithTimeout reads the given file with timeout. It returns error
 // if it is not able to read file after timeout.
-func readFileWithTimeout(path string) ([]byte, error) {
+func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) {
 	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
 	for {
 		cert, err := ioutil.ReadFile(path)
@@ -418,6 +418,8 @@ func readFileWithTimeout(path string) ([]byte, error) {
 		case <-time.After(time.Duration(retryBackoffInMS)):
 			retryBackoffInMS *= 2
 		case <-time.After(totalTimeout):
+			return nil, err
+		case <-sc.stop:
 			return nil, err
 		}
 	}
