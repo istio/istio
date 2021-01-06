@@ -156,6 +156,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				if s.InternalGen != nil {
 					s.InternalGen.OnDisconnect(con)
 				}
+				s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
 			}()
 		}
 
@@ -482,7 +483,7 @@ func (s *DiscoveryServer) initProxy(node *core.Node, con *Connection) (*model.Pr
 
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	if err := s.InternalGen.RegisterWorkload(proxy, con); err != nil {
+	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return nil, err
 	}
 	s.setProxyState(proxy, s.globalPushContext())
@@ -636,15 +637,12 @@ func (s *DiscoveryServer) adsClientCount() int {
 func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 	var connection *Connection
 
-	s.adsClientsMutex.RLock()
-	for _, v := range s.adsClients {
+	for _, v := range s.Clients() {
 		if v.proxy.Metadata.ClusterID == clusterID && v.proxy.IPAddresses[0] == ip {
 			connection = v
 			break
 		}
-
 	}
-	s.adsClientsMutex.RUnlock()
 
 	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
 	if connection == nil {
@@ -705,17 +703,8 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(req *model.PushRequest) {
-
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
-	s.adsClientsMutex.RLock()
-
-	// Create a temp map to avoid locking the add/remove
-	pending := make([]*Connection, 0, len(s.adsClients))
-	for _, v := range s.adsClients {
-		pending = append(pending, v)
-	}
-	s.adsClientsMutex.RUnlock()
 
 	if adsLog.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
@@ -724,7 +713,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 		}
 	}
 	req.Start = time.Now()
-	for _, p := range pending {
+	for _, p := range s.Clients() {
 		s.pushQueue.Enqueue(p, req)
 	}
 }

@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/meta/v1alpha1"
@@ -181,9 +182,10 @@ func TestClient(t *testing.T) {
 			}); err != nil {
 				t.Errorf("Unexpected Error in Update -> %v", err)
 			}
+			var cfg *config.Config
 			// validate it is updated
 			retry.UntilSuccessOrFail(t, func() error {
-				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+				cfg = store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
 				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
 					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
 				}
@@ -192,10 +194,10 @@ func TestClient(t *testing.T) {
 
 			// check we can patch items
 			var patchedCfg config.Config
-			if _, err := store.(*Client).Patch(r.GroupVersionKind(), configName, configNamespace, func(cfg config.Config) config.Config {
+			if _, err := store.(*Client).Patch(*cfg, func(cfg config.Config) (config.Config, types.PatchType) {
 				cfg.Annotations["fizz"] = "buzz"
 				patchedCfg = cfg
-				return cfg
+				return cfg, types.JSONPatchType
 			}); err != nil {
 				t.Errorf("unexpected err in Patch: %v", err)
 			}
@@ -209,7 +211,7 @@ func TestClient(t *testing.T) {
 			})
 
 			// Check we can remove items
-			if err := store.Delete(r.GroupVersionKind(), configName, configNamespace); err != nil {
+			if err := store.Delete(r.GroupVersionKind(), configName, configNamespace, nil); err != nil {
 				t.Fatalf("failed to delete: %v", err)
 			}
 			retry.UntilSuccessOrFail(t, func() error {

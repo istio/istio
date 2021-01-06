@@ -85,11 +85,11 @@ func updateStatus(ic versionedclient.Interface, sc serviceapisclient.Interface, 
     	}
 }
 
-func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig config.Config, origMeta metav1.ObjectMeta, mod config.Config, modMeta metav1.ObjectMeta) (metav1.Object, error) {
+func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig config.Config, origMeta metav1.ObjectMeta, mod config.Config, modMeta metav1.ObjectMeta, typ types.PatchType) (metav1.Object, error) {
 	if orig.GroupVersionKind != mod.GroupVersionKind {
 		return nil, fmt.Errorf("gvk mismatch: %v, modified: %v", orig.GroupVersionKind, mod.GroupVersionKind)
 	}
-    // TODO support multiple patch types and setting field manager
+    // TODO support setting field manager
 	switch orig.GroupVersionKind {
 {{- range . }}
     case collections.{{ .VariableName }}.Resource().GroupVersionKind():
@@ -101,12 +101,12 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
             ObjectMeta: modMeta,
             Spec:       *(mod.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
         }
-        patchBytes, err := genPatchBytes(oldRes, modRes)
+        patchBytes, err := genPatchBytes(oldRes, modRes, typ)
         if err != nil {
             return nil, err
         }
         return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}orig.Namespace{{end}}).
-            Patch(context.TODO(), orig.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+            Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 {{- end }}
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
@@ -114,11 +114,15 @@ func patch(ic versionedclient.Interface, sc serviceapisclient.Interface, orig co
 }
 
 
-func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ config.GroupVersionKind, name, namespace string) error {
+func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
+	var deleteOptions metav1.DeleteOptions
+	if resourceVersion != nil {
+		deleteOptions.Preconditions = &metav1.Preconditions{ResourceVersion: resourceVersion}
+	}
 	switch typ {
 {{- range . }}
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
-		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}namespace{{end}}).Delete(context.TODO(), name, metav1.DeleteOptions{})
+		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}namespace{{end}}).Delete(context.TODO(), name, deleteOptions)
 {{- end }}
 	default:
 		return fmt.Errorf("unsupported type: %v", typ)

@@ -385,7 +385,7 @@ func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) ([
 	return configs, nil
 }
 
-func (fs *authzFakeStore) Delete(_ config.GroupVersionKind, _, _ string) error {
+func (fs *authzFakeStore) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {
 	return fmt.Errorf("not implemented")
 }
 func (fs *authzFakeStore) Create(config.Config) (string, error) {
@@ -400,6 +400,6 @@ func (fs *authzFakeStore) UpdateStatus(config.Config) (string, error) {
 	return "not implemented", nil
 }
 
-func (fs *authzFakeStore) Patch(typ config.GroupVersionKind, name, namespace string, patchFn config.PatchFunc) (string, error) {
+func (fs *authzFakeStore) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	return "not implemented", nil
 }

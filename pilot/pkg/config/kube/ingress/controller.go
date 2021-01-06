@@ -329,10 +329,10 @@ func (c *controller) UpdateStatus(config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Patch(_ config.GroupVersionKind, _, _ string, _ config.PatchFunc) (string, error) {
+func (c *controller) Patch(_ config.Config, _ config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Delete(_ config.GroupVersionKind, _, _ string) error {
+func (c *controller) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {
 	return errUnsupportedOp
 }
