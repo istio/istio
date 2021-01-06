@@ -114,7 +114,10 @@ type SecretManagerClient struct {
 	certWatcher *fsnotify.Watcher
 	// certs being watched with file watcher.
 	fileCerts map[FileCert]struct{}
-	certMutex *sync.RWMutex
+	certMutex sync.RWMutex
+
+	// outputMutex protects writes of certificates to disk
+	outputMutex sync.Mutex
 
 	// queue maintains all certificate rotation events that need to be triggered when they are about to expire
 	queue queue.Delayed
@@ -184,7 +187,6 @@ func NewSecretManagerClient(caClient security.Client, options security.Options) 
 		},
 		certWatcher: watcher,
 		fileCerts:   make(map[FileCert]struct{}),
-		certMutex:   &sync.RWMutex{},
 		stop:        make(chan struct{}),
 	}
 
@@ -224,6 +226,12 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		if secret == nil || err != nil {
 			return
 		}
+		// We need to hold a mutex here, otherwise if two threads are writing the same certificate,
+		// we may permanently end up with a mismatch key/cert pair. We still make end up temporarily
+		// with mismatched key/cert pair since we cannot atomically write multiple files. It may be
+		// possible by keeping the output in a directory with clever use of symlinks in the future,
+		// if needed.
+		sc.outputMutex.Lock()
 		if resourceName == RootCertReqResourceName || resourceName == WorkloadKeyCertResourceName {
 			if err := nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
@@ -232,6 +240,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 				resourceLog(resourceName).Debugf("output the resource to %v", sc.configOptions.OutputKeyCertToDir)
 			}
 		}
+		sc.outputMutex.Unlock()
 	}()
 
 	// First try to generate secret from file.
